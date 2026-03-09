@@ -411,6 +411,153 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── Platform Admin: Impersonation ───────────────────────────────────────────
+
+  // POST /api/platform-admin/impersonate/:orgId — super admin enters as a tenant org
+  app.post('/api/platform-admin/impersonate/:orgId', isSuperAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const [org] = await db.select({ id: organizations.id, name: organizations.name }).from(organizations).where(eq(organizations.id, orgId)).limit(1);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+      req.session.impersonatingOrgId = org.id;
+      req.session.impersonatingOrgName = org.name;
+      res.json({ success: true, orgId: org.id, orgName: org.name });
+    } catch (error) {
+      console.error("Error starting impersonation:", error);
+      res.status(500).json({ message: "Failed to start impersonation" });
+    }
+  });
+
+  // DELETE /api/platform-admin/impersonate — stop impersonation, return to own session
+  app.delete('/api/platform-admin/impersonate', isSuperAdmin, async (req: any, res) => {
+    try {
+      delete req.session.impersonatingOrgId;
+      delete req.session.impersonatingOrgName;
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error stopping impersonation:", error);
+      res.status(500).json({ message: "Failed to stop impersonation" });
+    }
+  });
+
+  // GET /api/platform-admin/impersonation-status — current impersonation state
+  app.get('/api/platform-admin/impersonation-status', isAuthenticated, async (req: any, res) => {
+    try {
+      const isImpersonating = !!(req.session?.impersonatingOrgId);
+      res.json({
+        isImpersonating,
+        orgId: req.session?.impersonatingOrgId ?? null,
+        orgName: req.session?.impersonatingOrgName ?? null,
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get impersonation status" });
+    }
+  });
+
+  // PATCH /api/platform-admin/orgs/:id/features — update per-org feature overrides
+  app.patch('/api/platform-admin/orgs/:id/features', isSuperAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { featureOverrides } = req.body;
+      if (typeof featureOverrides !== 'object' || featureOverrides === null) {
+        return res.status(400).json({ message: "featureOverrides must be an object" });
+      }
+      const [updated] = await db.update(organizations)
+        .set({ featureOverrides, updatedAt: new Date() })
+        .where(eq(organizations.id, id))
+        .returning();
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating feature overrides:", error);
+      res.status(500).json({ message: "Failed to update feature overrides" });
+    }
+  });
+
+  // PATCH /api/platform-admin/orgs/:id/suspend — toggle org active state
+  app.patch('/api/platform-admin/orgs/:id/suspend', isSuperAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { isActive } = req.body;
+      const [updated] = await db.update(organizations)
+        .set({ isActive: !!isActive, updatedAt: new Date() })
+        .where(eq(organizations.id, id))
+        .returning();
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating org active state:", error);
+      res.status(500).json({ message: "Failed to update organization" });
+    }
+  });
+
+  // GET /api/platform-admin/system-health — embedding jobs, sync status, platform vitals
+  app.get('/api/platform-admin/system-health', isSuperAdmin, async (_req, res) => {
+    try {
+      // Platform totals
+      const [orgCount] = await db.select({ count: count() }).from(organizations);
+      const [userCount] = await db.select({ count: count() }).from(users);
+      const [activeSubCount] = await db.select({ count: count() }).from(organizations).where(eq(organizations.subscriptionStatus, 'active'));
+
+      // Active embedding jobs (pending / processing)
+      const activeJobs = await db
+        .select({
+          id: embeddingJobs.id,
+          orgId: embeddingJobs.orgId,
+          jobType: embeddingJobs.jobType,
+          status: embeddingJobs.status,
+          processedItems: embeddingJobs.processedItems,
+          totalItems: embeddingJobs.totalItems,
+          errorMessage: embeddingJobs.errorMessage,
+          createdAt: embeddingJobs.createdAt,
+          updatedAt: embeddingJobs.updatedAt,
+        })
+        .from(embeddingJobs)
+        .where(sql`${embeddingJobs.status} IN ('pending', 'processing')`)
+        .orderBy(desc(embeddingJobs.createdAt))
+        .limit(20);
+
+      // Recent completed/failed jobs (last 10)
+      const recentJobs = await db
+        .select({
+          id: embeddingJobs.id,
+          orgId: embeddingJobs.orgId,
+          jobType: embeddingJobs.jobType,
+          status: embeddingJobs.status,
+          processedItems: embeddingJobs.processedItems,
+          totalItems: embeddingJobs.totalItems,
+          errorMessage: embeddingJobs.errorMessage,
+          createdAt: embeddingJobs.createdAt,
+          updatedAt: embeddingJobs.updatedAt,
+        })
+        .from(embeddingJobs)
+        .where(sql`${embeddingJobs.status} IN ('completed', 'failed')`)
+        .orderBy(desc(embeddingJobs.updatedAt))
+        .limit(10);
+
+      // Embedding counts per type
+      const [invEmbCount] = await db.select({ count: count() }).from(inventoryEmbeddings);
+      const [ordEmbCount] = await db.select({ count: count() }).from(orderEmbeddings);
+
+      res.json({
+        platform: {
+          totalOrganizations: orgCount.count,
+          totalUsers: userCount.count,
+          activeSubscriptions: activeSubCount.count,
+        },
+        embeddings: {
+          inventoryEmbeddings: invEmbCount.count,
+          orderEmbeddings: ordEmbCount.count,
+        },
+        jobs: {
+          active: activeJobs,
+          recent: recentJobs,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching system health:", error);
+      res.status(500).json({ message: "Failed to fetch system health" });
+    }
+  });
+
   // ─── Billing routes ──────────────────────────────────────────────────────────
 
   // POST /api/billing/checkout — create Stripe checkout session

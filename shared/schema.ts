@@ -77,6 +77,8 @@ export const organizations = pgTable("organizations", {
   automationLimitOverride: integer("automation_limit_override"),
   // BL API call limit override — null = platform default (5000/24h). Only settable by super admins.
   blApiCallLimitOverride: integer("bl_api_call_limit_override"),
+  // Per-org feature gate overrides (null = use plan defaults). Keys: elfieAiMode, brickSpotter, pom, warehouseModule, universalCatalog, dataEnrichment
+  featureOverrides: jsonb("feature_overrides").$type<Record<string, boolean>>(),
 });
 
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({

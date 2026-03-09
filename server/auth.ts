@@ -9,8 +9,17 @@ import bcrypt from "bcrypt";
 import { z } from "zod";
 import type { User } from "@shared/schema";
 
+// ─── Session type augmentation for impersonation ─────────────────────────────
+declare module 'express-session' {
+  interface SessionData {
+    impersonatingOrgId?: string;
+    impersonatingOrgName?: string;
+  }
+}
+
 // ─── Org Helpers ─────────────────────────────────────────────────────────────
 export function getOrgId(req: any): string | null {
+  if (req.session?.impersonatingOrgId) return req.session.impersonatingOrgId;
   return (req.user as any)?.orgId ?? null;
 }
 

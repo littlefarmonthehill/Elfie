@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { Package, ClipboardList, RefreshCw, ExternalLink, X } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { Package, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminScaling } from "@/hooks/useAdminScaling";
 import { useAuth } from "@/hooks/useAuth";
 import OnboardingWizard from "@/components/OnboardingWizard";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Organization } from "@shared/schema";
 import Header from "@/components/Header";
 import DashboardNav, { DashboardType } from "@/components/DashboardNav";
@@ -26,7 +26,19 @@ import { ElfieCharacter } from "@/components/ElfieCharacter";
 export default function Home() {
   useAdminScaling();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, superAdmin } = useAuth();
+
+  const { data: impersonationStatus } = useQuery<{ isImpersonating: boolean; orgId: string | null; orgName: string | null }>({
+    queryKey: ['/api/platform-admin/impersonation-status'],
+    enabled: !!superAdmin,
+    refetchInterval: false,
+  });
+
+  const stopImpersonationMutation = useMutation({
+    mutationFn: async () => apiRequest('DELETE', '/api/platform-admin/impersonate', {}),
+    onSuccess: () => { window.location.reload(); },
+    onError: () => toast({ title: 'Failed to exit impersonation', variant: 'destructive' }),
+  });
   const { data: org } = useQuery<Organization>({ queryKey: ['/api/org'] });
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -724,6 +736,27 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
+      {/* Impersonation Banner — shown when super admin is viewing as another org */}
+      {impersonationStatus?.isImpersonating && (
+        <div className="flex-shrink-0 bg-amber-500/20 border-b border-amber-500/40 px-4 py-2 flex items-center gap-3 z-[100]">
+          <EyeOff className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+          <p className="flex-1 text-xs text-amber-200 font-medium">
+            Viewing as <span className="font-bold text-amber-100">{impersonationStatus.orgName}</span> — all actions are real and affect this organization
+          </p>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="text-xs h-7 shrink-0 bg-amber-900/60 border border-amber-700/60 text-amber-200 hover:bg-amber-800/80"
+            onClick={() => stopImpersonationMutation.mutate()}
+            disabled={stopImpersonationMutation.isPending}
+            data-testid="button-exit-impersonation"
+          >
+            <LogOut className="h-3 w-3 mr-1" />
+            Exit
+          </Button>
+        </div>
+      )}
+
       {/* Sticky Header */}
       <div className="sticky top-0 z-50">
         <Header 

@@ -3,7 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Activity, Flag, Power, Zap, Globe, ToggleLeft, EyeOff } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -31,7 +32,12 @@ interface SettingsModalProps {
   initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about';
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'orgs' | 'impersonation' | 'featureFlags' | 'systemHealth' | null;
+
+interface OrgWithUsage extends Organization {
+  userCount: number;
+  limits: Record<string, number>;
+}
 
 // ── API Call Schedule Chart ────────────────────────────────────────────────
 function ApiCallSchedule({ buckets, callsLast24h, ceiling, timezone = 'America/Chicago' }: {
@@ -727,6 +733,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [elfieMode, setElfieMode] = useState<'search' | 'ai'>('search');
 
   const [activeSection, setActiveSection] = useState<ActiveSection>(initialSection ?? null);
+  const [activeOrg, setActiveOrg] = useState<OrgWithUsage | null>(null);
+  const [impersonationSearch, setImpersonationSearch] = useState('');
+  const [orgSearch, setOrgSearch] = useState('');
+  const [featureFlagSearch, setFeatureFlagSearch] = useState('');
 
   // Sync activeSection whenever the modal opens with a specific initialSection.
   // useState only uses its initial value on first mount, so without this effect
@@ -851,6 +861,69 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const { data: inventoryCountData } = useQuery<{ count: number }>({
     queryKey: ['/api/inventory/count'],
     enabled: open && activeSection === 'billing',
+  });
+
+  const { data: platformOrgs, isLoading: platformOrgsLoading } = useQuery<OrgWithUsage[]>({
+    queryKey: ['/api/platform-admin/orgs'],
+    enabled: open && (activeSection === 'orgs' || activeSection === 'impersonation' || activeSection === 'featureFlags'),
+  });
+
+  type SystemHealthData = {
+    platform: { totalOrganizations: number; totalUsers: number; activeSubscriptions: number };
+    embeddings: { inventoryEmbeddings: number; orderEmbeddings: number };
+    jobs: {
+      active: Array<{ id: string; orgId: string; jobType: string; status: string; processedItems: number; totalItems: number; errorMessage: string | null; createdAt: string; updatedAt: string }>;
+      recent: Array<{ id: string; orgId: string; jobType: string; status: string; processedItems: number; totalItems: number; errorMessage: string | null; createdAt: string; updatedAt: string }>;
+    };
+  };
+
+  const { data: systemHealth, isLoading: systemHealthLoading } = useQuery<SystemHealthData>({
+    queryKey: ['/api/platform-admin/system-health'],
+    enabled: open && activeSection === 'systemHealth',
+    refetchInterval: activeSection === 'systemHealth' ? 15000 : false,
+  });
+
+  const updateFeaturesMutation = useMutation({
+    mutationFn: async ({ orgId, featureOverrides }: { orgId: string; featureOverrides: Record<string, boolean> }) =>
+      apiRequest('PATCH', `/api/platform-admin/orgs/${orgId}/features`, { featureOverrides }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/orgs'] }),
+    onError: () => toast({ title: 'Failed to update feature flags', variant: 'destructive' }),
+  });
+
+  const updatePlanMutation = useMutation({
+    mutationFn: async ({ orgId, plan }: { orgId: string; plan: string }) =>
+      apiRequest('POST', `/api/admin/organizations/${orgId}/plan`, { plan }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/orgs'] });
+      toast({ title: 'Plan updated' });
+    },
+    onError: () => toast({ title: 'Failed to update plan', variant: 'destructive' }),
+  });
+
+  const updateOverridesMutation = useMutation({
+    mutationFn: async ({ orgId, overrides }: { orgId: string; overrides: Record<string, number | null> }) =>
+      apiRequest('PATCH', `/api/admin/organizations/${orgId}/overrides`, overrides),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/orgs'] });
+      toast({ title: 'Overrides saved' });
+    },
+    onError: () => toast({ title: 'Failed to save overrides', variant: 'destructive' }),
+  });
+
+  const suspendOrgMutation = useMutation({
+    mutationFn: async ({ orgId, isActive }: { orgId: string; isActive: boolean }) =>
+      apiRequest('PATCH', `/api/platform-admin/orgs/${orgId}/suspend`, { isActive }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/orgs'] });
+      toast({ title: 'Organization status updated' });
+    },
+    onError: () => toast({ title: 'Failed to update organization', variant: 'destructive' }),
+  });
+
+  const impersonateMutation = useMutation({
+    mutationFn: async (orgId: string) => apiRequest('POST', `/api/platform-admin/impersonate/${orgId}`, {}),
+    onSuccess: () => { window.location.reload(); },
+    onError: () => toast({ title: 'Failed to start impersonation', variant: 'destructive' }),
   });
 
   const checkoutMutation = useMutation({
@@ -1338,6 +1411,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   ];
 
   const platformAdminItems = [
+    { id: 'orgs' as const, label: 'Organizations', icon: Building2 },
+    { id: 'impersonation' as const, label: 'View as Company', icon: EyeOff },
+    { id: 'featureFlags' as const, label: 'Feature Flags', icon: Flag },
+    { id: 'systemHealth' as const, label: 'System Health', icon: Activity },
     { id: 'enrichment' as const, label: 'Data Enrichment', icon: Database },
     { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
   ];
@@ -1363,9 +1440,12 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       if (activeSection === 'platforms' && activePlatform !== null) {
                         setActivePlatform(null);
                         setAddIntegrationType(null);
+                      } else if (activeSection === 'orgs' && activeOrg !== null) {
+                        setActiveOrg(null);
                       } else {
                         setActiveSection(null);
                         setActivePlatform(null);
+                        setActiveOrg(null);
                       }
                     }}
                     className="text-gray-400 hover:text-gray-200 transition-colors p-1 rounded"
@@ -1386,7 +1466,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           const dyn = orgIntegrationsList.find(i => String(i.id) === activePlatform);
                           return dyn ? (dyn.displayName || dyn.channel) : 'Channel';
                         })()
-                      : allNavItems.find(i => i.id === activeSection)?.label ?? 'Settings'}
+                      : activeSection === 'orgs' && activeOrg !== null
+                        ? activeOrg.name
+                        : allNavItems.find(i => i.id === activeSection)?.label ?? 'Settings'}
                 </DialogTitle>
               </DialogHeader>
               <div className="w-8 flex-shrink-0" />
@@ -4731,6 +4813,525 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             {/* Team & Roles (Admin Only) */}
             {activeSection === 'users' && (
               <UserManagementSection userCount={users?.length} />
+            )}
+
+            {/* ── Platform Admin: Organizations ────────────────────────────── */}
+            {activeSection === 'orgs' && (() => {
+              const PLAN_COLORS: Record<string, string> = {
+                trial: 'bg-gray-600/50 text-gray-300 border-gray-600',
+                foundation: 'bg-blue-900/60 text-blue-300 border-blue-700/50',
+                core: 'bg-amber-900/50 text-amber-300 border-amber-700/50',
+                flagship: 'bg-yellow-900/50 text-yellow-300 border-yellow-700/50',
+              };
+
+              if (activeOrg) {
+                const org = platformOrgs?.find(o => o.id === activeOrg.id) ?? activeOrg;
+                const fo = (org.featureOverrides ?? {}) as Record<string, boolean>;
+                const features = [
+                  { key: 'elfieAiMode', label: 'E.L.F.I.E. AI Mode', icon: Brain },
+                  { key: 'brickSpotter', label: 'BrickSpotter', icon: Zap },
+                  { key: 'pom', label: 'Price-o-Matic', icon: TrendingUp },
+                  { key: 'warehouseModule', label: 'Warehouse', icon: Package },
+                  { key: 'universalCatalog', label: 'Universal Catalog', icon: Globe },
+                  { key: 'dataEnrichment', label: 'Data Enrichment', icon: Database },
+                ];
+                return (
+                  <div className="p-4 space-y-4">
+                    {/* Org identity */}
+                    <div className="flex items-center gap-3 py-2">
+                      <div className="h-10 w-10 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+                        <Building2 className="h-5 w-5 text-yellow-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-white">{org.name}</p>
+                        <p className="text-[11px] text-gray-500 font-mono">{org.slug}</p>
+                      </div>
+                      <span className={`ml-auto text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded border ${PLAN_COLORS[org.plan] ?? PLAN_COLORS.trial}`}>
+                        {org.plan}
+                      </span>
+                    </div>
+
+                    {/* Plan selector */}
+                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                        <CreditCard className="h-3.5 w-3.5 text-yellow-500/70" />
+                        <span className="text-xs font-semibold text-gray-200">Plan</span>
+                      </div>
+                      <div className="px-4 py-3 flex items-center gap-3">
+                        <Select
+                          defaultValue={org.plan}
+                          onValueChange={(plan) => updatePlanMutation.mutate({ orgId: org.id, plan })}
+                          disabled={updatePlanMutation.isPending}
+                        >
+                          <SelectTrigger className="bg-gray-700 border-gray-600 text-gray-200 text-xs" data-testid={`select-plan-detail-${org.id}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="trial">Free Trial</SelectItem>
+                            <SelectItem value="foundation">Foundation</SelectItem>
+                            <SelectItem value="core">Core</SelectItem>
+                            <SelectItem value="flagship">Flagship</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <div className="flex items-center gap-2 text-xs text-gray-400">
+                          <Users className="h-3.5 w-3.5" />
+                          <span>{org.userCount} users</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Limit overrides */}
+                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                        <Wrench className="h-3.5 w-3.5 text-yellow-500/70" />
+                        <span className="text-xs font-semibold text-gray-200">Limit Overrides</span>
+                        <span className="text-[10px] text-gray-500 ml-1">null = use tier default</span>
+                      </div>
+                      <form
+                        className="px-4 py-3 space-y-3"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          const fd = new FormData(e.currentTarget);
+                          const parse = (key: string) => { const v = fd.get(key) as string; return v === '' ? null : Number(v); };
+                          updateOverridesMutation.mutate({
+                            orgId: org.id,
+                            overrides: {
+                              seatLimitOverride: parse('seats'),
+                              brickspotterLimitOverride: parse('brickspotter'),
+                              automationLimitOverride: parse('automation'),
+                              blApiCallLimitOverride: parse('blApi'),
+                            }
+                          });
+                        }}
+                      >
+                        {[
+                          { name: 'seats', label: 'Seat Limit', current: org.seatLimitOverride },
+                          { name: 'brickspotter', label: 'BrickSpotter Scans/mo', current: org.brickspotterLimitOverride },
+                          { name: 'automation', label: 'Automation Rules', current: org.automationLimitOverride },
+                          { name: 'blApi', label: 'BL API Calls/24h', current: org.blApiCallLimitOverride },
+                        ].map(({ name, label, current }) => (
+                          <div key={name} className="flex items-center gap-2">
+                            <label className="text-[11px] text-gray-400 w-36 shrink-0">{label}</label>
+                            <Input
+                              name={name}
+                              type="number"
+                              defaultValue={current ?? ''}
+                              placeholder="null"
+                              className="h-7 text-xs bg-gray-700 border-gray-600 text-gray-200 placeholder:text-gray-600"
+                              data-testid={`input-override-${name}-${org.id}`}
+                            />
+                          </div>
+                        ))}
+                        <Button type="submit" size="sm" variant="secondary" disabled={updateOverridesMutation.isPending} className="w-full mt-1 text-xs" data-testid={`button-save-overrides-${org.id}`}>
+                          {updateOverridesMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save Overrides'}
+                        </Button>
+                      </form>
+                    </div>
+
+                    {/* Feature overrides */}
+                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                        <Flag className="h-3.5 w-3.5 text-yellow-500/70" />
+                        <span className="text-xs font-semibold text-gray-200">Feature Overrides</span>
+                        <span className="text-[10px] text-gray-500 ml-1">overrides plan defaults</span>
+                      </div>
+                      <div className="divide-y divide-gray-700/60">
+                        {features.map(({ key, label, icon: Icon }) => {
+                          const current = fo[key];
+                          return (
+                            <div key={key} className="flex items-center gap-3 px-4 py-2.5">
+                              <Icon className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
+                              <span className="flex-1 text-xs text-gray-300">{label}</span>
+                              <div className="flex items-center gap-1.5">
+                                {current === undefined ? (
+                                  <span className="text-[10px] text-gray-600 italic mr-1">plan default</span>
+                                ) : (
+                                  <span className={`text-[10px] font-medium ${current ? 'text-green-400' : 'text-red-400'}`}>
+                                    {current ? 'forced on' : 'forced off'}
+                                  </span>
+                                )}
+                                <Select
+                                  value={current === undefined ? '__default' : current ? '__on' : '__off'}
+                                  onValueChange={(v) => {
+                                    const newFo = { ...fo };
+                                    if (v === '__default') { delete newFo[key]; } else { newFo[key] = v === '__on'; }
+                                    updateFeaturesMutation.mutate({ orgId: org.id, featureOverrides: newFo });
+                                  }}
+                                  disabled={updateFeaturesMutation.isPending}
+                                >
+                                  <SelectTrigger className="h-6 w-28 text-[10px] bg-gray-700 border-gray-600 text-gray-300" data-testid={`select-feature-${key}-${org.id}`}>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="__default">Plan Default</SelectItem>
+                                    <SelectItem value="__on">Force On</SelectItem>
+                                    <SelectItem value="__off">Force Off</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Suspend / activate */}
+                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                        <Power className="h-3.5 w-3.5 text-yellow-500/70" />
+                        <span className="text-xs font-semibold text-gray-200">Account Status</span>
+                      </div>
+                      <div className="px-4 py-3 flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs text-gray-300">{org.isActive ? 'Active' : 'Suspended'}</p>
+                          <p className="text-[10px] text-gray-500">{org.isActive ? 'Organization can log in and use the platform' : 'All access blocked for this organization'}</p>
+                        </div>
+                        <Switch
+                          checked={!!org.isActive}
+                          onCheckedChange={(checked) => suspendOrgMutation.mutate({ orgId: org.id, isActive: checked })}
+                          disabled={suspendOrgMutation.isPending}
+                          data-testid={`switch-active-${org.id}`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // ── Org list ─────────────────────────────────────────────────────
+              const filtered = (platformOrgs ?? []).filter(o =>
+                orgSearch === '' ||
+                o.name.toLowerCase().includes(orgSearch.toLowerCase()) ||
+                o.slug.toLowerCase().includes(orgSearch.toLowerCase())
+              );
+
+              return (
+                <div className="p-4 space-y-3">
+                  {/* Search */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500 pointer-events-none" />
+                    <Input
+                      value={orgSearch}
+                      onChange={e => setOrgSearch(e.target.value)}
+                      placeholder="Search organizations…"
+                      className="pl-8 h-8 text-xs bg-gray-800 border-gray-700 text-gray-200 placeholder:text-gray-600"
+                      data-testid="input-org-search"
+                    />
+                  </div>
+
+                  {platformOrgsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-gray-700 overflow-hidden divide-y divide-gray-700/60">
+                      {filtered.length === 0 ? (
+                        <div className="px-4 py-8 text-center text-xs text-gray-500">No organizations found</div>
+                      ) : filtered.map(org => (
+                        <button
+                          key={org.id}
+                          onClick={() => setActiveOrg(org)}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-700/40 transition-colors group"
+                          data-testid={`nav-org-${org.id}`}
+                        >
+                          <div className="h-7 w-7 rounded-full bg-gray-700 flex items-center justify-center shrink-0">
+                            <Building2 className="h-3.5 w-3.5 text-gray-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs font-medium text-gray-200 truncate">{org.name}</p>
+                              <span className={`shrink-0 text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0 rounded border ${PLAN_COLORS[org.plan] ?? PLAN_COLORS.trial}`}>
+                                {org.plan}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${org.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                              <p className="text-[10px] text-gray-500 truncate font-mono">{org.slug}</p>
+                              <span className="text-[10px] text-gray-600">·</span>
+                              <Users className="h-2.5 w-2.5 text-gray-600 shrink-0" />
+                              <p className="text-[10px] text-gray-500">{org.userCount}</p>
+                            </div>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-gray-700 group-hover:text-gray-500 transition-colors shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* ── Platform Admin: View as Company ──────────────────────────── */}
+            {activeSection === 'impersonation' && (
+              <div className="p-4 space-y-4">
+                <div className="rounded-lg bg-yellow-500/10 border border-yellow-500/30 px-4 py-3">
+                  <div className="flex items-start gap-2">
+                    <EyeOff className="h-3.5 w-3.5 text-yellow-400 mt-0.5 shrink-0" />
+                    <p className="text-xs text-yellow-300/80 leading-relaxed">
+                      Entering as a company activates full impersonation — all data, settings, and actions will operate as if you were a member of that organization. Exit via the banner that appears at the top of the app.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500 pointer-events-none" />
+                  <Input
+                    value={impersonationSearch}
+                    onChange={e => setImpersonationSearch(e.target.value)}
+                    placeholder="Search organizations…"
+                    className="pl-8 h-8 text-xs bg-gray-800 border-gray-700 text-gray-200 placeholder:text-gray-600"
+                    data-testid="input-impersonation-search"
+                  />
+                </div>
+
+                {platformOrgsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-gray-700 overflow-hidden divide-y divide-gray-700/60">
+                    {(platformOrgs ?? [])
+                      .filter(o => impersonationSearch === '' || o.name.toLowerCase().includes(impersonationSearch.toLowerCase()) || o.slug.toLowerCase().includes(impersonationSearch.toLowerCase()))
+                      .map(org => (
+                        <div key={org.id} className="flex items-center gap-3 px-4 py-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-200 truncate">{org.name}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${org.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                              <p className="text-[10px] text-gray-500 font-mono truncate">{org.slug}</p>
+                              <span className="text-[10px] text-gray-600">·</span>
+                              <span className="text-[10px] text-gray-500">{org.plan}</span>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="text-xs shrink-0"
+                            onClick={() => impersonateMutation.mutate(org.id)}
+                            disabled={impersonateMutation.isPending}
+                            data-testid={`button-enter-as-${org.id}`}
+                          >
+                            {impersonateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Enter as'}
+                          </Button>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Platform Admin: Feature Flags ────────────────────────────── */}
+            {activeSection === 'featureFlags' && (() => {
+              const FEATURES = [
+                { key: 'elfieAiMode', label: 'AI', short: 'AI' },
+                { key: 'brickSpotter', label: 'Spotter', short: 'BS' },
+                { key: 'pom', label: 'POM', short: 'POM' },
+                { key: 'warehouseModule', label: 'WH', short: 'WH' },
+                { key: 'universalCatalog', label: 'Catalog', short: 'CAT' },
+                { key: 'dataEnrichment', label: 'Enrich', short: 'ENR' },
+              ];
+
+              const filteredOrgs = (platformOrgs ?? []).filter(o =>
+                featureFlagSearch === '' ||
+                o.name.toLowerCase().includes(featureFlagSearch.toLowerCase())
+              );
+
+              return (
+                <div className="p-4 space-y-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500 pointer-events-none" />
+                    <Input
+                      value={featureFlagSearch}
+                      onChange={e => setFeatureFlagSearch(e.target.value)}
+                      placeholder="Filter organizations…"
+                      className="pl-8 h-8 text-xs bg-gray-800 border-gray-700 text-gray-200 placeholder:text-gray-600"
+                      data-testid="input-feature-flag-search"
+                    />
+                  </div>
+
+                  {platformOrgsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-gray-700 overflow-hidden">
+                      {/* Header row */}
+                      <div className="flex items-center gap-2 px-4 py-2 bg-gray-800 border-b border-gray-700">
+                        <span className="flex-1 text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Organization</span>
+                        {FEATURES.map(f => (
+                          <span key={f.key} className="w-12 text-center text-[9px] uppercase tracking-widest text-gray-600 font-semibold shrink-0">{f.label}</span>
+                        ))}
+                      </div>
+                      {/* Org rows */}
+                      <div className="divide-y divide-gray-700/60">
+                        {filteredOrgs.map(org => {
+                          const fo = (org.featureOverrides ?? {}) as Record<string, boolean>;
+                          return (
+                            <div key={org.id} className="flex items-center gap-2 px-4 py-2.5" data-testid={`row-flags-${org.id}`}>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-gray-300 truncate">{org.name}</p>
+                                <p className="text-[10px] text-gray-600 font-mono truncate">{org.plan}</p>
+                              </div>
+                              {FEATURES.map(({ key }) => {
+                                const current = fo[key];
+                                return (
+                                  <div key={key} className="w-12 flex justify-center shrink-0">
+                                    <button
+                                      title={current === undefined ? 'Plan default — click to force on' : current ? 'Forced ON — click to force off' : 'Forced OFF — click to reset to default'}
+                                      onClick={() => {
+                                        const newFo = { ...fo };
+                                        if (current === undefined) { newFo[key] = true; }
+                                        else if (current === true) { newFo[key] = false; }
+                                        else { delete newFo[key]; }
+                                        updateFeaturesMutation.mutate({ orgId: org.id, featureOverrides: newFo });
+                                      }}
+                                      disabled={updateFeaturesMutation.isPending}
+                                      className="h-6 w-6 rounded flex items-center justify-center transition-colors"
+                                      data-testid={`toggle-flag-${key}-${org.id}`}
+                                    >
+                                      {current === undefined ? (
+                                        <span className="h-3.5 w-3.5 rounded-full bg-gray-700 border border-gray-600" />
+                                      ) : current ? (
+                                        <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
+                                      ) : (
+                                        <X className="h-3.5 w-3.5 text-red-400" />
+                                      )}
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-[10px] text-gray-600 text-center">Circle = plan default · Green check = forced on · Red X = forced off</p>
+                </div>
+              );
+            })()}
+
+            {/* ── Platform Admin: System Health ────────────────────────────── */}
+            {activeSection === 'systemHealth' && (
+              <div className="p-4 space-y-4">
+                {systemHealthLoading ? (
+                  <div className="flex items-center justify-center py-10">
+                    <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
+                  </div>
+                ) : systemHealth ? (
+                  <>
+                    {/* Platform stats */}
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Platform</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { label: 'Organizations', value: systemHealth.platform.totalOrganizations, icon: Building2 },
+                          { label: 'Total Users', value: systemHealth.platform.totalUsers, icon: Users },
+                          { label: 'Active Subs', value: systemHealth.platform.activeSubscriptions, icon: CreditCard },
+                        ].map(({ label, value, icon: Icon }) => (
+                          <div key={label} className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-2.5">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <Icon className="h-3 w-3 text-yellow-500/60" />
+                              <span className="text-[10px] text-gray-500">{label}</span>
+                            </div>
+                            <p className="text-lg font-bold text-white">{value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Embedding counts */}
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Embeddings</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { label: 'Inventory Vectors', value: systemHealth.embeddings.inventoryEmbeddings },
+                          { label: 'Order Vectors', value: systemHealth.embeddings.orderEmbeddings },
+                        ].map(({ label, value }) => (
+                          <div key={label} className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-2.5">
+                            <p className="text-[10px] text-gray-500 mb-1">{label}</p>
+                            <p className="text-base font-bold text-white">{value.toLocaleString()}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Active jobs */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2 px-1">
+                        <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Active Embedding Jobs</p>
+                        {systemHealth.jobs.active.length > 0 && (
+                          <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+                        )}
+                      </div>
+                      {systemHealth.jobs.active.length === 0 ? (
+                        <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-4 text-center">
+                          <CheckCircle2 className="h-4 w-4 text-green-500/50 mx-auto mb-1" />
+                          <p className="text-xs text-gray-500">No active jobs</p>
+                        </div>
+                      ) : (
+                        <div className="rounded-lg border border-gray-700 overflow-hidden divide-y divide-gray-700/60">
+                          {systemHealth.jobs.active.map(job => (
+                            <div key={job.id} className="px-4 py-3">
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+                                  <span className="text-xs font-medium text-gray-200 capitalize">{job.jobType}</span>
+                                  <span className="text-[10px] text-gray-500 font-mono">{job.orgId.slice(0, 8)}…</span>
+                                </div>
+                                <span className="text-[10px] text-yellow-400 capitalize">{job.status}</span>
+                              </div>
+                              {job.totalItems > 0 && (
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 bg-gray-700 rounded-full h-1">
+                                    <div
+                                      className="bg-yellow-500 h-1 rounded-full transition-all"
+                                      style={{ width: `${Math.round((job.processedItems / job.totalItems) * 100)}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-[10px] text-gray-500 shrink-0">{job.processedItems}/{job.totalItems}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Recent jobs */}
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Recent Jobs</p>
+                      <div className="rounded-lg border border-gray-700 overflow-hidden divide-y divide-gray-700/60">
+                        {systemHealth.jobs.recent.length === 0 ? (
+                          <div className="px-4 py-4 text-center text-xs text-gray-500">No completed jobs yet</div>
+                        ) : systemHealth.jobs.recent.map(job => (
+                          <div key={job.id} className="flex items-center gap-3 px-4 py-2.5">
+                            <div className="shrink-0">
+                              {job.status === 'completed'
+                                ? <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
+                                : <AlertTriangle className="h-3.5 w-3.5 text-red-400" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-gray-300 capitalize">{job.jobType}</p>
+                              {job.errorMessage && <p className="text-[10px] text-red-400/80 truncate">{job.errorMessage}</p>}
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-[10px] text-gray-500">{job.processedItems}/{job.totalItems}</p>
+                              <p className="text-[9px] text-gray-600 font-mono">{new Date(job.updatedAt).toLocaleDateString()}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center py-10">
+                    <p className="text-xs text-gray-500">Failed to load system health data</p>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* About & Credits */}
