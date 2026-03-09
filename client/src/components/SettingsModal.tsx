@@ -4990,10 +4990,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         {orgLimitsLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-1" />}
                       </div>
                       {/* Column headers */}
-                      <div className="grid grid-cols-[1fr_80px_80px_90px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
+                      <div className="grid grid-cols-[1fr_48px_44px_80px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
                         <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">Limit</span>
-                        <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Plan Max</span>
-                        <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">In Use</span>
+                        <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Max</span>
+                        <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Use</span>
                         <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Override</span>
                       </div>
                       <form
@@ -5052,13 +5052,13 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           return (
                             <div className="divide-y divide-gray-700/40">
                               {rows.map(({ name, label, planMax, usage, override, isOverridden }) => (
-                                <div key={name} className={`grid grid-cols-[1fr_80px_80px_90px] gap-2 items-center px-4 py-2 ${isOverridden ? 'bg-amber-500/5' : ''}`}>
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    {isOverridden && <span className="shrink-0 text-[8px] font-bold uppercase tracking-wide text-amber-400 border border-amber-500/40 rounded px-1 py-0.5">OVR</span>}
-                                    <span className="text-[11px] text-gray-300 truncate">{label}</span>
+                                <div key={name} className={`grid grid-cols-[1fr_48px_44px_80px] gap-2 items-start px-4 py-2 ${isOverridden ? 'bg-amber-500/5' : ''}`}>
+                                  <div className="flex items-start gap-1 pt-0.5">
+                                    {isOverridden && <span className="shrink-0 text-[8px] font-bold uppercase tracking-wide text-amber-400 border border-amber-500/40 rounded px-1 py-0.5 mt-px">OVR</span>}
+                                    <span className="text-[11px] text-gray-300 leading-tight">{label}</span>
                                   </div>
-                                  <span className="text-xs text-gray-500 text-center font-mono">{planMax}</span>
-                                  <span className="text-xs text-gray-300 text-center font-mono">{usage}</span>
+                                  <span className="text-xs text-gray-500 text-center font-mono pt-0.5">{planMax}</span>
+                                  <span className="text-xs text-gray-300 text-center font-mono pt-0.5">{usage}</span>
                                   <Input
                                     name={name}
                                     type="number"
@@ -5114,7 +5114,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">State</span>
                           </div>
                           <div className="divide-y divide-gray-700/40">
-                            {FEATURE_ROWS.map(({ overrideKey, tierFeatureKey, label, icon: Icon }) => {
+                            {[...FEATURE_ROWS].sort((a, b) => {
+                              const aOn = a.tierFeatureKey != null && tier.features[a.tierFeatureKey] ? 1 : 0;
+                              const bOn = b.tierFeatureKey != null && tier.features[b.tierFeatureKey] ? 1 : 0;
+                              return bOn - aOn;
+                            }).map(({ overrideKey, tierFeatureKey, label, icon: Icon }) => {
                               const planDefault = tierFeatureKey != null ? tier.features[tierFeatureKey] : null;
                               const overrideVal = overrideKey != null ? fo[overrideKey] : undefined;
                               const isOverridden = overrideKey != null && overrideVal !== undefined;
