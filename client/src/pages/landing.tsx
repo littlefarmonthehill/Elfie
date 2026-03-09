@@ -554,15 +554,15 @@ export default function Landing() {
             {/* Sign In pill */}
             <Link href="/login">
               <button style={{
-                background: "rgba(0,255,238,0.07)",
-                border: `1px solid ${TEAL}55`,
+                background: "rgba(0,255,238,0.12)",
+                border: `1px solid ${TEAL}88`,
                 borderRadius: "100px",
-                padding: "clamp(3px,0.4vh,5px) clamp(9px,1.1vw,13px)",
+                padding: "clamp(6px,0.8vh,9px) clamp(16px,2vw,24px)",
                 cursor: "pointer", color: TEAL,
-                fontSize: "clamp(8px,0.78vw,10px)", fontWeight: 700,
-                letterSpacing: "0.12em", textTransform: "uppercase",
+                fontSize: "clamp(11px,1.1vw,14px)", fontWeight: 700,
+                letterSpacing: "0.1em",
                 backdropFilter: "blur(10px)",
-                boxShadow: `0 0 10px ${TEAL}18`,
+                boxShadow: `0 0 18px ${TEAL}30, 0 0 6px ${TEAL}20 inset`,
                 whiteSpace: "nowrap",
               }}>Sign In</button>
             </Link>
