@@ -529,11 +529,9 @@ function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, 
   const connectedChannels = targets.filter((t: any) => t.enabled ?? t.connected);
   const disconnectedChannels = targets.filter((t: any) => !(t.enabled ?? t.connected));
 
-  const summary = totalDiscrepancies > 0
-    ? `${connectedChannels.length} channel${connectedChannels.length !== 1 ? 's' : ''} · ${totalDiscrepancies} misaligned`
-    : connectedChannels.length > 0
-      ? `${connectedChannels.length} channel${connectedChannels.length !== 1 ? 's' : ''} in sync`
-      : 'No channels connected';
+  const summary = connectedChannels.length > 0
+    ? `${connectedChannels.length} channel${connectedChannels.length !== 1 ? 's' : ''} connected`
+    : 'No channels connected';
 
   return (
     <LaneCard title="Multichannel" Icon={Globe} accent="border-teal-800/40 text-teal-300" summary={summary}>
@@ -595,24 +593,37 @@ function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, 
         </LaneSection>
       )}
 
-      {/* Channel Status */}
-      <LaneSection label="Channels" collapsible>
-        {connectedChannels.length > 0 ? connectedChannels.map((t: any) => {
-          const disc = (t.discrepancies?.missingLots || 0) + (t.discrepancies?.priceDifferences || 0) + (t.discrepancies?.quantityDifferences || 0);
-          const channelName = t.name ?? t.platform ?? 'Unknown channel';
-          return (
-            <ActivityItem
-              key={channelName}
-              icon={disc > 0 ? AlertTriangle : CheckCircle}
-              iconColor={disc > 0 ? 'text-yellow-400' : 'text-green-400'}
-              label={channelName}
-              sub={disc > 0 ? `${disc} discrepanc${disc !== 1 ? 'ies' : 'y'}` : 'In sync'}
-            />
-          );
-        }) : (
-          <ActivityItem icon={Globe} iconColor="text-muted-foreground" label="No channels connected" sub="Connect BrickOwl, eBay or Amazon" onClick={() => onOpenSettings?.('platforms')} />
-        )}
-      </LaneSection>
+      {/* No channels CTA */}
+      {connectedChannels.length === 0 && (
+        <LaneSection>
+          <ActivityItem
+            icon={Settings}
+            iconColor="text-teal-400"
+            label="Connect a channel"
+            sub="Add BrickOwl, eBay or Amazon"
+            onClick={() => onOpenSettings?.('platforms')}
+          />
+        </LaneSection>
+      )}
+
+      {/* Channel Status — only when channels exist */}
+      {connectedChannels.length > 0 && (
+        <LaneSection label="Channels" collapsible>
+          {connectedChannels.map((t: any) => {
+            const disc = (t.discrepancies?.missingLots || 0) + (t.discrepancies?.priceDifferences || 0) + (t.discrepancies?.quantityDifferences || 0);
+            const channelName = t.name ?? t.platform ?? 'Unknown channel';
+            return (
+              <ActivityItem
+                key={channelName}
+                icon={disc > 0 ? AlertTriangle : CheckCircle}
+                iconColor={disc > 0 ? 'text-yellow-400' : 'text-green-400'}
+                label={channelName}
+                sub={disc > 0 ? `${disc} discrepanc${disc !== 1 ? 'ies' : 'y'}` : 'In sync'}
+              />
+            );
+          })}
+        </LaneSection>
+      )}
 
       {/* Last Actions */}
       <LaneSection label="Last Actions" collapsible>
