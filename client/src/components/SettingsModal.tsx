@@ -3676,6 +3676,22 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   Run once to build your search index. New inventory and orders are embedded automatically as they sync.
                 </p>
 
+                {/* OpenAI API Key — required for local embeddings */}
+                <div className="flex items-center gap-3 bg-gray-800/60 border border-gray-700/60 rounded-md px-3 py-2.5">
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">OpenAI API Key</label>
+                    <input
+                      type="password"
+                      value={openaiApiKey}
+                      onChange={e => setOpenaiApiKey(e.target.value)}
+                      placeholder="sk-..."
+                      data-testid="input-openai-api-key"
+                      className="w-full bg-transparent text-sm text-gray-200 placeholder-gray-600 outline-none border-none"
+                    />
+                  </div>
+                  <span className="text-[10px] text-gray-600 whitespace-nowrap shrink-0">embeddings only</span>
+                </div>
+
                 {/* Semantic Search & Embeddings */}
                 <div>
                   <button
