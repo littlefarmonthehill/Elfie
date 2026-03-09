@@ -316,8 +316,15 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
           </div>
 
-          {/* Channel Sync Status */}
-          <div className="mt-3">
+          {/* Selling Channels */}
+          <div className="relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg p-3 shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden mt-3" data-testid="section-selling-channels">
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
+                <Globe className="w-3 h-3 md:w-4 md:h-4 text-gray-200" />
+              </div>
+              <h3 className="text-xs md:text-base lg:text-lg font-semibold text-gray-200 uppercase tracking-wide">Selling Channels</h3>
+            </div>
             <ChannelSyncPanel onOpenSettings={onOpenSettings} />
           </div>
 
