@@ -53,7 +53,7 @@ function LaneCard({
         <span className="text-xs xl:text-[11px] font-semibold uppercase tracking-widest">{title}</span>
         {summary && <span className="ml-auto text-[10px] text-muted-foreground font-normal truncate max-w-[160px] flex items-center gap-1.5">{summary}</span>}
       </div>
-      <div className="flex-1 flex flex-col divide-y divide-border/40 min-h-0 overflow-y-auto">
+      <div className="flex-1 flex flex-col divide-y divide-border/40 min-h-0">
         {children}
       </div>
     </div>
@@ -392,7 +392,7 @@ function InventoryLane({
       )}
 
       {/* Last Actions */}
-      <LaneSection label="Last Actions" collapsible className="border-t-2 border-border/50 bg-gray-800/50">
+      <LaneSection label="Last Actions" collapsible className="border-t-2 border-border/50 bg-gray-800/50 mt-auto">
         {lastInvSync?.lastSyncTime ? (
           <ActivityItem
             icon={lastInvSync.lastSyncStatus === 'success' ? CheckCircle : lastInvSync.lastSyncStatus === 'partial' ? AlertCircle : XCircle}
@@ -493,7 +493,7 @@ function OrdersLane({ stats, dashboardOrders, fulfillmentStats, orderSyncRunning
       )}
 
       {/* Last Actions */}
-      <LaneSection label="Last Actions" collapsible className="border-t-2 border-border/50 bg-gray-800/50">
+      <LaneSection label="Last Actions" collapsible className="border-t-2 border-border/50 bg-gray-800/50 mt-auto">
         {lastOrderSync?.lastSyncTime ? (
           <ActivityItem
             icon={lastOrderSync.lastSyncStatus === 'success' ? CheckCircle : lastOrderSync.lastSyncStatus === 'partial' ? AlertCircle : XCircle}
@@ -608,7 +608,7 @@ function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, 
       )}
 
       {/* Last Actions */}
-      <LaneSection label="Last Actions" collapsible className="border-t-2 border-border/50 bg-gray-800/50">
+      <LaneSection label="Last Actions" collapsible className="border-t-2 border-border/50 bg-gray-800/50 mt-auto">
         {lastChannelSync?.lastSyncTime ? (
           <ActivityItem
             icon={lastChannelSync.lastSyncStatus === 'success' ? CheckCircle : lastChannelSync.lastSyncStatus === 'partial' ? AlertCircle : XCircle}
@@ -738,7 +738,7 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
       )}
 
       {/* Last Actions — embeddings + last scan, sub-grouped */}
-      <LaneSection label="Last Actions" collapsible className="border-t-2 border-border/50 bg-gray-800/50">
+      <LaneSection label="Last Actions" collapsible className="border-t-2 border-border/50 bg-gray-800/50 mt-auto">
         {(universalCatalog || catalogStatus) && (
           <>
             <div className="pt-0.5 pb-0.5">
