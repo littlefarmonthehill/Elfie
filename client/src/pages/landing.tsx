@@ -77,7 +77,8 @@ const GLOBAL_CSS = `
   @keyframes pb-pulse    { 0%,100%{opacity:1;box-shadow:0 0 16px #FF00CC,0 0 32px #FF00CC44} 50%{opacity:0.5;box-shadow:0 0 4px #FF00CC} }
   @keyframes pb-bgring   { from{transform:translate(-50%,-50%) rotate(0deg)} to{transform:translate(-50%,-50%) rotate(360deg)} }
   @keyframes pb-bgring-r { from{transform:translate(-50%,-50%) rotate(0deg)} to{transform:translate(-50%,-50%) rotate(-360deg)} }
-  @keyframes pb-slidein  { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes pb-slidein    { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes pb-radiowave  { 0%{opacity:0} 8%{opacity:0.85} 100%{opacity:0} }
 `;
 
 function HomeScreen({ tune }: { tune: (id: ChId) => void }) {
@@ -374,22 +375,6 @@ export default function Landing() {
     }}>
       <style>{GLOBAL_CSS}</style>
 
-      {/* ── Persistent sign-in button ── */}
-      <div style={{ position: "fixed", top: "clamp(12px,2vh,20px)", right: "clamp(16px,2vw,28px)", zIndex: 200 }}>
-        <Link href="/login">
-          <button style={{
-            background: "rgba(0,255,238,0.08)",
-            border: `1px solid ${TEAL}55`,
-            borderRadius: "100px",
-            padding: "clamp(7px,0.9vh,10px) clamp(16px,1.8vw,22px)",
-            cursor: "pointer", color: TEAL,
-            fontSize: "clamp(11px,1vw,13px)", fontWeight: 600, letterSpacing: "0.05em",
-            backdropFilter: "blur(10px)",
-            boxShadow: `0 0 16px ${TEAL}22`,
-            transition: "all 0.2s",
-          }}>Sign In</button>
-        </Link>
-      </div>
 
       {/* Star field */}
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none" }}>
@@ -448,7 +433,7 @@ export default function Landing() {
       {/* ── TV SET (floating animation) ── */}
       <div style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", zIndex: 10, animation: "pb-float 5s ease-in-out infinite" }}>
 
-        {/* Antenna orbs */}
+        {/* Antenna orbs + between-antenna area */}
         <div style={{ display: "flex", justifyContent: "center", gap: "clamp(120px,16vw,220px)", marginBottom: "-4px", position: "relative", zIndex: 2 }}>
           {([-12, 12] as const).map((deg, i) => (
             <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -466,6 +451,52 @@ export default function Landing() {
               }} />
             </div>
           ))}
+
+          {/* ── Centered between antennas: radio waves + Sign In ── */}
+          <div style={{
+            position: "absolute", left: "50%", top: 0,
+            transform: "translateX(-50%)",
+            display: "flex", flexDirection: "column", alignItems: "center",
+            gap: "clamp(3px,0.4vh,5px)", pointerEvents: "auto",
+          }}>
+            {/* Radio wave arcs — 3 nested upward arcs, propagating outward */}
+            <div style={{ position: "relative", width: "clamp(44px,6vw,72px)", height: "clamp(22px,3vh,36px)", flexShrink: 0 }}>
+              {([
+                { w: "30%",  h: "30%",  delay: "0s"    },
+                { w: "62%",  h: "58%",  delay: "0.42s" },
+                { w: "100%", h: "100%", delay: "0.84s" },
+              ]).map(({ w, h, delay }, n) => (
+                <div key={n} style={{
+                  position: "absolute",
+                  bottom: 0, left: 0, right: 0,
+                  margin: "0 auto",
+                  width: w, height: h,
+                  border: `1.5px solid ${TEAL}`,
+                  borderBottom: "none",
+                  borderRadius: "50% 50% 0 0",
+                  boxShadow: `0 0 5px ${TEAL}55`,
+                  opacity: 0,
+                  animation: `pb-radiowave 1.68s ease-out ${delay} infinite`,
+                }} />
+              ))}
+            </div>
+
+            {/* Sign In pill */}
+            <Link href="/login">
+              <button style={{
+                background: "rgba(0,255,238,0.07)",
+                border: `1px solid ${TEAL}55`,
+                borderRadius: "100px",
+                padding: "clamp(3px,0.4vh,5px) clamp(9px,1.1vw,13px)",
+                cursor: "pointer", color: TEAL,
+                fontSize: "clamp(8px,0.78vw,10px)", fontWeight: 700,
+                letterSpacing: "0.12em", textTransform: "uppercase",
+                backdropFilter: "blur(10px)",
+                boxShadow: `0 0 10px ${TEAL}18`,
+                whiteSpace: "nowrap",
+              }}>Sign In</button>
+            </Link>
+          </div>
         </div>
 
         {/* TV Body — dark charcoal/navy */}
