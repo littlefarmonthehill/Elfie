@@ -538,25 +538,43 @@ function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, 
   return (
     <LaneCard title="Multichannel" Icon={Globe} accent="border-teal-800/40 text-teal-300" summary={summary}>
 
-      {/* Attention */}
-      {(totalDiscrepancies > 0 || channelSyncFailed || disconnectedChannels.length > 0) ? (
-        <LaneSection label="Attention">
-          {disconnectedChannels.map((t: any, i: number) => {
-            const channelName = t.name ?? t.platform ?? 'Unknown channel';
-            return (
-              <AlertItem key={channelName ?? `disconnected-${i}`} icon={XCircle} iconColor="text-red-400" label={`${channelName} disconnected`} sub="Tap to reconnect" onClick={() => onOpenSettings?.('platforms')} severity="error" />
-            );
-          })}
-          {totalDiscrepancies > 0 && (
-            <AlertItem icon={AlertTriangle} iconColor="text-yellow-400" label={`${totalDiscrepancies} inventory discrepanc${totalDiscrepancies !== 1 ? 'ies' : 'y'}`} sub="Prices or quantities out of sync" severity="warn" />
-          )}
-          {channelSyncFailed && (
-            <AlertItem icon={XCircle} iconColor="text-red-400" label="Channel sync failed" sub={lastChannelSync?.errorMessage ?? 'Check channel connections'} onClick={() => onOpenSettings?.('platforms')} severity="error" />
-          )}
-        </LaneSection>
-      ) : connectedChannels.length > 0 ? (
-        <LaneSection><AllGood label="All channels aligned" /></LaneSection>
-      ) : null}
+      {/* Attention — grouped by channel */}
+      {(() => {
+        const channelIssues = targets.map((t: any) => {
+          const name = t.name ?? t.platform ?? 'Unknown channel';
+          const connected = t.enabled ?? t.connected;
+          const disc = (t.discrepancies?.missingLots || 0) + (t.discrepancies?.priceDifferences || 0) + (t.discrepancies?.quantityDifferences || 0);
+          const discParts: string[] = [];
+          if (t.discrepancies?.missingLots) discParts.push(`${t.discrepancies.missingLots} missing lot${t.discrepancies.missingLots !== 1 ? 's' : ''}`);
+          if (t.discrepancies?.priceDifferences) discParts.push(`${t.discrepancies.priceDifferences} price diff${t.discrepancies.priceDifferences !== 1 ? 's' : ''}`);
+          if (t.discrepancies?.quantityDifferences) discParts.push(`${t.discrepancies.quantityDifferences} qty diff${t.discrepancies.quantityDifferences !== 1 ? 's' : ''}`);
+          return { name, connected, disc, discParts };
+        }).filter(c => !c.connected || c.disc > 0);
+
+        const hasIssues = channelIssues.length > 0 || channelSyncFailed;
+        if (!hasIssues) {
+          return connectedChannels.length > 0 ? (
+            <LaneSection><AllGood label="All channels aligned" /></LaneSection>
+          ) : null;
+        }
+
+        return (
+          <LaneSection label="Attention">
+            {channelIssues.map(c => (
+              <div key={c.name}>
+                {!c.connected ? (
+                  <AlertItem icon={XCircle} iconColor="text-red-400" label={`${c.name} disconnected`} sub="Tap to reconnect" onClick={() => onOpenSettings?.('platforms')} severity="error" />
+                ) : (
+                  <AlertItem icon={AlertTriangle} iconColor="text-yellow-400" label={c.name} sub={c.discParts.join(' · ')} severity="warn" />
+                )}
+              </div>
+            ))}
+            {channelSyncFailed && (
+              <AlertItem icon={XCircle} iconColor="text-red-400" label="Channel sync failed" sub={lastChannelSync?.errorMessage ?? 'Check channel connections'} onClick={() => onOpenSettings?.('platforms')} severity="error" />
+            )}
+          </LaneSection>
+        );
+      })()}
 
       {/* Running */}
       {isChannelSyncing && (
