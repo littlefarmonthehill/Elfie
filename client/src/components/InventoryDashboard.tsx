@@ -163,15 +163,21 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             </div>
           </div>
           <div className="grid grid-cols-3 gap-1.5 mb-2" data-testid="section-inventory-info">
-            <button onClick={() => { setBrowseDrawer('lots'); setBrowseSearchInput(''); }} data-testid="metric-lots" className="text-left hover-elevate active-elevate-2 rounded-md">
-              <MetricCard label="Lots" value={stats ? formatNumber(stats.totalLots) : '0'} color="blue" />
-            </button>
-            <button onClick={() => { setBrowseDrawer('parts'); setBrowseSearchInput(''); }} data-testid="metric-parts" className="text-left hover-elevate active-elevate-2 rounded-md">
-              <MetricCard label="Parts" value={stats ? formatNumber(stats.totalParts) : '0'} color="blue" />
-            </button>
-            <button onClick={() => { setBrowseDrawer('categories'); setBrowseSearchInput(''); }} data-testid="metric-categories" className="text-left hover-elevate active-elevate-2 rounded-md">
-              <MetricCard label="Categories" value={stats ? formatNumber(stats.totalCategories) : '0'} color="blue" />
-            </button>
+            {([
+              { key: 'lots', label: 'Lots', value: stats ? formatNumber(stats.totalLots) : '0' },
+              { key: 'parts', label: 'Parts', value: stats ? formatNumber(stats.totalParts) : '0' },
+              { key: 'categories', label: 'Categories', value: stats ? formatNumber(stats.totalCategories) : '0' },
+            ] as const).map(({ key, label, value }) => (
+              <button
+                key={key}
+                onClick={() => { setBrowseDrawer(key); setBrowseSearchInput(''); }}
+                data-testid={`metric-${key}`}
+                className="relative text-left hover-elevate active-elevate-2 rounded-md group"
+              >
+                <MetricCard label={label} value={value} color="blue" />
+                <ChevronRight className="absolute top-1.5 right-1.5 w-2.5 h-2.5 text-lego-blue/40 group-hover:text-lego-blue/80 transition-colors" />
+              </button>
+            ))}
           </div>
           <div className="grid grid-cols-3 gap-1.5" data-testid="section-values">
             <MetricCard label="My Cost" value={stats ? formatCurrency(stats.totalCost) : '$0.00'} color="red" data-testid="metric-cost" />
