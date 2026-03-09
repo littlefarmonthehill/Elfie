@@ -685,6 +685,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [channelSyncMode, setChannelSyncMode] = useState<'full_control' | 'quantity_only'>('full_control');
   const [channelDetailsExpanded, setChannelDetailsExpanded] = useState(false);
   const [ordersSyncEnabled, setOrdersSyncEnabled] = useState(false);
+  const [schedulerInventoryOpen, setSchedulerInventoryOpen] = useState(false);
+  const [schedulerOrdersOpen, setSchedulerOrdersOpen] = useState(false);
+  const [schedulerChannelOpen, setSchedulerChannelOpen] = useState(false);
+  const [enrichmentEmbeddingsOpen, setEnrichmentEmbeddingsOpen] = useState(false);
+  const [enrichmentPomOpen, setEnrichmentPomOpen] = useState(false);
   const [ordersSyncFrequency, setOrdersSyncFrequency] = useState(15);
   const [ordersSyncFrequencyStr, setOrdersSyncFrequencyStr] = useState("15");
 
@@ -1708,9 +1713,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 </DialogContent>
               </Dialog>
 
-                <Separator className="bg-gray-700" />
+              </div>
+            )}
 
-                {/* Price-o-Matic */}
+            {/* __POM_REMOVED_FROM_GENERAL__ */}
+            {false && (
                 <div>
                   <h3 className="text-sm font-medium text-gray-300 mb-3">Price-o-Matic</h3>
 
@@ -2342,7 +2349,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 </div>
 
-              </div>
             )}
 
             {/* Billing & Plan */}
@@ -3171,6 +3177,40 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             {activeSection === 'ai' && (
               <div className="space-y-4 min-h-[400px]">
               <div className="space-y-4">
+
+                {/* E.L.F.I.E. Mode — shown first */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-gray-300">E.L.F.I.E. Mode</h3>
+                  <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-3">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setElfieMode('search'); updateSettingsMutation.mutate({ elfieMode: 'search' }); }}
+                        className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-md border text-xs transition-colors ${elfieMode === 'search' ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' : 'bg-gray-700/40 border-gray-600 text-gray-400 hover:text-gray-300 hover:bg-gray-700/60'}`}
+                        data-testid="button-elfie-mode-search"
+                      >
+                        <span className="font-semibold">Search Mode</span>
+                        <span className="text-[10px] text-center opacity-70">Keyword &amp; tool search only</span>
+                      </button>
+                      <button
+                        onClick={() => { setElfieMode('ai'); updateSettingsMutation.mutate({ elfieMode: 'ai' }); }}
+                        className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-md border text-xs transition-colors ${elfieMode === 'ai' ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' : 'bg-gray-700/40 border-gray-600 text-gray-400 hover:text-gray-300 hover:bg-gray-700/60'}`}
+                        data-testid="button-elfie-mode-ai"
+                      >
+                        <span className="font-semibold">AI Mode</span>
+                        <span className="text-[10px] text-center opacity-70">Data enrichment &amp; intelligence</span>
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-gray-500">
+                      {elfieMode === 'search'
+                        ? 'E.L.F.I.E. will search your inventory, orders, and catalog data without AI analysis.'
+                        : 'E.L.F.I.E. uses full AI capabilities including price insights, demand analysis, and intelligent recommendations.'}
+                    </p>
+                  </div>
+                </div>
+
+                <Separator className="bg-gray-700" />
+
+                {/* Chat Assistant */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-300 mb-3">Chat Assistant (E.L.F.I.E.)</h3>
                   <div className="space-y-4">
@@ -3229,38 +3269,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 <Separator className="bg-gray-700" />
 
-                {/* E.L.F.I.E. Mode */}
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium text-gray-300">E.L.F.I.E. Mode</h3>
-                  <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => { setElfieMode('search'); updateSettingsMutation.mutate({ elfieMode: 'search' }); }}
-                        className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-md border text-xs transition-colors ${elfieMode === 'search' ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' : 'bg-gray-700/40 border-gray-600 text-gray-400 hover:text-gray-300 hover:bg-gray-700/60'}`}
-                        data-testid="button-elfie-mode-search"
-                      >
-                        <span className="font-semibold">Search Mode</span>
-                        <span className="text-[10px] text-center opacity-70">Keyword &amp; tool search only</span>
-                      </button>
-                      <button
-                        onClick={() => { setElfieMode('ai'); updateSettingsMutation.mutate({ elfieMode: 'ai' }); }}
-                        className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-md border text-xs transition-colors ${elfieMode === 'ai' ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' : 'bg-gray-700/40 border-gray-600 text-gray-400 hover:text-gray-300 hover:bg-gray-700/60'}`}
-                        data-testid="button-elfie-mode-ai"
-                      >
-                        <span className="font-semibold">AI Mode</span>
-                        <span className="text-[10px] text-center opacity-70">Data enrichment &amp; intelligence</span>
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-gray-500">
-                      {elfieMode === 'search'
-                        ? 'E.L.F.I.E. will search your inventory, orders, and catalog data without AI analysis.'
-                        : 'E.L.F.I.E. uses full AI capabilities including price insights, demand analysis, and intelligent recommendations.'}
-                    </p>
-                  </div>
-                </div>
-
-                <Separator className="bg-gray-700" />
-
                 {/* Semantic Search Test */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-300 mb-3">Semantic Search</h3>
@@ -3307,7 +3315,20 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     <p className="text-xs text-gray-400 mb-4">Configure automated syncing and updates</p>
 
                     {/* Inventory Sync */}
-                    <div className="space-y-3 mb-4">
+                    <div>
+                      <button
+                        onClick={() => setSchedulerInventoryOpen(!schedulerInventoryOpen)}
+                        className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
+                        data-testid="button-scheduler-inventory-toggle"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-gray-200">Inventory Sync</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${inventorySyncEnabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-500'}`}>{inventorySyncEnabled ? 'Enabled' : 'Disabled'}</span>
+                        </div>
+                        {schedulerInventoryOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
+                      </button>
+                      {schedulerInventoryOpen && (
+                      <div className="space-y-3 mb-4">
                       <div className="flex items-center justify-between gap-2">
                         <div>
                           <div className="flex items-center gap-1.5">
@@ -3391,12 +3412,27 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </div>
                         )}
                       </div>
+                      </div>
+                      )}
                     </div>
 
                     <Separator className="bg-gray-700" />
 
                     {/* Orders Sync */}
-                    <div className="space-y-3 mt-4">
+                    <div>
+                      <button
+                        onClick={() => setSchedulerOrdersOpen(!schedulerOrdersOpen)}
+                        className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
+                        data-testid="button-scheduler-orders-toggle"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-gray-200">Orders Sync</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${ordersSyncEnabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-500'}`}>{ordersSyncEnabled ? 'Enabled' : 'Disabled'}</span>
+                        </div>
+                        {schedulerOrdersOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
+                      </button>
+                      {schedulerOrdersOpen && (
+                      <div className="space-y-3 mt-4">
                       <div className="flex items-center justify-between gap-2">
                         <div>
                           <div className="flex items-center gap-1.5">
@@ -3463,12 +3499,27 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           <p className="text-[10px] md:text-sm text-gray-500">Recommended: 15 minutes</p>
                         </div>
                       )}
+                      </div>
+                      )}
                     </div>
 
                     <Separator className="bg-gray-700" />
 
-                    {/* Channel Sync (Local DB → BrickOwl / other platforms) */}
-                    <div className="space-y-3 my-4">
+                    {/* Channel Sync */}
+                    <div>
+                      <button
+                        onClick={() => setSchedulerChannelOpen(!schedulerChannelOpen)}
+                        className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
+                        data-testid="button-scheduler-channel-toggle"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-gray-200">Channel Sync</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${channelSyncEnabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-500'}`}>{channelSyncEnabled ? 'Enabled' : 'Disabled'}</span>
+                        </div>
+                        {schedulerChannelOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
+                      </button>
+                      {schedulerChannelOpen && (
+                      <div className="space-y-3 my-4">
                       <div className="flex items-center justify-between gap-2">
                         <div>
                           <div className="flex items-center gap-1.5">
@@ -3585,6 +3636,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </button>
                         </div>
                       </div>
+                      </div>
+                      )}
                     </div>
 
                     <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3 mt-4">
@@ -3607,13 +3660,40 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 <Separator className="bg-gray-700" />
 
                 {/* Semantic Search & Embeddings */}
-                <EmbeddingsManager />
+                <div>
+                  <button
+                    onClick={() => setEnrichmentEmbeddingsOpen(!enrichmentEmbeddingsOpen)}
+                    className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
+                    data-testid="button-enrichment-embeddings-toggle"
+                  >
+                    <span className="text-sm font-semibold text-gray-200">Semantic Search &amp; Embeddings</span>
+                    {enrichmentEmbeddingsOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
+                  </button>
+                  {enrichmentEmbeddingsOpen && (
+                    <div className="mt-2">
+                      <EmbeddingsManager />
+                    </div>
+                  )}
+                </div>
 
                 <Separator className="bg-gray-700" />
 
                 {/* Price-o-Matic */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-3">Price-o-Matic</h3>
+                  <button
+                    onClick={() => setEnrichmentPomOpen(!enrichmentPomOpen)}
+                    className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
+                    data-testid="button-enrichment-pom-toggle"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-200">Price-o-Matic</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${pomScheduleEnabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-500'}`}>{pomScheduleEnabled ? 'Enabled' : 'Disabled'}</span>
+                    </div>
+                    {enrichmentPomOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
+                  </button>
+                  {enrichmentPomOpen && (
+                  <div>
+                  <h3 className="text-sm font-medium text-gray-300 mb-3 sr-only">Price-o-Matic</h3>
 
                   {/* Auto Sync Scheduler */}
                   <div className="space-y-3 my-4">
@@ -4241,6 +4321,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </p>
                   </div>
 
+                  </div>
+                  )}
                 </div>
 
               </div>
