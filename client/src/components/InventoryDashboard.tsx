@@ -172,10 +172,13 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 key={key}
                 onClick={() => { setBrowseDrawer(key); setBrowseSearchInput(''); }}
                 data-testid={`metric-${key}`}
-                className="relative text-left hover-elevate active-elevate-2 rounded-md group"
+                className="group flex flex-col text-left hover-elevate active-elevate-2 rounded-md border border-lego-blue/20 bg-gray-900/50 p-1.5 md:p-4 lg:p-6"
               >
-                <MetricCard label={label} value={value} color="blue" />
-                <ChevronRight className="absolute top-1.5 right-1.5 w-2.5 h-2.5 text-lego-blue/40 group-hover:text-lego-blue/80 transition-colors" />
+                <span className="text-[9px] md:text-sm lg:text-lg text-gray-400 mb-0.5 md:mb-2 lg:mb-3 leading-tight">{label}</span>
+                <span className="text-xs md:text-lg lg:text-2xl font-semibold font-mono text-lego-blue">{value}</span>
+                <span className="mt-1 md:mt-2 flex items-center gap-0.5 text-[8px] md:text-xs text-lego-blue/50 group-hover:text-lego-blue/90 transition-colors">
+                  Browse <ChevronRight className="w-2 h-2 md:w-3 md:h-3" />
+                </span>
               </button>
             ))}
           </div>
