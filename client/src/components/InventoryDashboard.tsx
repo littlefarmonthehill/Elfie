@@ -245,161 +245,108 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('priceomatic')}
               data-testid="tool-priceomatic"
-              className="group flex flex-col gap-1.5 xl:gap-2.5 rounded-lg border border-purple-500/50 bg-gradient-to-br from-purple-950/65 to-gray-950/80 p-3 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(168,85,247,0.09)]"
+              className="group flex items-center gap-2 rounded-lg border border-purple-500/50 bg-gradient-to-br from-purple-950/65 to-gray-950/80 p-3 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(168,85,247,0.09)]"
             >
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-purple-900/70 p-1.5 xl:p-2.5 ring-1 ring-purple-500/45 shadow-[0_0_10px_rgba(168,85,247,0.22)]">
-                  <Sparkles className={cn("w-3.5 h-3.5 text-purple-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
-                </div>
-                <span className={cn("text-xs font-bold text-purple-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>Price-O-Matic</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <span
-                      role="button"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-purple-600/60 hover:text-purple-400 transition-colors"
-                      data-testid="info-priceomatic"
-                    >
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </PopoverTrigger>
-                  <PopoverContent side="top" className="w-60 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
-                    AI-powered pricing engine. Review opportunities and set competitive prices.
-                  </PopoverContent>
-                </Popover>
+              <div className="rounded-lg bg-purple-900/70 p-1.5 xl:p-2.5 ring-1 ring-purple-500/45 shadow-[0_0_10px_rgba(168,85,247,0.22)]">
+                <Sparkles className={cn("w-3.5 h-3.5 text-purple-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem]" data-testid="pom-stats">
-                {(pomInsights?.data?.summary?.tooLow ?? 0) > 0 && (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30" data-testid="pom-underpriced">
-                    {pomInsights!.data.summary.tooLow} underpriced
+              <span className={cn("text-xs font-bold text-purple-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>Price-O-Matic</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <span
+                    role="button"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-purple-600/60 hover:text-purple-400 transition-colors"
+                    data-testid="info-priceomatic"
+                  >
+                    <Info className="w-3 h-3" />
                   </span>
-                )}
-                {(pomInsights?.data?.summary?.tooHigh ?? 0) > 0 && (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-600/30" data-testid="pom-overpriced">
-                    {pomInsights!.data.summary.tooHigh} overpriced
-                  </span>
-                )}
-                {pomInsights?.data?.summary && (pomInsights.data.summary.tooLow ?? 0) === 0 && (pomInsights.data.summary.tooHigh ?? 0) === 0 && (
-                  <span className="text-[9px] text-green-400/70">All priced well</span>
-                )}
-              </div>
+                </PopoverTrigger>
+                <PopoverContent side="top" className="w-60 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
+                  AI-powered pricing engine. Review opportunities and set competitive prices.
+                </PopoverContent>
+              </Popover>
             </button>
 
             {/* List-O-Matic */}
             <button
               onClick={() => onDrawerChange('platformsync')}
               data-testid="tool-listomatic"
-              className="group flex flex-col gap-1.5 xl:gap-2.5 rounded-lg border border-green-500/50 bg-gradient-to-br from-green-950/65 to-gray-950/80 p-3 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(34,197,94,0.09)]"
+              className="group flex items-center gap-2 rounded-lg border border-green-500/50 bg-gradient-to-br from-green-950/65 to-gray-950/80 p-3 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(34,197,94,0.09)]"
             >
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-green-900/70 p-1.5 xl:p-2.5 ring-1 ring-green-500/45 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
-                  <Globe className={cn("w-3.5 h-3.5 text-green-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
-                </div>
-                <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>List-O-Matic</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <span
-                      role="button"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-green-600/60 hover:text-green-400 transition-colors"
-                      data-testid="info-listomatic"
-                    >
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </PopoverTrigger>
-                  <PopoverContent side="top" className="w-60 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
-                    Manage listings across BrickLink, BrickOwl, and other platforms.
-                  </PopoverContent>
-                </Popover>
+              <div className="rounded-lg bg-green-900/70 p-1.5 xl:p-2.5 ring-1 ring-green-500/45 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
+                <Globe className={cn("w-3.5 h-3.5 text-green-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem]" />
+              <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>List-O-Matic</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <span
+                    role="button"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-green-600/60 hover:text-green-400 transition-colors"
+                    data-testid="info-listomatic"
+                  >
+                    <Info className="w-3 h-3" />
+                  </span>
+                </PopoverTrigger>
+                <PopoverContent side="top" className="w-60 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
+                  Manage listings across BrickLink, BrickOwl, and other platforms.
+                </PopoverContent>
+              </Popover>
             </button>
 
             {/* Warehouse */}
             <button
               onClick={() => onDrawerChange('warehouse')}
               data-testid="tool-warehouse"
-              className="group flex flex-col gap-1.5 xl:gap-2.5 rounded-lg border border-teal-500/50 bg-gradient-to-br from-teal-950/65 to-gray-950/80 p-3 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(20,184,166,0.09)]"
+              className="group flex items-center gap-2 rounded-lg border border-teal-500/50 bg-gradient-to-br from-teal-950/65 to-gray-950/80 p-3 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(20,184,166,0.09)]"
             >
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-teal-900/70 p-1.5 xl:p-2.5 ring-1 ring-teal-500/45 shadow-[0_0_10px_rgba(20,184,166,0.22)]">
-                  <Boxes className={cn("w-3.5 h-3.5 text-teal-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
-                </div>
-                <span className={cn("text-xs font-bold text-teal-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>Warehouse</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <span
-                      role="button"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-teal-600/60 hover:text-teal-400 transition-colors"
-                      data-testid="info-warehouse"
-                    >
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </PopoverTrigger>
-                  <PopoverContent side="top" className="w-60 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
-                    Organize stock by location. Assign bins, shelves, and storage zones.
-                  </PopoverContent>
-                </Popover>
+              <div className="rounded-lg bg-teal-900/70 p-1.5 xl:p-2.5 ring-1 ring-teal-500/45 shadow-[0_0_10px_rgba(20,184,166,0.22)]">
+                <Boxes className={cn("w-3.5 h-3.5 text-teal-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem]" data-testid="warehouse-stats">
-                {(toolStats?.warehouseUnassigned ?? 0) > 0 && (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-600/30" data-testid="warehouse-unassigned">
-                    {toolStats!.warehouseUnassigned} not in bins
+              <span className={cn("text-xs font-bold text-teal-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>Warehouse</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <span
+                    role="button"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-teal-600/60 hover:text-teal-400 transition-colors"
+                    data-testid="info-warehouse"
+                  >
+                    <Info className="w-3 h-3" />
                   </span>
-                )}
-                {(toolStats?.binsNotOnShelves ?? 0) > 0 && (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-600/30" data-testid="warehouse-bins">
-                    {toolStats!.binsNotOnShelves} bins not on shelves
-                  </span>
-                )}
-                {(toolStats?.shelvesNotInAisles ?? 0) > 0 && (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-600/30" data-testid="warehouse-shelves">
-                    {toolStats!.shelvesNotInAisles} shelves not in aisles
-                  </span>
-                )}
-                {toolStats && (toolStats.warehouseUnassigned === 0) && (toolStats.binsNotOnShelves === 0) && (toolStats.shelvesNotInAisles === 0) && (
-                  <span className="text-[9px] text-green-400/70">All organized</span>
-                )}
-              </div>
+                </PopoverTrigger>
+                <PopoverContent side="top" className="w-60 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
+                  Organize stock by location. Assign bins, shelves, and storage zones.
+                </PopoverContent>
+              </Popover>
             </button>
 
             {/* Brick Spotter 3000 */}
             <button
               onClick={() => onDrawerChange('brickanalyzer')}
               data-testid="tool-brickspotter"
-              className="group flex flex-col gap-1.5 xl:gap-2.5 rounded-lg border border-amber-500/50 bg-gradient-to-br from-amber-950/65 to-gray-950/80 p-3 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(245,158,11,0.09)]"
+              className="group flex items-center gap-2 rounded-lg border border-amber-500/50 bg-gradient-to-br from-amber-950/65 to-gray-950/80 p-3 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(245,158,11,0.09)]"
             >
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-amber-900/70 p-1.5 xl:p-2.5 ring-1 ring-amber-500/45 shadow-[0_0_10px_rgba(245,158,11,0.22)]">
-                  <ScanSearch className={cn("w-3.5 h-3.5 text-amber-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
-                </div>
-                <span className={cn("text-xs font-bold text-amber-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>Brick Spotter</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <span
-                      role="button"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-amber-600/60 hover:text-amber-400 transition-colors"
-                      data-testid="info-brickspotter"
-                    >
-                      <Info className="w-3 h-3" />
-                    </span>
-                  </PopoverTrigger>
-                  <PopoverContent side="top" className="w-60 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
-                    Photograph a pile of parts and let AI identify and value each piece.
-                  </PopoverContent>
-                </Popover>
+              <div className="rounded-lg bg-amber-900/70 p-1.5 xl:p-2.5 ring-1 ring-amber-500/45 shadow-[0_0_10px_rgba(245,158,11,0.22)]">
+                <ScanSearch className={cn("w-3.5 h-3.5 text-amber-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem]" data-testid="brickspotter-stats">
-                {(toolStats?.pendingScans ?? 0) > 0 ? (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30" data-testid="brickspotter-pending">
-                    {toolStats!.pendingScans} {toolStats!.pendingScans === 1 ? 'scan' : 'scans'} ready
+              <span className={cn("text-xs font-bold text-amber-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>Brick Spotter</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <span
+                    role="button"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-amber-600/60 hover:text-amber-400 transition-colors"
+                    data-testid="info-brickspotter"
+                  >
+                    <Info className="w-3 h-3" />
                   </span>
-                ) : toolStats ? (
-                  <span className="text-[9px] text-green-400/70">No pending scans</span>
-                ) : null}
-              </div>
+                </PopoverTrigger>
+                <PopoverContent side="top" className="w-60 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
+                  Photograph a pile of parts and let AI identify and value each piece.
+                </PopoverContent>
+              </Popover>
             </button>
 
           </div>
