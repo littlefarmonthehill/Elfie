@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import DashboardNotifications from "./DashboardNotifications";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CompactModeProvider, useCompactMode } from "@/contexts/CompactMode";
 
 interface GeneralDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
@@ -85,6 +86,9 @@ function LaneCard({
 
 function LaneSection({ label, children, collapsible = false, className = "" }: { label?: string; children: React.ReactNode; collapsible?: boolean; className?: string }) {
   const [expanded, setExpanded] = useState(false);
+  const compact = useCompactMode();
+
+  if (collapsible && compact) return null;
 
   if (collapsible && label) {
     return (
@@ -948,6 +952,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   }, 0) || 0;
 
   return (
+    <CompactModeProvider value={panelMode ?? false}>
     <div className={panelMode ? "p-3 space-y-3" : "p-3 md:p-4 lg:p-5 xl:p-6 space-y-4 md:space-y-4 xl:space-y-5"}>
 
       {/* System Pulse — only shows when there are errors or setup gaps */}
@@ -1001,5 +1006,6 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
 
       </div>
     </div>
+    </CompactModeProvider>
   );
 }
