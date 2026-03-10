@@ -6,10 +6,15 @@
 import { db } from '../db';
 import { blInventory, blColors, blCategories, blCatalog, orders, orderDetails, setPartRelationships, inventoryEmbeddings, blForumPosts, blForumEmbeddings } from '@shared/schema';
 import { eq, like, or, sql, and, desc, inArray } from 'drizzle-orm';
+
 import { searchBricklinkCatalogItem, fetchPriceOMagicData } from './bricklink';
 import { generateEmbedding, createInventoryContent } from './embeddings';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+
+// Resolves item name with colorId=0 (Rebrickable universal) fallback — same pattern as routes.ts.
+const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: any) =>
+  sql<string | null>`(SELECT item_name FROM bl_catalog WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} ORDER BY (color_id = ${colorIdRef})::int DESC, color_id ASC LIMIT 1)`;
 
 /**
  * Tool: Search BrickLink catalog for items NOT in local inventory
@@ -131,7 +136,7 @@ export async function searchLocalInventory(params: {
         id: blInventory.id,
         itemNo: blInventory.itemNo,
         itemType: blInventory.itemType,
-        itemName: blCatalog.itemName,
+        itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
         colorName: blColors.name,
         colorRgb: blColors.rgb,
         categoryName: blCategories.name,
@@ -339,9 +344,9 @@ export async function getInventoryAging(params?: {
     let queryBuilder = db
       .select({
         itemNo: blInventory.itemNo,
-        itemName: blCatalog.itemName,
+        itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
         categoryName: blCategories.name,
-        colorName: blCatalog.colorName,
+        colorName: blColors.name,
         quantity: blInventory.quantity,
         unitPrice: blInventory.unitPrice,
         dateCreated: blInventory.dateCreated,
@@ -349,6 +354,7 @@ export async function getInventoryAging(params?: {
         estimatedValue: sql<number>`${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL)`,
       })
       .from(blInventory)
+      .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
       .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
       .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
       .where(
@@ -922,9 +928,9 @@ export async function getMarginAnalysis(params?: {
     const results = await db
       .select({
         itemNo: blInventory.itemNo,
-        itemName: blCatalog.itemName,
+        itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
         categoryName: blCategories.name,
-        colorName: blCatalog.colorName,
+        colorName: blColors.name,
         quantity: blInventory.quantity,
         unitPrice: blInventory.unitPrice,
         myCost: blInventory.myCost,
@@ -934,6 +940,7 @@ export async function getMarginAnalysis(params?: {
         totalCost: sql<number>`${blInventory.quantity} * CAST(${blInventory.myCost} AS DECIMAL)`,
       })
       .from(blInventory)
+      .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
       .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
       .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
       .where(and(...conditions))
@@ -1333,11 +1340,12 @@ export async function getCopurchasedItems(params: {
     const inventoryItems = await db
       .select({ 
         id: blInventory.id,
-        itemName: blCatalog.itemName,
+        itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
         itemType: blInventory.itemType,
-        colorName: blCatalog.colorName,
+        colorName: blColors.name,
       })
       .from(blInventory)
+      .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
       .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
       .where(eq(blInventory.itemNo, itemNo));
     
