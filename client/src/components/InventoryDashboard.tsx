@@ -42,7 +42,7 @@ interface InventoryDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string, initialTab?: string) => void;
   activeDrawer: 'priceomatic' | 'warehouse' | 'platformsync' | 'brickanalyzer' | null;
   onDrawerChange: (drawer: 'priceomatic' | 'warehouse' | 'platformsync' | 'brickanalyzer' | null) => void;
-  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users') => void;
+  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'priceomatic') => void;
 }
 
 type BrowseType = 'lots' | 'parts' | 'categories';
@@ -590,7 +590,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 size="sm"
                 variant="ghost"
                 className="shrink-0 text-xs text-gray-400 hover:text-gray-200 gap-1.5"
-                onClick={() => onOpenSettings?.('automation')}
+                onClick={() => onOpenSettings?.('priceomatic')}
                 data-testid="button-pom-settings"
               >
                 <SlidersHorizontal className="w-3.5 h-3.5" />
