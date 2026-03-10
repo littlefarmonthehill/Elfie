@@ -78,6 +78,15 @@ function fmtDate(dateStr: string) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function fmtDaysSince(dateStr: string): string {
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  if (days === 0) return 'today';
+  if (days === 1) return '1 day ago';
+  if (days < 30) return `${days} days ago`;
+  const months = Math.floor(days / 30);
+  return months === 1 ? '1 month ago' : `${months} months ago`;
+}
+
 function CustomerRow({
   customer,
   rank,
@@ -116,6 +125,10 @@ function CustomerRow({
         </div>
         <p className="text-[11px] text-gray-400 mt-0.5">{subtitle}</p>
         <div className="flex items-center gap-3 mt-1 flex-wrap">
+          <span className="flex items-center gap-1 text-[10px] text-gray-500">
+            <Calendar className="h-2.5 w-2.5 shrink-0" />
+            {fmtDaysSince(customer.lastOrderDate)}
+          </span>
           {customer.customerEmail && (
             <span className="flex items-center gap-1 text-[10px] text-gray-600">
               <Mail className="h-2.5 w-2.5 shrink-0" />

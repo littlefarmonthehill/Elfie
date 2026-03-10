@@ -36,9 +36,10 @@ type ShippedOrder = {
 
 interface ShippedOrdersToolProps {
   dateRange?: string;
+  onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
 }
 
-export default function ShippedOrdersTool({ dateRange }: ShippedOrdersToolProps) {
+export default function ShippedOrdersTool({ dateRange, onItemClick }: ShippedOrdersToolProps) {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [eodPending, setEodPending] = useState<string | null>(null); // orderId being fetched
@@ -219,8 +220,9 @@ export default function ShippedOrdersTool({ dateRange }: ShippedOrdersToolProps)
               return (
                 <div
                   key={order.id}
-                  className="app-card p-4 hover-elevate"
+                  className={`app-card p-4 hover-elevate${onItemClick ? ' cursor-pointer' : ''}`}
                   data-testid={`shipped-order-${order.orderNumber}`}
+                  onClick={() => onItemClick?.('order', order.id)}
                 >
                   <div className="flex items-start justify-between gap-4">
                     {/* Order Info */}
@@ -275,6 +277,7 @@ export default function ShippedOrdersTool({ dateRange }: ShippedOrdersToolProps)
                         <Button
                           size="sm"
                           variant="outline"
+                          onClick={(e) => e.stopPropagation()}
                           data-testid={`button-actions-${order.orderNumber}`}
                         >
                           <Printer className="w-3.5 h-3.5 mr-1.5" />

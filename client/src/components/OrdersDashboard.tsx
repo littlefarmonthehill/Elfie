@@ -273,7 +273,13 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             </DrawerClose>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <ShippedOrdersTool dateRange={dateRange} />
+            <ShippedOrdersTool
+              dateRange={dateRange}
+              onItemClick={(type, id) => {
+                onDrawerChange(null);
+                onItemClick?.(type, id);
+              }}
+            />
           </div>
         </DrawerContent>
       </Drawer>
