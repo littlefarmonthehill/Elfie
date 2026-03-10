@@ -9203,10 +9203,10 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .select({
           inventoryId: blInventory.id,
           itemNo: blInventory.itemNo,
-          itemName: blCatalog.itemName,
+          itemName: priceGuideCache.itemName,
           itemType: blInventory.itemType,
           colorId: blInventory.colorId,
-          colorName: blCatalog.colorName,
+          colorName: blColors.name,
           newOrUsed: blInventory.newOrUsed,
           currentPrice: blInventory.unitPrice,
           myCost: blInventory.myCost,
@@ -9229,7 +9229,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           )`,
         })
         .from(blInventory)
-        .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .innerJoin(
           priceGuideCache,
           and(
