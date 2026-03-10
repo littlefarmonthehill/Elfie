@@ -230,9 +230,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           </div>
         </div>
 
-        {/* Tools + Selling Channels — side-by-side in landscape */}
-        <div className="grid landscape:grid-cols-2 gap-1.5 xl:gap-3 items-stretch">
-
         {/* Tools — Primary Workflows */}
         <div className="relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg p-3 xl:p-5 shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden" data-testid="section-tools">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
@@ -421,7 +418,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           <ChannelSyncPanel onOpenSettings={onOpenSettings} />
         </div>
 
-        </div>{/* end tools+channels grid */}
 
       </div>
 
