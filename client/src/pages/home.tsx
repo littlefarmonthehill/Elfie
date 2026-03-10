@@ -333,12 +333,12 @@ export default function Home() {
 
   const renderPanelMode = () => (
     <div className="flex h-full overflow-x-auto">
-      {/* Dashboard column — lego-red */}
+      {/* Ops Central column — lego-red */}
       <div className="flex flex-col h-full shrink-0 border-r border-white/5" style={{ flex: 1, minWidth: '260px' }}>
-        <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(0,85%,55%,0.18), hsla(0,85%,55%,0.04))', borderColor: 'hsla(0,85%,55%,0.28)' }}>
-          <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(0,85%,65%)' }}>Dashboard</span>
+        <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(0,85%,55%,0.25), hsla(0,85%,55%,0.08))', borderColor: 'hsla(0,85%,55%,0.35)' }}>
+          <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(0,85%,72%)', textShadow: '0 0 8px hsla(0,85%,55%,0.7)' }}>Ops Central</span>
         </div>
-        <div className="flex-1 overflow-y-auto" style={{ background: 'linear-gradient(to bottom, hsla(0,85%,55%,0.07), transparent 40%)' }}>
+        <div className="flex-1 overflow-y-auto" style={{ background: 'radial-gradient(ellipse at top, hsla(0,85%,55%,0.18) 0%, transparent 55%), linear-gradient(to bottom, hsla(0,85%,55%,0.20), hsla(0,85%,55%,0.05) 100%)' }}>
           <GeneralDashboard
             onItemClick={handleDashboardItemClick}
             onOpenFulfillment={() => setActiveOrdersDrawer('fulfillment')}
@@ -350,10 +350,10 @@ export default function Home() {
       </div>
       {/* Product column — lego-blue */}
       <div className="flex flex-col h-full shrink-0 border-r border-white/5" style={{ flex: 1, minWidth: '260px' }}>
-        <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(220,85%,55%,0.18), hsla(220,85%,55%,0.04))', borderColor: 'hsla(220,85%,55%,0.28)' }}>
-          <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(220,85%,70%)' }}>Product</span>
+        <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(220,85%,55%,0.25), hsla(220,85%,55%,0.08))', borderColor: 'hsla(220,85%,55%,0.35)' }}>
+          <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(220,85%,75%)', textShadow: '0 0 8px hsla(220,85%,55%,0.7)' }}>Product</span>
         </div>
-        <div className="flex-1 overflow-y-auto" style={{ background: 'linear-gradient(to bottom, hsla(220,85%,55%,0.07), transparent 40%)' }}>
+        <div className="flex-1 overflow-y-auto" style={{ background: 'radial-gradient(ellipse at top, hsla(220,85%,55%,0.18) 0%, transparent 55%), linear-gradient(to bottom, hsla(220,85%,55%,0.20), hsla(220,85%,55%,0.05) 100%)' }}>
           <InventoryDashboard
             onItemClick={handleDashboardItemClick}
             activeDrawer={activeInventoryDrawer}
@@ -364,11 +364,11 @@ export default function Home() {
       </div>
       {/* Orders column — lego-orange */}
       <div className="flex flex-col h-full shrink-0 border-r border-white/5" style={{ flex: 1, minWidth: '260px' }}>
-        <div className="shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(25,95%,55%,0.18), hsla(25,95%,55%,0.04))', borderColor: 'hsla(25,95%,55%,0.28)' }}>
-          <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(25,95%,65%)' }}>Orders</span>
+        <div className="shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(25,95%,55%,0.25), hsla(25,95%,55%,0.08))', borderColor: 'hsla(25,95%,55%,0.35)' }}>
+          <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(25,95%,72%)', textShadow: '0 0 8px hsla(25,95%,55%,0.7)' }}>Orders</span>
           <div className="scale-90 origin-right"><DateRangeSelector value={dateRange} onChange={setDateRange} /></div>
         </div>
-        <div className="flex-1 overflow-y-auto" style={{ background: 'linear-gradient(to bottom, hsla(25,95%,55%,0.07), transparent 40%)' }}>
+        <div className="flex-1 overflow-y-auto" style={{ background: 'radial-gradient(ellipse at top, hsla(25,95%,55%,0.18) 0%, transparent 55%), linear-gradient(to bottom, hsla(25,95%,55%,0.20), hsla(25,95%,55%,0.05) 100%)' }}>
           <OrdersDashboard
             dateRange={dateRange}
             onItemClick={handleDashboardItemClick}
@@ -380,11 +380,11 @@ export default function Home() {
       </div>
       {/* Marketing column — lego-yellow */}
       <div className="flex flex-col h-full shrink-0 border-r border-white/5" style={{ flex: 1, minWidth: '260px' }}>
-        <div className="shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(48,95%,55%,0.18), hsla(48,95%,55%,0.04))', borderColor: 'hsla(48,95%,55%,0.28)' }}>
-          <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(48,95%,60%)' }}>Marketing</span>
+        <div className="shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(48,95%,55%,0.25), hsla(48,95%,55%,0.08))', borderColor: 'hsla(48,95%,55%,0.35)' }}>
+          <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(48,95%,65%)', textShadow: '0 0 8px hsla(48,95%,55%,0.7)' }}>Marketing</span>
           <div className="scale-90 origin-right"><DateRangeSelector value={dateRange} onChange={setDateRange} /></div>
         </div>
-        <div className="flex-1 overflow-y-auto" style={{ background: 'linear-gradient(to bottom, hsla(48,95%,55%,0.07), transparent 40%)' }}>
+        <div className="flex-1 overflow-y-auto" style={{ background: 'radial-gradient(ellipse at top, hsla(48,95%,55%,0.18) 0%, transparent 55%), linear-gradient(to bottom, hsla(48,95%,55%,0.20), hsla(48,95%,55%,0.05) 100%)' }}>
           <MarketingDashboard
             dateRange={dateRange}
             onItemClick={handleDashboardItemClick}
@@ -395,11 +395,11 @@ export default function Home() {
       </div>
       {/* Sales column — lego-green */}
       <div className="flex flex-col h-full shrink-0" style={{ flex: 1, minWidth: '260px' }}>
-        <div className="shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(140,70%,50%,0.18), hsla(140,70%,50%,0.04))', borderColor: 'hsla(140,70%,50%,0.28)' }}>
-          <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(140,70%,60%)' }}>Sales</span>
+        <div className="shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(140,70%,50%,0.25), hsla(140,70%,50%,0.08))', borderColor: 'hsla(140,70%,50%,0.35)' }}>
+          <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(140,70%,65%)', textShadow: '0 0 8px hsla(140,70%,50%,0.7)' }}>Sales</span>
           <div className="scale-90 origin-right"><DateRangeSelector value={dateRange} onChange={setDateRange} /></div>
         </div>
-        <div className="flex-1 overflow-y-auto" style={{ background: 'linear-gradient(to bottom, hsla(140,70%,50%,0.07), transparent 40%)' }}>
+        <div className="flex-1 overflow-y-auto" style={{ background: 'radial-gradient(ellipse at top, hsla(140,70%,50%,0.18) 0%, transparent 55%), linear-gradient(to bottom, hsla(140,70%,50%,0.20), hsla(140,70%,50%,0.05) 100%)' }}>
           <SalesDashboard
             period={salesPeriod}
             dateRange={dateRange}
