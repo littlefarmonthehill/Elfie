@@ -1058,7 +1058,7 @@ export default function Home() {
               src={brickLinkUrl}
               className="w-full flex-1 min-h-0"
               title="BrickLink"
-              sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+              sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms"
               data-testid="iframe-bricklink"
               onLoad={() => setBrickLinkLoading(false)}
             />
