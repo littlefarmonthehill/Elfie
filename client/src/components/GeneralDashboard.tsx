@@ -1107,7 +1107,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
       <DashboardNotifications />
 
       {/* Four Ops Lanes */}
-      <div className={panelMode ? "grid grid-cols-1 gap-3 items-stretch" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-4 xl:gap-5 items-stretch"} data-testid="ops-lanes">
+      <div className={panelMode ? "grid grid-cols-2 gap-3 items-stretch" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-4 xl:gap-5 items-stretch"} data-testid="ops-lanes">
 
         <InventoryLane
           stats={stats}
