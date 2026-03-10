@@ -3,9 +3,10 @@
  * Intercepts console.warn and console.error globally so all services
  * are captured without modifying call sites.
  *
- * Deduplication: if the same message fingerprint (first 120 chars) arrives
- * within 10 minutes of the previous occurrence, only the count is incremented.
- * This prevents a single runaway error from flooding the display.
+ * Deduplication: messages are normalized before fingerprinting so that
+ * variable parts (UUIDs, timestamps, org IDs, line numbers, port numbers)
+ * don't prevent identical errors from collapsing into a single counted entry.
+ * The dedup window is 1 hour so persistent background errors group tightly.
  */
 
 export type LogLevel = 'warn' | 'error';
@@ -19,13 +20,36 @@ export type LogEntry = {
 };
 
 const MAX_ENTRIES = 60;
-const DEDUP_WINDOW_MS = 10 * 60 * 1000;
+const DEDUP_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
 let _idSeq = 0;
 const _buffer: LogEntry[] = [];
 
+/**
+ * Normalize a log message so that variable runtime values don't prevent
+ * semantically identical messages from deduplicating.
+ *
+ * Strips (in order):
+ *  1. ISO 8601 timestamps          e.g. 2024-01-15T12:34:56.789Z
+ *  2. UUIDs (all variants)         e.g. 550e8400-e29b-41d4-a716-446655440000
+ *  3. Hex sequences ≥8 chars       e.g. session tokens, short hashes
+ *  4. Port numbers                 e.g. :5432  :3000
+ *  5. Standalone integers ≥4 digits e.g. row counts, org IDs, request IDs
+ *  6. Repeated whitespace
+ */
+function normalize(msg: string): string {
+  return msg
+    .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?/g, '<ts>')
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '<uuid>')
+    .replace(/\b[0-9a-f]{8,}\b/gi, '<hex>')
+    .replace(/:\d{2,5}\b/g, ':<port>')
+    .replace(/\b\d{4,}\b/g, '<n>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function fingerprint(msg: string): string {
-  return msg.slice(0, 120).replace(/\s+/g, ' ').trim();
+  return normalize(msg).slice(0, 160);
 }
 
 function push(level: LogLevel, msg: string): void {
