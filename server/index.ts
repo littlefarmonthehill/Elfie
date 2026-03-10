@@ -11,7 +11,7 @@ import { startUniversalCatalogScheduler } from "./services/universal-catalog-sch
 import { startRebrickableSetsScheduler } from "./services/rebrickable-sets-scheduler";
 import { startService as startSegmentService, warmupClip } from "./services/segmentClient";
 import { pool, db, runMigrations } from "./db";
-import { blInventory, scanEmbeddings, embeddingJobs, orders } from "@shared/schema";
+import { blInventory, blCatalogClipEmbeddings, embeddingJobs, orders } from "@shared/schema";
 import { sql as drizzleSqlCount, eq, inArray } from "drizzle-orm";
 
 // Suppress Vite's process.exit(1) which fires on any CSS/TS compilation error.
@@ -285,7 +285,7 @@ app.use((req, res, next) => {
 
           // Count inventory items vs catalog embeddings to see if build is incomplete
           const [invCount] = await db.select({ count: drizzleSqlCount`count(*)` }).from(blInventory);
-          const [embCount] = await db.select({ count: drizzleSqlCount`count(*)` }).from(scanEmbeddings)
+          const [embCount] = await db.select({ count: drizzleSqlCount`count(*)` }).from(blCatalogClipEmbeddings)
             .where(drizzleSqlCount`source = 'catalog'`);
 
           const total = Number((invCount as any).count);

@@ -1,7 +1,7 @@
 /**
  * CLIP-based visual similarity search for Brick Spotter 3000.
  *
- * Stores 512-dim CLIP ViT-B/32 embeddings in the scan_embeddings table and
+ * Stores 512-dim CLIP ViT-B/32 embeddings in the bl_catalog_clip_embeddings table and
  * searches them via pgvector cosine distance (<=>).
  *
  * Two embedding sources:
@@ -10,7 +10,7 @@
  */
 
 import { db } from '../db';
-import { scanEmbeddings } from '../../shared/schema';
+import { blCatalogClipEmbeddings } from '../../shared/schema';
 import { sql, eq, and } from 'drizzle-orm';
 import { embedUrl, isScanActive } from './segmentClient';
 
@@ -74,7 +74,7 @@ export async function findNearestParts(
       color_id,
       source,
       1 - (embedding <=> ${vecLit}::vector) AS similarity
-    FROM scan_embeddings
+    FROM bl_catalog_clip_embeddings
     WHERE embedding IS NOT NULL
     ORDER BY embedding <=> ${vecLit}::vector
     LIMIT ${limit}
@@ -93,7 +93,7 @@ export async function findNearestParts(
 
 // ── Storage ───────────────────────────────────────────────────────────────────
 
-/** Upsert (by itemNo+colorId+source) a CLIP embedding into scan_embeddings. */
+/** Upsert (by itemNo+colorId+source) a CLIP embedding into bl_catalog_clip_embeddings. */
 export async function storeScanEmbedding(
   itemNo: string,
   colorId: number | null,
@@ -107,7 +107,7 @@ export async function storeScanEmbedding(
   const vecLit = toVectorLiteral(embedding);
 
   await db.execute(sql`
-    INSERT INTO scan_embeddings (item_no, item_type, color_id, embedding, source, clip_model)
+    INSERT INTO bl_catalog_clip_embeddings (item_no, item_type, color_id, embedding, source, clip_model)
     VALUES (
       ${itemNo}, ${itemType}, ${colorId}, ${vecLit}::vector, ${source}, 'ViT-B/32'
     )
@@ -123,7 +123,7 @@ export function catalogImageUrl(itemNo: string, colorId: number): string {
 }
 
 /**
- * Batch-embed BrickLink inventory items into scan_embeddings using CDN reference
+ * Batch-embed BrickLink inventory items into bl_catalog_clip_embeddings using CDN reference
  * images.  Skips items that already have a 'catalog' embedding.
  *
  * @param items  Array of { itemNo, colorId, itemType? }
@@ -144,7 +144,7 @@ export async function buildCatalogEmbeddings(
 
   // Load items that already have catalog embeddings
   const existingRows = await db.execute<{ item_no: string; color_id: number }>(sql`
-    SELECT item_no, color_id FROM scan_embeddings WHERE source = 'catalog'
+    SELECT item_no, color_id FROM bl_catalog_clip_embeddings WHERE source = 'catalog'
   `);
   const existing = new Set(
     (existingRows.rows ?? []).map((r) => `${r.item_no}:${r.color_id}`)
@@ -216,7 +216,7 @@ export async function getCatalogEmbeddingStats(): Promise<{
   buildStartedAt?: number;
 }> {
   const rows = await db.execute<{ source: string; cnt: string }>(sql`
-    SELECT source, COUNT(*)::text AS cnt FROM scan_embeddings GROUP BY source
+    SELECT source, COUNT(*)::text AS cnt FROM bl_catalog_clip_embeddings GROUP BY source
   `);
   let catalog = 0, scan = 0;
   for (const r of rows.rows ?? []) {

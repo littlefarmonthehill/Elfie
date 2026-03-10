@@ -1,6 +1,6 @@
 /**
  * Universal CLIP Catalog — background worker that embeds every known BrickLink
- * part into scan_embeddings (source='universal') so BrickSpotter can recognize
+ * part into bl_catalog_clip_embeddings (source='universal') so BrickSpotter can recognize
  * parts outside your inventory.
  *
  * Flow:
@@ -197,10 +197,10 @@ async function processOnePart(partNo: string): Promise<void> {
     const url = partImageUrl(partNo);
     const embedding = await embedUrl(url);
 
-    // Store in scan_embeddings with source='universal'
+    // Store in bl_catalog_clip_embeddings with source='universal'
     const vecLit = `[${embedding.join(',')}]`;
     await db.execute(sql`
-      INSERT INTO scan_embeddings (item_no, item_type, color_id, embedding, source, clip_model)
+      INSERT INTO bl_catalog_clip_embeddings (item_no, item_type, color_id, embedding, source, clip_model)
       VALUES (${partNo}, 'PART', NULL, ${vecLit}::vector, 'universal', 'ViT-B/32')
       ON CONFLICT DO NOTHING
     `);
@@ -318,7 +318,7 @@ export interface UniversalCatalogStatus {
   embedded:        number;
   noImage:         number;
   failed:          number;
-  universalInDb:   number;  // rows in scan_embeddings with source='universal'
+  universalInDb:   number;  // rows in bl_catalog_clip_embeddings with source='universal'
   workerRunning:   boolean;
   workerEmbedded:  number;
   workerNoImage:   number;
@@ -338,7 +338,7 @@ export async function getUniversalCatalogStatus(): Promise<UniversalCatalogStatu
   for (const r of queueRows) counts[r.status] = Number(r.cnt);
 
   const [dbRow] = await db.execute<{ cnt: string }>(
-    sql`SELECT COUNT(*)::text AS cnt FROM scan_embeddings WHERE source = 'universal'`
+    sql`SELECT COUNT(*)::text AS cnt FROM bl_catalog_clip_embeddings WHERE source = 'universal'`
   ).then(r => r.rows ?? []);
 
   const queueSize = Object.values(counts).reduce((a, b) => a + b, 0);

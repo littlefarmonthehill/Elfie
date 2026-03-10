@@ -845,10 +845,12 @@ export const insertSetPartEmbeddingSchema = createInsertSchema(setPartEmbeddings
 export type InsertSetPartEmbedding = z.infer<typeof insertSetPartEmbeddingSchema>;
 export type SetPartEmbedding = typeof setPartEmbeddings.$inferSelect;
 
-// Scan Embeddings — CLIP visual fingerprints for Brick Spotter recognition
-// source='catalog': embedded from BrickLink CDN reference image
-// source='scan':    embedded from a confirmed Brick Spotter crop (higher quality)
-export const scanEmbeddings = pgTable("scan_embeddings", {
+// Catalog CLIP Embeddings — 512-dim visual fingerprints keyed to bl_catalog entries
+// Shared across all orgs (no org_id). One embedding per (itemNo, itemType, colorId, source).
+// source='catalog':  embedded from BrickLink CDN reference image (batch-built)
+// source='scan':     embedded from a confirmed Brick Spotter crop (higher quality)
+// source='universal': color-agnostic embedding from Rebrickable images
+export const blCatalogClipEmbeddings = pgTable("bl_catalog_clip_embeddings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   itemNo: text("item_no").notNull(),
   itemType: text("item_type").notNull().default('PART'),
@@ -858,15 +860,22 @@ export const scanEmbeddings = pgTable("scan_embeddings", {
   clipModel: text("clip_model").notNull().default('ViT-B/32'),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
-  scanEmbPartIdx: index("scan_embeddings_part_idx").on(table.itemNo, table.itemType, table.colorId),
+  blCatalogClipEmbPartIdx: index("bl_catalog_clip_emb_part_idx").on(table.itemNo, table.itemType, table.colorId),
 }));
 
-export const insertScanEmbeddingSchema = createInsertSchema(scanEmbeddings).omit({
+export const insertBlCatalogClipEmbeddingSchema = createInsertSchema(blCatalogClipEmbeddings).omit({
   id: true,
   createdAt: true,
 });
-export type InsertScanEmbedding = z.infer<typeof insertScanEmbeddingSchema>;
-export type ScanEmbedding = typeof scanEmbeddings.$inferSelect;
+export type InsertBlCatalogClipEmbedding = z.infer<typeof insertBlCatalogClipEmbeddingSchema>;
+export type BlCatalogClipEmbedding = typeof blCatalogClipEmbeddings.$inferSelect;
+
+export const blCatalogClipEmbeddingsRelations = relations(blCatalogClipEmbeddings, ({ one }) => ({
+  catalog: one(blCatalog, {
+    fields: [blCatalogClipEmbeddings.itemNo, blCatalogClipEmbeddings.itemType, blCatalogClipEmbeddings.colorId],
+    references: [blCatalog.itemNo, blCatalog.itemType, blCatalog.colorId],
+  }),
+}));
 
 // Background Embedding Jobs - For async embedding generation
 export const embeddingJobs = pgTable("embedding_jobs", {
@@ -1352,7 +1361,7 @@ export type AppFeedback = typeof appFeedback.$inferSelect;
 
 // ── Universal CLIP Catalog Queue ──────────────────────────────────────────────
 // Tracks every BrickLink part number for the universal visual training catalog.
-// Worker processes 'pending' rows, embeds via CLIP, stores in scan_embeddings
+// Worker processes 'pending' rows, embeds via CLIP, stores in bl_catalog_clip_embeddings
 // with source='universal'. Survives restarts — picks up from 'pending' rows.
 export const universalCatalogQueue = pgTable("universal_catalog_queue", {
   partNo: text("part_no").primaryKey(),
