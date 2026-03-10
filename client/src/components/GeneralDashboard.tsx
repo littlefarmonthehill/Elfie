@@ -16,6 +16,7 @@ interface GeneralDashboardProps {
   onOpenBrickanalyzer?: () => void;
   onOpenPriceomatic?: () => void;
   onOpenSettings?: (section: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'billing') => void;
+  panelMode?: boolean;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -982,7 +983,7 @@ function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onO
 
 // ── MAIN COMPONENT ────────────────────────────────────────────────────────────
 
-export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpenBrickanalyzer, onOpenPriceomatic, onOpenSettings }: GeneralDashboardProps) {
+export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpenBrickanalyzer, onOpenPriceomatic, onOpenSettings, panelMode }: GeneralDashboardProps) {
 
   const { data: stats } = useQuery<{ totalOrders: number; totalInventoryItems: number; totalInventoryQuantity: number; totalSales: number }>({
     queryKey: ['/api/dashboard/stats'],
@@ -1097,7 +1098,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   }, 0) || 0;
 
   return (
-    <div className="p-3 md:p-4 lg:p-5 xl:p-6 space-y-4 md:space-y-4 xl:space-y-5">
+    <div className={panelMode ? "p-3 space-y-3" : "p-3 md:p-4 lg:p-5 xl:p-6 space-y-4 md:space-y-4 xl:space-y-5"}>
 
       {/* System Pulse — only shows when there are errors or setup gaps */}
       <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings} />
@@ -1106,7 +1107,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
       <DashboardNotifications />
 
       {/* Four Ops Lanes */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-4 xl:gap-5 items-stretch" data-testid="ops-lanes">
+      <div className={panelMode ? "grid grid-cols-1 gap-3 items-stretch" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-4 xl:gap-5 items-stretch"} data-testid="ops-lanes">
 
         <InventoryLane
           stats={stats}
