@@ -89,6 +89,15 @@ function LaneSection({ label, children, collapsible = false, className = "" }: {
   if (collapsible && label) {
     return (
       <div className={`relative mt-auto z-10 ${className}`}>
+        {/* Content — slides up above the trigger bar */}
+        <div
+          className="overflow-hidden transition-all duration-300 ease-in-out"
+          style={{ maxHeight: expanded ? '11rem' : '0px' }}
+        >
+          <div className="space-y-1.5 overflow-y-auto px-3 pb-2 pt-1 bg-gray-900/95 border-x border-t border-border/40 rounded-t-lg" style={{ maxHeight: '11rem' }}>
+            {children}
+          </div>
+        </div>
         {/* Trigger bar — pinned to card bottom via mt-auto */}
         <button
           onClick={() => setExpanded(v => !v)}
@@ -99,12 +108,6 @@ function LaneSection({ label, children, collapsible = false, className = "" }: {
           <p className="text-[10px] uppercase tracking-widest text-foreground/60 font-semibold flex-1">{label}</p>
           <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground/70 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
         </button>
-        {/* Content — expands downward below the trigger bar */}
-        {expanded && (
-          <div className="space-y-1.5 max-h-44 overflow-y-auto px-3 pb-2 pt-1 bg-gray-900/95 border border-border/40 rounded-b-lg">
-            {children}
-          </div>
-        )}
       </div>
     );
   }
