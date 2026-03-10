@@ -387,9 +387,9 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
       <div className="space-y-1.5">
 
         {/* ── Customer Overview ── */}
-        <div className="relative bg-gradient-to-b from-yellow-950/20 to-gray-900/85 border border-yellow-500/40 rounded-lg p-3 shadow-[0_0_22px_rgba(234,179,8,0.10)] overflow-hidden" data-testid="section-customer-overview">
+        <div className={cn("relative bg-gradient-to-b from-yellow-950/20 to-gray-900/85 border border-yellow-500/40 rounded-lg shadow-[0_0_22px_rgba(234,179,8,0.10)] overflow-hidden", panelMode ? "p-2" : "p-3")} data-testid="section-customer-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-yellow-400/50 to-transparent" />
-          <div className="flex items-center gap-2 mb-2.5">
+          <div className={cn("flex items-center gap-2", panelMode ? "mb-1" : "mb-2.5")}>
             <div className="p-1.5 rounded-md bg-yellow-900/60 ring-1 ring-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.22)]">
               <Users className={cn("w-3 h-3 text-yellow-200", !panelMode && "md:w-4 md:h-4")} />
             </div>
@@ -407,21 +407,21 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
         </div>
 
         {/* ── Tools ── */}
-        <div className="relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg p-3 shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden" data-testid="section-marketing-tools">
+        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", panelMode ? "p-2" : "p-3")} data-testid="section-marketing-tools">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
-          <div className="flex items-center gap-2 mb-3">
+          <div className={cn("flex items-center gap-2", panelMode ? "mb-1" : "mb-3")}>
             <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
               <Sparkles className={cn("w-3 h-3 text-gray-200", !panelMode && "md:w-4 md:h-4")} />
             </div>
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", !panelMode && "md:text-base")}>Tools</h3>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className={cn("grid grid-cols-2", panelMode ? "gap-1.5" : "gap-2")}>
 
             {/* Attract */}
             <button
               onClick={() => onDrawerChange('attract')}
               data-testid="tool-attract"
-              className="group flex flex-col gap-1.5 rounded-lg border border-indigo-500/50 bg-gradient-to-br from-indigo-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(99,102,241,0.09)]"
+              className={cn("group rounded-lg border border-indigo-500/50 bg-gradient-to-br from-indigo-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(99,102,241,0.09)]", panelMode ? "flex items-center gap-2 p-2" : "flex flex-col gap-1.5 p-3")}
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-indigo-900/70 p-1.5 ring-1 ring-indigo-500/45 shadow-[0_0_10px_rgba(99,102,241,0.22)]">
@@ -457,7 +457,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
             <button
               onClick={() => onDrawerChange('engage-new')}
               data-testid="tool-engage-new"
-              className="group flex flex-col gap-1.5 rounded-lg border border-cyan-500/50 bg-gradient-to-br from-cyan-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(6,182,212,0.09)]"
+              className={cn("group rounded-lg border border-cyan-500/50 bg-gradient-to-br from-cyan-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(6,182,212,0.09)]", panelMode ? "flex items-center gap-2 p-2" : "flex flex-col gap-1.5 p-3")}
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-cyan-900/70 p-1.5 ring-1 ring-cyan-500/45 shadow-[0_0_10px_rgba(6,182,212,0.22)]">
@@ -499,7 +499,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
             <button
               onClick={() => onDrawerChange('engage-repeat')}
               data-testid="tool-engage-repeat"
-              className="group flex flex-col gap-1.5 rounded-lg border border-blue-500/50 bg-gradient-to-br from-blue-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(59,130,246,0.09)]"
+              className={cn("group rounded-lg border border-blue-500/50 bg-gradient-to-br from-blue-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(59,130,246,0.09)]", panelMode ? "flex items-center gap-2 p-2" : "flex flex-col gap-1.5 p-3")}
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-blue-900/70 p-1.5 ring-1 ring-blue-500/45 shadow-[0_0_10px_rgba(59,130,246,0.22)]">
@@ -541,7 +541,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
             <button
               onClick={() => onDrawerChange('engage-top')}
               data-testid="tool-engage-top"
-              className="group flex flex-col gap-1.5 rounded-lg border border-amber-500/50 bg-gradient-to-br from-amber-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(245,158,11,0.09)]"
+              className={cn("group rounded-lg border border-amber-500/50 bg-gradient-to-br from-amber-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(245,158,11,0.09)]", panelMode ? "flex items-center gap-2 p-2" : "flex flex-col gap-1.5 p-3")}
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-amber-900/70 p-1.5 ring-1 ring-amber-500/45 shadow-[0_0_10px_rgba(245,158,11,0.22)]">

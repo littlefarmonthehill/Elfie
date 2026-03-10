@@ -817,7 +817,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
           <MetricCard label="Gross Revenue" value={`$${Math.round(totalRevenue).toLocaleString()}`} color="green" data-testid="metric-sales-gross" />
           <MetricCard label="Avg Order" value={`$${averageOrderValue.toFixed(2)}`} color="green" data-testid="metric-sales-avg" />
         </div>
-        {!panelMode && adjustmentSummary && (
+        {adjustmentSummary && (
           <div className="grid grid-cols-4 gap-1.5">
             <MetricCard label="Net Revenue" value={`$${Math.max(0, totalRevenue - adjustmentSummary.totalRefunds).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} color="green" data-testid="metric-sales-net" />
             <MetricCard label="Refunds" value={adjustmentSummary.totalRefunds > 0 ? `-$${adjustmentSummary.totalRefunds.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0'} color="red" data-testid="metric-sales-refunds" />
