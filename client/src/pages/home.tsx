@@ -41,6 +41,7 @@ export default function Home() {
   });
   const { data: org } = useQuery<Organization>({ queryKey: ['/api/org'] });
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
+  const [isPanelMode, setIsPanelMode] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1280);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'priceomatic' | null>(null);
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
@@ -134,6 +135,13 @@ export default function Home() {
 
     prevSyncStatuses.current = curr;
   }, [globalSyncStatuses]);
+
+  // Panel mode: switch between tabbed and side-by-side column layout
+  useEffect(() => {
+    const check = () => setIsPanelMode(window.innerWidth >= 1280);
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   // Calculate total discrepancies across all platforms
   const totalDiscrepancies = syncStatus?.targets?.reduce((total: number, platform: any) => {
@@ -322,6 +330,85 @@ export default function Home() {
       }
     }
   };
+
+  const renderPanelMode = () => (
+    <div className="flex h-full overflow-x-auto">
+      {/* Dashboard column — lego-red */}
+      <div className="flex flex-col h-full shrink-0 border-r border-white/5" style={{ flex: 1, minWidth: '260px' }}>
+        <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(0,85%,55%,0.18), hsla(0,85%,55%,0.04))', borderColor: 'hsla(0,85%,55%,0.28)' }}>
+          <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(0,85%,65%)' }}>Dashboard</span>
+        </div>
+        <div className="flex-1 overflow-y-auto" style={{ background: 'linear-gradient(to bottom, hsla(0,85%,55%,0.07), transparent 40%)' }}>
+          <GeneralDashboard
+            onItemClick={handleDashboardItemClick}
+            onOpenFulfillment={() => setActiveOrdersDrawer('fulfillment')}
+            onOpenBrickanalyzer={() => setActiveInventoryDrawer('brickanalyzer')}
+            onOpenPriceomatic={() => setActiveInventoryDrawer('priceomatic')}
+            onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
+          />
+        </div>
+      </div>
+      {/* Product column — lego-blue */}
+      <div className="flex flex-col h-full shrink-0 border-r border-white/5" style={{ flex: 1, minWidth: '260px' }}>
+        <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(220,85%,55%,0.18), hsla(220,85%,55%,0.04))', borderColor: 'hsla(220,85%,55%,0.28)' }}>
+          <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(220,85%,70%)' }}>Product</span>
+        </div>
+        <div className="flex-1 overflow-y-auto" style={{ background: 'linear-gradient(to bottom, hsla(220,85%,55%,0.07), transparent 40%)' }}>
+          <InventoryDashboard
+            onItemClick={handleDashboardItemClick}
+            activeDrawer={activeInventoryDrawer}
+            onDrawerChange={setActiveInventoryDrawer}
+            onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }}
+          />
+        </div>
+      </div>
+      {/* Orders column — lego-orange */}
+      <div className="flex flex-col h-full shrink-0 border-r border-white/5" style={{ flex: 1, minWidth: '260px' }}>
+        <div className="shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(25,95%,55%,0.18), hsla(25,95%,55%,0.04))', borderColor: 'hsla(25,95%,55%,0.28)' }}>
+          <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(25,95%,65%)' }}>Orders</span>
+          <div className="scale-90 origin-right"><DateRangeSelector value={dateRange} onChange={setDateRange} /></div>
+        </div>
+        <div className="flex-1 overflow-y-auto" style={{ background: 'linear-gradient(to bottom, hsla(25,95%,55%,0.07), transparent 40%)' }}>
+          <OrdersDashboard
+            dateRange={dateRange}
+            onItemClick={handleDashboardItemClick}
+            activeDrawer={activeOrdersDrawer}
+            onDrawerChange={setActiveOrdersDrawer}
+            onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }}
+          />
+        </div>
+      </div>
+      {/* Marketing column — lego-yellow */}
+      <div className="flex flex-col h-full shrink-0 border-r border-white/5" style={{ flex: 1, minWidth: '260px' }}>
+        <div className="shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(48,95%,55%,0.18), hsla(48,95%,55%,0.04))', borderColor: 'hsla(48,95%,55%,0.28)' }}>
+          <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(48,95%,60%)' }}>Marketing</span>
+          <div className="scale-90 origin-right"><DateRangeSelector value={dateRange} onChange={setDateRange} /></div>
+        </div>
+        <div className="flex-1 overflow-y-auto" style={{ background: 'linear-gradient(to bottom, hsla(48,95%,55%,0.07), transparent 40%)' }}>
+          <MarketingDashboard
+            dateRange={dateRange}
+            onItemClick={handleDashboardItemClick}
+            activeDrawer={activeMarketingDrawer}
+            onDrawerChange={setActiveMarketingDrawer}
+          />
+        </div>
+      </div>
+      {/* Sales column — lego-green */}
+      <div className="flex flex-col h-full shrink-0" style={{ flex: 1, minWidth: '260px' }}>
+        <div className="shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(140,70%,50%,0.18), hsla(140,70%,50%,0.04))', borderColor: 'hsla(140,70%,50%,0.28)' }}>
+          <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(140,70%,60%)' }}>Sales</span>
+          <div className="scale-90 origin-right"><DateRangeSelector value={dateRange} onChange={setDateRange} /></div>
+        </div>
+        <div className="flex-1 overflow-y-auto" style={{ background: 'linear-gradient(to bottom, hsla(140,70%,50%,0.07), transparent 40%)' }}>
+          <SalesDashboard
+            period={salesPeriod}
+            dateRange={dateRange}
+            onItemClick={handleDashboardItemClick}
+          />
+        </div>
+      </div>
+    </div>
+  );
 
   const renderDashboard = () => {
     switch (activeDashboard) {
@@ -779,31 +866,33 @@ export default function Home() {
         />
       )}
       
-      {/* Sticky Dashboard Nav with soft gradient background */}
-      <div className="sticky top-14 md:top-20 lg:top-24 z-40 bg-gradient-to-r from-purple-950/40 via-blue-950/30 to-purple-950/40 backdrop-blur-sm">
-        <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
-      </div>
-      
+      {/* Sticky Dashboard Nav — hidden in panel mode */}
+      {!isPanelMode && (
+        <div className="sticky top-14 md:top-20 lg:top-24 z-40 bg-gradient-to-r from-purple-950/40 via-blue-950/30 to-purple-950/40 backdrop-blur-sm">
+          <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
+        </div>
+      )}
 
-
-      {/* Date Range Selector - Show for sales, marketing, and orders */}
-      {(activeDashboard === 'sales' || activeDashboard === 'marketing' || activeDashboard === 'orders') && (
+      {/* Date Range Selector - Show for sales, marketing, and orders (tabbed mode only) */}
+      {!isPanelMode && (activeDashboard === 'sales' || activeDashboard === 'marketing' || activeDashboard === 'orders') && (
         <div className="sticky top-24 md:top-[8.5rem] lg:top-40 z-30 px-3 md:px-8 lg:px-10 py-2 md:py-4 lg:py-5 bg-gradient-to-r from-pink-950/30 via-fuchsia-950/20 to-pink-950/30 border-b border-pink-800/30 backdrop-blur-sm">
           <DateRangeSelector value={dateRange} onChange={setDateRange} />
         </div>
       )}
       
-      {/* Dashboard - Full height now that chat is in drawer */}
-      <div className="flex-1 overflow-y-auto">
-        <div className={`h-full ${
-          activeDashboard === 'dashboard' ? 'bg-gradient-to-b from-lego-red/20 to-lego-red/5' :
-          activeDashboard === 'inventory' ? 'bg-gradient-to-b from-lego-blue/20 to-lego-blue/5' :
-          activeDashboard === 'orders' ? 'bg-gradient-to-b from-lego-orange/20 to-lego-orange/5' :
-          activeDashboard === 'sales' ? 'bg-gradient-to-b from-lego-green/20 to-lego-green/5' :
-          'bg-gradient-to-b from-lego-yellow/20 to-lego-yellow/5'
-        }`}>
-          {renderDashboard()}
-        </div>
+      {/* Dashboard area — panel mode: all columns; tabbed mode: single active dashboard */}
+      <div className={isPanelMode ? 'flex-1 overflow-hidden' : 'flex-1 overflow-y-auto'}>
+        {isPanelMode ? renderPanelMode() : (
+          <div className={`h-full ${
+            activeDashboard === 'dashboard' ? 'bg-gradient-to-b from-lego-red/20 to-lego-red/5' :
+            activeDashboard === 'inventory' ? 'bg-gradient-to-b from-lego-blue/20 to-lego-blue/5' :
+            activeDashboard === 'orders' ? 'bg-gradient-to-b from-lego-orange/20 to-lego-orange/5' :
+            activeDashboard === 'sales' ? 'bg-gradient-to-b from-lego-green/20 to-lego-green/5' :
+            'bg-gradient-to-b from-lego-yellow/20 to-lego-yellow/5'
+          }`}>
+            {renderDashboard()}
+          </div>
+        )}
       </div>
 
       {/* Elfie Chat Drawer - Jetsons Style */}
