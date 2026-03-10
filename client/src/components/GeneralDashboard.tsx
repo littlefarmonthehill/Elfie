@@ -845,11 +845,22 @@ function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onO
   const trialSeverity = trialDaysLeft !== null && trialDaysLeft <= 3 ? 'error' : trialDaysLeft !== null && trialDaysLeft <= 7 ? 'warn' : null;
 
   return (
-    <div className="rounded-lg border border-gray-800/60 bg-gray-900/60 overflow-hidden" data-testid="system-pulse">
+    <div
+      className="relative rounded-lg border border-violet-500/40 bg-gradient-to-b from-violet-950/30 to-gray-900/85"
+      style={{ boxShadow: '0 0 40px rgba(168,85,247,0.28), 0 0 12px rgba(168,85,247,0.28)' }}
+      data-testid="system-pulse"
+    >
+      {/* Shine line */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-400/50 to-transparent pointer-events-none z-10" />
       {/* Header — plan name + interval + renewal date right-aligned */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-800/40 bg-gray-900/80">
-        <CreditCard className="w-4 h-4 shrink-0 text-violet-400 opacity-80" />
-        <span className="text-xs font-semibold uppercase tracking-widest">Your Plan</span>
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-violet-500/40 bg-gradient-to-b from-violet-950/40 to-gray-900/80 rounded-t-lg">
+        <div
+          className="p-1 rounded-md bg-purple-900/60 ring-1 ring-purple-500/50 shrink-0"
+          style={{ boxShadow: '0 0 8px rgba(168,85,247,0.55)' }}
+        >
+          <CreditCard className="w-3 h-3 text-purple-200" />
+        </div>
+        <span className="text-xs font-semibold uppercase tracking-widest text-purple-200">Your Plan</span>
         {billingStatus && (
           <button
             onClick={() => onOpenSettings?.('billing')}
