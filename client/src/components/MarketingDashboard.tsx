@@ -324,7 +324,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
       if (!response.ok) throw new Error('Failed to fetch customer stats');
       return response.json();
     },
-    staleTime: 60000,
+    staleTime: 300000,
   });
 
   const customerData = useMemo(() => rawStats.map(mapRow), [rawStats]);

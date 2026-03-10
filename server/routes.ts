@@ -1725,22 +1725,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Single-pass query: DISTINCT ON gets most-recent order row per customer,
       // window functions compute aggregates across all matching orders for that customer.
+      // Date conditions are built conditionally to avoid null-parameter ambiguity in Drizzle sql tags.
+      const startCond = dateFilter    ? sql`AND order_date >= ${dateFilter}::timestamp`    : sql``;
+      const endCond   = endDateFilter ? sql`AND order_date <  ${endDateFilter}::timestamp` : sql``;
+
       const result = await db.execute(sql`
         SELECT DISTINCT ON (customer_username)
           id                                                                          AS most_recent_order_id,
           customer_username,
           customer_email,
           ship_to,
-          COUNT(*)       OVER (PARTITION BY customer_username)::int                   AS order_count,
-          SUM(order_total::numeric) OVER (PARTITION BY customer_username)::float        AS total_revenue,
-          MAX(order_date) OVER (PARTITION BY customer_username)                       AS last_order_date,
-          MIN(order_date) OVER (PARTITION BY customer_username)                       AS first_order_date
+          COUNT(*)          OVER (PARTITION BY customer_username)::int                AS order_count,
+          SUM(order_total::numeric) OVER (PARTITION BY customer_username)::float      AS total_revenue,
+          MAX(order_date)   OVER (PARTITION BY customer_username)                    AS last_order_date,
+          MIN(order_date)   OVER (PARTITION BY customer_username)                    AS first_order_date
         FROM orders
         WHERE org_id        = ${orgId}
           AND is_test       = false
           AND order_status  NOT IN ('cancelled', 'Cancelled')
-          AND (${dateFilter}    IS NULL OR order_date >= ${dateFilter})
-          AND (${endDateFilter} IS NULL OR order_date <  ${endDateFilter})
+          ${startCond}
+          ${endCond}
         ORDER BY customer_username, order_date DESC
       `);
 
