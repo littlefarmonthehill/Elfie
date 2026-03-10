@@ -5480,7 +5480,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             name: piece.partName || activeInvRows[0]?.itemName || null,
             imageUrl: activeInvRows[0]?.imageUrl || null,
             thumbnailUrl: activeInvRows[0]?.thumbnailUrl || null,
-            categoryId: null,
+            categoryId: activeInvRows[0]?.categoryId ?? null,
           };
 
           // 3. BrickLink price guide — always real-time for each identified piece (no cache bypass).
@@ -9203,7 +9203,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .select({
           inventoryId: blInventory.id,
           itemNo: blInventory.itemNo,
-          itemName: priceGuideCache.itemName,
+          itemName: blCatalog.itemName,
           itemType: blInventory.itemType,
           colorId: blInventory.colorId,
           colorName: blColors.name,
@@ -9230,6 +9230,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         })
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
         .innerJoin(
           priceGuideCache,
           and(

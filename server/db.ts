@@ -159,6 +159,33 @@ export async function runMigrations() {
     `);
     await client.query(`DELETE FROM app_settings WHERE id = 'default'`);
     console.log('[Migration] Phase-5 (merge default credentials) complete.');
+
+    // ── Phase-6: Backfill bl_catalog from price_guide_cache ──────────────────
+    // bl_catalog is the SOT for item names and categories. It gets populated by
+    // the full BL inventory sync AND incrementally by fetchPriceOMagicData.
+    // This one-time backfill seeds it from any existing price_guide_cache rows
+    // so names/categories appear immediately without needing a re-sync.
+    await client.query(`
+      INSERT INTO bl_catalog (item_no, item_type, color_id, item_name, category_id, image_url, thumbnail_url)
+      SELECT DISTINCT ON (item_no, item_type, COALESCE(color_id, 0))
+        item_no,
+        item_type,
+        COALESCE(color_id, 0),
+        item_name,
+        category_id,
+        image_url,
+        thumbnail_url
+      FROM price_guide_cache
+      WHERE item_name IS NOT NULL
+      ORDER BY item_no, item_type, COALESCE(color_id, 0), fetched_at DESC
+      ON CONFLICT (item_no, item_type, color_id) DO UPDATE
+      SET
+        item_name    = COALESCE(EXCLUDED.item_name, bl_catalog.item_name),
+        category_id  = COALESCE(EXCLUDED.category_id, bl_catalog.category_id),
+        image_url    = COALESCE(EXCLUDED.image_url, bl_catalog.image_url),
+        thumbnail_url = COALESCE(EXCLUDED.thumbnail_url, bl_catalog.thumbnail_url)
+    `);
+    console.log('[Migration] Phase-6 (bl_catalog backfill from price_guide_cache) complete.');
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

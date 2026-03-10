@@ -1679,6 +1679,42 @@ export async function fetchPriceOMagicData(
 
     console.log(`[Price-o-Matic] Cached data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
 
+    // Backfill bl_catalog — the SOT for item names, categories, and images.
+    // bl_catalog is keyed (itemNo, itemType, colorId). We upsert one row per unique lot colorId
+    // so the join in browse/insights queries can find it by exact colorId match.
+    // COALESCE in the SET clause ensures we never overwrite a good value with null.
+    const catalogItemName = localItemData?.name || itemDetails?.name || null;
+    const catalogCategoryId = localItemData?.categoryId || itemDetails?.category_id || null;
+    const catalogImageUrl = localItemData?.imageUrl || itemDetails?.image_url || null;
+    const catalogThumbnailUrl = localItemData?.thumbnailUrl || itemDetails?.thumbnail_url || null;
+    if (catalogItemName || catalogCategoryId) {
+      try {
+        await db
+          .insert(blCatalog)
+          .values({
+            itemNo,
+            itemType: apiItemType,
+            colorId: colorId ?? 0,
+            itemName: catalogItemName,
+            categoryId: catalogCategoryId,
+            imageUrl: catalogImageUrl,
+            thumbnailUrl: catalogThumbnailUrl,
+          })
+          .onConflictDoUpdate({
+            target: [blCatalog.itemNo, blCatalog.itemType, blCatalog.colorId],
+            set: {
+              itemName: sql`COALESCE(EXCLUDED.item_name, bl_catalog.item_name)`,
+              categoryId: sql`COALESCE(EXCLUDED.category_id, bl_catalog.category_id)`,
+              imageUrl: sql`COALESCE(EXCLUDED.image_url, bl_catalog.image_url)`,
+              thumbnailUrl: sql`COALESCE(EXCLUDED.thumbnail_url, bl_catalog.thumbnail_url)`,
+              updatedAt: new Date(),
+            },
+          });
+      } catch (catalogErr) {
+        console.warn(`[Price-o-Matic] bl_catalog upsert failed for ${apiItemType}/${itemNo} (non-fatal):`, catalogErr);
+      }
+    }
+
     // Append to price history — pure insert, never overwrites, builds time-series beyond BL's 6-month cap
     try {
       const today = new Date().toISOString().split('T')[0];
