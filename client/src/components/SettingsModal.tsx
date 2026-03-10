@@ -2168,7 +2168,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   { key: null,               tierKey: 'paymentSync',         label: 'Payment Sync',           icon: CreditCard },
                 ];
                 return (
-                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                  <div className="sm-card">
                     <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
                       <Flag className="h-3.5 w-3.5 text-yellow-500/70" />
                       <span className="text-xs font-semibold text-gray-200">Features</span>
@@ -2229,7 +2229,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   { label: 'Automation Rules',     planMax: fmtLimit(tier.limits.automationRules),        usage: tenantLimitsData ? String(tenantLimitsData.usage.automationRules.count) : '—' },
                 ];
                 return (
-                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                  <div className="sm-card">
                     <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
                       <Wrench className="h-3.5 w-3.5 text-yellow-500/70" />
                       <span className="text-xs font-semibold text-gray-200">Plan Limits</span>
@@ -2316,7 +2316,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       )}
 
                       {isFlagship && (
-                        <p className="text-xs text-gray-500">Flagship house account — no billing required.</p>
+                        <p className="sm-description">Flagship house account — no billing required.</p>
                       )}
 
                       {/* Auto-renew toggle */}
@@ -2340,7 +2340,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                     {/* ── CHANGE PLAN ──────────────────────────────────────── */}
                     {!isFlagship && (
-                      <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                      <div className="sm-card">
                         <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center justify-between gap-2 flex-wrap">
                           <div className="flex items-center gap-2">
                             <Sparkles className="h-3.5 w-3.5 text-yellow-500/70" />
@@ -2429,7 +2429,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     )}
 
                     {/* ── PAYMENT HISTORY ──────────────────────────────────── */}
-                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                    <div className="sm-card">
                       <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
                         <CreditCard className="h-3.5 w-3.5 text-yellow-500/70" />
                         <span className="text-xs font-semibold text-gray-200">Payment History</span>
@@ -2442,7 +2442,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       ) : !org?.stripeCustomerId || !tenantPaymentsData?.payments?.length ? (
                         <div className="px-4 py-8 text-center">
                           <CreditCard className="h-6 w-6 text-gray-700 mx-auto mb-2" />
-                          <p className="text-xs text-gray-500">No payment history yet.</p>
+                          <p className="sm-description">No payment history yet.</p>
                         </div>
                       ) : (
                         <div>
@@ -2541,7 +2541,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
                               <p className="font-semibold text-gray-200">Price-o-Matic Auto Sync</p>
                               <p className="text-gray-400">Fetches avg listed price, avg sold price, and lot count from BrickLink for each inventory item, then computes a suggested price using your formula. Items are processed in priority order by category tier (T1 → T4).</p>
-                              <p className="text-gray-500">Runs on its own independent schedule. Uses 3 BrickLink API calls per lot. Stops automatically at your daily API ceiling.</p>
+                              <p className="sm-description">Runs on its own independent schedule. Uses 3 BrickLink API calls per lot. Stops automatically at your daily API ceiling.</p>
                             </PopoverContent>
                           </Popover>
                         </div>
@@ -2711,7 +2711,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         {/* Base Premium */}
                         <div className="rounded-md border border-gray-700/60 overflow-hidden">
                           <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
-                            <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Base Premium</h4>
+                            <h4 className="sm-section-header">Base Premium</h4>
                             <Popover>
                               <PopoverTrigger asChild>
                                 <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -2768,7 +2768,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         {/* Scarcity Bonuses */}
                         <div className="rounded-md border border-gray-700/60 overflow-hidden">
                           <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
-                            <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Scarcity Bonuses</h4>
+                            <h4 className="sm-section-header">Scarcity Bonuses</h4>
                             <Popover>
                               <PopoverTrigger asChild>
                                 <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -2857,7 +2857,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         {/* Price Floors */}
                         <div className="rounded-md border border-gray-700/60 overflow-hidden">
                           <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
-                            <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Price Floors</h4>
+                            <h4 className="sm-section-header">Price Floors</h4>
                             <Popover>
                               <PopoverTrigger asChild>
                                 <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -2915,7 +2915,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         <div className="rounded-md border border-gray-700/60 overflow-hidden">
                           <div className="bg-gray-800/50 px-4 py-2.5 flex items-center justify-between border-b border-gray-700/40">
                             <div className="flex items-center gap-1.5">
-                              <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Market Dynamics</h4>
+                              <h4 className="sm-section-header">Market Dynamics</h4>
                               <Popover>
                                 <PopoverTrigger asChild>
                                   <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -3146,7 +3146,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </span>
                         </div>
                       </div>
-                      <p className="text-xs text-gray-500">Unlimited — no billing required</p>
+                      <p className="sm-description">Unlimited — no billing required</p>
                     </div>
                   ) : org?.plan === 'trial' ? (
                     <>
@@ -3211,7 +3211,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-xs text-gray-500 mb-1">
+                          <p className="sm-description mb-1">
                             {org?.plan === 'foundation' ? 'Upgrade Billing' : 'Billing Interval'}
                           </p>
                           {org?.plan === 'foundation' ? (
@@ -3805,7 +3805,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         className="text-xs font-mono min-h-[200px] resize-y"
                         data-testid="textarea-system-prompt"
                       />
-                      <p className="text-xs text-gray-500">
+                      <p className="sm-description">
                         Customize E.L.F.I.E.'s role and behavior. Leave empty to use default instructions.
                       </p>
                     </div>
@@ -3893,7 +3893,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
                                 <p className="font-semibold text-gray-200">Inventory Sync</p>
                                 <p className="text-gray-400">Pulls your full BrickLink inventory into the local database. Also syncs BrickLink categories, colors, and Rebrickable part images. Triggers re-embedding of any changed inventory items for AI search.</p>
-                                <p className="text-gray-500">Runs once daily. Safe to trigger manually at any time.</p>
+                                <p className="sm-description">Runs once daily. Safe to trigger manually at any time.</p>
                               </PopoverContent>
                             </Popover>
                           </div>
@@ -3998,7 +3998,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 <p className="font-semibold text-gray-200">Orders Sync</p>
                                 <p className="text-gray-400">Pulls new and updated orders from BrickLink and BrickOwl into the local database. Also syncs order line items, generates AI embeddings for semantic search, and matches Stripe and PayPal refunds and merchant fees to orders.</p>
                                 <p className="text-gray-400">After each order is processed, sold quantities are deducted from local inventory — keeping all channel inventory counts in sync automatically.</p>
-                                <p className="text-gray-500">Runs on a short interval (e.g. every 15–30 min) to keep order data fresh throughout the day.</p>
+                                <p className="sm-description">Runs on a short interval (e.g. every 15–30 min) to keep order data fresh throughout the day.</p>
                               </PopoverContent>
                             </Popover>
                           </div>
@@ -4107,7 +4107,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
                                 <p className="font-semibold text-gray-200">Channel Sync — BrickOwl</p>
                                 <p className="text-gray-400">Pushes your local database inventory outward to BrickOwl. Compares local quantities and prices against the platform and updates only what has changed.</p>
-                                <p className="text-gray-500">Should run after Inventory Sync has completed. Schedule it at least 1 hour later to ensure inbound data has settled.</p>
+                                <p className="sm-description">Should run after Inventory Sync has completed. Schedule it at least 1 hour later to ensure inbound data has settled.</p>
                               </PopoverContent>
                             </Popover>
                           </div>
@@ -4311,7 +4311,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       {/* Base Premium */}
                       <div className="rounded-md border border-gray-700/60 overflow-hidden">
                         <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
-                          <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Base Premium</h4>
+                          <h4 className="sm-section-header">Base Premium</h4>
                           <Popover>
                             <PopoverTrigger asChild>
                               <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -4368,7 +4368,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       {/* Scarcity Bonuses */}
                       <div className="rounded-md border border-gray-700/60 overflow-hidden">
                         <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
-                          <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Scarcity Bonuses</h4>
+                          <h4 className="sm-section-header">Scarcity Bonuses</h4>
                           <Popover>
                             <PopoverTrigger asChild>
                               <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -4457,7 +4457,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       {/* Price Floors */}
                       <div className="rounded-md border border-gray-700/60 overflow-hidden">
                         <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
-                          <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Price Floors</h4>
+                          <h4 className="sm-section-header">Price Floors</h4>
                           <Popover>
                             <PopoverTrigger asChild>
                               <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -4515,7 +4515,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <div className="rounded-md border border-gray-700/60 overflow-hidden">
                         <div className="bg-gray-800/50 px-4 py-2.5 flex items-center justify-between border-b border-gray-700/40">
                           <div className="flex items-center gap-1.5">
-                            <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Market Dynamics</h4>
+                            <h4 className="sm-section-header">Market Dynamics</h4>
                             <Popover>
                               <PopoverTrigger asChild>
                                 <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -4750,7 +4750,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
                               <p className="font-semibold text-gray-200">Price-o-Matic Auto Sync</p>
                               <p className="text-gray-400">Fetches avg listed price, avg sold price, and lot count from BrickLink for each inventory item, then computes a suggested price using your formula. Items are processed in priority order by category tier (T1 → T4).</p>
-                              <p className="text-gray-500">Runs on its own independent schedule. Uses 3 BrickLink API calls per lot. Stops automatically at your daily API ceiling.</p>
+                              <p className="sm-description">Runs on its own independent schedule. Uses 3 BrickLink API calls per lot. Stops automatically at your daily API ceiling.</p>
                             </PopoverContent>
                           </Popover>
                         </div>
@@ -4941,7 +4941,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
                                 <p className="font-semibold text-gray-200">Rebrickable Set-Parts Sync</p>
                                 <p className="text-gray-400">Downloads the full Rebrickable set-to-parts relationship database (~1.4M rows). This powers the BrickSpotter "find sets that use this part" feature.</p>
-                                <p className="text-gray-500">Runs once per month — Rebrickable data changes rarely. Force-refresh truncates and rebuilds the table from scratch.</p>
+                                <p className="sm-description">Runs once per month — Rebrickable data changes rarely. Force-refresh truncates and rebuilds the table from scratch.</p>
                               </PopoverContent>
                             </Popover>
                           </div>
@@ -5423,7 +5423,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </div>
 
                     {/* Plan selector */}
-                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                    <div className="sm-card">
                       <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
                         <CreditCard className="h-3.5 w-3.5 text-yellow-500/70" />
                         <span className="text-xs font-semibold text-gray-200">Plan</span>
@@ -5468,7 +5468,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </div>
 
                     {/* Plan tabs: Features | Limits | Billing */}
-                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                    <div className="sm-card">
                       {/* Tab bar */}
                       <div className="flex bg-gray-800 border-b border-gray-700">
                         {(['features', 'limits', 'billing'] as const).map(tab => (
@@ -5668,12 +5668,12 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           ) : !org.stripeCustomerId ? (
                             <div className="px-4 py-8 text-center">
                               <CreditCard className="h-6 w-6 text-gray-700 mx-auto mb-2" />
-                              <p className="text-xs text-gray-500">No Stripe customer linked to this organization.</p>
+                              <p className="sm-description">No Stripe customer linked to this organization.</p>
                             </div>
                           ) : !orgPaymentsData?.payments?.length ? (
                             <div className="px-4 py-8 text-center">
                               <CreditCard className="h-6 w-6 text-gray-700 mx-auto mb-2" />
-                              <p className="text-xs text-gray-500">No payment history found.</p>
+                              <p className="sm-description">No payment history found.</p>
                             </div>
                           ) : (
                             <div>
@@ -5760,7 +5760,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <button onClick={() => refetchPlatformOrgs()} className="text-[10px] text-yellow-400/70 underline hover:text-yellow-400">Retry</button>
                     </div>
                   ) : (
-                    <div className="rounded-lg border border-gray-700 overflow-hidden divide-y divide-gray-700/60">
+                    <div className="sm-card-inset">
                       {filtered.length === 0 ? (
                         <div className="px-4 py-8 text-center text-xs text-gray-500">No organizations found</div>
                       ) : filtered.map(org => (
@@ -5832,7 +5832,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     <button onClick={() => refetchPlatformOrgs()} className="text-[10px] text-yellow-400/70 underline hover:text-yellow-400">Retry</button>
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-gray-700 overflow-hidden divide-y divide-gray-700/60">
+                  <div className="sm-card-inset">
                     {(platformOrgs ?? [])
                       .filter(o => impersonationSearch === '' || o.name.toLowerCase().includes(impersonationSearch.toLowerCase()) || o.slug.toLowerCase().includes(impersonationSearch.toLowerCase()))
                       .map(org => (
@@ -5983,7 +5983,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     ) : (
                       <div className="flex flex-col items-center justify-center gap-3 py-10">
                         <AlertTriangle className="h-5 w-5 text-red-400/70" />
-                        <p className="text-xs text-gray-500">Failed to load system health data</p>
+                        <p className="sm-description">Failed to load system health data</p>
                         <button
                           onClick={() => refetchSystemHealth()}
                           className="text-[11px] text-yellow-500/70 hover:text-yellow-400 underline"
@@ -6016,10 +6016,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           {systemHealth.jobs.active.length === 0 ? (
                             <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-4 text-center">
                               <CheckCircle2 className="h-4 w-4 text-green-500/50 mx-auto mb-1" />
-                              <p className="text-xs text-gray-500">No active jobs</p>
+                              <p className="sm-description">No active jobs</p>
                             </div>
                           ) : (
-                            <div className="rounded-lg border border-gray-700 overflow-hidden divide-y divide-gray-700/60">
+                            <div className="sm-card-inset">
                               {systemHealth.jobs.active.map(job => (
                                 <div key={job.id} className="px-4 py-3">
                                   <div className="flex items-center justify-between gap-2 mb-1">
@@ -6050,7 +6050,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         {/* Recent jobs */}
                         <div>
                           <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Recent Jobs</p>
-                          <div className="rounded-lg border border-gray-700 overflow-hidden divide-y divide-gray-700/60">
+                          <div className="sm-card-inset">
                             {systemHealth.jobs.recent.length === 0 ? (
                               <div className="px-4 py-4 text-center text-xs text-gray-500">No completed jobs yet</div>
                             ) : systemHealth.jobs.recent.map(job => (
@@ -6076,7 +6076,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     ) : (
                       <div className="flex flex-col items-center justify-center gap-3 py-10">
                         <AlertTriangle className="h-5 w-5 text-red-400/70" />
-                        <p className="text-xs text-gray-500">Failed to load system health data</p>
+                        <p className="sm-description">Failed to load system health data</p>
                         <button
                           onClick={() => refetchSystemHealth()}
                           className="text-[11px] text-yellow-500/70 hover:text-yellow-400 underline"
@@ -6155,7 +6155,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       ) : (
                         <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-4 text-center">
                           <CheckCircle2 className="h-4 w-4 text-green-500/50 mx-auto mb-1" />
-                          <p className="text-xs text-gray-500">No warnings or errors</p>
+                          <p className="sm-description">No warnings or errors</p>
                         </div>
                       )}
                     </div>
@@ -6360,7 +6360,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <ClipboardList className="h-8 w-8 text-gray-600" />
                   <div>
                     <p className="text-sm font-medium text-gray-100">Audit Log</p>
-                    <p className="text-xs text-gray-500 mt-1">Platform-wide activity log tracking all admin and tenant actions across every organization.</p>
+                    <p className="sm-description mt-1">Platform-wide activity log tracking all admin and tenant actions across every organization.</p>
                   </div>
                   <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">Coming Soon</Badge>
                 </div>
@@ -6374,7 +6374,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <Megaphone className="h-8 w-8 text-gray-600" />
                   <div>
                     <p className="text-sm font-medium text-gray-100">Announcements</p>
-                    <p className="text-xs text-gray-500 mt-1">Broadcast system-wide messages, maintenance notices, and release updates to all tenant organizations.</p>
+                    <p className="sm-description mt-1">Broadcast system-wide messages, maintenance notices, and release updates to all tenant organizations.</p>
                   </div>
                   <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">Coming Soon</Badge>
                 </div>
@@ -6388,7 +6388,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <CreditCard className="h-8 w-8 text-gray-600" />
                   <div>
                     <p className="text-sm font-medium text-gray-100">Billing Overview</p>
-                    <p className="text-xs text-gray-500 mt-1">Platform-level revenue dashboard — MRR, churn, trial conversions, and per-organization subscription status.</p>
+                    <p className="sm-description mt-1">Platform-level revenue dashboard — MRR, churn, trial conversions, and per-organization subscription status.</p>
                   </div>
                   <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">Coming Soon</Badge>
                 </div>
@@ -6656,7 +6656,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 </div>
 
                 {/* Current admins */}
-                <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                <div className="sm-card">
                   <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
                     <Users className="h-3.5 w-3.5 text-yellow-500/70" />
                     <span className="text-xs font-semibold text-gray-200">Super Admins</span>
@@ -6698,7 +6698,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 </div>
 
                 {/* Add admin */}
-                <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                <div className="sm-card">
                   <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
                     <Plus className="h-3.5 w-3.5 text-yellow-500/70" />
                     <span className="text-xs font-semibold text-gray-200">Add Admin</span>
@@ -6795,7 +6795,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 {activePlatformServicesTab === 'stripe' && (
                   <div className="space-y-4">
                     {/* Config */}
-                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                    <div className="sm-card">
                       <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
                         <Key className="h-3.5 w-3.5 text-yellow-500/70" />
                         <span className="text-xs font-semibold text-gray-200">Configuration</span>
@@ -6827,7 +6827,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </div>
 
                     {/* Balance */}
-                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                    <div className="sm-card">
                       <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
                         <TrendingUp className="h-3.5 w-3.5 text-yellow-500/70" />
                         <span className="text-xs font-semibold text-gray-200">Platform Balance</span>
@@ -6880,7 +6880,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* ── OpenAI tab ─────────────────────────────────── */}
                 {activePlatformServicesTab === 'openai' && (
-                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                  <div className="sm-card">
                     <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
                       <Key className="h-3.5 w-3.5 text-yellow-500/70" />
                       <span className="text-xs font-semibold text-gray-200">OpenAI</span>
@@ -6931,7 +6931,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 {activePlatformServicesTab === 'replit' && (
                   <div className="space-y-4">
                     {/* Platform info */}
-                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                    <div className="sm-card">
                       <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
                         <Zap className="h-3.5 w-3.5 text-violet-400/80" />
                         <span className="text-xs font-semibold text-gray-200">Platform Environment</span>
@@ -6957,7 +6957,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </div>
 
                     {/* Billing */}
-                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                    <div className="sm-card">
                       <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
                         <TrendingUp className="h-3.5 w-3.5 text-yellow-500/70" />
                         <span className="text-xs font-semibold text-gray-200">Usage &amp; Billing</span>
@@ -6986,7 +6986,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
               <div className="p-4 space-y-5">
 
                 {/* Built with Replit */}
-                <div className="rounded-lg bg-gray-800/60 border border-gray-700 overflow-hidden">
+                <div className="sm-card">
                   <div className="px-4 py-3 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-violet-400" />
                     <span className="text-sm font-semibold text-white">Built with Replit</span>
@@ -7001,7 +7001,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 {/* Data & Security */}
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Data & Security</p>
-                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
+                  <div className="sm-card-divided">
                     {[
                       { name: 'Tenant Isolation', desc: 'Each store\'s inventory, orders, and settings are scoped to their organization — no data is shared across accounts' },
                       { name: 'Encrypted Credentials', desc: 'Marketplace API keys and secrets are stored encrypted at rest and never exposed in logs or responses' },
@@ -7022,7 +7022,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 {/* Architecture */}
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Architecture</p>
-                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
+                  <div className="sm-card-divided">
                     {[
                       { name: 'TypeScript', desc: 'End-to-end type safety across client and server', url: 'https://www.typescriptlang.org' },
                       { name: 'React', desc: 'Component-driven UI framework', url: 'https://react.dev' },
@@ -7048,7 +7048,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 {/* UI & Design */}
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">UI & Design</p>
-                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
+                  <div className="sm-card-divided">
                     {[
                       { name: 'shadcn/ui', desc: 'Accessible component library built on Radix UI primitives', url: 'https://ui.shadcn.com' },
                       { name: 'Radix UI', desc: 'Unstyled headless UI primitives', url: 'https://www.radix-ui.com' },
@@ -7073,7 +7073,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 {/* AI & Intelligence */}
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">AI & Intelligence</p>
-                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
+                  <div className="sm-card-divided">
                     {[
                       { name: 'Anthropic Claude', desc: 'AI analysis, summaries, and natural language features', url: 'https://www.anthropic.com' },
                       { name: 'OpenAI', desc: 'Embeddings powering semantic inventory and order search', url: 'https://openai.com' },
@@ -7097,7 +7097,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 {/* LEGO Data */}
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">LEGO Data & Marketplaces</p>
-                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
+                  <div className="sm-card-divided">
                     {[
                       { name: 'BrickLink', desc: 'Primary marketplace — inventory, orders, and pricing data', url: 'https://www.bricklink.com' },
                       { name: 'BrickOwl', desc: 'Secondary marketplace channel', url: 'https://www.brickowl.com' },
@@ -7119,7 +7119,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 {/* Payments & Services */}
                 <div>
                   <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Payments & Services</p>
-                  <div className="rounded-lg bg-gray-800/60 border border-gray-700 divide-y divide-gray-700/60">
+                  <div className="sm-card-divided">
                     {[
                       { name: 'Stripe', desc: 'Subscription billing and payment processing', url: 'https://stripe.com' },
                       { name: 'PayPal', desc: 'Payment reconciliation for marketplace orders', url: 'https://www.paypal.com' },
@@ -7350,7 +7350,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <Clock className="h-4 w-4 text-gray-500" />
                       <span className="text-xs text-gray-200">EasyPost Tracking Data</span>
                     </div>
-                    <span className="text-xs text-gray-500">Waiting...</span>
+                    <span className="sm-description">Waiting...</span>
                   </div>
                 </div>
 
