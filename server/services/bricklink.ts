@@ -9,6 +9,9 @@ import { batchEmbedInventory, batchEmbedSets } from "./embeddings";
 import { syncBrickLinkToBrickOwl } from "./brickowl";
 import { saveXMLBackup } from "./export";
 
+const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: any) =>
+  sql<string | null>`(SELECT item_name FROM bl_catalog WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} ORDER BY (color_id = ${colorIdRef})::int DESC, color_id ASC LIMIT 1)`;
+
 export interface BricklinkSyncResult {
   categoriesAdded: number;
   categoriesUpdated: number;
@@ -1312,7 +1315,7 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = 'o
         colorId: blInventory.colorId,
         newOrUsed: blInventory.newOrUsed,
         quantity: blInventory.quantity,
-        itemName: blCatalog.itemName,
+        itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
         imageUrl: blCatalog.imageUrl,
         thumbnailUrl: blCatalog.thumbnailUrl,
         categoryId: blCatalog.categoryId,

@@ -1,7 +1,10 @@
 import OpenAI from 'openai';
 import { db } from '../db';
-import { inventoryEmbeddings, orderEmbeddings, orderDetailEmbeddings, setPartEmbeddings, blInventory, blCatalog, blCategories, orders, orderDetails, setPartRelationships, appSettings } from '@shared/schema';
+import { inventoryEmbeddings, orderEmbeddings, orderDetailEmbeddings, setPartEmbeddings, blInventory, blCatalog, blColors, blCategories, orders, orderDetails, setPartRelationships, appSettings } from '@shared/schema';
 import { eq, sql, inArray, and } from 'drizzle-orm';
+
+const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: any) =>
+  sql<string | null>`(SELECT item_name FROM bl_catalog WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} ORDER BY (color_id = ${colorIdRef})::int DESC, color_id ASC LIMIT 1)`;
 
 /**
  * Get OpenAI client with API key from settings or environment.
@@ -131,10 +134,11 @@ export async function embedInventoryItem(inventoryId: number) {
       description: blInventory.description,
       remarks: blInventory.remarks,
       orgId: blInventory.orgId,
-      itemName: blCatalog.itemName,
-      colorName: blCatalog.colorName,
+      itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
+      colorName: blColors.name,
       categoryName: blCategories.name,
     }).from(blInventory)
+      .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
       .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
       .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
       .where(eq(blInventory.id, inventoryId))
@@ -291,10 +295,11 @@ export async function embedOrderDetail(orderDetailId: string) {
           description: blInventory.description,
           remarks: blInventory.remarks,
           orgId: blInventory.orgId,
-          itemName: blCatalog.itemName,
-          colorName: blCatalog.colorName,
+          itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
+          colorName: blColors.name,
           categoryName: blCategories.name,
         }).from(blInventory)
+          .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
           .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
           .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
           .where(eq(blInventory.id, inventoryId))

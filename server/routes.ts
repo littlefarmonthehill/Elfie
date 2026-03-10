@@ -5314,7 +5314,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             id: blInventory.id,
             unitPrice: blInventory.unitPrice,
             quantity: blInventory.quantity,
-            colorName: blCatalog.colorName,
+            colorName: blColors.name,
             colorId: blInventory.colorId,
             itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
             thumbnailUrl: blCatalog.thumbnailUrl,
@@ -5323,6 +5323,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             categoryId: blCatalog.categoryId,
           })
           .from(blInventory)
+          .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
           .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
           .where(and(
             eq(blInventory.orgId, orgId),
@@ -5354,7 +5355,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                 itemNo: blInventory.itemNo,
                 unitPrice: blInventory.unitPrice,
                 quantity: blInventory.quantity,
-                colorName: blCatalog.colorName,
+                colorName: blColors.name,
                 colorId: blInventory.colorId,
                 itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
                 thumbnailUrl: blCatalog.thumbnailUrl,
@@ -5362,6 +5363,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                 newOrUsed: blInventory.newOrUsed,
               })
               .from(blInventory)
+              .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
               .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
               .where(and(
                 eq(blInventory.orgId, orgId),
@@ -9030,12 +9032,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           id: blInventory.id,
           itemNo: blInventory.itemNo,
           itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
-          colorName: blCatalog.colorName,
+          colorName: blColors.name,
           quantity: blInventory.quantity,
           unitPrice: blInventory.unitPrice,
           thumbnailUrl: blCatalog.thumbnailUrl,
         })
         .from(blInventory)
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
         .where(and(eq(blInventory.orgId, orgId), eq(blCatalog.categoryId, categoryId), eq(blInventory.itemType, 'PART')))
         .orderBy(desc(blInventory.quantity))
@@ -9918,8 +9921,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const uniqueInvIds = [...new Set(lookupIds)];
       const inventoryData = uniqueInvIds.length > 0
         ? await db
-            .select({ id: blInventory.id, itemNo: blInventory.itemNo, colorName: blCatalog.colorName, colorId: blInventory.colorId, newOrUsed: blInventory.newOrUsed, remarks: blInventory.remarks, description: blInventory.description, imageUrl: blCatalog.imageUrl, quantity: blInventory.quantity })
+            .select({ id: blInventory.id, itemNo: blInventory.itemNo, colorName: blColors.name, colorId: blInventory.colorId, newOrUsed: blInventory.newOrUsed, remarks: blInventory.remarks, description: blInventory.description, imageUrl: blCatalog.imageUrl, quantity: blInventory.quantity })
             .from(blInventory)
+            .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
             .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
             .where(and(eq(blInventory.orgId, orgId), inArray(blInventory.id, uniqueInvIds)))
         : [];
