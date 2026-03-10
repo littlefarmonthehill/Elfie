@@ -6144,7 +6144,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 </div>
                                 <div className="shrink-0 flex items-center gap-1.5 mt-0.5">
                                   {entry.count > 1 && (
-                                    <span className="text-[10px] font-mono text-gray-600">×{entry.count}</span>
+                                    <span className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-full ${isError ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                                      ×{entry.count}
+                                    </span>
                                   )}
                                   <span className="text-[10px] text-gray-600 font-mono whitespace-nowrap">{relativeTime}</span>
                                 </div>
