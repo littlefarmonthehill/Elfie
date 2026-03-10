@@ -293,8 +293,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
         </div>
 
-        {/* Selling Channels — hidden in panel mode (List-O-Matic tool covers this) */}
-        {!panelMode && (
+        {/* Selling Channels */}
         <div className="relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg p-3 xl:p-5 shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden" data-testid="section-selling-channels">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
           <div className="flex items-center gap-2 mb-3 xl:mb-4">
@@ -305,7 +304,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           </div>
           <ChannelSyncPanel onOpenSettings={onOpenSettings} />
         </div>
-        )}
 
 
       </div>
