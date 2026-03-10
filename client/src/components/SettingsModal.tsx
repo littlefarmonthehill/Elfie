@@ -260,7 +260,7 @@ function EnrichmentSummary() {
 
   return (
     <div className="rounded-lg border border-gray-700 bg-gray-800/60 p-3">
-      <h3 className="text-xs font-semibold text-gray-300 mb-3 uppercase tracking-wide">Enrichment Overview</h3>
+      <h3 className="text-xs font-semibold text-gray-100 mb-3 uppercase tracking-wide">Enrichment Overview</h3>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {tiles.map((t) => {
           const Icon = t.icon;
@@ -380,7 +380,7 @@ function UserManagementSection({ userCount }: { userCount?: number }) {
       <div>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-1.5">
-            <h3 className="text-sm font-medium text-gray-300">Team Members</h3>
+            <h3 className="text-sm font-medium text-gray-100">Team Members</h3>
             <Popover>
               <PopoverTrigger asChild>
                 <button className="text-gray-500 hover:text-gray-300 transition-colors" data-testid="button-roles-info">
@@ -388,7 +388,7 @@ function UserManagementSection({ userCount }: { userCount?: number }) {
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-72 bg-gray-900 border-gray-700 p-3" side="right">
-                <p className="text-xs font-medium text-gray-300 mb-2">Role Permissions</p>
+                <p className="text-xs font-medium text-gray-100 mb-2">Role Permissions</p>
                 <div className="space-y-2">
                   {Object.entries(ROLE_META).map(([key, meta]) => (
                     <div key={key} className="flex items-start gap-2">
@@ -400,7 +400,7 @@ function UserManagementSection({ userCount }: { userCount?: number }) {
               </PopoverContent>
             </Popover>
           </div>
-          <span className="text-xs text-gray-500">{(users ?? []).length} member{(users ?? []).length !== 1 ? 's' : ''}</span>
+          <span className="text-xs text-gray-400">{(users ?? []).length} member{(users ?? []).length !== 1 ? 's' : ''}</span>
         </div>
 
         {adminCount === 1 && (
@@ -452,7 +452,7 @@ function UserManagementSection({ userCount }: { userCount?: number }) {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                  <p className="text-xs text-gray-400 truncate">{u.email}</p>
                 </div>
 
                 {/* Role selector */}
@@ -1718,7 +1718,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   {/* Company Settings accordion header */}
                   <button
                     onClick={() => setOpenGroup('company')}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-xs font-semibold uppercase tracking-widest text-gray-400 hover:text-gray-200 hover:bg-gray-700/30 transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-xs font-semibold uppercase tracking-widest text-gray-200 hover:text-white hover:bg-gray-700/30 transition-colors"
                     data-testid="button-company-settings-toggle"
                   >
                     <span className="flex-1 text-left">Company Settings</span>
@@ -1731,12 +1731,12 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     <button
                       key={item.id}
                       onClick={() => setActiveSection(item.id)}
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors group"
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-gray-100 hover:text-white hover:bg-gray-700/50 transition-colors group"
                       data-testid={`nav-${item.id}`}
                     >
-                      <item.icon className="h-4 w-4 text-gray-400 flex-shrink-0 group-hover:text-gray-200 transition-colors" />
+                      <item.icon className="h-4 w-4 text-gray-300 flex-shrink-0 group-hover:text-white transition-colors" />
                       <span className="flex-1 text-left">{item.label}</span>
-                      <ChevronRight className="h-4 w-4 text-gray-600 flex-shrink-0" />
+                      <ChevronRight className="h-4 w-4 text-gray-500 flex-shrink-0" />
                     </button>
                   ))}
 
@@ -1758,17 +1758,17 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       </button>
                       {openGroup === 'platform' && platformAdminGroups.map((group) => (
                         <div key={group.label}>
-                          <p className="px-4 pt-2 pb-1 text-[9px] uppercase tracking-widest text-yellow-700/60 font-semibold">{group.label}</p>
+                          <p className="px-4 pt-2 pb-1 text-[9px] uppercase tracking-widest text-yellow-500 font-semibold">{group.label}</p>
                           {group.items.map((item) => (
                             <button
                               key={item.id}
                               onClick={() => setActiveSection(item.id)}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-sm text-yellow-300/80 hover:text-yellow-200 hover:bg-yellow-500/10 transition-colors group"
+                              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-sm text-yellow-200 hover:text-yellow-100 hover:bg-yellow-500/10 transition-colors group"
                               data-testid={`nav-${item.id}`}
                             >
-                              <item.icon className="h-4 w-4 text-yellow-500/70 flex-shrink-0 group-hover:text-yellow-400 transition-colors" />
+                              <item.icon className="h-4 w-4 text-yellow-400 flex-shrink-0 group-hover:text-yellow-300 transition-colors" />
                               <span className="flex-1 text-left">{item.label}</span>
-                              <ChevronRight className="h-4 w-4 text-yellow-700 flex-shrink-0" />
+                              <ChevronRight className="h-4 w-4 text-yellow-600 flex-shrink-0" />
                             </button>
                           ))}
                         </div>
@@ -1800,7 +1800,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <button
                     key={tab}
                     onClick={() => setActiveGeneralTab(tab)}
-                    className={`px-4 py-2.5 text-[11px] font-semibold transition-colors border-b-2 -mb-px ${activeGeneralTab === tab ? 'text-yellow-400 border-yellow-500' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
+                    className={`px-4 py-2.5 text-[11px] font-semibold transition-colors border-b-2 -mb-px ${activeGeneralTab === tab ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
                     data-testid={`tab-general-${tab}`}
                   >
                     {tab === 'billing' ? 'Manage Subscription' : tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -1847,7 +1847,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div>
-                        <p className="text-xs font-medium text-gray-300">{APP_NAME}</p>
+                        <p className="text-xs font-medium text-gray-100">{APP_NAME}</p>
                         <p className="text-[10px] text-gray-500">Version {APP_VERSION}</p>
                       </div>
                       <div className="flex items-center gap-1 text-[10px] text-gray-500">
@@ -1881,11 +1881,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
               {/* Organization profile fields */}
               <div className="space-y-3">
-                <h3 className="text-sm font-medium text-gray-300">Organization Profile</h3>
+                <h3 className="text-sm font-medium text-gray-100">Organization Profile</h3>
 
                 {/* Company Name */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="org-name" className="text-xs text-gray-400">Company Name</Label>
+                  <Label htmlFor="org-name" className="text-xs text-gray-200">Company Name</Label>
                   <Input
                     id="org-name"
                     value={orgName}
@@ -1899,7 +1899,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Address */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="org-address" className="text-xs text-gray-400">Address</Label>
+                  <Label htmlFor="org-address" className="text-xs text-gray-200">Address</Label>
                   <Textarea
                     id="org-address"
                     value={orgAddress}
@@ -1914,7 +1914,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Phone */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="org-phone" className="text-xs text-gray-400">Phone</Label>
+                  <Label htmlFor="org-phone" className="text-xs text-gray-200">Phone</Label>
                   <Input
                     id="org-phone"
                     value={orgPhone}
@@ -1928,7 +1928,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Website */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="org-website" className="text-xs text-gray-400">Website</Label>
+                  <Label htmlFor="org-website" className="text-xs text-gray-200">Website</Label>
                   <Input
                     id="org-website"
                     value={orgWebsite}
@@ -1942,7 +1942,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Timezone */}
                 <div className="space-y-2">
-                  <Label htmlFor="timezone" className="text-xs text-gray-400">Time Zone</Label>
+                  <Label htmlFor="timezone" className="text-xs text-gray-200">Time Zone</Label>
                   <Select
                     value={timezone}
                     onValueChange={(tz) => {
@@ -1971,13 +1971,13 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
               {/* Add to Home Screen */}
               <div className="space-y-2">
-                <h3 className="text-sm font-medium text-gray-300">Install App</h3>
+                <h3 className="text-sm font-medium text-gray-100">Install App</h3>
                 <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-2">
                   {installStatus === 'installed' ? (
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
                       <div>
-                        <p className="text-xs font-medium text-gray-300">App is installed</p>
+                        <p className="text-xs font-medium text-gray-100">App is installed</p>
                         <p className="text-[10px] text-gray-500">PlanetBrick is already on your home screen.</p>
                       </div>
                     </div>
@@ -1986,7 +1986,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <div className="flex items-center gap-2">
                         <Smartphone className="w-4 h-4 text-gray-400 flex-shrink-0" />
                         <div>
-                          <p className="text-xs font-medium text-gray-300">Add to Home Screen</p>
+                          <p className="text-xs font-medium text-gray-100">Add to Home Screen</p>
                           <p className="text-[10px] text-gray-500">Install PlanetBrick for quick access.</p>
                         </div>
                       </div>
@@ -2008,7 +2008,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <Smartphone className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                        <p className="text-xs font-medium text-gray-300">Add to Home Screen</p>
+                        <p className="text-xs font-medium text-gray-100">Add to Home Screen</p>
                       </div>
                       <ol className="space-y-1.5 pl-1">
                         <li className="flex items-start gap-2 text-[11px] text-gray-400">
@@ -2029,7 +2029,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     <div className="flex items-center gap-2">
                       <Smartphone className="w-4 h-4 text-gray-400 flex-shrink-0" />
                       <div>
-                        <p className="text-xs font-medium text-gray-300">Add to Home Screen</p>
+                        <p className="text-xs font-medium text-gray-100">Add to Home Screen</p>
                         <p className="text-[10px] text-gray-500">Use your browser's menu to add PlanetBrick to your home screen or desktop for quick access.</p>
                       </div>
                     </div>
@@ -2077,7 +2077,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       This action is irreversible. There is no way to recover your data after deletion.
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs text-gray-400">
+                      <Label className="text-xs text-gray-200">
                         Type <span className="font-mono font-semibold text-white">{org?.name}</span> to confirm
                       </Label>
                       <Input
@@ -2257,7 +2257,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         {!isTrial && !isFlagship && (
                           <div className="text-right">
                             <p className="text-[10px] text-gray-500 uppercase tracking-wider">Billing Interval</p>
-                            <p className="text-xs font-medium text-gray-300 capitalize mt-0.5">{org?.subscriptionInterval ?? 'monthly'}</p>
+                            <p className="text-xs font-medium text-gray-100 capitalize mt-0.5">{org?.subscriptionInterval ?? 'monthly'}</p>
                           </div>
                         )}
                       </div>
@@ -2289,7 +2289,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       {hasActiveSub && isActive && (
                         <div className="flex items-center justify-between pt-2 border-t border-gray-700/50 gap-2 flex-wrap">
                           <div>
-                            <p className="text-xs font-medium text-gray-300">Auto-renew</p>
+                            <p className="text-xs font-medium text-gray-100">Auto-renew</p>
                             <p className="text-[10px] text-gray-500 mt-0.5">
                               {org?.cancelAtPeriodEnd ? 'Off — subscription will expire at period end' : 'On — subscription renews automatically'}
                             </p>
@@ -2313,8 +2313,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <span className="text-xs font-semibold text-gray-200">{isTrial ? 'Choose a Plan' : 'Change Plan'}</span>
                           </div>
                           <div className="flex items-center gap-0.5 bg-gray-900/60 rounded-md p-0.5">
-                            <button onClick={() => setSubInterval('monthly')} className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${subInterval === 'monthly' ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300'}`} data-testid="button-sub-monthly">Monthly</button>
-                            <button onClick={() => setSubInterval('annual')} className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${subInterval === 'annual' ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300'}`} data-testid="button-sub-annual">Annual <span className="text-green-400">−17%</span></button>
+                            <button onClick={() => setSubInterval('monthly')} className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${subInterval === 'monthly' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-100'}`} data-testid="button-sub-monthly">Monthly</button>
+                            <button onClick={() => setSubInterval('annual')} className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${subInterval === 'annual' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-100'}`} data-testid="button-sub-annual">Annual <span className="text-green-400">−17%</span></button>
                           </div>
                         </div>
 
@@ -2378,7 +2378,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         <p className="text-[10px] uppercase tracking-widest text-red-500/70 font-semibold mb-3">Danger Zone</p>
                         <div className="flex items-center justify-between gap-4 flex-wrap">
                           <div>
-                            <p className="text-xs font-medium text-gray-300">Cancel subscription</p>
+                            <p className="text-xs font-medium text-gray-100">Cancel subscription</p>
                             <p className="text-[10px] text-gray-500 mt-0.5">Cancels immediately. Access ends now.</p>
                           </div>
                           <Button
@@ -2490,14 +2490,14 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             {/* __POM_REMOVED_FROM_GENERAL__ */}
             {false && (
                 <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-3">Price-o-Matic</h3>
+                  <h3 className="text-sm font-medium text-gray-100 mb-3">Price-o-Matic</h3>
 
                   {/* Auto Sync Scheduler */}
                   <div className="space-y-3 my-4">
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <Label className="text-xs font-medium text-gray-300">Price-o-Matic Auto Sync</Label>
+                          <Label className="text-xs font-medium text-gray-100">Price-o-Matic Auto Sync</Label>
                           <Popover>
                             <PopoverTrigger asChild>
                               <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -2540,7 +2540,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <div className="ml-4 space-y-3">
                         <div className="flex items-center gap-4">
                           <div className="space-y-1">
-                            <Label htmlFor="pom-sync-time" className="text-xs text-gray-400">Sync Time</Label>
+                            <Label htmlFor="pom-sync-time" className="text-xs text-gray-200">Sync Time</Label>
                             <Input
                               id="pom-sync-time"
                               type="time"
@@ -2553,7 +2553,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <p className="text-[10px] text-gray-500">Local timezone</p>
                           </div>
                           <div className="space-y-1">
-                            <Label htmlFor="pom-schedule-batch" className="text-xs text-gray-400">Lots per run</Label>
+                            <Label htmlFor="pom-schedule-batch" className="text-xs text-gray-200">Lots per run</Label>
                             <Input
                               id="pom-schedule-batch"
                               type="number"
@@ -2577,7 +2577,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <p className="text-[10px] text-gray-500">BrickLink allows 5,000 API calls/day. Price-o-Matic uses 3 calls per lot.</p>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
-                          <Label className="text-xs text-gray-400">Manual sync batch size</Label>
+                          <Label className="text-xs text-gray-200">Manual sync batch size</Label>
                           <Popover>
                             <PopoverTrigger asChild>
                               <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -2655,7 +2655,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         </div>
                         <div className="flex items-center gap-2">
                           <Layers className="h-4 w-4 text-gray-400" />
-                          <p className="text-xs text-gray-400">Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly.</p>
+                          <p className="text-xs text-gray-200">Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly.</p>
                         </div>
                         <PomCategoryTiers />
                       </div>
@@ -2761,28 +2761,28 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 <Input type="number" min={1} value={pomScarcityThreshold1} onChange={(e) => setPomScarcityThreshold1(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold1 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold1" />
                                 <span className="text-xs text-gray-300">lots</span>
                                 <Input type="number" min={0} max={200} value={pomScarcityBonus1} onChange={(e) => setPomScarcityBonus1(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus1 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus1" />
-                                <span className="text-xs text-gray-400">%</span>
+                                <span className="text-xs text-gray-200">%</span>
                               </div>
                               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
                                 <span className="text-sm font-medium text-yellow-300">Low</span>
                                 <Input type="number" min={1} value={pomScarcityThreshold2} onChange={(e) => setPomScarcityThreshold2(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold2 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold2" />
                                 <span className="text-xs text-gray-300">lots</span>
                                 <Input type="number" min={0} max={200} value={pomScarcityBonus2} onChange={(e) => setPomScarcityBonus2(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus2 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus2" />
-                                <span className="text-xs text-gray-400">%</span>
+                                <span className="text-xs text-gray-200">%</span>
                               </div>
                               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
                                 <span className="text-sm font-medium text-blue-300">Medium</span>
                                 <Input type="number" min={1} value={pomScarcityThreshold3} onChange={(e) => setPomScarcityThreshold3(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold3 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold3" />
                                 <span className="text-xs text-gray-300">lots</span>
                                 <Input type="number" min={0} max={200} value={pomScarcityBonus3} onChange={(e) => setPomScarcityBonus3(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus3 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus3" />
-                                <span className="text-xs text-gray-400">%</span>
+                                <span className="text-xs text-gray-200">%</span>
                               </div>
                               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
-                                <span className="text-sm font-medium text-gray-300">High</span>
+                                <span className="text-sm font-medium text-gray-100">High</span>
                                 <span className="text-sm text-gray-400 text-right">{pomScarcityThreshold3}+</span>
-                                <span className="text-xs text-gray-400">lots</span>
+                                <span className="text-xs text-gray-200">lots</span>
                                 <span className="text-sm text-gray-400 w-20 text-right">—</span>
-                                <span className="text-xs text-gray-400">%</span>
+                                <span className="text-xs text-gray-200">%</span>
                               </div>
                             </div>
                           </div>
@@ -3165,7 +3165,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   {org?.plan === 'flagship' ? (
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-sm font-medium text-gray-300">Current Plan</h3>
+                        <h3 className="text-sm font-medium text-gray-100">Current Plan</h3>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-lg font-bold text-white">Flagship</span>
                           <span className="text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20">
@@ -3179,7 +3179,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     <>
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="text-sm font-medium text-gray-300">Current Plan</h3>
+                          <h3 className="text-sm font-medium text-gray-100">Current Plan</h3>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-lg font-bold text-white">Free Trial</span>
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wider ${trialDaysRemaining !== null && trialDaysRemaining <= 3 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'}`}>
@@ -3225,7 +3225,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     <>
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="text-sm font-medium text-gray-300">Current Plan</h3>
+                          <h3 className="text-sm font-medium text-gray-100">Current Plan</h3>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-lg font-bold text-white capitalize">{org?.plan ?? 'Foundation'}</span>
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wider ${
@@ -3255,7 +3255,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               >Annual <span className="text-green-400">−17%</span></button>
                             </div>
                           ) : (
-                            <p className="text-sm font-medium text-gray-300 capitalize">{org?.subscriptionInterval ?? 'Monthly'}</p>
+                            <p className="text-sm font-medium text-gray-100 capitalize">{org?.subscriptionInterval ?? 'Monthly'}</p>
                           )}
                         </div>
                       </div>
@@ -3443,9 +3443,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     ))}
                     {addIntegrationType === 'sales_channel' && (
                       <div className="mx-2 my-1 border border-dashed border-gray-600 rounded-lg px-4 py-3 space-y-3 bg-gray-800/20">
-                        <p className="text-xs font-medium text-gray-300">Add Sales Channel</p>
+                        <p className="text-xs font-medium text-gray-100">Add Sales Channel</p>
                         <div className="space-y-2">
-                          <Label className="text-xs text-gray-400">Platform</Label>
+                          <Label className="text-xs text-gray-200">Platform</Label>
                           <Select value={addIntChannel} onValueChange={(v) => { setAddIntChannel(v); const n: Record<string,string> = { brickowl: 'BrickOwl', ebay: 'eBay', amazon: 'Amazon', etsy: 'Etsy', shopify: 'Shopify', other: 'Other' }; setAddIntDisplayName(n[v] || ''); }}>
                             <SelectTrigger className="text-xs h-8" data-testid="select-add-sales-channel"><SelectValue placeholder="Select platform..." /></SelectTrigger>
                             <SelectContent>
@@ -3459,11 +3459,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-xs text-gray-400">Display Name</Label>
+                          <Label className="text-xs text-gray-200">Display Name</Label>
                           <Input className="text-xs" placeholder="e.g. My eBay Store" value={addIntDisplayName} onChange={(e) => setAddIntDisplayName(e.target.value)} data-testid="input-add-display-name" />
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-xs text-gray-400">API Key</Label>
+                          <Label className="text-xs text-gray-200">API Key</Label>
                           <Input type="password" className="text-xs" placeholder="Enter API key" value={addIntApiKey} onChange={(e) => setAddIntApiKey(e.target.value)} data-testid="input-add-api-key" />
                         </div>
                         <div className="flex gap-2">
@@ -3501,9 +3501,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     ))}
                     {addIntegrationType === 'payment' && (
                       <div className="mx-2 my-1 border border-dashed border-gray-600 rounded-lg px-4 py-3 space-y-3 bg-gray-800/20">
-                        <p className="text-xs font-medium text-gray-300">Add Payment Vendor</p>
+                        <p className="text-xs font-medium text-gray-100">Add Payment Vendor</p>
                         <div className="space-y-2">
-                          <Label className="text-xs text-gray-400">Platform</Label>
+                          <Label className="text-xs text-gray-200">Platform</Label>
                           <Select value={addIntChannel} onValueChange={(v) => { setAddIntChannel(v); const n: Record<string,string> = { square: 'Square', venmo: 'Venmo', zelle: 'Zelle', cashapp: 'Cash App', authorize_net: 'Authorize.net', braintree: 'Braintree', other: 'Other' }; setAddIntDisplayName(n[v] || ''); }}>
                             <SelectTrigger className="text-xs h-8" data-testid="select-add-payment-vendor"><SelectValue placeholder="Select platform..." /></SelectTrigger>
                             <SelectContent>
@@ -3518,11 +3518,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-xs text-gray-400">Display Name</Label>
+                          <Label className="text-xs text-gray-200">Display Name</Label>
                           <Input className="text-xs" placeholder="e.g. Square Payments" value={addIntDisplayName} onChange={(e) => setAddIntDisplayName(e.target.value)} data-testid="input-add-display-name" />
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-xs text-gray-400">API Key</Label>
+                          <Label className="text-xs text-gray-200">API Key</Label>
                           <Input type="password" className="text-xs" placeholder="Enter API key" value={addIntApiKey} onChange={(e) => setAddIntApiKey(e.target.value)} data-testid="input-add-api-key" />
                         </div>
                         <div className="flex gap-2">
@@ -3565,9 +3565,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     ))}
                     {addIntegrationType === 'shipping' && (
                       <div className="mx-2 my-1 border border-dashed border-gray-600 rounded-lg px-4 py-3 space-y-3 bg-gray-800/20">
-                        <p className="text-xs font-medium text-gray-300">Add Shipping Vendor</p>
+                        <p className="text-xs font-medium text-gray-100">Add Shipping Vendor</p>
                         <div className="space-y-2">
-                          <Label className="text-xs text-gray-400">Platform</Label>
+                          <Label className="text-xs text-gray-200">Platform</Label>
                           <Select value={addIntChannel} onValueChange={(v) => { setAddIntChannel(v); const n: Record<string,string> = { shipstation: 'ShipStation', pirateship: 'Pirate Ship', stamps_com: 'Stamps.com', shipbob: 'ShipBob', other: 'Other' }; setAddIntDisplayName(n[v] || ''); }}>
                             <SelectTrigger className="text-xs h-8" data-testid="select-add-shipping-vendor"><SelectValue placeholder="Select platform..." /></SelectTrigger>
                             <SelectContent>
@@ -3580,11 +3580,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-xs text-gray-400">Display Name</Label>
+                          <Label className="text-xs text-gray-200">Display Name</Label>
                           <Input className="text-xs" placeholder="e.g. ShipStation Account" value={addIntDisplayName} onChange={(e) => setAddIntDisplayName(e.target.value)} data-testid="input-add-display-name" />
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-xs text-gray-400">API Key</Label>
+                          <Label className="text-xs text-gray-200">API Key</Label>
                           <Input type="password" className="text-xs" placeholder="Enter API key" value={addIntApiKey} onChange={(e) => setAddIntApiKey(e.target.value)} data-testid="input-add-api-key" />
                         </div>
                         <div className="flex gap-2">
@@ -3606,12 +3606,12 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-blue-500/10 text-blue-400 border-blue-500/20">Read only</span>
                       <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0" /></TooltipTrigger><TooltipContent side="right" className="max-w-xs text-xs">BrickLink is the source of truth for inventory. Data flows one way — into this platform. Inventory is never written back to BrickLink.</TooltipContent></Tooltip>
                     </div>
-                    <div className="space-y-2"><Label htmlFor="bricklink-key" className="text-xs text-gray-400">Consumer Key</Label><Input id="bricklink-key" placeholder="Enter BrickLink Consumer Key" className="text-xs" value={bricklinkConsumerKey} onChange={(e) => setBricklinkConsumerKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })} data-testid="input-bricklink-key" /></div>
-                    <div className="space-y-2"><Label htmlFor="bricklink-secret" className="text-xs text-gray-400">Consumer Secret</Label><Input id="bricklink-secret" type="password" placeholder="Enter BrickLink Consumer Secret" className="text-xs" value={bricklinkConsumerSecret} onChange={(e) => setBricklinkConsumerSecret(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })} data-testid="input-bricklink-secret" /></div>
-                    <div className="space-y-2"><Label htmlFor="bricklink-token" className="text-xs text-gray-400">Token Value</Label><Input id="bricklink-token" placeholder="Enter BrickLink Token Value" className="text-xs" value={bricklinkTokenValue} onChange={(e) => setBricklinkTokenValue(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })} data-testid="input-bricklink-token" /></div>
-                    <div className="space-y-2"><Label htmlFor="bricklink-token-secret" className="text-xs text-gray-400">Token Secret</Label><Input id="bricklink-token-secret" type="password" placeholder="Enter BrickLink Token Secret" className="text-xs" value={bricklinkTokenSecret} onChange={(e) => setBricklinkTokenSecret(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })} data-testid="input-bricklink-token-secret" /></div>
+                    <div className="space-y-2"><Label htmlFor="bricklink-key" className="text-xs text-gray-200">Consumer Key</Label><Input id="bricklink-key" placeholder="Enter BrickLink Consumer Key" className="text-xs" value={bricklinkConsumerKey} onChange={(e) => setBricklinkConsumerKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })} data-testid="input-bricklink-key" /></div>
+                    <div className="space-y-2"><Label htmlFor="bricklink-secret" className="text-xs text-gray-200">Consumer Secret</Label><Input id="bricklink-secret" type="password" placeholder="Enter BrickLink Consumer Secret" className="text-xs" value={bricklinkConsumerSecret} onChange={(e) => setBricklinkConsumerSecret(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })} data-testid="input-bricklink-secret" /></div>
+                    <div className="space-y-2"><Label htmlFor="bricklink-token" className="text-xs text-gray-200">Token Value</Label><Input id="bricklink-token" placeholder="Enter BrickLink Token Value" className="text-xs" value={bricklinkTokenValue} onChange={(e) => setBricklinkTokenValue(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })} data-testid="input-bricklink-token" /></div>
+                    <div className="space-y-2"><Label htmlFor="bricklink-token-secret" className="text-xs text-gray-200">Token Secret</Label><Input id="bricklink-token-secret" type="password" placeholder="Enter BrickLink Token Secret" className="text-xs" value={bricklinkTokenSecret} onChange={(e) => setBricklinkTokenSecret(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })} data-testid="input-bricklink-token-secret" /></div>
                     <div className="space-y-1 pt-2 border-t border-gray-700">
-                      <Label className="text-xs text-gray-400">Overall Daily API Limit</Label>
+                      <Label className="text-xs text-gray-200">Overall Daily API Limit</Label>
                       <p className="text-[10px] text-gray-500">Hard stop for all BrickLink API calls app-wide. BrickLink's hard cap is 5,000/day.</p>
                       <div className="flex items-center gap-2">
                         <Input type="number" min={500} max={5000} step={100} value={blApiCallLimit} onChange={(e) => setBlApiCallLimit(parseInt(e.target.value) || 500)} onBlur={() => updateSettingsMutation.mutate({ blApiCallLimit })} className="text-xs w-24 text-right" data-testid="input-bl-api-limit" />
@@ -3628,7 +3628,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/20">Read + Write</span>
                       <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0" /></TooltipTrigger><TooltipContent side="right" className="max-w-xs text-xs">Orders and inventory are pulled from BrickOwl. Inventory updates are also pushed back to keep BrickOwl in sync.</TooltipContent></Tooltip>
                     </div>
-                    <div className="space-y-2"><Label htmlFor="brickowl-key" className="text-xs text-gray-400">API Key</Label><Input id="brickowl-key" type="password" placeholder="Enter BrickOwl API Key" className="text-xs" value={brickowlApiKey} onChange={(e) => setBrickowlApiKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ brickowlApiKey: brickowlApiKey || null })} data-testid="input-brickowl-key" /></div>
+                    <div className="space-y-2"><Label htmlFor="brickowl-key" className="text-xs text-gray-200">API Key</Label><Input id="brickowl-key" type="password" placeholder="Enter BrickOwl API Key" className="text-xs" value={brickowlApiKey} onChange={(e) => setBrickowlApiKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ brickowlApiKey: brickowlApiKey || null })} data-testid="input-brickowl-key" /></div>
                     <div className="pt-2 border-t border-gray-700 flex justify-end">
                       <Button variant="ghost" size="sm" className="text-xs gap-1 text-red-400/80 hover:text-red-400" data-testid="button-remove-brickowl" onClick={() => setRemovePrimaryDialog('brickowl')}><Trash2 className="w-3 h-3" /> Remove</Button>
                     </div>
@@ -3643,7 +3643,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0" /></TooltipTrigger><TooltipContent side="right" className="max-w-xs text-xs">Pulls PayPal transaction data (refunds, fees) and matches them to orders. Requires a PayPal REST API app with Transaction Search permission.</TooltipContent></Tooltip>
                     </div>
                     <div className="space-y-2 pb-2 border-b border-gray-700">
-                      <Label className="text-xs text-gray-400">Environment</Label>
+                      <Label className="text-xs text-gray-200">Environment</Label>
                       <div className="flex gap-4">
                         <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="paypal-env" value="live" checked={paypalEnvironment === 'live'} onChange={() => { setPaypalEnvironment('live'); updateSettingsMutation.mutate({ paypalEnvironment: 'live' }); }} className="text-purple-500 focus:ring-purple-500" data-testid="radio-paypal-live" /><span className="text-xs text-gray-300">Live</span></label>
                         <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="paypal-env" value="sandbox" checked={paypalEnvironment === 'sandbox'} onChange={() => { setPaypalEnvironment('sandbox'); updateSettingsMutation.mutate({ paypalEnvironment: 'sandbox' }); }} className="text-purple-500 focus:ring-purple-500" data-testid="radio-paypal-sandbox" /><span className="text-xs text-gray-300">Sandbox</span></label>
@@ -3651,8 +3651,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       {paypalEnvironment === 'sandbox' && <p className="text-xs text-yellow-500/80">Sandbox mode — test credentials only</p>}
                       {paypalEnvironment === 'live' && <p className="text-xs text-green-500/80">Live mode — real PayPal transactions</p>}
                     </div>
-                    <div className="space-y-2"><Label htmlFor="paypal-client-id" className="text-xs text-gray-400">Client ID</Label><Input id="paypal-client-id" placeholder="Enter PayPal Client ID" className="text-xs" value={paypalClientId} onChange={(e) => setPaypalClientId(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ paypalClientId: paypalClientId || null })} data-testid="input-paypal-client-id" /></div>
-                    <div className="space-y-2"><Label htmlFor="paypal-client-secret" className="text-xs text-gray-400">Client Secret</Label><Input id="paypal-client-secret" type="password" placeholder="Enter PayPal Client Secret" className="text-xs" value={paypalClientSecret} onChange={(e) => setPaypalClientSecret(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ paypalClientSecret: paypalClientSecret || null })} data-testid="input-paypal-client-secret" /></div>
+                    <div className="space-y-2"><Label htmlFor="paypal-client-id" className="text-xs text-gray-200">Client ID</Label><Input id="paypal-client-id" placeholder="Enter PayPal Client ID" className="text-xs" value={paypalClientId} onChange={(e) => setPaypalClientId(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ paypalClientId: paypalClientId || null })} data-testid="input-paypal-client-id" /></div>
+                    <div className="space-y-2"><Label htmlFor="paypal-client-secret" className="text-xs text-gray-200">Client Secret</Label><Input id="paypal-client-secret" type="password" placeholder="Enter PayPal Client Secret" className="text-xs" value={paypalClientSecret} onChange={(e) => setPaypalClientSecret(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ paypalClientSecret: paypalClientSecret || null })} data-testid="input-paypal-client-secret" /></div>
                   </div>
                 )}
 
@@ -3664,7 +3664,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0" /></TooltipTrigger><TooltipContent side="right" className="max-w-xs text-xs">Pulls Stripe transaction data (refunds, processing fees) and matches them to orders. Use a restricted key with read access to Charges and Refunds.</TooltipContent></Tooltip>
                     </div>
                     <div className="space-y-2 pb-2 border-b border-gray-700">
-                      <Label className="text-xs text-gray-400">Environment</Label>
+                      <Label className="text-xs text-gray-200">Environment</Label>
                       <div className="flex gap-4">
                         <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="stripe-env" value="live" checked={stripeEnvironment === 'live'} onChange={() => { setStripeEnvironment('live'); updateSettingsMutation.mutate({ stripeEnvironment: 'live' }); }} className="text-purple-500 focus:ring-purple-500" data-testid="radio-stripe-live" /><span className="text-xs text-gray-300">Live</span></label>
                         <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="stripe-env" value="test" checked={stripeEnvironment === 'test'} onChange={() => { setStripeEnvironment('test'); updateSettingsMutation.mutate({ stripeEnvironment: 'test' }); }} className="text-purple-500 focus:ring-purple-500" data-testid="radio-stripe-test" /><span className="text-xs text-gray-300">Test</span></label>
@@ -3672,7 +3672,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       {stripeEnvironment === 'test' && <p className="text-xs text-yellow-500/80">Test mode — use a <code className="font-mono">sk_test_</code> key</p>}
                       {stripeEnvironment === 'live' && <p className="text-xs text-green-500/80">Live mode — use a <code className="font-mono">sk_live_</code> or restricted key</p>}
                     </div>
-                    <div className="space-y-2"><Label htmlFor="stripe-secret-key" className="text-xs text-gray-400">Secret Key</Label><Input id="stripe-secret-key" type="password" placeholder={stripeEnvironment === 'test' ? 'sk_test_...' : 'sk_live_... or rk_live_...'} className="text-xs" value={stripeSecretKey} onChange={(e) => setStripeSecretKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ stripeSecretKey: stripeSecretKey || null })} data-testid="input-stripe-secret-key" /></div>
+                    <div className="space-y-2"><Label htmlFor="stripe-secret-key" className="text-xs text-gray-200">Secret Key</Label><Input id="stripe-secret-key" type="password" placeholder={stripeEnvironment === 'test' ? 'sk_test_...' : 'sk_live_... or rk_live_...'} className="text-xs" value={stripeSecretKey} onChange={(e) => setStripeSecretKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ stripeSecretKey: stripeSecretKey || null })} data-testid="input-stripe-secret-key" /></div>
                   </div>
                 )}
 
@@ -3684,7 +3684,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0" /></TooltipTrigger><TooltipContent side="right" className="max-w-xs text-xs">Used to purchase shipping labels and track packages. Labels are created from within the platform and shipment status is tracked automatically.</TooltipContent></Tooltip>
                     </div>
                     <div className="space-y-2 pb-2 border-b border-gray-700">
-                      <Label className="text-xs text-gray-400">Active API Key</Label>
+                      <Label className="text-xs text-gray-200">Active API Key</Label>
                       <div className="flex gap-4">
                         <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="easypost-mode" value="test" checked={easypostKeyMode === 'test'} onChange={() => { setEasypostKeyMode('test'); updateSettingsMutation.mutate({ easypostKeyMode: 'test' }); }} className="text-purple-500 focus:ring-purple-500" data-testid="radio-easypost-test" /><span className="text-xs text-gray-300">Test</span></label>
                         <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="easypost-mode" value="production" checked={easypostKeyMode === 'production'} onChange={() => { setEasypostKeyMode('production'); updateSettingsMutation.mutate({ easypostKeyMode: 'production' }); }} className="text-purple-500 focus:ring-purple-500" data-testid="radio-easypost-production" /><span className="text-xs text-gray-300">Production</span></label>
@@ -3692,19 +3692,19 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       {easypostKeyMode === 'test' && <p className="text-xs text-yellow-500/80">Test mode — labels will use test tracking numbers</p>}
                       {easypostKeyMode === 'production' && <p className="text-xs text-green-500/80">Production mode — real shipping labels will be created</p>}
                     </div>
-                    <div className="space-y-2"><Label htmlFor="easypost-key" className="text-xs text-gray-400">Production API Key</Label><Input id="easypost-key" type="password" placeholder="Enter EasyPost Production API Key" className="text-xs" value={easypostApiKey} onChange={(e) => setEasypostApiKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ easypostApiKey: easypostApiKey || null })} data-testid="input-easypost-key" /></div>
-                    <div className="space-y-2"><Label htmlFor="easypost-test-key" className="text-xs text-gray-400">Test API Key</Label><Input id="easypost-test-key" type="password" placeholder="Enter EasyPost Test API Key" className="text-xs" value={easypostTestApiKey} onChange={(e) => setEasypostTestApiKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ easypostTestApiKey: easypostTestApiKey || null })} data-testid="input-easypost-test-key" /></div>
+                    <div className="space-y-2"><Label htmlFor="easypost-key" className="text-xs text-gray-200">Production API Key</Label><Input id="easypost-key" type="password" placeholder="Enter EasyPost Production API Key" className="text-xs" value={easypostApiKey} onChange={(e) => setEasypostApiKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ easypostApiKey: easypostApiKey || null })} data-testid="input-easypost-key" /></div>
+                    <div className="space-y-2"><Label htmlFor="easypost-test-key" className="text-xs text-gray-200">Test API Key</Label><Input id="easypost-test-key" type="password" placeholder="Enter EasyPost Test API Key" className="text-xs" value={easypostTestApiKey} onChange={(e) => setEasypostTestApiKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ easypostTestApiKey: easypostTestApiKey || null })} data-testid="input-easypost-test-key" /></div>
                     <div className="pt-3 border-t border-gray-700 space-y-3">
                       <div>
                         <p className="text-xs font-semibold text-gray-300 mb-0.5">International Shipping</p>
                         <p className="text-[11px] text-gray-500">Customs declarations are auto-generated for international orders. Fill in tax IDs to prevent buyers from being double-charged VAT/GST.</p>
                       </div>
-                      <div className="space-y-2"><Label htmlFor="customs-signer" className="text-xs text-gray-400">Customs Signer Name <span className="text-red-400">*</span></Label><Input id="customs-signer" type="text" placeholder="Full name of person certifying customs forms" className="text-xs" value={customsSigner} onChange={(e) => setCustomsSigner(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ customsSigner: customsSigner || null })} data-testid="input-customs-signer" /></div>
+                      <div className="space-y-2"><Label htmlFor="customs-signer" className="text-xs text-gray-200">Customs Signer Name <span className="text-red-400">*</span></Label><Input id="customs-signer" type="text" placeholder="Full name of person certifying customs forms" className="text-xs" value={customsSigner} onChange={(e) => setCustomsSigner(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ customsSigner: customsSigner || null })} data-testid="input-customs-signer" /></div>
                       <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-2"><Label htmlFor="bl-ioss" className="text-xs text-gray-400">BrickLink EU IOSS #</Label><Input id="bl-ioss" type="text" placeholder="IM..." className="text-xs font-mono" value={blIossNumber} onChange={(e) => setBlIossNumber(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ blIossNumber: blIossNumber || null })} data-testid="input-bl-ioss" /></div>
-                        <div className="space-y-2"><Label htmlFor="bo-ioss" className="text-xs text-gray-400">BrickOwl EU IOSS #</Label><Input id="bo-ioss" type="text" placeholder="IM..." className="text-xs font-mono" value={boIossNumber} onChange={(e) => setBoIossNumber(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ boIossNumber: boIossNumber || null })} data-testid="input-bo-ioss" /></div>
-                        <div className="space-y-2"><Label htmlFor="bl-uk-vat" className="text-xs text-gray-400">BrickLink UK VAT #</Label><Input id="bl-uk-vat" type="text" placeholder="GB..." className="text-xs font-mono" value={blUkVatNumber} onChange={(e) => setBlUkVatNumber(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ blUkVatNumber: blUkVatNumber || null })} data-testid="input-bl-uk-vat" /></div>
-                        <div className="space-y-2"><Label htmlFor="bo-uk-vat" className="text-xs text-gray-400">BrickOwl UK VAT #</Label><Input id="bo-uk-vat" type="text" placeholder="GB..." className="text-xs font-mono" value={boUkVatNumber} onChange={(e) => setBoUkVatNumber(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ boUkVatNumber: boUkVatNumber || null })} data-testid="input-bo-uk-vat" /></div>
+                        <div className="space-y-2"><Label htmlFor="bl-ioss" className="text-xs text-gray-200">BrickLink EU IOSS #</Label><Input id="bl-ioss" type="text" placeholder="IM..." className="text-xs font-mono" value={blIossNumber} onChange={(e) => setBlIossNumber(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ blIossNumber: blIossNumber || null })} data-testid="input-bl-ioss" /></div>
+                        <div className="space-y-2"><Label htmlFor="bo-ioss" className="text-xs text-gray-200">BrickOwl EU IOSS #</Label><Input id="bo-ioss" type="text" placeholder="IM..." className="text-xs font-mono" value={boIossNumber} onChange={(e) => setBoIossNumber(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ boIossNumber: boIossNumber || null })} data-testid="input-bo-ioss" /></div>
+                        <div className="space-y-2"><Label htmlFor="bl-uk-vat" className="text-xs text-gray-200">BrickLink UK VAT #</Label><Input id="bl-uk-vat" type="text" placeholder="GB..." className="text-xs font-mono" value={blUkVatNumber} onChange={(e) => setBlUkVatNumber(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ blUkVatNumber: blUkVatNumber || null })} data-testid="input-bl-uk-vat" /></div>
+                        <div className="space-y-2"><Label htmlFor="bo-uk-vat" className="text-xs text-gray-200">BrickOwl UK VAT #</Label><Input id="bo-uk-vat" type="text" placeholder="GB..." className="text-xs font-mono" value={boUkVatNumber} onChange={(e) => setBoUkVatNumber(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ boUkVatNumber: boUkVatNumber || null })} data-testid="input-bo-uk-vat" /></div>
                       </div>
                       <p className="text-[11px] text-gray-600">Find IOSS/VAT numbers in your BrickLink and BrickOwl seller dashboards under Tax Settings.</p>
                     </div>
@@ -3722,11 +3722,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         <span className="text-[10px] px-1.5 py-0.5 rounded border bg-gray-800 text-gray-500 border-gray-700">{integration.channel}</span>
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-xs text-gray-400">Display Name</Label>
+                        <Label className="text-xs text-gray-200">Display Name</Label>
                         <Input className="text-xs" value={editIntDisplayName} onChange={(e) => setEditIntDisplayName(e.target.value)} data-testid="input-edit-display-name" />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-xs text-gray-400">API Key <span className="text-gray-600 font-normal">(leave blank to keep existing)</span></Label>
+                        <Label className="text-xs text-gray-200">API Key <span className="text-gray-600 font-normal">(leave blank to keep existing)</span></Label>
                         <Input type="password" className="text-xs" placeholder="Enter new API key or leave blank" value={editIntApiKey} onChange={(e) => setEditIntApiKey(e.target.value)} data-testid="input-edit-api-key" />
                       </div>
                       <div className="flex items-center justify-between pt-2 border-t border-gray-700">
@@ -3780,7 +3780,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* E.L.F.I.E. Mode — shown first */}
                 <div className="space-y-2">
-                  <h3 className="text-sm font-medium text-gray-300">E.L.F.I.E. Mode</h3>
+                  <h3 className="text-sm font-medium text-gray-100">E.L.F.I.E. Mode</h3>
                   <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-3">
                     <div className="flex gap-2">
                       <button
@@ -3812,10 +3812,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Chat Assistant */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-3">Chat Assistant (E.L.F.I.E.)</h3>
+                  <h3 className="text-sm font-medium text-gray-100 mb-3">Chat Assistant (E.L.F.I.E.)</h3>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="system-prompt" className="text-xs text-gray-400">System Prompt / Role Instructions</Label>
+                      <Label htmlFor="system-prompt" className="text-xs text-gray-200">System Prompt / Role Instructions</Label>
                       <Textarea
                         id="system-prompt"
                         placeholder="Enter custom instructions for E.L.F.I.E..."
@@ -3849,7 +3849,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Semantic Search Test */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-3">Semantic Search</h3>
+                  <h3 className="text-sm font-medium text-gray-100 mb-3">Semantic Search</h3>
                   <EmbeddingsManager searchOnly />
                 </div>
               </div>
@@ -3862,7 +3862,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 <div className="space-y-4">
                   <div>
                     <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-                      <h3 className="text-sm font-medium text-gray-300">Automation & Scheduling</h3>
+                      <h3 className="text-sm font-medium text-gray-100">Automation & Scheduling</h3>
                       {rateLimit && (
                         <Popover>
                           <PopoverTrigger asChild>
@@ -3910,7 +3910,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <div className="flex items-center justify-between gap-2">
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <Label className="text-xs font-medium text-gray-300">Inventory Sync (Daily)</Label>
+                            <Label className="text-xs font-medium text-gray-100">Inventory Sync (Daily)</Label>
                             <Popover>
                               <PopoverTrigger asChild>
                                 <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -3951,7 +3951,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       
                       {inventorySyncEnabled && (
                         <div className="ml-4 space-y-2">
-                          <Label htmlFor="inventory-time" className="text-xs text-gray-400">Sync Time</Label>
+                          <Label htmlFor="inventory-time" className="text-xs text-gray-200">Sync Time</Label>
                           <Input
                             id="inventory-time"
                             type="time"
@@ -4014,7 +4014,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <div className="flex items-center justify-between gap-2">
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <Label className="text-xs font-medium text-gray-300">Orders Sync</Label>
+                            <Label className="text-xs font-medium text-gray-100">Orders Sync</Label>
                             <Popover>
                               <PopoverTrigger asChild>
                                 <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -4056,7 +4056,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                       {ordersSyncEnabled && (
                         <div className="ml-4 space-y-2">
-                          <Label htmlFor="orders-frequency" className="text-xs text-gray-400">Sync Frequency (minutes)</Label>
+                          <Label htmlFor="orders-frequency" className="text-xs text-gray-200">Sync Frequency (minutes)</Label>
                           <Input
                             id="orders-frequency"
                             type="number"
@@ -4124,7 +4124,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <div className="flex items-center justify-between gap-2 pt-2">
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <Label className="text-xs font-medium text-gray-300">Daily Schedule</Label>
+                            <Label className="text-xs font-medium text-gray-100">Daily Schedule</Label>
                             <Popover>
                               <PopoverTrigger asChild>
                                 <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -4165,7 +4165,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                       {channelSyncEnabled && (
                         <div className="ml-4 space-y-2">
-                          <Label htmlFor="channel-sync-time" className="text-xs text-gray-400">Sync Time</Label>
+                          <Label htmlFor="channel-sync-time" className="text-xs text-gray-200">Sync Time</Label>
                           <Input
                             id="channel-sync-time"
                             type="time"
@@ -4182,7 +4182,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       {/* Sync Mode */}
                       <div className="mt-3 space-y-2">
                         <div className="flex items-center gap-1.5">
-                          <Label className="text-xs text-gray-400">Sync Mode</Label>
+                          <Label className="text-xs text-gray-200">Sync Mode</Label>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Info className="w-3 h-3 text-gray-500 shrink-0 cursor-default" />
@@ -4346,14 +4346,14 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   </button>
                   {enrichmentPomOpen && (
                   <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-3 sr-only">Price-o-Matic</h3>
+                  <h3 className="text-sm font-medium text-gray-100 mb-3 sr-only">Price-o-Matic</h3>
 
                   {/* Auto Sync Scheduler */}
                   <div className="space-y-3 my-4">
                     <div className="flex items-center justify-between gap-2">
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <Label className="text-xs font-medium text-gray-300">Price-o-Matic Auto Sync</Label>
+                          <Label className="text-xs font-medium text-gray-100">Price-o-Matic Auto Sync</Label>
                           <Popover>
                             <PopoverTrigger asChild>
                               <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -4396,7 +4396,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <div className="ml-4 space-y-3">
                         <div className="flex items-center gap-4">
                           <div className="space-y-1">
-                            <Label htmlFor="pom-sync-time" className="text-xs text-gray-400">Sync Time</Label>
+                            <Label htmlFor="pom-sync-time" className="text-xs text-gray-200">Sync Time</Label>
                             <Input
                               id="pom-sync-time"
                               type="time"
@@ -4409,7 +4409,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <p className="text-[10px] text-gray-500">Local timezone</p>
                           </div>
                           <div className="space-y-1">
-                            <Label htmlFor="pom-schedule-batch" className="text-xs text-gray-400">Lots per run</Label>
+                            <Label htmlFor="pom-schedule-batch" className="text-xs text-gray-200">Lots per run</Label>
                             <Input
                               id="pom-schedule-batch"
                               type="number"
@@ -4433,7 +4433,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <p className="text-[10px] text-gray-500">BrickLink allows 5,000 API calls/day. Price-o-Matic uses 3 calls per lot.</p>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
-                          <Label className="text-xs text-gray-400">Manual sync batch size</Label>
+                          <Label className="text-xs text-gray-200">Manual sync batch size</Label>
                           <Popover>
                             <PopoverTrigger asChild>
                               <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -4511,7 +4511,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         </div>
                         <div className="flex items-center gap-2">
                           <Layers className="h-4 w-4 text-gray-400" />
-                          <p className="text-xs text-gray-400">Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly.</p>
+                          <p className="text-xs text-gray-200">Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly.</p>
                         </div>
                         <PomCategoryTiers />
                       </div>
@@ -4617,28 +4617,28 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 <Input type="number" min={1} value={pomScarcityThreshold1} onChange={(e) => setPomScarcityThreshold1(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold1 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold1" />
                                 <span className="text-xs text-gray-300">lots</span>
                                 <Input type="number" min={0} max={200} value={pomScarcityBonus1} onChange={(e) => setPomScarcityBonus1(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus1 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus1" />
-                                <span className="text-xs text-gray-400">%</span>
+                                <span className="text-xs text-gray-200">%</span>
                               </div>
                               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
                                 <span className="text-sm font-medium text-yellow-300">Low</span>
                                 <Input type="number" min={1} value={pomScarcityThreshold2} onChange={(e) => setPomScarcityThreshold2(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold2 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold2" />
                                 <span className="text-xs text-gray-300">lots</span>
                                 <Input type="number" min={0} max={200} value={pomScarcityBonus2} onChange={(e) => setPomScarcityBonus2(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus2 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus2" />
-                                <span className="text-xs text-gray-400">%</span>
+                                <span className="text-xs text-gray-200">%</span>
                               </div>
                               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
                                 <span className="text-sm font-medium text-blue-300">Medium</span>
                                 <Input type="number" min={1} value={pomScarcityThreshold3} onChange={(e) => setPomScarcityThreshold3(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold3 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold3" />
                                 <span className="text-xs text-gray-300">lots</span>
                                 <Input type="number" min={0} max={200} value={pomScarcityBonus3} onChange={(e) => setPomScarcityBonus3(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus3 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus3" />
-                                <span className="text-xs text-gray-400">%</span>
+                                <span className="text-xs text-gray-200">%</span>
                               </div>
                               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
-                                <span className="text-sm font-medium text-gray-300">High</span>
+                                <span className="text-sm font-medium text-gray-100">High</span>
                                 <span className="text-sm text-gray-400 text-right">{pomScarcityThreshold3}+</span>
-                                <span className="text-xs text-gray-400">lots</span>
+                                <span className="text-xs text-gray-200">lots</span>
                                 <span className="text-sm text-gray-400 w-20 text-right">—</span>
-                                <span className="text-xs text-gray-400">%</span>
+                                <span className="text-xs text-gray-200">%</span>
                               </div>
                             </div>
                           </div>
@@ -5002,7 +5002,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <div className="flex items-center justify-between gap-2">
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <Label className="text-xs font-medium text-gray-300">Monthly Set-Parts Sync</Label>
+                            <Label className="text-xs font-medium text-gray-100">Monthly Set-Parts Sync</Label>
                             <Popover>
                               <PopoverTrigger asChild>
                                 <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
@@ -5046,7 +5046,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         <div className="ml-4 space-y-3">
                           <div className="flex items-center gap-4">
                             <div className="space-y-1">
-                              <Label htmlFor="rebrickable-sync-time" className="text-xs text-gray-400">Sync Time</Label>
+                              <Label htmlFor="rebrickable-sync-time" className="text-xs text-gray-200">Sync Time</Label>
                               <Input
                                 id="rebrickable-sync-time"
                                 type="time"
@@ -5063,7 +5063,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       )}
                       <div className="flex items-center justify-between gap-2">
                         <div>
-                          <Label className="text-xs text-gray-400">Force full rebuild</Label>
+                          <Label className="text-xs text-gray-200">Force full rebuild</Label>
                           <p className="text-[10px] text-gray-500 mt-0.5">Truncates the table and re-downloads from scratch</p>
                         </div>
                         <Button
@@ -5090,7 +5090,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Data Export (CSV) */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                  <h3 className="text-sm font-medium text-gray-100 mb-2 flex items-center gap-2">
                     <Download className="h-4 w-4 text-green-400" />
                     Data Export (CSV)
                   </h3>
@@ -5099,7 +5099,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <Accordion type="single" collapsible className="space-y-2">
                     {/* Core Business Data */}
                     <AccordionItem value="core" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
-                      <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
+                      <AccordionTrigger className="text-xs font-medium text-gray-100 py-2.5 hover:no-underline">
                         <div className="flex items-center gap-2">
                           <HardDrive className="h-3.5 w-3.5 text-purple-400" />
                           Core Business Data
@@ -5145,7 +5145,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                     {/* Platform Catalog Data */}
                     <AccordionItem value="catalog" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
-                      <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
+                      <AccordionTrigger className="text-xs font-medium text-gray-100 py-2.5 hover:no-underline">
                         <div className="flex items-center gap-2">
                           <Database className="h-3.5 w-3.5 text-blue-400" />
                           Platform Catalog Data
@@ -5180,7 +5180,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                     {/* AI & Analytics */}
                     <AccordionItem value="ai" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
-                      <AccordionTrigger className="text-xs font-medium text-gray-300 py-2.5 hover:no-underline">
+                      <AccordionTrigger className="text-xs font-medium text-gray-100 py-2.5 hover:no-underline">
                         <div className="flex items-center gap-2">
                           <Sparkles className="h-3.5 w-3.5 text-violet-400" />
                           AI & Analytics Data
@@ -5253,7 +5253,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Automatic Restore (Guided Wizard) */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                  <h3 className="text-sm font-medium text-gray-100 mb-2 flex items-center gap-2">
                     <RotateCcw className="h-4 w-4 text-blue-400" />
                     Automatic Restore (Guided Wizard)
                   </h3>
@@ -5312,7 +5312,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Manual Restore */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                  <h3 className="text-sm font-medium text-gray-100 mb-2 flex items-center gap-2">
                     <Download className="h-4 w-4 text-purple-400" />
                     Manual Restore
                   </h3>
@@ -5328,7 +5328,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                     {/* List of available backups */}
                     <div className="space-y-2">
-                      <Label className="text-xs text-gray-400">Available XML Backups</Label>
+                      <Label className="text-xs text-gray-200">Available XML Backups</Label>
                       <div className="space-y-2 max-h-48 overflow-y-auto">
                         {backupsLoading ? (
                           <div className="text-xs text-gray-400 text-center py-4">Loading backups...</div>
@@ -5373,7 +5373,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </div>
 
                     <div className="bg-gray-900/50 rounded p-3 space-y-2">
-                      <p className="text-xs font-medium text-gray-300">After Download:</p>
+                      <p className="text-xs font-medium text-gray-100">After Download:</p>
                       <ol className="text-[10px] md:text-sm text-gray-400 space-y-1 ml-4 list-decimal">
                         <li>Go to BrickLink → My Store → Upload/Update My Inventory</li>
                         <li>Select your downloaded XML file and upload</li>
@@ -5398,7 +5398,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Maintenance Section */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                  <h3 className="text-sm font-medium text-gray-100 mb-2 flex items-center gap-2">
                     <Wrench className="h-4 w-4 text-orange-400" />
                     Maintenance
                   </h3>
@@ -5423,7 +5423,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Clear Data Section */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                  <h3 className="text-sm font-medium text-gray-100 mb-2 flex items-center gap-2">
                     <Trash2 className="h-4 w-4 text-red-400" />
                     Clear Data
                   </h3>
@@ -5546,7 +5546,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           <button
                             key={tab}
                             onClick={() => setActiveOrgTab(tab)}
-                            className={`flex-1 py-2.5 text-[11px] font-semibold transition-colors border-b-2 -mb-px ${activeOrgTab === tab ? 'text-yellow-400 border-yellow-500' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
+                            className={`flex-1 py-2.5 text-[11px] font-semibold transition-colors border-b-2 -mb-px ${activeOrgTab === tab ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
                             data-testid={`tab-${tab}-${org.id}`}
                           >
                             {tab === 'billing' ? 'Billing / Payments' : tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -6120,7 +6120,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-6 flex flex-col items-center justify-center gap-3 text-center">
                   <ClipboardList className="h-8 w-8 text-gray-600" />
                   <div>
-                    <p className="text-sm font-medium text-gray-300">Audit Log</p>
+                    <p className="text-sm font-medium text-gray-100">Audit Log</p>
                     <p className="text-xs text-gray-500 mt-1">Platform-wide activity log tracking all admin and tenant actions across every organization.</p>
                   </div>
                   <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">Coming Soon</Badge>
@@ -6134,7 +6134,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-6 flex flex-col items-center justify-center gap-3 text-center">
                   <Megaphone className="h-8 w-8 text-gray-600" />
                   <div>
-                    <p className="text-sm font-medium text-gray-300">Announcements</p>
+                    <p className="text-sm font-medium text-gray-100">Announcements</p>
                     <p className="text-xs text-gray-500 mt-1">Broadcast system-wide messages, maintenance notices, and release updates to all tenant organizations.</p>
                   </div>
                   <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">Coming Soon</Badge>
@@ -6148,7 +6148,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-6 flex flex-col items-center justify-center gap-3 text-center">
                   <CreditCard className="h-8 w-8 text-gray-600" />
                   <div>
-                    <p className="text-sm font-medium text-gray-300">Billing Overview</p>
+                    <p className="text-sm font-medium text-gray-100">Billing Overview</p>
                     <p className="text-xs text-gray-500 mt-1">Platform-level revenue dashboard — MRR, churn, trial conversions, and per-organization subscription status.</p>
                   </div>
                   <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">Coming Soon</Badge>
@@ -6182,7 +6182,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 <div className="p-4 space-y-4">
                   <div className="flex items-center gap-2 px-1">
                     <Tag className="h-4 w-4 text-yellow-500/70" />
-                    <p className="text-xs font-semibold text-gray-300 uppercase tracking-widest">Plans & Pricing</p>
+                    <p className="text-xs font-semibold text-gray-100 uppercase tracking-widest">Plans & Pricing</p>
                   </div>
 
                   {planConfigsLoading && (
@@ -6200,7 +6200,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             key={plan.planKey}
                             onClick={() => setActivePlanTab(plan.planKey)}
                             data-testid={`tab-plan-${plan.planKey}`}
-                            className={`flex-1 px-2 py-1.5 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${activePlanTab === plan.planKey ? 'bg-gray-700 text-gray-100' : 'text-gray-500 hover:text-gray-300'}`}
+                            className={`flex-1 px-2 py-1.5 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${activePlanTab === plan.planKey ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-100'}`}
                           >
                             <span>{plan.name}</span>
                             {plan.orgCount > 0 && (
@@ -6917,7 +6917,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
         <AlertDialogContent className="bg-gray-900 border-gray-700">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base">Clear {clearDataDialog === 'inventory' ? 'Inventory' : 'Order'} Data?</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-gray-400">
+            <AlertDialogDescription className="text-xs text-gray-200">
               This action cannot be undone. This will permanently delete all {clearDataDialog === 'inventory' ? 'inventory' : 'order'} data from the database.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -6995,7 +6995,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 </div>
 
                 <div className="space-y-2 pt-2">
-                  <p className="text-xs font-medium text-gray-300">Checklist - Please Confirm:</p>
+                  <p className="text-xs font-medium text-gray-100">Checklist - Please Confirm:</p>
                   <div className="space-y-1.5">
                     <label className="flex items-start gap-2 text-xs text-gray-400 cursor-pointer">
                       <input type="checkbox" className="mt-0.5" data-testid="checkbox-understand-data-loss" />
@@ -7103,13 +7103,13 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <div className="h-4 w-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
                       <span className="text-xs text-gray-300">BrickOwl Orders</span>
                     </div>
-                    <span className="text-xs text-gray-400">Syncing... (23 of 89)</span>
+                    <span className="text-xs text-gray-200">Syncing... (23 of 89)</span>
                   </div>
 
                   <div className="flex items-center justify-between p-3 bg-gray-800 border border-gray-700 rounded opacity-50">
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-gray-500" />
-                      <span className="text-xs text-gray-400">EasyPost Tracking Data</span>
+                      <span className="text-xs text-gray-200">EasyPost Tracking Data</span>
                     </div>
                     <span className="text-xs text-gray-500">Waiting...</span>
                   </div>
@@ -7178,7 +7178,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 </div>
 
                 <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-gray-300 mb-3">Differential Analysis</h4>
+                  <h4 className="text-sm font-medium text-gray-100 mb-3">Differential Analysis</h4>
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div className="bg-gray-900 rounded p-3">
                       <p className="text-gray-400">Total Items in BrickOwl</p>
@@ -7268,7 +7268,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     <CheckCircle2 className="h-8 w-8 text-green-400" />
                   </div>
                   <h3 className="text-sm font-medium text-gray-200 mb-2">Verifying Recovery</h3>
-                  <p className="text-xs text-gray-400">Checking data integrity and platform synchronization</p>
+                  <p className="text-xs text-gray-200">Checking data integrity and platform synchronization</p>
                 </div>
 
                 <div className="space-y-2">
@@ -7361,7 +7361,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     <CheckCircle2 className="h-10 w-10 text-green-400" />
                   </div>
                   <h3 className="text-lg font-medium text-green-300 mb-2">Recovery Complete!</h3>
-                  <p className="text-xs text-gray-400">Your database has been successfully restored and BrickLink updated to current state</p>
+                  <p className="text-xs text-gray-200">Your database has been successfully restored and BrickLink updated to current state</p>
                 </div>
 
                 <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 space-y-2">
@@ -7401,7 +7401,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 </div>
 
                 <div className="bg-gray-800 border border-gray-700 rounded p-3">
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-200">
                     <strong>Next Steps:</strong> Monitor your store for the next 24 hours to ensure everything is working correctly. The differential sync ensured BrickLink matches your current BrickOwl state, but spot-check a few items to confirm.
                   </p>
                 </div>
