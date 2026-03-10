@@ -1746,7 +1746,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             </div>
 
             {/* Content */}
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
               {activeSection === null ? (
                 <nav className="p-2">
                   {/* Company Settings accordion header */}
@@ -5865,7 +5865,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
             {/* ── Platform Admin: System Health ────────────────────────────── */}
             {activeSection === 'systemHealth' && (
-              <div className="flex flex-col">
+              <div className="flex flex-col min-w-0 overflow-hidden">
                 {/* Tab bar */}
                 <div className="flex border-b border-gray-700/60 px-2 shrink-0">
                   {([
