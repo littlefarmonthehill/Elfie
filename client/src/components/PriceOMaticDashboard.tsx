@@ -14,6 +14,7 @@ import {
   Orbit,
   Rocket,
   Satellite,
+  Info,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PomSpotLookup } from "@/components/PomSpotLookup";
@@ -646,92 +647,95 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
       {/* Item list */}
       <div className="space-y-1.5">
 
-        {/* Zone filter tabs */}
+        {/* Zone filter tabs — compact segmented control */}
         <div className="flex items-center gap-2 px-1 pb-1">
-          <button
-            onClick={() => setOrbitFilter('in_orbit')}
-            className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded transition-colors ${
-              orbitFilter === 'in_orbit'
-                ? 'bg-blue-500/25 text-blue-300 border border-blue-500/40'
-                : 'text-gray-500 hover:text-gray-300'
-            }`}
-            data-testid="filter-in-orbit"
-          >
-            <Orbit className="w-3 h-3" />
-            In Orbit
-            <span className="text-[9px] opacity-70">({inOrbitGroups.length})</span>
-          </button>
-          <button
-            onClick={() => setOrbitFilter('future_missions')}
-            className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded transition-colors ${
-              orbitFilter === 'future_missions'
-                ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40'
-                : 'text-gray-500 hover:text-gray-300'
-            }`}
-            data-testid="filter-future-missions"
-          >
-            <Satellite className="w-3 h-3" />
-            Future Missions
-            <span className="text-[9px] opacity-70">({futureMissionsGroups.length})</span>
-          </button>
-          <button
-            onClick={() => setOrbitFilter('deep_space')}
-            className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded transition-colors ${
-              orbitFilter === 'deep_space'
-                ? 'bg-indigo-500/25 text-indigo-300 border border-indigo-500/40'
-                : 'text-gray-500 hover:text-gray-300'
-            }`}
-            data-testid="filter-deep-space"
-          >
-            <Rocket className="w-3 h-3" />
-            Deep Space
-            <span className="text-[9px] opacity-70">({deepSpaceGroups.length})</span>
-          </button>
+          <div className="flex items-stretch rounded-md border border-gray-700/60 bg-gray-900/50 overflow-hidden flex-1 text-[9px] font-semibold uppercase tracking-wider">
+            <button
+              onClick={() => setOrbitFilter('in_orbit')}
+              className={`flex items-center justify-center gap-1 flex-1 px-2 py-1.5 transition-colors ${
+                orbitFilter === 'in_orbit'
+                  ? 'bg-blue-500/20 text-blue-300'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+              data-testid="filter-in-orbit"
+            >
+              <Orbit className="w-2.5 h-2.5 flex-shrink-0" />
+              <span>Orbit</span>
+              <span className="opacity-50 font-normal">({inOrbitGroups.length})</span>
+            </button>
+            <div className="w-px self-stretch bg-gray-700/60" />
+            <button
+              onClick={() => setOrbitFilter('future_missions')}
+              className={`flex items-center justify-center gap-1 flex-1 px-2 py-1.5 transition-colors ${
+                orbitFilter === 'future_missions'
+                  ? 'bg-amber-500/20 text-amber-300'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+              data-testid="filter-future-missions"
+            >
+              <Satellite className="w-2.5 h-2.5 flex-shrink-0" />
+              <span>Missions</span>
+              <span className="opacity-50 font-normal">({futureMissionsGroups.length})</span>
+            </button>
+            <div className="w-px self-stretch bg-gray-700/60" />
+            <button
+              onClick={() => setOrbitFilter('deep_space')}
+              className={`flex items-center justify-center gap-1 flex-1 px-2 py-1.5 transition-colors ${
+                orbitFilter === 'deep_space'
+                  ? 'bg-indigo-500/20 text-indigo-300'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+              data-testid="filter-deep-space"
+            >
+              <Rocket className="w-2.5 h-2.5 flex-shrink-0" />
+              <span>Deep Space</span>
+              <span className="opacity-50 font-normal">({deepSpaceGroups.length})</span>
+            </button>
+          </div>
+
+          {/* Swipe info tooltip */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button className="text-gray-600 hover:text-gray-400 transition-colors flex-shrink-0" data-testid="button-swipe-info">
+                <Info className="w-3.5 h-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-[10px] space-y-0.5 max-w-[180px]">
+              {orbitFilter === 'in_orbit' && <>
+                <p><span className="text-amber-300">Short swipe right</span> → Missions</p>
+                <p><span className="text-indigo-300">Long swipe right</span> → Deep Space</p>
+              </>}
+              {orbitFilter === 'future_missions' && <>
+                <p><span className="text-emerald-300">Swipe left</span> → In Orbit</p>
+                <p><span className="text-indigo-300">Swipe right</span> → Deep Space</p>
+              </>}
+              {orbitFilter === 'deep_space' && <>
+                <p><span className="text-amber-300">Short swipe left</span> → Missions</p>
+                <p><span className="text-emerald-300">Long swipe left</span> → In Orbit</p>
+              </>}
+            </TooltipContent>
+          </Tooltip>
         </div>
 
-        {/* Score filter tabs — only shown for In Orbit */}
+        {/* Score filter — compact inline strip, only for In Orbit */}
         {orbitFilter === 'in_orbit' && (
-          <div className="flex items-center gap-1.5 px-1 pb-1 flex-wrap">
+          <div className="flex items-center gap-0.5 px-1">
             {([
-              { key: 'all',          label: 'All',           count: inOrbitGroups.length,  active: 'bg-gray-700/60 text-gray-200 border border-gray-600/60',   inactive: 'text-gray-500 hover:text-gray-300' },
-              { key: 'underpriced',  label: 'Underpriced',   count: underpricedCount,       active: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40', inactive: 'text-gray-500 hover:text-gray-300' },
-              { key: 'priced_right', label: 'Priced Right',  count: pricedRightCount,       active: 'bg-blue-500/20 text-blue-300 border border-blue-500/40',    inactive: 'text-gray-500 hover:text-gray-300' },
-              { key: 'overpriced',   label: 'Overpriced',    count: overPricedCount,        active: 'bg-orange-500/20 text-orange-300 border border-orange-500/40', inactive: 'text-gray-500 hover:text-gray-300' },
+              { key: 'all',          label: 'All',         count: inOrbitGroups.length, active: 'bg-gray-700/50 text-gray-200',                              inactive: 'text-gray-600 hover:text-gray-400' },
+              { key: 'underpriced',  label: 'Underpriced', count: underpricedCount,      active: 'bg-emerald-500/15 text-emerald-300',                        inactive: 'text-gray-600 hover:text-gray-400' },
+              { key: 'priced_right', label: 'Right',       count: pricedRightCount,      active: 'bg-blue-500/15 text-blue-300',                              inactive: 'text-gray-600 hover:text-gray-400' },
+              { key: 'overpriced',   label: 'Overpriced',  count: overPricedCount,       active: 'bg-orange-500/15 text-orange-300',                          inactive: 'text-gray-600 hover:text-gray-400' },
             ] as const).map(({ key, label, count, active, inactive }) => (
               <button
                 key={key}
                 onClick={() => setScoreFilter(key)}
-                className={`flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded transition-colors ${scoreFilter === key ? active : inactive}`}
+                className={`flex items-center gap-0.5 text-[8px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded transition-colors ${scoreFilter === key ? active : inactive}`}
                 data-testid={`filter-score-${key}`}
               >
                 {label}
-                <span className="opacity-70">({count})</span>
+                <span className="opacity-60">({count})</span>
               </button>
             ))}
-          </div>
-        )}
-
-        {/* Swipe hint banner — contextual to current zone */}
-        {(orbitFilter === 'in_orbit' || orbitFilter === 'future_missions' || orbitFilter === 'deep_space') && selectedGroups.length > 0 && (
-          <div className="px-2 py-1 rounded-md bg-slate-800/40 border border-slate-700/30">
-            {orbitFilter === 'in_orbit' && (
-              <p className="text-[9px] text-slate-500">
-                <span className="text-amber-500/80">Short swipe right</span> → Future Missions &nbsp;·&nbsp;
-                <span className="text-indigo-400/80">Long swipe right</span> → Deep Space
-              </p>
-            )}
-            {orbitFilter === 'future_missions' && (
-              <p className="text-[9px] text-slate-500">
-                <span className="text-emerald-500/80">Swipe left</span> → In Orbit &nbsp;·&nbsp;
-                <span className="text-indigo-400/80">Swipe right</span> → Deep Space
-              </p>
-            )}
-            {orbitFilter === 'deep_space' && (
-              <p className="text-[9px] text-slate-500">
-                <span className="text-amber-500/80">Short swipe left</span> → Future Missions &nbsp;·&nbsp;
-                <span className="text-emerald-500/80">Long swipe left</span> → In Orbit
-              </p>
-            )}
           </div>
         )}
 
