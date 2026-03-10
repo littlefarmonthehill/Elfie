@@ -2274,7 +2274,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-4 space-y-3">
                       <div className="flex items-start justify-between gap-2 flex-wrap">
                         <div>
-                          <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-1">Current Plan</p>
+                          <p className="sm-group-label mb-1">Current Plan</p>
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-base font-bold text-white">{planLabel(org?.plan)}</span>
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wider border ${
@@ -5897,7 +5897,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <>
                         {/* Platform stats */}
                         <div>
-                          <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Platform</p>
+                          <p className="sm-group-label mb-2 px-1">Platform</p>
                           <div className="grid grid-cols-3 gap-2">
                             {[
                               { label: 'Organizations', value: systemHealth.platform.totalOrganizations, icon: Building2 },
@@ -5917,7 +5917,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                         {/* Embedding counts */}
                         <div>
-                          <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Embeddings</p>
+                          <p className="sm-group-label mb-2 px-1">Embeddings</p>
                           <div className="grid grid-cols-2 gap-2">
                             {[
                               { label: 'Inventory Vectors', value: systemHealth.embeddings.inventoryEmbeddings },
@@ -5934,7 +5934,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         {/* Universal CLIP Catalog */}
                         {universalCatalogStatus && (
                           <div>
-                            <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Universal CLIP Catalog</p>
+                            <p className="sm-group-label mb-2 px-1">Universal CLIP Catalog</p>
                             <div className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-3 space-y-3">
                               <div className="space-y-1.5">
                                 <div className="flex items-center justify-between gap-2">
@@ -6008,7 +6008,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         {/* Active jobs */}
                         <div>
                           <div className="flex items-center gap-2 mb-2 px-1">
-                            <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Active Embedding Jobs</p>
+                            <p className="sm-group-label">Active Embedding Jobs</p>
                             {systemHealth.jobs.active.length > 0 && (
                               <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
                             )}
@@ -6049,7 +6049,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                         {/* Recent jobs */}
                         <div>
-                          <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Recent Jobs</p>
+                          <p className="sm-group-label mb-2 px-1">Recent Jobs</p>
                           <div className="sm-card-inset">
                             {systemHealth.jobs.recent.length === 0 ? (
                               <div className="px-4 py-4 text-center text-xs text-gray-500">No completed jobs yet</div>
@@ -6094,7 +6094,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     <div>
                       <div className="flex items-center justify-between mb-2 px-1">
                         <div className="flex items-center gap-2">
-                          <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Recent Warnings & Errors</p>
+                          <p className="sm-group-label">Recent Warnings & Errors</p>
                           {serverLogs && serverLogs.some(l => l.level === 'error') && (
                             <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
                           )}
@@ -6178,7 +6178,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     <div className="p-4 space-y-4">
                       <div>
                         <div className="flex items-center justify-between mb-2 px-1">
-                          <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Database Tables</p>
+                          <p className="sm-group-label">Database Tables</p>
                           <button
                             onClick={() => refetchDbTables()}
                             className="text-gray-600 hover:text-gray-400 transition-colors"
@@ -7000,7 +7000,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Data & Security */}
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Data & Security</p>
+                  <p className="sm-group-label mb-2 px-1">Data & Security</p>
                   <div className="sm-card-divided">
                     {[
                       { name: 'Tenant Isolation', desc: 'Each store\'s inventory, orders, and settings are scoped to their organization — no data is shared across accounts' },
@@ -7012,7 +7012,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <div key={name} className="flex items-start gap-3 px-4 py-2.5">
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-gray-200">{name}</p>
-                          <p className="text-[10px] text-gray-500">{desc}</p>
+                          <p className="sm-description">{desc}</p>
                         </div>
                       </div>
                     ))}
@@ -7021,7 +7021,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Architecture */}
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Architecture</p>
+                  <p className="sm-group-label mb-2 px-1">Architecture</p>
                   <div className="sm-card-divided">
                     {[
                       { name: 'TypeScript', desc: 'End-to-end type safety across client and server', url: 'https://www.typescriptlang.org' },
@@ -7038,7 +7038,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <span className="text-xs font-medium text-gray-200 group-hover:text-violet-300 transition-colors">{name}</span>
                             <ExternalLink className="h-2.5 w-2.5 text-gray-600 group-hover:text-violet-400 transition-colors shrink-0" />
                           </a>
-                          <p className="text-[10px] text-gray-500">{desc}</p>
+                          <p className="sm-description">{desc}</p>
                         </div>
                       </div>
                     ))}
@@ -7047,7 +7047,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* UI & Design */}
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">UI & Design</p>
+                  <p className="sm-group-label mb-2 px-1">UI & Design</p>
                   <div className="sm-card-divided">
                     {[
                       { name: 'shadcn/ui', desc: 'Accessible component library built on Radix UI primitives', url: 'https://ui.shadcn.com' },
@@ -7063,7 +7063,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <span className="text-xs font-medium text-gray-200 group-hover:text-violet-300 transition-colors">{name}</span>
                             <ExternalLink className="h-2.5 w-2.5 text-gray-600 group-hover:text-violet-400 transition-colors shrink-0" />
                           </a>
-                          <p className="text-[10px] text-gray-500">{desc}</p>
+                          <p className="sm-description">{desc}</p>
                         </div>
                       </div>
                     ))}
@@ -7072,7 +7072,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* AI & Intelligence */}
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">AI & Intelligence</p>
+                  <p className="sm-group-label mb-2 px-1">AI & Intelligence</p>
                   <div className="sm-card-divided">
                     {[
                       { name: 'Anthropic Claude', desc: 'AI analysis, summaries, and natural language features', url: 'https://www.anthropic.com' },
@@ -7087,7 +7087,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <span className="text-xs font-medium text-gray-200 group-hover:text-violet-300 transition-colors">{name}</span>
                             <ExternalLink className="h-2.5 w-2.5 text-gray-600 group-hover:text-violet-400 transition-colors shrink-0" />
                           </a>
-                          <p className="text-[10px] text-gray-500">{desc}</p>
+                          <p className="sm-description">{desc}</p>
                         </div>
                       </div>
                     ))}
@@ -7096,7 +7096,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* LEGO Data */}
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">LEGO Data & Marketplaces</p>
+                  <p className="sm-group-label mb-2 px-1">LEGO Data & Marketplaces</p>
                   <div className="sm-card-divided">
                     {[
                       { name: 'BrickLink', desc: 'Primary marketplace — inventory, orders, and pricing data', url: 'https://www.bricklink.com' },
@@ -7109,7 +7109,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <span className="text-xs font-medium text-gray-200 group-hover:text-violet-300 transition-colors">{name}</span>
                             <ExternalLink className="h-2.5 w-2.5 text-gray-600 group-hover:text-violet-400 transition-colors shrink-0" />
                           </a>
-                          <p className="text-[10px] text-gray-500">{desc}</p>
+                          <p className="sm-description">{desc}</p>
                         </div>
                       </div>
                     ))}
@@ -7118,7 +7118,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Payments & Services */}
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Payments & Services</p>
+                  <p className="sm-group-label mb-2 px-1">Payments & Services</p>
                   <div className="sm-card-divided">
                     {[
                       { name: 'Stripe', desc: 'Subscription billing and payment processing', url: 'https://stripe.com' },
@@ -7131,7 +7131,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <span className="text-xs font-medium text-gray-200 group-hover:text-violet-300 transition-colors">{name}</span>
                             <ExternalLink className="h-2.5 w-2.5 text-gray-600 group-hover:text-violet-400 transition-colors shrink-0" />
                           </a>
-                          <p className="text-[10px] text-gray-500">{desc}</p>
+                          <p className="sm-description">{desc}</p>
                         </div>
                       </div>
                     ))}
