@@ -737,6 +737,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [activeOrgTab, setActiveOrgTab] = useState<'features' | 'limits' | 'billing'>('features');
   const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'features' | 'limits' | 'billing'>('info');
   const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'stripe' | 'openai' | 'replit'>('stripe');
+  const [activeHealthTab, setActiveHealthTab] = useState<'overview' | 'jobs' | 'logs' | 'database'>('overview');
   const [activePlanTab, setActivePlanTab] = useState<string>('trial');
   const [planDraft, setPlanDraft] = useState<Record<string, any>>({});
   const [impersonationSearch, setImpersonationSearch] = useState('');
@@ -5864,169 +5865,232 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
             {/* ── Platform Admin: System Health ────────────────────────────── */}
             {activeSection === 'systemHealth' && (
-              <div className="p-4 space-y-4">
-                {systemHealthLoading ? (
-                  <div className="flex items-center justify-center py-10">
-                    <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
-                  </div>
-                ) : systemHealth ? (
-                  <>
-                    {/* Platform stats */}
-                    <div>
-                      <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Platform</p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { label: 'Organizations', value: systemHealth.platform.totalOrganizations, icon: Building2 },
-                          { label: 'Total Users', value: systemHealth.platform.totalUsers, icon: Users },
-                          { label: 'Active Subs', value: systemHealth.platform.activeSubscriptions, icon: CreditCard },
-                        ].map(({ label, value, icon: Icon }) => (
-                          <div key={label} className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-2.5">
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <Icon className="h-3 w-3 text-yellow-500/60" />
-                              <span className="text-[10px] text-gray-500">{label}</span>
-                            </div>
-                            <p className="text-lg font-bold text-white">{Number(value).toLocaleString()}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+              <div className="flex flex-col">
+                {/* Tab bar */}
+                <div className="flex border-b border-gray-700/60 px-2 shrink-0">
+                  {([
+                    { id: 'overview', label: 'Overview' },
+                    { id: 'jobs', label: 'Jobs' },
+                    { id: 'logs', label: 'Logs', dot: serverLogs && serverLogs.some(l => l.level === 'error') ? 'bg-red-500' : serverLogs && serverLogs.some(l => l.level === 'warn') ? 'bg-yellow-500' : null },
+                    { id: 'database', label: 'Database' },
+                  ] as const).map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveHealthTab(tab.id)}
+                      className={`flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold transition-colors border-b-2 -mb-px ${activeHealthTab === tab.id ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
+                      data-testid={`tab-health-${tab.id}`}
+                    >
+                      {tab.label}
+                      {'dot' in tab && tab.dot && <span className={`h-1.5 w-1.5 rounded-full ${tab.dot}`} />}
+                    </button>
+                  ))}
+                </div>
 
-                    {/* Embedding counts */}
-                    <div>
-                      <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Embeddings</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          { label: 'Inventory Vectors', value: systemHealth.embeddings.inventoryEmbeddings },
-                          { label: 'Order Vectors', value: systemHealth.embeddings.orderEmbeddings },
-                        ].map(({ label, value }) => (
-                          <div key={label} className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-2.5">
-                            <p className="text-[10px] text-gray-500 mb-1">{label}</p>
-                            <p className="text-base font-bold text-white">{Number(value).toLocaleString()}</p>
-                          </div>
-                        ))}
+                {/* Overview tab */}
+                {activeHealthTab === 'overview' && (
+                  <div className="p-4 space-y-4">
+                    {systemHealthLoading ? (
+                      <div className="flex items-center justify-center py-10">
+                        <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
                       </div>
-                    </div>
-
-                    {/* Universal CLIP Catalog */}
-                    {universalCatalogStatus && (
-                      <div>
-                        <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Universal CLIP Catalog</p>
-                        <div className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-3 space-y-3">
-                          {/* Progress bar */}
-                          <div className="space-y-1.5">
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5">
-                                {universalCatalogStatus.workerRunning
-                                  ? <RefreshCw className="h-3 w-3 text-purple-400 animate-spin" />
-                                  : <CheckCircle2 className="h-3 w-3 text-green-400" />}
-                                <span className="text-xs text-gray-300">
-                                  {universalCatalogStatus.workerRunning ? 'Embedding in progress…' : 'All BrickLink parts'}
-                                </span>
-                              </div>
-                              <span className="text-xs font-mono text-gray-400">
-                                {universalCatalogStatus.queueSize > 0
-                                  ? `${Math.round(((universalCatalogStatus.embedded + universalCatalogStatus.noImage) / universalCatalogStatus.queueSize) * 100)}%`
-                                  : '—'}
-                              </span>
-                            </div>
-                            <div className="h-1.5 w-full rounded-full bg-gray-700 overflow-hidden">
-                              <div
-                                className="h-1.5 rounded-full bg-purple-500 transition-all"
-                                style={{
-                                  width: universalCatalogStatus.queueSize > 0
-                                    ? `${Math.round(((universalCatalogStatus.embedded + universalCatalogStatus.noImage) / universalCatalogStatus.queueSize) * 100)}%`
-                                    : '0%'
-                                }}
-                              />
-                            </div>
-                          </div>
-                          {/* Stat grid */}
-                          <div className="grid grid-cols-4 gap-2 text-center">
+                    ) : systemHealth ? (
+                      <>
+                        {/* Platform stats */}
+                        <div>
+                          <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Platform</p>
+                          <div className="grid grid-cols-3 gap-2">
                             {[
-                              { label: 'Total', value: universalCatalogStatus.queueSize, color: 'text-white' },
-                              { label: 'Embedded', value: universalCatalogStatus.embedded, color: 'text-emerald-400' },
-                              { label: 'Pending', value: universalCatalogStatus.pending, color: 'text-yellow-400' },
-                              { label: 'Failed', value: universalCatalogStatus.failed, color: 'text-red-400' },
-                            ].map(({ label, value, color }) => (
-                              <div key={label}>
-                                <p className={`text-sm font-bold ${color}`}>{Number(value).toLocaleString()}</p>
-                                <p className="text-[9px] text-gray-600 uppercase tracking-wider">{label}</p>
+                              { label: 'Organizations', value: systemHealth.platform.totalOrganizations, icon: Building2 },
+                              { label: 'Total Users', value: systemHealth.platform.totalUsers, icon: Users },
+                              { label: 'Active Subs', value: systemHealth.platform.activeSubscriptions, icon: CreditCard },
+                            ].map(({ label, value, icon: Icon }) => (
+                              <div key={label} className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-2.5">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <Icon className="h-3 w-3 text-yellow-500/60" />
+                                  <span className="text-[10px] text-gray-500">{label}</span>
+                                </div>
+                                <p className="text-lg font-bold text-white">{Number(value).toLocaleString()}</p>
                               </div>
                             ))}
                           </div>
                         </div>
-                      </div>
-                    )}
 
-                    {/* Active jobs */}
-                    <div>
-                      <div className="flex items-center gap-2 mb-2 px-1">
-                        <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Active Embedding Jobs</p>
-                        {systemHealth.jobs.active.length > 0 && (
-                          <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
-                        )}
-                      </div>
-                      {systemHealth.jobs.active.length === 0 ? (
-                        <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-4 text-center">
-                          <CheckCircle2 className="h-4 w-4 text-green-500/50 mx-auto mb-1" />
-                          <p className="text-xs text-gray-500">No active jobs</p>
-                        </div>
-                      ) : (
-                        <div className="rounded-lg border border-gray-700 overflow-hidden divide-y divide-gray-700/60">
-                          {systemHealth.jobs.active.map(job => (
-                            <div key={job.id} className="px-4 py-3">
-                              <div className="flex items-center justify-between gap-2 mb-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
-                                  <span className="text-xs font-medium text-gray-200 capitalize">{job.jobType}</span>
-                                  <span className="text-[10px] text-gray-500 font-mono">{job.orgId.slice(0, 8)}…</span>
-                                </div>
-                                <span className="text-[10px] text-yellow-400 capitalize">{job.status}</span>
+                        {/* Embedding counts */}
+                        <div>
+                          <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Embeddings</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {[
+                              { label: 'Inventory Vectors', value: systemHealth.embeddings.inventoryEmbeddings },
+                              { label: 'Order Vectors', value: systemHealth.embeddings.orderEmbeddings },
+                            ].map(({ label, value }) => (
+                              <div key={label} className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-2.5">
+                                <p className="text-[10px] text-gray-500 mb-1">{label}</p>
+                                <p className="text-base font-bold text-white">{Number(value).toLocaleString()}</p>
                               </div>
-                              {job.totalItems > 0 && (
-                                <div className="flex items-center gap-2">
-                                  <div className="flex-1 bg-gray-700 rounded-full h-1">
-                                    <div
-                                      className="bg-yellow-500 h-1 rounded-full transition-all"
-                                      style={{ width: `${Math.round((job.processedItems / job.totalItems) * 100)}%` }}
-                                    />
-                                  </div>
-                                  <span className="text-[10px] text-gray-500 shrink-0">{job.processedItems}/{job.totalItems}</span>
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
-                      )}
-                    </div>
 
-                    {/* Recent jobs */}
-                    <div>
-                      <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Recent Jobs</p>
-                      <div className="rounded-lg border border-gray-700 overflow-hidden divide-y divide-gray-700/60">
-                        {systemHealth.jobs.recent.length === 0 ? (
-                          <div className="px-4 py-4 text-center text-xs text-gray-500">No completed jobs yet</div>
-                        ) : systemHealth.jobs.recent.map(job => (
-                          <div key={job.id} className="flex items-center gap-3 px-4 py-2.5">
-                            <div className="shrink-0">
-                              {job.status === 'completed'
-                                ? <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
-                                : <AlertTriangle className="h-3.5 w-3.5 text-red-400" />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-gray-300 capitalize">{job.jobType}</p>
-                              {job.errorMessage && <p className="text-[10px] text-red-400/80 truncate">{job.errorMessage}</p>}
-                            </div>
-                            <div className="text-right shrink-0">
-                              <p className="text-[10px] text-gray-500">{job.processedItems}/{job.totalItems}</p>
-                              <p className="text-[9px] text-gray-600 font-mono">{job.completedAt ? new Date(job.completedAt).toLocaleDateString() : '—'}</p>
+                        {/* Universal CLIP Catalog */}
+                        {universalCatalogStatus && (
+                          <div>
+                            <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Universal CLIP Catalog</p>
+                            <div className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-3 space-y-3">
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5">
+                                    {universalCatalogStatus.workerRunning
+                                      ? <RefreshCw className="h-3 w-3 text-purple-400 animate-spin" />
+                                      : <CheckCircle2 className="h-3 w-3 text-green-400" />}
+                                    <span className="text-xs text-gray-300">
+                                      {universalCatalogStatus.workerRunning ? 'Embedding in progress…' : 'All BrickLink parts'}
+                                    </span>
+                                  </div>
+                                  <span className="text-xs font-mono text-gray-400">
+                                    {universalCatalogStatus.queueSize > 0
+                                      ? `${Math.round(((universalCatalogStatus.embedded + universalCatalogStatus.noImage) / universalCatalogStatus.queueSize) * 100)}%`
+                                      : '—'}
+                                  </span>
+                                </div>
+                                <div className="h-1.5 w-full rounded-full bg-gray-700 overflow-hidden">
+                                  <div
+                                    className="h-1.5 rounded-full bg-purple-500 transition-all"
+                                    style={{
+                                      width: universalCatalogStatus.queueSize > 0
+                                        ? `${Math.round(((universalCatalogStatus.embedded + universalCatalogStatus.noImage) / universalCatalogStatus.queueSize) * 100)}%`
+                                        : '0%'
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-4 gap-2 text-center">
+                                {[
+                                  { label: 'Total', value: universalCatalogStatus.queueSize, color: 'text-white' },
+                                  { label: 'Embedded', value: universalCatalogStatus.embedded, color: 'text-emerald-400' },
+                                  { label: 'Pending', value: universalCatalogStatus.pending, color: 'text-yellow-400' },
+                                  { label: 'Failed', value: universalCatalogStatus.failed, color: 'text-red-400' },
+                                ].map(({ label, value, color }) => (
+                                  <div key={label}>
+                                    <p className={`text-sm font-bold ${color}`}>{Number(value).toLocaleString()}</p>
+                                    <p className="text-[9px] text-gray-600 uppercase tracking-wider">{label}</p>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           </div>
-                        ))}
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-3 py-10">
+                        <AlertTriangle className="h-5 w-5 text-red-400/70" />
+                        <p className="text-xs text-gray-500">Failed to load system health data</p>
+                        <button
+                          onClick={() => refetchSystemHealth()}
+                          className="text-[11px] text-yellow-500/70 hover:text-yellow-400 underline"
+                          data-testid="button-retry-system-health"
+                        >
+                          Retry
+                        </button>
                       </div>
-                    </div>
+                    )}
+                  </div>
+                )}
 
-                    {/* Server Logs */}
+                {/* Jobs tab */}
+                {activeHealthTab === 'jobs' && (
+                  <div className="p-4 space-y-4">
+                    {systemHealthLoading ? (
+                      <div className="flex items-center justify-center py-10">
+                        <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
+                      </div>
+                    ) : systemHealth ? (
+                      <>
+                        {/* Active jobs */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-2 px-1">
+                            <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Active Embedding Jobs</p>
+                            {systemHealth.jobs.active.length > 0 && (
+                              <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+                            )}
+                          </div>
+                          {systemHealth.jobs.active.length === 0 ? (
+                            <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-4 text-center">
+                              <CheckCircle2 className="h-4 w-4 text-green-500/50 mx-auto mb-1" />
+                              <p className="text-xs text-gray-500">No active jobs</p>
+                            </div>
+                          ) : (
+                            <div className="rounded-lg border border-gray-700 overflow-hidden divide-y divide-gray-700/60">
+                              {systemHealth.jobs.active.map(job => (
+                                <div key={job.id} className="px-4 py-3">
+                                  <div className="flex items-center justify-between gap-2 mb-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+                                      <span className="text-xs font-medium text-gray-200 capitalize">{job.jobType}</span>
+                                      <span className="text-[10px] text-gray-500 font-mono">{job.orgId.slice(0, 8)}…</span>
+                                    </div>
+                                    <span className="text-[10px] text-yellow-400 capitalize">{job.status}</span>
+                                  </div>
+                                  {job.totalItems > 0 && (
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex-1 bg-gray-700 rounded-full h-1">
+                                        <div
+                                          className="bg-yellow-500 h-1 rounded-full transition-all"
+                                          style={{ width: `${Math.round((job.processedItems / job.totalItems) * 100)}%` }}
+                                        />
+                                      </div>
+                                      <span className="text-[10px] text-gray-500 shrink-0">{job.processedItems}/{job.totalItems}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Recent jobs */}
+                        <div>
+                          <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold mb-2 px-1">Recent Jobs</p>
+                          <div className="rounded-lg border border-gray-700 overflow-hidden divide-y divide-gray-700/60">
+                            {systemHealth.jobs.recent.length === 0 ? (
+                              <div className="px-4 py-4 text-center text-xs text-gray-500">No completed jobs yet</div>
+                            ) : systemHealth.jobs.recent.map(job => (
+                              <div key={job.id} className="flex items-center gap-3 px-4 py-2.5">
+                                <div className="shrink-0">
+                                  {job.status === 'completed'
+                                    ? <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
+                                    : <AlertTriangle className="h-3.5 w-3.5 text-red-400" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs text-gray-300 capitalize">{job.jobType}</p>
+                                  {job.errorMessage && <p className="text-[10px] text-red-400/80 truncate">{job.errorMessage}</p>}
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-[10px] text-gray-500">{job.processedItems}/{job.totalItems}</p>
+                                  <p className="text-[9px] text-gray-600 font-mono">{job.completedAt ? new Date(job.completedAt).toLocaleDateString() : '—'}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-3 py-10">
+                        <AlertTriangle className="h-5 w-5 text-red-400/70" />
+                        <p className="text-xs text-gray-500">Failed to load system health data</p>
+                        <button
+                          onClick={() => refetchSystemHealth()}
+                          className="text-[11px] text-yellow-500/70 hover:text-yellow-400 underline"
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Logs tab */}
+                {activeHealthTab === 'logs' && (
+                  <div className="p-4 space-y-4">
                     <div>
                       <div className="flex items-center justify-between mb-2 px-1">
                         <div className="flex items-center gap-2">
@@ -6095,8 +6159,12 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         </div>
                       )}
                     </div>
+                  </div>
+                )}
 
-                    {/* Database Tables */}
+                {/* Database tab */}
+                {activeHealthTab === 'database' && (
+                  <div className="p-4 space-y-4">
                     <div>
                       <div className="flex items-center justify-between mb-2 px-1">
                         <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Database Tables</p>
@@ -6114,7 +6182,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         </div>
                       ) : dbTables && dbTables.length > 0 ? (
                         <div className="rounded-lg border border-gray-700 overflow-hidden">
-                          {/* Header */}
                           <div className="grid grid-cols-[16px_1fr_64px_72px_64px] gap-x-3 px-3 py-1.5 bg-gray-800/80 border-b border-gray-700">
                             <span />
                             <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">Table</span>
@@ -6140,10 +6207,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 : 'never';
                               return (
                                 <div key={t.tableName} className="grid grid-cols-[16px_1fr_64px_72px_64px] gap-x-3 items-center px-3 py-1.5 hover-elevate">
-                                  {/* Health dot */}
                                   <span className={`h-1.5 w-1.5 rounded-full ${healthColor} mx-auto`} />
-
-                                  {/* Table name + info tooltip */}
                                   <div className="flex items-center gap-1.5 min-w-0">
                                     <span className="text-xs text-gray-300 font-mono truncate">{t.tableName}</span>
                                     {t.description && (
@@ -6162,16 +6226,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                       </Tooltip>
                                     )}
                                   </div>
-
-                                  {/* Size */}
                                   <span className="text-[11px] text-gray-400 text-right font-mono">{t.totalSize}</span>
-
-                                  {/* Live rows */}
                                   <span className="text-[11px] text-gray-400 text-right font-mono">
                                     {t.liveRows > 0 ? t.liveRows.toLocaleString() : '—'}
                                   </span>
-
-                                  {/* Dead rows */}
                                   <span className={`text-[11px] text-right font-mono ${t.deadRows > 100 ? 'text-yellow-400' : t.deadRows > 500 && deadRatio > 0.1 ? 'text-red-400' : 'text-gray-600'}`}>
                                     {t.deadRows > 0 ? t.deadRows.toLocaleString() : '—'}
                                   </span>
@@ -6179,7 +6237,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               );
                             })}
                           </div>
-                          {/* Footer summary */}
                           <div className="px-3 py-2 bg-gray-800/40 border-t border-gray-700 flex items-center justify-between">
                             <span className="text-[10px] text-gray-600">{dbTables.length} tables</span>
                             <span className="text-[10px] text-gray-600">
@@ -6198,18 +6255,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         </div>
                       )}
                     </div>
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center justify-center gap-3 py-10">
-                    <AlertTriangle className="h-5 w-5 text-red-400/70" />
-                    <p className="text-xs text-gray-500">Failed to load system health data</p>
-                    <button
-                      onClick={() => refetchSystemHealth()}
-                      className="text-[11px] text-yellow-500/70 hover:text-yellow-400 underline"
-                      data-testid="button-retry-system-health"
-                    >
-                      Retry
-                    </button>
                   </div>
                 )}
               </div>
