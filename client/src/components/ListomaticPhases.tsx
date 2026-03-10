@@ -390,7 +390,7 @@ export function ListomaticPhases() {
                         <div>
                           <div className="flex items-center gap-1.5 mb-1.5">
                             <Puzzle className="w-3 h-3 text-gray-400 shrink-0" />
-                            <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider">LEGO Parts</span>
+                            <span className="app-label">LEGO Parts</span>
                           </div>
                           <ul className="space-y-1">
                             {cfg.partsInfo.map((line, i) => (
@@ -404,7 +404,7 @@ export function ListomaticPhases() {
                         <div className="border-t border-gray-700/60 pt-3">
                           <div className="flex items-center gap-1.5 mb-1.5">
                             <User className="w-3 h-3 text-gray-400 shrink-0" />
-                            <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider">Minifigures</span>
+                            <span className="app-label">Minifigures</span>
                           </div>
                           <ul className="space-y-1">
                             {cfg.mfInfo.map((line, i) => (

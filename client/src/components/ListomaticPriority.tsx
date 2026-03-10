@@ -355,7 +355,7 @@ export default function ListomaticPriority() {
                       </button>
                     </PopoverTrigger>
                     <PopoverContent side="bottom" align="start" className="w-52 bg-gray-900 border-gray-700 p-2.5 z-[400] space-y-1.5">
-                      <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Move to phase</p>
+                      <p className="app-label mb-2">Move to phase</p>
                       <button
                         onClick={() => { phaseMutation.mutate({ categoryId: cat.id, phase: null }); setOpenPhaseId(null); }}
                         className={`w-full text-left text-[10px] px-2 py-1.5 rounded border transition-colors ${

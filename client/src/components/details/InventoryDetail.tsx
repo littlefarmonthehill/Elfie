@@ -367,7 +367,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
             {(data.description || data.remarks) && (
               <div className="space-y-2">
                 {data.description && (
-                  <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
+                  <div className="app-card-muted p-2.5">
                     <div className="flex items-center gap-1.5 mb-1.5">
                       <FileText className="h-3.5 w-3.5 text-blue-400" />
                       <p className="text-[10px] md:text-sm font-bold text-blue-400">DESCRIPTION</p>
@@ -376,7 +376,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                   </div>
                 )}
                 {data.remarks && (
-                  <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
+                  <div className="app-card-muted p-2.5">
                     <div className="flex items-center gap-1.5 mb-1.5">
                       <AlertCircle className="h-3.5 w-3.5 text-yellow-400" />
                       <p className="text-[10px] md:text-sm font-bold text-yellow-400">REMARKS</p>
@@ -388,7 +388,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
             )}
 
             {/* Current Inventory Info */}
-            <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
+            <div className="app-card-muted p-2.5">
               <p className="text-[10px] md:text-sm font-bold text-gray-400 mb-2">CURRENT INVENTORY</p>
               <div className="grid grid-cols-3 gap-2 mb-2">
                 <div className="text-center">
@@ -433,7 +433,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
             </div>
 
             {/* Warehouse Location */}
-            <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
+            <div className="app-card-muted p-2.5">
               <div className="flex items-center gap-1.5 mb-2">
                 <MapPin className="h-3.5 w-3.5 text-blue-400" />
                 <p className="text-[10px] md:text-sm font-bold text-blue-400">WAREHOUSE LOCATION</p>
@@ -482,7 +482,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
 
             {/* When First Available & Physical Details */}
             {priceOMagic && (priceOMagic.yearReleased || priceOMagic.weight || priceOMagic.dimensionX) && (
-              <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
+              <div className="app-card-muted p-2.5">
                 <p className="text-[10px] md:text-sm font-bold text-gray-400 mb-2">ITEM SPECIFICATIONS</p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                   {priceOMagic.yearReleased && (
@@ -510,7 +510,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
             )}
 
             {/* Sets & Usage - Placeholder for future implementation */}
-            <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
+            <div className="app-card-muted p-2.5">
               <div className="flex items-center gap-1.5 mb-2">
                 <Layers className="h-3.5 w-3.5 text-purple-400" />
                 <p className="text-[10px] md:text-sm font-bold text-purple-400">APPEARS IN SETS</p>
@@ -626,7 +626,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                         return (
                           <>
                             {/* Step 1: Market Base */}
-                            <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+                            <div className="app-card p-3">
                               <p className="text-xs font-bold text-gray-400 mb-2">STEP 1 — MARKET BASE PRICE</p>
                               <p className="text-2xl font-mono font-black text-white mb-2">
                                 ${basePrice.toFixed(3)}
@@ -657,7 +657,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                             </div>
 
                             {/* Step 2: Premiums */}
-                            <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-2">
+                            <div className="app-card p-3 space-y-2">
                               <p className="text-xs font-bold text-gray-400 mb-1">STEP 2 — PREMIUM ADJUSTMENTS</p>
 
                               <div className="flex justify-between items-start">
@@ -716,7 +716,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
 
                             {/* Step 3: Floors */}
                             {(costFloorPct > 0 || minPrice > 0) && (
-                              <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-2">
+                              <div className="app-card p-3 space-y-2">
                                 <p className="text-xs font-bold text-gray-400 mb-1">STEP 3 — PRICE FLOORS</p>
                                 {costFloorPct > 0 && myCost && myCost > 0 && (
                                   <div className="flex justify-between items-start">
@@ -804,7 +804,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                       <div className="grid grid-cols-2 gap-2">
                         {/* Current Listings */}
                         {stockAvgPrice !== null && (
-                          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-2 space-y-1.5">
+                          <div className="app-card p-2 space-y-1.5">
                             <div className="flex items-center justify-between gap-1 flex-wrap">
                               <div className="flex items-center gap-1">
                                 <ShoppingCart className="h-3.5 w-3.5 text-blue-400 shrink-0" />
@@ -847,7 +847,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
 
                         {/* Sold Data */}
                         {soldAvgPrice !== null && (
-                          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-2 space-y-1.5">
+                          <div className="app-card p-2 space-y-1.5">
                             <div className="flex items-center justify-between gap-1 flex-wrap">
                               <div className="flex items-center gap-1">
                                 <BarChart3 className="h-3.5 w-3.5 text-green-400 shrink-0" />
@@ -958,7 +958,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
 
             {/* Tier Pricing */}
             {hasTierPricing && (
-              <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
+              <div className="app-card-muted p-2.5">
                 <p className="text-[10px] md:text-sm font-bold text-gray-400 mb-2">BULK DISCOUNTS</p>
                 <div className="space-y-1.5">
                   {data.tierQuantity1 && data.tierPrice1 && parseFloat(data.tierPrice1) > 0 && (
@@ -985,7 +985,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
 
             {/* Sale Rate */}
             {data.saleRate !== undefined && data.saleRate !== null && data.saleRate > 0 && (
-              <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
+              <div className="app-card-muted p-2.5">
                 <p className="text-[10px] md:text-sm font-bold text-gray-400 mb-1">SALE DISCOUNT</p>
                 <p className="text-xl font-black font-mono text-red-400">{data.saleRate}% OFF</p>
               </div>
@@ -995,7 +995,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
           {/* Analytics Tab */}
           <TabsContent value="analytics" className="mt-0 space-y-2.5">
             {/* Date Range Selector */}
-            <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2">
+            <div className="app-card-muted p-2">
               <p className="text-[9px] md:text-xs font-bold text-gray-400 mb-1.5">ANALYSIS PERIOD</p>
               <div className="grid grid-cols-5 gap-1">
                 {[
@@ -1022,14 +1022,14 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
             </div>
 
             {loadingAnalytics ? (
-              <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-4 text-center">
+              <div className="app-card-muted p-4 text-center">
                 <BarChart3 className="h-8 w-8 text-lego-orange mx-auto mb-2 animate-pulse" />
                 <p className="text-xs text-gray-400">Loading analytics...</p>
               </div>
             ) : analytics ? (
               <>
                 {/* Sales Performance */}
-                <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
+                <div className="app-card-muted p-2.5">
                   <div className="flex items-center gap-1.5 mb-2">
                     <TrendingUp className="h-3.5 w-3.5 text-green-400" />
                     <p className="text-[10px] md:text-sm font-bold text-green-400">SALES PERFORMANCE</p>
@@ -1064,7 +1064,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                 </div>
 
                 {/* Movement Insights */}
-                <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
+                <div className="app-card-muted p-2.5">
                   <div className="flex items-center gap-1.5 mb-2">
                     <Clock className="h-3.5 w-3.5 text-yellow-400" />
                     <p className="text-[10px] md:text-sm font-bold text-yellow-400">MOVEMENT INSIGHTS</p>
@@ -1088,7 +1088,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                 </div>
 
                 {/* Recent Activity */}
-                <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
+                <div className="app-card-muted p-2.5">
                   <p className="text-[10px] md:text-sm font-bold text-gray-400 mb-2">RECENT ACTIVITY (3 MONTHS)</p>
                   <div className="flex items-center gap-3">
                     <div className="flex-1 text-center">
@@ -1104,7 +1104,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
 
                 {/* Top Customers */}
                 {analytics.topCustomers.length > 0 && (
-                  <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
+                  <div className="app-card-muted p-2.5">
                     <div className="flex items-center gap-1.5 mb-2">
                       <Users className="h-3.5 w-3.5 text-blue-400" />
                       <p className="text-[10px] md:text-sm font-bold text-blue-400">TOP CUSTOMERS</p>
@@ -1161,7 +1161,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                 </div>
               </>
             ) : (
-              <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-4 text-center">
+              <div className="app-card-muted p-4 text-center">
                 <BarChart3 className="h-8 w-8 text-gray-600 mx-auto mb-2" />
                 <p className="text-xs text-gray-500">No sales data available</p>
                 <p className="text-[10px] md:text-sm text-gray-600 mt-1">This item hasn't been sold yet</p>
@@ -1172,7 +1172,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
           {/* Details Tab */}
           <TabsContent value="details" className="mt-0 space-y-2.5">
             {/* Identifiers */}
-            <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
+            <div className="app-card-muted p-2.5">
               <div className="flex items-center gap-1.5 mb-2">
                 <Tag className="h-3.5 w-3.5 text-blue-400" />
                 <p className="text-[10px] md:text-sm font-bold text-blue-400">IDENTIFIERS</p>
@@ -1206,7 +1206,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
             </div>
 
             {/* Inventory Settings */}
-            <div className="bg-gray-800/30 border border-gray-700 rounded-lg p-2.5">
+            <div className="app-card-muted p-2.5">
               <div className="flex items-center gap-1.5 mb-2">
                 <Database className="h-3.5 w-3.5 text-purple-400" />
                 <p className="text-[10px] md:text-sm font-bold text-purple-400">INVENTORY SETTINGS</p>

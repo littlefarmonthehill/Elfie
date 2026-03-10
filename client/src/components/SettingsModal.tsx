@@ -1846,7 +1846,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
               <div className="space-y-4">
 
               {/* Header card: logo + version + org ID */}
-              <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+              <div className="sm-card p-3">
                 <div className="flex items-center gap-3">
                   {/* Logo upload area */}
                   <div className="relative flex-shrink-0">
@@ -2006,7 +2006,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
               {/* Add to Home Screen */}
               <div className="space-y-2">
                 <h3 className="text-sm font-medium text-gray-100">Install App</h3>
-                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-2">
+                <div className="sm-card p-3 space-y-2">
                   {installStatus === 'installed' ? (
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
@@ -2175,9 +2175,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <span className="text-[10px] text-gray-500 ml-1">— {org?.plan ?? 'trial'} plan</span>
                     </div>
                     <div className="grid grid-cols-[1fr_56px_48px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
-                      <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">Feature</span>
-                      <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Plan</span>
-                      <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Active</span>
+                      <span className="app-label">Feature</span>
+                      <span className="app-col-header">Plan</span>
+                      <span className="app-col-header">Active</span>
                     </div>
                     <div className="divide-y divide-gray-700/40">
                       {[...FEATURE_ROWS].sort((a, b) => {
@@ -2236,9 +2236,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       {tenantLimitsLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-1" />}
                     </div>
                     <div className="grid grid-cols-[1fr_64px_64px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
-                      <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">Limit</span>
-                      <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Plan Max</span>
-                      <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">In Use</span>
+                      <span className="app-label">Limit</span>
+                      <span className="app-col-header">Plan Max</span>
+                      <span className="app-col-header">In Use</span>
                     </div>
                     <div className="divide-y divide-gray-700/40">
                       {rows.map(({ label, planMax, usage }) => (
@@ -2290,7 +2290,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         </div>
                         {!isTrial && !isFlagship && (
                           <div className="text-right">
-                            <p className="text-[10px] text-gray-500 uppercase tracking-wider">Billing Interval</p>
+                            <p className="app-label">Billing Interval</p>
                             <p className="text-xs font-medium text-gray-100 capitalize mt-0.5">{org?.subscriptionInterval ?? 'monthly'}</p>
                           </div>
                         )}
@@ -2447,9 +2447,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       ) : (
                         <div>
                           <div className="grid grid-cols-[1fr_72px_64px_32px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
-                            <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">Description</span>
-                            <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-right">Amount</span>
-                            <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Status</span>
+                            <span className="app-label">Description</span>
+                            <span className="app-label text-right">Amount</span>
+                            <span className="app-col-header">Status</span>
                             <span className="text-[9px]"></span>
                           </div>
                           <div className="divide-y divide-gray-700/40 max-h-64 overflow-y-auto">
@@ -2703,7 +2703,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       data-testid="button-pom-pricing-toggle"
                     >
                       <span className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Suggested Pricing</span>
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 border border-gray-600/60 rounded px-1.5 py-0.5">Coming soon</span>
+                      <span className="app-label border border-gray-600/60 rounded px-1.5 py-0.5">Coming soon</span>
                     </div>
                     {pomPricingOpen && (
                       <div className="space-y-4">
@@ -2782,10 +2782,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </div>
                           <div className="px-4">
                             <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-2 border-b border-gray-700/40">
-                              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Supply Level</span>
-                              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-right">Under</span>
+                              <span className="app-label">Supply Level</span>
+                              <span className="app-label text-right">Under</span>
                               <span className="w-6"></span>
-                              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-right">Bonus</span>
+                              <span className="app-label text-right">Bonus</span>
                               <span className="w-4"></span>
                             </div>
                             <div className="divide-y divide-gray-700/30">
@@ -2824,7 +2824,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         {/* Formula Preview */}
                         <div className="bg-gray-900/60 rounded-md border border-gray-700/40 px-4 py-3">
                           <div className="flex items-center gap-1.5 mb-2.5">
-                            <h4 className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider">Formula Preview</h4>
+                            <h4 className="app-label">Formula Preview</h4>
                             <Popover>
                               <PopoverTrigger asChild>
                                 <button className="sm-icon-btn">
@@ -3134,7 +3134,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 )}
 
                 {/* Current Plan Card */}
-                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 space-y-4">
+                <div className="sm-card p-4 space-y-4">
                   {org?.plan === 'flagship' ? (
                     <div className="flex items-center justify-between">
                       <div>
@@ -3339,11 +3339,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         <span className="text-gray-300">{f.feature}</span>
                         <div className="flex gap-4">
                           <div className="flex items-center gap-1.5 w-20 justify-end">
-                            <span className="text-[10px] text-gray-500 uppercase">Fdn</span>
+                            <span className="app-label">Fdn</span>
                             {f.foundation ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <Lock className="w-3.5 h-3.5 text-gray-600" />}
                           </div>
                           <div className="flex items-center gap-1.5 w-20 justify-end">
-                            <span className="text-[10px] text-gray-500 uppercase">Core</span>
+                            <span className="app-label">Core</span>
                             {f.core ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <Lock className="w-3.5 h-3.5 text-gray-600" />}
                           </div>
                         </div>
@@ -3364,7 +3364,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                     {/* Core Integrations */}
                     <div className="px-4 pt-2 pb-1 flex items-center gap-2">
-                      <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">Core Integrations</span>
+                      <span className="app-label">Core Integrations</span>
                       <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border bg-gray-800/60 text-gray-500 border-gray-700">
                         <Lock className="w-2.5 h-2.5" /> Required
                       </span>
@@ -3387,7 +3387,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                     {/* Sales Channels */}
                     <div className="px-4 pt-3 pb-1 flex items-center justify-between">
-                      <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">Sales Channels</span>
+                      <span className="app-label">Sales Channels</span>
                       <Button size="sm" variant="ghost" className="h-6 text-xs gap-1 text-gray-400 -mr-1"
                         data-testid="button-add-sales-channel"
                         onClick={() => { setAddIntegrationType('sales_channel'); setAddIntChannel('ebay'); setAddIntDisplayName('eBay'); setAddIntApiKey(''); }}>
@@ -3450,7 +3450,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                     {/* Payments */}
                     <div className="px-4 pt-3 pb-1 flex items-center justify-between">
-                      <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">Payments</span>
+                      <span className="app-label">Payments</span>
                       <Button size="sm" variant="ghost" className="h-6 text-xs gap-1 text-gray-400 -mr-1"
                         data-testid="button-add-payment-vendor"
                         onClick={() => { setAddIntegrationType('payment'); setAddIntChannel('square'); setAddIntDisplayName('Square'); setAddIntApiKey(''); }}>
@@ -3509,7 +3509,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                     {/* Shipping */}
                     <div className="px-4 pt-3 pb-1 flex items-center justify-between">
-                      <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">Shipping</span>
+                      <span className="app-label">Shipping</span>
                       <Button size="sm" variant="ghost" className="h-6 text-xs gap-1 text-gray-400 -mr-1"
                         data-testid="button-add-shipping-vendor"
                         onClick={() => { setAddIntegrationType('shipping'); setAddIntChannel('shipstation'); setAddIntDisplayName('ShipStation'); setAddIntApiKey(''); }}>
@@ -3754,7 +3754,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 {/* E.L.F.I.E. Mode — shown first */}
                 <div className="space-y-2">
                   <h3 className="text-sm font-medium text-gray-100">E.L.F.I.E. Mode</h3>
-                  <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 space-y-3">
+                  <div className="sm-card p-3 space-y-3">
                     <div className="flex gap-2">
                       <button
                         onClick={() => { setElfieMode('search'); setAiEnabled(true); updateSettingsMutation.mutate({ elfieMode: 'search', aiEnabled: true }); }}
@@ -4303,7 +4303,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     data-testid="button-pom-pricing-toggle"
                   >
                     <span className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Suggested Pricing</span>
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 border border-gray-600/60 rounded px-1.5 py-0.5">Coming soon</span>
+                    <span className="app-label border border-gray-600/60 rounded px-1.5 py-0.5">Coming soon</span>
                   </div>
                   {pomPricingOpen && (
                     <div className="space-y-4">
@@ -4382,10 +4382,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         </div>
                         <div className="px-4">
                           <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-2 border-b border-gray-700/40">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Supply Level</span>
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-right">Under</span>
+                            <span className="app-label">Supply Level</span>
+                            <span className="app-label text-right">Under</span>
                             <span className="w-6"></span>
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-right">Bonus</span>
+                            <span className="app-label text-right">Bonus</span>
                             <span className="w-4"></span>
                           </div>
                           <div className="divide-y divide-gray-700/30">
@@ -4424,7 +4424,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       {/* Formula Preview */}
                       <div className="bg-gray-900/60 rounded-md border border-gray-700/40 px-4 py-3">
                         <div className="flex items-center gap-1.5 mb-2.5">
-                          <h4 className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider">Formula Preview</h4>
+                          <h4 className="app-label">Formula Preview</h4>
                           <Popover>
                             <PopoverTrigger asChild>
                               <button className="sm-icon-btn">
@@ -4652,7 +4652,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* ── LOCAL INDEX — group header ── */}
                 <div className="flex items-center gap-3">
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 whitespace-nowrap">Local Index</span>
+                  <span className="app-label whitespace-nowrap">Local Index</span>
                   <div className="flex-1 h-px bg-gray-700/60" />
                 </div>
                 <p className="text-[11px] text-gray-500 -mt-2">
@@ -4663,7 +4663,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 <div className="flex items-center gap-3 bg-gray-800/60 border border-gray-700/60 rounded-md px-3 py-2.5">
                   <Brain className="h-4 w-4 text-gray-600 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">OpenAI API Key</p>
+                    <p className="app-label">OpenAI API Key</p>
                     <p className="text-[11px] text-gray-500 mt-0.5">
                       {openaiApiKey ? <span className="text-green-400/80">Key configured</span> : <span className="text-gray-600">Not configured</span>}
                       {' — '}configured in <button onClick={() => { setActiveSection('apiKeys'); setActivePlatformServicesTab('openai'); }} className="text-yellow-400/80 hover:text-yellow-300 underline-offset-2 hover:underline" data-testid="link-goto-platform-services-openai">Platform Services → OpenAI</button>
@@ -4692,7 +4692,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* ── ONGOING ENRICHMENT — group header ── */}
                 <div className="flex items-center gap-3">
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 whitespace-nowrap">Ongoing Enrichment</span>
+                  <span className="app-label whitespace-nowrap">Ongoing Enrichment</span>
                   <div className="flex-1 h-px bg-gray-700/60" />
                 </div>
                 <p className="text-[11px] text-gray-500 -mt-2">
@@ -5505,10 +5505,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         return (
                           <div>
                             <div className="grid grid-cols-[1fr_64px_48px_56px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
-                              <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">Feature</span>
-                              <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Plan</span>
-                              <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">OVR</span>
-                              <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">State</span>
+                              <span className="app-label">Feature</span>
+                              <span className="app-col-header">Plan</span>
+                              <span className="app-col-header">OVR</span>
+                              <span className="app-col-header">State</span>
                             </div>
                             <div className="divide-y divide-gray-700/40">
                               {[...FEATURE_ROWS].sort((a, b) => {
@@ -5617,10 +5617,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             }}
                           >
                             <div className="grid grid-cols-[1fr_48px_44px_80px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
-                              <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">Limit</span>
-                              <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Max</span>
-                              <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Use</span>
-                              <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Override</span>
+                              <span className="app-label">Limit</span>
+                              <span className="app-col-header">Max</span>
+                              <span className="app-col-header">Use</span>
+                              <span className="app-col-header">Override</span>
                             </div>
                             {orgLimitsLoading && (
                               <div className="flex items-center justify-center py-4 gap-2 text-gray-500">
@@ -5678,10 +5678,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           ) : (
                             <div>
                               <div className="grid grid-cols-[1fr_72px_64px_32px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
-                                <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">Description</span>
-                                <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-right">Amount</span>
-                                <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center">Status</span>
-                                <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-center"></span>
+                                <span className="app-label">Description</span>
+                                <span className="app-label text-right">Amount</span>
+                                <span className="app-col-header">Status</span>
+                                <span className="app-col-header"></span>
                               </div>
                               <div className="divide-y divide-gray-700/40 max-h-64 overflow-y-auto">
                                 {[...orgPaymentsData.payments].sort((a, b) => b.created - a.created).map(pmt => {
@@ -6255,10 +6255,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             {/* Column header */}
                             <div className="grid grid-cols-[12px_1fr_50px_60px_44px] gap-x-2 px-3 py-1.5 bg-gray-800/80 border-b border-gray-700 rounded-t-lg">
                               <span />
-                              <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">Table</span>
-                              <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-right">Size</span>
-                              <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-right">~Rows</span>
-                              <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-right">Dead</span>
+                              <span className="app-label">Table</span>
+                              <span className="app-label text-right">Size</span>
+                              <span className="app-label text-right">~Rows</span>
+                              <span className="app-label text-right">Dead</span>
                             </div>
                             {/* Grouped rows */}
                             {(() => {
@@ -6513,7 +6513,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                             {/* Pricing */}
                             <div className="px-4 py-2.5 border-b border-gray-700/60">
-                              <p className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold mb-2">Pricing <span className="normal-case font-normal text-gray-700">(USD)</span></p>
+                              <p className="app-label mb-2">Pricing <span className="normal-case font-normal text-gray-700">(USD)</span></p>
                               {isLocked ? (
                                 <div className="grid grid-cols-3 gap-3">
                                   {[
@@ -6553,7 +6553,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                             {/* Limits */}
                             <div className="px-4 py-2.5 border-b border-gray-700/60">
-                              <p className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold mb-2">Limits <span className="normal-case text-gray-700 font-normal">(−1 = unlimited)</span></p>
+                              <p className="app-label mb-2">Limits <span className="normal-case text-gray-700 font-normal">(−1 = unlimited)</span></p>
                               {isLocked ? (
                                 <div className="grid grid-cols-5 gap-2">
                                   {[
@@ -6596,7 +6596,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                             {/* Features */}
                             <div className="px-4 py-2.5">
-                              <p className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold mb-2">Features</p>
+                              <p className="app-label mb-2">Features</p>
                               <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                                 {FEATURE_DEFS.map(({ key, label }) => {
                                   const val = getDraft(key, (activePlan as any)[key]);
@@ -6811,7 +6811,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         {stripeEnvironment === 'test' && <p className="text-[10px] text-yellow-500/80">Test mode — use a <code className="font-mono">sk_test_</code> key</p>}
                         {stripeEnvironment === 'live' && <p className="text-[10px] text-green-500/80">Live mode — use a <code className="font-mono">sk_live_</code> or restricted key</p>}
                         <div>
-                          <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">Secret Key</label>
+                          <label className="block app-label mb-1">Secret Key</label>
                           <input
                             type="password"
                             placeholder={stripeEnvironment === 'test' ? 'sk_test_…' : 'sk_live_… or rk_live_…'}
@@ -6872,7 +6872,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                     {/* Fees note */}
                     <div className="rounded-lg bg-gray-800/60 border border-gray-700 px-4 py-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2">About Stripe Fees</p>
+                      <p className="app-label mb-2">About Stripe Fees</p>
                       <p className="text-[11px] text-gray-400 leading-relaxed">Stripe charges <strong className="text-gray-300">2.9% + 30¢</strong> per successful card transaction (US). International cards and additional features may carry additional fees. Detailed fee breakdowns are available in your <a href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer" className="text-yellow-400 hover:underline">Stripe Dashboard</a>.</p>
                     </div>
                   </div>
@@ -6893,7 +6893,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </div>
                     <div className="px-4 py-3 space-y-3">
                       <div>
-                        <label className="block text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">API Key</label>
+                        <label className="block app-label mb-1">API Key</label>
                         <input
                           type="password"
                           placeholder="sk-…"
@@ -6947,7 +6947,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             { label: 'Deployment', value: 'Replit Autoscale' },
                           ].map(({ label, value }) => (
                             <div key={label} className="bg-gray-900/40 border border-gray-700/60 rounded px-3 py-2">
-                              <p className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold mb-0.5">{label}</p>
+                              <p className="app-label mb-0.5">{label}</p>
                               <p className="text-[11px] text-gray-300">{value}</p>
                             </div>
                           ))}

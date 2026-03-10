@@ -507,7 +507,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                           return (
                             <div key={binKey} className="space-y-1" data-testid={`bin-${binKey}`}>
                               {/* Bin row */}
-                              <div className="flex items-center gap-3 bg-gray-800/50 border border-gray-700 rounded-lg px-3 py-2">
+                              <div className="flex items-center gap-3 app-card px-3 py-2">
                                 <Checkbox
                                   data-testid={`checkbox-pull-bin-${binKey}`}
                                   checked={bin.pulled}

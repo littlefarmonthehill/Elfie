@@ -531,7 +531,7 @@ function PomPriceDialog({ target, onClose }: { target: { partNo: string; itemTyp
               <div className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold">My Prices</div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-0.5">
-                  <div className="text-[10px] text-gray-500 uppercase tracking-wider">New</div>
+                  <div className="app-label">New</div>
                   {hasMyNew ? (
                     <>
                       <div className="text-sm font-mono font-bold text-white">
@@ -546,7 +546,7 @@ function PomPriceDialog({ target, onClose }: { target: { partNo: string; itemTyp
                   )}
                 </div>
                 <div className="space-y-0.5">
-                  <div className="text-[10px] text-gray-500 uppercase tracking-wider">Used</div>
+                  <div className="app-label">Used</div>
                   {hasMyUsed ? (
                     <>
                       <div className="text-sm font-mono font-bold text-white">
@@ -2769,7 +2769,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
 
                             {/* ── How did I do? ─────────────────────────────── */}
                             <div className="px-4 pb-3 pt-1 border-t border-white/[0.06]">
-                              <p className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold mb-2">How did I do?</p>
+                              <p className="app-label mb-2">How did I do?</p>
                               <div className="flex gap-2">
                                 {([ 
                                   { key: 'correct', icon: ThumbsUp,   label: 'Nailed it', activeColor: 'text-emerald-400', activeBg: 'bg-emerald-400/10 border-emerald-400/30' },
@@ -2802,7 +2802,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                               {/* Color picker — shown when "Close" is selected */}
                               {overlayCalibration[ei] === 'close' && (
                                 <div className="mt-3">
-                                  <p className="text-[9px] uppercase tracking-widest text-gray-500 font-semibold mb-2">What color is it actually?</p>
+                                  <p className="app-label mb-2">What color is it actually?</p>
                                   <div className="flex flex-wrap gap-2">
                                     {overlayColorEntries.map((ce, ci) => {
                                       const selected = overlayCalibrationColorIdx[ei] === ci;
@@ -2860,7 +2860,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                         return (
                           <div className="border-b border-white/[0.06]">
                             <div className="flex items-center gap-2 px-4 pt-3 pb-2">
-                              <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold flex-1">Other color variants</p>
+                              <p className="app-label flex-1">Other color variants</p>
                               {hiddenCount > 0 && <span className="text-[9px] text-gray-700">+{hiddenCount} below cutoff</span>}
                             </div>
                             <div className="px-3 pb-3 space-y-1.5">
@@ -2942,7 +2942,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                         return (
                           <div className="border-t border-white/[0.06]">
                             <div className="px-4 pt-3 pb-2">
-                              <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">My Inventory</p>
+                              <p className="app-label">My Inventory</p>
                             </div>
                             <div className="px-3 pb-3 space-y-1.5">
                               {inStockLots.map((lot, li) => (

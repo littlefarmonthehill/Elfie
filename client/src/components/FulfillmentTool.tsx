@@ -969,8 +969,8 @@ export default function FulfillmentTool() {
             </Alert>
 
             {/* List the orders being shipped */}
-            <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+            <div className="app-card p-3">
+              <p className="app-label mb-2">
                 Orders to ship
               </p>
               <div className="space-y-1 max-h-[180px] overflow-y-auto">
@@ -1037,7 +1037,7 @@ export default function FulfillmentTool() {
               </AlertDescription>
             </Alert>
 
-            <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+            <div className="app-card p-3">
               <p className="text-sm font-semibold text-gray-300 mb-2">
                 Items moving to {splitOrderNumber}:
               </p>

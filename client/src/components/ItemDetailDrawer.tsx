@@ -126,7 +126,7 @@ export default function ItemDetailDrawer({
 
               {/* Key Metrics Grid */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+                <div className="app-card p-3">
                   <div className="flex items-center gap-2 mb-1">
                     <Package className="h-4 w-4 text-emerald-400" />
                     <span className="text-xs text-gray-400">Total Inventory</span>
@@ -148,7 +148,7 @@ export default function ItemDetailDrawer({
                   </div>
                 </div>
 
-                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+                <div className="app-card p-3">
                   <div className="flex items-center gap-2 mb-1">
                     <DollarSign className="h-4 w-4 text-blue-400" />
                     <span className="text-xs text-gray-400">Total Value</span>
@@ -161,7 +161,7 @@ export default function ItemDetailDrawer({
                   </div>
                 </div>
 
-                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+                <div className="app-card p-3">
                   <div className="flex items-center gap-2 mb-1">
                     <TrendingUp className="h-4 w-4 text-purple-400" />
                     <span className="text-xs text-gray-400">Quantity Sold</span>
@@ -174,7 +174,7 @@ export default function ItemDetailDrawer({
                   </div>
                 </div>
 
-                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+                <div className="app-card p-3">
                   <div className="flex items-center gap-2 mb-1">
                     <DollarSign className="h-4 w-4 text-green-400" />
                     <span className="text-xs text-gray-400">Total Revenue</span>
@@ -190,7 +190,7 @@ export default function ItemDetailDrawer({
 
               {/* Price Range */}
               {item.avgPrice && (
-                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+                <div className="app-card p-3">
                   <div className="text-xs text-gray-400 mb-2">Price Range</div>
                   <div className="flex items-center justify-between">
                     <div>
@@ -224,7 +224,7 @@ export default function ItemDetailDrawer({
                   {item.colors.map((color, index) => (
                     <div
                       key={`${color.colorId}-${color.condition}-${index}`}
-                      className="bg-gray-800/50 border border-gray-700 rounded-lg p-3"
+                      className="app-card p-3"
                       data-testid={`color-variation-${index}`}
                     >
                       <div className="flex items-start justify-between">

@@ -293,7 +293,7 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
 
               {/* Add to Home Screen prompt */}
               {installStatus !== 'installed' && installStatus !== 'unsupported' && (
-                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 mb-2 space-y-2">
+                <div className="app-card p-3 mb-2 space-y-2">
                   <div className="flex items-center gap-2">
                     <Smartphone className="w-4 h-4 text-blue-400 flex-shrink-0" />
                     <p className="text-xs font-medium text-gray-300">Add PlanetBrick to your home screen</p>

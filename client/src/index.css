@@ -460,6 +460,43 @@ html.admin-mode {
   .sm-icon-btn      { @apply text-gray-500 hover:text-gray-200 flex items-center transition-colors; }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+ * App-wide design tokens
+ *
+ * These apply across every component — dashboards, drawers, tools, modals.
+ * Edit here and every matching element updates automatically.
+ *
+ * Container tiers
+ *   app-card        – standard bordered panel  (add p-* separately)
+ *   app-card-muted  – slightly more recessed panel (add p-* separately)
+ *
+ * Typography hierarchy
+ *   app-label       – section / group label  (10px, uppercase, gray-400)
+ *   app-col-header  – table / grid column header (9px, uppercase, gray-500, centered)
+ *   app-description – explanatory body copy  (xs, gray-400)
+ *   app-hint        – muted meta / timestamps  (10px, gray-500)
+ *
+ * Interactive
+ *   app-icon-btn    – ⓘ / external-link icon button
+ *
+ * Note: sm-* tokens above are SettingsModal-specific (darker chrome, larger padding).
+ * app-* tokens are for the main app surface (dashboards, drawers, tools).
+ * ══════════════════════════════════════════════════════════════════════════ */
+@layer utilities {
+  /* Container */
+  .app-card        { @apply bg-gray-800/50 border border-gray-700 rounded-lg; }
+  .app-card-muted  { @apply bg-gray-800/30 border border-gray-700 rounded-lg; }
+
+  /* Typography */
+  .app-label       { @apply text-[10px] font-semibold uppercase tracking-widest text-gray-400; }
+  .app-col-header  { @apply text-[9px] font-semibold uppercase tracking-widest text-gray-500 text-center; }
+  .app-description { @apply text-xs text-gray-400; }
+  .app-hint        { @apply text-[10px] text-gray-500; }
+
+  /* Interactive */
+  .app-icon-btn    { @apply text-gray-500 hover:text-gray-200 flex items-center transition-colors; }
+}
+
 /* ── Retro‐future radio wave pulse — Jetsons-style alert attention rings ── */
 @keyframes retro-wave {
   0%   { transform: scale(1);   opacity: 0.75; }

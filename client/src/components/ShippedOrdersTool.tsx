@@ -219,7 +219,7 @@ export default function ShippedOrdersTool({ dateRange }: ShippedOrdersToolProps)
               return (
                 <div
                   key={order.id}
-                  className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 hover-elevate"
+                  className="app-card p-4 hover-elevate"
                   data-testid={`shipped-order-${order.orderNumber}`}
                 >
                   <div className="flex items-start justify-between gap-4">
