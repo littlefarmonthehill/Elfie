@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { orders, orderDetails, syncMetadata, blInventory } from "@shared/schema";
+import { orders, orderDetails, syncMetadata, blInventory, blCatalog } from "@shared/schema";
 import { eq, and, sql, isNull } from "drizzle-orm";
 import { getBrickLinkOrders, getBrickLinkOrderDetail, getBrickLinkOrderItems, mapBrickLinkStatusSync, mapBrickLinkCondition } from "./bricklink-orders";
 import { bricklinkRequest } from "./bricklink";
@@ -418,11 +418,26 @@ async function processBrickLinkOrder(
           const unitWeightGrams = item.weight ? parseFloat(item.weight) : null;
           if (unitWeightGrams && unitWeightGrams > 0) {
             const wg = unitWeightGrams;
+            // Dual-write: update bl_inventory (legacy) and bl_catalog (new)
             await db.update(blInventory)
               .set({
                 blCatalogWeight: sql`CASE WHEN ${blInventory.blCatalogWeight} IS NULL OR ${blInventory.blCatalogWeight} = 0 THEN ${wg} ELSE ${blInventory.blCatalogWeight} END`,
               })
               .where(eq(blInventory.id, item.inventory_id));
+
+            // Also update bl_catalog by (itemNo, itemType, colorId) if we have the item identity
+            if (item.item?.no && item.item?.type) {
+              await db.update(blCatalog)
+                .set({
+                  blCatalogWeight: sql`CASE WHEN ${blCatalog.blCatalogWeight} IS NULL OR ${blCatalog.blCatalogWeight} = 0 THEN ${wg} ELSE ${blCatalog.blCatalogWeight} END`,
+                  updatedAt: new Date(),
+                })
+                .where(and(
+                  eq(blCatalog.itemNo, item.item.no),
+                  eq(blCatalog.itemType, item.item.type),
+                  eq(blCatalog.colorId, item.color_id ?? 0),
+                ));
+            }
           }
         } catch (invErr: any) {
           console.warn(`⚠️ Could not save catalog weight for lot ${item.inventory_id}: ${invErr.message}`);

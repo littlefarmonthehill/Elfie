@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { blCategories, blColors, blInventory, blApiCalls, appSettings, priceGuideCache, partPriceHistory, setPartRelationships, orderDetails, orders, organizations } from "@shared/schema";
+import { blCategories, blColors, blInventory, blCatalog, blApiCalls, appSettings, priceGuideCache, partPriceHistory, setPartRelationships, orderDetails, orders, organizations } from "@shared/schema";
 import { eq, gte, sql, inArray, and, gt, desc } from "drizzle-orm";
 import OAuth from "oauth-1.0a";
 import crypto from "crypto";
@@ -574,6 +574,26 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
         }));
         
         await db.insert(blInventory).values(values);
+
+        // Dual-write: upsert catalog-level fields to bl_catalog
+        const catalogValues = batch.map(item => ({
+          itemNo: item.item.no,
+          itemType: item.item.type,
+          colorId: item.color_id || 0,
+          itemName: item.item.name || null,
+          colorName: item.color_name || null,
+          categoryId: item.item.category_id || null,
+        }));
+        await db.insert(blCatalog).values(catalogValues).onConflictDoUpdate({
+          target: [blCatalog.itemNo, blCatalog.itemType, blCatalog.colorId],
+          set: {
+            itemName: sql`COALESCE(EXCLUDED.item_name, bl_catalog.item_name)`,
+            colorName: sql`COALESCE(EXCLUDED.color_name, bl_catalog.color_name)`,
+            categoryId: sql`COALESCE(EXCLUDED.category_id, bl_catalog.category_id)`,
+            updatedAt: sql`NOW()`,
+          },
+        });
+
         added += batch.length;
         console.log(`Inserted batch ${Math.floor(i / BATCH_SIZE) + 1}: ${added}/${newItems.length} new items`);
       }
@@ -709,6 +729,24 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
               updatedAt: new Date() 
             })
             .where(and(eq(blInventory.orgId, orgId), eq(blInventory.id, Number(item.inventory_id))));
+
+          // Dual-write catalog fields to bl_catalog
+          await db.insert(blCatalog).values({
+            itemNo: item.item.no,
+            itemType: item.item.type,
+            colorId: item.color_id || 0,
+            itemName: item.item.name || null,
+            colorName: item.color_name || null,
+            categoryId: item.item.category_id || null,
+          }).onConflictDoUpdate({
+            target: [blCatalog.itemNo, blCatalog.itemType, blCatalog.colorId],
+            set: {
+              itemName: sql`COALESCE(EXCLUDED.item_name, bl_catalog.item_name)`,
+              colorName: sql`COALESCE(EXCLUDED.color_name, bl_catalog.color_name)`,
+              categoryId: sql`COALESCE(EXCLUDED.category_id, bl_catalog.category_id)`,
+              updatedAt: sql`NOW()`,
+            },
+          });
           updated++;
         }
         
@@ -1283,16 +1321,17 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = 'o
         colorId: blInventory.colorId,
         newOrUsed: blInventory.newOrUsed,
         quantity: blInventory.quantity,
-        itemName: blInventory.itemName,
-        imageUrl: blInventory.imageUrl,
-        thumbnailUrl: blInventory.thumbnailUrl,
-        categoryId: blInventory.categoryId,
+        itemName: blCatalog.itemName,
+        imageUrl: blCatalog.imageUrl,
+        thumbnailUrl: blCatalog.thumbnailUrl,
+        categoryId: blCatalog.categoryId,
         categoryTier: blCategories.priorityTier,
         cacheId: priceGuideCache.id,
         lastFetched: priceGuideCache.fetchedAt,
       })
       .from(blInventory)
-      .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+      .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+      .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
       .leftJoin(
         priceGuideCache,
         and(
@@ -1706,10 +1745,32 @@ export async function fetchPriceOMagicData(
         if (itemDetails.dim_y) catalogUpdates.blDimensionY = itemDetails.dim_y.toString();
         if (itemDetails.dim_z) catalogUpdates.blDimensionZ = itemDetails.dim_z.toString();
 
-        if (Object.keys(catalogUpdates).length > 0) await db
-          .update(blInventory)
-          .set(catalogUpdates)
-          .where(inventoryQuery);
+        if (Object.keys(catalogUpdates).length > 0) {
+          // Dual-write: update bl_inventory (legacy) and bl_catalog (new)
+          await db.update(blInventory).set(catalogUpdates).where(inventoryQuery);
+
+          const catalogRow: Record<string, any> = {
+            itemNo,
+            itemType,
+            colorId: colorId ?? 0,
+          };
+          if (itemDetails.weight) catalogRow.blCatalogWeight = itemDetails.weight.toString();
+          if (itemDetails.dim_x) catalogRow.blDimensionX = itemDetails.dim_x.toString();
+          if (itemDetails.dim_y) catalogRow.blDimensionY = itemDetails.dim_y.toString();
+          if (itemDetails.dim_z) catalogRow.blDimensionZ = itemDetails.dim_z.toString();
+          catalogRow.updatedAt = new Date();
+
+          await db.insert(blCatalog).values(catalogRow as any).onConflictDoUpdate({
+            target: [blCatalog.itemNo, blCatalog.itemType, blCatalog.colorId],
+            set: {
+              blCatalogWeight: sql`COALESCE(EXCLUDED.bl_catalog_weight, bl_catalog.bl_catalog_weight)`,
+              blDimensionX: sql`COALESCE(EXCLUDED.bl_dimension_x, bl_catalog.bl_dimension_x)`,
+              blDimensionY: sql`COALESCE(EXCLUDED.bl_dimension_y, bl_catalog.bl_dimension_y)`,
+              blDimensionZ: sql`COALESCE(EXCLUDED.bl_dimension_z, bl_catalog.bl_dimension_z)`,
+              updatedAt: sql`NOW()`,
+            },
+          });
+        }
 
         console.log(`[Price-o-Matic] Stored catalog data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}: ${itemDetails.weight}g, dims: ${itemDetails.dim_x}×${itemDetails.dim_y}×${itemDetails.dim_z}mm`);
       } catch (error) {
@@ -1718,7 +1779,7 @@ export async function fetchPriceOMagicData(
       }
     }
 
-    // Write back the BL catalog thumbnail to bl_inventory (more reliable than constructed CDN URLs)
+    // Write back the BL catalog thumbnail to bl_inventory (legacy) and bl_catalog
     // Only update if the stored URL is null (Rebrickable images are preserved)
     if (itemDetails?.thumbnail_url) {
       try {
@@ -1728,6 +1789,22 @@ export async function fetchPriceOMagicData(
           ? and(eq(blInventory.itemNo, itemNo), eq(blInventory.itemType, itemType), eq(blInventory.colorId, colorId), sql`${blInventory.imageUrl} IS NULL`)
           : and(eq(blInventory.itemNo, itemNo), eq(blInventory.itemType, itemType), sql`${blInventory.imageUrl} IS NULL`);
         await db.update(blInventory).set({ imageUrl: thumbUrl, thumbnailUrl: thumbUrl }).where(imgQuery);
+
+        // Also write to bl_catalog — only fill if currently null (Rebrickable images have priority)
+        await db.insert(blCatalog).values({
+          itemNo,
+          itemType,
+          colorId: colorId ?? 0,
+          imageUrl: thumbUrl,
+          thumbnailUrl: thumbUrl,
+        }).onConflictDoUpdate({
+          target: [blCatalog.itemNo, blCatalog.itemType, blCatalog.colorId],
+          set: {
+            imageUrl: sql`COALESCE(bl_catalog.image_url, EXCLUDED.image_url)`,
+            thumbnailUrl: sql`COALESCE(bl_catalog.thumbnail_url, EXCLUDED.thumbnail_url)`,
+            updatedAt: sql`NOW()`,
+          },
+        });
       } catch (error) {
         console.error('[Price-o-Matic] Error updating inventory image:', error);
       }

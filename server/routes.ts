@@ -13,7 +13,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, scanEmbeddings, orgIntegrations, blApiCalls } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, scanEmbeddings, orgIntegrations, blApiCalls } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -704,6 +704,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching system health:", error);
       res.status(500).json({ message: "Failed to fetch system health" });
+    }
+  });
+
+  // POST /api/platform-admin/migrate-catalog — one-time migration to populate bl_catalog
+  // Idempotent: safe to run multiple times. Pulls distinct catalog data from bl_inventory
+  // and merges with any richer data already in price_guide_cache.
+  app.post('/api/platform-admin/migrate-catalog', isSuperAdmin, async (_req, res) => {
+    try {
+      // Step 1: upsert distinct rows from bl_inventory into bl_catalog
+      await db.execute(sql`
+        INSERT INTO bl_catalog (item_no, item_type, color_id, item_name, color_name, category_id,
+          bl_catalog_weight, bl_dimension_x, bl_dimension_y, bl_dimension_z, image_url, thumbnail_url, updated_at)
+        SELECT
+          item_no,
+          item_type,
+          COALESCE(color_id, 0) AS color_id,
+          MAX(item_name)           AS item_name,
+          MAX(color_name)          AS color_name,
+          MAX(category_id)         AS category_id,
+          MAX(bl_catalog_weight)   AS bl_catalog_weight,
+          MAX(bl_dimension_x)      AS bl_dimension_x,
+          MAX(bl_dimension_y)      AS bl_dimension_y,
+          MAX(bl_dimension_z)      AS bl_dimension_z,
+          MAX(image_url)           AS image_url,
+          MAX(thumbnail_url)       AS thumbnail_url,
+          NOW()
+        FROM bl_inventory
+        WHERE item_no IS NOT NULL AND item_type IS NOT NULL
+        GROUP BY item_no, item_type, COALESCE(color_id, 0)
+        ON CONFLICT (item_no, item_type, color_id) DO UPDATE SET
+          item_name         = COALESCE(EXCLUDED.item_name, bl_catalog.item_name),
+          color_name        = COALESCE(EXCLUDED.color_name, bl_catalog.color_name),
+          category_id       = COALESCE(EXCLUDED.category_id, bl_catalog.category_id),
+          bl_catalog_weight = COALESCE(EXCLUDED.bl_catalog_weight, bl_catalog.bl_catalog_weight),
+          bl_dimension_x    = COALESCE(EXCLUDED.bl_dimension_x, bl_catalog.bl_dimension_x),
+          bl_dimension_y    = COALESCE(EXCLUDED.bl_dimension_y, bl_catalog.bl_dimension_y),
+          bl_dimension_z    = COALESCE(EXCLUDED.bl_dimension_z, bl_catalog.bl_dimension_z),
+          image_url         = COALESCE(EXCLUDED.image_url, bl_catalog.image_url),
+          thumbnail_url     = COALESCE(EXCLUDED.thumbnail_url, bl_catalog.thumbnail_url),
+          updated_at        = NOW()
+      `);
+
+      // Step 2: merge richer data from price_guide_cache (has year_released, sometimes better weight/dims)
+      await db.execute(sql`
+        UPDATE bl_catalog c
+        SET
+          year_released  = COALESCE(c.year_released, pgc.year_released),
+          bl_catalog_weight = COALESCE(c.bl_catalog_weight,
+            CASE WHEN pgc.weight IS NOT NULL AND pgc.weight::numeric > 0 THEN pgc.weight ELSE NULL END),
+          bl_dimension_x = COALESCE(c.bl_dimension_x, pgc.dimension_x),
+          bl_dimension_y = COALESCE(c.bl_dimension_y, pgc.dimension_y),
+          bl_dimension_z = COALESCE(c.bl_dimension_z, pgc.dimension_z),
+          image_url      = COALESCE(c.image_url, pgc.image_url),
+          thumbnail_url  = COALESCE(c.thumbnail_url, pgc.thumbnail_url),
+          updated_at     = NOW()
+        FROM price_guide_cache pgc
+        WHERE c.item_no = pgc.item_no
+          AND c.item_type = pgc.item_type
+          AND c.color_id = COALESCE(pgc.color_id, 0)
+      `);
+
+      // Count results
+      const [{ count: catalogCount }] = await db.execute(sql`SELECT COUNT(*) AS count FROM bl_catalog`) as any;
+      const [{ count: withImages }] = await db.execute(sql`SELECT COUNT(*) AS count FROM bl_catalog WHERE image_url IS NOT NULL AND image_url != ''`) as any;
+
+      res.json({
+        success: true,
+        catalogRows: parseInt(catalogCount),
+        rowsWithImages: parseInt(withImages),
+      });
+    } catch (error: any) {
+      console.error("Catalog migration error:", error);
+      res.status(500).json({ message: error.message || "Migration failed" });
     }
   });
 
@@ -2983,7 +3056,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               id: blInventory.id,
               itemNo: blInventory.itemNo,
               itemType: blInventory.itemType,
-              itemName: blInventory.itemName,
+              itemName: blCatalog.itemName,
               remarks: blInventory.remarks,
               colorId: blInventory.colorId,
               colorName: blColors.name,
@@ -2995,7 +3068,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             })
             .from(blInventory)
             .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-            .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+            .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+            .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
             .where(and(isSuperAdminUser ? undefined : eq(blInventory.orgId, orgId), like(blInventory.itemNo, `%${partNumber}%`)))
             .limit(50);
         } else if (searchKeywords.length > 0) {
@@ -3023,7 +3097,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 id: blInventory.id,
                 itemNo: blInventory.itemNo,
                 itemType: blInventory.itemType,
-                itemName: blInventory.itemName,
+                itemName: blCatalog.itemName,
                 remarks: blInventory.remarks,
                 colorId: blInventory.colorId,
                 colorName: blColors.name,
@@ -3035,8 +3109,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               })
               .from(blInventory)
               .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-              .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-              .where(and(isSuperAdminUser ? undefined : eq(blInventory.orgId, orgId), inArray(blInventory.categoryId, categoryIds)))
+              .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+              .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
+              .where(and(isSuperAdminUser ? undefined : eq(blInventory.orgId, orgId), inArray(blCatalog.categoryId, categoryIds)))
               .limit(50);
             
           } else { // no category match
@@ -3070,7 +3145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 return [
                   like(blInventory.itemNo, pattern),
                   like(blInventory.itemType, pattern),
-                  like(blInventory.itemName, pattern),
+                  like(blCatalog.itemName, pattern),
                   like(blInventory.remarks, pattern),
                   like(blInventory.description, pattern)
                 ];
@@ -3081,7 +3156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   id: blInventory.id,
                   itemNo: blInventory.itemNo,
                   itemType: blInventory.itemType,
-                  itemName: blInventory.itemName,
+                  itemName: blCatalog.itemName,
                   remarks: blInventory.remarks,
                   colorId: blInventory.colorId,
                   colorName: blColors.name,
@@ -3093,7 +3168,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 })
                 .from(blInventory)
                 .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-                .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+                .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+                .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
                 .where(and(isSuperAdminUser ? undefined : eq(blInventory.orgId, orgId), or(...conditions)))
                 .limit(50);
             }
@@ -3105,7 +3181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               id: blInventory.id,
               itemNo: blInventory.itemNo,
               itemType: blInventory.itemType,
-              itemName: blInventory.itemName,
+              itemName: blCatalog.itemName,
               remarks: blInventory.remarks,
               colorId: blInventory.colorId,
               colorName: blColors.name,
@@ -3117,7 +3193,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             })
             .from(blInventory)
             .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-            .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+            .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+            .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
             .where(isSuperAdminUser ? undefined : eq(blInventory.orgId, orgId))
             .limit(50);
         }
@@ -3160,7 +3237,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalValue: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))`,
         }).from(blInventory).where(statsOrgFilter),
         db.select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` }).from(blInventory).where(statsOrgFilter),
-        db.select({ count: sql<number>`COUNT(DISTINCT ${blInventory.categoryId})` }).from(blInventory).where(statsOrgFilter),
+        db.select({ count: sql<number>`COUNT(DISTINCT ${blCatalog.categoryId})` }).from(blInventory).leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId))).where(statsOrgFilter),
       ]);
 
       const statsData = {
@@ -3798,7 +3875,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           .select({
             id: blInventory.id,
             itemNo: blInventory.itemNo,
-            itemName: blInventory.itemName,
+            itemName: blCatalog.itemName,
             colorId: blInventory.colorId,
             colorName: blColors.name,
             colorRgb: blColors.rgb,
@@ -3808,6 +3885,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           })
           .from(blInventory)
           .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+          .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
           .where(and(eq(blInventory.orgId, orgId), inArray(blInventory.itemNo, Array.from(mentionedParts))));
         
         itemsFound.push(...items);
@@ -3822,7 +3900,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             .select({
               id: blInventory.id,
               itemNo: blInventory.itemNo,
-              itemName: blInventory.itemName,
+              itemName: blCatalog.itemName,
               colorId: blInventory.colorId,
               colorName: blColors.name,
               colorRgb: blColors.rgb,
@@ -3832,6 +3910,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             })
             .from(blInventory)
             .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+            .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
             .where(like(blInventory.itemNo, `%${partNumber}%`))
             .limit(50);
           
@@ -3859,7 +3938,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               .select({
                 id: blInventory.id,
                 itemNo: blInventory.itemNo,
-                itemName: blInventory.itemName,
+                itemName: blCatalog.itemName,
                 colorId: blInventory.colorId,
                 colorName: blColors.name,
                 colorRgb: blColors.rgb,
@@ -3869,8 +3948,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               })
               .from(blInventory)
               .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-              .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
-              .where(inArray(blInventory.categoryId, categoryIds))
+              .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+              .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
+              .where(inArray(blCatalog.categoryId, categoryIds))
               .limit(50);
             
             itemsFound.push(...items);
@@ -3881,7 +3961,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               return [
                 like(blInventory.itemNo, pattern),
                 like(blInventory.itemType, pattern),
-                like(blInventory.itemName, pattern),
+                like(blCatalog.itemName, pattern),
                 like(blInventory.remarks, pattern),
                 like(blInventory.description, pattern)
               ];
@@ -3891,7 +3971,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               .select({
                 id: blInventory.id,
                 itemNo: blInventory.itemNo,
-                itemName: blInventory.itemName,
+                itemName: blCatalog.itemName,
                 colorId: blInventory.colorId,
                 colorName: blColors.name,
                 colorRgb: blColors.rgb,
@@ -3901,6 +3981,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               })
               .from(blInventory)
               .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+              .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
               .where(or(...itemConditions))
               .limit(50);
             
@@ -5114,15 +5195,16 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             id: blInventory.id,
             unitPrice: blInventory.unitPrice,
             quantity: blInventory.quantity,
-            colorName: blInventory.colorName,
+            colorName: blCatalog.colorName,
             colorId: blInventory.colorId,
-            itemName: blInventory.itemName,
-            thumbnailUrl: blInventory.thumbnailUrl,
-            imageUrl: blInventory.imageUrl,
+            itemName: blCatalog.itemName,
+            thumbnailUrl: blCatalog.thumbnailUrl,
+            imageUrl: blCatalog.imageUrl,
             newOrUsed: blInventory.newOrUsed,
-            categoryId: blInventory.categoryId,
+            categoryId: blCatalog.categoryId,
           })
           .from(blInventory)
+          .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
           .where(and(
             eq(blInventory.orgId, orgId),
             eq(blInventory.itemNo, piece.partNo),
@@ -5153,17 +5235,18 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                 itemNo: blInventory.itemNo,
                 unitPrice: blInventory.unitPrice,
                 quantity: blInventory.quantity,
-                colorName: blInventory.colorName,
+                colorName: blCatalog.colorName,
                 colorId: blInventory.colorId,
-                itemName: blInventory.itemName,
-                thumbnailUrl: blInventory.thumbnailUrl,
-                imageUrl: blInventory.imageUrl,
+                itemName: blCatalog.itemName,
+                thumbnailUrl: blCatalog.thumbnailUrl,
+                imageUrl: blCatalog.imageUrl,
                 newOrUsed: blInventory.newOrUsed,
               })
               .from(blInventory)
+              .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
               .where(and(
                 eq(blInventory.orgId, orgId),
-                sql`lower(${blInventory.itemName}) like lower(${'%' + piece.partName.replace(/[%_]/g, '') + '%'})`,
+                sql`lower(${blCatalog.itemName}) like lower(${'%' + piece.partName.replace(/[%_]/g, '') + '%'})`,
                 sql`${blInventory.quantity} > 0`
               ))
               .limit(20);
@@ -6258,7 +6341,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               colorId: blInventory.colorId,
               colorName: blColors.name,
               colorRgb: blColors.rgb,
-              categoryId: blInventory.categoryId,
+              categoryId: blCatalog.categoryId,
               categoryName: blCategories.name,
               quantity: blInventory.quantity,
               newOrUsed: blInventory.newOrUsed,
@@ -6267,7 +6350,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             })
             .from(blInventory)
             .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-            .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+            .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+            .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
             .where(and(eq(blInventory.orgId, orgId), eq(blInventory.itemNo, searchQuery.trim())))
         : await db
             .select({
@@ -6277,7 +6361,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               colorId: blInventory.colorId,
               colorName: blColors.name,
               colorRgb: blColors.rgb,
-              categoryId: blInventory.categoryId,
+              categoryId: blCatalog.categoryId,
               categoryName: blCategories.name,
               quantity: blInventory.quantity,
               newOrUsed: blInventory.newOrUsed,
@@ -6286,7 +6370,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             })
             .from(blInventory)
             .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-            .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+            .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+            .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
             .where(eq(blInventory.orgId, orgId))
             .limit(100);
 
@@ -6331,8 +6416,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .where(eq(blInventory.orgId, orgId));
 
       const categoryCount = await db
-        .select({ count: sql<number>`COUNT(DISTINCT ${blInventory.categoryId})` })
+        .select({ count: sql<number>`COUNT(DISTINCT ${blCatalog.categoryId})` })
         .from(blInventory)
+        .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
         .where(eq(blInventory.orgId, orgId));
 
       res.json({
@@ -7012,7 +7098,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         id: blInventory.id,
         inventoryId: blInventory.id,
         itemNo: blInventory.itemNo,
-        itemName: blInventory.itemName,
+        itemName: blCatalog.itemName,
         colorId: blInventory.colorId,
         colorName: blColors.name,
         colorRgb: blColors.rgb,
@@ -7031,6 +7117,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           .select(baseSelect)
           .from(blInventory)
           .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+          .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
           .where(and(eq(blInventory.orgId, orgId), sql`EXTRACT(EPOCH FROM (${blInventory.updatedAt} - ${blInventory.syncedAt})) < 5`))
           .orderBy(desc(blInventory.syncedAt))
           .limit(limit);
@@ -7040,6 +7127,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           .select(baseSelect)
           .from(blInventory)
           .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+          .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
           .where(and(eq(blInventory.orgId, orgId), sql`EXTRACT(EPOCH FROM (${blInventory.updatedAt} - ${blInventory.syncedAt})) >= 5`))
           .orderBy(desc(blInventory.updatedAt))
           .limit(limit);
@@ -7049,6 +7137,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           .select(baseSelect)
           .from(blInventory)
           .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+          .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
           .where(eq(blInventory.orgId, orgId))
           .orderBy(desc(blInventory.updatedAt))
           .limit(limit);
@@ -7338,22 +7427,24 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           : eq(blInventory.orgId, orgId);
         const rows = await db
           .select({
-            categoryId: blInventory.categoryId,
+            categoryId: blCatalog.categoryId,
             categoryName: blCategories.name,
             lotCount: count(blInventory.id),
             totalQty: sql<number>`SUM(${blInventory.quantity})`,
           })
           .from(blInventory)
-          .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+          .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+          .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
           .where(searchWhere)
-          .groupBy(blInventory.categoryId, blCategories.name)
+          .groupBy(blCatalog.categoryId, blCategories.name)
           .orderBy(asc(blCategories.name))
           .limit(limit)
           .offset(offset);
         const [{ total }] = await db
-          .select({ total: sql<number>`COUNT(DISTINCT ${blInventory.categoryId})` })
+          .select({ total: sql<number>`COUNT(DISTINCT ${blCatalog.categoryId})` })
           .from(blInventory)
-          .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+          .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+          .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
           .where(searchWhere);
         return res.json({ rows, total, page, limit });
       }
@@ -7364,7 +7455,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             eq(blInventory.orgId, orgId),
             or(
               ilike(blInventory.itemNo, `%${search}%`),
-              ilike(blInventory.itemName, `%${search}%`),
+              ilike(blCatalog.itemName, `%${search}%`),
               ilike(blColors.name, `%${search}%`),
             )
           )
@@ -7378,7 +7469,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .select({
           id: blInventory.id,
           itemNo: blInventory.itemNo,
-          itemName: blInventory.itemName,
+          itemName: blCatalog.itemName,
           itemType: blInventory.itemType,
           colorId: blInventory.colorId,
           colorName: blColors.name,
@@ -7390,7 +7481,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         })
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-        .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+        .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+        .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
         .where(searchWhere)
         .orderBy(orderBy)
         .limit(limit)
@@ -7400,6 +7492,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .select({ total: sql<number>`COUNT(*)` })
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
         .where(searchWhere);
 
       res.json({ rows, total, page, limit });
@@ -7423,7 +7516,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .select({
           id: blInventory.id,
           itemNo: blInventory.itemNo,
-          itemName: blInventory.itemName,
+          itemName: blCatalog.itemName,
           colorId: blInventory.colorId,
           colorName: blColors.name,
           newOrUsed: blInventory.newOrUsed,
@@ -7431,6 +7524,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         })
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
         .where(and(eq(blInventory.orgId, orgId), eq(blInventory.itemNo, itemNo)))
         .limit(parseInt(limit as string) || 10);
 
@@ -7454,12 +7548,12 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .select({
           id: blInventory.id,
           itemNo: blInventory.itemNo,
-          itemName: blInventory.itemName,
+          itemName: blCatalog.itemName,
           itemType: blInventory.itemType,
           colorId: blInventory.colorId,
           colorName: blColors.name,
           colorRgb: blColors.rgb,
-          categoryId: blInventory.categoryId,
+          categoryId: blCatalog.categoryId,
           categoryName: blCategories.name,
           quantity: blInventory.quantity,
           newOrUsed: blInventory.newOrUsed,
@@ -7486,7 +7580,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         })
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-        .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+        .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+        .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
         .where(and(eq(blInventory.orgId, orgId), eq(blInventory.id, itemId)));
 
       if (items.length === 0) {
@@ -8581,7 +8676,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const categories = await db
         .selectDistinct({ id: blCategories.id, name: blCategories.name, priorityTier: blCategories.priorityTier })
         .from(blCategories)
-        .innerJoin(blInventory, eq(blInventory.categoryId, blCategories.id))
+        .innerJoin(blCatalog, eq(blCatalog.categoryId, blCategories.id))
         .orderBy(blCategories.name);
       res.json({ success: true, categories });
     } catch (error) {
@@ -8687,7 +8782,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           sortingPhase: blCategories.sortingPhase,
         })
         .from(blCategories)
-        .innerJoin(blInventory, eq(blInventory.categoryId, blCategories.id))
+        .innerJoin(blCatalog, eq(blCatalog.categoryId, blCategories.id))
         .orderBy(blCategories.name);
       res.json({ success: true, categories });
     } catch (error) {
@@ -8815,14 +8910,15 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .select({
           id: blInventory.id,
           itemNo: blInventory.itemNo,
-          itemName: blInventory.itemName,
-          colorName: blInventory.colorName,
+          itemName: blCatalog.itemName,
+          colorName: blCatalog.colorName,
           quantity: blInventory.quantity,
           unitPrice: blInventory.unitPrice,
-          thumbnailUrl: blInventory.thumbnailUrl,
+          thumbnailUrl: blCatalog.thumbnailUrl,
         })
         .from(blInventory)
-        .where(and(eq(blInventory.orgId, orgId), eq(blInventory.categoryId, categoryId), eq(blInventory.itemType, 'PART')))
+        .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+        .where(and(eq(blInventory.orgId, orgId), eq(blCatalog.categoryId, categoryId), eq(blInventory.itemType, 'PART')))
         .orderBy(desc(blInventory.quantity))
         .limit(5);
 
@@ -8996,10 +9092,10 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .select({
           inventoryId: blInventory.id,
           itemNo: blInventory.itemNo,
-          itemName: blInventory.itemName,
+          itemName: blCatalog.itemName,
           itemType: blInventory.itemType,
           colorId: blInventory.colorId,
-          colorName: blInventory.colorName,
+          colorName: blCatalog.colorName,
           newOrUsed: blInventory.newOrUsed,
           currentPrice: blInventory.unitPrice,
           myCost: blInventory.myCost,
@@ -9022,6 +9118,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           )`,
         })
         .from(blInventory)
+        .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
         .innerJoin(
           priceGuideCache,
           and(
@@ -9353,13 +9450,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .select({
           id: blInventory.id,
           itemNo: blInventory.itemNo,
-          itemName: blInventory.itemName,
+          itemName: blCatalog.itemName,
           colorName: blColors.name,
           newOrUsed: blInventory.newOrUsed,
           quantity: blInventory.quantity,
         })
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
         .leftJoin(inventoryLocations, eq(blInventory.id, inventoryLocations.inventoryId))
         .where(and(eq(blInventory.orgId, orgId), sql`${inventoryLocations.id} IS NULL`))
         .limit(1000); // Limit to avoid performance issues
@@ -9470,7 +9568,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           id: inventoryLocations.id,
           inventoryId: inventoryLocations.inventoryId,
           itemNo: blInventory.itemNo,
-          itemName: blInventory.itemName,
+          itemName: blCatalog.itemName,
           colorName: blColors.name,
           newOrUsed: blInventory.newOrUsed,
           binId: inventoryLocations.binId,
@@ -9486,6 +9584,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .from(inventoryLocations)
         .leftJoin(blInventory, eq(inventoryLocations.inventoryId, blInventory.id))
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
         .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
         .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
         .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
@@ -9699,8 +9798,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const uniqueInvIds = [...new Set(lookupIds)];
       const inventoryData = uniqueInvIds.length > 0
         ? await db
-            .select({ id: blInventory.id, itemNo: blInventory.itemNo, colorName: blInventory.colorName, colorId: blInventory.colorId, newOrUsed: blInventory.newOrUsed, remarks: blInventory.remarks, description: blInventory.description, imageUrl: blInventory.imageUrl, quantity: blInventory.quantity })
+            .select({ id: blInventory.id, itemNo: blInventory.itemNo, colorName: blCatalog.colorName, colorId: blInventory.colorId, newOrUsed: blInventory.newOrUsed, remarks: blInventory.remarks, description: blInventory.description, imageUrl: blCatalog.imageUrl, quantity: blInventory.quantity })
             .from(blInventory)
+            .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
             .where(and(eq(blInventory.orgId, orgId), inArray(blInventory.id, uniqueInvIds)))
         : [];
       const invMap = new Map(inventoryData.map(i => [i.id, i]));
@@ -10264,8 +10364,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                 CASE
                   WHEN ${orderDetails.weight} IS NOT NULL AND CAST(${orderDetails.weight} AS DECIMAL) > 0
                     THEN CAST(${orderDetails.weight} AS DECIMAL) * ${orderDetails.quantity}
-                  WHEN ${blInventory.blCatalogWeight} IS NOT NULL AND ${blInventory.blCatalogWeight} > 0
-                    THEN ${blInventory.blCatalogWeight} * ${orderDetails.quantity}
+                  WHEN ${blCatalog.blCatalogWeight} IS NOT NULL AND ${blCatalog.blCatalogWeight} > 0
+                    THEN ${blCatalog.blCatalogWeight} * ${orderDetails.quantity}
                   ELSE 0
                 END
               ), 0
@@ -10274,6 +10374,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         })
         .from(orderDetails)
         .leftJoin(blInventory, eq(orderDetails.bricklinkInventoryId, blInventory.id))
+        .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
         .where(eq(orderDetails.orderId, orderId));
 
       const totalWeightGrams = parseFloat(weightRows[0]?.totalWeightGrams || "0");
@@ -10847,11 +10948,11 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .select({
           id: blInventory.id,
           itemNo: blInventory.itemNo,
-          itemName: blInventory.itemName,
+          itemName: blCatalog.itemName,
           colorId: blInventory.colorId,
           colorName: blColors.name,
           colorRgb: blColors.rgb,
-          categoryId: blInventory.categoryId,
+          categoryId: blCatalog.categoryId,
           categoryName: blCategories.name,
           quantity: blInventory.quantity,
           newOrUsed: blInventory.newOrUsed,
@@ -10859,7 +10960,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         })
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-        .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+        .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+        .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
         .where(and(eq(blInventory.orgId, orgId), eq(blInventory.itemNo, itemNo)));
 
       if (inventoryLots.length === 0) {

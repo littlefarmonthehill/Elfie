@@ -4,7 +4,7 @@
  */
 
 import { db } from '../db';
-import { blInventory, blColors, blCategories, orders, orderDetails, setPartRelationships, inventoryEmbeddings, blForumPosts, blForumEmbeddings } from '@shared/schema';
+import { blInventory, blColors, blCategories, blCatalog, orders, orderDetails, setPartRelationships, inventoryEmbeddings, blForumPosts, blForumEmbeddings } from '@shared/schema';
 import { eq, like, or, sql, and, desc, inArray } from 'drizzle-orm';
 import { searchBricklinkCatalogItem, fetchPriceOMagicData } from './bricklink';
 import { generateEmbedding, createInventoryContent } from './embeddings';
@@ -131,7 +131,7 @@ export async function searchLocalInventory(params: {
         id: blInventory.id,
         itemNo: blInventory.itemNo,
         itemType: blInventory.itemType,
-        itemName: blInventory.itemName,
+        itemName: blCatalog.itemName,
         colorName: blColors.name,
         colorRgb: blColors.rgb,
         categoryName: blCategories.name,
@@ -142,7 +142,8 @@ export async function searchLocalInventory(params: {
       })
       .from(blInventory)
       .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-      .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id));
+      .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+      .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id));
     
     const conditions: any[] = [];
     
@@ -179,7 +180,7 @@ export async function searchLocalInventory(params: {
       conditions.push(
         or(
           like(blInventory.itemNo, `%${query}%`),
-          like(blInventory.itemName, `%${query}%`),
+          like(blCatalog.itemName, `%${query}%`),
           like(blInventory.description, `%${query}%`),
           like(blInventory.remarks, `%${query}%`)
         )
@@ -232,7 +233,8 @@ export async function getInventoryStats(params?: {
       })
       .from(blInventory)
       .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-      .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id));
+      .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+      .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id));
     
     if (conditions.length > 0) {
       queryBuilder = queryBuilder.where(and(...conditions)) as any;
@@ -337,9 +339,9 @@ export async function getInventoryAging(params?: {
     let queryBuilder = db
       .select({
         itemNo: blInventory.itemNo,
-        itemName: blInventory.itemName,
+        itemName: blCatalog.itemName,
         categoryName: blCategories.name,
-        colorName: blInventory.colorName,
+        colorName: blCatalog.colorName,
         quantity: blInventory.quantity,
         unitPrice: blInventory.unitPrice,
         dateCreated: blInventory.dateCreated,
@@ -347,7 +349,8 @@ export async function getInventoryAging(params?: {
         estimatedValue: sql<number>`${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL)`,
       })
       .from(blInventory)
-      .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+      .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+      .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
       .where(
         conditions.length > 0
           ? and(sql`${blInventory.dateCreated} < ${thresholdDate.toISOString()}`, ...conditions)
@@ -413,7 +416,8 @@ export async function getSalesByCategory(params?: {
       .from(orderDetails)
       .innerJoin(orders, eq(orderDetails.orderId, orders.id))
       .leftJoin(blInventory, sql`${orderDetails.sku} = CAST(${blInventory.id} AS TEXT)`)
-      .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+      .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+      .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
       .where(
         conditions.length > 0
           ? and(sql`${blCategories.name} IS NOT NULL`, ...conditions)
@@ -476,7 +480,8 @@ export async function getCategoryThroughput(params?: {
       .from(orderDetails)
       .innerJoin(orders, eq(orderDetails.orderId, orders.id))
       .leftJoin(blInventory, sql`${orderDetails.sku} = CAST(${blInventory.id} AS TEXT)`)
-      .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+      .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+      .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
       .where(
         salesConditions.length > 0
           ? and(sql`${blCategories.name} IS NOT NULL`, ...salesConditions)
@@ -495,7 +500,8 @@ export async function getCategoryThroughput(params?: {
         totalInventoryValue: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))`,
       })
       .from(blInventory)
-      .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+      .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+      .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
       .where(sql`${blCategories.name} IS NOT NULL`)
       .groupBy(blCategories.id, blCategories.name);
     
@@ -916,9 +922,9 @@ export async function getMarginAnalysis(params?: {
     const results = await db
       .select({
         itemNo: blInventory.itemNo,
-        itemName: blInventory.itemName,
+        itemName: blCatalog.itemName,
         categoryName: blCategories.name,
-        colorName: blInventory.colorName,
+        colorName: blCatalog.colorName,
         quantity: blInventory.quantity,
         unitPrice: blInventory.unitPrice,
         myCost: blInventory.myCost,
@@ -928,7 +934,8 @@ export async function getMarginAnalysis(params?: {
         totalCost: sql<number>`${blInventory.quantity} * CAST(${blInventory.myCost} AS DECIMAL)`,
       })
       .from(blInventory)
-      .leftJoin(blCategories, eq(blInventory.categoryId, blCategories.id))
+      .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+      .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
       .where(and(...conditions))
       .orderBy(sql`((CAST(${blInventory.unitPrice} AS DECIMAL) - CAST(${blInventory.myCost} AS DECIMAL)) / CAST(${blInventory.myCost} AS DECIMAL)) * 100 DESC`)
       .limit(limit);
@@ -1326,11 +1333,12 @@ export async function getCopurchasedItems(params: {
     const inventoryItems = await db
       .select({ 
         id: blInventory.id,
-        itemName: blInventory.itemName,
+        itemName: blCatalog.itemName,
         itemType: blInventory.itemType,
-        colorName: blInventory.colorName,
+        colorName: blCatalog.colorName,
       })
       .from(blInventory)
+      .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
       .where(eq(blInventory.itemNo, itemNo));
     
     if (inventoryItems.length === 0) {

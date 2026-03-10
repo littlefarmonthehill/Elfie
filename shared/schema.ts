@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, real, timestamp, boolean, index, jsonb, serial, date } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, real, timestamp, boolean, index, jsonb, serial, date, primaryKey } from "drizzle-orm/pg-core";
 import { vector } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -188,6 +188,41 @@ export const insertBlInventorySchema = createInsertSchema(blInventory).omit({
 
 export type InsertBlInventory = z.infer<typeof insertBlInventorySchema>;
 export type BlInventory = typeof blInventory.$inferSelect;
+
+// ── Shared Part Catalog ────────────────────────────────────────────────────────
+// One row per (itemNo, itemType, colorId) — no org_id.
+// Stores physical truth and enrichment data shared across ALL companies.
+// bl_inventory rows reference this via (itemNo, itemType, colorId).
+export const blCatalog = pgTable("bl_catalog", {
+  itemNo: text("item_no").notNull(),
+  itemType: text("item_type").notNull(),
+  colorId: integer("color_id").notNull().default(0),
+  // Display / identity
+  itemName: text("item_name"),
+  colorName: text("color_name"),
+  categoryId: integer("category_id"),
+  // Physical properties (color-agnostic, but stored per-color for simplicity)
+  blCatalogWeight: decimal("bl_catalog_weight", { precision: 10, scale: 4 }),
+  blDimensionX: decimal("bl_dimension_x", { precision: 10, scale: 2 }),
+  blDimensionY: decimal("bl_dimension_y", { precision: 10, scale: 2 }),
+  blDimensionZ: decimal("bl_dimension_z", { precision: 10, scale: 2 }),
+  yearReleased: integer("year_released"),
+  // Images (color-specific LDraw renders from Rebrickable)
+  imageUrl: text("image_url"),
+  thumbnailUrl: text("thumbnail_url"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.itemNo, table.itemType, table.colorId] }),
+  itemNoIdx: index("bl_catalog_item_no_idx").on(table.itemNo),
+  categoryIdx: index("bl_catalog_category_idx").on(table.categoryId),
+  itemTypeIdx: index("bl_catalog_item_type_idx").on(table.itemType),
+}));
+
+export const insertBlCatalogSchema = createInsertSchema(blCatalog).omit({
+  updatedAt: true,
+});
+export type InsertBlCatalog = z.infer<typeof insertBlCatalogSchema>;
+export type BlCatalog = typeof blCatalog.$inferSelect;
 
 // Set-Part Relationships (from Rebrickable)
 // Cross-channel part ID mapping — lazy cache populated as Brick Spotter resolves numbers
@@ -414,6 +449,14 @@ export const blInventoryRelations = relations(blInventory, ({ one }) => ({
     fields: [blInventory.categoryId],
     references: [blCategories.id],
   }),
+  catalog: one(blCatalog, {
+    fields: [blInventory.itemNo, blInventory.itemType, blInventory.colorId],
+    references: [blCatalog.itemNo, blCatalog.itemType, blCatalog.colorId],
+  }),
+}));
+
+export const blCatalogRelations = relations(blCatalog, ({ many }) => ({
+  inventory: many(blInventory),
 }));
 
 export const ordersRelations = relations(orders, ({ many }) => ({
