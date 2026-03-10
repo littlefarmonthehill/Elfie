@@ -2203,13 +2203,16 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
               <div
                 ref={scanContainerRef}
                 className="flex items-center justify-center"
-                style={{ maxHeight: '55vh', overflow: 'visible' }}
+                style={{ height: '55vh', overflow: 'visible' }}
               >
                 <div
                   style={{
                     position: 'relative',
-                    width: '100%',
-                    aspectRatio: activeScan.imgWidth && activeScan.imgHeight ? `${activeScan.imgWidth}/${activeScan.imgHeight}` : '4/3',
+                    height: '100%',
+                    width: activeScan.imgWidth && activeScan.imgHeight
+                      ? `calc(55vh * ${activeScan.imgWidth} / ${activeScan.imgHeight})`
+                      : '100%',
+                    maxWidth: '100%',
                     flexShrink: 0,
                   }}
                 >
