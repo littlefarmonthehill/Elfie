@@ -6233,7 +6233,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                   <div key={t.tableName}>
                                     {showHeader && (
                                       <div className="px-3 py-1 bg-gray-800/50 border-t border-gray-700/60 first:border-t-0">
-                                        <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">{grpLabel}</span>
+                                        <span className="text-[9px] uppercase tracking-widest text-gray-400 font-semibold">{grpLabel}</span>
                                       </div>
                                     )}
                                     <div className="grid grid-cols-[12px_1fr_50px_60px_44px] gap-x-2 items-center px-3 py-1.5 border-t border-gray-700/30 hover-elevate">
