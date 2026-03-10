@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Activity, Flag, Power, Zap, Globe, ToggleLeft, EyeOff, ClipboardList, Megaphone, Tag, Key } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Activity, Flag, Power, Zap, Globe, ToggleLeft, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
@@ -6192,6 +6192,65 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
                           </div>
                         ) : dbTables && dbTables.length > 0 ? (
+                          <>
+                          {/* Warnings panel */}
+                          {(() => {
+                            type DbWarning = { tableName: string; severity: 'error' | 'warn'; issue: string; sql: string };
+                            const warnings: DbWarning[] = [];
+                            for (const t of dbTables) {
+                              const deadRatio = t.liveRows > 0 ? t.deadRows / t.liveRows : 0;
+                              if (t.deadRows > 500 && deadRatio > 0.1) {
+                                warnings.push({ tableName: t.tableName, severity: 'error', issue: `${t.deadRows.toLocaleString()} dead tuples (${Math.round(deadRatio * 100)}% ratio) — bloating table`, sql: `VACUUM ANALYZE ${t.tableName};` });
+                              } else if (t.deadRows > 100 && deadRatio > 0.05) {
+                                warnings.push({ tableName: t.tableName, severity: 'warn', issue: `${t.deadRows.toLocaleString()} dead tuples (${Math.round(deadRatio * 100)}% ratio)`, sql: `VACUUM ANALYZE ${t.tableName};` });
+                              } else if (t.modSinceAnalyze > 10000) {
+                                warnings.push({ tableName: t.tableName, severity: 'warn', issue: `${t.modSinceAnalyze.toLocaleString()} modifications since last ANALYZE — query planner stats may be stale`, sql: `ANALYZE ${t.tableName};` });
+                              } else if (!t.lastVacuum && t.liveRows > 500) {
+                                warnings.push({ tableName: t.tableName, severity: 'warn', issue: `Never been vacuumed — ${t.liveRows.toLocaleString()} rows`, sql: `VACUUM ANALYZE ${t.tableName};` });
+                              }
+                            }
+                            if (warnings.length === 0) return (
+                              <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-green-500/10 border border-green-500/20 mb-3">
+                                <CheckCircle2 className="h-3.5 w-3.5 text-green-400 shrink-0" />
+                                <p className="text-xs text-green-400">All tables healthy — no action needed</p>
+                              </div>
+                            );
+                            const hasErrors = warnings.some(w => w.severity === 'error');
+                            return (
+                              <div className={`rounded-lg border mb-3 overflow-hidden ${hasErrors ? 'border-red-500/30 bg-red-500/5' : 'border-yellow-500/30 bg-yellow-500/5'}`}>
+                                <div className={`flex items-center gap-2 px-3 py-2 border-b ${hasErrors ? 'border-red-500/20' : 'border-yellow-500/20'}`}>
+                                  <AlertTriangle className={`h-3.5 w-3.5 shrink-0 ${hasErrors ? 'text-red-400' : 'text-yellow-400'}`} />
+                                  <p className={`text-xs font-semibold ${hasErrors ? 'text-red-300' : 'text-yellow-300'}`}>
+                                    {warnings.length} table{warnings.length !== 1 ? 's' : ''} need attention
+                                  </p>
+                                </div>
+                                <div className="divide-y divide-gray-700/40">
+                                  {warnings.map(w => (
+                                    <div key={w.tableName} className="px-3 py-2 flex items-start gap-2.5">
+                                      <span className={`mt-0.5 shrink-0 text-[9px] font-bold uppercase tracking-wider px-1 py-0.5 rounded ${w.severity === 'error' ? 'bg-red-500/15 text-red-400' : 'bg-yellow-500/15 text-yellow-400'}`}>
+                                        {w.severity === 'error' ? 'urgent' : 'warn'}
+                                      </span>
+                                      <div className="flex-1 min-w-0 space-y-1">
+                                        <p className="text-[11px] font-mono text-gray-200">{w.tableName}</p>
+                                        <p className="text-[10px] text-gray-500 leading-snug">{w.issue}</p>
+                                        <div className="flex items-center gap-1.5 mt-1">
+                                          <code className="text-[10px] font-mono text-gray-400 bg-gray-800 px-1.5 py-0.5 rounded">{w.sql}</code>
+                                          <button
+                                            onClick={() => navigator.clipboard.writeText(w.sql)}
+                                            className="shrink-0 text-gray-600 hover:text-gray-300 transition-colors"
+                                            data-testid={`button-copy-sql-${w.tableName}`}
+                                            title="Copy SQL"
+                                          >
+                                            <Copy className="h-3 w-3" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })()}
                           <div className="rounded-lg border border-gray-700">
                             {/* Column header */}
                             <div className="grid grid-cols-[12px_1fr_50px_60px_44px] gap-x-2 px-3 py-1.5 bg-gray-800/80 border-b border-gray-700 rounded-t-lg">
@@ -6281,6 +6340,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </span>
                             </div>
                           </div>
+                          </>
                         ) : (
                           <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-4 text-center text-xs text-gray-500">
                             No table data available
@@ -7041,7 +7101,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     {[
                       { name: 'BrickLink', desc: 'Primary marketplace — inventory, orders, and pricing data', url: 'https://www.bricklink.com' },
                       { name: 'BrickOwl', desc: 'Secondary marketplace channel', url: 'https://www.brickowl.com' },
-                      { name: 'Rebrickable', desc: 'Parts catalog and set inventories; LDraw for part images', url: 'https://rebrickable.com' },
+                      { name: 'Rebrickable', desc: 'Parts catalog, set inventories, and set-to-parts relationships; LDraw for part images', url: 'https://rebrickable.com' },
                     ].map(({ name, desc, url }) => (
                       <div key={name} className="flex items-start gap-3 px-4 py-2.5">
                         <div className="flex-1 min-w-0">
