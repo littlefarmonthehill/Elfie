@@ -353,87 +353,72 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ── BOTTOM: date bar + two named zones ── */}
-      <div className="flex flex-col flex-1 min-h-0" style={{ gap: '4px' }}>
+      {/* ── BOTTOM: Inventory left | date-picker + 3 dashboards right ── */}
+      <div className="flex flex-1 min-h-0 overflow-hidden" style={{ gap: '5px' }}>
 
-        {/* Compact date range bar */}
-        <div className="shrink-0 flex items-center gap-2 px-3 py-1 rounded-md" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground shrink-0">Range</span>
-          <DateRangeSelector value={dateRange} onChange={setDateRange} compact />
+        {/* Product / Inventory — full height left column */}
+        <div className="flex flex-col rounded-md overflow-hidden" style={{ flex: 1, minWidth: '160px', border: '1px solid hsla(220,85%,55%,0.35)' }}>
+          <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(220,85%,55%,0.28), hsla(220,85%,55%,0.08))', borderColor: 'hsla(220,85%,55%,0.35)' }}>
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(220,85%,75%)', textShadow: '0 0 8px hsla(220,85%,55%,0.7)' }}>Product</span>
+          </div>
+          <div className="flex-1 overflow-y-auto min-h-0" style={{ background: 'radial-gradient(ellipse at top, hsla(220,85%,55%,0.15) 0%, transparent 55%), linear-gradient(to bottom, hsla(220,85%,55%,0.18), hsla(220,85%,55%,0.04) 100%)' }}>
+            <InventoryDashboard
+              panelMode
+              onItemClick={handleDashboardItemClick}
+              activeDrawer={activeInventoryDrawer}
+              onDrawerChange={setActiveInventoryDrawer}
+              onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }}
+            />
+          </div>
         </div>
 
-        {/* Zone row */}
-        <div className="flex flex-1 min-h-0 overflow-hidden" style={{ gap: '5px' }}>
+        {/* Right group: date picker at top, then Orders + Marketing + Sales below */}
+        <div className="flex flex-col flex-1 min-h-0" style={{ flex: 3, gap: '5px' }}>
 
-          {/* ─── ZONE: Sales Pipeline (Product + Orders + Marketing) ─── */}
-          <div className="flex flex-col min-h-0 rounded-lg overflow-hidden" style={{ flex: 3, border: '1px solid hsla(220,50%,55%,0.22)', background: 'hsla(220,50%,10%,0.18)' }}>
-            {/* Zone label */}
-            <div className="shrink-0 flex items-center px-3 py-[3px] border-b" style={{ borderColor: 'hsla(220,50%,55%,0.18)', background: 'hsla(220,60%,20%,0.25)' }}>
-              <span className="text-[8px] font-bold uppercase tracking-[0.28em]" style={{ color: 'hsla(220,70%,75%,0.6)', letterSpacing: '0.28em' }}>Sales Pipeline</span>
-            </div>
-            {/* Three columns inside zone */}
-            <div className="flex flex-1 min-h-0 overflow-x-auto overflow-y-hidden" style={{ gap: '4px', padding: '4px' }}>
-
-              {/* Product */}
-              <div className="flex flex-col rounded-md overflow-hidden" style={{ flex: 1, minWidth: '160px', border: '1px solid hsla(220,85%,55%,0.35)' }}>
-                <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(220,85%,55%,0.28), hsla(220,85%,55%,0.08))', borderColor: 'hsla(220,85%,55%,0.35)' }}>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(220,85%,75%)', textShadow: '0 0 8px hsla(220,85%,55%,0.7)' }}>Product</span>
-                </div>
-                <div className="flex-1 overflow-y-auto min-h-0" style={{ background: 'radial-gradient(ellipse at top, hsla(220,85%,55%,0.15) 0%, transparent 55%), linear-gradient(to bottom, hsla(220,85%,55%,0.18), hsla(220,85%,55%,0.04) 100%)' }}>
-                  <InventoryDashboard
-                    panelMode
-                    onItemClick={handleDashboardItemClick}
-                    activeDrawer={activeInventoryDrawer}
-                    onDrawerChange={setActiveInventoryDrawer}
-                    onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }}
-                  />
-                </div>
-              </div>
-
-              {/* Orders */}
-              <div className="flex flex-col rounded-md overflow-hidden" style={{ flex: 1, minWidth: '160px', border: '1px solid hsla(25,95%,55%,0.35)' }}>
-                <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(25,95%,55%,0.25), hsla(25,95%,55%,0.08))', borderColor: 'hsla(25,95%,55%,0.35)' }}>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(25,95%,72%)', textShadow: '0 0 8px hsla(25,95%,55%,0.7)' }}>Orders</span>
-                </div>
-                <div className="flex-1 overflow-y-auto min-h-0" style={{ background: 'radial-gradient(ellipse at top, hsla(25,95%,55%,0.15) 0%, transparent 55%), linear-gradient(to bottom, hsla(25,95%,55%,0.18), hsla(25,95%,55%,0.04) 100%)' }}>
-                  <OrdersDashboard
-                    panelMode
-                    dateRange={dateRange}
-                    onItemClick={handleDashboardItemClick}
-                    activeDrawer={activeOrdersDrawer}
-                    onDrawerChange={setActiveOrdersDrawer}
-                    onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }}
-                  />
-                </div>
-              </div>
-
-              {/* Marketing */}
-              <div className="flex flex-col rounded-md overflow-hidden" style={{ flex: 1, minWidth: '160px', border: '1px solid hsla(48,95%,55%,0.35)' }}>
-                <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(48,95%,55%,0.25), hsla(48,95%,55%,0.08))', borderColor: 'hsla(48,95%,55%,0.35)' }}>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(48,95%,65%)', textShadow: '0 0 8px hsla(48,95%,55%,0.7)' }}>Marketing</span>
-                </div>
-                <div className="flex-1 overflow-y-auto min-h-0" style={{ background: 'radial-gradient(ellipse at top, hsla(48,95%,55%,0.15) 0%, transparent 55%), linear-gradient(to bottom, hsla(48,95%,55%,0.18), hsla(48,95%,55%,0.04) 100%)' }}>
-                  <MarketingDashboard
-                    panelMode
-                    dateRange={dateRange}
-                    onItemClick={handleDashboardItemClick}
-                    activeDrawer={activeMarketingDrawer}
-                    onDrawerChange={setActiveMarketingDrawer}
-                  />
-                </div>
-              </div>
-
-            </div>
+          {/* Date picker strip — top-aligned with Inventory */}
+          <div className="shrink-0 flex items-center gap-3 px-4 py-2 rounded-md" style={{ background: 'linear-gradient(to right, rgba(255,255,255,0.06), rgba(255,255,255,0.03))', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] shrink-0" style={{ color: 'rgba(255,255,255,0.45)' }}>Date Range</span>
+            <DateRangeSelector value={dateRange} onChange={setDateRange} />
           </div>
 
-          {/* ─── ZONE: Reporting (Sales) ─── */}
-          <div className="flex flex-col min-h-0 rounded-lg overflow-hidden" style={{ flex: 1, border: '1px solid hsla(140,60%,45%,0.22)', background: 'hsla(140,50%,8%,0.18)' }}>
-            {/* Zone label */}
-            <div className="shrink-0 flex items-center px-3 py-[3px] border-b" style={{ borderColor: 'hsla(140,60%,45%,0.18)', background: 'hsla(140,60%,15%,0.25)' }}>
-              <span className="text-[8px] font-bold uppercase tracking-[0.28em]" style={{ color: 'hsla(140,70%,70%,0.6)' }}>Reporting</span>
+          {/* Orders · Marketing · Sales columns */}
+          <div className="flex flex-1 min-h-0 overflow-x-auto overflow-y-hidden" style={{ gap: '5px' }}>
+
+            {/* Orders */}
+            <div className="flex flex-col rounded-md overflow-hidden" style={{ flex: 1, minWidth: '160px', border: '1px solid hsla(25,95%,55%,0.35)' }}>
+              <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(25,95%,55%,0.25), hsla(25,95%,55%,0.08))', borderColor: 'hsla(25,95%,55%,0.35)' }}>
+                <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(25,95%,72%)', textShadow: '0 0 8px hsla(25,95%,55%,0.7)' }}>Orders</span>
+              </div>
+              <div className="flex-1 overflow-y-auto min-h-0" style={{ background: 'radial-gradient(ellipse at top, hsla(25,95%,55%,0.15) 0%, transparent 55%), linear-gradient(to bottom, hsla(25,95%,55%,0.18), hsla(25,95%,55%,0.04) 100%)' }}>
+                <OrdersDashboard
+                  panelMode
+                  dateRange={dateRange}
+                  onItemClick={handleDashboardItemClick}
+                  activeDrawer={activeOrdersDrawer}
+                  onDrawerChange={setActiveOrdersDrawer}
+                  onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }}
+                />
+              </div>
             </div>
-            {/* Sales column */}
-            <div className="flex flex-col flex-1 min-h-0 rounded-md overflow-hidden" style={{ margin: '4px', border: '1px solid hsla(140,70%,50%,0.35)' }}>
+
+            {/* Marketing */}
+            <div className="flex flex-col rounded-md overflow-hidden" style={{ flex: 1, minWidth: '160px', border: '1px solid hsla(48,95%,55%,0.35)' }}>
+              <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(48,95%,55%,0.25), hsla(48,95%,55%,0.08))', borderColor: 'hsla(48,95%,55%,0.35)' }}>
+                <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(48,95%,65%)', textShadow: '0 0 8px hsla(48,95%,55%,0.7)' }}>Marketing</span>
+              </div>
+              <div className="flex-1 overflow-y-auto min-h-0" style={{ background: 'radial-gradient(ellipse at top, hsla(48,95%,55%,0.15) 0%, transparent 55%), linear-gradient(to bottom, hsla(48,95%,55%,0.18), hsla(48,95%,55%,0.04) 100%)' }}>
+                <MarketingDashboard
+                  panelMode
+                  dateRange={dateRange}
+                  onItemClick={handleDashboardItemClick}
+                  activeDrawer={activeMarketingDrawer}
+                  onDrawerChange={setActiveMarketingDrawer}
+                />
+              </div>
+            </div>
+
+            {/* Sales */}
+            <div className="flex flex-col rounded-md overflow-hidden" style={{ flex: 1, minWidth: '160px', border: '1px solid hsla(140,70%,50%,0.35)' }}>
               <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(140,70%,50%,0.25), hsla(140,70%,50%,0.08))', borderColor: 'hsla(140,70%,50%,0.35)' }}>
                 <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(140,70%,65%)', textShadow: '0 0 8px hsla(140,70%,50%,0.7)' }}>Sales</span>
               </div>
@@ -446,9 +431,10 @@ export default function Home() {
                 />
               </div>
             </div>
-          </div>
 
+          </div>
         </div>
+
       </div>
     </div>
   );
