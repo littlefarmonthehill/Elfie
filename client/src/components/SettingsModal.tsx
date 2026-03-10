@@ -1016,6 +1016,21 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     retry: 0,
   });
 
+  type ServerLogEntry = {
+    id: number;
+    level: 'warn' | 'error';
+    message: string;
+    timestamp: string;
+    count: number;
+  };
+  const { data: serverLogs, isLoading: serverLogsLoading, refetch: refetchServerLogs } = useQuery<ServerLogEntry[]>({
+    queryKey: ['/api/platform-admin/server-logs'],
+    enabled: open && activeSection === 'systemHealth',
+    refetchInterval: activeSection === 'systemHealth' ? 20000 : false,
+    staleTime: 0,
+    retry: 0,
+  });
+
   // Admin Team
   const { data: adminTeam, isLoading: adminTeamLoading, refetch: refetchAdminTeam } = useQuery<User[]>({
     queryKey: ['/api/platform-admin/admin-team'],
@@ -6009,6 +6024,76 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </div>
                         ))}
                       </div>
+                    </div>
+
+                    {/* Server Logs */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2 px-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Recent Warnings & Errors</p>
+                          {serverLogs && serverLogs.some(l => l.level === 'error') && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                          )}
+                          {serverLogs && !serverLogs.some(l => l.level === 'error') && serverLogs.some(l => l.level === 'warn') && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-yellow-500" />
+                          )}
+                        </div>
+                        <button
+                          onClick={() => refetchServerLogs()}
+                          className="text-gray-600 hover:text-gray-400 transition-colors"
+                          data-testid="button-refresh-server-logs"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                        </button>
+                      </div>
+                      {serverLogsLoading ? (
+                        <div className="flex items-center justify-center py-6">
+                          <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
+                        </div>
+                      ) : serverLogs && serverLogs.length > 0 ? (
+                        <div className="rounded-lg border border-gray-700 overflow-hidden divide-y divide-gray-700/40">
+                          {serverLogs.map(entry => {
+                            const isError = entry.level === 'error';
+                            const relativeTime = (() => {
+                              const diff = Date.now() - new Date(entry.timestamp).getTime();
+                              const secs = Math.floor(diff / 1000);
+                              if (secs < 60) return `${secs}s ago`;
+                              const mins = Math.floor(secs / 60);
+                              if (mins < 60) return `${mins}m ago`;
+                              const hours = Math.floor(mins / 60);
+                              return `${hours}h ago`;
+                            })();
+                            return (
+                              <div key={entry.id} className="flex items-start gap-2.5 px-3 py-2">
+                                <span className={`mt-0.5 shrink-0 text-[10px] font-bold uppercase tracking-wider px-1 py-0.5 rounded ${isError ? 'bg-red-500/15 text-red-400' : 'bg-yellow-500/15 text-yellow-400'}`}>
+                                  {entry.level}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <p className="text-[11px] text-gray-300 leading-snug truncate cursor-default">{entry.message}</p>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="left" className="max-w-sm text-[11px] leading-relaxed font-mono whitespace-pre-wrap break-all">
+                                      {entry.message}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </div>
+                                <div className="shrink-0 flex items-center gap-1.5 mt-0.5">
+                                  {entry.count > 1 && (
+                                    <span className="text-[10px] font-mono text-gray-600">×{entry.count}</span>
+                                  )}
+                                  <span className="text-[10px] text-gray-600 font-mono whitespace-nowrap">{relativeTime}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-4 text-center">
+                          <CheckCircle2 className="h-4 w-4 text-green-500/50 mx-auto mb-1" />
+                          <p className="text-xs text-gray-500">No warnings or errors</p>
+                        </div>
+                      )}
                     </div>
 
                     {/* Database Tables */}

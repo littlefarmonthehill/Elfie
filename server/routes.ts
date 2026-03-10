@@ -707,6 +707,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/platform-admin/server-logs — recent WARN/ERROR log entries from in-memory buffer
+  app.get('/api/platform-admin/server-logs', isSuperAdmin, (_req, res) => {
+    const { getRecentLogs } = require('./services/server-log-buffer');
+    res.json(getRecentLogs(40));
+  });
+
   // GET /api/platform-admin/db-tables — table health from pg_stat_user_tables
   app.get('/api/platform-admin/db-tables', isSuperAdmin, async (_req, res) => {
     const TABLE_DESCRIPTIONS: Record<string, string> = {
