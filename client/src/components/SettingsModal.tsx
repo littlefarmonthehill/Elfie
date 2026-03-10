@@ -715,8 +715,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [pomScarcityBonus2, setPomScarcityBonus2] = useState(8);
   const [pomScarcityThreshold3, setPomScarcityThreshold3] = useState(500);
   const [pomScarcityBonus3, setPomScarcityBonus3] = useState(3);
-  const [pomTooHighThreshold, setPomTooHighThreshold] = useState(20);
-  const [pomTooLowThreshold, setPomTooLowThreshold] = useState(20);
   const [pomUnderpricedScore, setPomUnderpricedScore] = useState(1.5);
   const [pomOverpricedScore, setPomOverpricedScore] = useState(0.8);
   const [pomPricingOpen, setPomPricingOpen] = useState(false);
@@ -1245,8 +1243,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       setPomScarcityBonus2(settings.pomScarcityBonus2 ?? 8);
       setPomScarcityThreshold3(settings.pomScarcityThreshold3 ?? 500);
       setPomScarcityBonus3(settings.pomScarcityBonus3 ?? 3);
-      setPomTooHighThreshold(settings.pomTooHighThreshold ?? 20);
-      setPomTooLowThreshold(settings.pomTooLowThreshold ?? 20);
       setPomUnderpricedScore(settings.pomUnderpricedScore ?? 1.5);
       setPomOverpricedScore(settings.pomOverpricedScore ?? 0.8);
       setPomBatchSize(settings.pomBatchSize ?? 1500);
@@ -3001,66 +2997,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </div>
                         </div>
 
-                        {/* Flag Thresholds */}
-                        <div className="rounded-md border border-gray-700/60 overflow-hidden">
-                          <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
-                            <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Flag Thresholds</h4>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                  <Info className="w-3.5 h-3.5" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                                Controls which items appear in the Price-o-Matic dashboard as needing attention. Items outside these bands are flagged — not automatically repriced. You decide whether to act on each flag.
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                          <div className="px-4 divide-y divide-gray-700/30">
-                            <div className="flex items-center justify-between py-3">
-                              <div className="flex items-center gap-1.5">
-                                <Label className="text-sm text-red-300">Too High Flag</Label>
-                                <Popover>
-                                  <PopoverTrigger asChild>
-                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                      <Info className="w-3.5 h-3.5" />
-                                    </button>
-                                  </PopoverTrigger>
-                                  <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
-                                    Items priced this far above the suggested price appear in the "Too High" tab. Buyers will likely find cheaper options elsewhere, reducing your sell-through rate.
-                                  </PopoverContent>
-                                </Popover>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-300">more than</span>
-                                <Input type="number" min={1} max={200} value={pomTooHighThreshold} onChange={(e) => setPomTooHighThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTooHighThreshold })} className="text-sm w-20 text-right" data-testid="input-pom-too-high" />
-                                <span className="text-xs text-gray-400 w-14">% above</span>
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between py-3">
-                              <div className="flex items-center gap-1.5">
-                                <Label className="text-sm text-yellow-300">Too Low Flag</Label>
-                                <Popover>
-                                  <PopoverTrigger asChild>
-                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                      <Info className="w-3.5 h-3.5" />
-                                    </button>
-                                  </PopoverTrigger>
-                                  <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
-                                    Items priced this far below the suggested price appear in the "Too Low" tab. You're leaving margin on the table — buyers didn't need that discount.
-                                  </PopoverContent>
-                                </Popover>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-300">more than</span>
-                                <Input type="number" min={1} max={200} value={pomTooLowThreshold} onChange={(e) => setPomTooLowThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTooLowThreshold })} className="text-sm w-20 text-right" data-testid="input-pom-too-low" />
-                                <span className="text-xs text-gray-400 w-14">% below</span>
-                              </div>
-                            </div>
-
-                          </div>
-                        </div>
-
                       </div>
                     )}
                   </div>
@@ -3113,7 +3049,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                   <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
                     <p className="text-xs text-blue-300">
-                      <strong>How it works:</strong> Price-o-Matic pulls avg listed price, avg sold price, and lot count from BrickLink for each item, then applies your formula above to compute a suggested price. Items more than {pomTooHighThreshold}% above or {pomTooLowThreshold}% below that suggested price are flagged in the dashboard.
+                      <strong>How it works:</strong> Price-o-Matic pulls avg listed price, avg sold price, and lot count from BrickLink for each item, then applies your formula above to compute a suggested price. Items are scored based on how their current price compares to the suggested price.
                     </p>
                   </div>
 
@@ -4660,71 +4596,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             </div>
                           </div>
                         </div>
-                      </div>
-
-                      {/* Flag Thresholds */}
-                      <div className="rounded-md border border-gray-700/60 overflow-hidden">
-                        <div className="bg-gray-800/50 px-4 py-2.5 flex items-center gap-1.5 border-b border-gray-700/40">
-                          <h4 className="text-xs font-semibold text-gray-200 uppercase tracking-wider">Flag Thresholds</h4>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                <Info className="w-3.5 h-3.5" />
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
-                              Controls which items appear in the Price-o-Matic dashboard as needing attention. Items outside these bands are flagged — not automatically repriced. You decide whether to act on each flag.
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                        <div className="px-4 divide-y divide-gray-700/30">
-                          <div className="flex items-center justify-between py-3">
-                            <div className="flex items-center gap-1.5">
-                              <Label className="text-sm text-red-300">Too High Flag</Label>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                    <Info className="w-3.5 h-3.5" />
-                                  </button>
-                                </PopoverTrigger>
-                                <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
-                                  Items priced this far above the suggested price appear in the "Too High" tab. Buyers will likely find cheaper options elsewhere, reducing your sell-through rate.
-                                </PopoverContent>
-                              </Popover>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-300">more than</span>
-                              <Input type="number" min={1} max={200} value={pomTooHighThreshold} onChange={(e) => setPomTooHighThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTooHighThreshold })} className="text-sm w-20 text-right" data-testid="input-pom-too-high" />
-                              <span className="text-xs text-gray-400 w-14">% above</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between py-3">
-                            <div className="flex items-center gap-1.5">
-                              <Label className="text-sm text-yellow-300">Too Low Flag</Label>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
-                                    <Info className="w-3.5 h-3.5" />
-                                  </button>
-                                </PopoverTrigger>
-                                <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
-                                  Items priced this far below the suggested price appear in the "Too Low" tab. You're leaving margin on the table — buyers didn't need that discount.
-                                </PopoverContent>
-                              </Popover>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-300">more than</span>
-                              <Input type="number" min={1} max={200} value={pomTooLowThreshold} onChange={(e) => setPomTooLowThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTooLowThreshold })} className="text-sm w-20 text-right" data-testid="input-pom-too-low" />
-                              <span className="text-xs text-gray-400 w-14">% below</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
-                        <p className="text-xs text-blue-300">
-                          <strong>How it works:</strong> Price-o-Matic pulls avg listed price, avg sold price, and lot count from BrickLink for each item, then applies your formula above to compute a suggested price. Items more than {pomTooHighThreshold}% above or {pomTooLowThreshold}% below that suggested price are flagged in the dashboard.
-                        </p>
                       </div>
 
                     </div>
