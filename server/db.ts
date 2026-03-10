@@ -186,6 +186,20 @@ export async function runMigrations() {
         thumbnail_url = COALESCE(EXCLUDED.thumbnail_url, bl_catalog.thumbnail_url)
     `);
     console.log('[Migration] Phase-6 (bl_catalog backfill from price_guide_cache) complete.');
+
+    // ── Phase-7: Backfill bl_catalog from universal_catalog_queue (Rebrickable names) ──
+    // After importFromRebrickable() runs it now writes to both universal_catalog_queue
+    // AND bl_catalog in the same flush. This backfill handles the case where a queue
+    // already has rows from a previous run before the flush was wired up.
+    await client.query(`
+      INSERT INTO bl_catalog (item_no, item_type, color_id, item_name)
+      SELECT part_no, 'P', 0, part_name
+      FROM universal_catalog_queue
+      WHERE part_name IS NOT NULL
+      ON CONFLICT (item_no, item_type, color_id) DO UPDATE
+      SET item_name = COALESCE(bl_catalog.item_name, EXCLUDED.item_name)
+    `);
+    console.log('[Migration] Phase-7 (bl_catalog backfill from universal_catalog_queue) complete.');
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

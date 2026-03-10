@@ -12,7 +12,7 @@
  */
 
 import { db } from '../db';
-import { universalCatalogQueue } from '../../shared/schema';
+import { universalCatalogQueue, blCatalog } from '../../shared/schema';
 import { sql, eq } from 'drizzle-orm';
 import { embedUrl, isScanActive } from './segmentClient';
 import * as https from 'https';
@@ -128,6 +128,23 @@ export async function importFromRebrickable(): Promise<ImportResult> {
         .returning({ partNo: universalCatalogQueue.partNo });
       imported += result.length;
       skipped  += rows.length - result.length;
+
+      // Also seed bl_catalog with names from Rebrickable.
+      // colorId=0 = color-agnostic base part entry.
+      // COALESCE preserves any name already written by POM/BL sync — Rebrickable
+      // names are only used as a fallback when no BL name exists yet.
+      const catalogRows = batch
+        .filter(p => p.partName)
+        .map(p => ({ itemNo: p.partNo, itemType: 'P' as const, colorId: 0, itemName: p.partName }));
+      if (catalogRows.length > 0) {
+        await db.insert(blCatalog)
+          .values(catalogRows)
+          .onConflictDoUpdate({
+            target: [blCatalog.itemNo, blCatalog.itemType, blCatalog.colorId],
+            set: { itemName: sql`COALESCE(bl_catalog.item_name, EXCLUDED.item_name)` },
+          });
+      }
+
       batch.length = 0;
     };
 
