@@ -2659,14 +2659,13 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                   {/* Pricing collapsible */}
                   <div>
-                    <button
-                      onClick={() => setPomPricingOpen(!pomPricingOpen)}
-                      className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
+                    <div
+                      className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-700/40 cursor-not-allowed opacity-50"
                       data-testid="button-pom-pricing-toggle"
                     >
-                      <span className="text-sm font-semibold text-gray-200 uppercase tracking-wider">Pricing</span>
-                      {pomPricingOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
-                    </button>
+                      <span className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Pricing</span>
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 border border-gray-600/60 rounded px-1.5 py-0.5">Coming soon</span>
+                    </div>
                     {pomPricingOpen && (
                       <div className="space-y-4">
 
@@ -4260,14 +4259,13 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Pricing collapsible */}
                 <div>
-                  <button
-                    onClick={() => setPomPricingOpen(!pomPricingOpen)}
-                    className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
+                  <div
+                    className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-700/40 cursor-not-allowed opacity-50"
                     data-testid="button-pom-pricing-toggle"
                   >
-                    <span className="text-sm font-semibold text-gray-200 uppercase tracking-wider">Pricing</span>
-                    {pomPricingOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
-                  </button>
+                    <span className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Pricing</span>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 border border-gray-600/60 rounded px-1.5 py-0.5">Coming soon</span>
+                  </div>
                   {pomPricingOpen && (
                     <div className="space-y-4">
 
