@@ -444,11 +444,13 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                   </PopoverContent>
                 </Popover>
               </div>
+              {!panelMode && (
               <div className="flex flex-wrap gap-1 min-h-[1.25rem]">
                 <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-600/25">
                   Coming soon
                 </span>
               </div>
+              )}
             </button>
 
             {/* Engage New */}
@@ -478,6 +480,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                   </PopoverContent>
                 </Popover>
               </div>
+              {!panelMode && (
               <div className="flex flex-wrap gap-1 min-h-[1.25rem]">
                 {newCustomers.length > 0 ? (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-600/30">
@@ -489,6 +492,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                   </span>
                 )}
               </div>
+              )}
             </button>
 
             {/* Engage Repeat */}
@@ -518,6 +522,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                   </PopoverContent>
                 </Popover>
               </div>
+              {!panelMode && (
               <div className="flex flex-wrap gap-1 min-h-[1.25rem]">
                 {repeatCustomerCount > 0 ? (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-600/30">
@@ -529,6 +534,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                   </span>
                 )}
               </div>
+              )}
             </button>
 
             {/* Engage Top */}
@@ -558,6 +564,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                   </PopoverContent>
                 </Popover>
               </div>
+              {!panelMode && (
               <div className="flex flex-wrap gap-1 min-h-[1.25rem]">
                 {topSpenders.length > 0 ? (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30">
@@ -569,6 +576,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                   </span>
                 )}
               </div>
+              )}
             </button>
 
           </div>

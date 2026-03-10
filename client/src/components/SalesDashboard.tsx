@@ -850,7 +850,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
                 <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", !panelMode && "md:text-sm")}>Sales Chart</span>
                 <ArrowRight className="w-3 h-3 text-green-500/60 group-hover:text-green-400 transition-colors" />
               </div>
-              <p className="text-[10px] md:text-xs text-green-300/60 leading-snug">Revenue trend &amp; year-over-year comparison</p>
+              {!panelMode && <p className="text-[10px] md:text-xs text-green-300/60 leading-snug">Revenue trend &amp; year-over-year comparison</p>}
             </button>
             <button
               onClick={() => setPlatformPerfOpen(true)}
@@ -873,6 +873,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
                   </PopoverContent>
                 </Popover>
               </div>
+              {!panelMode && (
               <div className="flex flex-wrap gap-1 min-h-[1.25rem]">
                 {availablePlatforms.length > 0 ? (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30">
@@ -884,10 +885,13 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
                   </span>
                 )}
               </div>
+              )}
+              {!panelMode && (
               <div className="flex items-center justify-between">
                 <span className="text-[10px] md:text-xs text-orange-300 font-medium">Open tool</span>
                 <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-orange-400/70 group-hover:text-orange-200 transition-colors" />
               </div>
+              )}
             </button>
           </div>
         </div>
