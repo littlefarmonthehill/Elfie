@@ -6163,100 +6163,133 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 )}
 
                 {/* Database tab */}
-                {activeHealthTab === 'database' && (
-                  <div className="p-4 space-y-4">
-                    <div>
-                      <div className="flex items-center justify-between mb-2 px-1">
-                        <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Database Tables</p>
-                        <button
-                          onClick={() => refetchDbTables()}
-                          className="text-gray-600 hover:text-gray-400 transition-colors"
-                          data-testid="button-refresh-db-tables"
-                        >
-                          <RefreshCw className="h-3 w-3" />
-                        </button>
-                      </div>
-                      {dbTablesLoading ? (
-                        <div className="flex items-center justify-center py-6">
-                          <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
+                {activeHealthTab === 'database' && (() => {
+                  const DB_GROUPS: { label: string; tables: string[] }[] = [
+                    { label: 'Platform', tables: ['organizations', 'users', 'sessions', 'plan_configs', 'app_settings', 'org_integrations'] },
+                    { label: 'BrickLink', tables: ['bl_catalog', 'bl_catalog_clip_embeddings', 'bl_categories', 'bl_colors', 'bl_inventory', 'bl_api_calls', 'bl_forum_posts', 'bl_forum_embeddings'] },
+                    { label: 'Orders', tables: ['orders', 'order_details', 'order_detail_embeddings', 'order_embeddings', 'order_adjustments', 'order_splits', 'order_split_items', 'shipments'] },
+                    { label: 'Inventory', tables: ['inventory_embeddings', 'inventory_locations', 'part_price_history', 'part_id_mappings', 'picklist_items'] },
+                    { label: 'BrickSpotter', tables: ['set_part_relationships', 'set_part_embeddings', 'universal_catalog_queue', 'brickanalyzer_scans'] },
+                    { label: 'AI & Jobs', tables: ['embedding_jobs', 'conversations'] },
+                    { label: 'Operations', tables: ['anomaly_events', 'app_feedback', 'eod_forms', 'sync_issues', 'sync_metadata', 'differential_batches', 'restore_jobs', 'price_guide_cache'] },
+                  ];
+                  const getGroup = (name: string) => DB_GROUPS.findIndex(g => g.tables.includes(name));
+                  return (
+                    <div className="p-4 space-y-4">
+                      <div>
+                        <div className="flex items-center justify-between mb-2 px-1">
+                          <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Database Tables</p>
+                          <button
+                            onClick={() => refetchDbTables()}
+                            className="text-gray-600 hover:text-gray-400 transition-colors"
+                            data-testid="button-refresh-db-tables"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                          </button>
                         </div>
-                      ) : dbTables && dbTables.length > 0 ? (
-                        <div className="rounded-lg border border-gray-700 overflow-hidden">
-                          <div className="grid grid-cols-[16px_1fr_64px_72px_64px] gap-x-3 px-3 py-1.5 bg-gray-800/80 border-b border-gray-700">
-                            <span />
-                            <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">Table</span>
-                            <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-right">Size</span>
-                            <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-right">~Rows</span>
-                            <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-right">Dead</span>
+                        {dbTablesLoading ? (
+                          <div className="flex items-center justify-center py-6">
+                            <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
                           </div>
-                          <div className="divide-y divide-gray-700/50">
-                            {dbTables.map(t => {
-                              const deadRatio = t.liveRows > 0 ? t.deadRows / t.liveRows : 0;
-                              const healthColor =
-                                t.deadRows > 500 && deadRatio > 0.1 ? 'bg-red-500' :
-                                t.deadRows > 100 && deadRatio > 0.05 ? 'bg-yellow-500' :
-                                'bg-green-500';
-                              const lastVacuumRelative = t.lastVacuum
-                                ? (() => {
-                                    const diff = Date.now() - new Date(t.lastVacuum).getTime();
-                                    const days = Math.floor(diff / 86400000);
-                                    if (days === 0) return 'today';
-                                    if (days === 1) return '1d ago';
-                                    return `${days}d ago`;
-                                  })()
-                                : 'never';
-                              return (
-                                <div key={t.tableName} className="grid grid-cols-[16px_1fr_64px_72px_64px] gap-x-3 items-center px-3 py-1.5 hover-elevate">
-                                  <span className={`h-1.5 w-1.5 rounded-full ${healthColor} mx-auto`} />
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    <span className="text-xs text-gray-300 font-mono truncate">{t.tableName}</span>
-                                    {t.description && (
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <button className="shrink-0 text-gray-600 hover:text-gray-400 transition-colors" data-testid={`button-info-${t.tableName}`}>
-                                            <Info className="h-3 w-3" />
-                                          </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
-                                          {t.description}
-                                          {t.lastVacuum && (
-                                            <span className="block mt-1 text-gray-400 text-[10px]">Last vacuum: {lastVacuumRelative}</span>
-                                          )}
-                                        </TooltipContent>
-                                      </Tooltip>
+                        ) : dbTables && dbTables.length > 0 ? (
+                          <div className="rounded-lg border border-gray-700">
+                            {/* Column header */}
+                            <div className="grid grid-cols-[12px_1fr_50px_60px_44px] gap-x-2 px-3 py-1.5 bg-gray-800/80 border-b border-gray-700 rounded-t-lg">
+                              <span />
+                              <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">Table</span>
+                              <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-right">Size</span>
+                              <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-right">~Rows</span>
+                              <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-right">Dead</span>
+                            </div>
+                            {/* Grouped rows */}
+                            {(() => {
+                              const sorted = [...dbTables].sort((a, b) => {
+                                const ga = getGroup(a.tableName);
+                                const gb = getGroup(b.tableName);
+                                if (ga !== gb) return (ga === -1 ? 99 : ga) - (gb === -1 ? 99 : gb);
+                                return a.tableName.localeCompare(b.tableName);
+                              });
+                              let lastGroup = -2;
+                              return sorted.map(t => {
+                                const grpIdx = getGroup(t.tableName);
+                                const grpLabel = grpIdx === -1 ? 'Other' : DB_GROUPS[grpIdx].label;
+                                const showHeader = grpIdx !== lastGroup;
+                                lastGroup = grpIdx;
+                                const deadRatio = t.liveRows > 0 ? t.deadRows / t.liveRows : 0;
+                                const healthColor =
+                                  t.deadRows > 500 && deadRatio > 0.1 ? 'bg-red-500' :
+                                  t.deadRows > 100 && deadRatio > 0.05 ? 'bg-yellow-500' :
+                                  'bg-green-500';
+                                const lastVacuumRelative = t.lastVacuum
+                                  ? (() => {
+                                      const diff = Date.now() - new Date(t.lastVacuum).getTime();
+                                      const days = Math.floor(diff / 86400000);
+                                      if (days === 0) return 'today';
+                                      if (days === 1) return '1d ago';
+                                      return `${days}d ago`;
+                                    })()
+                                  : 'never';
+                                return (
+                                  <div key={t.tableName}>
+                                    {showHeader && (
+                                      <div className="px-3 py-1 bg-gray-800/50 border-t border-gray-700/60 first:border-t-0">
+                                        <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">{grpLabel}</span>
+                                      </div>
                                     )}
+                                    <div className="grid grid-cols-[12px_1fr_50px_60px_44px] gap-x-2 items-center px-3 py-1.5 border-t border-gray-700/30 hover-elevate">
+                                      <span className={`h-1.5 w-1.5 rounded-full ${healthColor} mx-auto shrink-0`} />
+                                      <div className="flex items-center gap-1 min-w-0">
+                                        <span className="text-[11px] text-gray-300 font-mono break-all leading-tight">{t.tableName}</span>
+                                        {t.description && (
+                                          <Popover>
+                                            <PopoverTrigger asChild>
+                                              <button className="shrink-0 text-gray-600 hover:text-gray-400 transition-colors" data-testid={`button-info-${t.tableName}`}>
+                                                <Info className="h-3 w-3" />
+                                              </button>
+                                            </PopoverTrigger>
+                                            <PopoverContent side="right" className="w-64 p-3 text-xs leading-relaxed">
+                                              <p className="text-gray-200">{t.description}</p>
+                                              {t.lastVacuum && (
+                                                <p className="mt-1.5 text-gray-500 text-[10px]">Last vacuum: {lastVacuumRelative}</p>
+                                              )}
+                                            </PopoverContent>
+                                          </Popover>
+                                        )}
+                                      </div>
+                                      <span className="text-[11px] text-gray-400 text-right font-mono">{t.totalSize}</span>
+                                      <span className="text-[11px] text-gray-400 text-right font-mono">
+                                        {t.liveRows > 0 ? t.liveRows.toLocaleString() : '—'}
+                                      </span>
+                                      <span className={`text-[11px] text-right font-mono ${t.deadRows > 500 && deadRatio > 0.1 ? 'text-red-400' : t.deadRows > 100 ? 'text-yellow-400' : 'text-gray-600'}`}>
+                                        {t.deadRows > 0 ? t.deadRows.toLocaleString() : '—'}
+                                      </span>
+                                    </div>
                                   </div>
-                                  <span className="text-[11px] text-gray-400 text-right font-mono">{t.totalSize}</span>
-                                  <span className="text-[11px] text-gray-400 text-right font-mono">
-                                    {t.liveRows > 0 ? t.liveRows.toLocaleString() : '—'}
-                                  </span>
-                                  <span className={`text-[11px] text-right font-mono ${t.deadRows > 100 ? 'text-yellow-400' : t.deadRows > 500 && deadRatio > 0.1 ? 'text-red-400' : 'text-gray-600'}`}>
-                                    {t.deadRows > 0 ? t.deadRows.toLocaleString() : '—'}
-                                  </span>
-                                </div>
-                              );
-                            })}
+                                );
+                              });
+                            })()}
+                            {/* Footer */}
+                            <div className="px-3 py-2 bg-gray-800/40 border-t border-gray-700 rounded-b-lg flex items-center justify-between">
+                              <span className="text-[10px] text-gray-600">{dbTables.length} tables</span>
+                              <span className="text-[10px] text-gray-600">
+                                {(() => {
+                                  const totalBytes = dbTables.reduce((sum, t) => sum + t.totalSizeBytes, 0);
+                                  if (totalBytes >= 1073741824) return `${(totalBytes / 1073741824).toFixed(1)} GB total`;
+                                  if (totalBytes >= 1048576) return `${(totalBytes / 1048576).toFixed(0)} MB total`;
+                                  return `${(totalBytes / 1024).toFixed(0)} KB total`;
+                                })()}
+                              </span>
+                            </div>
                           </div>
-                          <div className="px-3 py-2 bg-gray-800/40 border-t border-gray-700 flex items-center justify-between">
-                            <span className="text-[10px] text-gray-600">{dbTables.length} tables</span>
-                            <span className="text-[10px] text-gray-600">
-                              {(() => {
-                                const totalBytes = dbTables.reduce((sum, t) => sum + t.totalSizeBytes, 0);
-                                if (totalBytes >= 1073741824) return `${(totalBytes / 1073741824).toFixed(1)} GB total`;
-                                if (totalBytes >= 1048576) return `${(totalBytes / 1048576).toFixed(0)} MB total`;
-                                return `${(totalBytes / 1024).toFixed(0)} KB total`;
-                              })()}
-                            </span>
+                        ) : (
+                          <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-4 text-center text-xs text-gray-500">
+                            No table data available
                           </div>
-                        </div>
-                      ) : (
-                        <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-4 text-center text-xs text-gray-500">
-                          No table data available
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             )}
 
