@@ -333,11 +333,6 @@ export default function Home() {
 
   const renderPanelMode = () => (
     <div className="flex flex-col h-full">
-      {/* Shared date range bar for Orders / Marketing / Sales */}
-      <div className="shrink-0 flex items-center gap-3 px-3 py-1.5 border-b border-white/10" style={{ background: 'linear-gradient(to right, rgba(255,255,255,0.04), rgba(255,255,255,0.02))' }}>
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground shrink-0">Date Range</span>
-        <DateRangeSelector value={dateRange} onChange={setDateRange} />
-      </div>
       {/* Ops Central — full width top row */}
       <div className="flex flex-col min-h-0 border-b border-white/10" style={{ flex: 1 }}>
         <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(0,85%,55%,0.25), hsla(0,85%,55%,0.08))', borderColor: 'hsla(0,85%,55%,0.35)' }}>
@@ -354,8 +349,15 @@ export default function Home() {
           />
         </div>
       </div>
-      {/* 4 columns bottom row — Product / Orders / Marketing / Sales */}
-      <div className="flex min-h-0 overflow-x-auto overflow-y-hidden" style={{ flex: 1 }}>
+      {/* Bottom section: date bar + 4 columns */}
+      <div className="flex flex-col min-h-0" style={{ flex: 1 }}>
+        {/* Compact date range bar — above the 4 columns */}
+        <div className="shrink-0 flex items-center gap-2 px-3 py-1 border-b border-white/10" style={{ background: 'linear-gradient(to right, rgba(255,255,255,0.04), rgba(255,255,255,0.02))' }}>
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground shrink-0">Range</span>
+          <DateRangeSelector value={dateRange} onChange={setDateRange} compact />
+        </div>
+      {/* 4 columns — Product / Orders / Marketing / Sales */}
+      <div className="flex flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
         {/* Product */}
         <div className="flex flex-col h-full border-r border-white/5" style={{ flex: 1, minWidth: '220px' }}>
           <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(220,85%,55%,0.25), hsla(220,85%,55%,0.08))', borderColor: 'hsla(220,85%,55%,0.35)' }}>
@@ -416,6 +418,7 @@ export default function Home() {
             />
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
