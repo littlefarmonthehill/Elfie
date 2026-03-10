@@ -748,6 +748,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   useEffect(() => {
     if (open && initialSection) {
       setActiveSection(initialSection);
+      if (initialSection === 'priceomatic') {
+        setPomScoringOpen(true);
+      }
     }
   }, [open, initialSection]);
 
