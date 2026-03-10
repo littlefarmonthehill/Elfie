@@ -3,6 +3,8 @@ import {
   ShoppingCart, Truck, PackageCheck, X,
   Sparkles, Info, SlidersHorizontal,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { CompactModeProvider } from "@/contexts/CompactMode";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -36,9 +38,10 @@ interface OrdersDashboardProps {
   onDrawerChange: (drawer: 'fulfillment' | 'shipped' | null) => void;
   dateRange?: DateRangeValue;
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'billing') => void;
+  panelMode?: boolean;
 }
 
-export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange = 'mtd', onOpenSettings }: OrdersDashboardProps) {
+export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange = 'mtd', onOpenSettings, panelMode }: OrdersDashboardProps) {
   const { data: stats, isLoading: statsLoading } = useQuery<OrderStats>({
     queryKey: ['/api/orders/stats', dateRange],
     queryFn: async () => {
@@ -99,6 +102,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
   }
 
   return (
+    <CompactModeProvider value={panelMode ?? false}>
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-orange/5 to-transparent rounded-lg border border-lego-orange/10 shadow-[0_0_15px_rgba(251,146,60,0.1)]">
       <div className="space-y-1.5">
 
@@ -107,9 +111,9 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-400/50 to-transparent" />
           <div className="flex items-center gap-2 mb-2.5">
             <div className="p-1.5 rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)]">
-              <ShoppingCart className="w-3 h-3 md:w-4 md:h-4 text-orange-200" />
+              <ShoppingCart className={cn("w-3 h-3 text-orange-200", !panelMode && "md:w-4 md:h-4")} />
             </div>
-            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-orange-200 uppercase tracking-wide">Orders</h3>
+            <h3 className={cn("text-xs font-semibold text-orange-200 uppercase tracking-wide", !panelMode && "md:text-base lg:text-lg")}>Orders</h3>
           </div>
           <div className="grid grid-cols-3 gap-1.5 mb-1.5" data-testid="section-orders-counts">
             <MetricCard label="Total" value={stats ? formatNumber(stats.totalOrders) : '—'} color="orange" data-testid="metric-total-orders" />
@@ -129,9 +133,9 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
           <div className="flex items-center gap-2 mb-3">
             <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
-              <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-gray-200" />
+              <Sparkles className={cn("w-3 h-3 text-gray-200", !panelMode && "md:w-4 md:h-4")} />
             </div>
-            <h3 className="text-xs md:text-base lg:text-lg font-semibold text-gray-200 uppercase tracking-wide">Tools</h3>
+            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", !panelMode && "md:text-base lg:text-lg")}>Tools</h3>
           </div>
           <div className="grid grid-cols-2 gap-2">
 
@@ -143,9 +147,9 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-orange-900/70 p-1.5 ring-1 ring-orange-500/45 shadow-[0_0_10px_rgba(249,115,22,0.22)]">
-                  <Truck className="w-3.5 h-3.5 md:w-5 md:h-5 text-orange-200" />
+                  <Truck className={cn("w-3.5 h-3.5 text-orange-200", !panelMode && "md:w-5 md:h-5")} />
                 </div>
-                <span className="text-xs md:text-sm font-bold text-orange-100 leading-tight flex-1">Fulfillment</span>
+                <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", !panelMode && "md:text-sm")}>Fulfillment</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -181,9 +185,9 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-green-900/70 p-1.5 ring-1 ring-green-500/45 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
-                  <PackageCheck className="w-3.5 h-3.5 md:w-5 md:h-5 text-green-200" />
+                  <PackageCheck className={cn("w-3.5 h-3.5 text-green-200", !panelMode && "md:w-5 md:h-5")} />
                 </div>
-                <span className="text-xs md:text-sm font-bold text-green-100 leading-tight flex-1">Shipped Orders</span>
+                <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", !panelMode && "md:text-sm")}>Shipped Orders</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -284,5 +288,6 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
         </DrawerContent>
       </Drawer>
     </div>
+    </CompactModeProvider>
   );
 }

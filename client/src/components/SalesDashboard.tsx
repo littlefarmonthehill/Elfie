@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
+import { CompactModeProvider } from "@/contexts/CompactMode";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format, subMonths, subYears, addYears, startOfMonth, parseISO, startOfDay, getYear, startOfWeek } from "date-fns";
 import { TrendingUp, Target, GitCompare, BarChart2, Info, ArrowRight, X, Activity } from "lucide-react";
@@ -26,6 +28,7 @@ interface SalesDashboardProps {
   period: TimePeriod;
   dateRange?: DateRangeValue;
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
+  panelMode?: boolean;
 }
 
 interface Order {
@@ -38,7 +41,7 @@ interface Order {
   customerUsername: string;
 }
 
-export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick }: SalesDashboardProps) {
+export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick, panelMode }: SalesDashboardProps) {
   const [platformDrawer, setPlatformDrawer] = useState<{ open: boolean; platform: string; productLine?: string }>({
     open: false,
     platform: '',
@@ -785,6 +788,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
   });
 
   return (
+    <CompactModeProvider value={panelMode ?? false}>
     <div className="p-2 space-y-1.5">
       {/* Diagnostic Warnings */}
       {warnings.length > 0 && (
@@ -804,9 +808,9 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-400/50 to-transparent" />
         <div className="flex items-center gap-2 mb-2.5">
           <div className="p-1.5 rounded-md bg-green-900/60 ring-1 ring-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.25)]">
-            <TrendingUp className="w-3 h-3 md:w-4 md:h-4 text-green-200" />
+            <TrendingUp className={cn("w-3 h-3 text-green-200", !panelMode && "md:w-4 md:h-4")} />
           </div>
-          <h3 className="text-xs md:text-base lg:text-lg font-semibold text-green-200 uppercase tracking-wide">Sales</h3>
+          <h3 className={cn("text-xs font-semibold text-green-200 uppercase tracking-wide", !panelMode && "md:text-base lg:text-lg")}>Sales</h3>
         </div>
         <div className="grid grid-cols-3 gap-1.5 mb-2" data-testid="section-sales-metrics">
           <MetricCard label="Orders" value={filteredOrders.length} color="green" data-testid="metric-sales-orders" />
@@ -831,7 +835,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
             <div className="p-1.5 rounded-md bg-gray-800/70 ring-1 ring-gray-500/40 shadow-[0_0_8px_rgba(156,163,175,0.2)]">
               <BarChart2 className="w-3.5 h-3.5 text-gray-300" />
             </div>
-            <h3 className="text-xs md:text-base font-semibold text-gray-200 uppercase tracking-wide">Tools</h3>
+            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", !panelMode && "md:text-base")}>Tools</h3>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -841,9 +845,9 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-green-900/70 p-1.5 ring-1 ring-green-500/45 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
-                  <Activity className="w-3.5 h-3.5 md:w-5 md:h-5 text-green-200" />
+                  <Activity className={cn("w-3.5 h-3.5 text-green-200", !panelMode && "md:w-5 md:h-5")} />
                 </div>
-                <span className="text-xs md:text-sm font-bold text-green-100 leading-tight flex-1">Sales Chart</span>
+                <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", !panelMode && "md:text-sm")}>Sales Chart</span>
                 <ArrowRight className="w-3 h-3 text-green-500/60 group-hover:text-green-400 transition-colors" />
               </div>
               <p className="text-[10px] md:text-xs text-green-300/60 leading-snug">Revenue trend &amp; year-over-year comparison</p>
@@ -855,9 +859,9 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-orange-900/70 p-1.5 ring-1 ring-orange-500/45 shadow-[0_0_10px_rgba(249,115,22,0.22)]">
-                  <BarChart2 className="w-3.5 h-3.5 md:w-5 md:h-5 text-orange-200" />
+                  <BarChart2 className={cn("w-3.5 h-3.5 text-orange-200", !panelMode && "md:w-5 md:h-5")} />
                 </div>
-                <span className="text-xs md:text-sm font-bold text-orange-100 leading-tight flex-1">Platform Performance</span>
+                <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", !panelMode && "md:text-sm")}>Platform Performance</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span role="button" onClick={(e) => e.stopPropagation()} className="text-orange-600/60 hover:text-orange-400 transition-colors" data-testid="info-platform-performance">
@@ -1188,6 +1192,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
         onOrderClick={(orderId) => onItemClick?.('order', orderId)}
       />
     </div>
+    </CompactModeProvider>
   );
 }
 

@@ -363,6 +363,7 @@ export default function Home() {
           </div>
           <div className="flex-1 overflow-y-auto" style={{ background: 'radial-gradient(ellipse at top, hsla(220,85%,55%,0.18) 0%, transparent 55%), linear-gradient(to bottom, hsla(220,85%,55%,0.20), hsla(220,85%,55%,0.05) 100%)' }}>
             <InventoryDashboard
+              panelMode
               onItemClick={handleDashboardItemClick}
               activeDrawer={activeInventoryDrawer}
               onDrawerChange={setActiveInventoryDrawer}
@@ -377,6 +378,7 @@ export default function Home() {
           </div>
           <div className="flex-1 overflow-y-auto" style={{ background: 'radial-gradient(ellipse at top, hsla(25,95%,55%,0.18) 0%, transparent 55%), linear-gradient(to bottom, hsla(25,95%,55%,0.20), hsla(25,95%,55%,0.05) 100%)' }}>
             <OrdersDashboard
+              panelMode
               dateRange={dateRange}
               onItemClick={handleDashboardItemClick}
               activeDrawer={activeOrdersDrawer}
@@ -392,6 +394,7 @@ export default function Home() {
           </div>
           <div className="flex-1 overflow-y-auto" style={{ background: 'radial-gradient(ellipse at top, hsla(48,95%,55%,0.18) 0%, transparent 55%), linear-gradient(to bottom, hsla(48,95%,55%,0.20), hsla(48,95%,55%,0.05) 100%)' }}>
             <MarketingDashboard
+              panelMode
               dateRange={dateRange}
               onItemClick={handleDashboardItemClick}
               activeDrawer={activeMarketingDrawer}
@@ -406,6 +409,7 @@ export default function Home() {
           </div>
           <div className="flex-1 overflow-y-auto" style={{ background: 'radial-gradient(ellipse at top, hsla(140,70%,50%,0.18) 0%, transparent 55%), linear-gradient(to bottom, hsla(140,70%,50%,0.20), hsla(140,70%,50%,0.05) 100%)' }}>
             <SalesDashboard
+              panelMode
               period={salesPeriod}
               dateRange={dateRange}
               onItemClick={handleDashboardItemClick}

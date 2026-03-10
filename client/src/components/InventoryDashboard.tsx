@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
+import { CompactModeProvider } from "@/contexts/CompactMode";
 import { InfoIcon, Package, Sparkles, Warehouse, RefreshCw, Info, ListChecks, ScanSearch, AlertTriangle, Globe, Boxes, SlidersHorizontal, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import { Input } from "@/components/ui/input";
@@ -43,11 +45,12 @@ interface InventoryDashboardProps {
   activeDrawer: 'priceomatic' | 'warehouse' | 'platformsync' | 'brickanalyzer' | null;
   onDrawerChange: (drawer: 'priceomatic' | 'warehouse' | 'platformsync' | 'brickanalyzer' | null) => void;
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'priceomatic') => void;
+  panelMode?: boolean;
 }
 
 type BrowseType = 'lots' | 'parts' | 'categories';
 
-export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange, onOpenSettings }: InventoryDashboardProps) {
+export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange, onOpenSettings, panelMode }: InventoryDashboardProps) {
 
   const { toast } = useToast();
   const brickanalyzerRef = useRef<BrickanalyzerToolRef>(null);
@@ -171,6 +174,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   }
 
   return (
+    <CompactModeProvider value={panelMode ?? false}>
     <div className="p-2 xl:p-4 space-y-1.5 xl:space-y-3 bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
       <div className="space-y-1.5 xl:space-y-3">
 
@@ -179,9 +183,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-400/50 to-transparent" />
           <div className="flex items-center gap-2 mb-2.5 xl:mb-4">
             <div className="p-1.5 xl:p-2 rounded-md bg-blue-900/60 ring-1 ring-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.25)]">
-              <Package className="w-3 h-3 md:w-4 md:h-4 xl:w-5 xl:h-5 text-blue-200" />
+              <Package className={cn("w-3 h-3 text-blue-200", !panelMode && "md:w-4 md:h-4 xl:w-5 xl:h-5")} />
             </div>
-            <h3 className="text-xs md:text-base lg:text-lg xl:text-xl font-semibold text-blue-200 uppercase tracking-wide">Inventory</h3>
+            <h3 className={cn("text-xs font-semibold text-blue-200 uppercase tracking-wide", !panelMode && "md:text-base lg:text-lg xl:text-xl")}>Inventory</h3>
             <div className="flex items-center gap-1.5 ml-auto">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -209,12 +213,12 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 key={key}
                 onClick={() => openBrowse(key)}
                 data-testid={`metric-${key}`}
-                className="relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-md border border-lego-blue/20 bg-gray-900/50 p-1.5 md:p-4 lg:p-6 xl:p-8"
+                className={cn("relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-md border border-lego-blue/20 bg-gray-900/50 p-1.5", !panelMode && "md:p-4 lg:p-6 xl:p-8")}
               >
-                <span className="text-[9px] md:text-sm lg:text-lg xl:text-xl text-gray-400 mb-0.5 md:mb-2 lg:mb-3 xl:mb-4 leading-tight">{label}</span>
-                <span className="text-xs md:text-lg lg:text-2xl xl:text-3xl font-semibold font-mono text-lego-blue">{value}</span>
-                <span className="absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 md:w-5 md:h-5 xl:w-6 xl:h-6 rounded-full bg-lego-blue/20 group-hover:bg-lego-blue/50 transition-colors">
-                  <ChevronRight className="w-2.5 h-2.5 md:w-3 md:h-3 xl:w-4 xl:h-4 text-white" />
+                <span className={cn("text-[9px] text-gray-400 mb-0.5 leading-tight", !panelMode && "md:text-sm lg:text-lg xl:text-xl md:mb-2 lg:mb-3 xl:mb-4")}>{label}</span>
+                <span className={cn("text-xs font-semibold font-mono text-lego-blue", !panelMode && "md:text-lg lg:text-2xl xl:text-3xl")}>{value}</span>
+                <span className={cn("absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-lego-blue/20 group-hover:bg-lego-blue/50 transition-colors", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")}>
+                  <ChevronRight className={cn("w-2.5 h-2.5 text-white", !panelMode && "md:w-3 md:h-3 xl:w-4 xl:h-4")} />
                 </span>
               </button>
             ))}
@@ -234,9 +238,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
           <div className="flex items-center gap-2 mb-3 xl:mb-4">
             <div className="p-1.5 xl:p-2 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
-              <Sparkles className="w-3 h-3 md:w-4 md:h-4 xl:w-5 xl:h-5 text-gray-200" />
+              <Sparkles className={cn("w-3 h-3 text-gray-200", !panelMode && "md:w-4 md:h-4 xl:w-5 xl:h-5")} />
             </div>
-            <h3 className="text-xs md:text-base lg:text-lg xl:text-xl font-semibold text-gray-200 uppercase tracking-wide">Tools</h3>
+            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", !panelMode && "md:text-base lg:text-lg xl:text-xl")}>Tools</h3>
           </div>
           <div className="grid grid-cols-2 gap-2 xl:gap-3">
 
@@ -248,9 +252,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-purple-900/70 p-1.5 xl:p-2.5 ring-1 ring-purple-500/45 shadow-[0_0_10px_rgba(168,85,247,0.22)]">
-                  <Sparkles className="w-3.5 h-3.5 md:w-5 md:h-5 xl:w-6 xl:h-6 text-purple-200" />
+                  <Sparkles className={cn("w-3.5 h-3.5 text-purple-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
                 </div>
-                <span className="text-xs md:text-sm lg:text-base xl:text-lg font-bold text-purple-100 leading-tight flex-1">Price-O-Matic</span>
+                <span className={cn("text-xs font-bold text-purple-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>Price-O-Matic</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -292,9 +296,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-green-900/70 p-1.5 xl:p-2.5 ring-1 ring-green-500/45 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
-                  <Globe className="w-3.5 h-3.5 md:w-5 md:h-5 xl:w-6 xl:h-6 text-green-200" />
+                  <Globe className={cn("w-3.5 h-3.5 text-green-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
                 </div>
-                <span className="text-xs md:text-sm lg:text-base xl:text-lg font-bold text-green-100 leading-tight flex-1">List-O-Matic</span>
+                <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>List-O-Matic</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -322,9 +326,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-teal-900/70 p-1.5 xl:p-2.5 ring-1 ring-teal-500/45 shadow-[0_0_10px_rgba(20,184,166,0.22)]">
-                  <Boxes className="w-3.5 h-3.5 md:w-5 md:h-5 xl:w-6 xl:h-6 text-teal-200" />
+                  <Boxes className={cn("w-3.5 h-3.5 text-teal-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
                 </div>
-                <span className="text-xs md:text-sm lg:text-base xl:text-lg font-bold text-teal-100 leading-tight flex-1">Warehouse</span>
+                <span className={cn("text-xs font-bold text-teal-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>Warehouse</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -371,9 +375,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-amber-900/70 p-1.5 xl:p-2.5 ring-1 ring-amber-500/45 shadow-[0_0_10px_rgba(245,158,11,0.22)]">
-                  <ScanSearch className="w-3.5 h-3.5 md:w-5 md:h-5 xl:w-6 xl:h-6 text-amber-200" />
+                  <ScanSearch className={cn("w-3.5 h-3.5 text-amber-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
                 </div>
-                <span className="text-xs md:text-sm lg:text-base xl:text-lg font-bold text-amber-100 leading-tight flex-1">Brick Spotter</span>
+                <span className={cn("text-xs font-bold text-amber-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>Brick Spotter</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -410,9 +414,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
           <div className="flex items-center gap-2 mb-3 xl:mb-4">
             <div className="p-1.5 xl:p-2 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
-              <Globe className="w-3 h-3 md:w-4 md:h-4 xl:w-5 xl:h-5 text-gray-200" />
+              <Globe className={cn("w-3 h-3 text-gray-200", !panelMode && "md:w-4 md:h-4 xl:w-5 xl:h-5")} />
             </div>
-            <h3 className="text-xs md:text-base lg:text-lg xl:text-xl font-semibold text-gray-200 uppercase tracking-wide">Selling Channels</h3>
+            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", !panelMode && "md:text-base lg:text-lg xl:text-xl")}>Selling Channels</h3>
           </div>
           <ChannelSyncPanel onOpenSettings={onOpenSettings} />
         </div>
@@ -700,5 +704,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </DrawerContent>
       </Drawer>
     </div>
+    </CompactModeProvider>
   );
 }
