@@ -32,7 +32,7 @@ interface SettingsModalProps {
   initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'priceomatic';
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'orgs' | 'impersonation' | 'systemHealth' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'adminTeam' | 'priceomatic' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'systemHealth' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'adminTeam' | 'priceomatic' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -1663,6 +1663,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     { id: 'automation' as const, label: 'Scheduler', icon: Play },
     { id: 'data' as const, label: 'Data Maintenance', icon: HardDrive },
     { id: 'about' as const, label: 'About & Credits', icon: Info },
+    { id: 'legal' as const, label: 'Legal & Terms', icon: FileText },
   ];
 
   const platformAdminGroups = [
@@ -7141,6 +7142,100 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 </div>
 
                 <p className="text-center text-[10px] text-gray-600 pb-2">{APP_NAME} {APP_VERSION}</p>
+
+              </div>
+            )}
+
+            {activeSection === 'legal' && (
+              <div className="p-4 space-y-5">
+
+                {/* Platform Terms */}
+                <div className="sm-card">
+                  <div className="px-4 py-3 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-blue-400" />
+                    <span className="text-sm font-semibold text-white">Platform Terms</span>
+                  </div>
+                  <div className="px-4 py-3 space-y-2">
+                    <p className="text-xs text-gray-300 leading-relaxed">
+                      By using PlanetBrick you agree to our Terms of Service and Privacy Policy. These documents govern how the platform operates, how your data is handled, and the obligations of both parties.
+                    </p>
+                    <div className="flex flex-wrap gap-3 pt-1">
+                      <a href="https://planetbrick.io/terms" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                        <span>Terms of Service</span>
+                        <ExternalLink className="h-3 w-3 shrink-0" />
+                      </a>
+                      <a href="https://planetbrick.io/privacy" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                        <span>Privacy Policy</span>
+                        <ExternalLink className="h-3 w-3 shrink-0" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Use Restrictions */}
+                <div>
+                  <p className="sm-group-label mb-2 px-1">Use Restrictions</p>
+                  <div className="sm-card-divided">
+                    <div className="flex items-start gap-3 px-4 py-3">
+                      <ImageIcon className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-400" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-200 mb-0.5">Catalog Images</p>
+                        <p className="sm-description leading-relaxed">Part images sourced from BrickLink and Rebrickable are licensed for internal inventory use only. They may not be used on public-facing websites, social media, or redistributed outside this platform.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 px-4 py-3">
+                      <Brain className="h-3.5 w-3.5 mt-0.5 shrink-0 text-violet-400" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-200 mb-0.5">AI-Generated Content</p>
+                        <p className="sm-description leading-relaxed">Responses from ELFIE and AI-assisted price suggestions are for reference only. Always verify outputs before acting on them — they may contain inaccuracies.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 px-4 py-3">
+                      <Database className="h-3.5 w-3.5 mt-0.5 shrink-0 text-blue-400" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-200 mb-0.5">Marketplace Data</p>
+                        <p className="sm-description leading-relaxed">BrickLink and BrickOwl order and pricing data accessed through the platform API is subject to each marketplace's API Terms of Service and may not be bulk-exported or repurposed.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 px-4 py-3">
+                      <Globe className="h-3.5 w-3.5 mt-0.5 shrink-0 text-green-400" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-200 mb-0.5">Rebrickable Catalog</p>
+                        <p className="sm-description leading-relaxed">Parts reference data from Rebrickable is used under their data license for internal lookup and enrichment only. It may not be redistributed or used to build competing catalogs.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Third-Party Services */}
+                <div>
+                  <p className="sm-group-label mb-2 px-1">Third-Party Services</p>
+                  <div className="sm-card-divided">
+                    {[
+                      { name: 'BrickLink', desc: 'Marketplace API — inventory, orders, pricing, and catalog data', url: 'https://www.bricklink.com', terms: 'https://www.bricklink.com/help.asp?helpID=2600' },
+                      { name: 'BrickOwl', desc: 'Secondary marketplace channel — orders and inventory sync', url: 'https://www.brickowl.com', terms: 'https://www.brickowl.com/help/terms_of_service' },
+                      { name: 'Rebrickable', desc: 'Parts catalog, set inventories, and cross-reference data', url: 'https://rebrickable.com', terms: 'https://rebrickable.com/about/' },
+                      { name: 'OpenAI', desc: 'AI language model powering ELFIE, text embeddings, and smart search', url: 'https://openai.com', terms: 'https://openai.com/policies/usage-policies' },
+                      { name: 'Stripe', desc: 'Payment processing for platform subscriptions', url: 'https://stripe.com', terms: 'https://stripe.com/legal/ssa' },
+                      { name: 'CLIP (OpenAI)', desc: 'Vision model powering BrickSpotter part recognition — outputs are for internal identification only', url: 'https://openai.com/research/clip', terms: 'https://openai.com/policies/usage-policies' },
+                    ].map(({ name, desc, url, terms }) => (
+                      <div key={name} className="flex items-start gap-3 px-4 py-2.5">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 group">
+                              <span className="text-xs font-medium text-gray-200 group-hover:text-blue-300 transition-colors">{name}</span>
+                              <ExternalLink className="h-2.5 w-2.5 text-gray-600 group-hover:text-blue-400 transition-colors shrink-0" />
+                            </a>
+                            <a href={terms} target="_blank" rel="noopener noreferrer" className="text-[10px] text-gray-600 hover:text-gray-400 transition-colors whitespace-nowrap">
+                              Terms
+                            </a>
+                          </div>
+                          <p className="sm-description mt-0.5">{desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
               </div>
             )}
