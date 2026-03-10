@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Package, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut } from "lucide-react";
+import { Package, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut, ArrowLeft, RotateCw } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminScaling } from "@/hooks/useAdminScaling";
@@ -68,6 +68,8 @@ export default function Home() {
     data: null,
   });
   const [brickLinkUrl, setBrickLinkUrl] = useState<string | null>(null);
+  const brickLinkIframeRef = useRef<HTMLIFrameElement>(null);
+  const [brickLinkLoading, setBrickLinkLoading] = useState(false);
 
   // Fetch picklist stats for indicator
   const { data: picklistStats } = useQuery<{ toPull: number }>({
@@ -993,33 +995,72 @@ export default function Home() {
 
       {/* BrickLink in-app browser dialog */}
       <Dialog open={!!brickLinkUrl} onOpenChange={() => setBrickLinkUrl(null)}>
-        <DialogContent className="max-w-4xl h-[80vh] p-0" aria-describedby="bricklink-description">
-          <DialogHeader className="p-4 border-b">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-base flex items-center gap-2">
-                <ExternalLink className="h-4 w-4" />
-                BrickLink
-              </DialogTitle>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => setBrickLinkUrl(null)}
-                data-testid="button-close-bricklink"
+        <DialogContent className="max-w-4xl h-[85vh] p-0 flex flex-col gap-0" aria-describedby="bricklink-description">
+          <DialogTitle className="sr-only">BrickLink</DialogTitle>
+          <p id="bricklink-description" className="sr-only">BrickLink catalog page displaying item information</p>
+          {/* Browser chrome toolbar */}
+          <div className="flex items-center gap-2 px-3 py-2 border-b shrink-0">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => brickLinkIframeRef.current?.contentWindow?.history.back()}
+              data-testid="button-bricklink-back"
+              title="Go back"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => {
+                setBrickLinkLoading(true);
+                if (brickLinkIframeRef.current) {
+                  brickLinkIframeRef.current.src = brickLinkIframeRef.current.src;
+                }
+              }}
+              data-testid="button-bricklink-refresh"
+              title="Refresh"
+            >
+              <RotateCw className={`h-4 w-4 ${brickLinkLoading ? 'animate-spin' : ''}`} />
+            </Button>
+            {/* URL bar */}
+            <div className="flex-1 flex items-center gap-2 bg-muted rounded-md px-3 py-1 min-w-0">
+              <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+              <span
+                className="text-xs text-muted-foreground truncate font-mono"
+                data-testid="text-bricklink-url"
               >
-                <X className="h-4 w-4" />
-              </Button>
+                {brickLinkUrl ?? ''}
+              </span>
             </div>
-            <p id="bricklink-description" className="sr-only">
-              BrickLink catalog page displaying item information
-            </p>
-          </DialogHeader>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => brickLinkUrl && window.open(brickLinkUrl, '_blank', 'noopener,noreferrer')}
+              data-testid="button-bricklink-open-external"
+              title="Open in browser"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setBrickLinkUrl(null)}
+              data-testid="button-close-bricklink"
+              title="Close"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
           {brickLinkUrl && (
             <iframe
+              ref={brickLinkIframeRef}
               src={brickLinkUrl}
-              className="w-full h-full"
+              className="w-full flex-1 min-h-0"
               title="BrickLink"
               sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
               data-testid="iframe-bricklink"
+              onLoad={() => setBrickLinkLoading(false)}
             />
           )}
         </DialogContent>
