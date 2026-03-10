@@ -2,7 +2,7 @@ import sharp from 'sharp';
 import https from 'https';
 import http from 'http';
 import { db } from '../db';
-import { blInventory } from '@shared/schema';
+import { blCatalog } from '@shared/schema';
 import { eq, and, sql } from 'drizzle-orm';
 
 interface CachedImage {
@@ -143,21 +143,21 @@ export async function getProcessedPartImage(partNum: string, colorId: number): P
 
   try {
     const inventoryItem = await db
-      .select({ imageUrl: blInventory.imageUrl })
-      .from(blInventory)
+      .select({ imageUrl: blCatalog.imageUrl })
+      .from(blCatalog)
       .where(and(
-        eq(blInventory.itemNo, partNum),
-        eq(blInventory.colorId, colorId)
+        eq(blCatalog.itemNo, partNum),
+        eq(blCatalog.colorId, colorId)
       ))
       .limit(1);
 
     if (!inventoryItem.length || !inventoryItem[0].imageUrl) {
       const anyInventoryItem = await db
-        .select({ imageUrl: blInventory.imageUrl })
-        .from(blInventory)
+        .select({ imageUrl: blCatalog.imageUrl })
+        .from(blCatalog)
         .where(and(
-          eq(blInventory.itemNo, partNum),
-          sql`${blInventory.imageUrl} IS NOT NULL AND ${blInventory.imageUrl} != ''`
+          eq(blCatalog.itemNo, partNum),
+          sql`${blCatalog.imageUrl} IS NOT NULL AND ${blCatalog.imageUrl} != ''`
         ))
         .limit(1);
       
