@@ -1690,6 +1690,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Customer stats aggregated server-side for Marketing Dashboard
+  // Returns one row per customer with order_count, total_revenue, last/first order date, most recent order id & ship_to
+  app.get("/api/orders/customer-stats", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const range = req.query.range as string;
+
+      let dateFilter: string | null = null;
+      let endDateFilter: string | null = null;
+
+      if (range && range !== 'all') {
+        const now = new Date();
+        switch (range) {
+          case 'mtd':
+            dateFilter = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+            break;
+          case 'lastmonth':
+            dateFilter = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+            endDateFilter = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+            break;
+          case '3months':
+            dateFilter = new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString();
+            break;
+          case '1year':
+            dateFilter = new Date(now.getFullYear() - 1, now.getMonth(), 1).toISOString();
+            break;
+          case 'prevyear':
+            dateFilter = new Date(now.getFullYear() - 1, 0, 1).toISOString();
+            endDateFilter = new Date(now.getFullYear(), 0, 1).toISOString();
+            break;
+        }
+      }
+
+      // Single-pass query: DISTINCT ON gets most-recent order row per customer,
+      // window functions compute aggregates across all matching orders for that customer.
+      const result = await db.execute(sql`
+        SELECT DISTINCT ON (customer_username)
+          id                                                                          AS most_recent_order_id,
+          customer_username,
+          customer_email,
+          ship_to,
+          COUNT(*)       OVER (PARTITION BY customer_username)::int                   AS order_count,
+          SUM(CAST(NULLIF(TRIM(order_total), '') AS numeric))
+                         OVER (PARTITION BY customer_username)::float                 AS total_revenue,
+          MAX(order_date) OVER (PARTITION BY customer_username)                       AS last_order_date,
+          MIN(order_date) OVER (PARTITION BY customer_username)                       AS first_order_date
+        FROM orders
+        WHERE org_id        = ${orgId}
+          AND is_test       = false
+          AND order_status  NOT IN ('cancelled', 'Cancelled')
+          AND (${dateFilter}    IS NULL OR order_date >= ${dateFilter})
+          AND (${endDateFilter} IS NULL OR order_date <  ${endDateFilter})
+        ORDER BY customer_username, order_date DESC
+      `);
+
+      res.json(result.rows);
+    } catch (err) {
+      console.error("Error fetching customer stats:", err);
+      res.status(500).json({ error: "Failed to fetch customer stats" });
+    }
+  });
+
   // Optimized endpoint for Orders Dashboard - only fetches what's needed
   app.get("/api/orders/dashboard", isApproved, async (req: any, res) => {
     try {

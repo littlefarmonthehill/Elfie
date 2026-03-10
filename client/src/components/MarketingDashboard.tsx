@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useDeferredValue } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Users, Sparkles, Info,
-  Megaphone, UserPlus, RefreshCcw, Trophy, X, Search, MapPin, Mail, ShoppingBag, DollarSign, Calendar,
+  Megaphone, UserPlus, RefreshCcw, Trophy, X, Search, MapPin, Mail, Calendar,
 } from "lucide-react";
 
 import {
@@ -20,15 +20,15 @@ import {
 import MetricCard from "./MetricCard";
 import { DateRangeValue } from "./DateRangeSelector";
 
-interface Order {
-  id: string;
-  orderNumber: string;
-  orderDate: string;
-  orderStatus: string;
-  orderTotal: string;
-  customerUsername: string;
-  customerEmail?: string | null;
-  shipTo?: string | null;
+interface CustomerStats {
+  most_recent_order_id: string;
+  customer_username: string;
+  customer_email: string | null;
+  ship_to: string | null;
+  order_count: number;
+  total_revenue: number | string;
+  last_order_date: string | Date;
+  first_order_date: string | Date;
 }
 
 interface CustomerData {
@@ -69,16 +69,47 @@ function parseShipTo(raw: string | null | undefined): { name: string; city: stri
   }
 }
 
+function toDateStr(v: string | Date | null | undefined): string {
+  if (!v) return '';
+  if (v instanceof Date) return v.toISOString();
+  return String(v);
+}
+
+function toNum(v: number | string | null | undefined): number {
+  if (v === null || v === undefined) return 0;
+  const n = typeof v === 'number' ? v : parseFloat(String(v));
+  return isNaN(n) ? 0 : n;
+}
+
+function mapRow(row: CustomerStats): CustomerData {
+  const ship = parseShipTo(row.ship_to);
+  return {
+    customerUsername: row.customer_username || 'Unknown',
+    totalRevenue: toNum(row.total_revenue),
+    orderCount: Number(row.order_count) || 0,
+    lastOrderDate: toDateStr(row.last_order_date),
+    firstOrderDate: toDateStr(row.first_order_date),
+    mostRecentOrderId: row.most_recent_order_id,
+    customerEmail: row.customer_email || '',
+    shipName: ship.name,
+    shipCity: ship.city,
+    shipState: ship.state,
+    shipCountry: ship.country,
+  };
+}
+
 function fmtCurrency(n: number) {
   return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 }
 
 function fmtDate(dateStr: string) {
+  if (!dateStr) return '';
   const d = new Date(dateStr);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function fmtDaysSince(dateStr: string): string {
+  if (!dateStr) return '';
   const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
   if (days === 0) return 'today';
   if (days === 1) return '1 day ago';
@@ -86,6 +117,8 @@ function fmtDaysSince(dateStr: string): string {
   const months = Math.floor(days / 30);
   return months === 1 ? '1 month ago' : `${months} months ago`;
 }
+
+const PAGE_SIZE = 50;
 
 function CustomerRow({
   customer,
@@ -161,6 +194,7 @@ function CustomerListDrawer({
   onSearchChange,
   onCustomerClick,
   emptyMessage,
+  isLoading,
 }: {
   open: boolean;
   onClose: () => void;
@@ -175,10 +209,15 @@ function CustomerListDrawer({
   onSearchChange: (q: string) => void;
   onCustomerClick: (c: CustomerData) => void;
   emptyMessage: string;
+  isLoading?: boolean;
 }) {
+  const [page, setPage] = useState(1);
+  const deferredSearch = useDeferredValue(searchQuery);
+  const isStale = searchQuery !== deferredSearch;
+
   const filtered = useMemo(() => {
-    if (!searchQuery.trim()) return customers;
-    const q = searchQuery.toLowerCase();
+    if (!deferredSearch.trim()) return customers;
+    const q = deferredSearch.toLowerCase();
     return customers.filter(c =>
       c.customerUsername.toLowerCase().includes(q) ||
       c.customerEmail.toLowerCase().includes(q) ||
@@ -187,10 +226,13 @@ function CustomerListDrawer({
       c.shipState.toLowerCase().includes(q) ||
       c.shipCountry.toLowerCase().includes(q)
     );
-  }, [customers, searchQuery]);
+  }, [customers, deferredSearch]);
+
+  const displayed = filtered.slice(0, page * PAGE_SIZE);
+  const hasMore = displayed.length < filtered.length;
 
   return (
-    <Drawer open={open} onOpenChange={(o) => !o && onClose()}>
+    <Drawer open={open} onOpenChange={(o) => { if (!o) { onClose(); setPage(1); } }}>
       <DrawerContent className="h-[90vh] flex flex-col">
         <DrawerHeader className="relative border-b border-gray-700/60 pb-3 shrink-0">
           <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
@@ -207,36 +249,40 @@ function CustomerListDrawer({
               type="text"
               placeholder="Search by username, email, city, country…"
               value={searchQuery}
-              onChange={e => onSearchChange(e.target.value)}
+              onChange={e => { onSearchChange(e.target.value); setPage(1); }}
               className="w-full pl-9 pr-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded-md text-gray-200 placeholder-gray-600 focus:outline-none focus:border-gray-500"
               data-testid={`input-search-${title.toLowerCase().replace(/\s+/g, '-')}`}
             />
             {searchQuery && (
               <button
-                onClick={() => onSearchChange('')}
+                onClick={() => { onSearchChange(''); setPage(1); }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400"
               >
                 <X className="h-3 w-3" />
               </button>
             )}
           </div>
-          <p className="text-[11px] text-gray-600 mt-1.5">
-            {filtered.length} of {customers.length} customer{customers.length !== 1 ? 's' : ''}
-            {searchQuery ? ' match' : ''}
+          <p className={`text-[11px] mt-1.5 transition-opacity ${isStale ? 'opacity-40' : 'opacity-100'} text-gray-600`}>
+            {isLoading ? 'Loading…' : `${filtered.length} of ${customers.length} customer${customers.length !== 1 ? 's' : ''}${searchQuery ? ' match' : ''}`}
           </p>
         </DrawerHeader>
 
         <div className="flex-1 overflow-y-auto min-h-0">
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-current border-t-transparent opacity-40" style={{ color: 'inherit' }} />
+              <p className="text-sm text-gray-500">Loading customers…</p>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-6">
               <Icon className={`w-10 h-10 ${accentColor} opacity-30`} />
               <p className="text-sm text-gray-400">
-                {searchQuery ? `No customers match "${searchQuery}"` : emptyMessage}
+                {searchQuery ? `No customers match "${deferredSearch}"` : emptyMessage}
               </p>
             </div>
           ) : (
             <div>
-              {filtered.map((c, i) => (
+              {displayed.map((c, i) => (
                 <CustomerRow
                   key={c.customerUsername}
                   customer={c}
@@ -247,6 +293,17 @@ function CustomerListDrawer({
                   onClick={() => onCustomerClick(c)}
                 />
               ))}
+              {hasMore && (
+                <div className="py-4 flex justify-center border-t border-gray-700/40">
+                  <button
+                    onClick={() => setPage(p => p + 1)}
+                    className="text-xs text-gray-400 hover:text-gray-200 px-4 py-2 rounded-md border border-gray-700 hover-elevate"
+                    data-testid="button-load-more"
+                  >
+                    Show {Math.min(PAGE_SIZE, filtered.length - displayed.length)} more of {filtered.length - displayed.length} remaining
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -260,61 +317,17 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
   const [repeatSearch, setRepeatSearch] = useState('');
   const [topSearch, setTopSearch] = useState('');
 
-  const parseOrderTotal = (v: string | null | undefined): number => {
-    if (!v) return 0;
-    const parsed = parseFloat(v.replace(/[^0-9.-]/g, ''));
-    return isNaN(parsed) ? 0 : parsed;
-  };
-
-  const { data: orders = [], isLoading } = useQuery<Order[]>({
-    queryKey: ['/api/orders', 'marketing', dateRange],
+  const { data: rawStats = [], isLoading } = useQuery<CustomerStats[]>({
+    queryKey: ['/api/orders/customer-stats', dateRange],
     queryFn: async () => {
-      const response = await fetch(`/api/orders?range=${dateRange}&lean=true`, { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch orders');
+      const response = await fetch(`/api/orders/customer-stats?range=${dateRange}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch customer stats');
       return response.json();
     },
-    staleTime: 30000,
+    staleTime: 60000,
   });
 
-  const customerData = useMemo((): CustomerData[] => {
-    const map = new Map<string, CustomerData>();
-    orders.filter(o => !['cancelled', 'Cancelled'].includes(o.orderStatus)).forEach(order => {
-      const username = order.customerUsername || 'Unknown';
-      const revenue = parseOrderTotal(order.orderTotal);
-      const ship = parseShipTo(order.shipTo);
-      const orderDate = order.orderDate;
-
-      if (map.has(username)) {
-        const e = map.get(username)!;
-        e.totalRevenue += revenue;
-        e.orderCount += 1;
-        if (new Date(orderDate) > new Date(e.lastOrderDate)) {
-          e.lastOrderDate = orderDate;
-          e.mostRecentOrderId = order.id;
-        }
-        if (new Date(orderDate) < new Date(e.firstOrderDate)) {
-          e.firstOrderDate = orderDate;
-        }
-        if (!e.customerEmail && order.customerEmail) e.customerEmail = order.customerEmail;
-        if (!e.shipCity && ship.city) { e.shipCity = ship.city; e.shipState = ship.state; e.shipCountry = ship.country; e.shipName = ship.name; }
-      } else {
-        map.set(username, {
-          customerUsername: username,
-          totalRevenue: revenue,
-          orderCount: 1,
-          lastOrderDate: orderDate,
-          firstOrderDate: orderDate,
-          mostRecentOrderId: order.id,
-          customerEmail: order.customerEmail || '',
-          shipName: ship.name,
-          shipCity: ship.city,
-          shipState: ship.state,
-          shipCountry: ship.country,
-        });
-      }
-    });
-    return Array.from(map.values());
-  }, [orders]);
+  const customerData = useMemo(() => rawStats.map(mapRow), [rawStats]);
 
   const newCustomers = useMemo(() =>
     [...customerData]
@@ -331,8 +344,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
   );
 
   const topSpenders = useMemo(() =>
-    [...customerData]
-      .sort((a, b) => b.totalRevenue - a.totalRevenue),
+    [...customerData].sort((a, b) => b.totalRevenue - a.totalRevenue),
     [customerData]
   );
 
@@ -343,7 +355,8 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
     return c.orderCount === 1 && days <= 30;
   }).length;
   const repeatRate = totalCustomers > 0 ? (repeatCustomerCount / totalCustomers * 100).toFixed(1) : '0.0';
-  const avgOrders = totalCustomers > 0 ? (orders.length / totalCustomers).toFixed(1) : '0.0';
+  const totalOrders = customerData.reduce((sum, c) => sum + c.orderCount, 0);
+  const avgOrders = totalCustomers > 0 ? (totalOrders / totalCustomers).toFixed(1) : '0.0';
 
   const handleCustomerClick = (customer: CustomerData) => {
     onDrawerChange(null);
@@ -601,6 +614,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
         onSearchChange={setNewSearch}
         onCustomerClick={handleCustomerClick}
         emptyMessage="No new customers in this date range."
+        isLoading={isLoading}
       />
 
       {/* ── Engage Repeat Drawer ── */}
@@ -617,6 +631,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
         onSearchChange={setRepeatSearch}
         onCustomerClick={handleCustomerClick}
         emptyMessage="No repeat customers in this date range."
+        isLoading={isLoading}
       />
 
       {/* ── Engage Top Drawer ── */}
@@ -634,6 +649,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
         onSearchChange={setTopSearch}
         onCustomerClick={handleCustomerClick}
         emptyMessage="No customer data in this date range."
+        isLoading={isLoading}
       />
     </div>
   );
