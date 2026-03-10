@@ -59,13 +59,13 @@ function LaneCard({
 
   return (
     <div
-      className={`relative flex flex-col h-full rounded-lg border ${borderCls} bg-gradient-to-b ${gradCls} to-gray-900/85 overflow-hidden`}
+      className={`relative flex flex-col h-full rounded-lg border ${borderCls} bg-gradient-to-b ${gradCls} to-gray-900/85`}
       style={{ boxShadow: `0 0 25px ${glowColor}` }}
     >
       {/* Shine line */}
       <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent ${shineCls} to-transparent pointer-events-none z-10`} />
       {/* Header */}
-      <div className={`flex items-center gap-2 px-3 py-2 border-b ${borderCls} bg-gradient-to-b ${headerGradCls} to-gray-900/80`}>
+      <div className={`flex items-center gap-2 px-3 py-2 border-b ${borderCls} bg-gradient-to-b ${headerGradCls} to-gray-900/80 rounded-t-lg`}>
         <div
           className={`p-1 rounded-md ${badgeCls} ring-1 shrink-0`}
           style={{ boxShadow: `0 0 8px ${badgeGlowColor}` }}
@@ -75,7 +75,7 @@ function LaneCard({
         <span className={`text-xs xl:text-[11px] font-semibold uppercase tracking-widest ${iconCls}`}>{title}</span>
         {summary && <span className="ml-auto text-[10px] text-muted-foreground font-normal truncate max-w-[160px] flex items-center gap-1.5">{summary}</span>}
       </div>
-      <div className="flex-1 flex flex-col divide-y divide-border/40 min-h-0 pb-9">
+      <div className="flex-1 flex flex-col divide-y divide-border/40 min-h-0">
         {children}
       </div>
     </div>
@@ -87,14 +87,8 @@ function LaneSection({ label, children, collapsible = false, className = "" }: {
 
   if (collapsible && label) {
     return (
-      <div className={`absolute bottom-0 inset-x-0 z-10 ${className}`}>
-        {/* Content — expands upward above the trigger bar */}
-        {expanded && (
-          <div className="space-y-1.5 max-h-44 overflow-y-auto px-3 pb-2 pt-1">
-            {children}
-          </div>
-        )}
-        {/* Trigger bar — always pinned to card bottom */}
+      <div className={`relative mt-auto z-10 ${className}`}>
+        {/* Trigger bar — pinned to card bottom via mt-auto */}
         <button
           onClick={() => setExpanded(v => !v)}
           className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-white/5 transition-colors duration-100 border-t-2 border-border/50"
@@ -104,6 +98,12 @@ function LaneSection({ label, children, collapsible = false, className = "" }: {
           <p className="text-[10px] uppercase tracking-widest text-foreground/60 font-semibold flex-1">{label}</p>
           <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground/70 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
         </button>
+        {/* Content — expands downward below the trigger bar */}
+        {expanded && (
+          <div className="space-y-1.5 max-h-44 overflow-y-auto px-3 pb-2 pt-1 bg-gray-900/95 border border-border/40 rounded-b-lg">
+            {children}
+          </div>
+        )}
       </div>
     );
   }
@@ -414,7 +414,7 @@ function InventoryLane({
       )}
 
       {/* Last Actions */}
-      <LaneSection label="Last Actions" collapsible className="bg-gray-800/50">
+      <LaneSection label="Last Actions" collapsible>
         {lastInvSync?.lastSyncTime ? (
           <ActivityItem
             icon={lastInvSync.lastSyncStatus === 'success' ? CheckCircle : lastInvSync.lastSyncStatus === 'partial' ? AlertCircle : XCircle}
@@ -515,7 +515,7 @@ function OrdersLane({ stats, dashboardOrders, fulfillmentStats, orderSyncRunning
       )}
 
       {/* Last Actions */}
-      <LaneSection label="Last Actions" collapsible className="bg-gray-800/50">
+      <LaneSection label="Last Actions" collapsible>
         {lastOrderSync?.lastSyncTime ? (
           <ActivityItem
             icon={lastOrderSync.lastSyncStatus === 'success' ? CheckCircle : lastOrderSync.lastSyncStatus === 'partial' ? AlertCircle : XCircle}
@@ -630,7 +630,7 @@ function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, 
       )}
 
       {/* Last Actions */}
-      <LaneSection label="Last Actions" collapsible className="bg-gray-800/50">
+      <LaneSection label="Last Actions" collapsible>
         {lastChannelSync?.lastSyncTime ? (
           <ActivityItem
             icon={lastChannelSync.lastSyncStatus === 'success' ? CheckCircle : lastChannelSync.lastSyncStatus === 'partial' ? AlertCircle : XCircle}
@@ -738,7 +738,7 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
       )}
 
       {/* Last Actions — embeddings + last scan, sub-grouped */}
-      <LaneSection label="Last Actions" collapsible className="bg-gray-800/50">
+      <LaneSection label="Last Actions" collapsible>
         {catalogStatus && (
           <>
             <div className="pt-0.5 pb-0.5">
