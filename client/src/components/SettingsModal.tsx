@@ -2666,7 +2666,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-700/40 cursor-not-allowed opacity-50"
                       data-testid="button-pom-pricing-toggle"
                     >
-                      <span className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Pricing</span>
+                      <span className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Suggested Pricing</span>
                       <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 border border-gray-600/60 rounded px-1.5 py-0.5">Coming soon</span>
                     </div>
                     {pomPricingOpen && (
@@ -4266,7 +4266,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-700/40 cursor-not-allowed opacity-50"
                     data-testid="button-pom-pricing-toggle"
                   >
-                    <span className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Pricing</span>
+                    <span className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Suggested Pricing</span>
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 border border-gray-600/60 rounded px-1.5 py-0.5">Coming soon</span>
                   </div>
                   {pomPricingOpen && (
