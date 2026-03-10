@@ -54,13 +54,13 @@ function LaneCard({
   const shineCls = color === 'cyan' ? 'via-cyan-400/50' : color === 'orange' ? 'via-orange-400/50' : color === 'teal' ? 'via-teal-400/50' : 'via-purple-400/50';
   const badgeCls = color === 'cyan' ? 'bg-cyan-900/60 ring-cyan-500/50' : color === 'orange' ? 'bg-orange-900/60 ring-orange-500/50' : color === 'teal' ? 'bg-teal-900/60 ring-teal-500/50' : 'bg-purple-900/60 ring-purple-500/50';
   const iconCls = color === 'cyan' ? 'text-cyan-200' : color === 'orange' ? 'text-orange-200' : color === 'teal' ? 'text-teal-200' : 'text-purple-200';
-  const glowColor = color === 'cyan' ? 'rgba(6,182,212,0.15)' : color === 'orange' ? 'rgba(249,115,22,0.15)' : color === 'teal' ? 'rgba(20,184,166,0.15)' : 'rgba(168,85,247,0.15)';
-  const badgeGlowColor = color === 'cyan' ? 'rgba(6,182,212,0.3)' : color === 'orange' ? 'rgba(249,115,22,0.3)' : color === 'teal' ? 'rgba(20,184,166,0.3)' : 'rgba(168,85,247,0.3)';
+  const glowColor = color === 'cyan' ? 'rgba(6,182,212,0.28)' : color === 'orange' ? 'rgba(249,115,22,0.28)' : color === 'teal' ? 'rgba(20,184,166,0.28)' : 'rgba(168,85,247,0.28)';
+  const badgeGlowColor = color === 'cyan' ? 'rgba(6,182,212,0.55)' : color === 'orange' ? 'rgba(249,115,22,0.55)' : color === 'teal' ? 'rgba(20,184,166,0.55)' : 'rgba(168,85,247,0.55)';
 
   return (
     <div
       className={`relative flex flex-col h-full rounded-lg border ${borderCls} bg-gradient-to-b ${gradCls} to-gray-900/85`}
-      style={{ boxShadow: `0 0 25px ${glowColor}` }}
+      style={{ boxShadow: `0 0 40px ${glowColor}, 0 0 12px ${glowColor}` }}
     >
       {/* Shine line */}
       <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent ${shineCls} to-transparent pointer-events-none z-10`} />
