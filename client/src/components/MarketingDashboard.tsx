@@ -395,7 +395,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
             </div>
             <h3 className={cn("text-xs font-semibold text-yellow-200 uppercase tracking-wide", !panelMode && "md:text-base")}>Customers</h3>
           </div>
-          <div className="grid grid-cols-3 gap-1.5 mb-2" data-testid="section-customer-counts">
+          <div className={cn("grid grid-cols-3 gap-1.5", panelMode ? "mb-1" : "mb-2")} data-testid="section-customer-counts">
             <MetricCard label="Total" value={String(totalCustomers)} color="yellow" data-testid="metric-total-customers" />
             <MetricCard label="Repeat" value={String(repeatCustomerCount)} color="green" data-testid="metric-repeat-customers" />
             <MetricCard label="New (30d)" value={String(newLast30)} color="blue" data-testid="metric-new-customers" />
