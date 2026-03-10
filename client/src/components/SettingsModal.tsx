@@ -2169,7 +2169,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 ];
                 return (
                   <div className="sm-card">
-                    <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                    <div className="sm-card-header">
                       <Flag className="h-3.5 w-3.5 text-yellow-500/70" />
                       <span className="text-xs font-semibold text-gray-200">Features</span>
                       <span className="text-[10px] text-gray-500 ml-1">— {org?.plan ?? 'trial'} plan</span>
@@ -2230,7 +2230,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 ];
                 return (
                   <div className="sm-card">
-                    <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                    <div className="sm-card-header">
                       <Wrench className="h-3.5 w-3.5 text-yellow-500/70" />
                       <span className="text-xs font-semibold text-gray-200">Plan Limits</span>
                       {tenantLimitsLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-1" />}
@@ -2430,7 +2430,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                     {/* ── PAYMENT HISTORY ──────────────────────────────────── */}
                     <div className="sm-card">
-                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                      <div className="sm-card-header">
                         <CreditCard className="h-3.5 w-3.5 text-yellow-500/70" />
                         <span className="text-xs font-semibold text-gray-200">Payment History</span>
                       </div>
@@ -2534,11 +2534,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           <Label className="text-xs font-medium text-gray-100">Price-o-Matic Auto Sync</Label>
                           <Popover>
                             <PopoverTrigger asChild>
-                              <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                              <button className="sm-icon-btn">
                                 <Info className="w-3 h-3" />
                               </button>
                             </PopoverTrigger>
-                            <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                            <PopoverContent side="bottom" className="sm-popover-lg">
                               <p className="font-semibold text-gray-200">Price-o-Matic Auto Sync</p>
                               <p className="text-gray-400">Fetches avg listed price, avg sold price, and lot count from BrickLink for each inventory item, then computes a suggested price using your formula. Items are processed in priority order by category tier (T1 → T4).</p>
                               <p className="sm-description">Runs on its own independent schedule. Uses 3 BrickLink API calls per lot. Stops automatically at your daily API ceiling.</p>
@@ -2614,11 +2614,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           <Label className="text-xs text-gray-200">Manual sync batch size</Label>
                           <Popover>
                             <PopoverTrigger asChild>
-                              <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                              <button className="sm-icon-btn">
                                 <Info className="w-3 h-3" />
                               </button>
                             </PopoverTrigger>
-                            <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                            <PopoverContent side="bottom" className="sm-popover-md">
                               Max lots to process when you hit the play button above to run a sync manually.
                             </PopoverContent>
                           </Popover>
@@ -2646,16 +2646,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     {pomScoringOpen && (
                       <div className="space-y-2">
                         <div className="divide-y divide-gray-700/30 mb-2">
-                          <div className="flex items-center justify-between py-3">
+                          <div className="sm-row">
                             <div className="flex items-center gap-1.5">
                               <Label className="text-sm text-emerald-300">Underpriced Score</Label>
                               <Popover>
                                 <PopoverTrigger asChild>
-                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <button className="sm-icon-btn">
                                     <Info className="w-3.5 h-3.5" />
                                   </button>
                                 </PopoverTrigger>
-                                <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                <PopoverContent side="bottom" className="sm-popover">
                                   Items with an opportunity score at or above this value are flagged as underpriced in the POM dashboard filter. Score = market peak ÷ your price, so 1.5× means you're 50% below the market peak. Only items with stock on hand are counted.
                                 </PopoverContent>
                               </Popover>
@@ -2666,16 +2666,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <span className="text-xs text-gray-400 w-14">× (peak)</span>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between py-3">
+                          <div className="sm-row">
                             <div className="flex items-center gap-1.5">
                               <Label className="text-sm text-orange-300">Overpriced Score</Label>
                               <Popover>
                                 <PopoverTrigger asChild>
-                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <button className="sm-icon-btn">
                                     <Info className="w-3.5 h-3.5" />
                                   </button>
                                 </PopoverTrigger>
-                                <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                <PopoverContent side="bottom" className="sm-popover">
                                   Items with an opportunity score at or below this value are flagged as overpriced in the POM dashboard filter. Score = market peak ÷ your price, so 0.8× means you're 25% above the market peak. Only items with stock on hand are counted.
                                 </PopoverContent>
                               </Popover>
@@ -2714,26 +2714,26 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <h4 className="sm-section-header">Base Premium</h4>
                             <Popover>
                               <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                <button className="sm-icon-btn">
                                   <Info className="w-3.5 h-3.5" />
                                 </button>
                               </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                              <PopoverContent side="bottom" className="sm-popover">
                                 The minimum % markup above BrickLink's average price every item receives. Avg price = midpoint of avg listed and avg sold. Scarcity bonuses stack on top of this.
                               </PopoverContent>
                             </Popover>
                           </div>
                           <div className="px-4 divide-y divide-gray-700/30">
-                            <div className="flex items-center justify-between py-3">
+                            <div className="sm-row">
                               <div className="flex items-center gap-1.5">
                                 <Label className="text-sm text-gray-200">Parts Premium</Label>
                                 <Popover>
                                   <PopoverTrigger asChild>
-                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                    <button className="sm-icon-btn">
                                       <Info className="w-3.5 h-3.5" />
                                     </button>
                                   </PopoverTrigger>
-                                  <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                  <PopoverContent side="bottom" className="sm-popover-sm">
                                     Applied to all standard parts. Suggested = avg_price × (1 + base% + scarcity%). Being too high pushes above market; too low leaves margin on the table.
                                   </PopoverContent>
                                 </Popover>
@@ -2743,16 +2743,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 <span className="text-xs text-gray-400 w-5">%</span>
                               </div>
                             </div>
-                            <div className="flex items-center justify-between py-3">
+                            <div className="sm-row">
                               <div className="flex items-center gap-1.5">
                                 <Label className="text-sm text-gray-200">Minifigure Premium</Label>
                                 <Popover>
                                   <PopoverTrigger asChild>
-                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                    <button className="sm-icon-btn">
                                       <Info className="w-3.5 h-3.5" />
                                     </button>
                                   </PopoverTrigger>
-                                  <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                  <PopoverContent side="bottom" className="sm-popover-sm">
                                     Minifigures use a separate premium because they already command elevated prices relative to cost. Setting this too high on high-value figs risks losing buyers to competitors.
                                   </PopoverContent>
                                 </Popover>
@@ -2771,11 +2771,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <h4 className="sm-section-header">Scarcity Bonuses</h4>
                             <Popover>
                               <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                <button className="sm-icon-btn">
                                   <Info className="w-3.5 h-3.5" />
                                 </button>
                               </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                              <PopoverContent side="bottom" className="sm-popover">
                                 When fewer sellers list a part on BrickLink, you can charge more. Each tier adds a bonus % on top of your base premium. Items above the highest threshold get base premium only — no bonus.
                               </PopoverContent>
                             </Popover>
@@ -2827,11 +2827,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <h4 className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider">Formula Preview</h4>
                             <Popover>
                               <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                <button className="sm-icon-btn">
                                   <Info className="w-3 h-3" />
                                 </button>
                               </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                              <PopoverContent side="bottom" className="sm-popover">
                                 Shows the suggested price for a $0.10 part at each supply level using your current settings. Adjust the premiums and bonuses above to see results update instantly.
                               </PopoverContent>
                             </Popover>
@@ -2860,26 +2860,26 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <h4 className="sm-section-header">Price Floors</h4>
                             <Popover>
                               <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                <button className="sm-icon-btn">
                                   <Info className="w-3.5 h-3.5" />
                                 </button>
                               </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                              <PopoverContent side="bottom" className="sm-popover">
                                 Safety net applied after the market formula. Final price = max(market_price, cost_floor, min_price). Cost floor only applies to items with a recorded cost (my_cost).
                               </PopoverContent>
                             </Popover>
                           </div>
                           <div className="px-4 divide-y divide-gray-700/30">
-                            <div className="flex items-center justify-between py-3">
+                            <div className="sm-row">
                               <div className="flex items-center gap-1.5">
                                 <Label className="text-sm text-gray-200">Cost Floor</Label>
                                 <Popover>
                                   <PopoverTrigger asChild>
-                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                    <button className="sm-icon-btn">
                                       <Info className="w-3.5 h-3.5" />
                                     </button>
                                   </PopoverTrigger>
-                                  <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                  <PopoverContent side="bottom" className="sm-popover-sm">
                                     Minimum margin above your recorded cost (my_cost). At 25%, the suggested price never goes below cost × 1.25. Set to 0 to disable.
                                   </PopoverContent>
                                 </Popover>
@@ -2889,16 +2889,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 <span className="text-xs text-gray-400 w-16">% above cost</span>
                               </div>
                             </div>
-                            <div className="flex items-center justify-between py-3">
+                            <div className="sm-row">
                               <div className="flex items-center gap-1.5">
                                 <Label className="text-sm text-gray-200">Minimum Price</Label>
                                 <Popover>
                                   <PopoverTrigger asChild>
-                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                    <button className="sm-icon-btn">
                                       <Info className="w-3.5 h-3.5" />
                                     </button>
                                   </PopoverTrigger>
-                                  <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                  <PopoverContent side="bottom" className="sm-popover-sm">
                                     No item will be suggested below this price regardless of market data or cost. Useful for covering platform fees on micro-priced parts. Default $0.02.
                                   </PopoverContent>
                                 </Popover>
@@ -2918,7 +2918,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <h4 className="sm-section-header">Market Dynamics</h4>
                               <Popover>
                                 <PopoverTrigger asChild>
-                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <button className="sm-icon-btn">
                                     <Info className="w-3.5 h-3.5" />
                                   </button>
                                 </PopoverTrigger>
@@ -2937,16 +2937,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             />
                           </div>
                           <div className={`px-4 divide-y divide-gray-700/30 ${!pomTrendingEnabled ? 'opacity-40 pointer-events-none' : ''}`}>
-                            <div className="flex items-center justify-between py-3">
+                            <div className="sm-row">
                               <div className="flex items-center gap-1.5">
                                 <Label className="text-sm text-gray-300">Max adjustment</Label>
                                 <Popover>
                                   <PopoverTrigger asChild>
-                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                    <button className="sm-icon-btn">
                                       <Info className="w-3.5 h-3.5" />
                                     </button>
                                   </PopoverTrigger>
-                                  <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                                  <PopoverContent side="bottom" className="sm-popover-md">
                                     The maximum percentage the market dynamics formula can move a price — either up (high demand) or down (high supply). Demand and supply weights further scale within this cap.
                                   </PopoverContent>
                                 </Popover>
@@ -2956,16 +2956,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 <span className="text-xs text-gray-400 w-8">%</span>
                               </div>
                             </div>
-                            <div className="flex items-center justify-between py-3">
+                            <div className="sm-row">
                               <div className="flex items-center gap-1.5">
                                 <Label className="text-sm text-blue-300">Demand threshold</Label>
                                 <Popover>
                                   <PopoverTrigger asChild>
-                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                    <button className="sm-icon-btn">
                                       <Info className="w-3.5 h-3.5" />
                                     </button>
                                   </PopoverTrigger>
-                                  <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                  <PopoverContent side="bottom" className="sm-popover">
                                     Total pieces sold globally on BrickLink that represents "fully demanded." An item at or above this level gets the full demand bonus. Below it, the bonus is proportionally reduced.
                                   </PopoverContent>
                                 </Popover>
@@ -2975,16 +2975,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 <span className="text-xs text-gray-400 w-14">units sold</span>
                               </div>
                             </div>
-                            <div className="flex items-center justify-between py-3">
+                            <div className="sm-row">
                               <div className="flex items-center gap-1.5">
                                 <Label className="text-sm text-blue-300">Demand weight</Label>
                                 <Popover>
                                   <PopoverTrigger asChild>
-                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                    <button className="sm-icon-btn">
                                       <Info className="w-3.5 h-3.5" />
                                     </button>
                                   </PopoverTrigger>
-                                  <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                                  <PopoverContent side="bottom" className="sm-popover-md">
                                     How much of the max adjustment the demand signal can contribute. At 60 with max 15%, a fully-demanded item adds up to 9% (15 × 0.6).
                                   </PopoverContent>
                                 </Popover>
@@ -2994,16 +2994,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 <span className="text-xs text-gray-400 w-8">%</span>
                               </div>
                             </div>
-                            <div className="flex items-center justify-between py-3">
+                            <div className="sm-row">
                               <div className="flex items-center gap-1.5">
                                 <Label className="text-sm text-orange-300">Supply threshold</Label>
                                 <Popover>
                                   <PopoverTrigger asChild>
-                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                    <button className="sm-icon-btn">
                                       <Info className="w-3.5 h-3.5" />
                                     </button>
                                   </PopoverTrigger>
-                                  <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                  <PopoverContent side="bottom" className="sm-popover">
                                     Total pieces currently listed for sale on BrickLink globally that represents "fully supplied." Common commodity parts often have 50,000+ pieces globally — set this to match your market context.
                                   </PopoverContent>
                                 </Popover>
@@ -3013,16 +3013,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 <span className="text-xs text-gray-400 w-12">pieces</span>
                               </div>
                             </div>
-                            <div className="flex items-center justify-between py-3">
+                            <div className="sm-row">
                               <div className="flex items-center gap-1.5">
                                 <Label className="text-sm text-orange-300">Supply weight</Label>
                                 <Popover>
                                   <PopoverTrigger asChild>
-                                    <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                    <button className="sm-icon-btn">
                                       <Info className="w-3.5 h-3.5" />
                                     </button>
                                   </PopoverTrigger>
-                                  <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                                  <PopoverContent side="bottom" className="sm-popover-md">
                                     How much of the max adjustment the supply signal can subtract. At 40 with max 15%, a fully-supplied item removes up to 6% (15 × 0.4).
                                   </PopoverContent>
                                 </Popover>
@@ -3046,11 +3046,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         <Label className="text-sm font-medium text-red-300">Clear Price Guide Cache</Label>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                            <button className="sm-icon-btn">
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                          <PopoverContent side="bottom" className="sm-popover">
                             Deletes all stored price guide data and resets sync history. Use when starting fresh with new formula settings. The next sync rebuilds from scratch. No inventory data is affected.
                           </PopoverContent>
                         </Popover>
@@ -3886,11 +3886,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <Label className="text-xs font-medium text-gray-100">Inventory Sync (Daily)</Label>
                             <Popover>
                               <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                <button className="sm-icon-btn">
                                   <Info className="w-3 h-3" />
                                 </button>
                               </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                              <PopoverContent side="bottom" className="sm-popover-lg">
                                 <p className="font-semibold text-gray-200">Inventory Sync</p>
                                 <p className="text-gray-400">Pulls your full BrickLink inventory into the local database. Also syncs BrickLink categories, colors, and Rebrickable part images. Triggers re-embedding of any changed inventory items for AI search.</p>
                                 <p className="sm-description">Runs once daily. Safe to trigger manually at any time.</p>
@@ -3990,11 +3990,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <Label className="text-xs font-medium text-gray-100">Orders Sync</Label>
                             <Popover>
                               <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                <button className="sm-icon-btn">
                                   <Info className="w-3 h-3" />
                                 </button>
                               </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                              <PopoverContent side="bottom" className="sm-popover-lg">
                                 <p className="font-semibold text-gray-200">Orders Sync</p>
                                 <p className="text-gray-400">Pulls new and updated orders from BrickLink and BrickOwl into the local database. Also syncs order line items, generates AI embeddings for semantic search, and matches Stripe and PayPal refunds and merchant fees to orders.</p>
                                 <p className="text-gray-400">After each order is processed, sold quantities are deducted from local inventory — keeping all channel inventory counts in sync automatically.</p>
@@ -4100,11 +4100,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <Label className="text-xs font-medium text-gray-100">Daily Schedule</Label>
                             <Popover>
                               <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                <button className="sm-icon-btn">
                                   <Info className="w-3 h-3" />
                                 </button>
                               </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                              <PopoverContent side="bottom" className="sm-popover-lg">
                                 <p className="font-semibold text-gray-200">Channel Sync — BrickOwl</p>
                                 <p className="text-gray-400">Pushes your local database inventory outward to BrickOwl. Compares local quantities and prices against the platform and updates only what has changed.</p>
                                 <p className="sm-description">Should run after Inventory Sync has completed. Schedule it at least 1 hour later to ensure inbound data has settled.</p>
@@ -4244,16 +4244,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   {pomScoringOpen && (
                     <div className="space-y-2">
                       <div className="divide-y divide-gray-700/30 mb-2">
-                        <div className="flex items-center justify-between py-3">
+                        <div className="sm-row">
                           <div className="flex items-center gap-1.5">
                             <Label className="text-sm text-emerald-300">Underpriced Score</Label>
                             <Popover>
                               <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                <button className="sm-icon-btn">
                                   <Info className="w-3.5 h-3.5" />
                                 </button>
                               </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                              <PopoverContent side="bottom" className="sm-popover">
                                 Items with an opportunity score at or above this value are flagged as underpriced in the POM dashboard filter. Score = market peak ÷ your price, so 1.5× means you're 50% below the market peak. Only items with stock on hand are counted.
                               </PopoverContent>
                             </Popover>
@@ -4264,16 +4264,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <span className="text-xs text-gray-400 w-14">× (peak)</span>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between py-3">
+                        <div className="sm-row">
                           <div className="flex items-center gap-1.5">
                             <Label className="text-sm text-orange-300">Overpriced Score</Label>
                             <Popover>
                               <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                <button className="sm-icon-btn">
                                   <Info className="w-3.5 h-3.5" />
                                 </button>
                               </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                              <PopoverContent side="bottom" className="sm-popover">
                                 Items with an opportunity score at or below this value are flagged as overpriced in the POM dashboard filter. Score = market peak ÷ your price, so 0.8× means you're 25% above the market peak. Only items with stock on hand are counted.
                               </PopoverContent>
                             </Popover>
@@ -4314,26 +4314,26 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           <h4 className="sm-section-header">Base Premium</h4>
                           <Popover>
                             <PopoverTrigger asChild>
-                              <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                              <button className="sm-icon-btn">
                                 <Info className="w-3.5 h-3.5" />
                               </button>
                             </PopoverTrigger>
-                            <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                            <PopoverContent side="bottom" className="sm-popover">
                               The minimum % markup above BrickLink's average price every item receives. Avg price = midpoint of avg listed and avg sold. Scarcity bonuses stack on top of this.
                             </PopoverContent>
                           </Popover>
                         </div>
                         <div className="px-4 divide-y divide-gray-700/30">
-                          <div className="flex items-center justify-between py-3">
+                          <div className="sm-row">
                             <div className="flex items-center gap-1.5">
                               <Label className="text-sm text-gray-200">Parts Premium</Label>
                               <Popover>
                                 <PopoverTrigger asChild>
-                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <button className="sm-icon-btn">
                                     <Info className="w-3.5 h-3.5" />
                                   </button>
                                 </PopoverTrigger>
-                                <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                <PopoverContent side="bottom" className="sm-popover-sm">
                                   Applied to all standard parts. Suggested = avg_price × (1 + base% + scarcity%). Being too high pushes above market; too low leaves margin on the table.
                                 </PopoverContent>
                               </Popover>
@@ -4343,16 +4343,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <span className="text-xs text-gray-400 w-5">%</span>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between py-3">
+                          <div className="sm-row">
                             <div className="flex items-center gap-1.5">
                               <Label className="text-sm text-gray-200">Minifigure Premium</Label>
                               <Popover>
                                 <PopoverTrigger asChild>
-                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <button className="sm-icon-btn">
                                     <Info className="w-3.5 h-3.5" />
                                   </button>
                                 </PopoverTrigger>
-                                <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                <PopoverContent side="bottom" className="sm-popover-sm">
                                   Minifigures use a separate premium because they already command elevated prices relative to cost. Setting this too high on high-value figs risks losing buyers to competitors.
                                 </PopoverContent>
                               </Popover>
@@ -4371,11 +4371,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           <h4 className="sm-section-header">Scarcity Bonuses</h4>
                           <Popover>
                             <PopoverTrigger asChild>
-                              <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                              <button className="sm-icon-btn">
                                 <Info className="w-3.5 h-3.5" />
                               </button>
                             </PopoverTrigger>
-                            <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                            <PopoverContent side="bottom" className="sm-popover">
                               When fewer sellers list a part on BrickLink, you can charge more. Each tier adds a bonus % on top of your base premium. Items above the highest threshold get base premium only — no bonus.
                             </PopoverContent>
                           </Popover>
@@ -4427,11 +4427,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           <h4 className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider">Formula Preview</h4>
                           <Popover>
                             <PopoverTrigger asChild>
-                              <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                              <button className="sm-icon-btn">
                                 <Info className="w-3 h-3" />
                               </button>
                             </PopoverTrigger>
-                            <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                            <PopoverContent side="bottom" className="sm-popover">
                               Shows the suggested price for a $0.10 part at each supply level using your current settings. Adjust the premiums and bonuses above to see results update instantly.
                             </PopoverContent>
                           </Popover>
@@ -4460,26 +4460,26 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           <h4 className="sm-section-header">Price Floors</h4>
                           <Popover>
                             <PopoverTrigger asChild>
-                              <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                              <button className="sm-icon-btn">
                                 <Info className="w-3.5 h-3.5" />
                               </button>
                             </PopoverTrigger>
-                            <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                            <PopoverContent side="bottom" className="sm-popover">
                               Safety net applied after the market formula. Final price = max(market_price, cost_floor, min_price). Cost floor only applies to items with a recorded cost (my_cost).
                             </PopoverContent>
                           </Popover>
                         </div>
                         <div className="px-4 divide-y divide-gray-700/30">
-                          <div className="flex items-center justify-between py-3">
+                          <div className="sm-row">
                             <div className="flex items-center gap-1.5">
                               <Label className="text-sm text-gray-200">Cost Floor</Label>
                               <Popover>
                                 <PopoverTrigger asChild>
-                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <button className="sm-icon-btn">
                                     <Info className="w-3.5 h-3.5" />
                                   </button>
                                 </PopoverTrigger>
-                                <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                <PopoverContent side="bottom" className="sm-popover-sm">
                                   Minimum margin above your recorded cost (my_cost). At 25%, the suggested price never goes below cost × 1.25. Set to 0 to disable.
                                 </PopoverContent>
                               </Popover>
@@ -4489,16 +4489,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <span className="text-xs text-gray-400 w-16">% above cost</span>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between py-3">
+                          <div className="sm-row">
                             <div className="flex items-center gap-1.5">
                               <Label className="text-sm text-gray-200">Minimum Price</Label>
                               <Popover>
                                 <PopoverTrigger asChild>
-                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <button className="sm-icon-btn">
                                     <Info className="w-3.5 h-3.5" />
                                   </button>
                                 </PopoverTrigger>
-                                <PopoverContent side="bottom" className="w-56 text-xs bg-gray-900 border-gray-700 p-3">
+                                <PopoverContent side="bottom" className="sm-popover-sm">
                                   No item will be suggested below this price regardless of market data or cost. Useful for covering platform fees on micro-priced parts. Default $0.02.
                                 </PopoverContent>
                               </Popover>
@@ -4518,7 +4518,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <h4 className="sm-section-header">Market Dynamics</h4>
                             <Popover>
                               <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                <button className="sm-icon-btn">
                                   <Info className="w-3.5 h-3.5" />
                                 </button>
                               </PopoverTrigger>
@@ -4537,16 +4537,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           />
                         </div>
                         <div className={`px-4 divide-y divide-gray-700/30 ${!pomTrendingEnabled ? 'opacity-40 pointer-events-none' : ''}`}>
-                          <div className="flex items-center justify-between py-3">
+                          <div className="sm-row">
                             <div className="flex items-center gap-1.5">
                               <Label className="text-sm text-gray-300">Max adjustment</Label>
                               <Popover>
                                 <PopoverTrigger asChild>
-                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <button className="sm-icon-btn">
                                     <Info className="w-3.5 h-3.5" />
                                   </button>
                                 </PopoverTrigger>
-                                <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                                <PopoverContent side="bottom" className="sm-popover-md">
                                   The maximum percentage the market dynamics formula can move a price — either up (high demand) or down (high supply). Demand and supply weights further scale within this cap.
                                 </PopoverContent>
                               </Popover>
@@ -4556,16 +4556,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <span className="text-xs text-gray-400 w-8">%</span>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between py-3">
+                          <div className="sm-row">
                             <div className="flex items-center gap-1.5">
                               <Label className="text-sm text-blue-300">Demand threshold</Label>
                               <Popover>
                                 <PopoverTrigger asChild>
-                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <button className="sm-icon-btn">
                                     <Info className="w-3.5 h-3.5" />
                                   </button>
                                 </PopoverTrigger>
-                                <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                <PopoverContent side="bottom" className="sm-popover">
                                   Total pieces sold globally on BrickLink that represents "fully demanded." An item at or above this level gets the full demand bonus. Below it, the bonus is proportionally reduced.
                                 </PopoverContent>
                               </Popover>
@@ -4575,16 +4575,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <span className="text-xs text-gray-400 w-14">units sold</span>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between py-3">
+                          <div className="sm-row">
                             <div className="flex items-center gap-1.5">
                               <Label className="text-sm text-blue-300">Demand weight</Label>
                               <Popover>
                                 <PopoverTrigger asChild>
-                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <button className="sm-icon-btn">
                                     <Info className="w-3.5 h-3.5" />
                                   </button>
                                 </PopoverTrigger>
-                                <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                                <PopoverContent side="bottom" className="sm-popover-md">
                                   How much of the max adjustment the demand signal can contribute. At 60 with max 15%, a fully-demanded item adds up to 9% (15 × 0.6).
                                 </PopoverContent>
                               </Popover>
@@ -4594,16 +4594,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <span className="text-xs text-gray-400 w-8">%</span>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between py-3">
+                          <div className="sm-row">
                             <div className="flex items-center gap-1.5">
                               <Label className="text-sm text-orange-300">Supply threshold</Label>
                               <Popover>
                                 <PopoverTrigger asChild>
-                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <button className="sm-icon-btn">
                                     <Info className="w-3.5 h-3.5" />
                                   </button>
                                 </PopoverTrigger>
-                                <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                                <PopoverContent side="bottom" className="sm-popover">
                                   Total pieces currently listed for sale on BrickLink globally that represents "fully supplied." Common commodity parts often have 50,000+ pieces globally — set this to match your market context.
                                 </PopoverContent>
                               </Popover>
@@ -4613,16 +4613,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <span className="text-xs text-gray-400 w-12">pieces</span>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between py-3">
+                          <div className="sm-row">
                             <div className="flex items-center gap-1.5">
                               <Label className="text-sm text-orange-300">Supply weight</Label>
                               <Popover>
                                 <PopoverTrigger asChild>
-                                  <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                  <button className="sm-icon-btn">
                                     <Info className="w-3.5 h-3.5" />
                                   </button>
                                 </PopoverTrigger>
-                                <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                                <PopoverContent side="bottom" className="sm-popover-md">
                                   How much of the max adjustment the supply signal can subtract. At 40 with max 15%, a fully-supplied item removes up to 6% (15 × 0.4).
                                 </PopoverContent>
                               </Popover>
@@ -4743,11 +4743,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           <Label className="text-xs font-medium text-gray-100">Price-o-Matic Auto Sync</Label>
                           <Popover>
                             <PopoverTrigger asChild>
-                              <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                              <button className="sm-icon-btn">
                                 <Info className="w-3 h-3" />
                               </button>
                             </PopoverTrigger>
-                            <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                            <PopoverContent side="bottom" className="sm-popover-lg">
                               <p className="font-semibold text-gray-200">Price-o-Matic Auto Sync</p>
                               <p className="text-gray-400">Fetches avg listed price, avg sold price, and lot count from BrickLink for each inventory item, then computes a suggested price using your formula. Items are processed in priority order by category tier (T1 → T4).</p>
                               <p className="sm-description">Runs on its own independent schedule. Uses 3 BrickLink API calls per lot. Stops automatically at your daily API ceiling.</p>
@@ -4823,11 +4823,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           <Label className="text-xs text-gray-200">Manual sync batch size</Label>
                           <Popover>
                             <PopoverTrigger asChild>
-                              <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                              <button className="sm-icon-btn">
                                 <Info className="w-3 h-3" />
                               </button>
                             </PopoverTrigger>
-                            <PopoverContent side="bottom" className="w-60 text-xs bg-gray-900 border-gray-700 p-3">
+                            <PopoverContent side="bottom" className="sm-popover-md">
                               Max lots to process when you hit the play button above to run a sync manually.
                             </PopoverContent>
                           </Popover>
@@ -4864,11 +4864,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         <Label className="text-sm font-medium text-red-300">Clear Price Guide Cache</Label>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                            <button className="sm-icon-btn">
                               <Info className="w-3.5 h-3.5" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="bottom" className="w-64 text-xs bg-gray-900 border-gray-700 p-3">
+                          <PopoverContent side="bottom" className="sm-popover">
                             Deletes all stored price guide data and resets sync history. Use when starting fresh with new formula settings. The next sync rebuilds from scratch. No inventory data is affected.
                           </PopoverContent>
                         </Popover>
@@ -4934,11 +4934,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <Label className="text-xs font-medium text-gray-100">Monthly Set-Parts Sync</Label>
                             <Popover>
                               <PopoverTrigger asChild>
-                                <button className="text-gray-500 hover:text-gray-200 flex items-center transition-colors">
+                                <button className="sm-icon-btn">
                                   <Info className="w-3 h-3" />
                                 </button>
                               </PopoverTrigger>
-                              <PopoverContent side="bottom" className="w-72 text-xs bg-gray-900 border-gray-700 p-3 space-y-1.5">
+                              <PopoverContent side="bottom" className="sm-popover-lg">
                                 <p className="font-semibold text-gray-200">Rebrickable Set-Parts Sync</p>
                                 <p className="text-gray-400">Downloads the full Rebrickable set-to-parts relationship database (~1.4M rows). This powers the BrickSpotter "find sets that use this part" feature.</p>
                                 <p className="sm-description">Runs once per month — Rebrickable data changes rarely. Force-refresh truncates and rebuilds the table from scratch.</p>
@@ -5424,7 +5424,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                     {/* Plan selector */}
                     <div className="sm-card">
-                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                      <div className="sm-card-header">
                         <CreditCard className="h-3.5 w-3.5 text-yellow-500/70" />
                         <span className="text-xs font-semibold text-gray-200">Plan</span>
                       </div>
@@ -6657,7 +6657,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Current admins */}
                 <div className="sm-card">
-                  <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                  <div className="sm-card-header">
                     <Users className="h-3.5 w-3.5 text-yellow-500/70" />
                     <span className="text-xs font-semibold text-gray-200">Super Admins</span>
                     {adminTeamLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-auto" />}
@@ -6699,7 +6699,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Add admin */}
                 <div className="sm-card">
-                  <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                  <div className="sm-card-header">
                     <Plus className="h-3.5 w-3.5 text-yellow-500/70" />
                     <span className="text-xs font-semibold text-gray-200">Add Admin</span>
                   </div>
@@ -6796,7 +6796,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <div className="space-y-4">
                     {/* Config */}
                     <div className="sm-card">
-                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                      <div className="sm-card-header">
                         <Key className="h-3.5 w-3.5 text-yellow-500/70" />
                         <span className="text-xs font-semibold text-gray-200">Configuration</span>
                         <Badge variant="outline" className={`ml-auto text-[9px] ${stripeEnvironment === 'live' ? 'text-green-400 border-green-500/30 bg-green-500/5' : 'text-yellow-400 border-yellow-500/30 bg-yellow-500/5'}`}>
@@ -6828,7 +6828,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                     {/* Balance */}
                     <div className="sm-card">
-                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                      <div className="sm-card-header">
                         <TrendingUp className="h-3.5 w-3.5 text-yellow-500/70" />
                         <span className="text-xs font-semibold text-gray-200">Platform Balance</span>
                         {stripeBalanceLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-1" />}
@@ -6881,7 +6881,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 {/* ── OpenAI tab ─────────────────────────────────── */}
                 {activePlatformServicesTab === 'openai' && (
                   <div className="sm-card">
-                    <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                    <div className="sm-card-header">
                       <Key className="h-3.5 w-3.5 text-yellow-500/70" />
                       <span className="text-xs font-semibold text-gray-200">OpenAI</span>
                       {openAIStatusLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-auto" />}
@@ -6932,7 +6932,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <div className="space-y-4">
                     {/* Platform info */}
                     <div className="sm-card">
-                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                      <div className="sm-card-header">
                         <Zap className="h-3.5 w-3.5 text-violet-400/80" />
                         <span className="text-xs font-semibold text-gray-200">Platform Environment</span>
                         <Badge variant="outline" className="ml-auto text-[9px] text-violet-400 border-violet-500/30 bg-violet-500/5">Replit</Badge>
@@ -6958,7 +6958,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                     {/* Billing */}
                     <div className="sm-card">
-                      <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+                      <div className="sm-card-header">
                         <TrendingUp className="h-3.5 w-3.5 text-yellow-500/70" />
                         <span className="text-xs font-semibold text-gray-200">Usage &amp; Billing</span>
                       </div>
