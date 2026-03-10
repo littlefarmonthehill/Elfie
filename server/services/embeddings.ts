@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { db } from '../db';
-import { inventoryEmbeddings, orderEmbeddings, orderDetailEmbeddings, setPartEmbeddings, blInventory, orders, orderDetails, setPartRelationships, appSettings } from '@shared/schema';
+import { inventoryEmbeddings, orderEmbeddings, orderDetailEmbeddings, setPartEmbeddings, blInventory, blCatalog, blCategories, orders, orderDetails, setPartRelationships, appSettings } from '@shared/schema';
 import { eq, sql, inArray, and } from 'drizzle-orm';
 
 /**
@@ -119,23 +119,34 @@ export function createOrderContent(order: any, items?: any[]): string {
  */
 export async function embedInventoryItem(inventoryId: number) {
   try {
-    // Get inventory item with category
-    const item = await db.query.blInventory.findFirst({
-      where: eq(blInventory.id, inventoryId),
-      with: {
-        category: true,
-      },
-    });
-    
+    // Get inventory item with catalog data (category name, item name)
+    const rows = await db.select({
+      id: blInventory.id,
+      itemNo: blInventory.itemNo,
+      itemType: blInventory.itemType,
+      colorId: blInventory.colorId,
+      quantity: blInventory.quantity,
+      newOrUsed: blInventory.newOrUsed,
+      unitPrice: blInventory.unitPrice,
+      description: blInventory.description,
+      remarks: blInventory.remarks,
+      orgId: blInventory.orgId,
+      itemName: blCatalog.itemName,
+      colorName: blCatalog.colorName,
+      categoryName: blCategories.name,
+    }).from(blInventory)
+      .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+      .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
+      .where(eq(blInventory.id, inventoryId))
+      .limit(1);
+
+    const item = rows[0] || null;
+
     if (!item) {
       throw new Error(`Inventory item ${inventoryId} not found`);
     }
-    
-    // Flatten category name for embedding
-    const enrichedItem = {
-      ...item,
-      categoryName: item.category?.name,
-    };
+
+    const enrichedItem = item;
     
     // Create searchable content
     const content = createInventoryContent(enrichedItem);
@@ -268,17 +279,29 @@ export async function embedOrderDetail(orderDetailId: string) {
       const inventoryId = parseInt(orderDetail.sku, 10);
       
       if (!isNaN(inventoryId)) {
-        // Look up in inventory by ID with category relation
-        const foundItem = await db.query.blInventory.findFirst({
-          where: eq(blInventory.id, inventoryId),
-          with: { category: true },
-        });
-        
-        if (foundItem) {
-          inventoryItem = {
-            ...foundItem,
-            categoryName: foundItem.category?.name,
-          };
+        // Look up in inventory by ID with catalog join for category name
+        const foundRows = await db.select({
+          id: blInventory.id,
+          itemNo: blInventory.itemNo,
+          itemType: blInventory.itemType,
+          colorId: blInventory.colorId,
+          quantity: blInventory.quantity,
+          newOrUsed: blInventory.newOrUsed,
+          unitPrice: blInventory.unitPrice,
+          description: blInventory.description,
+          remarks: blInventory.remarks,
+          orgId: blInventory.orgId,
+          itemName: blCatalog.itemName,
+          colorName: blCatalog.colorName,
+          categoryName: blCategories.name,
+        }).from(blInventory)
+          .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+          .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
+          .where(eq(blInventory.id, inventoryId))
+          .limit(1);
+
+        if (foundRows[0]) {
+          inventoryItem = foundRows[0];
         }
       }
     }

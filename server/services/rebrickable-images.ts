@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { blInventory, blCatalog, partIdMappings } from "@shared/schema";
-import { sql, inArray } from "drizzle-orm";
+import { sql, inArray, and, eq } from "drizzle-orm";
 import axios from "axios";
 import https from "https";
 
@@ -197,8 +197,9 @@ export function scheduleImageFetchForNewItems(
       const stillMissing = await db
         .select({ id: blInventory.id, itemNo: blInventory.itemNo, colorId: blInventory.colorId })
         .from(blInventory)
+        .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
         .where(sql`${blInventory.id} = ANY(ARRAY[${sql.join(ids.map(id => sql`${id}`), sql`, `)}]::int[])
-                   AND (${blInventory.imageUrl} IS NULL OR ${blInventory.imageUrl} = '')`);
+                   AND (${blCatalog.imageUrl} IS NULL OR ${blCatalog.imageUrl} = '')`);
 
       if (stillMissing.length === 0) {
         console.log('[Rebrickable Images] All new items covered by SQL copy — no API calls needed');
@@ -225,14 +226,7 @@ export function scheduleImageFetchForNewItems(
 
         const imageUrl = await fetchPartImageUrl(pair.itemNo, rbColorId);
         if (imageUrl) {
-          // Update ALL rows with this (itemNo, colorId) in bl_inventory — covers every condition/lot
-          await db.update(blInventory)
-            .set({ imageUrl, thumbnailUrl: imageUrl })
-            .where(sql`${blInventory.itemNo} = ${pair.itemNo}
-                       AND ${blInventory.colorId} = ${pair.colorId}
-                       AND (${blInventory.imageUrl} IS NULL OR ${blInventory.imageUrl} = '')`);
-
-          // Dual-write: upsert into bl_catalog (Rebrickable images replace BL thumbs)
+          // Upsert into bl_catalog (Rebrickable images replace BL thumbs)
           await db.insert(blCatalog).values({
             itemNo: pair.itemNo,
             itemType: 'PART',
@@ -309,14 +303,7 @@ export async function syncRebrickableImages(): Promise<RebrickableImageSyncResul
 
       const imageUrl = await fetchPartImageUrl(item.itemNo, rbColorId);
       if (imageUrl) {
-        // Update ALL rows with this (itemNo, colorId) in bl_inventory
-        await db.update(blInventory)
-          .set({ imageUrl, thumbnailUrl: imageUrl })
-          .where(sql`${blInventory.itemNo} = ${item.itemNo}
-                     AND ${blInventory.colorId} = ${item.colorId}
-                     AND (${blInventory.imageUrl} IS NULL OR ${blInventory.imageUrl} = '')`);
-
-        // Dual-write: upsert into bl_catalog (Rebrickable images replace BL thumbs)
+        // Upsert into bl_catalog (Rebrickable images replace BL thumbs)
         await db.insert(blCatalog).values({
           itemNo: item.itemNo,
           itemType: 'PART',

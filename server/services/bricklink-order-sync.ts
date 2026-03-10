@@ -418,14 +418,7 @@ async function processBrickLinkOrder(
           const unitWeightGrams = item.weight ? parseFloat(item.weight) : null;
           if (unitWeightGrams && unitWeightGrams > 0) {
             const wg = unitWeightGrams;
-            // Dual-write: update bl_inventory (legacy) and bl_catalog (new)
-            await db.update(blInventory)
-              .set({
-                blCatalogWeight: sql`CASE WHEN ${blInventory.blCatalogWeight} IS NULL OR ${blInventory.blCatalogWeight} = 0 THEN ${wg} ELSE ${blInventory.blCatalogWeight} END`,
-              })
-              .where(eq(blInventory.id, item.inventory_id));
-
-            // Also update bl_catalog by (itemNo, itemType, colorId) if we have the item identity
+            // Update bl_catalog by (itemNo, itemType, colorId) if we have the item identity
             if (item.item?.no && item.item?.type) {
               await db.update(blCatalog)
                 .set({

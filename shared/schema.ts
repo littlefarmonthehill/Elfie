@@ -133,10 +133,8 @@ export type BlColor = typeof blColors.$inferSelect;
 export const blInventory = pgTable("bl_inventory", {
   id: integer("id").primaryKey(),
   itemNo: text("item_no").notNull(),
-  itemName: text("item_name"),
   itemType: text("item_type").notNull(),
   colorId: integer("color_id"),
-  colorName: text("color_name"),
   quantity: integer("quantity").notNull(),
   newOrUsed: text("new_or_used").notNull(),
   completeness: text("completeness"),
@@ -149,7 +147,6 @@ export const blInventory = pgTable("bl_inventory", {
   isRetain: boolean("is_retain").default(false),
   isStockRoom: boolean("is_stock_room").default(false),
   stockRoomId: text("stock_room_id"),
-  categoryId: integer("category_id"),
   dateCreated: timestamp("date_created"),
   saleRate: integer("sale_rate"),
   tierPrice1: decimal("tier_price_1", { precision: 10, scale: 2 }),
@@ -159,21 +156,10 @@ export const blInventory = pgTable("bl_inventory", {
   tierQuantity2: integer("tier_quantity_2"),
   tierQuantity3: integer("tier_quantity_3"),
   myWeight: decimal("my_weight", { precision: 10, scale: 4 }),
-  blCatalogWeight: decimal("bl_catalog_weight", { precision: 10, scale: 4 }),
-  blDimensionX: decimal("bl_dimension_x", { precision: 10, scale: 2 }),
-  blDimensionY: decimal("bl_dimension_y", { precision: 10, scale: 2 }),
-  blDimensionZ: decimal("bl_dimension_z", { precision: 10, scale: 2 }),
-  // Rebrickable image URLs (LDraw renders)
-  imageUrl: text("image_url"),
-  thumbnailUrl: text("thumbnail_url"),
   orgId: varchar("org_id"),                          // FK → organizations.id
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
-  // Composite index for shop queries with itemType filter
-  itemTypeCategoryQtyIdx: index("bl_inv_item_type_cat_qty_idx").on(table.itemType, table.categoryId, table.quantity),
-  // Index for shop queries without itemType filter
-  categoryQtyIdx: index("bl_inv_cat_qty_idx").on(table.categoryId, table.quantity),
   // Index for quantity-based filtering (general queries)
   quantityIdx: index("bl_inv_qty_idx").on(table.quantity),
   // Index for item lookup
@@ -445,10 +431,6 @@ export type EodForm = typeof eodForms.$inferSelect;
 
 // Relations
 export const blInventoryRelations = relations(blInventory, ({ one }) => ({
-  category: one(blCategories, {
-    fields: [blInventory.categoryId],
-    references: [blCategories.id],
-  }),
   catalog: one(blCatalog, {
     fields: [blInventory.itemNo, blInventory.itemType, blInventory.colorId],
     references: [blCatalog.itemNo, blCatalog.itemType, blCatalog.colorId],

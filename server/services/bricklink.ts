@@ -544,10 +544,8 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
         const values = batch.map(item => ({
           id: item.inventory_id,
           itemNo: item.item.no,
-          itemName: item.item.name || null,
           itemType: item.item.type,
           colorId: item.color_id || 0,
-          colorName: item.color_name || null,
           quantity: item.quantity,
           newOrUsed: item.new_or_used,
           completeness: item.completeness || null,
@@ -560,7 +558,6 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
           isRetain: !!item.is_retain,
           isStockRoom: !!item.is_stock_room,
           stockRoomId: item.stock_room_id || null,
-          categoryId: item.item.category_id || 0,
           dateCreated: item.date_created ? new Date(item.date_created) : null,
           saleRate: item.sale_rate || null,
           tierPrice1: item.tier_price1 || null,
@@ -660,11 +657,9 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
           existing.quantity !== item.quantity || 
           Math.abs(existingUnitPrice - apiUnitPrice) > 0.001 ||
           existing.itemNo !== item.item.no ||
-          existing.itemName !== (item.item.name || null) ||
           existing.itemType !== item.item.type ||
           existing.colorId !== (item.color_id || 0) ||
           existing.newOrUsed !== item.new_or_used ||
-          existing.categoryId !== (item.item.category_id || 0) ||
           existing.description !== (item.description || null) ||
           existing.remarks !== (item.remarks || null) ||
           existing.bulk !== (item.bulk || null) ||
@@ -700,10 +695,8 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
           await db.update(blInventory)
             .set({ 
               itemNo: item.item.no,
-              itemName: item.item.name || null,
               itemType: item.item.type,
               colorId: item.color_id || 0,
-              colorName: item.color_name || null,
               quantity: item.quantity,
               newOrUsed: item.new_or_used,
               completeness: item.completeness || null,
@@ -716,7 +709,6 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
               isRetain: !!item.is_retain,
               isStockRoom: !!item.is_stock_room,
               stockRoomId: item.stock_room_id || null,
-              categoryId: item.item.category_id || 0,
               dateCreated: item.date_created ? new Date(item.date_created) : null,
               saleRate: item.sale_rate || null,
               tierPrice1: item.tier_price1 || null,
@@ -807,7 +799,6 @@ async function syncBricklinkInventoryByStatus(orgId: string = 'org_planetbrick')
               quantity: item.quantity,
               newOrUsed: item.new_or_used,
               unitPrice: item.unit_price,
-              categoryId: item.item.category_id || 0,
             });
             added++;
           } else {
@@ -1779,18 +1770,12 @@ export async function fetchPriceOMagicData(
       }
     }
 
-    // Write back the BL catalog thumbnail to bl_inventory (legacy) and bl_catalog
-    // Only update if the stored URL is null (Rebrickable images are preserved)
+    // Write BL catalog thumbnail to bl_catalog
+    // Only fill if currently null (Rebrickable images have priority)
     if (itemDetails?.thumbnail_url) {
       try {
         const rawThumb = itemDetails.thumbnail_url as string;
         const thumbUrl = rawThumb.startsWith('//') ? `https:${rawThumb}` : rawThumb;
-        const imgQuery = colorId
-          ? and(eq(blInventory.itemNo, itemNo), eq(blInventory.itemType, itemType), eq(blInventory.colorId, colorId), sql`${blInventory.imageUrl} IS NULL`)
-          : and(eq(blInventory.itemNo, itemNo), eq(blInventory.itemType, itemType), sql`${blInventory.imageUrl} IS NULL`);
-        await db.update(blInventory).set({ imageUrl: thumbUrl, thumbnailUrl: thumbUrl }).where(imgQuery);
-
-        // Also write to bl_catalog — only fill if currently null (Rebrickable images have priority)
         await db.insert(blCatalog).values({
           itemNo,
           itemType,
