@@ -1,5 +1,9 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, real, timestamp, boolean, index, jsonb, serial, date, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, real, timestamp, boolean, index, jsonb, serial, date, primaryKey, customType } from "drizzle-orm/pg-core";
+
+const bytea = customType<{ data: Buffer; notNull: false; default: false }>({
+  dataType() { return 'bytea'; },
+});
 import { vector } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -1306,6 +1310,7 @@ export const brickanalyzerScans = pgTable("brickanalyzer_scans", {
   imgWidth: integer("img_width"),
   imgHeight: integer("img_height"),
   blApiCalls: integer("bl_api_calls"),
+  imageData: bytea("image_data"),
 }, (table) => ({
   orgIdIdx: index("brickanalyzer_scans_org_id_idx").on(table.orgId),
 }));

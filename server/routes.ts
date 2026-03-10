@@ -4818,6 +4818,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       setProgress(scanId, 'Loading image', 'Decoding and resizing…', 4);
 
       // Cache a resized version of the original image for the film-strip overlay
+      // Also persist to DB so the image survives server restarts
       try {
         const resized = await sharp(imageBuffer)
           .resize({ width: 1400, withoutEnlargement: true })
@@ -4825,6 +4826,10 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           .toBuffer();
         brickanalyzerImageCache.set(scanId, resized);
         brickanalyzerImageMeta.set(scanId, { width: imgWidth, height: imgHeight });
+        db.update(brickanalyzerScans)
+          .set({ imageData: resized })
+          .where(eq(brickanalyzerScans.id, scanId))
+          .catch(() => { /* non-fatal */ });
       } catch { /* non-fatal */ }
 
       // ── Calibration mode: same 4-pass segmentation as scan ─────────────────
@@ -6244,11 +6249,23 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // GET /api/brickanalyzer/scan/:id/image — serve the cached full scan image
+  // Falls back to DB-persisted image if not in memory (e.g. after server restart)
   app.get("/api/brickanalyzer/scan/:id/image", isApproved, async (req, res) => {
     try {
       const scanId = Number(req.params.id);
-      const img = brickanalyzerImageCache.get(scanId);
-      if (!img) return res.status(404).json({ error: "Image not cached" });
+      let img = brickanalyzerImageCache.get(scanId);
+      if (!img) {
+        const row = await db.select({ imageData: brickanalyzerScans.imageData })
+          .from(brickanalyzerScans)
+          .where(eq(brickanalyzerScans.id, scanId))
+          .limit(1)
+          .then(r => r[0]);
+        if (row?.imageData) {
+          img = row.imageData as Buffer;
+          brickanalyzerImageCache.set(scanId, img);
+        }
+      }
+      if (!img) return res.status(404).json({ error: "Image not available" });
       res.set('Content-Type', 'image/jpeg');
       res.set('Cache-Control', 'private, max-age=3600');
       res.send(img);
