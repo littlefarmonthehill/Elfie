@@ -33,6 +33,14 @@ const HTML_ENTITY_RE = new RegExp(
   Object.keys(HTML_ENTITIES).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
   'g'
 );
+
+// Resolves an item name from bl_catalog with a colorId=0 (Rebrickable universal) fallback.
+// Exact colorId match wins; if no color-specific row exists (e.g. only Rebrickable seeded
+// a colorId=0 row before POM has synced that specific lot), the colorId=0 name is used.
+// Used in every SELECT clause that reads item names from bl_catalog.
+const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: any) =>
+  sql<string | null>`(SELECT item_name FROM bl_catalog WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} ORDER BY (color_id = ${colorIdRef})::int DESC, color_id ASC LIMIT 1)`;
+
 function decodeHtmlEntities(text: string | null | undefined): string {
   if (!text) return '';
   return text.replace(HTML_ENTITY_RE, m => HTML_ENTITIES[m] ?? m);
@@ -3167,7 +3175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               id: blInventory.id,
               itemNo: blInventory.itemNo,
               itemType: blInventory.itemType,
-              itemName: blCatalog.itemName,
+              itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
               remarks: blInventory.remarks,
               colorId: blInventory.colorId,
               colorName: blColors.name,
@@ -3208,7 +3216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 id: blInventory.id,
                 itemNo: blInventory.itemNo,
                 itemType: blInventory.itemType,
-                itemName: blCatalog.itemName,
+                itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
                 remarks: blInventory.remarks,
                 colorId: blInventory.colorId,
                 colorName: blColors.name,
@@ -3267,7 +3275,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   id: blInventory.id,
                   itemNo: blInventory.itemNo,
                   itemType: blInventory.itemType,
-                  itemName: blCatalog.itemName,
+                  itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
                   remarks: blInventory.remarks,
                   colorId: blInventory.colorId,
                   colorName: blColors.name,
@@ -3292,7 +3300,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               id: blInventory.id,
               itemNo: blInventory.itemNo,
               itemType: blInventory.itemType,
-              itemName: blCatalog.itemName,
+              itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
               remarks: blInventory.remarks,
               colorId: blInventory.colorId,
               colorName: blColors.name,
@@ -3986,7 +3994,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           .select({
             id: blInventory.id,
             itemNo: blInventory.itemNo,
-            itemName: blCatalog.itemName,
+            itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
             colorId: blInventory.colorId,
             colorName: blColors.name,
             colorRgb: blColors.rgb,
@@ -4011,7 +4019,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             .select({
               id: blInventory.id,
               itemNo: blInventory.itemNo,
-              itemName: blCatalog.itemName,
+              itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
               colorId: blInventory.colorId,
               colorName: blColors.name,
               colorRgb: blColors.rgb,
@@ -4049,7 +4057,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               .select({
                 id: blInventory.id,
                 itemNo: blInventory.itemNo,
-                itemName: blCatalog.itemName,
+                itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
                 colorId: blInventory.colorId,
                 colorName: blColors.name,
                 colorRgb: blColors.rgb,
@@ -4082,7 +4090,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               .select({
                 id: blInventory.id,
                 itemNo: blInventory.itemNo,
-                itemName: blCatalog.itemName,
+                itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
                 colorId: blInventory.colorId,
                 colorName: blColors.name,
                 colorRgb: blColors.rgb,
@@ -5308,7 +5316,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             quantity: blInventory.quantity,
             colorName: blCatalog.colorName,
             colorId: blInventory.colorId,
-            itemName: blCatalog.itemName,
+            itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
             thumbnailUrl: blCatalog.thumbnailUrl,
             imageUrl: blCatalog.imageUrl,
             newOrUsed: blInventory.newOrUsed,
@@ -5348,7 +5356,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                 quantity: blInventory.quantity,
                 colorName: blCatalog.colorName,
                 colorId: blInventory.colorId,
-                itemName: blCatalog.itemName,
+                itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
                 thumbnailUrl: blCatalog.thumbnailUrl,
                 imageUrl: blCatalog.imageUrl,
                 newOrUsed: blInventory.newOrUsed,
@@ -7209,7 +7217,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         id: blInventory.id,
         inventoryId: blInventory.id,
         itemNo: blInventory.itemNo,
-        itemName: blCatalog.itemName,
+        itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
         colorId: blInventory.colorId,
         colorName: blColors.name,
         colorRgb: blColors.rgb,
@@ -7580,7 +7588,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .select({
           id: blInventory.id,
           itemNo: blInventory.itemNo,
-          itemName: blCatalog.itemName,
+          itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
           itemType: blInventory.itemType,
           colorId: blInventory.colorId,
           colorName: blColors.name,
@@ -7627,7 +7635,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .select({
           id: blInventory.id,
           itemNo: blInventory.itemNo,
-          itemName: blCatalog.itemName,
+          itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
           colorId: blInventory.colorId,
           colorName: blColors.name,
           newOrUsed: blInventory.newOrUsed,
@@ -7659,7 +7667,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .select({
           id: blInventory.id,
           itemNo: blInventory.itemNo,
-          itemName: blCatalog.itemName,
+          itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
           itemType: blInventory.itemType,
           colorId: blInventory.colorId,
           colorName: blColors.name,
@@ -9021,7 +9029,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .select({
           id: blInventory.id,
           itemNo: blInventory.itemNo,
-          itemName: blCatalog.itemName,
+          itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
           colorName: blCatalog.colorName,
           quantity: blInventory.quantity,
           unitPrice: blInventory.unitPrice,
@@ -9203,7 +9211,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .select({
           inventoryId: blInventory.id,
           itemNo: blInventory.itemNo,
-          itemName: blCatalog.itemName,
+          itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
           itemType: blInventory.itemType,
           colorId: blInventory.colorId,
           colorName: blColors.name,
@@ -9562,7 +9570,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .select({
           id: blInventory.id,
           itemNo: blInventory.itemNo,
-          itemName: blCatalog.itemName,
+          itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
           colorName: blColors.name,
           newOrUsed: blInventory.newOrUsed,
           quantity: blInventory.quantity,
@@ -9680,7 +9688,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           id: inventoryLocations.id,
           inventoryId: inventoryLocations.inventoryId,
           itemNo: blInventory.itemNo,
-          itemName: blCatalog.itemName,
+          itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
           colorName: blColors.name,
           newOrUsed: blInventory.newOrUsed,
           binId: inventoryLocations.binId,
@@ -11060,7 +11068,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .select({
           id: blInventory.id,
           itemNo: blInventory.itemNo,
-          itemName: blCatalog.itemName,
+          itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
           colorId: blInventory.colorId,
           colorName: blColors.name,
           colorRgb: blColors.rgb,
