@@ -1732,8 +1732,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           customer_email,
           ship_to,
           COUNT(*)       OVER (PARTITION BY customer_username)::int                   AS order_count,
-          SUM(CAST(NULLIF(TRIM(order_total), '') AS numeric))
-                         OVER (PARTITION BY customer_username)::float                 AS total_revenue,
+          SUM(order_total::numeric) OVER (PARTITION BY customer_username)::float        AS total_revenue,
           MAX(order_date) OVER (PARTITION BY customer_username)                       AS last_order_date,
           MIN(order_date) OVER (PARTITION BY customer_username)                       AS first_order_date
         FROM orders
