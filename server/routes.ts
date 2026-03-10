@@ -707,6 +707,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/platform-admin/db-tables — table health from pg_stat_user_tables
+  app.get('/api/platform-admin/db-tables', isSuperAdmin, async (_req, res) => {
+    const TABLE_DESCRIPTIONS: Record<string, string> = {
+      anomaly_events:                'Detected data anomalies and automated system alerts',
+      app_feedback:                  'User-submitted feedback, bug reports, and feature requests',
+      app_settings:                  'Per-organization configuration settings (83 columns covering all feature flags and preferences)',
+      bl_api_calls:                  'BrickLink API call log used for rate limiting and usage tracking per org',
+      bl_catalog:                    'Shared cross-org part/color/category reference — the catalog layer split from inventory',
+      bl_catalog_clip_embeddings:    '512-dim CLIP visual fingerprints keyed to bl_catalog. Powers BrickSpotter visual recognition (source: catalog, scan, universal)',
+      bl_categories:                 'BrickLink part category names and hierarchy (e.g. Technic, Minifig, Plate)',
+      bl_colors:                     'BrickLink color definitions including name, hex values, and color type',
+      bl_forum_embeddings:           'Text embeddings of BrickLink forum posts for AI-powered knowledge search',
+      bl_forum_posts:                'Scraped BrickLink forum posts used as a platform knowledge base for the AI assistant',
+      bl_inventory:                  'Live per-org BrickLink inventory — the core stock table (org-scoped, synced from BrickLink)',
+      brickanalyzer_scans:           'BrickSpotter scan history including detected parts, confidence scores, and crop data',
+      conversations:                 'AI chat assistant conversation sessions and message history per org',
+      differential_batches:          'Incremental backup batch tracking used by the data restore system',
+      embedding_jobs:                'Async background job queue for text embedding generation (inventory, orders, sets)',
+      eod_forms:                     'End-of-day summary forms submitted by staff',
+      inventory_embeddings:          'Text embeddings of inventory items for semantic stock search (org-scoped)',
+      inventory_locations:           'Physical warehouse bin assignments mapping inventory items to wh_bins',
+      order_adjustments:             'Manual price and quantity adjustments applied to orders',
+      order_detail_embeddings:       'Text embeddings of individual order line items for granular AI search',
+      order_details:                 'Line items for each BrickLink order (part, color, qty, price)',
+      order_embeddings:              'Text embeddings of full orders for AI assistant and semantic order lookup (org-scoped)',
+      order_split_items:             'Parts assigned to split sub-orders during the picking/fulfillment workflow',
+      order_splits:                  'Split sub-orders created from a parent order for partial shipment',
+      orders:                        'BrickLink orders synced from the marketplace (org-scoped)',
+      org_integrations:              'OAuth tokens and API credentials stored per organization (BrickLink, BrickOwl, etc.)',
+      organizations:                 'Tenant organizations on the platform with plan, subscription, and Stripe metadata',
+      part_id_mappings:              'Cross-reference table mapping BrickLink part numbers to Rebrickable part numbers',
+      part_price_history:            'Historical BrickLink price guide snapshots per part/color for trend analysis',
+      picklist_items:                'Active pick queue — items assigned to pickers for order fulfillment',
+      plan_configs:                  'Subscription plan tier definitions including pricing, feature flags, and usage limits',
+      price_guide_cache:             'Cached BrickLink price guide data per part/color to reduce API calls',
+      restore_jobs:                  'Database restore job tracking — status, progress, and error logs for backup restoration',
+      sessions:                      'User authentication sessions (Replit OIDC)',
+      set_part_embeddings:           'Text embeddings of set part lists used for set-similarity search',
+      set_part_relationships:        'Rebrickable sets-to-parts mapping covering all known LEGO sets (~35k sets)',
+      shipments:                     'Shipment records linked to orders including tracking numbers and carrier info',
+      sync_issues:                   'Detected issues and warnings logged during BrickLink sync operations',
+      sync_metadata:                 'Per-org BrickLink sync state — last sync time, cursor, and status',
+      universal_catalog_queue:       'Rebrickable parts queue for universal CLIP embedding (source=universal in bl_catalog_clip_embeddings)',
+      users:                         'Platform user accounts authenticated via Replit OIDC',
+      wh_aisles:                     'Warehouse aisle definitions (top level of the aisle → shelf → bin hierarchy)',
+      wh_bins:                       'Warehouse bin (slot) definitions — the leaf node where parts are physically stored',
+      wh_shelves:                    'Warehouse shelf definitions within aisles',
+    };
+
+    try {
+      const rows = await db.execute<{
+        table_name: string;
+        total_size: string;
+        total_size_bytes: string;
+        live_rows: string;
+        dead_rows: string;
+        last_vacuum: string | null;
+        last_autovacuum: string | null;
+        last_analyze: string | null;
+        last_autoanalyze: string | null;
+        seq_scans: string;
+        idx_scans: string;
+        mod_since_analyze: string;
+      }>(sql`
+        SELECT
+          t.table_name,
+          pg_size_pretty(pg_total_relation_size(quote_ident(t.table_name))) AS total_size,
+          pg_total_relation_size(quote_ident(t.table_name))::text AS total_size_bytes,
+          COALESCE(s.n_live_tup, 0)::text AS live_rows,
+          COALESCE(s.n_dead_tup, 0)::text AS dead_rows,
+          s.last_vacuum::text,
+          s.last_autovacuum::text,
+          s.last_analyze::text,
+          s.last_autoanalyze::text,
+          COALESCE(s.seq_scan, 0)::text AS seq_scans,
+          COALESCE(s.idx_scan, 0)::text AS idx_scans,
+          COALESCE(s.n_mod_since_analyze, 0)::text AS mod_since_analyze
+        FROM information_schema.tables t
+        LEFT JOIN pg_stat_user_tables s ON s.relname = t.table_name
+        WHERE t.table_schema = 'public'
+          AND t.table_type = 'BASE TABLE'
+        ORDER BY pg_total_relation_size(quote_ident(t.table_name)) DESC
+      `);
+
+      const tables = (rows.rows ?? []).map(r => ({
+        tableName: r.table_name,
+        totalSize: r.total_size,
+        totalSizeBytes: Number(r.total_size_bytes),
+        liveRows: Number(r.live_rows),
+        deadRows: Number(r.dead_rows),
+        lastVacuum: r.last_vacuum ?? r.last_autovacuum ?? null,
+        lastAnalyze: r.last_analyze ?? r.last_autoanalyze ?? null,
+        seqScans: Number(r.seq_scans),
+        idxScans: Number(r.idx_scans),
+        modSinceAnalyze: Number(r.mod_since_analyze),
+        description: TABLE_DESCRIPTIONS[r.table_name] ?? null,
+      }));
+
+      res.json(tables);
+    } catch (error) {
+      console.error('Error fetching db table stats:', error);
+      res.status(500).json({ message: 'Failed to fetch table stats' });
+    }
+  });
+
   // POST /api/platform-admin/migrate-catalog — one-time migration to populate bl_catalog
   // Idempotent: safe to run multiple times. Pulls distinct catalog data from bl_inventory
   // and merges with any richer data already in price_guide_cache.

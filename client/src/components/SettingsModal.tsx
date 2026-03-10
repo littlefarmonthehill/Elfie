@@ -996,6 +996,26 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     refetchInterval: activeSection === 'systemHealth' ? 10000 : false,
   });
 
+  type DbTableStat = {
+    tableName: string;
+    totalSize: string;
+    totalSizeBytes: number;
+    liveRows: number;
+    deadRows: number;
+    lastVacuum: string | null;
+    lastAnalyze: string | null;
+    seqScans: number;
+    idxScans: number;
+    modSinceAnalyze: number;
+    description: string | null;
+  };
+  const { data: dbTables, isLoading: dbTablesLoading, refetch: refetchDbTables } = useQuery<DbTableStat[]>({
+    queryKey: ['/api/platform-admin/db-tables'],
+    enabled: open && activeSection === 'systemHealth',
+    staleTime: 30000,
+    retry: 0,
+  });
+
   // Admin Team
   const { data: adminTeam, isLoading: adminTeamLoading, refetch: refetchAdminTeam } = useQuery<User[]>({
     queryKey: ['/api/platform-admin/admin-team'],
@@ -5989,6 +6009,109 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </div>
                         ))}
                       </div>
+                    </div>
+
+                    {/* Database Tables */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2 px-1">
+                        <p className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Database Tables</p>
+                        <button
+                          onClick={() => refetchDbTables()}
+                          className="text-gray-600 hover:text-gray-400 transition-colors"
+                          data-testid="button-refresh-db-tables"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                        </button>
+                      </div>
+                      {dbTablesLoading ? (
+                        <div className="flex items-center justify-center py-6">
+                          <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
+                        </div>
+                      ) : dbTables && dbTables.length > 0 ? (
+                        <div className="rounded-lg border border-gray-700 overflow-hidden">
+                          {/* Header */}
+                          <div className="grid grid-cols-[16px_1fr_64px_72px_64px] gap-x-3 px-3 py-1.5 bg-gray-800/80 border-b border-gray-700">
+                            <span />
+                            <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold">Table</span>
+                            <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-right">Size</span>
+                            <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-right">~Rows</span>
+                            <span className="text-[9px] uppercase tracking-widest text-gray-600 font-semibold text-right">Dead</span>
+                          </div>
+                          <div className="divide-y divide-gray-700/50">
+                            {dbTables.map(t => {
+                              const deadRatio = t.liveRows > 0 ? t.deadRows / t.liveRows : 0;
+                              const healthColor =
+                                t.deadRows > 500 && deadRatio > 0.1 ? 'bg-red-500' :
+                                t.deadRows > 100 && deadRatio > 0.05 ? 'bg-yellow-500' :
+                                'bg-green-500';
+                              const lastVacuumRelative = t.lastVacuum
+                                ? (() => {
+                                    const diff = Date.now() - new Date(t.lastVacuum).getTime();
+                                    const days = Math.floor(diff / 86400000);
+                                    if (days === 0) return 'today';
+                                    if (days === 1) return '1d ago';
+                                    return `${days}d ago`;
+                                  })()
+                                : 'never';
+                              return (
+                                <div key={t.tableName} className="grid grid-cols-[16px_1fr_64px_72px_64px] gap-x-3 items-center px-3 py-1.5 hover-elevate">
+                                  {/* Health dot */}
+                                  <span className={`h-1.5 w-1.5 rounded-full ${healthColor} mx-auto`} />
+
+                                  {/* Table name + info tooltip */}
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="text-xs text-gray-300 font-mono truncate">{t.tableName}</span>
+                                    {t.description && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button className="shrink-0 text-gray-600 hover:text-gray-400 transition-colors" data-testid={`button-info-${t.tableName}`}>
+                                            <Info className="h-3 w-3" />
+                                          </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                                          {t.description}
+                                          {t.lastVacuum && (
+                                            <span className="block mt-1 text-gray-400 text-[10px]">Last vacuum: {lastVacuumRelative}</span>
+                                          )}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
+                                  </div>
+
+                                  {/* Size */}
+                                  <span className="text-[11px] text-gray-400 text-right font-mono">{t.totalSize}</span>
+
+                                  {/* Live rows */}
+                                  <span className="text-[11px] text-gray-400 text-right font-mono">
+                                    {t.liveRows > 0 ? t.liveRows.toLocaleString() : '—'}
+                                  </span>
+
+                                  {/* Dead rows */}
+                                  <span className={`text-[11px] text-right font-mono ${t.deadRows > 100 ? 'text-yellow-400' : t.deadRows > 500 && deadRatio > 0.1 ? 'text-red-400' : 'text-gray-600'}`}>
+                                    {t.deadRows > 0 ? t.deadRows.toLocaleString() : '—'}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {/* Footer summary */}
+                          <div className="px-3 py-2 bg-gray-800/40 border-t border-gray-700 flex items-center justify-between">
+                            <span className="text-[10px] text-gray-600">{dbTables.length} tables</span>
+                            <span className="text-[10px] text-gray-600">
+                              {(() => {
+                                const totalBytes = dbTables.reduce((sum, t) => sum + t.totalSizeBytes, 0);
+                                if (totalBytes >= 1073741824) return `${(totalBytes / 1073741824).toFixed(1)} GB total`;
+                                if (totalBytes >= 1048576) return `${(totalBytes / 1048576).toFixed(0)} MB total`;
+                                return `${(totalBytes / 1024).toFixed(0)} KB total`;
+                              })()}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-4 text-center text-xs text-gray-500">
+                          No table data available
+                        </div>
+                      )}
                     </div>
                   </>
                 ) : (
