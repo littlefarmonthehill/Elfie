@@ -161,7 +161,6 @@ export default function Home() {
       
       if (storedData) {
         const bricklinkItem = JSON.parse(storedData);
-        console.log('🔗 Retrieved BrickLink catalog item from storage:', bricklinkItem);
         
         // Format BrickLink catalog data to match inventory structure
         // Build correct BrickLink URL based on item type

@@ -37,7 +37,9 @@ export const users = pgTable("users", {
   orgId: varchar("org_id"),                                        // FK → organizations.id
   orgRole: varchar("org_role").default("owner"),                   // 'owner' | 'admin' | 'member'
   superAdmin: boolean("super_admin").notNull().default(false),     // platform-level super admin
-});
+}, (table) => ({
+  orgIdIdx: index("users_org_id_idx").on(table.orgId),
+}));
 
 export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
@@ -176,6 +178,7 @@ export const blInventory = pgTable("bl_inventory", {
   quantityIdx: index("bl_inv_qty_idx").on(table.quantity),
   // Index for item lookup
   itemNoIdx: index("bl_inv_item_no_idx").on(table.itemNo),
+  orgIdIdx: index("bl_inv_org_id_idx").on(table.orgId),
 }));
 
 export const insertBlInventorySchema = createInsertSchema(blInventory).omit({
@@ -264,7 +267,11 @@ export const orders = pgTable("orders", {
   orgId: varchar("org_id"),                            // FK → organizations.id
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  orgIdIdx: index("orders_org_id_idx").on(table.orgId),
+  orgIdDateIdx: index("orders_org_id_date_idx").on(table.orgId, table.orderDate),
+  orgIdStatusIdx: index("orders_org_id_status_idx").on(table.orgId, table.orderStatus),
+}));
 
 export const insertOrderSchema = createInsertSchema(orders).omit({
   syncedAt: true,
@@ -373,7 +380,10 @@ export const shipments = pgTable("shipments", {
   orgId: varchar("org_id"),                            // FK → organizations.id
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   eodFormId: integer("eod_form_id"), // FK to eodForms.id — set after SCAN form creation
-});
+}, (table) => ({
+  orgIdIdx: index("shipments_org_id_idx").on(table.orgId),
+  orgIdStatusIdx: index("shipments_org_id_status_idx").on(table.orgId, table.status),
+}));
 
 export const insertShipmentSchema = createInsertSchema(shipments).omit({
   id: true,
@@ -392,7 +402,9 @@ export const eodForms = pgTable("eod_forms", {
   shipmentCount: integer("shipment_count").notNull(),
   orgId: varchar("org_id"),                            // FK → organizations.id
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  orgIdIdx: index("eod_forms_org_id_idx").on(table.orgId),
+}));
 
 export type EodForm = typeof eodForms.$inferSelect;
 
@@ -543,7 +555,9 @@ export const conversations = pgTable("conversations", {
   context: text("context"), // dashboard context
   orgId: varchar("org_id"),                            // FK → organizations.id
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  orgIdSessionIdx: index("conversations_org_session_idx").on(table.orgId, table.sessionId),
+}));
 
 export const insertConversationSchema = createInsertSchema(conversations).omit({
   id: true,
@@ -560,7 +574,9 @@ export const blApiCalls = pgTable("bl_api_calls", {
   timestamp: timestamp("timestamp").defaultNow().notNull(),
   success: boolean("success").default(true).notNull(),
   orgId: varchar("org_id"),                            // FK → organizations.id
-});
+}, (table) => ({
+  orgIdTimestampIdx: index("bl_api_calls_org_ts_idx").on(table.orgId, table.timestamp),
+}));
 
 export const insertBlApiCallSchema = createInsertSchema(blApiCalls).omit({
   id: true,
@@ -580,7 +596,9 @@ export const syncMetadata = pgTable("sync_metadata", {
   errorMessage: text("error_message"),
   orgId: varchar("org_id"),                            // FK → organizations.id
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  orgIdIdx: index("sync_metadata_org_id_idx").on(table.orgId),
+}));
 
 export const insertSyncMetadataSchema = createInsertSchema(syncMetadata).omit({
   updatedAt: true,
@@ -605,7 +623,9 @@ export const syncIssues = pgTable("sync_issues", {
   resolvedBy: text("resolved_by"), // User or 'system'
   metadata: text("metadata"), // JSON string for additional context
   orgId: varchar("org_id"),                            // FK → organizations.id
-});
+}, (table) => ({
+  orgIdStatusIdx: index("sync_issues_org_status_idx").on(table.orgId, table.status),
+}));
 
 export const insertSyncIssueSchema = createInsertSchema(syncIssues).omit({
   id: true,
@@ -843,6 +863,7 @@ export const embeddingJobs = pgTable("embedding_jobs", {
 }, (table) => ({
   statusIdx: index("embedding_jobs_status_idx").on(table.status),
   createdAtIdx: index("embedding_jobs_created_idx").on(table.createdAt),
+  orgIdIdx: index("embedding_jobs_org_id_idx").on(table.orgId),
 }));
 
 export const insertEmbeddingJobSchema = createInsertSchema(embeddingJobs).omit({
@@ -861,7 +882,9 @@ export const whAisles = pgTable("wh_aisles", {
   orgId: varchar("org_id"),                            // FK → organizations.id
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  orgIdIdx: index("wh_aisles_org_id_idx").on(table.orgId),
+}));
 
 export const insertWhAisleSchema = createInsertSchema(whAisles).omit({
   createdAt: true,
@@ -881,7 +904,9 @@ export const whShelves = pgTable("wh_shelves", {
   orgId: varchar("org_id"),                            // FK → organizations.id
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  orgIdIdx: index("wh_shelves_org_id_idx").on(table.orgId),
+}));
 
 export const insertWhShelfSchema = createInsertSchema(whShelves).omit({
   createdAt: true,
@@ -901,7 +926,9 @@ export const whBins = pgTable("wh_bins", {
   orgId: varchar("org_id"),                            // FK → organizations.id
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  orgIdIdx: index("wh_bins_org_id_idx").on(table.orgId),
+}));
 
 export const insertWhBinSchema = createInsertSchema(whBins).omit({
   createdAt: true,
@@ -922,7 +949,10 @@ export const inventoryLocations = pgTable("inventory_locations", {
   orgId: varchar("org_id"),                            // FK → organizations.id
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  orgIdIdx: index("inv_locations_org_id_idx").on(table.orgId),
+  inventoryIdx: index("inv_locations_inventory_idx").on(table.inventoryId),
+}));
 
 export const insertInventoryLocationSchema = createInsertSchema(inventoryLocations).omit({
   createdAt: true,
@@ -1190,6 +1220,7 @@ export const blForumPosts = pgTable("bl_forum_posts", {
   threadIdx: index("bl_forum_thread_idx").on(table.threadId),
   postedAtIdx: index("bl_forum_posted_idx").on(table.postedAt),
   usernameIdx: index("bl_forum_username_idx").on(table.username),
+  orgIdIdx: index("bl_forum_posts_org_id_idx").on(table.orgId),
 }));
 
 export const insertBlForumPostSchema = createInsertSchema(blForumPosts).omit({
@@ -1213,7 +1244,10 @@ export const orderAdjustments = pgTable("order_adjustments", {
   orgId: varchar("org_id"),                            // FK → organizations.id
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  orgIdIdx: index("order_adjustments_org_id_idx").on(table.orgId),
+  orderIdIdx: index("order_adjustments_order_id_idx").on(table.orderId),
+}));
 
 export const insertOrderAdjustmentSchema = createInsertSchema(orderAdjustments).omit({
   id: true,
@@ -1238,7 +1272,9 @@ export const brickanalyzerScans = pgTable("brickanalyzer_scans", {
   imgWidth: integer("img_width"),
   imgHeight: integer("img_height"),
   blApiCalls: integer("bl_api_calls"),
-});
+}, (table) => ({
+  orgIdIdx: index("brickanalyzer_scans_org_id_idx").on(table.orgId),
+}));
 
 export type BrickanalyzerScan = typeof brickanalyzerScans.$inferSelect;
 
@@ -1276,7 +1312,9 @@ export const appFeedback = pgTable("app_feedback", {
   orgId: varchar("org_id"),                            // FK → organizations.id
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  orgIdIdx: index("app_feedback_org_id_idx").on(table.orgId),
+}));
 
 export const insertAppFeedbackSchema = createInsertSchema(appFeedback).omit({
   id: true,
@@ -1317,7 +1355,10 @@ export const orgIntegrations = pgTable("org_integrations", {
   lastTestedAt: timestamp("last_tested_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  orgIdIdx: index("org_integrations_org_id_idx").on(table.orgId),
+  orgChannelIdx: index("org_integrations_org_channel_idx").on(table.orgId, table.channel),
+}));
 
 export const insertOrgIntegrationSchema = createInsertSchema(orgIntegrations).omit({
   id: true,

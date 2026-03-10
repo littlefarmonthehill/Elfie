@@ -1294,7 +1294,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       } else if (type === 'inventory' && format === 'csv') {
         url = '/api/export/inventory-csv';
       } else {
-        console.log(`Export not yet implemented for ${type} ${format}`);
         return;
       }
       
@@ -1324,7 +1323,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
   const handleClearData = (type: 'inventory' | 'orders') => {
     // TODO: Implement clear data functionality
-    console.log(`Clearing ${type} data`);
     setClearDataDialog(null);
   };
 

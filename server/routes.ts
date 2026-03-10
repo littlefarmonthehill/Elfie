@@ -1129,7 +1129,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const d3 = await db.execute(sql.raw(`DELETE FROM picklist_items WHERE order_id IN (${idList})`));
       const d4 = await db.execute(sql.raw(`DELETE FROM orders WHERE id IN (${idList})`));
 
-      console.log(`🧹 Admin cleanup: removed ${ids.length} stale awaiting orders (before ${beforeStr})`);
       res.json({
         deleted: ids.length,
         before: beforeStr,
@@ -1154,9 +1153,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const platform = req.query.platform as string;
       let dateFilter: Date | null = null;
       let endDateFilter: Date | null = null;
-      
-      // Debug logging
-      console.log(`📊 Orders Summary API called with range: ${range || 'none'}, productLine: ${productLine || 'none'}, platform: ${platform || 'none'}`);
       
       if (range && range !== 'all') {
         const now = new Date();
@@ -1267,8 +1263,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           shippedDate: row.shipped_date,
         }));
         
-        console.log(`📊 Sending ${mappedOrders.length} orders filtered by product line "${productLine}" and platform "${platform || 'all'}"`, 
-          mappedOrders.length > 0 ? `Sample: orderNumber=${mappedOrders[0].orderNumber}, orderTotal=${mappedOrders[0].orderTotal}` : '');
         res.json(mappedOrders);
         return;
       }
@@ -1298,9 +1292,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .where(and(orgFilter, isTestExclude))
             .orderBy(desc(orders.orderDate));
       
-      const responseSize = JSON.stringify(allOrders).length;
-      console.log(`📊 Sending ${allOrders.length} order summaries (no details), response size: ${(responseSize / 1024 / 1024).toFixed(2)} MB (dateFilter: ${dateFilter ? 'set' : 'none'})`);
-      
       res.json(allOrders);
     } catch (error) {
       console.error("Error fetching order summaries:", error);
@@ -1318,9 +1309,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const lean = req.query.lean === 'true';
       let dateFilter: Date | null = null;
       let endDateFilter: Date | null = null;
-      
-      // Debug logging
-      console.log(`📊 Orders API called with range: ${range || 'none'}, lean: ${lean}`);
       
       if (range && range !== 'all') {
         const now = new Date();
@@ -1365,8 +1353,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .where(buildWhere(null))
             .orderBy(desc(orders.orderDate));
       
-      console.log(`📊 Fetched ${allOrders.length} orders (dateFilter: ${dateFilter ? 'set' : 'none'})`);
-      
       if (allOrders.length === 0) {
         res.json([]);
         return;
@@ -1398,10 +1384,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...order,
         items: detailsByOrder[order.id] || [],
       }));
-      
-      // Log response size for debugging
-      const responseSize = JSON.stringify(ordersWithDetails).length;
-      console.log(`📊 Sending ${ordersWithDetails.length} orders, response size: ${(responseSize / 1024 / 1024).toFixed(2)} MB`);
       
       res.json(ordersWithDetails);
     } catch (error) {
@@ -2397,7 +2379,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         syncStripeRefunds(sinceDays, apiKey || undefined),
         syncStripeFees(sinceDays, apiKey || undefined),
       ]);
-      console.log(`✅ Stripe sync: ${refundResult.matched} refunds matched, ${feeResult.matched} fee charges matched`);
       res.json({ refunds: refundResult, fees: feeResult });
     } catch (error: any) {
       console.error("Error syncing Stripe data:", error);
@@ -2424,7 +2405,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { sinceDays = 90, force = false } = req.body;
       const { syncPayPalTransactions } = await import('./services/paypal-sync');
       const result = await syncPayPalTransactions(sinceDays, force, reqOrgId(req));
-      console.log(`✅ PayPal sync: ${result.refundsMatched} refunds, ${result.feesMatched} fees matched${force ? ' (forced re-sync)' : ''}`);
       res.json(result);
     } catch (error: any) {
       console.error("Error syncing PayPal data:", error);
@@ -2552,49 +2532,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Get total orders count with date filter
+      // Build orders WHERE clause once (reused for both count and sum)
       const orgOrdersWhere = eq(orders.orgId, orgId);
-      const orderCount = dateFilter
+      const ordersWhere = dateFilter
         ? endDateFilter
-          ? await db.select({ count: sql<number>`count(*)` }).from(orders)
-              .where(and(orgOrdersWhere, sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`))
-          : await db.select({ count: sql<number>`count(*)` }).from(orders)
-              .where(and(orgOrdersWhere, sql`${orders.orderDate} >= ${dateFilter.toISOString()}`))
-        : await db.select({ count: sql<number>`count(*)` }).from(orders).where(orgOrdersWhere);
-      
-      // Get total inventory items count (not date-filtered - inventory is current state)
-      const inventoryCount = await db.select({ count: sql<number>`count(*)` }).from(blInventory)
-        .where(eq(blInventory.orgId, orgId));
-      
-      // Get total inventory quantity (not date-filtered - inventory is current state)
-      const inventoryQty = await db.select({ 
-        total: sql<number>`sum(${blInventory.quantity})` 
-      }).from(blInventory).where(eq(blInventory.orgId, orgId));
-      
-      // Get total sales from orders with date filter
-      // orderTotal is already decimal type, so just sum it (COALESCE handles nulls)
-      const totalSales = dateFilter
-        ? endDateFilter
-          ? await db.select({
-              total: sql<number>`COALESCE(sum(${orders.orderTotal}), 0)`
-            }).from(orders).where(and(orgOrdersWhere, sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`))
-          : await db.select({
-              total: sql<number>`COALESCE(sum(${orders.orderTotal}), 0)`
-            }).from(orders).where(and(orgOrdersWhere, sql`${orders.orderDate} >= ${dateFilter.toISOString()}`))
-        : await db.select({
-            total: sql<number>`COALESCE(sum(${orders.orderTotal}), 0)`
-          }).from(orders).where(orgOrdersWhere);
-      
-      const inventoryValue = await db.select({
-        total: sql<number>`COALESCE(sum(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL)), 0)`
-      }).from(blInventory).where(eq(blInventory.orgId, orgId));
+          ? and(orgOrdersWhere, sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${endDateFilter.toISOString()}`)
+          : and(orgOrdersWhere, sql`${orders.orderDate} >= ${dateFilter.toISOString()}`)
+        : orgOrdersWhere;
+
+      // Two parallel queries instead of five sequential ones
+      const [ordersStats, inventoryStats] = await Promise.all([
+        db.select({
+          count: sql<number>`count(*)`,
+          totalSales: sql<number>`COALESCE(sum(${orders.orderTotal}), 0)`,
+        }).from(orders).where(ordersWhere),
+        db.select({
+          count: sql<number>`count(*)`,
+          totalQty: sql<number>`COALESCE(sum(${blInventory.quantity}), 0)`,
+          totalValue: sql<number>`COALESCE(sum(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL)), 0)`,
+        }).from(blInventory).where(eq(blInventory.orgId, orgId)),
+      ]);
 
       res.json({
-        totalOrders: Number(orderCount[0]?.count) || 0,
-        totalInventoryItems: Number(inventoryCount[0]?.count) || 0,
-        totalInventoryQuantity: Number(inventoryQty[0]?.total) || 0,
-        totalSales: Number(totalSales[0]?.total) || 0,
-        totalInventoryValue: Number(inventoryValue[0]?.total) || 0,
+        totalOrders: Number(ordersStats[0]?.count) || 0,
+        totalInventoryItems: Number(inventoryStats[0]?.count) || 0,
+        totalInventoryQuantity: Number(inventoryStats[0]?.totalQty) || 0,
+        totalSales: Number(ordersStats[0]?.totalSales) || 0,
+        totalInventoryValue: Number(inventoryStats[0]?.totalValue) || 0,
       });
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
@@ -2818,12 +2782,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { messages, context, elfieMode } = req.body;
       
-      console.log('📨 Received request body:', JSON.stringify({ 
-        messagesCount: messages?.length, 
-        context,
-        firstMessage: messages?.[0]
-      }));
-      
       // Validate messages array
       if (!messages || !Array.isArray(messages) || messages.length === 0) {
         return res.status(400).json({
@@ -2863,7 +2821,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Query database for relevant data based on user's question
       const lastUserMessageRaw = messages[messages.length - 1]?.content || '';
       const lastUserMessage = lastUserMessageRaw.toLowerCase(); // ALWAYS use this for detection
-      console.log('🔍 Backend received user message:', lastUserMessage);
       let databaseContext = '';
 
       // Check for summary requests
@@ -3017,8 +2974,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (partNumberMatch || searchKeywords.length > 0 || lastUserMessage.includes('part') || lastUserMessage.includes('inventory')) {
         const partNumber = partNumberMatch ? partNumberMatch[1] : null;
         
-        console.log('🔍 Search params:', { partNumber, keywords: searchKeywords });
-        
         // Build query - search across multiple fields
         let inventoryResults;
         if (partNumber) {
@@ -3084,7 +3039,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               .where(and(isSuperAdminUser ? undefined : eq(blInventory.orgId, orgId), inArray(blInventory.categoryId, categoryIds)))
               .limit(50);
             
-            console.log(`🔍 Category search: Found ${categoryMatches.length} matching categories:`, categoryMatches.map(c => c.name).join(', '));
           } else { // no category match
             // No category match - try semantic search first if embeddings available
             try {
@@ -3092,7 +3046,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const semanticResults = await searchInventorySemantic(lastUserMessage, 10, isSuperAdminUser ? undefined : orgId);
               
               if (semanticResults && semanticResults.length > 0) {
-                console.log(`🧠 Semantic search: Found ${semanticResults.length} items`);
                 inventoryResults = semanticResults.map((result: any) => ({
                   id: result.inventory_id,
                   itemNo: result.item_no,
@@ -3112,7 +3065,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             } catch (semanticError) {
               // Fall back to keyword search across multiple fields
-              console.log('Falling back to keyword search');
               const conditions = searchKeywords.flatMap(keyword => {
                 const pattern = `%${keyword}%`;
                 return [
@@ -3171,7 +3123,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         const searchTerm = partNumber || searchKeywords.join(' ') || 'general';
-        console.log('🔍 Inventory query returned', inventoryResults.length, 'results for:', searchTerm);
         if (inventoryResults.length > 0) {
           searchModeInventoryResults = inventoryResults;
           databaseContext += `\n\nINVENTORY DATA FROM DATABASE:\n`;
@@ -3186,10 +3137,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (item.remarks) databaseContext += ` - ${item.remarks}`;
             databaseContext += `\n`;
           });
-          console.log('🔍 Database context length:', databaseContext.length);
         } else if (partNumber || searchKeywords.length > 0) {
           databaseContext += `\n\nINVENTORY SEARCH: No items found for "${searchTerm}" in database.\n`;
-          console.log('🔍 No inventory found for:', searchTerm);
           
           // Set BrickLink search suggestion for part numbers not found locally
           if (partNumber) {
@@ -3198,7 +3147,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             bricklinkSearchSuggestion = { itemNo: partNumber, itemType };
             
             databaseContext += `\nINSTRUCTION: Tell the user that "${partNumber}" is not in inventory and a BrickLink catalog search button will appear below the message.\n`;
-            console.log('🔗 Setting BrickLink search suggestion for:', partNumber, 'type:', itemType);
           }
         }
       }
@@ -3289,11 +3237,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (priceOMagicData.weight) {
                 databaseContext += `- Weight: ${parseFloat(priceOMagicData.weight).toFixed(1)}g\n`;
               }
-              console.log('💰 Price-o-Matic data added to context for:', item.itemNo);
             }
           }
         } catch (error) {
-          console.error('💰 Error fetching Price-o-Matic data:', error);
+          console.error('Error fetching Price-o-Matic data:', error);
           // Don't throw - pricing is optional, continue with chat
         }
       }
@@ -3609,8 +3556,6 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           ? `${settings.systemPrompt}\n\nCurrent context: ${context}\n${databaseContext}\n\n${enhancedDefaultPrompt}` 
           : `${enhancedDefaultPrompt}\n\nCurrent context: ${context}\n${databaseContext}`);
 
-      console.log(`⏱️ Pre-query phase took ${Date.now() - chatStartTime}ms`);
-
       // ── SEARCH MODE BYPASS — no AI credits used ──────────────────────────
       if (elfieMode === 'search') {
         const parts: string[] = [];
@@ -3846,8 +3791,6 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       while ((partMatch = boldPartRegex.exec(assistantMessage)) !== null) {
         mentionedParts.add(partMatch[1]);
       }
-      
-      console.log('🔍 Extracted part numbers from AI response:', Array.from(mentionedParts));
       
       // Query database for only the mentioned parts
       if (mentionedParts.size > 0) {
@@ -4460,20 +4403,16 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         return res.status(400).json({ error: "Missing itemNo or itemType parameter" });
       }
       
-      console.log('🔗 BrickLink search endpoint called for:', itemNo, 'type:', itemType);
-      
       // Search BrickLink catalog
       const catalogItem = await searchBricklinkCatalogItem(itemNo as string, itemType as string);
       
       if (catalogItem) {
-        console.log('🔗 BrickLink catalog item found:', catalogItem.itemNo, '-', catalogItem.itemName);
         res.json({ item: catalogItem });
       } else {
-        console.log('🔗 BrickLink catalog: item not found');
         res.status(404).json({ error: "Item not found in BrickLink catalog" });
       }
     } catch (error) {
-      console.error('🔗 BrickLink search error:', error);
+      console.error('BrickLink search error:', error);
       res.status(500).json({ 
         error: error instanceof Error ? error.message : "Failed to search BrickLink catalog"
       });
@@ -4490,12 +4429,6 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       }
       
       const itemType = req.body.itemType || 'parts'; // Default to parts
-      console.log('📷 Brickognize identify endpoint called for type:', itemType);
-      console.log('📷 File info:', {
-        originalname: req.file.originalname,
-        mimetype: req.file.mimetype,
-        size: req.file.size
-      });
       
       // Use the form-data package with axios for proper Node.js compatibility
       const formData = new FormData();
@@ -4506,17 +4439,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       
       // Call Brickognize API using axios (handles streams properly)
       const brickognizeUrl = `https://api.brickognize.com/predict/${itemType}/`;
-      console.log('📷 Calling Brickognize API:', brickognizeUrl);
-      
       const response = await axios.post(brickognizeUrl, formData, {
         headers: formData.getHeaders(),
       });
       
-      console.log('📷 Brickognize results:', response.data.items?.length || 0, 'items found');
-      
       res.json(response.data);
     } catch (error: any) {
-      console.error('📷 Brickognize identification error:', error.response?.data || error.message);
+      console.error('Brickognize identification error:', error.response?.data || error.message);
       const statusCode = error.response?.status || 500;
       res.status(statusCode).json({ 
         error: statusCode === 400 
@@ -6594,7 +6523,6 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           const descriptionDiscrepancies: any[] = [];
 
           // SIMPLIFIED COMPARISON: Use external_lot_ids.other (BrickLink inventory ID) for matching
-          console.log('[Status] Starting simplified comparison using external_lot_ids.other');
           const blItemsMap = new Map<number, any>();
           const blItems = await db.select().from(blInventory).where(eq(blInventory.orgId, orgId));
           
@@ -6602,7 +6530,6 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           for (const blItem of blItems) {
             blItemsMap.set(blItem.id, blItem);
           }
-          console.log(`[Status] Built BL map with ${blItemsMap.size} items`);
 
           // Track matched BrickLink inventory IDs
           const matchedBlIds = new Set<number>();
@@ -6884,7 +6811,6 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         total: verifiedLots.length,
       };
       
-      console.log('[Verify Lots] Returning response:', JSON.stringify(response).substring(0, 200));
       return res.json(response);
     } catch (error: any) {
       console.error('[Verify Lots] Error:', error);
@@ -7849,10 +7775,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
 
   // Bulk Rebrickable Image Sync (one-time operation to fetch all images)
   app.post("/api/sync/rebrickable/bulk-images", isApproved, async (req, res) => {
-    console.log('🔍 [DEBUG] Bulk image sync route HIT');
     try {
       const maxBatches = req.body?.maxBatches || 500;
-      console.log(`🔍 [DEBUG] maxBatches: ${maxBatches}`);
       
       // Start the sync in background - don't await it
       console.log(`[Rebrickable Bulk Sync] Starting bulk image sync in background (max ${maxBatches} batches)...`);
@@ -7995,12 +7919,10 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   app.post("/api/sync/all-platforms/orders", isApproved, async (req, res) => {
     try {
       const { limit = 50, fullSync = false } = req.body;
-      console.log(`🔄 Manual Sync All triggered (limit: ${limit}, fullSync: ${fullSync})`);
       const { runPlatformOrderSync } = await import("./services/order-sync-core");
       const result = await runPlatformOrderSync("all", { limit, fullSync });
       const anySuccess = result.bricklink.success || result.brickowl.success;
       const allSkipped = result.bricklink.skipped && result.brickowl.skipped;
-      console.log(`✨ Sync All complete`);
       res.json({ success: anySuccess, allSkipped, results: result });
     } catch (error: any) {
       const isConflict = error?.message?.toLowerCase().includes('blocked');
@@ -10562,11 +10484,6 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         overrideToAddress: overrideToAddress || undefined,
       });
       
-      console.log('📦 Shipment created:', {
-        shipmentId: result.shipmentId,
-        ratesCount: result.rates?.length || 0,
-        rates: result.rates
-      });
       
       res.json(result);
     } catch (error: any) {
@@ -11308,6 +11225,20 @@ Your response MUST be valid JSON with these exact keys: title, refinedDescriptio
     } catch (error: any) {
       console.error("❌ Feedback refine error:", error.message);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── Global error handler ──────────────────────────────────────────────────
+  // Catches any error passed to next(err) or thrown inside async route handlers
+  // that was not already handled. Keeps error handling DRY across all routes.
+  app.use((err: any, _req: any, res: any, _next: any) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || 'Internal server error';
+    if (status >= 500) {
+      console.error('[Unhandled error]', err);
+    }
+    if (!res.headersSent) {
+      res.status(status).json({ message });
     }
   });
 

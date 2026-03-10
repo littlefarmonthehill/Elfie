@@ -29,6 +29,23 @@ PlanetBrick's core functionality revolves around BrickLink as the primary produc
 -   **Brickognize API:** For LEGO part image recognition within the Brickanalyzer tool.
 -   **Neon:** Serverless PostgreSQL database with the `pgvector` extension for vector embeddings.
 
+## Performance & Code Quality Notes
+
+### Database Indexes (Applied)
+All 19 tables with `orgId` columns now have indexes. This is critical for multi-tenant query performance — without these, every tenant-scoped query was a full table scan. Composite indexes were added for high-frequency access patterns (e.g., `orgId + orderDate`, `orgId + status`).
+
+### routes.ts Architecture Note
+`server/routes.ts` is a single 11,200-line file containing all ~200 route handlers. It is kept as a monolith intentionally for now to minimize refactor risk. When splitting, the recommended approach is to create `server/routes/` domain files using Express Router, sharing utilities from `server/routes/shared.ts` (for `reqOrgId`, `getOrgSettings`, `decodeHtmlEntities`, `activeOrderStatusWhere`). A global error handler now exists at the bottom of `registerRoutes()` to catch any unhandled errors.
+
+### Dashboard Stats Optimization
+`GET /api/dashboard/stats` was previously 5 sequential queries. Now runs 2 parallel queries: one for `orders` (count + sum) and one for `blInventory` (count + qty + value). This is a ~60% reduction in round-trips for the most frequently loaded endpoint.
+
+### Dead Code Removed
+- `client/src/components/examples/` (9 files, ~40KB) — confirmed zero imports anywhere in the codebase.
+
+### Debug Logging Cleaned
+Removed ~30 debug `console.log` calls with emojis from routes.ts, ChatInterface.tsx, home.tsx, and SettingsModal.tsx. Retained legitimate `console.error` calls and operational diagnostics for the Brickanalyzer CV pipeline, CLIP embedding system, and Platform Sync.
+
 ## Platform Admin — Plans & Pricing
 
 Plan configurations are stored in the `planConfigs` DB table (seeded once from `shared/tierConfig.ts` on first startup). Super admins can edit plan configs via the Platform Admin → Plans & Pricing section in the SettingsModal.

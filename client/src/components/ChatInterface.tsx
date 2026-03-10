@@ -600,11 +600,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     const conversationHistory = [...messages, userMessage];
     setMessages(conversationHistory);
     
-    console.log('🚀 Frontend sending to /api/chat:');
-    console.log('  - User message:', textToSend);
-    console.log('  - Number of messages in history:', conversationHistory.length);
-    console.log('  - Dashboard context:', dashboardContext);
-    
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -628,11 +623,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       if (data.sessionId && data.sessionId !== sessionId) {
         setSessionId(data.sessionId);
       }
-      
-      console.log('📥 Frontend received response:');
-      console.log('  - Status:', response.status);
-      console.log('  - Message preview:', data.message?.substring(0, 150));
-      console.log('  - Items found:', data.items?.length || 0);
       
       if (data.error) {
         // Use the specific error message from the server if provided
@@ -658,8 +648,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       
       // Legacy: If BrickLink catalog item is returned, open the detail modal immediately
       if (data.bricklinkItem && onItemClick) {
-        console.log('🔗 BrickLink catalog item found, opening modal:', data.bricklinkItem);
-        
         // Store BrickLink catalog item in sessionStorage so the modal can access it
         const catalogItemKey = `bricklink-item-${data.bricklinkItem.itemNo}`;
         sessionStorage.setItem(catalogItemKey, JSON.stringify(data.bricklinkItem));
@@ -698,8 +686,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   };
 
   const handleBrickLinkSearch = async (itemNo: string, itemType: string) => {
-    console.log('🔗 Searching BrickLink catalog for:', itemNo, 'type:', itemType);
-    
     try {
       // Call BrickLink search endpoint
       const response = await fetch(`/api/bricklink/search?itemNo=${encodeURIComponent(itemNo)}&itemType=${encodeURIComponent(itemType)}`);
@@ -717,8 +703,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       }
       
       if (data.item) {
-        console.log('🔗 BrickLink catalog item found:', data.item);
-        
         // Store in sessionStorage for modal to access
         const catalogItemKey = `bricklink-item-${data.item.itemNo}`;
         sessionStorage.setItem(catalogItemKey, JSON.stringify(data.item));
