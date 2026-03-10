@@ -2156,7 +2156,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
           {activeScan && (
             <div className="relative rounded-lg border border-gray-700 overflow-hidden bg-black" data-testid="inline-heatmap">
               {/* Filter bar */}
-              <div className="flex items-center justify-end gap-2 px-3 py-1.5 border-b border-gray-800 flex-wrap">
+              <div className="relative flex items-center justify-end gap-2 px-3 py-1.5 border-b border-gray-800 flex-wrap" style={{ zIndex: 10 }}>
                 <div className="flex items-center gap-1.5">
                   {/* Condition toggle: New | Used */}
                   <div className="flex rounded overflow-hidden border border-gray-700 text-[10px] font-medium shrink-0">
@@ -2202,8 +2202,8 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
               {/* Scan image */}
               <div
                 ref={scanContainerRef}
-                className="overflow-hidden flex items-center justify-center"
-                style={{ maxHeight: '55vh' }}
+                className="flex items-center justify-center"
+                style={{ maxHeight: '55vh', overflow: 'visible' }}
               >
                 <div
                   style={{
