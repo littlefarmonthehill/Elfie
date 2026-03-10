@@ -37,25 +37,121 @@ function formatCurrency(v: string | number) {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
+type LaneColor = 'cyan' | 'orange' | 'teal' | 'purple';
+
+const LANE_THEME: Record<LaneColor, {
+  border: string; glow: string; gradFrom: string; headerGrad: string; shine: string;
+  badgeBg: string; badgeRing: string; badgeShadow: string; iconText: string; titleText: string;
+}> = {
+  cyan: {
+    border: 'border-cyan-700/50', glow: 'shadow-[0_0_22px_rgba(6,182,212,0.09)]',
+    gradFrom: 'from-cyan-950/20', headerGrad: 'from-cyan-950/35', shine: 'via-cyan-400/35',
+    badgeBg: 'bg-cyan-900/60', badgeRing: 'ring-cyan-500/50', badgeShadow: 'shadow-[0_0_8px_rgba(6,182,212,0.25)]',
+    iconText: 'text-cyan-200', titleText: 'text-cyan-200',
+  },
+  orange: {
+    border: 'border-orange-700/50', glow: 'shadow-[0_0_22px_rgba(249,115,22,0.09)]',
+    gradFrom: 'from-orange-950/20', headerGrad: 'from-orange-950/35', shine: 'via-orange-400/35',
+    badgeBg: 'bg-orange-900/60', badgeRing: 'ring-orange-500/50', badgeShadow: 'shadow-[0_0_8px_rgba(249,115,22,0.25)]',
+    iconText: 'text-orange-200', titleText: 'text-orange-200',
+  },
+  teal: {
+    border: 'border-teal-700/50', glow: 'shadow-[0_0_22px_rgba(20,184,166,0.09)]',
+    gradFrom: 'from-teal-950/20', headerGrad: 'from-teal-950/35', shine: 'via-teal-400/35',
+    badgeBg: 'bg-teal-900/60', badgeRing: 'ring-teal-500/50', badgeShadow: 'shadow-[0_0_8px_rgba(20,184,166,0.25)]',
+    iconText: 'text-teal-200', titleText: 'text-teal-200',
+  },
+  purple: {
+    border: 'border-purple-700/50', glow: 'shadow-[0_0_22px_rgba(168,85,247,0.09)]',
+    gradFrom: 'from-purple-950/20', headerGrad: 'from-purple-950/35', shine: 'via-purple-400/35',
+    badgeBg: 'bg-purple-900/60', badgeRing: 'ring-purple-500/50', badgeShadow: 'shadow-[0_0_8px_rgba(168,85,247,0.25)]',
+    iconText: 'text-purple-200', titleText: 'text-purple-200',
+  },
+};
+
 function LaneCard({
-  title, Icon, accent, children, summary,
+  title, Icon, color, children, summary,
 }: {
   title: string;
   Icon: React.ElementType;
-  accent: string;
+  color: LaneColor;
   children: React.ReactNode;
   summary?: React.ReactNode;
 }) {
+  const t = LANE_THEME[color];
   return (
-    <div className={`relative flex flex-col h-full rounded-lg border ${accent} bg-gray-900/60 overflow-hidden`}>
-      <div className={`flex items-center gap-2 px-3 py-2 border-b ${accent} bg-gray-900/80`}>
-        <Icon className="w-4 h-4 shrink-0 opacity-80" />
-        <span className="text-xs xl:text-[11px] font-semibold uppercase tracking-widest">{title}</span>
+    <div className={`relative flex flex-col h-full rounded-lg border ${t.border} bg-gradient-to-b ${t.gradFrom} to-gray-900/70 overflow-hidden ${t.glow}`}>
+      {/* Shine line */}
+      <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent ${t.shine} to-transparent pointer-events-none z-10`} />
+      {/* Header */}
+      <div className={`flex items-center gap-2 px-3 py-2 border-b ${t.border} bg-gradient-to-b ${t.headerGrad} to-gray-900/80`}>
+        <div className={`p-1 rounded-md ${t.badgeBg} ring-1 ${t.badgeRing} ${t.badgeShadow} shrink-0`}>
+          <Icon className={`w-3 h-3 ${t.iconText}`} />
+        </div>
+        <span className={`text-xs xl:text-[11px] font-semibold uppercase tracking-widest ${t.titleText}`}>{title}</span>
         {summary && <span className="ml-auto text-[10px] text-muted-foreground font-normal truncate max-w-[160px] flex items-center gap-1.5">{summary}</span>}
       </div>
       <div className="flex-1 flex flex-col divide-y divide-border/40 min-h-0 pb-9">
         {children}
       </div>
+    </div>
+  );
+}
+
+// ── OPS SUMMARY STRIP ─────────────────────────────────────────────────────────
+
+function OpsStatChip({ label, value, sub, colorClass, glowClass, borderClass }: {
+  label: string; value: string; sub?: string;
+  colorClass: string; glowClass: string; borderClass: string;
+}) {
+  return (
+    <div className={`rounded-lg border ${borderClass} bg-gray-900/60 px-3 py-2 ${glowClass}`} data-testid={`ops-chip-${label.toLowerCase().replace(/\s+/g, '-')}`}>
+      <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold mb-0.5">{label}</p>
+      <p className={`text-sm font-semibold font-mono leading-tight ${colorClass}`}>{value}</p>
+      {sub && <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{sub}</p>}
+    </div>
+  );
+}
+
+function OpsSummary({ stats, pendingCount }: {
+  stats?: { totalOrders: number; totalInventoryItems: number; totalInventoryQuantity: number; totalSales: number } | null;
+  pendingCount: number;
+}) {
+  if (!stats) return null;
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3" data-testid="ops-summary">
+      <OpsStatChip
+        label="Lots in Stock"
+        value={(stats.totalInventoryItems ?? 0).toLocaleString()}
+        sub={`${(stats.totalInventoryQuantity ?? 0).toLocaleString()} pcs`}
+        colorClass="text-cyan-300"
+        borderClass="border-cyan-800/40"
+        glowClass="shadow-[0_0_12px_rgba(6,182,212,0.07)]"
+      />
+      <OpsStatChip
+        label="To Fulfill"
+        value={pendingCount.toLocaleString()}
+        sub="pending orders"
+        colorClass="text-orange-300"
+        borderClass="border-orange-800/40"
+        glowClass="shadow-[0_0_12px_rgba(249,115,22,0.07)]"
+      />
+      <OpsStatChip
+        label="MTD Revenue"
+        value={formatCurrency(stats.totalSales ?? 0)}
+        sub={`${(stats.totalOrders ?? 0).toLocaleString()} orders`}
+        colorClass="text-emerald-300"
+        borderClass="border-emerald-800/40"
+        glowClass="shadow-[0_0_12px_rgba(16,185,129,0.07)]"
+      />
+      <OpsStatChip
+        label="Total Orders"
+        value={(stats.totalOrders ?? 0).toLocaleString()}
+        sub="all time"
+        colorClass="text-violet-300"
+        borderClass="border-violet-800/40"
+        glowClass="shadow-[0_0_12px_rgba(139,92,246,0.07)]"
+      />
     </div>
   );
 }
@@ -341,7 +437,7 @@ function InventoryLane({
     : undefined;
 
   return (
-    <LaneCard title="Inventory" Icon={Package} accent="border-cyan-800/40 text-cyan-300" summary={summary}>
+    <LaneCard title="Inventory" Icon={Package} color="cyan" summary={summary}>
 
       {/* Needs Attention */}
       {(invSyncFailed || pomFailed || highOpportunityCount > 0 || tooHighCount > 0) ? (
@@ -451,7 +547,7 @@ function OrdersLane({ stats, dashboardOrders, fulfillmentStats, orderSyncRunning
     : undefined;
 
   return (
-    <LaneCard title="Orders" Icon={ShoppingCart} accent="border-orange-800/40 text-orange-300" summary={summary}>
+    <LaneCard title="Orders" Icon={ShoppingCart} color="orange" summary={summary}>
 
       {/* Attention */}
       {(pendingCount > 0 || orderSyncFailed) ? (
@@ -548,7 +644,7 @@ function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, 
   );
 
   return (
-    <LaneCard title="Multichannel" Icon={Globe} accent="border-teal-800/40 text-teal-300" summary={summary}>
+    <LaneCard title="Multichannel" Icon={Globe} color="teal" summary={summary}>
 
       {/* Attention — grouped by channel */}
       {(() => {
@@ -671,7 +767,7 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
   const summary = `E.L.F.I.E. ${elfieMode === 'ai' ? 'AI' : 'Search'} mode`;
 
   return (
-    <LaneCard title="AI Intelligence" Icon={Brain} accent="border-purple-800/40 text-purple-300" summary={summary}>
+    <LaneCard title="AI Intelligence" Icon={Brain} color="purple" summary={summary}>
 
       {/* Attention */}
       {isScanComplete && (latestScan?.totalPieces ?? 0) > 0 && (
@@ -1063,6 +1159,8 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     return total + (platform.discrepancies?.missingLots || 0) + (platform.discrepancies?.priceDifferences || 0) + (platform.discrepancies?.quantityDifferences || 0);
   }, 0) || 0;
 
+  const pendingCount = fulfillmentStats?.unfulfilled ?? dashboardOrders?.pending?.length ?? 0;
+
   return (
     <div className="p-3 md:p-4 lg:p-5 xl:p-6 space-y-4 md:space-y-4 xl:space-y-5">
 
@@ -1071,6 +1169,9 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
 
       {/* Sync issue notifications (per-item detail feed) */}
       <DashboardNotifications />
+
+      {/* Ops Summary Strip */}
+      <OpsSummary stats={stats} pendingCount={pendingCount} />
 
       {/* Four Ops Lanes */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-4 xl:gap-5 items-stretch" data-testid="ops-lanes">
