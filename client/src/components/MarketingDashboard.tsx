@@ -457,7 +457,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                 <div className="rounded-lg bg-cyan-900/70 p-1.5 ring-1 ring-cyan-500/45 shadow-[0_0_10px_rgba(6,182,212,0.22)]">
                   <UserPlus className="w-3.5 h-3.5 md:w-5 md:h-5 text-cyan-200" />
                 </div>
-                <span className="text-xs md:text-sm font-bold text-cyan-100 leading-tight flex-1">Engage New Customers</span>
+                <span className="text-xs md:text-sm font-bold text-cyan-100 leading-tight flex-1">New Customers</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -470,7 +470,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                     </span>
                   </PopoverTrigger>
                   <PopoverContent side="top" className="w-64 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
-                    Reach out to first-time buyers — onboarding messages, welcome offers, and early engagement prompts.
+                    First-time buyers — see who bought recently and track whether they return for a second order.
                   </PopoverContent>
                 </Popover>
               </div>
@@ -497,7 +497,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                 <div className="rounded-lg bg-blue-900/70 p-1.5 ring-1 ring-blue-500/45 shadow-[0_0_10px_rgba(59,130,246,0.22)]">
                   <RefreshCcw className="w-3.5 h-3.5 md:w-5 md:h-5 text-blue-200" />
                 </div>
-                <span className="text-xs md:text-sm font-bold text-blue-100 leading-tight flex-1">Engage Repeating Customers</span>
+                <span className="text-xs md:text-sm font-bold text-blue-100 leading-tight flex-1">Repeat Customers</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -510,7 +510,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                     </span>
                   </PopoverTrigger>
                   <PopoverContent side="top" className="w-64 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
-                    Keep loyal buyers engaged — personalized follow-ups, exclusive offers, and re-order reminders.
+                    Buyers who have ordered more than once — your most loyal customers and best candidates for re-engagement.
                   </PopoverContent>
                 </Popover>
               </div>
@@ -537,7 +537,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                 <div className="rounded-lg bg-amber-900/70 p-1.5 ring-1 ring-amber-500/45 shadow-[0_0_10px_rgba(245,158,11,0.22)]">
                   <Trophy className="w-3.5 h-3.5 md:w-5 md:h-5 text-amber-200" />
                 </div>
-                <span className="text-xs md:text-sm font-bold text-amber-100 leading-tight flex-1">Engage Top Spenders</span>
+                <span className="text-xs md:text-sm font-bold text-amber-100 leading-tight flex-1">Top Spenders</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -550,7 +550,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                     </span>
                   </PopoverTrigger>
                   <PopoverContent side="top" className="w-64 text-xs text-gray-300 bg-gray-900 border-gray-700 p-2.5">
-                    VIP perks, loyalty tiers, and exclusive discounts for your highest-value customers.
+                    Your highest-value customers ranked by total spend — ideal for priority service or special offers.
                   </PopoverContent>
                 </Popover>
               </div>
