@@ -1624,7 +1624,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     { id: 'billing' as const, label: 'Billing & Plan', icon: CreditCard },
     { id: 'platforms' as const, label: 'Platforms', icon: Layers },
     ...(isAdmin ? [{ id: 'users' as const, label: 'Team & Roles', icon: Users }] : []),
-    ...(priceOMaticEnabled ? [{ id: 'priceomatic' as const, label: 'Price-o-Matic', icon: TrendingUp }] : []),
+    { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: TrendingUp },
     { id: 'automation' as const, label: 'Scheduler', icon: Play },
     { id: 'data' as const, label: 'Data Maintenance', icon: HardDrive },
     { id: 'about' as const, label: 'About & Credits', icon: Info },
