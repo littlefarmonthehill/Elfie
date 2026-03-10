@@ -2261,10 +2261,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 const hasActiveSub = !!org?.stripeSubscriptionId;
                 const renewalDate = org?.subscriptionEndsAt ? new Date(org.subscriptionEndsAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : null;
                 const planLabel = (p?: string | null) => p === 'core' ? 'Core' : p === 'foundation' ? 'Foundation' : p === 'flagship' ? 'Flagship' : 'Free Trial';
-                const fndMonthly = TIER_CONFIG.foundation.price.monthly;
-                const fndAnnual = Math.round(TIER_CONFIG.foundation.price.annual / 12);
-                const coreMonthly = TIER_CONFIG.core.price.monthly;
-                const coreAnnual = Math.round(TIER_CONFIG.core.price.annual / 12);
+                const fndMonthly = Math.round(TIER_CONFIG.foundation.pricing.monthly / 100);
+                const fndAnnual = Math.round(TIER_CONFIG.foundation.pricing.annual / 12 / 100);
+                const coreMonthly = Math.round(TIER_CONFIG.core.pricing.monthly / 100);
+                const coreAnnual = Math.round(TIER_CONFIG.core.pricing.annual / 12 / 100);
                 const displayPrice = (plan: string) => plan === 'core' ? (subInterval === 'annual' ? coreAnnual : coreMonthly) : (subInterval === 'annual' ? fndAnnual : fndMonthly);
                 const noChange = subPlan === org?.plan && subInterval === (org?.subscriptionInterval ?? 'monthly');
                 return (
