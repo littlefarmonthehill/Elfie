@@ -1,7 +1,8 @@
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Users, Sparkles, Info,
-  Megaphone, UserPlus, RefreshCcw, Trophy, X,
+  Megaphone, UserPlus, RefreshCcw, Trophy, X, Search, MapPin, Mail, ShoppingBag, DollarSign, Calendar,
 } from "lucide-react";
 
 import {
@@ -26,6 +27,8 @@ interface Order {
   orderStatus: string;
   orderTotal: string;
   customerUsername: string;
+  customerEmail?: string | null;
+  shipTo?: string | null;
 }
 
 interface CustomerData {
@@ -33,6 +36,13 @@ interface CustomerData {
   totalRevenue: number;
   orderCount: number;
   lastOrderDate: string;
+  firstOrderDate: string;
+  mostRecentOrderId: string;
+  customerEmail: string;
+  shipName: string;
+  shipCity: string;
+  shipState: string;
+  shipCountry: string;
 }
 
 export type MarketingDrawer = 'attract' | 'engage-new' | 'engage-repeat' | 'engage-top' | null;
@@ -44,7 +54,199 @@ interface MarketingDashboardProps {
   onDrawerChange: (drawer: MarketingDrawer) => void;
 }
 
+function parseShipTo(raw: string | null | undefined): { name: string; city: string; state: string; country: string } {
+  if (!raw) return { name: '', city: '', state: '', country: '' };
+  try {
+    const p = JSON.parse(raw);
+    return {
+      name: p.name || p.full_name || '',
+      city: p.city || '',
+      state: p.state || p.stateOrProvince || '',
+      country: p.country || p.countryCode || '',
+    };
+  } catch {
+    return { name: '', city: '', state: '', country: '' };
+  }
+}
+
+function fmtCurrency(n: number) {
+  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+}
+
+function fmtDate(dateStr: string) {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function CustomerRow({
+  customer,
+  rank,
+  subtitle,
+  badge,
+  accentClass,
+  onClick,
+}: {
+  customer: CustomerData;
+  rank?: number;
+  subtitle: string;
+  badge?: string;
+  accentClass: string;
+  onClick: () => void;
+}) {
+  const hasLocation = customer.shipCity || customer.shipCountry;
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left flex items-start gap-3 px-4 py-3 hover-elevate active-elevate-2 border-b border-gray-700/40 last:border-0 transition-colors"
+      data-testid={`customer-row-${customer.customerUsername}`}
+    >
+      {rank !== undefined && (
+        <span className={`shrink-0 mt-0.5 text-[11px] font-bold w-5 text-center ${accentClass}`}>
+          #{rank}
+        </span>
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-semibold text-gray-100 truncate">{customer.customerUsername}</span>
+          {badge && (
+            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${accentClass} bg-transparent border-current/30`}>
+              {badge}
+            </span>
+          )}
+        </div>
+        <p className="text-[11px] text-gray-400 mt-0.5">{subtitle}</p>
+        <div className="flex items-center gap-3 mt-1 flex-wrap">
+          {customer.customerEmail && (
+            <span className="flex items-center gap-1 text-[10px] text-gray-600">
+              <Mail className="h-2.5 w-2.5 shrink-0" />
+              <span className="truncate max-w-[160px]">{customer.customerEmail}</span>
+            </span>
+          )}
+          {hasLocation && (
+            <span className="flex items-center gap-1 text-[10px] text-gray-600">
+              <MapPin className="h-2.5 w-2.5 shrink-0" />
+              {[customer.shipCity, customer.shipState, customer.shipCountry].filter(Boolean).join(', ')}
+            </span>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function CustomerListDrawer({
+  open,
+  onClose,
+  title,
+  icon: Icon,
+  accentColor,
+  customers,
+  renderSubtitle,
+  renderBadge,
+  showRank,
+  searchQuery,
+  onSearchChange,
+  onCustomerClick,
+  emptyMessage,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  icon: React.ElementType;
+  accentColor: string;
+  customers: CustomerData[];
+  renderSubtitle: (c: CustomerData) => string;
+  renderBadge?: (c: CustomerData) => string | undefined;
+  showRank?: boolean;
+  searchQuery: string;
+  onSearchChange: (q: string) => void;
+  onCustomerClick: (c: CustomerData) => void;
+  emptyMessage: string;
+}) {
+  const filtered = useMemo(() => {
+    if (!searchQuery.trim()) return customers;
+    const q = searchQuery.toLowerCase();
+    return customers.filter(c =>
+      c.customerUsername.toLowerCase().includes(q) ||
+      c.customerEmail.toLowerCase().includes(q) ||
+      c.shipName.toLowerCase().includes(q) ||
+      c.shipCity.toLowerCase().includes(q) ||
+      c.shipState.toLowerCase().includes(q) ||
+      c.shipCountry.toLowerCase().includes(q)
+    );
+  }, [customers, searchQuery]);
+
+  return (
+    <Drawer open={open} onOpenChange={(o) => !o && onClose()}>
+      <DrawerContent className="h-[90vh] flex flex-col">
+        <DrawerHeader className="relative border-b border-gray-700/60 pb-3 shrink-0">
+          <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
+            <Icon className={`w-5 h-5 ${accentColor}`} />
+            {title}
+          </DrawerTitle>
+          <DrawerClose className="absolute right-4 top-4" data-testid={`button-close-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </DrawerClose>
+          <div className="relative mt-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search by username, email, city, country…"
+              value={searchQuery}
+              onChange={e => onSearchChange(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded-md text-gray-200 placeholder-gray-600 focus:outline-none focus:border-gray-500"
+              data-testid={`input-search-${title.toLowerCase().replace(/\s+/g, '-')}`}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => onSearchChange('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+          <p className="text-[11px] text-gray-600 mt-1.5">
+            {filtered.length} of {customers.length} customer{customers.length !== 1 ? 's' : ''}
+            {searchQuery ? ' match' : ''}
+          </p>
+        </DrawerHeader>
+
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-6">
+              <Icon className={`w-10 h-10 ${accentColor} opacity-30`} />
+              <p className="text-sm text-gray-400">
+                {searchQuery ? `No customers match "${searchQuery}"` : emptyMessage}
+              </p>
+            </div>
+          ) : (
+            <div>
+              {filtered.map((c, i) => (
+                <CustomerRow
+                  key={c.customerUsername}
+                  customer={c}
+                  rank={showRank ? i + 1 : undefined}
+                  subtitle={renderSubtitle(c)}
+                  badge={renderBadge?.(c)}
+                  accentClass={accentColor}
+                  onClick={() => onCustomerClick(c)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
 export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, activeDrawer, onDrawerChange }: MarketingDashboardProps) {
+  const [newSearch, setNewSearch] = useState('');
+  const [repeatSearch, setRepeatSearch] = useState('');
+  const [topSearch, setTopSearch] = useState('');
+
   const parseOrderTotal = (v: string | null | undefined): number => {
     if (!v) return 0;
     const parsed = parseFloat(v.replace(/[^0-9.-]/g, ''));
@@ -61,35 +263,81 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
     staleTime: 30000,
   });
 
-  const getCustomerData = (): CustomerData[] => {
+  const customerData = useMemo((): CustomerData[] => {
     const map = new Map<string, CustomerData>();
     orders.filter(o => !['cancelled', 'Cancelled'].includes(o.orderStatus)).forEach(order => {
-      const customer = order.customerUsername || 'Unknown';
+      const username = order.customerUsername || 'Unknown';
       const revenue = parseOrderTotal(order.orderTotal);
-      if (map.has(customer)) {
-        const e = map.get(customer)!;
+      const ship = parseShipTo(order.shipTo);
+      const orderDate = order.orderDate;
+
+      if (map.has(username)) {
+        const e = map.get(username)!;
         e.totalRevenue += revenue;
         e.orderCount += 1;
-        if (new Date(order.orderDate) > new Date(e.lastOrderDate)) e.lastOrderDate = order.orderDate;
+        if (new Date(orderDate) > new Date(e.lastOrderDate)) {
+          e.lastOrderDate = orderDate;
+          e.mostRecentOrderId = order.id;
+        }
+        if (new Date(orderDate) < new Date(e.firstOrderDate)) {
+          e.firstOrderDate = orderDate;
+        }
+        if (!e.customerEmail && order.customerEmail) e.customerEmail = order.customerEmail;
+        if (!e.shipCity && ship.city) { e.shipCity = ship.city; e.shipState = ship.state; e.shipCountry = ship.country; e.shipName = ship.name; }
       } else {
-        map.set(customer, { customerUsername: customer, totalRevenue: revenue, orderCount: 1, lastOrderDate: order.orderDate });
+        map.set(username, {
+          customerUsername: username,
+          totalRevenue: revenue,
+          orderCount: 1,
+          lastOrderDate: orderDate,
+          firstOrderDate: orderDate,
+          mostRecentOrderId: order.id,
+          customerEmail: order.customerEmail || '',
+          shipName: ship.name,
+          shipCity: ship.city,
+          shipState: ship.state,
+          shipCountry: ship.country,
+        });
       }
     });
     return Array.from(map.values());
-  };
+  }, [orders]);
 
-  const customerData = getCustomerData();
+  const newCustomers = useMemo(() =>
+    [...customerData]
+      .filter(c => c.orderCount === 1)
+      .sort((a, b) => new Date(b.lastOrderDate).getTime() - new Date(a.lastOrderDate).getTime()),
+    [customerData]
+  );
 
-  const topCustomers = [...customerData].sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, 6);
+  const repeatCustomers = useMemo(() =>
+    [...customerData]
+      .filter(c => c.orderCount > 1)
+      .sort((a, b) => new Date(b.lastOrderDate).getTime() - new Date(a.lastOrderDate).getTime()),
+    [customerData]
+  );
+
+  const topSpenders = useMemo(() =>
+    [...customerData]
+      .sort((a, b) => b.totalRevenue - a.totalRevenue),
+    [customerData]
+  );
 
   const totalCustomers = customerData.length;
-  const repeatCustomerCount = customerData.filter(c => c.orderCount > 1).length;
+  const repeatCustomerCount = repeatCustomers.length;
   const newLast30 = customerData.filter(c => {
     const days = (Date.now() - new Date(c.lastOrderDate).getTime()) / 86400000;
     return c.orderCount === 1 && days <= 30;
   }).length;
   const repeatRate = totalCustomers > 0 ? (repeatCustomerCount / totalCustomers * 100).toFixed(1) : '0.0';
   const avgOrders = totalCustomers > 0 ? (orders.length / totalCustomers).toFixed(1) : '0.0';
+
+  const handleCustomerClick = (customer: CustomerData) => {
+    onDrawerChange(null);
+    if (onItemClick && customer.mostRecentOrderId) {
+      onItemClick('order', customer.mostRecentOrderId);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -201,13 +449,13 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                 </Popover>
               </div>
               <div className="flex flex-wrap gap-1 min-h-[1.25rem]">
-                {newLast30 > 0 ? (
+                {newCustomers.length > 0 ? (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-600/30">
-                    {newLast30} new (30d)
+                    {newCustomers.length} new buyers
                   </span>
                 ) : (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-600/25">
-                    Coming soon
+                    No data yet
                   </span>
                 )}
               </div>
@@ -247,7 +495,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                   </span>
                 ) : (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-600/25">
-                    Coming soon
+                    No data yet
                   </span>
                 )}
               </div>
@@ -281,13 +529,13 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                 </Popover>
               </div>
               <div className="flex flex-wrap gap-1 min-h-[1.25rem]">
-                {topCustomers.length > 0 ? (
+                {topSpenders.length > 0 ? (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30">
-                    {topCustomers.length} top spenders
+                    {topSpenders.length} customers ranked
                   </span>
                 ) : (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-600/25">
-                    Coming soon
+                    No data yet
                   </span>
                 )}
               </div>
@@ -324,79 +572,56 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
       </Drawer>
 
       {/* ── Engage New Drawer ── */}
-      <Drawer open={activeDrawer === 'engage-new'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[90vh]">
-          <DrawerHeader className="relative">
-            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
-              <UserPlus className="w-5 h-5 text-cyan-400" />
-              Engage New Customers
-            </DrawerTitle>
-            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-engage-new">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </DrawerClose>
-          </DrawerHeader>
-          <div className="flex flex-col items-center justify-center flex-1 px-4 pb-8 gap-4 text-center">
-            <div className="w-16 h-16 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
-              <UserPlus className="w-7 h-7 text-cyan-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-200">Coming Soon</h3>
-            <p className="text-sm text-gray-400 max-w-sm">
-              Onboarding messages, welcome offers, and early engagement tools for first-time buyers are in development.
-            </p>
-          </div>
-        </DrawerContent>
-      </Drawer>
+      <CustomerListDrawer
+        open={activeDrawer === 'engage-new'}
+        onClose={() => onDrawerChange(null)}
+        title="New Customers"
+        icon={UserPlus}
+        accentColor="text-cyan-400"
+        customers={newCustomers}
+        renderSubtitle={c => `First order ${fmtDate(c.firstOrderDate)} · ${fmtCurrency(c.totalRevenue)}`}
+        renderBadge={c => {
+          const days = (Date.now() - new Date(c.lastOrderDate).getTime()) / 86400000;
+          return days <= 7 ? 'This week' : days <= 30 ? 'This month' : undefined;
+        }}
+        searchQuery={newSearch}
+        onSearchChange={setNewSearch}
+        onCustomerClick={handleCustomerClick}
+        emptyMessage="No new customers in this date range."
+      />
 
       {/* ── Engage Repeat Drawer ── */}
-      <Drawer open={activeDrawer === 'engage-repeat'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[90vh]">
-          <DrawerHeader className="relative">
-            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
-              <RefreshCcw className="w-5 h-5 text-blue-400" />
-              Engage Repeating Customers
-            </DrawerTitle>
-            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-engage-repeat">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </DrawerClose>
-          </DrawerHeader>
-          <div className="flex flex-col items-center justify-center flex-1 px-4 pb-8 gap-4 text-center">
-            <div className="w-16 h-16 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-              <RefreshCcw className="w-7 h-7 text-blue-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-200">Coming Soon</h3>
-            <p className="text-sm text-gray-400 max-w-sm">
-              Personalized follow-ups, exclusive offers, and re-order reminders for your repeat buyers are coming.
-            </p>
-          </div>
-        </DrawerContent>
-      </Drawer>
+      <CustomerListDrawer
+        open={activeDrawer === 'engage-repeat'}
+        onClose={() => onDrawerChange(null)}
+        title="Repeating Customers"
+        icon={RefreshCcw}
+        accentColor="text-blue-400"
+        customers={repeatCustomers}
+        renderSubtitle={c => `${c.orderCount} orders · ${fmtCurrency(c.totalRevenue)} · last ${fmtDate(c.lastOrderDate)}`}
+        renderBadge={c => c.orderCount >= 5 ? `${c.orderCount}x buyer` : undefined}
+        searchQuery={repeatSearch}
+        onSearchChange={setRepeatSearch}
+        onCustomerClick={handleCustomerClick}
+        emptyMessage="No repeat customers in this date range."
+      />
 
       {/* ── Engage Top Drawer ── */}
-      <Drawer open={activeDrawer === 'engage-top'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[90vh]">
-          <DrawerHeader className="relative">
-            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
-              <Trophy className="w-5 h-5 text-amber-400" />
-              Engage Top Spenders
-            </DrawerTitle>
-            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-engage-top">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </DrawerClose>
-          </DrawerHeader>
-          <div className="flex flex-col items-center justify-center flex-1 px-4 pb-8 gap-4 text-center">
-            <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-              <Trophy className="w-7 h-7 text-amber-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-200">Coming Soon</h3>
-            <p className="text-sm text-gray-400 max-w-sm">
-              VIP tiers, loyalty programs, and exclusive perks for your highest-value customers are coming.
-            </p>
-          </div>
-        </DrawerContent>
-      </Drawer>
+      <CustomerListDrawer
+        open={activeDrawer === 'engage-top'}
+        onClose={() => onDrawerChange(null)}
+        title="Top Spenders"
+        icon={Trophy}
+        accentColor="text-amber-400"
+        customers={topSpenders}
+        renderSubtitle={c => `${fmtCurrency(c.totalRevenue)} · ${c.orderCount} order${c.orderCount !== 1 ? 's' : ''} · last ${fmtDate(c.lastOrderDate)}`}
+        renderBadge={c => c.totalRevenue >= 500 ? 'VIP' : undefined}
+        showRank
+        searchQuery={topSearch}
+        onSearchChange={setTopSearch}
+        onCustomerClick={handleCustomerClick}
+        emptyMessage="No customer data in this date range."
+      />
     </div>
   );
 }
