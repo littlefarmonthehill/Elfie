@@ -179,9 +179,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
       <div className="space-y-1.5 xl:space-y-3">
 
         {/* Combined Inventory Info + Values */}
-        <div className="relative bg-gradient-to-b from-blue-950/25 to-gray-900/85 border border-blue-500/40 rounded-lg p-3 xl:p-5 shadow-[0_0_22px_rgba(59,130,246,0.12)] overflow-hidden" data-testid="section-inventory-overview">
+        <div className={cn("relative bg-gradient-to-b from-blue-950/25 to-gray-900/85 border border-blue-500/40 rounded-lg xl:p-5 shadow-[0_0_22px_rgba(59,130,246,0.12)] overflow-hidden", panelMode ? "p-2" : "p-3")} data-testid="section-inventory-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-400/50 to-transparent" />
-          <div className="flex items-center gap-2 mb-2.5 xl:mb-4">
+          <div className={cn("flex items-center gap-2 xl:mb-4", panelMode ? "mb-1" : "mb-2.5")}>
             <div className="p-1.5 xl:p-2 rounded-md bg-blue-900/60 ring-1 ring-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.25)]">
               <Package className={cn("w-3 h-3 text-blue-200", !panelMode && "md:w-4 md:h-4 xl:w-5 xl:h-5")} />
             </div>
@@ -203,7 +203,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               </Tooltip>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-1.5 mb-2" data-testid="section-inventory-info">
+          <div className={cn("grid grid-cols-3 gap-1.5", panelMode ? "mb-1" : "mb-2")} data-testid="section-inventory-info">
             {([
               { key: 'lots', label: 'Lots', value: stats ? formatNumber(stats.totalLots) : '0' },
               { key: 'parts', label: 'Parts', value: stats ? formatNumber(stats.totalParts) : '0' },
@@ -231,21 +231,21 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </div>
 
         {/* Tools — Primary Workflows */}
-        <div className="relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg p-3 xl:p-5 shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden" data-testid="section-tools">
+        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg xl:p-5 shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", panelMode ? "p-2" : "p-3")} data-testid="section-tools">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
-          <div className="flex items-center gap-2 mb-3 xl:mb-4">
+          <div className={cn("flex items-center gap-2 xl:mb-4", panelMode ? "mb-1" : "mb-3")}>
             <div className="p-1.5 xl:p-2 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
               <Sparkles className={cn("w-3 h-3 text-gray-200", !panelMode && "md:w-4 md:h-4 xl:w-5 xl:h-5")} />
             </div>
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", !panelMode && "md:text-base lg:text-lg xl:text-xl")}>Tools</h3>
           </div>
-          <div className="grid grid-cols-2 gap-2 xl:gap-3">
+          <div className={cn("grid grid-cols-2 xl:gap-3", panelMode ? "gap-1.5" : "gap-2")}>
 
             {/* Price-O-Matic */}
             <button
               onClick={() => onDrawerChange('priceomatic')}
               data-testid="tool-priceomatic"
-              className="group flex items-center gap-2 rounded-lg border border-purple-500/50 bg-gradient-to-br from-purple-950/65 to-gray-950/80 p-3 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(168,85,247,0.09)]"
+              className={cn("group flex items-center gap-2 rounded-lg border border-purple-500/50 bg-gradient-to-br from-purple-950/65 to-gray-950/80 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(168,85,247,0.09)]", panelMode ? "p-2" : "p-3")}
             >
               <div className="rounded-lg bg-purple-900/70 p-1.5 xl:p-2.5 ring-1 ring-purple-500/45 shadow-[0_0_10px_rgba(168,85,247,0.22)]">
                 <Sparkles className={cn("w-3.5 h-3.5 text-purple-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
@@ -257,7 +257,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('platformsync')}
               data-testid="tool-listomatic"
-              className="group flex items-center gap-2 rounded-lg border border-green-500/50 bg-gradient-to-br from-green-950/65 to-gray-950/80 p-3 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(34,197,94,0.09)]"
+              className={cn("group flex items-center gap-2 rounded-lg border border-green-500/50 bg-gradient-to-br from-green-950/65 to-gray-950/80 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(34,197,94,0.09)]", panelMode ? "p-2" : "p-3")}
             >
               <div className="rounded-lg bg-green-900/70 p-1.5 xl:p-2.5 ring-1 ring-green-500/45 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
                 <Globe className={cn("w-3.5 h-3.5 text-green-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
@@ -269,7 +269,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('warehouse')}
               data-testid="tool-warehouse"
-              className="group flex items-center gap-2 rounded-lg border border-teal-500/50 bg-gradient-to-br from-teal-950/65 to-gray-950/80 p-3 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(20,184,166,0.09)]"
+              className={cn("group flex items-center gap-2 rounded-lg border border-teal-500/50 bg-gradient-to-br from-teal-950/65 to-gray-950/80 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(20,184,166,0.09)]", panelMode ? "p-2" : "p-3")}
             >
               <div className="rounded-lg bg-teal-900/70 p-1.5 xl:p-2.5 ring-1 ring-teal-500/45 shadow-[0_0_10px_rgba(20,184,166,0.22)]">
                 <Boxes className={cn("w-3.5 h-3.5 text-teal-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
@@ -281,7 +281,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('brickanalyzer')}
               data-testid="tool-brickspotter"
-              className="group flex items-center gap-2 rounded-lg border border-amber-500/50 bg-gradient-to-br from-amber-950/65 to-gray-950/80 p-3 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(245,158,11,0.09)]"
+              className={cn("group flex items-center gap-2 rounded-lg border border-amber-500/50 bg-gradient-to-br from-amber-950/65 to-gray-950/80 xl:p-5 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(245,158,11,0.09)]", panelMode ? "p-2" : "p-3")}
             >
               <div className="rounded-lg bg-amber-900/70 p-1.5 xl:p-2.5 ring-1 ring-amber-500/45 shadow-[0_0_10px_rgba(245,158,11,0.22)]">
                 <ScanSearch className={cn("w-3.5 h-3.5 text-amber-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
@@ -294,9 +294,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </div>
 
         {/* Selling Channels */}
-        <div className="relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg p-3 xl:p-5 shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden" data-testid="section-selling-channels">
+        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg xl:p-5 shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", panelMode ? "p-2" : "p-3")} data-testid="section-selling-channels">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
-          <div className="flex items-center gap-2 mb-3 xl:mb-4">
+          <div className={cn("flex items-center gap-2 xl:mb-4", panelMode ? "mb-1" : "mb-3")}>
             <div className="p-1.5 xl:p-2 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
               <Globe className={cn("w-3 h-3 text-gray-200", !panelMode && "md:w-4 md:h-4 xl:w-5 xl:h-5")} />
             </div>

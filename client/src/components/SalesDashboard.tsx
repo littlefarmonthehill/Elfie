@@ -804,20 +804,20 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
       )}
       
       {/* ── Top Metrics ── */}
-      <div className="relative bg-gradient-to-b from-green-950/25 to-gray-900/85 border border-green-500/40 rounded-lg p-3 shadow-[0_0_22px_rgba(34,197,94,0.12)] overflow-hidden" data-testid="section-sales-overview">
+      <div className={cn("relative bg-gradient-to-b from-green-950/25 to-gray-900/85 border border-green-500/40 rounded-lg shadow-[0_0_22px_rgba(34,197,94,0.12)] overflow-hidden", panelMode ? "p-2" : "p-3")} data-testid="section-sales-overview">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-400/50 to-transparent" />
-        <div className="flex items-center gap-2 mb-2.5">
+        <div className={cn("flex items-center gap-2", panelMode ? "mb-1" : "mb-2.5")}>
           <div className="p-1.5 rounded-md bg-green-900/60 ring-1 ring-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.25)]">
             <TrendingUp className={cn("w-3 h-3 text-green-200", !panelMode && "md:w-4 md:h-4")} />
           </div>
           <h3 className={cn("text-xs font-semibold text-green-200 uppercase tracking-wide", !panelMode && "md:text-base lg:text-lg")}>Sales</h3>
         </div>
-        <div className="grid grid-cols-3 gap-1.5 mb-2" data-testid="section-sales-metrics">
+        <div className={cn("grid grid-cols-3 gap-1.5", panelMode ? "mb-1" : "mb-2")} data-testid="section-sales-metrics">
           <MetricCard label="Orders" value={filteredOrders.length} color="green" data-testid="metric-sales-orders" />
           <MetricCard label="Gross Revenue" value={`$${Math.round(totalRevenue).toLocaleString()}`} color="green" data-testid="metric-sales-gross" />
           <MetricCard label="Avg Order" value={`$${averageOrderValue.toFixed(2)}`} color="green" data-testid="metric-sales-avg" />
         </div>
-        {adjustmentSummary && (
+        {!panelMode && adjustmentSummary && (
           <div className="grid grid-cols-4 gap-1.5">
             <MetricCard label="Net Revenue" value={`$${Math.max(0, totalRevenue - adjustmentSummary.totalRefunds).toLocaleString(undefined, { maximumFractionDigits: 0 })}`} color="green" data-testid="metric-sales-net" />
             <MetricCard label="Refunds" value={adjustmentSummary.totalRefunds > 0 ? `-$${adjustmentSummary.totalRefunds.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '$0'} color="red" data-testid="metric-sales-refunds" />

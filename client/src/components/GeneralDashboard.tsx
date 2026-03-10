@@ -88,8 +88,6 @@ function LaneSection({ label, children, collapsible = false, className = "" }: {
   const [expanded, setExpanded] = useState(false);
   const compact = useCompactMode();
 
-  if (collapsible && compact) return null;
-
   if (collapsible && label) {
     return (
       <div className={`relative mt-auto z-10 ${className}`}>
