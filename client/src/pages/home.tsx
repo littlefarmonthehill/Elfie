@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Package, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut, ArrowLeft, RotateCw } from "lucide-react";
+import { Package, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut, ArrowLeft, RotateCw, AlertCircle, Mail } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminScaling } from "@/hooks/useAdminScaling";
@@ -376,8 +376,36 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Spacer — matches Ops Central height so Product aligns with date picker */}
-        <div style={{ flex: 2 }} />
+        {/* Announcements & Communications — fills space between Your Plan and Product */}
+        <div className="flex flex-col rounded-lg overflow-visible" style={{ flex: 2, border: '1px solid hsla(200,70%,50%,0.35)' }}>
+          <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(200,70%,50%,0.25), hsla(200,70%,50%,0.08))', borderColor: 'hsla(200,70%,50%,0.35)' }}>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: 'hsl(200,70%,72%)', textShadow: '0 0 8px hsla(200,70%,50%,0.7)' }}>Announcements</span>
+          </div>
+          <div className="flex-1 flex flex-col min-h-0 overflow-y-auto" style={{ background: 'radial-gradient(ellipse at top, hsla(200,70%,50%,0.12) 0%, transparent 55%), linear-gradient(to bottom, hsla(200,70%,50%,0.15), hsla(200,70%,50%,0.03) 100%)' }}>
+            {/* Attention */}
+            <div className="px-3 py-2 space-y-1.5 border-b border-border/30">
+              <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">Attention</p>
+              <div className="flex items-start gap-2 py-1">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-400 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium text-foreground/90 leading-tight">No announcements yet</p>
+                  <p className="text-[10px] text-muted-foreground leading-snug mt-0.5">New updates will appear here</p>
+                </div>
+              </div>
+            </div>
+            {/* Recent */}
+            <div className="px-3 py-2 space-y-1.5">
+              <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">Recent</p>
+              <div className="flex items-start gap-2 py-1">
+                <Mail className="w-3.5 h-3.5 shrink-0 text-blue-400 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium text-foreground/90 leading-tight">Communications coming soon</p>
+                  <p className="text-[10px] text-muted-foreground leading-snug mt-0.5">Manage messages and notifications</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Product / Inventory — matches date picker group height */}
         <div className="flex flex-col min-h-0 rounded-md overflow-hidden" style={{ flex: 3, border: '1px solid hsla(220,85%,55%,0.35)' }}>
