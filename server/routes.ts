@@ -4285,7 +4285,6 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           systemPrompt,
           messages,
           maxIterations: 5,
-          orgId,
         });
         assistantMessage = agentResult.message;
         bricklinkCatalogItem = agentResult.bricklinkItem;

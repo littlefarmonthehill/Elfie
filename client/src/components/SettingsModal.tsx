@@ -736,7 +736,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [activeOrg, setActiveOrg] = useState<OrgWithUsage | null>(null);
   const [activeOrgTab, setActiveOrgTab] = useState<'features' | 'limits' | 'billing'>('features');
   const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'features' | 'limits' | 'billing'>('info');
-  const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'stripe' | 'openai' | 'replit' | 'bricklink'>('stripe');
+  const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'stripe' | 'openai' | 'bricklink'>('stripe');
   const [activeHealthTab, setActiveHealthTab] = useState<'overview' | 'jobs' | 'logs' | 'database' | 'bricklink'>('overview');
   const [showBlSchedulePopup, setShowBlSchedulePopup] = useState(false);
   const [activePlanTab, setActivePlanTab] = useState<string>('trial');
@@ -7126,11 +7126,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
               <div className="p-4 space-y-4">
                 {/* Tab strip */}
                 {(() => {
-                  const psTabs: Array<{ id: 'stripe' | 'openai' | 'replit' | 'bricklink'; label: string; Icon: React.ElementType }> = [
+                  const psTabs: Array<{ id: 'stripe' | 'openai' | 'bricklink'; label: string; Icon: React.ElementType }> = [
                     { id: 'bricklink', label: 'BrickLink', Icon: Blocks },
                     { id: 'stripe', label: 'Stripe', Icon: CreditCard },
                     { id: 'openai', label: 'OpenAI', Icon: Brain },
-                    { id: 'replit', label: 'Replit', Icon: Zap },
                   ];
                   return (
                     <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1">
@@ -7589,57 +7588,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   </div>
                 )}
 
-                {/* ── Replit tab ─────────────────────────────────── */}
-                {activePlatformServicesTab === 'replit' && (
-                  <div className="space-y-4">
-                    {/* Platform info */}
-                    <div className="sm-card">
-                      <div className="sm-card-header">
-                        <Zap className="h-3.5 w-3.5 text-violet-400/80" />
-                        <span className="text-xs font-semibold text-gray-200">Platform Environment</span>
-                        <Badge variant="outline" className="ml-auto text-[9px] text-violet-400 border-violet-500/30 bg-violet-500/5">Replit</Badge>
-                      </div>
-                      <div className="px-4 py-3 space-y-3">
-                        <p className="text-[11px] text-gray-400 leading-relaxed">PlanetBrick is built and hosted on <strong className="text-gray-300">Replit</strong>. The compute, database, and deployment infrastructure are all managed through your Replit account. No separate server setup is required.</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {[
-                            { label: 'Runtime', value: 'Node.js + Express' },
-                            { label: 'Database', value: 'PostgreSQL (Replit)' },
-                            { label: 'Frontend', value: 'React + Vite' },
-                            { label: 'Deployment', value: 'Replit Autoscale' },
-                          ].map(({ label, value }) => (
-                            <div key={label} className="bg-gray-900/40 border border-gray-700/60 rounded px-3 py-2">
-                              <p className="app-label mb-0.5">{label}</p>
-                              <p className="text-[11px] text-gray-300">{value}</p>
-                            </div>
-                          ))}
-                        </div>
-                        <p className="text-[10px] text-gray-600">No API key or credential is needed here — Replit manages your environment automatically.</p>
-                      </div>
-                    </div>
-
-                    {/* Billing */}
-                    <div className="sm-card">
-                      <div className="sm-card-header">
-                        <TrendingUp className="h-3.5 w-3.5 text-yellow-500/70" />
-                        <span className="text-xs font-semibold text-gray-200">Usage &amp; Billing</span>
-                      </div>
-                      <div className="px-4 py-4 space-y-2">
-                        <p className="text-[11px] text-gray-400 leading-relaxed">Replit charges are based on <strong className="text-gray-300">compute cycles, storage, and egress</strong> consumed by your Repl. Usage is tracked in your Replit account and billed to your Replit subscription or credits balance.</p>
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          <a href="https://replit.com/account" target="_blank" rel="noopener noreferrer" data-testid="link-replit-account" className="inline-flex items-center gap-1.5 text-[10px] text-violet-400 hover:text-violet-300 border border-violet-500/30 rounded px-2.5 py-1 transition-colors">
-                            <ExternalLink className="h-3 w-3" />
-                            Replit Account
-                          </a>
-                          <a href="https://replit.com/billing" target="_blank" rel="noopener noreferrer" data-testid="link-replit-billing" className="inline-flex items-center gap-1.5 text-[10px] text-gray-400 hover:text-gray-300 border border-gray-600 rounded px-2.5 py-1 transition-colors">
-                            <ExternalLink className="h-3 w-3" />
-                            View Billing
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
