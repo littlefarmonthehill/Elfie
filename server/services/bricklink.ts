@@ -151,10 +151,10 @@ export async function bricklinkRequest(endpoint: string, queryParams?: Record<st
   // Get credentials from database settings (with fallback to env vars), scoped to org
   const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
   
-  const consumerKey = settings?.bricklinkConsumerKey || process.env.BRICKLINK_CONSUMER_KEY || '';
-  const consumerSecret = settings?.bricklinkConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || '';
-  const tokenValue = settings?.bricklinkTokenValue || process.env.BRICKLINK_TOKEN_VALUE || '';
-  const tokenSecret = settings?.bricklinkTokenSecret || process.env.BRICKLINK_TOKEN_SECRET || '';
+  const consumerKey = cleanToken(settings?.bricklinkConsumerKey || process.env.BRICKLINK_CONSUMER_KEY || '');
+  const consumerSecret = cleanToken(settings?.bricklinkConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || '');
+  const tokenValue = cleanToken(settings?.bricklinkTokenValue || process.env.BRICKLINK_TOKEN_VALUE || '');
+  const tokenSecret = cleanToken(settings?.bricklinkTokenSecret || process.env.BRICKLINK_TOKEN_SECRET || '');
   
   if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
     throw new Error('BrickLink credentials not configured. Please add them in Settings.');
@@ -247,10 +247,10 @@ async function bricklinkPutRequest(endpoint: string, body: any, orgId: string = 
   // Get credentials from database settings (with fallback to env vars), scoped to org
   const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
   
-  const consumerKey = settings?.bricklinkConsumerKey || process.env.BRICKLINK_CONSUMER_KEY || '';
-  const consumerSecret = settings?.bricklinkConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || '';
-  const tokenValue = settings?.bricklinkTokenValue || process.env.BRICKLINK_TOKEN_VALUE || '';
-  const tokenSecret = settings?.bricklinkTokenSecret || process.env.BRICKLINK_TOKEN_SECRET || '';
+  const consumerKey = cleanToken(settings?.bricklinkConsumerKey || process.env.BRICKLINK_CONSUMER_KEY || '');
+  const consumerSecret = cleanToken(settings?.bricklinkConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || '');
+  const tokenValue = cleanToken(settings?.bricklinkTokenValue || process.env.BRICKLINK_TOKEN_VALUE || '');
+  const tokenSecret = cleanToken(settings?.bricklinkTokenSecret || process.env.BRICKLINK_TOKEN_SECRET || '');
   
   if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
     throw new Error('BrickLink credentials not configured. Please add them in Settings.');
@@ -962,10 +962,10 @@ export async function bricklinkCatalogRequest(endpoint: string, queryParams?: Re
     tokenSecret: settings?.bricklinkTokenSecret ? 'present' : 'missing',
   });
   
-  const consumerKey = settings?.bricklinkConsumerKey || process.env.BRICKLINK_CONSUMER_KEY || '';
-  const consumerSecret = settings?.bricklinkConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || '';
-  const tokenValue = settings?.bricklinkTokenValue || process.env.BRICKLINK_TOKEN_VALUE || '';
-  const tokenSecret = settings?.bricklinkTokenSecret || process.env.BRICKLINK_TOKEN_SECRET || '';
+  const consumerKey = cleanToken(settings?.bricklinkConsumerKey || process.env.BRICKLINK_CONSUMER_KEY || '');
+  const consumerSecret = cleanToken(settings?.bricklinkConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || '');
+  const tokenValue = cleanToken(settings?.bricklinkTokenValue || process.env.BRICKLINK_TOKEN_VALUE || '');
+  const tokenSecret = cleanToken(settings?.bricklinkTokenSecret || process.env.BRICKLINK_TOKEN_SECRET || '');
   
   if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
     console.error('[Price-o-Matic Debug] Missing credentials:', {
