@@ -355,17 +355,17 @@ export default function Home() {
   };
 
   const renderPanelMode = () => (
-    <div className="flex flex-col h-full" style={{ padding: '5px', gap: '10px' }}>
+    <div className="flex h-full" style={{ padding: '5px', gap: '5px' }}>
 
-      {/* ── TOP ROW: Your Plan tile (left) + Ops Central (right) ── */}
-      <div className="flex overflow-hidden" style={{ flex: 2, gap: '5px' }}>
+      {/* ── LEFT COLUMN: Your Plan (top) + Product (below, fills rest) ── */}
+      <div className="flex flex-col min-h-0 overflow-hidden" style={{ flex: 1, gap: '10px' }}>
 
         {/* Your Plan — free-floating, no border box */}
-        <div className="flex flex-col overflow-hidden" style={{ flex: 1 }}>
+        <div className="flex flex-col shrink-0 overflow-hidden">
           <div className="shrink-0 flex items-center px-3 py-1.5">
             <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: 'hsl(270,60%,75%)', textShadow: '0 0 8px hsla(270,60%,55%,0.7)' }}>Your Plan</span>
           </div>
-          <div className="flex-1 overflow-y-auto min-h-0 px-2 pb-2">
+          <div className="overflow-y-auto min-h-0 px-2 pb-2">
             <SystemPulse
               setupItems={systemPulseSetupItems}
               billingStatus={billingStatus}
@@ -376,8 +376,29 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Ops Central — 3x the width of Your Plan (matches Product:right-group ratio below) */}
-        <div className="flex flex-col min-w-0 rounded-lg overflow-hidden" style={{ flex: 3, border: '1px solid hsla(0,85%,55%,0.35)' }}>
+        {/* Product / Inventory — fills remaining height */}
+        <div className="flex flex-col flex-1 min-h-0 rounded-md overflow-hidden" style={{ border: '1px solid hsla(220,85%,55%,0.35)' }}>
+          <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(220,85%,55%,0.28), hsla(220,85%,55%,0.08))', borderColor: 'hsla(220,85%,55%,0.35)' }}>
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(220,85%,75%)', textShadow: '0 0 8px hsla(220,85%,55%,0.7)' }}>Product</span>
+          </div>
+          <div className="flex-1 overflow-y-auto min-h-0" style={{ background: 'radial-gradient(ellipse at top, hsla(220,85%,55%,0.15) 0%, transparent 55%), linear-gradient(to bottom, hsla(220,85%,55%,0.18), hsla(220,85%,55%,0.04) 100%)' }}>
+            <InventoryDashboard
+              panelMode
+              onItemClick={handleDashboardItemClick}
+              activeDrawer={activeInventoryDrawer}
+              onDrawerChange={setActiveInventoryDrawer}
+              onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }}
+            />
+          </div>
+        </div>
+
+      </div>
+
+      {/* ── RIGHT COLUMN: Ops Central (top) + date picker group (bottom) ── */}
+      <div className="flex flex-col min-h-0 overflow-hidden" style={{ flex: 3, gap: '10px' }}>
+
+        {/* Ops Central */}
+        <div className="flex flex-col min-w-0 rounded-lg overflow-hidden" style={{ flex: 2, border: '1px solid hsla(0,85%,55%,0.35)' }}>
           <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(0,85%,55%,0.25), hsla(0,85%,55%,0.08))', borderColor: 'hsla(0,85%,55%,0.35)' }}>
             <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: 'hsl(0,85%,72%)', textShadow: '0 0 8px hsla(0,85%,55%,0.7)' }}>Ops Central</span>
           </div>
@@ -389,27 +410,6 @@ export default function Home() {
               onOpenBrickanalyzer={() => setActiveInventoryDrawer('brickanalyzer')}
               onOpenPriceomatic={() => setActiveInventoryDrawer('priceomatic')}
               onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-            />
-          </div>
-        </div>
-
-      </div>
-
-      {/* ── BOTTOM: Product full-height left | date picker + 3 dashboards right ── */}
-      <div className="flex min-h-0 overflow-hidden" style={{ flex: 3, gap: '5px' }}>
-
-        {/* Product / Inventory — full height, top-flush */}
-        <div className="flex flex-col rounded-md overflow-hidden" style={{ flex: 1, minWidth: '160px', border: '1px solid hsla(220,85%,55%,0.35)' }}>
-          <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(220,85%,55%,0.28), hsla(220,85%,55%,0.08))', borderColor: 'hsla(220,85%,55%,0.35)' }}>
-            <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(220,85%,75%)', textShadow: '0 0 8px hsla(220,85%,55%,0.7)' }}>Product</span>
-          </div>
-          <div className="flex-1 overflow-y-auto min-h-0" style={{ background: 'radial-gradient(ellipse at top, hsla(220,85%,55%,0.15) 0%, transparent 55%), linear-gradient(to bottom, hsla(220,85%,55%,0.18), hsla(220,85%,55%,0.04) 100%)' }}>
-            <InventoryDashboard
-              panelMode
-              onItemClick={handleDashboardItemClick}
-              activeDrawer={activeInventoryDrawer}
-              onDrawerChange={setActiveInventoryDrawer}
-              onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }}
             />
           </div>
         </div>
