@@ -372,17 +372,17 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Right group — date picker at top (top-aligned with Product), 3 dashboards below */}
-        <div className="flex flex-col min-h-0" style={{ flex: 3, gap: '5px' }}>
+        {/* ─── GROUP: Date Picker + Orders · Marketing · Sales ─── */}
+        <div className="flex flex-col min-h-0 rounded-lg overflow-hidden" style={{ flex: 3, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}>
 
-          {/* Date picker strip — top edge aligns with Product column top */}
-          <div className="shrink-0 flex items-center gap-3 px-4 py-1.5 rounded-md" style={{ background: 'linear-gradient(to right, rgba(255,255,255,0.055), rgba(255,255,255,0.025))', border: '1px solid rgba(255,255,255,0.09)' }}>
+          {/* Date picker strip — header of the group */}
+          <div className="shrink-0 flex items-center gap-3 px-4 py-1.5 border-b" style={{ background: 'linear-gradient(to right, rgba(255,255,255,0.06), rgba(255,255,255,0.02))', borderColor: 'rgba(255,255,255,0.08)' }}>
             <span className="text-[10px] font-semibold uppercase tracking-[0.2em] shrink-0 whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.4)' }}>Date Range</span>
             <DateRangeSelector value={dateRange} onChange={setDateRange} compact />
           </div>
 
-          {/* Orders · Marketing · Sales — occupy the remaining height below date picker */}
-          <div className="flex flex-1 min-h-0 overflow-x-auto overflow-y-hidden" style={{ gap: '5px' }}>
+          {/* Orders · Marketing · Sales columns — fill remaining height */}
+          <div className="flex flex-1 min-h-0 overflow-x-auto overflow-y-hidden" style={{ gap: '4px', padding: '4px' }}>
 
             {/* Orders */}
             <div className="flex flex-col rounded-md overflow-hidden" style={{ flex: 1, minWidth: '160px', border: '1px solid hsla(25,95%,55%,0.35)' }}>
