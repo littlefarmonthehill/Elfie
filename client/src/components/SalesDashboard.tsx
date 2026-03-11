@@ -876,7 +876,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
                 </Popover>
               </div>
               {!panelMode && (
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem]">
+              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end">
                 {availablePlatforms.length > 0 ? (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30">
                     {availablePlatforms.length} active {availablePlatforms.length === 1 ? 'platform' : 'platforms'}

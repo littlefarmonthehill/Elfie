@@ -254,7 +254,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 </div>
                 <span className={cn("text-xs font-bold text-purple-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>Price-O-Matic</span>
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem]" data-testid="pom-action-stats">
+              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="pom-action-stats">
                 {(pomInsights?.data?.summary?.tooHigh ?? 0) + (pomInsights?.data?.summary?.tooLow ?? 0) > 0 ? (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-600/30">
                     {(pomInsights!.data.summary.tooHigh + pomInsights!.data.summary.tooLow)} to review
@@ -278,7 +278,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 </div>
                 <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>List-O-Matic</span>
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem]" data-testid="listomatic-action-stats">
+              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="listomatic-action-stats">
                 <span className="text-[9px] text-green-400/70">Sync across channels</span>
               </div>
             </button>
@@ -296,7 +296,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 </div>
                 <span className={cn("text-xs font-bold text-teal-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>Warehouse</span>
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem]" data-testid="warehouse-action-stats">
+              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="warehouse-action-stats">
                 {(toolStats?.warehouseUnassigned ?? 0) > 0 ? (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-600/30">
                     {toolStats!.warehouseUnassigned} unassigned
@@ -320,7 +320,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 </div>
                 <span className={cn("text-xs font-bold text-amber-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>Brick Spotter</span>
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem]" data-testid="brickspotter-action-stats">
+              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="brickspotter-action-stats">
                 {(toolStats?.pendingScans ?? 0) > 0 ? (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30">
                     {toolStats!.pendingScans} pending scans

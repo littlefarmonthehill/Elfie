@@ -167,7 +167,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   </PopoverContent>
                 </Popover>
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem]" data-testid="fulfillment-stats">
+              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="fulfillment-stats">
                 {(stats?.pendingOrders ?? 0) > 0 ? (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30" data-testid="fulfillment-count">
                     {formatNumber(stats!.pendingOrders)} pending
@@ -206,7 +206,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   </PopoverContent>
                 </Popover>
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem]" data-testid="shipped-stats">
+              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="shipped-stats">
                 {(stats?.shippedOrders ?? 0) > 0 ? (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-600/30" data-testid="shipped-count">
                     {formatNumber(stats!.shippedOrders)} shipped

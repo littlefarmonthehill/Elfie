@@ -445,7 +445,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                   </PopoverContent>
                 </Popover>
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem]">
+              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end">
                 <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-600/25">
                   Coming soon
                 </span>
@@ -480,7 +480,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                   </PopoverContent>
                 </Popover>
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem]">
+              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end">
                 {newCustomers.length > 0 ? (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-600/30">
                     {newCustomers.length} new buyers
@@ -521,7 +521,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                   </PopoverContent>
                 </Popover>
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem]">
+              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end">
                 {repeatCustomerCount > 0 ? (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-600/30">
                     {repeatCustomerCount} repeat buyers
@@ -562,7 +562,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                   </PopoverContent>
                 </Popover>
               </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem]">
+              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end">
                 {topSpenders.length > 0 ? (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-600/30">
                     {topSpenders.length} customers ranked
