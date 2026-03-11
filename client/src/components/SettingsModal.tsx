@@ -1800,9 +1800,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     {
       label: 'Platform',
       items: [
+        { id: 'apiKeys' as const, label: 'Platform Services', icon: Key },
         { id: 'systemHealth' as const, label: 'System Health', icon: Activity },
         { id: 'auditLog' as const, label: 'Audit Log', icon: ClipboardList },
-        { id: 'apiKeys' as const, label: 'Platform Services', icon: Key },
         { id: 'enrichment' as const, label: 'Data Enrichment', icon: Database },
         { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
         { id: 'adminTeam' as const, label: 'Admin Team', icon: Shield },
