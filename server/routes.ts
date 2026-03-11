@@ -9038,25 +9038,31 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           COALESCE(sold.total_sold, 0)::integer    AS total_sold
         FROM ${blCategories} c
         LEFT JOIN (
-          SELECT category_id,
-                 SUM(quantity)                                     AS current_qty,
-                 COUNT(*) FILTER (WHERE quantity = 0)              AS sold_out_lots,
+          SELECT cat.category_id,
+                 SUM(inv_inner.quantity)                                     AS current_qty,
+                 COUNT(*) FILTER (WHERE inv_inner.quantity = 0)              AS sold_out_lots,
                  COUNT(*)                                          AS total_lots
-          FROM ${blInventory}
-          WHERE item_type = 'PART'
-            AND org_id = ${orgId}
-          GROUP BY category_id
+          FROM ${blInventory} inv_inner
+          JOIN ${blCatalog} cat ON inv_inner.item_no = cat.item_no
+            AND inv_inner.item_type = cat.item_type
+            AND inv_inner.color_id = cat.color_id
+          WHERE inv_inner.item_type = 'PART'
+            AND inv_inner.org_id = ${orgId}
+          GROUP BY cat.category_id
         ) inv ON c.id = inv.category_id
         LEFT JOIN (
-          SELECT i.category_id, SUM(od.quantity) AS total_sold
+          SELECT cat2.category_id, SUM(od.quantity) AS total_sold
           FROM ${orderDetails} od
           JOIN ${orders} o ON od.order_id = o.id
           JOIN ${blInventory} i ON od.sku = CAST(i.id AS TEXT)
+          JOIN ${blCatalog} cat2 ON i.item_no = cat2.item_no
+            AND i.item_type = cat2.item_type
+            AND i.color_id = cat2.color_id
           WHERE o.order_status NOT IN ('cancelled', 'Cancelled')
             AND i.item_type = 'PART'
             AND o.org_id = ${orgId}
             AND i.org_id = ${orgId}
-          GROUP BY i.category_id
+          GROUP BY cat2.category_id
         ) sold ON c.id = sold.category_id
         WHERE COALESCE(inv.current_qty, 0) + COALESCE(inv.sold_out_lots, 0) + COALESCE(sold.total_sold, 0) > 0
       `);
