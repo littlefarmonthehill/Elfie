@@ -360,26 +360,31 @@ export default function Home() {
       {/* ── LEFT COLUMN: Your Plan (top) + spacer + Product (aligned with date picker) ── */}
       <div className="flex flex-col min-h-0 overflow-hidden self-stretch" style={{ flex: 1, gap: '10px' }}>
 
-        {/* Onboarding — free-floating setup tasks */}
-        <div className="flex flex-col shrink-0 overflow-hidden px-2 pb-1">
-          <div className="shrink-0 flex items-center px-1 py-1.5">
-            <span className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">Onboarding</span>
-          </div>
-          <SystemPulse
-            setupItems={systemPulseSetupItems}
-            billingStatus={billingStatus}
-            rateLimit={blRateLimit}
-            blApiCallLimit={appSettingsHome?.blApiCallLimit}
-            onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-          />
-        </div>
-
-        {/* Your Plan — purple-themed box with Notifications */}
-        <div className="flex flex-col rounded-lg overflow-visible" style={{ flex: 2, border: '1px solid hsla(270,60%,55%,0.35)', boxShadow: '0 0 40px rgba(168,85,247,0.28), 0 0 12px rgba(168,85,247,0.28)' }}>
-          <div className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-t-lg border-b" style={{ background: 'linear-gradient(to bottom, hsla(270,60%,55%,0.4), hsla(0,0%,10%,0.8))', borderColor: 'hsla(270,60%,55%,0.35)' }}>
+        {/* Your Plan — purple-themed lane box, same structure as Ops Central lanes */}
+        <div
+          className="relative flex flex-col h-full rounded-lg border border-purple-500/40 bg-gradient-to-b from-purple-950/30 to-gray-900/85"
+          style={{ flex: 2, boxShadow: '0 0 40px rgba(168,85,247,0.28), 0 0 12px rgba(168,85,247,0.28)' }}
+        >
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-400/50 to-transparent pointer-events-none z-10" />
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-purple-500/40 bg-gradient-to-b from-purple-950/40 to-gray-900/80 rounded-t-lg">
+            <div className="p-1 rounded-md bg-purple-900/60 ring-1 ring-purple-500/50 shrink-0" style={{ boxShadow: '0 0 8px rgba(168,85,247,0.55)' }}>
+              <ClipboardList className="w-3 h-3 text-purple-200" />
+            </div>
             <span className="text-xs font-semibold uppercase tracking-widest text-purple-200">Your Plan</span>
           </div>
-          <div className="flex-1 flex flex-col divide-y divide-border/30 min-h-0 overflow-y-auto" style={{ background: 'radial-gradient(ellipse at top, hsla(270,60%,55%,0.12) 0%, transparent 55%), linear-gradient(to bottom, hsla(270,60%,55%,0.15), hsla(270,60%,55%,0.03) 100%)' }}>
+          <div className="flex-1 flex flex-col divide-y divide-border/40 min-h-0 overflow-visible">
+            {/* Onboarding */}
+            <div className="px-3 py-2 space-y-1.5">
+              <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">Onboarding</p>
+              <SystemPulse
+                setupItems={systemPulseSetupItems}
+                billingStatus={billingStatus}
+                rateLimit={blRateLimit}
+                blApiCallLimit={appSettingsHome?.blApiCallLimit}
+                onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
+              />
+            </div>
+
             {/* Notifications */}
             <div className="px-3 py-2 space-y-1.5">
               <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">Notifications</p>
