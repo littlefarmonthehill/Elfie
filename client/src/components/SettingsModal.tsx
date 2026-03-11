@@ -32,7 +32,7 @@ interface SettingsModalProps {
   initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'priceomatic';
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'systemHealth' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'adminTeam' | 'priceomatic' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'systemHealth' | 'customerHealth' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'adminTeam' | 'priceomatic' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -750,6 +750,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'features' | 'limits' | 'billing'>('info');
   const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'platform' | 'stripe' | 'openai' | 'bricklink'>('platform');
   const [activeHealthTab, setActiveHealthTab] = useState<'overview' | 'jobs' | 'logs' | 'database' | 'bricklink'>('overview');
+  const [activeCustomerHealthTab, setActiveCustomerHealthTab] = useState<'overview' | 'bricklink'>('overview');
+  const [blBreakdownSort, setBlBreakdownSort] = useState<{ col: string; dir: 'asc' | 'desc' }>({ col: 'total', dir: 'desc' });
   const [showBlSchedulePopup, setShowBlSchedulePopup] = useState(false);
   const [activePlanTab, setActivePlanTab] = useState<string>('trial');
   const [planDraft, setPlanDraft] = useState<Record<string, any>>({});
@@ -1056,8 +1058,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
   const { data: systemHealth, isLoading: systemHealthLoading, isError: systemHealthError, refetch: refetchSystemHealth } = useQuery<SystemHealthData>({
     queryKey: ['/api/platform-admin/system-health'],
-    enabled: open && activeSection === 'systemHealth',
-    refetchInterval: activeSection === 'systemHealth' ? 15000 : false,
+    enabled: open && (activeSection === 'systemHealth' || activeSection === 'customerHealth'),
+    refetchInterval: (activeSection === 'systemHealth' || activeSection === 'customerHealth') ? 15000 : false,
     retry: 0,
     staleTime: 0,
   });
@@ -1118,6 +1120,18 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     queryKey: ['/api/platform-admin/bl-api-usage'],
     enabled: open && superAdmin && ((activeSection === 'systemHealth' && activeHealthTab === 'bricklink') || (activeSection === 'apiKeys' && activePlatformServicesTab === 'bricklink')),
     refetchInterval: ((activeSection === 'systemHealth' && activeHealthTab === 'bricklink') || (activeSection === 'apiKeys' && activePlatformServicesTab === 'bricklink')) ? 15000 : false,
+    retry: 0,
+  });
+
+  type BlApiBreakdownRow = {
+    orgId: string; total: number; inventory: number; orders: number;
+    catalog: number; priceGuide: number; other: number;
+    success: number; failed: number;
+  };
+  const { data: blApiBreakdown, isLoading: blApiBreakdownLoading } = useQuery<BlApiBreakdownRow[]>({
+    queryKey: ['/api/platform-admin/customer-health/bl-api-breakdown'],
+    enabled: open && superAdmin && activeSection === 'customerHealth' && activeCustomerHealthTab === 'bricklink',
+    refetchInterval: activeSection === 'customerHealth' && activeCustomerHealthTab === 'bricklink' ? 30000 : false,
     retry: 0,
   });
 
@@ -1801,7 +1815,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       label: 'Platform',
       items: [
         { id: 'apiKeys' as const, label: 'Platform Services', icon: Key },
-        { id: 'systemHealth' as const, label: 'System Health', icon: Activity },
+        { id: 'systemHealth' as const, label: 'Platform Health', icon: Activity },
+        { id: 'customerHealth' as const, label: 'Customer Health', icon: Users },
         { id: 'auditLog' as const, label: 'Audit Log', icon: ClipboardList },
         { id: 'enrichment' as const, label: 'Data Enrichment', icon: Database },
         { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
@@ -5979,7 +5994,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
               </div>
             )}
 
-            {/* ── Platform Admin: System Health ────────────────────────────── */}
+            {/* ── Platform Admin: Platform Health ──────────────────────────── */}
             {activeSection === 'systemHealth' && (
               <div className="flex flex-col min-w-0 overflow-hidden">
                 {/* Tab bar */}
@@ -6012,26 +6027,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       </div>
                     ) : systemHealth ? (
                       <>
-                        {/* Platform stats */}
-                        <div>
-                          <p className="sm-group-label mb-2 px-1">Platform</p>
-                          <div className="grid grid-cols-3 gap-2">
-                            {[
-                              { label: 'Organizations', value: systemHealth.platform.totalOrganizations, icon: Building2 },
-                              { label: 'Total Users', value: systemHealth.platform.totalUsers, icon: Users },
-                              { label: 'Active Subs', value: systemHealth.platform.activeSubscriptions, icon: CreditCard },
-                            ].map(({ label, value, icon: Icon }) => (
-                              <div key={label} className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-2.5">
-                                <div className="flex items-center gap-1.5 mb-1">
-                                  <Icon className="h-3 w-3 text-yellow-500/60" />
-                                  <span className="text-[10px] text-gray-500">{label}</span>
-                                </div>
-                                <p className="text-lg font-bold text-white">{Number(value).toLocaleString()}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
                         {/* Embedding counts */}
                         <div>
                           <p className="sm-group-label mb-2 px-1">Embeddings</p>
@@ -6100,7 +6095,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     ) : (
                       <div className="flex flex-col items-center justify-center gap-3 py-10">
                         <AlertTriangle className="h-5 w-5 text-red-400/70" />
-                        <p className="sm-description">Failed to load system health data</p>
+                        <p className="sm-description">Failed to load platform health data</p>
                         <button
                           onClick={() => refetchSystemHealth()}
                           className="text-[11px] text-yellow-500/70 hover:text-yellow-400 underline"
@@ -6377,7 +6372,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     ) : (
                       <div className="flex flex-col items-center justify-center gap-3 py-10">
                         <AlertTriangle className="h-5 w-5 text-red-400/70" />
-                        <p className="sm-description">Failed to load system health data</p>
+                        <p className="sm-description">Failed to load health data</p>
                         <button
                           onClick={() => refetchSystemHealth()}
                           className="text-[11px] text-yellow-500/70 hover:text-yellow-400 underline"
@@ -6769,6 +6764,140 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </div>
                   );
                 })()}
+              </div>
+            )}
+
+            {/* ── Platform Admin: Customer Health ──────────────────────────── */}
+            {activeSection === 'customerHealth' && (
+              <div className="flex flex-col min-w-0 overflow-hidden">
+                <div className="flex border-b border-gray-700/60 px-2 shrink-0">
+                  {([
+                    { id: 'overview', label: 'Overview' },
+                    { id: 'bricklink', label: 'BrickLink API' },
+                  ] as const).map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveCustomerHealthTab(tab.id)}
+                      className={`flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold transition-colors border-b-2 -mb-px ${activeCustomerHealthTab === tab.id ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
+                      data-testid={`tab-customer-health-${tab.id}`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {activeCustomerHealthTab === 'overview' && (
+                  <div className="p-4 space-y-4">
+                    {systemHealthLoading ? (
+                      <div className="flex items-center justify-center py-10">
+                        <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
+                      </div>
+                    ) : systemHealth ? (
+                      <div>
+                        <p className="sm-group-label mb-2 px-1">Customer Overview</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { label: 'Organizations', value: systemHealth.platform.totalOrganizations, icon: Building2 },
+                            { label: 'Total Users', value: systemHealth.platform.totalUsers, icon: Users },
+                            { label: 'Active Subs', value: systemHealth.platform.activeSubscriptions, icon: CreditCard },
+                          ].map(({ label, value, icon: Icon }) => (
+                            <div key={label} className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-2.5">
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <Icon className="h-3 w-3 text-yellow-500/60" />
+                                <span className="text-[10px] text-gray-500">{label}</span>
+                              </div>
+                              <p className="text-lg font-bold text-white">{Number(value).toLocaleString()}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-3 py-10">
+                        <AlertTriangle className="h-5 w-5 text-red-400/70" />
+                        <p className="sm-description">Failed to load customer data</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeCustomerHealthTab === 'bricklink' && (
+                  <div className="p-4 space-y-4 min-w-0 overflow-hidden">
+                    <p className="sm-group-label px-1">BrickLink API Usage by Organization (24h)</p>
+                    {blApiBreakdownLoading ? (
+                      <div className="flex items-center justify-center py-10">
+                        <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
+                      </div>
+                    ) : blApiBreakdown && blApiBreakdown.length > 0 ? (() => {
+                      const sortCol = blBreakdownSort.col;
+                      const sortDir = blBreakdownSort.dir;
+                      const sorted = [...blApiBreakdown].sort((a, b) => {
+                        const av = sortCol === 'orgId' ? a.orgId : (a as any)[sortCol] as number;
+                        const bv = sortCol === 'orgId' ? b.orgId : (b as any)[sortCol] as number;
+                        if (typeof av === 'string' && typeof bv === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+                        return sortDir === 'asc' ? (av as number) - (bv as number) : (bv as number) - (av as number);
+                      });
+                      const toggleSort = (col: string) => {
+                        setBlBreakdownSort(prev =>
+                          prev.col === col ? { col, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { col, dir: 'desc' }
+                        );
+                      };
+                      const columns = [
+                        { key: 'orgId', label: 'Organization', align: 'left' as const },
+                        { key: 'total', label: 'Total', align: 'right' as const },
+                        { key: 'inventory', label: 'Inventory', align: 'right' as const },
+                        { key: 'orders', label: 'Orders', align: 'right' as const },
+                        { key: 'catalog', label: 'Catalog', align: 'right' as const },
+                        { key: 'priceGuide', label: 'Price Guide', align: 'right' as const },
+                        { key: 'other', label: 'Other', align: 'right' as const },
+                        { key: 'failed', label: 'Failed', align: 'right' as const },
+                      ];
+                      return (
+                        <div className="rounded-lg border border-gray-700 overflow-hidden overflow-x-auto">
+                          <table className="w-full text-[11px]" data-testid="table-bl-api-breakdown">
+                            <thead>
+                              <tr className="bg-gray-800/80 border-b border-gray-700/60">
+                                {columns.map(col => (
+                                  <th
+                                    key={col.key}
+                                    onClick={() => toggleSort(col.key)}
+                                    className={`px-2.5 py-2 font-semibold cursor-pointer select-none transition-colors hover:text-yellow-400 ${col.align === 'right' ? 'text-right' : 'text-left'} ${sortCol === col.key ? 'text-yellow-400' : 'text-gray-500'}`}
+                                    data-testid={`sort-bl-${col.key}`}
+                                  >
+                                    <span className="inline-flex items-center gap-0.5">
+                                      {col.label}
+                                      {sortCol === col.key && (
+                                        <span className="text-[9px]">{sortDir === 'desc' ? '▼' : '▲'}</span>
+                                      )}
+                                    </span>
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-700/30">
+                              {sorted.map(row => (
+                                <tr key={row.orgId} className="hover-elevate" data-testid={`row-bl-org-${row.orgId}`}>
+                                  <td className="px-2.5 py-1.5 font-mono text-gray-300 truncate max-w-[160px]">{row.orgId}</td>
+                                  <td className="px-2.5 py-1.5 text-right font-mono font-semibold text-gray-200">{row.total.toLocaleString()}</td>
+                                  <td className="px-2.5 py-1.5 text-right font-mono text-gray-400">{row.inventory > 0 ? row.inventory.toLocaleString() : '—'}</td>
+                                  <td className="px-2.5 py-1.5 text-right font-mono text-gray-400">{row.orders > 0 ? row.orders.toLocaleString() : '—'}</td>
+                                  <td className="px-2.5 py-1.5 text-right font-mono text-gray-400">{row.catalog > 0 ? row.catalog.toLocaleString() : '—'}</td>
+                                  <td className="px-2.5 py-1.5 text-right font-mono text-gray-400">{row.priceGuide > 0 ? row.priceGuide.toLocaleString() : '—'}</td>
+                                  <td className="px-2.5 py-1.5 text-right font-mono text-gray-400">{row.other > 0 ? row.other.toLocaleString() : '—'}</td>
+                                  <td className={`px-2.5 py-1.5 text-right font-mono ${row.failed > 0 ? 'text-red-400 font-semibold' : 'text-gray-600'}`}>{row.failed > 0 ? row.failed.toLocaleString() : '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })() : (
+                      <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-6 text-center">
+                        <CheckCircle2 className="h-5 w-5 text-emerald-400/50 mx-auto mb-2" />
+                        <p className="sm-description">No BrickLink API calls in the last 24 hours</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

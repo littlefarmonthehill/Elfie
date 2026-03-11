@@ -1055,6 +1055,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/platform-admin/customer-health/bl-api-breakdown — per-org BL API usage grouped by endpoint category
+  app.get('/api/platform-admin/customer-health/bl-api-breakdown', isSuperAdmin, async (_req, res) => {
+    try {
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+      const rows = await db
+        .select({
+          orgId: blApiCalls.orgId,
+          endpoint: blApiCalls.endpoint,
+          success: blApiCalls.success,
+          calls: sql<number>`count(*)`,
+        })
+        .from(blApiCalls)
+        .where(gte(blApiCalls.timestamp, twentyFourHoursAgo))
+        .groupBy(blApiCalls.orgId, blApiCalls.endpoint, blApiCalls.success);
+
+      const orgMap = new Map<string, {
+        orgId: string; total: number; inventory: number; orders: number;
+        catalog: number; priceGuide: number; other: number;
+        success: number; failed: number;
+      }>();
+
+      for (const row of rows) {
+        const oid = row.orgId || 'unknown';
+        if (!orgMap.has(oid)) {
+          orgMap.set(oid, { orgId: oid, total: 0, inventory: 0, orders: 0, catalog: 0, priceGuide: 0, other: 0, success: 0, failed: 0 });
+        }
+        const entry = orgMap.get(oid)!;
+        const count = Number(row.calls);
+        entry.total += count;
+
+        if (row.success) entry.success += count;
+        else entry.failed += count;
+
+        const ep = (row.endpoint || '').toLowerCase();
+        if (ep.includes('/inventories') || ep.includes('/inventory')) entry.inventory += count;
+        else if (ep.includes('/orders')) entry.orders += count;
+        else if (ep.includes('/price_guide') || ep.includes('/price')) entry.priceGuide += count;
+        else if (ep.includes('/items/') || ep.includes('/item_mapping')) entry.catalog += count;
+        else if (ep.includes('/categories') || ep.includes('/colors')) entry.catalog += count;
+        else entry.other += count;
+      }
+
+      const result = Array.from(orgMap.values()).sort((a, b) => b.total - a.total);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching customer BL API breakdown:", error);
+      res.status(500).json({ message: "Failed to fetch BL API breakdown" });
+    }
+  });
+
   // GET /api/platform-admin/server-logs — recent WARN/ERROR log entries from in-memory buffer
   app.get('/api/platform-admin/server-logs', isSuperAdmin, (_req, res) => {
     const { getRecentLogs } = require('./services/server-log-buffer');
