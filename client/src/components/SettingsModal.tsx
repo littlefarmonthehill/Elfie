@@ -748,8 +748,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [activeOrg, setActiveOrg] = useState<OrgWithUsage | null>(null);
   const [activeOrgTab, setActiveOrgTab] = useState<'features' | 'limits' | 'billing'>('features');
   const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'features' | 'limits' | 'billing'>('info');
-  const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'platform' | 'stripe' | 'openai' | 'bricklink'>('platform');
-  const [activeHealthTab, setActiveHealthTab] = useState<'overview' | 'jobs' | 'logs' | 'database' | 'bricklink'>('overview');
+  const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'jobs' | 'platform' | 'stripe' | 'openai' | 'bricklink'>('jobs');
+  const [activeHealthTab, setActiveHealthTab] = useState<'overview' | 'logs' | 'database' | 'bricklink'>('overview');
   const [activeCustomerHealthTab, setActiveCustomerHealthTab] = useState<'overview' | 'bricklink'>('overview');
   const [blBreakdownSort, setBlBreakdownSort] = useState<{ col: string; dir: 'asc' | 'desc' }>({ col: 'total', dir: 'desc' });
   const [showBlSchedulePopup, setShowBlSchedulePopup] = useState(false);
@@ -1065,8 +1065,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
   const { data: systemHealth, isLoading: systemHealthLoading, isError: systemHealthError, refetch: refetchSystemHealth } = useQuery<SystemHealthData>({
     queryKey: ['/api/platform-admin/system-health'],
-    enabled: open && (activeSection === 'systemHealth' || activeSection === 'customerHealth'),
-    refetchInterval: (activeSection === 'systemHealth' || activeSection === 'customerHealth') ? 15000 : false,
+    enabled: open && (activeSection === 'systemHealth' || activeSection === 'customerHealth' || (activeSection === 'apiKeys' && activePlatformServicesTab === 'jobs')),
+    refetchInterval: (activeSection === 'systemHealth' || activeSection === 'customerHealth' || (activeSection === 'apiKeys' && activePlatformServicesTab === 'jobs')) ? 15000 : false,
     retry: 0,
     staleTime: 0,
   });
@@ -6009,7 +6009,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   {([
                     { id: 'overview', label: 'Overview' },
                     { id: 'bricklink', label: 'BrickLink' },
-                    { id: 'jobs', label: 'Jobs' },
                     { id: 'logs', label: 'Logs', dot: serverLogs && serverLogs.some(l => l.level === 'error') ? 'bg-red-500' : serverLogs && serverLogs.some(l => l.level === 'warn') ? 'bg-yellow-500' : null },
                     { id: 'database', label: 'Database' },
                   ] as const).map(tab => (
@@ -6297,228 +6296,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       </div>
                     </DialogContent>
                   </Dialog>
-                )}
-
-                {/* Jobs tab */}
-                {activeHealthTab === 'jobs' && (
-                  <div className="p-4 space-y-4">
-                    {systemHealthLoading ? (
-                      <div className="flex items-center justify-center py-10">
-                        <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
-                      </div>
-                    ) : systemHealth ? (() => {
-                      const jobLabels: Record<string, string> = {
-                        priceomatic_cache: 'Price-o-Matic',
-                        universal_catalog_refresh: 'Universal Catalog',
-                        rebrickable_set_parts: 'Rebrickable Sets',
-                        forum_sync: 'Forum Sync',
-                        clip_catalog: 'CLIP Catalog Build',
-                      };
-                      const jobDescriptions: Record<string, string> = {
-                        priceomatic_cache: 'Daily price guide refresh via BrickLink API',
-                        universal_catalog_refresh: 'Rebrickable import + BrickLink catalog enrichment',
-                        rebrickable_set_parts: 'Monthly set-to-part relationship sync',
-                        forum_sync: 'BrickLink forum scraping + embeddings',
-                        clip_catalog: 'Visual search embeddings for catalog items',
-                      };
-                      const config = systemHealth.schedulerConfig || {};
-                      const clipStatus = systemHealth.clipCatalogStatus;
-
-                      const allJobs = [
-                        ...(systemHealth.syncJobs || []).map(job => ({
-                          id: job.id,
-                          label: jobLabels[job.id] || job.id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-                          description: jobDescriptions[job.id] || '',
-                          status: job.lastSyncStatus,
-                          lastRun: job.lastSyncTime,
-                          recordsAdded: job.recordsAdded,
-                          recordsUpdated: job.recordsUpdated,
-                          error: job.errorMessage,
-                          config: config[job.id],
-                        })),
-                        ...(clipStatus ? [{
-                          id: 'clip_catalog',
-                          label: 'CLIP Catalog Build',
-                          description: 'Visual search embeddings for catalog items',
-                          status: config.clip_catalog?.workerRunning ? 'in_progress' : (clipStatus.embedded >= clipStatus.total ? 'success' : 'idle'),
-                          lastRun: null as string | null,
-                          recordsAdded: clipStatus.embedded,
-                          recordsUpdated: clipStatus.total,
-                          error: null as string | null,
-                          config: config.clip_catalog,
-                        }] : []),
-                      ];
-
-                      const hasActiveJob = allJobs.some(j => j.status === 'in_progress');
-
-                      const handleTrigger = async (jobId: string) => {
-                        try {
-                          await apiRequest('POST', `/api/platform-admin/scheduler/${jobId}/trigger`);
-                          queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/system-health'] });
-                        } catch (err: any) {
-                          const msg = err?.message || 'Trigger failed';
-                          alert(msg);
-                        }
-                      };
-
-                      const handleToggle = async (jobId: string, enabled: boolean) => {
-                        try {
-                          await apiRequest('POST', `/api/platform-admin/scheduler/${jobId}/toggle`, { enabled });
-                          queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/system-health'] });
-                        } catch (err: any) {
-                          alert(err?.message || 'Toggle failed');
-                        }
-                      };
-
-                      return (
-                        <>
-                          <div className="flex items-center gap-2 px-1">
-                            <p className="sm-group-label">Platform Scheduled Jobs</p>
-                            {hasActiveJob && <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />}
-                          </div>
-
-                          <div className="space-y-2">
-                            {allJobs.map(job => {
-                              const isActive = job.status === 'in_progress';
-                              const isFailed = job.status === 'failed' || job.status === 'error';
-                              const isPartial = job.status === 'partial';
-                              const isClip = job.id === 'clip_catalog';
-                              const cfg = job.config;
-                              const isEnabled = cfg?.enabled ?? false;
-
-                              return (
-                                <div key={job.id} className="rounded-lg bg-gray-800/40 border border-gray-700/60">
-                                  <div className="px-4 py-3 space-y-2">
-                                    <div className="flex items-center gap-3">
-                                      <div className="shrink-0">
-                                        {isActive
-                                          ? <Loader2 className="h-3.5 w-3.5 text-yellow-400 animate-spin" />
-                                          : isFailed
-                                            ? <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
-                                            : isPartial
-                                              ? <AlertTriangle className="h-3.5 w-3.5 text-orange-400" />
-                                              : !isEnabled && !isClip
-                                                ? <Pause className="h-3.5 w-3.5 text-gray-500" />
-                                                : <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />}
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-xs text-gray-200">{job.label}</p>
-                                        <p className="text-[10px] text-gray-500">{job.description}</p>
-                                      </div>
-                                      <div className="text-right shrink-0">
-                                        <p className={`text-[10px] font-medium capitalize ${isActive ? 'text-yellow-400' : isFailed ? 'text-red-400' : isPartial ? 'text-orange-400' : !isEnabled && !isClip ? 'text-gray-500' : 'text-green-400/70'}`}>
-                                          {!isEnabled && !isClip ? 'paused' : job.status === 'never' ? 'never run' : job.status}
-                                        </p>
-                                        {!isClip && (
-                                          <p className="text-[9px] text-gray-600 font-mono">
-                                            {job.lastRun ? new Date(job.lastRun).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'never'}
-                                          </p>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    {job.error && (
-                                      <p className="text-[10px] text-red-400/80 truncate pl-6">{job.error}</p>
-                                    )}
-
-                                    {isClip && clipStatus && clipStatus.total > 0 && (
-                                      <div className="flex items-center gap-2 pl-6">
-                                        <div className="flex-1 bg-gray-700 rounded-full h-1">
-                                          <div className="bg-yellow-500 h-1 rounded-full transition-all" style={{ width: `${Math.round((clipStatus.embedded / clipStatus.total) * 100)}%` }} />
-                                        </div>
-                                        <span className="text-[9px] text-gray-500 shrink-0">{clipStatus.embedded.toLocaleString()}/{clipStatus.total.toLocaleString()} ({Math.round((clipStatus.embedded / clipStatus.total) * 100)}%)</span>
-                                      </div>
-                                    )}
-
-                                    {!isClip && (job.recordsAdded > 0 || job.recordsUpdated > 0) && (
-                                      <p className="text-[9px] text-gray-600 pl-6">+{job.recordsAdded} added, {job.recordsUpdated} updated</p>
-                                    )}
-
-                                    <div className="flex items-center gap-2 pl-6 pt-1 border-t border-gray-700/40">
-                                      {cfg && (
-                                        <span className="text-[9px] text-gray-500 font-mono flex-1">{cfg.schedule}{cfg.batchSize ? ` · batch ${cfg.batchSize}` : ''}</span>
-                                      )}
-                                      <div className="flex items-center gap-1 shrink-0">
-                                        <button
-                                          data-testid={`button-trigger-${job.id}`}
-                                          onClick={() => handleTrigger(job.id)}
-                                          disabled={isActive}
-                                          className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-yellow-500/10 text-yellow-400 disabled:opacity-30 disabled:cursor-not-allowed"
-                                          title="Run now"
-                                        >
-                                          <Play className="h-2.5 w-2.5" />
-                                          Run
-                                        </button>
-                                        {!isClip && (
-                                          <button
-                                            data-testid={`button-toggle-${job.id}`}
-                                            onClick={() => handleToggle(job.id, !isEnabled)}
-                                            className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium ${isEnabled ? 'bg-green-500/10 text-green-400' : 'bg-gray-500/10 text-gray-400'}`}
-                                            title={isEnabled ? 'Pause scheduler' : 'Resume scheduler'}
-                                          >
-                                            {isEnabled ? <Pause className="h-2.5 w-2.5" /> : <Play className="h-2.5 w-2.5" />}
-                                            {isEnabled ? 'Pause' : 'Resume'}
-                                          </button>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-
-                          {(systemHealth.jobs.active.length > 0 || systemHealth.jobs.recent.length > 0) && (
-                            <div>
-                              <p className="sm-group-label mb-2 px-1">Embedding Worker</p>
-                              <div className="sm-card-inset">
-                                {systemHealth.jobs.active.map(job => (
-                                  <div key={job.id} className="px-4 py-2.5 flex items-center gap-3">
-                                    <Loader2 className="h-3.5 w-3.5 text-yellow-400 animate-spin shrink-0" />
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-xs text-gray-200 capitalize">{job.jobType}</p>
-                                    </div>
-                                    <div className="text-right shrink-0">
-                                      {job.totalItems > 0 && <p className="text-[10px] text-gray-400 font-mono">{job.processedItems}/{job.totalItems}</p>}
-                                    </div>
-                                  </div>
-                                ))}
-                                {systemHealth.jobs.recent.slice(0, 5).map(job => (
-                                  <div key={job.id} className="px-4 py-2.5 flex items-center gap-3">
-                                    <div className="shrink-0">
-                                      {job.status === 'completed' ? <CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> : <AlertTriangle className="h-3.5 w-3.5 text-red-400" />}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-xs text-gray-300 capitalize">{job.jobType}</p>
-                                      {job.errorMessage && <p className="text-[10px] text-red-400/80 truncate">{job.errorMessage}</p>}
-                                    </div>
-                                    <div className="text-right shrink-0">
-                                      <p className="text-[10px] text-gray-500 font-mono">{job.processedItems}/{job.totalItems}</p>
-                                      <p className="text-[9px] text-gray-600 font-mono">{job.completedAt ? new Date(job.completedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</p>
-                                    </div>
-                                  </div>
-                                ))}
-                                {systemHealth.jobs.active.length === 0 && systemHealth.jobs.recent.length === 0 && (
-                                  <div className="px-4 py-4 text-center"><p className="sm-description">No embedding jobs</p></div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </>
-                      );
-                    })() : (
-                      <div className="flex flex-col items-center justify-center gap-3 py-10">
-                        <AlertTriangle className="h-5 w-5 text-red-400/70" />
-                        <p className="sm-description">Failed to load health data</p>
-                        <button
-                          onClick={() => refetchSystemHealth()}
-                          className="text-[11px] text-yellow-500/70 hover:text-yellow-400 underline"
-                        >
-                          Retry
-                        </button>
-                      </div>
-                    )}
-                  </div>
                 )}
 
                 {/* Logs tab */}
@@ -7456,7 +7233,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
               <div className="p-4 space-y-4">
                 {/* Tab strip */}
                 {(() => {
-                  const psTabs: Array<{ id: 'platform' | 'stripe' | 'openai' | 'bricklink'; label: string; Icon: React.ElementType }> = [
+                  const psTabs: Array<{ id: 'jobs' | 'platform' | 'stripe' | 'openai' | 'bricklink'; label: string; Icon: React.ElementType }> = [
+                    { id: 'jobs', label: 'Jobs', Icon: Activity },
                     { id: 'platform', label: 'Platform', Icon: Building2 },
                     { id: 'bricklink', label: 'BrickLink', Icon: Blocks },
                     { id: 'stripe', label: 'Stripe', Icon: CreditCard },
@@ -7478,6 +7256,228 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </div>
                   );
                 })()}
+
+                {/* ── Jobs tab ──────────────────────────────────── */}
+                {activePlatformServicesTab === 'jobs' && (
+                  <div className="space-y-4">
+                    {systemHealthLoading ? (
+                      <div className="flex items-center justify-center py-10">
+                        <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
+                      </div>
+                    ) : systemHealth ? (() => {
+                      const jobLabels: Record<string, string> = {
+                        priceomatic_cache: 'Price-o-Matic',
+                        universal_catalog_refresh: 'Universal Catalog',
+                        rebrickable_set_parts: 'Rebrickable Sets',
+                        forum_sync: 'Forum Sync',
+                        clip_catalog: 'CLIP Catalog Build',
+                      };
+                      const jobDescriptions: Record<string, string> = {
+                        priceomatic_cache: 'Daily price guide refresh via BrickLink API',
+                        universal_catalog_refresh: 'Rebrickable import + BrickLink catalog enrichment',
+                        rebrickable_set_parts: 'Monthly set-to-part relationship sync',
+                        forum_sync: 'BrickLink forum scraping + embeddings',
+                        clip_catalog: 'Visual search embeddings for catalog items',
+                      };
+                      const config = systemHealth.schedulerConfig || {};
+                      const clipStatus = systemHealth.clipCatalogStatus;
+
+                      const allJobs = [
+                        ...(systemHealth.syncJobs || []).map(job => ({
+                          id: job.id,
+                          label: jobLabels[job.id] || job.id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                          description: jobDescriptions[job.id] || '',
+                          status: job.lastSyncStatus,
+                          lastRun: job.lastSyncTime,
+                          recordsAdded: job.recordsAdded,
+                          recordsUpdated: job.recordsUpdated,
+                          error: job.errorMessage,
+                          config: config[job.id],
+                        })),
+                        ...(clipStatus ? [{
+                          id: 'clip_catalog',
+                          label: 'CLIP Catalog Build',
+                          description: 'Visual search embeddings for catalog items',
+                          status: config.clip_catalog?.workerRunning ? 'in_progress' : (clipStatus.embedded >= clipStatus.total ? 'success' : 'idle'),
+                          lastRun: null as string | null,
+                          recordsAdded: clipStatus.embedded,
+                          recordsUpdated: clipStatus.total,
+                          error: null as string | null,
+                          config: config.clip_catalog,
+                        }] : []),
+                      ];
+
+                      const hasActiveJob = allJobs.some(j => j.status === 'in_progress');
+
+                      const handleTrigger = async (jobId: string) => {
+                        try {
+                          await apiRequest('POST', `/api/platform-admin/scheduler/${jobId}/trigger`);
+                          queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/system-health'] });
+                        } catch (err: any) {
+                          const msg = err?.message || 'Trigger failed';
+                          alert(msg);
+                        }
+                      };
+
+                      const handleToggle = async (jobId: string, enabled: boolean) => {
+                        try {
+                          await apiRequest('POST', `/api/platform-admin/scheduler/${jobId}/toggle`, { enabled });
+                          queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/system-health'] });
+                        } catch (err: any) {
+                          alert(err?.message || 'Toggle failed');
+                        }
+                      };
+
+                      return (
+                        <>
+                          <div className="flex items-center gap-2 px-1">
+                            <p className="sm-group-label">Platform Scheduled Jobs</p>
+                            {hasActiveJob && <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />}
+                          </div>
+
+                          <div className="space-y-2">
+                            {allJobs.map(job => {
+                              const isActive = job.status === 'in_progress';
+                              const isFailed = job.status === 'failed' || job.status === 'error';
+                              const isPartial = job.status === 'partial';
+                              const isClip = job.id === 'clip_catalog';
+                              const cfg = job.config;
+                              const isEnabled = cfg?.enabled ?? false;
+
+                              return (
+                                <div key={job.id} className="rounded-lg bg-gray-800/40 border border-gray-700/60">
+                                  <div className="px-4 py-3 space-y-2">
+                                    <div className="flex items-center gap-3">
+                                      <div className="shrink-0">
+                                        {isActive
+                                          ? <Loader2 className="h-3.5 w-3.5 text-yellow-400 animate-spin" />
+                                          : isFailed
+                                            ? <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
+                                            : isPartial
+                                              ? <AlertTriangle className="h-3.5 w-3.5 text-orange-400" />
+                                              : !isEnabled && !isClip
+                                                ? <Pause className="h-3.5 w-3.5 text-gray-500" />
+                                                : <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs text-gray-200">{job.label}</p>
+                                        <p className="text-[10px] text-gray-500">{job.description}</p>
+                                      </div>
+                                      <div className="text-right shrink-0">
+                                        <p className={`text-[10px] font-medium capitalize ${isActive ? 'text-yellow-400' : isFailed ? 'text-red-400' : isPartial ? 'text-orange-400' : !isEnabled && !isClip ? 'text-gray-500' : 'text-green-400/70'}`}>
+                                          {!isEnabled && !isClip ? 'paused' : job.status === 'never' ? 'never run' : job.status}
+                                        </p>
+                                        {!isClip && (
+                                          <p className="text-[9px] text-gray-600 font-mono">
+                                            {job.lastRun ? new Date(job.lastRun).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'never'}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {job.error && (
+                                      <p className="text-[10px] text-red-400/80 truncate pl-6">{job.error}</p>
+                                    )}
+
+                                    {isClip && clipStatus && clipStatus.total > 0 && (
+                                      <div className="flex items-center gap-2 pl-6">
+                                        <div className="flex-1 bg-gray-700 rounded-full h-1">
+                                          <div className="bg-yellow-500 h-1 rounded-full transition-all" style={{ width: `${Math.round((clipStatus.embedded / clipStatus.total) * 100)}%` }} />
+                                        </div>
+                                        <span className="text-[9px] text-gray-500 shrink-0">{clipStatus.embedded.toLocaleString()}/{clipStatus.total.toLocaleString()} ({Math.round((clipStatus.embedded / clipStatus.total) * 100)}%)</span>
+                                      </div>
+                                    )}
+
+                                    {!isClip && (job.recordsAdded > 0 || job.recordsUpdated > 0) && (
+                                      <p className="text-[9px] text-gray-600 pl-6">+{job.recordsAdded} added, {job.recordsUpdated} updated</p>
+                                    )}
+
+                                    <div className="flex items-center gap-2 pl-6 pt-1 border-t border-gray-700/40">
+                                      {cfg && (
+                                        <span className="text-[9px] text-gray-500 font-mono flex-1">{cfg.schedule}{cfg.batchSize ? ` · batch ${cfg.batchSize}` : ''}</span>
+                                      )}
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        <button
+                                          data-testid={`button-trigger-${job.id}`}
+                                          onClick={() => handleTrigger(job.id)}
+                                          disabled={isActive}
+                                          className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-yellow-500/10 text-yellow-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                                          title="Run now"
+                                        >
+                                          <Play className="h-2.5 w-2.5" />
+                                          Run
+                                        </button>
+                                        {!isClip && (
+                                          <button
+                                            data-testid={`button-toggle-${job.id}`}
+                                            onClick={() => handleToggle(job.id, !isEnabled)}
+                                            className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium ${isEnabled ? 'bg-green-500/10 text-green-400' : 'bg-gray-500/10 text-gray-400'}`}
+                                            title={isEnabled ? 'Pause scheduler' : 'Resume scheduler'}
+                                          >
+                                            {isEnabled ? <Pause className="h-2.5 w-2.5" /> : <Play className="h-2.5 w-2.5" />}
+                                            {isEnabled ? 'Pause' : 'Resume'}
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {(systemHealth.jobs.active.length > 0 || systemHealth.jobs.recent.length > 0) && (
+                            <div>
+                              <p className="sm-group-label mb-2 px-1">Embedding Worker</p>
+                              <div className="sm-card-inset">
+                                {systemHealth.jobs.active.map(job => (
+                                  <div key={job.id} className="px-4 py-2.5 flex items-center gap-3">
+                                    <Loader2 className="h-3.5 w-3.5 text-yellow-400 animate-spin shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs text-gray-200 capitalize">{job.jobType}</p>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                      {job.totalItems > 0 && <p className="text-[10px] text-gray-400 font-mono">{job.processedItems}/{job.totalItems}</p>}
+                                    </div>
+                                  </div>
+                                ))}
+                                {systemHealth.jobs.recent.slice(0, 5).map(job => (
+                                  <div key={job.id} className="px-4 py-2.5 flex items-center gap-3">
+                                    <div className="shrink-0">
+                                      {job.status === 'completed' ? <CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> : <AlertTriangle className="h-3.5 w-3.5 text-red-400" />}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs text-gray-300 capitalize">{job.jobType}</p>
+                                      {job.errorMessage && <p className="text-[10px] text-red-400/80 truncate">{job.errorMessage}</p>}
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                      <p className="text-[10px] text-gray-500 font-mono">{job.processedItems}/{job.totalItems}</p>
+                                      <p className="text-[9px] text-gray-600 font-mono">{job.completedAt ? new Date(job.completedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                                {systemHealth.jobs.active.length === 0 && systemHealth.jobs.recent.length === 0 && (
+                                  <div className="px-4 py-4 text-center"><p className="sm-description">No embedding jobs</p></div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })() : (
+                      <div className="flex flex-col items-center justify-center gap-3 py-10">
+                        <AlertTriangle className="h-5 w-5 text-red-400/70" />
+                        <p className="sm-description">Failed to load health data</p>
+                        <button
+                          onClick={() => refetchSystemHealth()}
+                          className="text-[11px] text-yellow-500/70 hover:text-yellow-400 underline"
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* ── Platform tab ────────────────────────────────── */}
                 {activePlatformServicesTab === 'platform' && (
