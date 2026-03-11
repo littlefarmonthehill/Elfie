@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
 import {
-  Package, ShoppingCart, Globe, Brain,
+  Package, ShoppingCart,
   RefreshCw, CheckCircle, XCircle, AlertCircle, Loader2,
   ScanSearch, ArrowRight, Settings, AlertTriangle, Zap,
   TrendingDown, Clock, Activity, CreditCard, ChevronUp,
@@ -202,7 +201,7 @@ function AllGood({ label = 'All clear' }: { label?: string }) {
 
 function InventoryLane({
   stats, globalSyncStatuses, invSyncProgress, pomStatus, pricingInsights, underpricedThreshold, deepSpaceKeys, futureMissionsKeys, onItemClick, onOpenBrickanalyzer, onOpenPriceomatic, onOpenSettings,
-  channelSyncRunning, syncStatus,
+  channelSyncRunning, syncStatus, latestScan,
 }: any) {
   const lastInvSync = globalSyncStatuses?.inventory;
   const lastPom = pomStatus?.data ?? globalSyncStatuses?.priceomatic;
@@ -230,7 +229,29 @@ function InventoryLane({
     refetchInterval: 8000,
   });
 
-  const hasRunningJobs = isInvSyncing || isPomRunning || !!activeInvEmbed;
+  const { data: embedStats } = useQuery<{
+    inventory: { embedded: number; total: number; percentage: string };
+    orders: { embedded: number; total: number; percentage: string };
+  }>({
+    queryKey: ['/api/embeddings/stats'],
+    refetchInterval: 10000,
+  });
+
+  const { data: catalogStatus } = useQuery<{ catalog: number; confirmed: number; total: number }>({
+    queryKey: ['/api/brickspotter/catalog-status'],
+    refetchInterval: 10000,
+  });
+
+  const catalogPct = catalogStatus && catalogStatus.total > 0
+    ? Math.round((catalogStatus.catalog / catalogStatus.total) * 100) : 0;
+  const invEmbedPct = embedStats && embedStats.inventory.total > 0
+    ? Math.round((embedStats.inventory.embedded / embedStats.inventory.total) * 100) : 0;
+
+  const isScanProcessing = latestScan?.status === 'processing';
+  const isScanComplete = latestScan?.status === 'complete';
+  const isScanFailed = latestScan?.status === 'failed';
+
+  const hasRunningJobs = isInvSyncing || isPomRunning || !!activeInvEmbed || isScanProcessing;
 
   const threshold = underpricedThreshold ?? 1.5;
   const tooHighCount = pricingInsights?.data?.tooHigh?.length ?? 0;
@@ -269,8 +290,18 @@ function InventoryLane({
     <LaneCard title="Inventory" Icon={Package} color="cyan" summary={summary}>
 
       {/* Needs Attention */}
-      {(invSyncFailed || pomFailed || highOpportunityCount > 0 || tooHighCount > 0 || hasChannelIssues) ? (
+      {(invSyncFailed || pomFailed || highOpportunityCount > 0 || tooHighCount > 0 || hasChannelIssues || (isScanComplete && (latestScan?.totalPieces ?? 0) > 0)) ? (
         <LaneSection label="Attention">
+          {isScanComplete && (latestScan?.totalPieces ?? 0) > 0 && (
+            <AlertItem
+              icon={Zap}
+              iconColor="text-purple-400"
+              label="Scan results ready to view"
+              sub="View before they expire"
+              onClick={onOpenBrickanalyzer}
+              severity="info"
+            />
+          )}
           {invSyncFailed && (
             <AlertItem icon={XCircle} iconColor="text-red-400" label="Inventory sync failed" sub={lastInvSync?.errorMessage ?? 'Check BrickLink connection'} onClick={() => onOpenSettings?.('platforms')} severity="error" />
           )}
@@ -332,12 +363,25 @@ function InventoryLane({
               <span className="text-[10px] text-teal-300 font-medium">Channel sync running…</span>
             </div>
           )}
-          {activeInvEmbed && (
+          {isScanProcessing && (
+            <div className="flex items-center gap-1.5 px-1.5">
+              <Loader2 className="w-3 h-3 text-purple-400 animate-spin shrink-0" />
+              <span className="text-[10px] text-purple-300 font-medium">BrickSpotter scanning…</span>
+            </div>
+          )}
+          {activeInvEmbed && embedStats ? (
+            <JobBar
+              label="Inventory embedding"
+              pct={invEmbedPct}
+              sublabel={`${embedStats.inventory.embedded.toLocaleString()} / ${embedStats.inventory.total.toLocaleString()} items`}
+              color="purple"
+            />
+          ) : activeInvEmbed ? (
             <div className="flex items-center gap-1.5 px-1.5">
               <Activity className="w-3 h-3 text-blue-400 animate-pulse" />
               <span className="text-[10px] text-blue-400">Embedding inventory data…</span>
             </div>
-          )}
+          ) : null}
         </LaneSection>
       )}
 
@@ -374,6 +418,34 @@ function InventoryLane({
             time={relTime(lastChannelSync.lastSyncTime)}
           />
         ) : null}
+        {catalogStatus && (
+          <ActivityItem
+            icon={ScanSearch}
+            iconColor="text-purple-400"
+            label={`Visual catalog — ${catalogPct}% built`}
+            sub={`${catalogStatus.catalog} / ${catalogStatus.total} parts embedded`}
+          />
+        )}
+        {embedStats && (
+          <ActivityItem
+            icon={embedStats.inventory.embedded >= embedStats.inventory.total && embedStats.inventory.total > 0 ? CheckCircle : RefreshCw}
+            iconColor={embedStats.inventory.embedded >= embedStats.inventory.total && embedStats.inventory.total > 0 ? 'text-green-400' : 'text-purple-400'}
+            label="Inventory search index"
+            sub={`${embedStats.inventory.embedded.toLocaleString()} / ${embedStats.inventory.total.toLocaleString()} — ${embedStats.inventory.percentage}% embedded`}
+          />
+        )}
+        {(isScanComplete || isScanFailed) && latestScan && (
+          <ActivityItem
+            icon={isScanComplete ? ((latestScan.totalPieces ?? 0) > 0 ? CheckCircle : AlertCircle) : XCircle}
+            iconColor={isScanComplete ? ((latestScan.totalPieces ?? 0) > 0 ? 'text-green-400' : 'text-yellow-400') : 'text-red-400'}
+            label={isScanComplete ? `BrickSpotter: ${latestScan.totalPieces ?? 0} pieces found` : 'BrickSpotter scan failed'}
+            sub={isScanComplete && latestScan.estimatedValue && Number(latestScan.estimatedValue) > 0 ? `Est. ${formatCurrency(latestScan.estimatedValue)}` : isScanFailed ? 'Try again from Inventory tab' : undefined}
+            onClick={onOpenBrickanalyzer}
+          />
+        )}
+        {!latestScan && !isScanProcessing && (
+          <ActivityItem icon={ScanSearch} iconColor="text-muted-foreground" label="No recent BrickSpotter scan" />
+        )}
       </LaneSection>
 
     </LaneCard>
@@ -391,6 +463,17 @@ function OrdersLane({ stats, dashboardOrders, fulfillmentStats, orderSyncRunning
     queryKey: ['/api/embeddings/jobs/active/orders'],
     refetchInterval: 8000,
   });
+
+  const { data: embedStats } = useQuery<{
+    inventory: { embedded: number; total: number; percentage: string };
+    orders: { embedded: number; total: number; percentage: string };
+  }>({
+    queryKey: ['/api/embeddings/stats'],
+    refetchInterval: 10000,
+  });
+
+  const ordEmbedPct = embedStats && embedStats.orders.total > 0
+    ? Math.round((embedStats.orders.embedded / embedStats.orders.total) * 100) : 0;
 
   const recentOrders: any[] = dashboardOrders?.recentShipments ?? [];
   const newOrders: any[] = dashboardOrders?.pending ?? [];
@@ -433,12 +516,19 @@ function OrdersLane({ stats, dashboardOrders, fulfillmentStats, orderSyncRunning
               <span className="text-xs text-cyan-300 font-medium">Order sync running…</span>
             </div>
           )}
-          {activeOrdEmbed && (
+          {activeOrdEmbed && embedStats ? (
+            <JobBar
+              label="Order embedding"
+              pct={ordEmbedPct}
+              sublabel={`${embedStats.orders.embedded.toLocaleString()} / ${embedStats.orders.total.toLocaleString()} orders`}
+              color="purple"
+            />
+          ) : activeOrdEmbed ? (
             <div className="flex items-center gap-1.5">
               <Activity className="w-3 h-3 text-blue-400 animate-pulse shrink-0" />
               <span className="text-[10px] text-blue-400">Embedding order data…</span>
             </div>
-          )}
+          ) : null}
         </LaneSection>
       )}
 
@@ -469,163 +559,20 @@ function OrdersLane({ stats, dashboardOrders, fulfillmentStats, orderSyncRunning
         {recentOrders.length === 0 && newOrders.length === 0 && (
           <ActivityItem icon={Clock} iconColor="text-muted-foreground" label="No recent orders" />
         )}
-      </LaneSection>
-
-    </LaneCard>
-  );
-}
-
-
-// ── AI INTELLIGENCE LANE ──────────────────────────────────────────────────────
-
-function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dismissScanMutation }: any) {
-  const elfieMode = (appSettings?.elfieMode as 'search' | 'ai') ?? 'search';
-
-  const { data: embedStats } = useQuery<{
-    inventory: { embedded: number; total: number; percentage: string };
-    orders: { embedded: number; total: number; percentage: string };
-  }>({
-    queryKey: ['/api/embeddings/stats'],
-    refetchInterval: 10000,
-  });
-
-  const { data: catalogStatus } = useQuery<{ catalog: number; confirmed: number; total: number }>({
-    queryKey: ['/api/brickspotter/catalog-status'],
-    refetchInterval: 10000,
-  });
-
-  const { data: activeInvEmbed } = useQuery({
-    queryKey: ['/api/embeddings/jobs/active/inventory'],
-    refetchInterval: 8000,
-  });
-
-  const { data: activeOrdEmbed } = useQuery({
-    queryKey: ['/api/embeddings/jobs/active/orders'],
-    refetchInterval: 8000,
-  });
-
-  const catalogPct = catalogStatus && catalogStatus.total > 0
-    ? Math.round((catalogStatus.catalog / catalogStatus.total) * 100) : 0;
-
-  const invEmbedPct = embedStats && embedStats.inventory.total > 0
-    ? Math.round((embedStats.inventory.embedded / embedStats.inventory.total) * 100) : 0;
-  const ordEmbedPct = embedStats && embedStats.orders.total > 0
-    ? Math.round((embedStats.orders.embedded / embedStats.orders.total) * 100) : 0;
-
-  const isScanProcessing = latestScan?.status === 'processing';
-  const isScanComplete = latestScan?.status === 'complete';
-  const isScanFailed = latestScan?.status === 'failed';
-
-  const hasAiRunning = isScanProcessing || !!activeInvEmbed || !!activeOrdEmbed;
-
-  const summary = `E.L.F.I.E. ${elfieMode === 'ai' ? 'AI' : 'Search'} mode`;
-
-  return (
-    <LaneCard title="AI Intelligence" Icon={Brain} color="purple" summary={summary}>
-
-      {/* Attention */}
-      {isScanComplete && (latestScan?.totalPieces ?? 0) > 0 && (
-        <LaneSection label="Attention">
-          <AlertItem
-            icon={Zap}
-            iconColor="text-purple-400"
-            label="Scan results ready to view"
-            sub="View before they expire"
-            onClick={onOpenBrickanalyzer}
-            severity="info"
-          />
-        </LaneSection>
-      )}
-
-      {/* Running */}
-      {hasAiRunning && (
-        <LaneSection label="Running">
-          {isScanProcessing && (
-            <div className="flex items-center gap-1.5">
-              <Loader2 className="w-3 h-3 text-purple-400 animate-spin shrink-0" />
-              <span className="text-xs text-purple-300 font-medium">Brick Spotter scanning…</span>
-            </div>
-          )}
-          {activeInvEmbed && embedStats && (
-            <JobBar
-              label="Inventory embedding"
-              pct={invEmbedPct}
-              sublabel={`${embedStats.inventory.embedded.toLocaleString()} / ${embedStats.inventory.total.toLocaleString()} items`}
-              color="purple"
-            />
-          )}
-          {activeOrdEmbed && embedStats && (
-            <JobBar
-              label="Order embedding"
-              pct={ordEmbedPct}
-              sublabel={`${embedStats.orders.embedded.toLocaleString()} / ${embedStats.orders.total.toLocaleString()} orders`}
-              color="purple"
-            />
-          )}
-        </LaneSection>
-      )}
-
-      {/* Last Actions — embeddings + last scan, sub-grouped */}
-      <LaneSection label="Last Actions" collapsible>
-        {catalogStatus && (
-          <>
-            <div className="pt-0.5 pb-0.5">
-              <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">Visual Recognition</span>
-            </div>
-            <ActivityItem
-              icon={ScanSearch}
-              iconColor="text-purple-400"
-              label={`Your inventory — ${catalogPct}% built`}
-              sub={`${catalogStatus.catalog} / ${catalogStatus.total} parts embedded`}
-            />
-          </>
-        )}
         {embedStats && (
-          <>
-            <div className="pt-1 pb-0.5">
-              <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">Text Search</span>
-            </div>
-            <ActivityItem
-              icon={embedStats.inventory.embedded >= embedStats.inventory.total && embedStats.inventory.total > 0 ? CheckCircle : RefreshCw}
-              iconColor={embedStats.inventory.embedded >= embedStats.inventory.total && embedStats.inventory.total > 0 ? 'text-green-400' : 'text-purple-400'}
-              label="Inventory"
-              sub={`${embedStats.inventory.embedded.toLocaleString()} / ${embedStats.inventory.total.toLocaleString()} — ${embedStats.inventory.percentage}% embedded`}
-            />
-            <ActivityItem
-              icon={embedStats.orders.embedded >= embedStats.orders.total && embedStats.orders.total > 0 ? CheckCircle : RefreshCw}
-              iconColor={embedStats.orders.embedded >= embedStats.orders.total && embedStats.orders.total > 0 ? 'text-green-400' : 'text-purple-400'}
-              label="Orders"
-              sub={`${embedStats.orders.embedded.toLocaleString()} / ${embedStats.orders.total.toLocaleString()} — ${embedStats.orders.percentage}% embedded`}
-            />
-          </>
-        )}
-        {(isScanComplete || isScanFailed || (!latestScan && !isScanProcessing)) && (
-          <>
-            <div className="pt-1 pb-0.5">
-              <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">BrickSpotter</span>
-            </div>
-            {isScanComplete && latestScan && (
-              <ActivityItem
-                icon={(latestScan.totalPieces ?? 0) > 0 ? CheckCircle : AlertCircle}
-                iconColor={(latestScan.totalPieces ?? 0) > 0 ? 'text-green-400' : 'text-yellow-400'}
-                label={`${latestScan.totalPieces ?? 0} pieces found`}
-                sub={latestScan.estimatedValue && Number(latestScan.estimatedValue) > 0 ? `Est. ${formatCurrency(latestScan.estimatedValue)}` : undefined}
-                onClick={(latestScan.totalPieces ?? 0) > 0 ? onOpenBrickanalyzer : undefined}
-              />
-            )}
-            {isScanFailed && latestScan && (
-              <ActivityItem icon={XCircle} iconColor="text-red-400" label="Last scan failed" sub="Try again from Inventory tab" onClick={onOpenBrickanalyzer} />
-            )}
-            {!latestScan && !isScanProcessing && (
-              <ActivityItem icon={ScanSearch} iconColor="text-muted-foreground" label="No recent scan" />
-            )}
-          </>
+          <ActivityItem
+            icon={embedStats.orders.embedded >= embedStats.orders.total && embedStats.orders.total > 0 ? CheckCircle : RefreshCw}
+            iconColor={embedStats.orders.embedded >= embedStats.orders.total && embedStats.orders.total > 0 ? 'text-green-400' : 'text-purple-400'}
+            label="Order search index"
+            sub={`${embedStats.orders.embedded.toLocaleString()} / ${embedStats.orders.total.toLocaleString()} — ${embedStats.orders.percentage}% embedded`}
+          />
         )}
       </LaneSection>
 
     </LaneCard>
   );
 }
+
 
 // ── SYSTEM PULSE STRIP ────────────────────────────────────────────────────────
 
@@ -883,12 +830,6 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     refetchInterval: 60000,
   });
 
-  const dismissScanMutation = useMutation({
-    mutationFn: async (scanId: number) => {
-      await fetch(`/api/brickanalyzer/scan/${scanId}`, { method: 'DELETE', credentials: 'include' });
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/brickanalyzer/scans/latest'] }),
-  });
 
   const underpricedThreshold = appSettings?.pomUnderpricedScore ?? 1.5;
 
@@ -910,8 +851,8 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
       {/* Sync issue notifications (per-item detail feed) */}
       <DashboardNotifications />
 
-      {/* Four Ops Lanes */}
-      <div className={panelMode ? "grid grid-cols-3 gap-3 items-stretch flex-1 min-h-0" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-4 xl:gap-5 items-stretch"} data-testid="ops-lanes">
+      {/* Ops Lanes */}
+      <div className={panelMode ? "grid grid-cols-2 gap-3 items-stretch flex-1 min-h-0" : "grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-4 xl:gap-5 items-stretch"} data-testid="ops-lanes">
 
         <InventoryLane
           stats={stats}
@@ -924,6 +865,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           futureMissionsKeys={futureMissionsKeySet}
           channelSyncRunning={channelSyncRunning}
           syncStatus={syncStatus}
+          latestScan={latestScan}
           onItemClick={onItemClick}
           onOpenBrickanalyzer={onOpenBrickanalyzer}
           onOpenPriceomatic={onOpenPriceomatic}
@@ -938,13 +880,6 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           globalSyncStatuses={globalSyncStatuses}
           onItemClick={onItemClick}
           onOpenFulfillment={onOpenFulfillment}
-        />
-
-        <AIIntelligenceLane
-          latestScan={latestScan}
-          appSettings={appSettings}
-          onOpenBrickanalyzer={onOpenBrickanalyzer}
-          dismissScanMutation={dismissScanMutation}
         />
 
       </div>
