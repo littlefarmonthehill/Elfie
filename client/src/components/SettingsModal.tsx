@@ -754,7 +754,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [activeOrg, setActiveOrg] = useState<OrgWithUsage | null>(null);
   const [activeOrgTab, setActiveOrgTab] = useState<'features' | 'limits' | 'billing'>('features');
   const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'features' | 'limits' | 'billing'>('info');
-  const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'jobs' | 'platform' | 'stripe' | 'openai' | 'bricklink'>('jobs');
+  const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'jobs' | 'platform' | 'stripe' | 'openai' | 'bricklink'>('platform');
   const [activeHealthTab, setActiveHealthTab] = useState<'overview' | 'logs' | 'database' | 'bricklink'>('overview');
   const [activeCustomerHealthTab, setActiveCustomerHealthTab] = useState<'overview' | 'bricklink'>('overview');
   const [blBreakdownSort, setBlBreakdownSort] = useState<{ col: string; dir: 'asc' | 'desc' }>({ col: 'total', dir: 'desc' });
@@ -7246,8 +7246,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 {/* Tab strip */}
                 {(() => {
                   const psTabs: Array<{ id: 'jobs' | 'platform' | 'stripe' | 'openai' | 'bricklink'; label: string; Icon: React.ElementType }> = [
-                    { id: 'jobs', label: 'Jobs', Icon: Activity },
                     { id: 'platform', label: 'Platform', Icon: Building2 },
+                    { id: 'jobs', label: 'Jobs', Icon: Activity },
                     { id: 'bricklink', label: 'BrickLink', Icon: Blocks },
                     { id: 'stripe', label: 'Stripe', Icon: CreditCard },
                     { id: 'openai', label: 'OpenAI', Icon: Brain },
