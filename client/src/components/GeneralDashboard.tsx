@@ -688,7 +688,7 @@ function AIIntelligenceLane({ latestScan, appSettings, onOpenBrickanalyzer, dism
 
 // ── SYSTEM PULSE STRIP ────────────────────────────────────────────────────────
 
-function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings }: {
+export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings }: {
   setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }>;
   billingStatus?: { plan: string; status: string; interval?: string | null; trialEndsAt?: string | null; subscriptionEndsAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number } } | null;
   rateLimit?: { allowed: boolean; callsLast24h: number; blocked?: boolean } | null;
@@ -953,8 +953,8 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     <CompactModeProvider value={panelMode ?? false}>
     <div className={panelMode ? "p-3 space-y-3" : "p-3 md:p-4 lg:p-5 xl:p-6 space-y-4 md:space-y-4 xl:space-y-5"}>
 
-      {/* System Pulse — only shows when there are errors or setup gaps */}
-      <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings} />
+      {/* System Pulse — only shows when there are errors or setup gaps (hidden in panelMode — rendered separately) */}
+      {!panelMode && <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings} />}
 
       {/* Sync issue notifications (per-item detail feed) */}
       <DashboardNotifications />
