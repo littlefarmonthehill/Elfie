@@ -5,7 +5,7 @@ import {
   Package, ShoppingCart, Globe, Brain,
   RefreshCw, CheckCircle, XCircle, AlertCircle, Loader2,
   ScanSearch, ArrowRight, Settings, AlertTriangle, Zap,
-  TrendingDown, Clock, Activity, CreditCard, ChevronDown,
+  TrendingDown, Clock, Activity, CreditCard, ChevronUp,
 } from "lucide-react";
 import DashboardNotifications from "./DashboardNotifications";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -77,7 +77,7 @@ function LaneCard({
         <span className={`text-xs xl:text-[11px] font-semibold uppercase tracking-widest ${iconCls}`}>{title}</span>
         {summary && <span className="ml-auto text-[10px] text-muted-foreground font-normal truncate max-w-[160px] flex items-center gap-1.5">{summary}</span>}
       </div>
-      <div className="flex-1 flex flex-col divide-y divide-border/40 min-h-0">
+      <div className="flex-1 flex flex-col divide-y divide-border/40 min-h-0 overflow-visible">
         {children}
       </div>
     </div>
@@ -90,16 +90,18 @@ function LaneSection({ label, children, collapsible = false, className = "" }: {
 
   if (collapsible && label) {
     return (
-      <div className={`relative mt-auto z-10 ${className}`}>
-        {/* Content — slides up above the trigger bar */}
-        <div
-          className="overflow-hidden transition-all duration-300 ease-in-out"
-          style={{ maxHeight: expanded ? '11rem' : '0px' }}
-        >
-          <div className="space-y-1.5 overflow-y-auto px-3 pb-2 pt-1 bg-gray-900/95 border-x border-t border-border/40 rounded-t-lg" style={{ maxHeight: '11rem' }}>
-            {children}
+      <div className={`relative mt-auto z-20 ${className}`}>
+        {/* Content — opens upward, overlays items above up to the lane title */}
+        {expanded && (
+          <div
+            className="absolute bottom-full left-0 right-0 z-30"
+            style={{ top: undefined }}
+          >
+            <div className="space-y-1.5 overflow-y-auto px-3 pb-2 pt-1 bg-gray-900/95 border-x border-t border-border/40 rounded-t-lg" style={{ maxHeight: 'calc(100vh - 10rem)' }}>
+              {children}
+            </div>
           </div>
-        </div>
+        )}
         {/* Trigger bar — pinned to card bottom via mt-auto */}
         <button
           onClick={() => setExpanded(v => !v)}
@@ -108,7 +110,7 @@ function LaneSection({ label, children, collapsible = false, className = "" }: {
         >
           <Clock className="w-3 h-3 shrink-0 text-muted-foreground/70" />
           <p className="text-[10px] uppercase tracking-widest text-foreground/60 font-semibold flex-1">{label}</p>
-          <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground/70 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
+          <ChevronUp className={`w-3.5 h-3.5 text-muted-foreground/70 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
         </button>
       </div>
     );
