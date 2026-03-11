@@ -951,7 +951,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
 
   return (
     <CompactModeProvider value={panelMode ?? false}>
-    <div className={panelMode ? "p-3 space-y-3" : "p-3 md:p-4 lg:p-5 xl:p-6 space-y-4 md:space-y-4 xl:space-y-5"}>
+    <div className={panelMode ? "flex flex-col p-2 h-full gap-1" : "p-3 md:p-4 lg:p-5 xl:p-6 space-y-4 md:space-y-4 xl:space-y-5"}>
 
       {/* System Pulse — only shows when there are errors or setup gaps (hidden in panelMode — rendered separately) */}
       {!panelMode && <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings} />}
@@ -960,7 +960,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
       <DashboardNotifications />
 
       {/* Four Ops Lanes */}
-      <div className={panelMode ? "grid grid-cols-4 gap-3 items-stretch" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-4 xl:gap-5 items-stretch"} data-testid="ops-lanes">
+      <div className={panelMode ? "grid grid-cols-4 gap-3 items-stretch flex-1 min-h-0" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-4 xl:gap-5 items-stretch"} data-testid="ops-lanes">
 
         <InventoryLane
           stats={stats}
