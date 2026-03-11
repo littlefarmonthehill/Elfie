@@ -621,13 +621,31 @@ export default function Landing() {
             </div>
           ))}
 
-          {/* ── Centered between antennas: radio waves + Sign In ── */}
+          {/* ── Centered between antennas: Sign In above radio waves ── */}
           <div style={{
             position: "absolute", left: "50%", top: 0,
             transform: "translateX(-50%)",
             display: "flex", flexDirection: "column", alignItems: "center",
-            gap: "clamp(3px,0.4vh,5px)", pointerEvents: "auto",
+            pointerEvents: "auto",
           }}>
+            {/* Sign In pill — sits above the waves */}
+            <button
+              onClick={() => setShowLogin(v => !v)}
+              style={{
+                background: showLogin ? `rgba(0,255,238,0.22)` : "rgba(0,255,238,0.12)",
+                border: `1px solid ${showLogin ? TEAL : TEAL + "88"}`,
+                borderRadius: "100px",
+                padding: "clamp(4px,0.6vh,7px) clamp(12px,1.6vw,20px)",
+                cursor: "pointer", color: TEAL,
+                fontSize: "clamp(9px,0.9vw,12px)", fontWeight: 700,
+                letterSpacing: "0.08em",
+                backdropFilter: "blur(10px)",
+                boxShadow: `0 0 18px ${TEAL}30, 0 0 6px ${TEAL}20 inset`,
+                whiteSpace: "nowrap",
+                marginBottom: "clamp(2px,0.3vh,4px)",
+              }}
+            >{showLogin ? "← BACK" : "Sign In / Free Trial"}</button>
+
             {/* Radio wave arcs */}
             <div style={{ position: "relative", width: "clamp(44px,6vw,72px)", height: "clamp(22px,3vh,36px)", flexShrink: 0 }}>
               {([
@@ -649,23 +667,6 @@ export default function Landing() {
                 }} />
               ))}
             </div>
-
-            {/* Sign In pill */}
-            <button
-              onClick={() => setShowLogin(v => !v)}
-              style={{
-                background: showLogin ? `rgba(0,255,238,0.22)` : "rgba(0,255,238,0.12)",
-                border: `1px solid ${showLogin ? TEAL : TEAL + "88"}`,
-                borderRadius: "100px",
-                padding: "clamp(6px,0.8vh,9px) clamp(16px,2vw,24px)",
-                cursor: "pointer", color: TEAL,
-                fontSize: "clamp(11px,1.1vw,14px)", fontWeight: 700,
-                letterSpacing: "0.1em",
-                backdropFilter: "blur(10px)",
-                boxShadow: `0 0 18px ${TEAL}30, 0 0 6px ${TEAL}20 inset`,
-                whiteSpace: "nowrap",
-              }}
-            >{showLogin ? "← BACK" : "Sign In"}</button>
           </div>
         </div>
 
