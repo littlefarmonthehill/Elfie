@@ -624,30 +624,12 @@ export default function Landing() {
           {/* ── Centered between antennas: Sign In above radio waves ── */}
           <div style={{
             position: "absolute", left: "50%", top: 0,
-            transform: "translateX(-50%)",
+            transform: "translate(-50%, -80%)",
             display: "flex", flexDirection: "column", alignItems: "center",
             pointerEvents: "auto",
           }}>
-            {/* Sign In pill — sits above the waves */}
-            <button
-              onClick={() => setShowLogin(v => !v)}
-              style={{
-                background: showLogin ? `rgba(0,255,238,0.22)` : "rgba(0,255,238,0.12)",
-                border: `1px solid ${showLogin ? TEAL : TEAL + "88"}`,
-                borderRadius: "100px",
-                padding: "clamp(4px,0.6vh,7px) clamp(12px,1.6vw,20px)",
-                cursor: "pointer", color: TEAL,
-                fontSize: "clamp(9px,0.9vw,12px)", fontWeight: 700,
-                letterSpacing: "0.08em",
-                backdropFilter: "blur(10px)",
-                boxShadow: `0 0 18px ${TEAL}30, 0 0 6px ${TEAL}20 inset`,
-                whiteSpace: "nowrap",
-                marginBottom: "clamp(2px,0.3vh,4px)",
-              }}
-            >{showLogin ? "← BACK" : "Sign In / Free Trial"}</button>
-
-            {/* Radio wave arcs */}
-            <div style={{ position: "relative", width: "clamp(44px,6vw,72px)", height: "clamp(22px,3vh,36px)", flexShrink: 0 }}>
+            {/* Radio wave arcs — topmost, above the antenna orbs */}
+            <div style={{ position: "relative", width: "clamp(52px,7vw,84px)", height: "clamp(26px,3.5vh,42px)", flexShrink: 0, marginBottom: "clamp(4px,0.6vh,8px)" }}>
               {([
                 { w: "30%",  h: "30%",  delay: "0s"    },
                 { w: "62%",  h: "58%",  delay: "0.42s" },
@@ -667,6 +649,23 @@ export default function Landing() {
                 }} />
               ))}
             </div>
+
+            {/* Sign In pill — between waves and antenna orbs */}
+            <button
+              onClick={() => setShowLogin(v => !v)}
+              style={{
+                background: showLogin ? `rgba(0,255,238,0.22)` : "rgba(0,255,238,0.12)",
+                border: `1px solid ${showLogin ? TEAL : TEAL + "88"}`,
+                borderRadius: "100px",
+                padding: "clamp(4px,0.6vh,7px) clamp(12px,1.6vw,20px)",
+                cursor: "pointer", color: TEAL,
+                fontSize: "clamp(9px,0.9vw,12px)", fontWeight: 700,
+                letterSpacing: "0.08em",
+                backdropFilter: "blur(10px)",
+                boxShadow: `0 0 18px ${TEAL}30, 0 0 6px ${TEAL}20 inset`,
+                whiteSpace: "nowrap",
+              }}
+            >{showLogin ? "← BACK" : "Sign In / Free Trial"}</button>
           </div>
         </div>
 

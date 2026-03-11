@@ -3601,13 +3601,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     <div className="space-y-2"><Label htmlFor="bricklink-secret" className="text-xs text-gray-200">Consumer Secret</Label><Input id="bricklink-secret" type="password" placeholder="Enter BrickLink Consumer Secret" className="text-xs" value={bricklinkConsumerSecret} onChange={(e) => setBricklinkConsumerSecret(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })} data-testid="input-bricklink-secret" /></div>
                     <div className="space-y-2"><Label htmlFor="bricklink-token" className="text-xs text-gray-200">Token Value</Label><Input id="bricklink-token" placeholder="Enter BrickLink Token Value" className="text-xs" value={bricklinkTokenValue} onChange={(e) => setBricklinkTokenValue(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })} data-testid="input-bricklink-token" /></div>
                     <div className="space-y-2"><Label htmlFor="bricklink-token-secret" className="text-xs text-gray-200">Token Secret</Label><Input id="bricklink-token-secret" type="password" placeholder="Enter BrickLink Token Secret" className="text-xs" value={bricklinkTokenSecret} onChange={(e) => setBricklinkTokenSecret(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })} data-testid="input-bricklink-token-secret" /></div>
-                    <div className="space-y-1 pt-2 border-t border-gray-700">
-                      <Label className="text-xs text-gray-200">Overall Daily API Limit</Label>
-                      <p className="text-[10px] text-gray-500">Hard stop for all BrickLink API calls app-wide. BrickLink's hard cap is 5,000/day.</p>
-                      <div className="flex items-center gap-2">
-                        <Input type="number" min={500} max={5000} step={100} value={blApiCallLimit} onChange={(e) => setBlApiCallLimit(parseInt(e.target.value) || 500)} onBlur={() => updateSettingsMutation.mutate({ blApiCallLimit })} className="text-xs w-24 text-right" data-testid="input-bl-api-limit" />
-                        <span className="text-[10px] text-gray-500">/ 5,000</span>
-                      </div>
+                    <div className="pt-2 border-t border-gray-700">
+                      <p className="text-[10px] text-gray-500">This org's API credentials are used for inventory sync and order imports. The platform-wide daily API limit is configured in <button onClick={() => { setActiveSection('apiKeys'); setActivePlatformServicesTab('bricklink'); }} className="text-yellow-400/80 hover:text-yellow-300 underline-offset-2 hover:underline" data-testid="link-goto-platform-services-bricklink">Platform Services</button>.</p>
                     </div>
                   </div>
                 )}
@@ -7007,19 +7002,27 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         <Badge variant="outline" className="ml-auto text-[9px] text-blue-400 border-blue-500/30 bg-blue-500/5">Catalog Enrichment</Badge>
                       </div>
                       <div className="px-4 py-3 space-y-3">
-                        <p className="text-[11px] text-gray-400 leading-relaxed">The BrickLink API is used platform-wide for <strong className="text-gray-300">catalog data enrichment</strong> — pulling part details, category mappings, color data, and price guides to keep the shared catalog up to date. Individual tenant API credentials (configured in their Platforms section) are used for org-specific operations like inventory sync.</p>
+                        <p className="text-[11px] text-gray-400 leading-relaxed">The BrickLink API is used platform-wide for <strong className="text-gray-300">catalog data enrichment</strong> — pulling part details, category mappings, color data, and price guides (POM) to keep the shared catalog up to date. Individual tenant API credentials (configured in their Platforms section) are used for org-specific operations like inventory sync and order imports.</p>
                         <div className="grid grid-cols-2 gap-2">
                           {[
-                            { label: 'Daily Limit (per org)', value: '5,000 calls' },
                             { label: 'Rate Window', value: 'Rolling 24h' },
-                            { label: 'Primary Use', value: 'Price Guides' },
+                            { label: 'Primary Use', value: 'Price Guides (POM)' },
                             { label: 'Caching', value: '6-month window' },
+                            { label: 'Batch Size', value: '1,500 items/run' },
                           ].map(({ label, value }) => (
                             <div key={label} className="bg-gray-900/40 border border-gray-700/60 rounded px-3 py-2">
                               <p className="app-label mb-0.5">{label}</p>
                               <p className="text-[11px] text-gray-300">{value}</p>
                             </div>
                           ))}
+                        </div>
+                        <div className="pt-2 border-t border-gray-700/60 space-y-1.5">
+                          <Label className="text-xs text-gray-200">Platform Daily API Limit</Label>
+                          <p className="text-[10px] text-gray-500">Hard stop for all BrickLink API calls across the platform. BrickLink enforces a hard cap of 5,000/day per credential set.</p>
+                          <div className="flex items-center gap-2">
+                            <Input type="number" min={500} max={5000} step={100} value={blApiCallLimit} onChange={(e) => setBlApiCallLimit(parseInt(e.target.value) || 500)} onBlur={() => updateSettingsMutation.mutate({ blApiCallLimit })} className="text-xs w-24 text-right" data-testid="input-bl-api-limit" />
+                            <span className="text-[10px] text-gray-500">/ 5,000</span>
+                          </div>
                         </div>
                       </div>
                     </div>
