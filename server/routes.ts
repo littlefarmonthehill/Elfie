@@ -566,10 +566,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const apiKey = await getPlatformOpenAIKey();
       if (!apiKey) return res.json({ connected: false, models: [] });
       const OpenAI = (await import('openai')).default;
-      const client = new OpenAI({ apiKey });
+      const isOpenRouter = apiKey.startsWith('sk-or-');
+      const client = new OpenAI({
+        apiKey,
+        ...(isOpenRouter ? { baseURL: 'https://openrouter.ai/api/v1' } : {}),
+      });
       const models = await client.models.list();
-      const chatModels = models.data.filter(m => m.id.startsWith('gpt')).slice(0, 5).map(m => m.id);
-      res.json({ connected: true, models: chatModels, keyPrefix: apiKey.substring(0, 7) + '…' });
+      const chatModels = isOpenRouter
+        ? models.data.filter(m => m.id.includes('openai') || m.id.includes('gpt')).slice(0, 5).map(m => m.id)
+        : models.data.filter(m => m.id.startsWith('gpt')).slice(0, 5).map(m => m.id);
+      res.json({ connected: true, models: chatModels, keyPrefix: apiKey.substring(0, 7) + '…', provider: isOpenRouter ? 'openrouter' : 'openai' });
     } catch (err: any) {
       res.json({ connected: false, error: err?.message });
     }
@@ -598,6 +604,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const apiKey = await getPlatformOpenAIKey();
       if (!apiKey) return res.status(400).json({ message: 'No OpenAI API key configured' });
+
+      if (apiKey.startsWith('sk-or-')) {
+        return res.json({
+          billing: { totalGranted: 0, totalUsed: 0, totalAvailable: 0, grants: [] },
+          usage: { last30Days: 0, mtd: 0, topModels: [] },
+          costsAvailable: false,
+          creditsAvailable: false,
+          provider: 'openrouter',
+          note: 'Billing data is managed through OpenRouter. Visit openrouter.ai/account for usage details.',
+        });
+      }
 
       const headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
 
