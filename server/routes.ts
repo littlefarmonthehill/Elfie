@@ -615,12 +615,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let costs: any = null;
       let credits: any = null;
 
-      if (costsRes.status === 'fulfilled' && costsRes.value.ok) {
-        costs = await costsRes.value.json();
+      if (costsRes.status === 'fulfilled') {
+        if (costsRes.value.ok) {
+          costs = await costsRes.value.json();
+        } else {
+          const errText = await costsRes.value.text();
+          console.log(`[OpenAI Billing] Costs API ${costsRes.value.status}: ${errText}`);
+        }
       }
 
-      if (creditsRes.status === 'fulfilled' && creditsRes.value.ok) {
-        credits = await creditsRes.value.json();
+      if (creditsRes.status === 'fulfilled') {
+        if (creditsRes.value.ok) {
+          credits = await creditsRes.value.json();
+        } else {
+          const errText = await creditsRes.value.text();
+          console.log(`[OpenAI Billing] Credits API ${creditsRes.value.status}: ${errText}`);
+        }
       }
 
       let last30Spent = 0;
