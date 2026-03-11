@@ -1862,7 +1862,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   </button>
                 )}
               </div>
-              <DialogHeader className="flex-1 p-0 text-center">
+              <DialogHeader className="flex-1 p-0 text-center sm:text-center">
                 <DialogTitle className="text-sm font-semibold text-gray-100 tracking-wide">
                   {activeSection === null
                     ? 'Settings'
