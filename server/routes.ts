@@ -951,6 +951,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [invEmbCount] = await db.select({ count: count() }).from(inventoryEmbeddings);
       const [ordEmbCount] = await db.select({ count: count() }).from(orderEmbeddings);
 
+      const platformSyncIds = ['priceomatic_cache', 'universal_catalog_refresh', 'rebrickable_set_parts', 'forum_sync'];
       const syncJobs = await db
         .select({
           id: syncMetadata.id,
@@ -963,8 +964,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updatedAt: syncMetadata.updatedAt,
         })
         .from(syncMetadata)
-        .orderBy(desc(syncMetadata.updatedAt))
-        .limit(30);
+        .where(inArray(syncMetadata.id, platformSyncIds))
+        .orderBy(desc(syncMetadata.updatedAt));
+
+      const [clipTotal] = await db.select({ count: count() }).from(blCatalogClipEmbeddings);
+      const [catalogTotal] = await db.select({ count: count() }).from(blCatalog);
+      const clipCatalogStatus = {
+        embedded: Number(clipTotal?.count || 0),
+        total: Number(catalogTotal?.count || 0),
+      };
 
       res.json({
         platform: {
@@ -981,6 +989,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           recent: recentJobs,
         },
         syncJobs,
+        clipCatalogStatus,
       });
     } catch (error) {
       console.error("Error fetching system health:", error);

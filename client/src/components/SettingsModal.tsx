@@ -947,6 +947,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       recent: Array<{ id: string; orgId: string; jobType: string; status: string; processedItems: number; totalItems: number; errorMessage: string | null; createdAt: string; completedAt: string | null }>;
     };
     syncJobs?: SyncJobRow[];
+    clipCatalogStatus?: { embedded: number; total: number };
   };
 
   const { data: orgLimitsUsage, isLoading: orgLimitsLoading } = useQuery<{
@@ -6304,120 +6305,152 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <div className="flex items-center justify-center py-10">
                         <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
                       </div>
-                    ) : systemHealth ? (
-                      <>
-                        {/* Active jobs */}
-                        <div>
-                          <div className="flex items-center gap-2 mb-2 px-1">
-                            <p className="sm-group-label">Active Embedding Jobs</p>
-                            {systemHealth.jobs.active.length > 0 && (
-                              <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
-                            )}
+                    ) : systemHealth ? (() => {
+                      const jobLabels: Record<string, string> = {
+                        priceomatic_cache: 'Price-o-Matic',
+                        universal_catalog_refresh: 'Universal Catalog',
+                        rebrickable_set_parts: 'Rebrickable Sets',
+                        forum_sync: 'Forum Sync',
+                      };
+                      const jobDescriptions: Record<string, string> = {
+                        priceomatic_cache: 'Daily price guide refresh via BrickLink API',
+                        universal_catalog_refresh: 'Rebrickable import + BrickLink catalog enrichment',
+                        rebrickable_set_parts: 'Monthly set-to-part relationship sync',
+                        forum_sync: 'BrickLink forum scraping + embeddings',
+                      };
+                      const allPlatformJobs = [
+                        ...(systemHealth.syncJobs || []).map(job => ({
+                          id: job.id,
+                          label: jobLabels[job.id] || job.id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                          description: jobDescriptions[job.id] || '',
+                          status: job.lastSyncStatus,
+                          lastRun: job.lastSyncTime,
+                          recordsAdded: job.recordsAdded,
+                          recordsUpdated: job.recordsUpdated,
+                          error: job.errorMessage,
+                          updatedAt: job.updatedAt,
+                        })),
+                      ];
+                      const clipStatus = systemHealth.clipCatalogStatus;
+                      const hasActiveJob = allPlatformJobs.some(j => j.status === 'in_progress') || (clipStatus && clipStatus.embedded < clipStatus.total);
+                      return (
+                        <>
+                          <div className="flex items-center gap-2 px-1">
+                            <p className="sm-group-label">Platform Scheduled Jobs</p>
+                            {hasActiveJob && <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />}
                           </div>
-                          {systemHealth.jobs.active.length === 0 ? (
-                            <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-4 text-center">
-                              <CheckCircle2 className="h-4 w-4 text-green-500/50 mx-auto mb-1" />
-                              <p className="sm-description">No active jobs</p>
-                            </div>
-                          ) : (
-                            <div className="sm-card-inset">
-                              {systemHealth.jobs.active.map(job => (
-                                <div key={job.id} className="px-4 py-3">
-                                  <div className="flex items-center justify-between gap-2 mb-1">
-                                    <div className="flex items-center gap-2">
-                                      <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
-                                      <span className="text-xs font-medium text-gray-200 capitalize">{job.jobType}</span>
-                                      <span className="text-[10px] text-gray-500 font-mono">{job.orgId.slice(0, 8)}…</span>
-                                    </div>
-                                    <span className="text-[10px] text-yellow-400 capitalize">{job.status}</span>
-                                  </div>
-                                  {job.totalItems > 0 && (
-                                    <div className="flex items-center gap-2">
-                                      <div className="flex-1 bg-gray-700 rounded-full h-1">
-                                        <div
-                                          className="bg-yellow-500 h-1 rounded-full transition-all"
-                                          style={{ width: `${Math.round((job.processedItems / job.totalItems) * 100)}%` }}
-                                        />
-                                      </div>
-                                      <span className="text-[10px] text-gray-500 shrink-0">{job.processedItems}/{job.totalItems}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
 
-                        {/* Recent embedding jobs */}
-                        {systemHealth.jobs.recent.length > 0 && (
-                          <div>
-                            <p className="sm-group-label mb-2 px-1">Recent Embedding Jobs</p>
-                            <div className="sm-card-inset">
-                              {systemHealth.jobs.recent.map(job => (
-                                <div key={job.id} className="flex items-center gap-3 px-4 py-2.5">
-                                  <div className="shrink-0">
-                                    {job.status === 'completed'
-                                      ? <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
-                                      : <AlertTriangle className="h-3.5 w-3.5 text-red-400" />}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs text-gray-300 capitalize">{job.jobType}</p>
-                                    {job.errorMessage && <p className="text-[10px] text-red-400/80 truncate">{job.errorMessage}</p>}
-                                  </div>
-                                  <div className="text-right shrink-0">
-                                    <p className="text-[10px] text-gray-500">{job.processedItems}/{job.totalItems}</p>
-                                    <p className="text-[9px] text-gray-600 font-mono">{job.completedAt ? new Date(job.completedAt).toLocaleDateString() : '—'}</p>
-                                  </div>
+                          {clipStatus && (
+                            <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <div className="shrink-0">
+                                  {clipStatus.embedded < clipStatus.total
+                                    ? <Loader2 className="h-3.5 w-3.5 text-yellow-400 animate-spin" />
+                                    : <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />}
                                 </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* BrickLink / Platform Sync Jobs */}
-                        {systemHealth.syncJobs && systemHealth.syncJobs.length > 0 && (
-                          <div>
-                            <div className="flex items-center gap-2 mb-2 px-1">
-                              <p className="sm-group-label">Platform Sync Jobs</p>
-                              {systemHealth.syncJobs.some(j => j.lastSyncStatus === 'in_progress') && (
-                                <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs text-gray-200">CLIP Catalog Build</p>
+                                  <p className="text-[10px] text-gray-500">Visual search embeddings for catalog items</p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-[11px] font-mono text-gray-300">{clipStatus.embedded.toLocaleString()}/{clipStatus.total.toLocaleString()}</p>
+                                </div>
+                              </div>
+                              {clipStatus.total > 0 && (
+                                <div className="mt-2 flex items-center gap-2">
+                                  <div className="flex-1 bg-gray-700 rounded-full h-1">
+                                    <div className="bg-yellow-500 h-1 rounded-full transition-all" style={{ width: `${Math.round((clipStatus.embedded / clipStatus.total) * 100)}%` }} />
+                                  </div>
+                                  <span className="text-[9px] text-gray-500">{Math.round((clipStatus.embedded / clipStatus.total) * 100)}%</span>
+                                </div>
                               )}
                             </div>
-                            <div className="sm-card-inset">
-                              {systemHealth.syncJobs.map(job => {
-                                const isActive = job.lastSyncStatus === 'in_progress';
-                                const isFailed = job.lastSyncStatus === 'failed';
-                                const label = job.id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                                return (
-                                  <div key={job.id} className="flex items-center gap-3 px-4 py-2.5">
+                          )}
+
+                          <div className="sm-card-inset">
+                            {allPlatformJobs.length === 0 ? (
+                              <div className="px-4 py-6 text-center">
+                                <p className="sm-description">No platform sync jobs recorded yet</p>
+                              </div>
+                            ) : allPlatformJobs.map(job => {
+                              const isActive = job.status === 'in_progress';
+                              const isFailed = job.status === 'failed';
+                              const isPartial = job.status === 'partial';
+                              return (
+                                <div key={job.id} className="px-4 py-3 space-y-1">
+                                  <div className="flex items-center gap-3">
                                     <div className="shrink-0">
                                       {isActive
                                         ? <Loader2 className="h-3.5 w-3.5 text-yellow-400 animate-spin" />
                                         : isFailed
                                           ? <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
-                                          : <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />}
+                                          : isPartial
+                                            ? <AlertTriangle className="h-3.5 w-3.5 text-orange-400" />
+                                            : <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-xs text-gray-300">{label}</p>
-                                      {job.orgId && <p className="text-[9px] text-gray-600 font-mono">{job.orgId}</p>}
-                                      {job.errorMessage && <p className="text-[10px] text-red-400/80 truncate">{job.errorMessage}</p>}
+                                      <p className="text-xs text-gray-200">{job.label}</p>
+                                      <p className="text-[10px] text-gray-500">{job.description}</p>
                                     </div>
                                     <div className="text-right shrink-0">
-                                      {(job.recordsAdded > 0 || job.recordsUpdated > 0) && (
-                                        <p className="text-[10px] text-gray-500">+{job.recordsAdded} / ~{job.recordsUpdated}</p>
-                                      )}
+                                      <p className={`text-[10px] font-medium capitalize ${isActive ? 'text-yellow-400' : isFailed ? 'text-red-400' : isPartial ? 'text-orange-400' : 'text-green-400/70'}`}>
+                                        {job.status}
+                                      </p>
                                       <p className="text-[9px] text-gray-600 font-mono">
-                                        {job.lastSyncTime ? new Date(job.lastSyncTime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                                        {job.lastRun ? new Date(job.lastRun).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'never'}
                                       </p>
                                     </div>
                                   </div>
-                                );
-                              })}
-                            </div>
+                                  {job.error && (
+                                    <p className="text-[10px] text-red-400/80 truncate pl-6">{job.error}</p>
+                                  )}
+                                  {(job.recordsAdded > 0 || job.recordsUpdated > 0) && (
+                                    <p className="text-[9px] text-gray-600 pl-6">+{job.recordsAdded} added, {job.recordsUpdated} updated</p>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
-                        )}
-                      </>
-                    ) : (
+
+                          {(systemHealth.jobs.active.length > 0 || systemHealth.jobs.recent.length > 0) && (
+                            <div>
+                              <p className="sm-group-label mb-2 px-1">Embedding Worker</p>
+                              <div className="sm-card-inset">
+                                {systemHealth.jobs.active.map(job => (
+                                  <div key={job.id} className="px-4 py-2.5 flex items-center gap-3">
+                                    <Loader2 className="h-3.5 w-3.5 text-yellow-400 animate-spin shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs text-gray-200 capitalize">{job.jobType}</p>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                      {job.totalItems > 0 && <p className="text-[10px] text-gray-400 font-mono">{job.processedItems}/{job.totalItems}</p>}
+                                    </div>
+                                  </div>
+                                ))}
+                                {systemHealth.jobs.recent.slice(0, 5).map(job => (
+                                  <div key={job.id} className="px-4 py-2.5 flex items-center gap-3">
+                                    <div className="shrink-0">
+                                      {job.status === 'completed' ? <CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> : <AlertTriangle className="h-3.5 w-3.5 text-red-400" />}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs text-gray-300 capitalize">{job.jobType}</p>
+                                      {job.errorMessage && <p className="text-[10px] text-red-400/80 truncate">{job.errorMessage}</p>}
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                      <p className="text-[10px] text-gray-500 font-mono">{job.processedItems}/{job.totalItems}</p>
+                                      <p className="text-[9px] text-gray-600 font-mono">{job.completedAt ? new Date(job.completedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                                {systemHealth.jobs.active.length === 0 && systemHealth.jobs.recent.length === 0 && (
+                                  <div className="px-4 py-4 text-center"><p className="sm-description">No embedding jobs</p></div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })() : (
                       <div className="flex flex-col items-center justify-center gap-3 py-10">
                         <AlertTriangle className="h-5 w-5 text-red-400/70" />
                         <p className="sm-description">Failed to load health data</p>
