@@ -9,20 +9,12 @@ const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: a
 
 /**
  * Get OpenAI client using the platform-wide API key.
- * OpenRouter keys (sk-or-…) are routed through the OpenRouter base URL.
  */
 async function getOpenAIClient(): Promise<OpenAI> {
   const apiKey = await getPlatformOpenAIKey();
 
   if (!apiKey) {
     throw new Error('OpenAI API key not configured. Please add it in Platform Services settings.');
-  }
-
-  if (apiKey.startsWith('sk-or-')) {
-    return new OpenAI({
-      apiKey,
-      baseURL: 'https://openrouter.ai/api/v1',
-    });
   }
 
   return new OpenAI({ apiKey });
