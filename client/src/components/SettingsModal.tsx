@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Activity, Flag, Power, Zap, Globe, ToggleLeft, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Activity, Flag, Power, Zap, Globe, ToggleLeft, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
@@ -645,6 +645,14 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [bricklinkTokenValue, setBricklinkTokenValue] = useState("");
   const [bricklinkTokenSecret, setBricklinkTokenSecret] = useState("");
 
+  // Platform BrickLink Settings (stored on org_planetbrick, used for PoM & data enrichment)
+  const [platformBlConsumerKey, setPlatformBlConsumerKey] = useState("");
+  const [platformBlConsumerSecret, setPlatformBlConsumerSecret] = useState("");
+  const [platformBlTokenValue, setPlatformBlTokenValue] = useState("");
+  const [platformBlTokenSecret, setPlatformBlTokenSecret] = useState("");
+  const [platformBlSaving, setPlatformBlSaving] = useState(false);
+  const [platformBlTesting, setPlatformBlTesting] = useState(false);
+
   // BrickOwl Settings
   const [brickowlApiKey, setBrickowlApiKey] = useState("");
 
@@ -1004,6 +1012,27 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     queryKey: ['/api/platform-admin/platform-services/openai-billing/by-org'],
     enabled: open && activeSection === 'apiKeys' && activePlatformServicesTab === 'openai' && superAdmin && !!openAIStatusData?.connected,
     staleTime: 120000,
+    retry: 0,
+  });
+
+  type PlatformBlStatusData = { connected: boolean; hasCredentials: boolean; keyPrefix?: string; testResult?: string; error?: string };
+  const { data: platformBlStatusData, isLoading: platformBlStatusLoading } = useQuery<PlatformBlStatusData>({
+    queryKey: ['/api/platform-admin/platform-services/bricklink-status'],
+    enabled: open && activeSection === 'apiKeys' && activePlatformServicesTab === 'bricklink' && superAdmin,
+    staleTime: 60000,
+    retry: 0,
+  });
+
+  type PlatformBlCredsData = {
+    hasConsumerKey: boolean; consumerKeyPrefix: string;
+    hasConsumerSecret: boolean;
+    hasTokenValue: boolean; tokenValuePrefix: string;
+    hasTokenSecret: boolean;
+  };
+  const { data: platformBlCredsData } = useQuery<PlatformBlCredsData>({
+    queryKey: ['/api/platform-admin/platform-services/bricklink-credentials'],
+    enabled: open && activeSection === 'apiKeys' && activePlatformServicesTab === 'bricklink' && superAdmin,
+    staleTime: 60000,
     retry: 0,
   });
 
@@ -7153,12 +7182,124 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <div className="space-y-4">
                     <div className="sm-card">
                       <div className="sm-card-header">
+                        <Key className="h-3.5 w-3.5 text-blue-400/80" />
+                        <span className="text-xs font-semibold text-gray-200">Platform API Connection</span>
+                        {platformBlStatusLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-auto" />}
+                        {platformBlStatusData && !platformBlStatusLoading && (
+                          <Badge variant="outline" className={`ml-auto text-[9px] ${platformBlStatusData.connected ? 'text-green-400 border-green-500/30 bg-green-500/5' : platformBlStatusData.hasCredentials ? 'text-red-400 border-red-500/30 bg-red-500/5' : 'text-gray-400 border-gray-600 bg-gray-500/5'}`}>
+                            {platformBlStatusData.connected ? 'Connected' : platformBlStatusData.hasCredentials ? 'Error' : 'Not Configured'}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="px-4 py-3 space-y-3">
+                        <p className="text-[11px] text-gray-400 leading-relaxed">Platform-level BrickLink API credentials used for <strong className="text-gray-300">Price-o-Matic</strong> and <strong className="text-gray-300">data enrichment</strong> (catalog, price guides, color data). Org-level credentials remain separate for inventory sync and order imports.</p>
+                        {[
+                          { label: 'Consumer Key', value: platformBlConsumerKey, setter: setPlatformBlConsumerKey, type: 'text' as const, configured: platformBlCredsData?.hasConsumerKey, prefix: platformBlCredsData?.consumerKeyPrefix, testId: 'input-platform-bl-consumer-key' },
+                          { label: 'Consumer Secret', value: platformBlConsumerSecret, setter: setPlatformBlConsumerSecret, type: 'password' as const, configured: platformBlCredsData?.hasConsumerSecret, prefix: undefined, testId: 'input-platform-bl-consumer-secret' },
+                          { label: 'Token Value', value: platformBlTokenValue, setter: setPlatformBlTokenValue, type: 'text' as const, configured: platformBlCredsData?.hasTokenValue, prefix: platformBlCredsData?.tokenValuePrefix, testId: 'input-platform-bl-token-value' },
+                          { label: 'Token Secret', value: platformBlTokenSecret, setter: setPlatformBlTokenSecret, type: 'password' as const, configured: platformBlCredsData?.hasTokenSecret, prefix: undefined, testId: 'input-platform-bl-token-secret' },
+                        ].map(({ label, value, setter, type, configured, prefix, testId }) => (
+                          <div key={label}>
+                            <label className="block app-label mb-1">
+                              {label}
+                              {configured && !value && (
+                                <span className="ml-2 text-[9px] text-green-500/70 font-normal">{prefix || '••••••••'} configured</span>
+                              )}
+                            </label>
+                            <input
+                              type={type}
+                              placeholder={configured && !value ? '••••••••  (enter new value to replace)' : `Enter ${label.toLowerCase()}`}
+                              value={value}
+                              onChange={e => setter(e.target.value)}
+                              data-testid={testId}
+                              className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500 font-mono"
+                            />
+                          </div>
+                        ))}
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            onClick={async () => {
+                              setPlatformBlSaving(true);
+                              try {
+                                const payload: Record<string, string | null> = {};
+                                if (platformBlConsumerKey) payload.consumerKey = platformBlConsumerKey;
+                                if (platformBlConsumerSecret) payload.consumerSecret = platformBlConsumerSecret;
+                                if (platformBlTokenValue) payload.tokenValue = platformBlTokenValue;
+                                if (platformBlTokenSecret) payload.tokenSecret = platformBlTokenSecret;
+                                if (Object.keys(payload).length === 0) {
+                                  toast({ title: "Nothing to save", description: "Enter at least one credential field.", variant: "destructive" });
+                                  setPlatformBlSaving(false);
+                                  return;
+                                }
+                                const res = await fetch('/api/platform-admin/platform-services/bricklink-credentials', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify(payload),
+                                });
+                                if (!res.ok) throw new Error('Failed to save');
+                                setPlatformBlConsumerKey('');
+                                setPlatformBlConsumerSecret('');
+                                setPlatformBlTokenValue('');
+                                setPlatformBlTokenSecret('');
+                                queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/platform-services/bricklink-status'] });
+                                queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/platform-services/bricklink-credentials'] });
+                                toast({ title: "Saved", description: "Platform BrickLink credentials updated." });
+                              } catch (err) {
+                                toast({ title: "Error", description: "Failed to save credentials.", variant: "destructive" });
+                              } finally {
+                                setPlatformBlSaving(false);
+                              }
+                            }}
+                            disabled={platformBlSaving}
+                            data-testid="button-save-platform-bl-creds"
+                            className="inline-flex items-center gap-1.5 text-[10px] font-medium text-blue-400 hover:text-blue-300 border border-blue-500/30 rounded px-3 py-1.5 transition-colors disabled:opacity-50"
+                          >
+                            {platformBlSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                            Save Credentials
+                          </button>
+                          <button
+                            onClick={async () => {
+                              setPlatformBlTesting(true);
+                              try {
+                                queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/platform-services/bricklink-status'] });
+                                await queryClient.refetchQueries({ queryKey: ['/api/platform-admin/platform-services/bricklink-status'] });
+                                const status = queryClient.getQueryData<PlatformBlStatusData>(['/api/platform-admin/platform-services/bricklink-status']);
+                                if (status?.connected) {
+                                  toast({ title: "Connection Successful", description: status.testResult || "BrickLink API is reachable." });
+                                } else {
+                                  toast({ title: "Connection Failed", description: status?.error || "Could not connect to BrickLink API.", variant: "destructive" });
+                                }
+                              } catch {
+                                toast({ title: "Test Failed", description: "Could not test connection.", variant: "destructive" });
+                              } finally {
+                                setPlatformBlTesting(false);
+                              }
+                            }}
+                            disabled={platformBlTesting || !platformBlConsumerKey}
+                            data-testid="button-test-platform-bl-connection"
+                            className="inline-flex items-center gap-1.5 text-[10px] font-medium text-gray-400 hover:text-gray-300 border border-gray-600 rounded px-3 py-1.5 transition-colors disabled:opacity-50"
+                          >
+                            {platformBlTesting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                            Test Connection
+                          </button>
+                        </div>
+                        {platformBlStatusData?.error && (
+                          <p className="text-[10px] text-red-400 break-all">{platformBlStatusData.error}</p>
+                        )}
+                        {platformBlStatusData?.connected && platformBlStatusData.testResult && (
+                          <p className="text-[10px] text-green-400">{platformBlStatusData.testResult}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="sm-card">
+                      <div className="sm-card-header">
                         <Blocks className="h-3.5 w-3.5 text-blue-400/80" />
-                        <span className="text-xs font-semibold text-gray-200">BrickLink API</span>
+                        <span className="text-xs font-semibold text-gray-200">Rate Limits & Configuration</span>
                         <Badge variant="outline" className="ml-auto text-[9px] text-blue-400 border-blue-500/30 bg-blue-500/5">Catalog Enrichment</Badge>
                       </div>
                       <div className="px-4 py-3 space-y-3">
-                        <p className="text-[11px] text-gray-400 leading-relaxed">The BrickLink API is used platform-wide for <strong className="text-gray-300">catalog data enrichment</strong> — pulling part details, category mappings, color data, and price guides (POM) to keep the shared catalog up to date. Individual tenant API credentials (configured in their Platforms section) are used for org-specific operations like inventory sync and order imports.</p>
+                        <p className="text-[11px] text-gray-400 leading-relaxed">The platform BrickLink API is used for <strong className="text-gray-300">catalog data enrichment</strong> — pulling part details, category mappings, color data, and price guides (POM). Individual org API credentials (configured in their Platforms section) are used for org-specific operations like inventory sync and order imports.</p>
                         <div className="grid grid-cols-2 gap-2">
                           {[
                             { label: 'Rate Window', value: 'Rolling 24h' },

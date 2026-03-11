@@ -92,6 +92,25 @@ export async function getPlatformOpenAIKey(): Promise<string | null> {
   return settings?.openaiApiKey || null;
 }
 
+export async function getPlatformBrickLinkCredentials(): Promise<{
+  consumerKey: string;
+  consumerSecret: string;
+  tokenValue: string;
+  tokenSecret: string;
+} | null> {
+  const settings = await getOrgSettings('org_planetbrick');
+  if (!settings?.bricklinkConsumerKey || !settings?.bricklinkConsumerSecret ||
+      !settings?.bricklinkTokenValue || !settings?.bricklinkTokenSecret) {
+    return null;
+  }
+  return {
+    consumerKey: settings.bricklinkConsumerKey,
+    consumerSecret: settings.bricklinkConsumerSecret,
+    tokenValue: settings.bricklinkTokenValue,
+    tokenSecret: settings.bricklinkTokenSecret,
+  };
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Seed plan configs from static tierConfig.ts on first run (idempotent)
   await seedPlanConfigsIfEmpty();
@@ -555,6 +574,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (err: any) {
       res.status(500).json({ error: err?.message || 'Failed to fetch Stripe balance' });
+    }
+  });
+
+  // GET /api/platform-admin/platform-services/bricklink-status — check platform BrickLink connection
+  app.get('/api/platform-admin/platform-services/bricklink-status', isSuperAdmin, async (_req, res) => {
+    try {
+      const creds = await getPlatformBrickLinkCredentials();
+      if (!creds) return res.json({ connected: false, hasCredentials: false });
+      const { bricklinkRequest } = await import('./services/bricklink');
+      const result = await bricklinkRequest('/colors', {}, 'org_planetbrick');
+      const colorCount = Array.isArray(result.data) ? result.data.length : 0;
+      res.json({
+        connected: true,
+        hasCredentials: true,
+        keyPrefix: creds.consumerKey.substring(0, 8) + '…',
+        testResult: `${colorCount} colors retrieved`,
+      });
+    } catch (err: any) {
+      res.json({ connected: false, hasCredentials: true, error: err?.message });
+    }
+  });
+
+  // POST /api/platform-admin/platform-services/bricklink-credentials — save platform BrickLink creds (partial update)
+  app.post('/api/platform-admin/platform-services/bricklink-credentials', isSuperAdmin, async (req, res) => {
+    try {
+      const body = req.body as Record<string, string | null | undefined>;
+      const updateSet: Record<string, any> = { updatedAt: sql`CURRENT_TIMESTAMP` };
+      const insertValues: Record<string, any> = { id: 'org_planetbrick', orgId: 'org_planetbrick' };
+
+      if (typeof body.consumerKey === 'string' && body.consumerKey.length > 0) {
+        updateSet.bricklinkConsumerKey = body.consumerKey;
+        insertValues.bricklinkConsumerKey = body.consumerKey;
+      }
+      if (typeof body.consumerSecret === 'string' && body.consumerSecret.length > 0) {
+        updateSet.bricklinkConsumerSecret = body.consumerSecret;
+        insertValues.bricklinkConsumerSecret = body.consumerSecret;
+      }
+      if (typeof body.tokenValue === 'string' && body.tokenValue.length > 0) {
+        updateSet.bricklinkTokenValue = body.tokenValue;
+        insertValues.bricklinkTokenValue = body.tokenValue;
+      }
+      if (typeof body.tokenSecret === 'string' && body.tokenSecret.length > 0) {
+        updateSet.bricklinkTokenSecret = body.tokenSecret;
+        insertValues.bricklinkTokenSecret = body.tokenSecret;
+      }
+
+      if (Object.keys(updateSet).length <= 1) {
+        return res.status(400).json({ message: 'No valid credential fields provided' });
+      }
+
+      await db
+        .insert(appSettings)
+        .values(insertValues)
+        .onConflictDoUpdate({
+          target: appSettings.id,
+          set: updateSet,
+        });
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || 'Failed to save BrickLink credentials' });
+    }
+  });
+
+  // GET /api/platform-admin/platform-services/bricklink-credentials — retrieve presence/prefix info (never full secrets)
+  app.get('/api/platform-admin/platform-services/bricklink-credentials', isSuperAdmin, async (_req, res) => {
+    try {
+      const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, 'org_planetbrick')).limit(1);
+      const mask = (val: string | null | undefined) => val ? val.substring(0, 8) + '…' : '';
+      res.json({
+        hasConsumerKey: !!settings?.bricklinkConsumerKey,
+        consumerKeyPrefix: mask(settings?.bricklinkConsumerKey),
+        hasConsumerSecret: !!settings?.bricklinkConsumerSecret,
+        hasTokenValue: !!settings?.bricklinkTokenValue,
+        tokenValuePrefix: mask(settings?.bricklinkTokenValue),
+        hasTokenSecret: !!settings?.bricklinkTokenSecret,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || 'Failed to load credentials' });
     }
   });
 
