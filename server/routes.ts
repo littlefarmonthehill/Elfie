@@ -613,7 +613,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const creds = await getPlatformBrickLinkCredentials();
       if (!creds) return res.json({ connected: false, hasCredentials: false });
       const { bricklinkRequest } = await import('./services/bricklink');
-      const result = await bricklinkRequest('/colors', {}, 'org_planetbrick');
+      const result = await bricklinkRequest('/colors', undefined, 'org_planetbrick');
       const colorCount = Array.isArray(result.data) ? result.data.length : 0;
       res.json({
         connected: true,

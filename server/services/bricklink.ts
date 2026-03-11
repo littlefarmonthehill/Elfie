@@ -185,19 +185,15 @@ export async function bricklinkRequest(endpoint: string, queryParams?: Record<st
 
   // Build URL with query params - OAuth needs the full URL for GET request signatures
   let url = `https://api.bricklink.com/api/store/v1${endpoint}`;
-  if (queryParams) {
+  if (queryParams && Object.keys(queryParams).length > 0) {
     const params = new URLSearchParams(queryParams);
-    url = `${url}?${params.toString()}`;
+    const qs = params.toString();
+    if (qs) url = `${url}?${qs}`;
   }
   
   // For GET requests, query params must be in the URL, not the data field
   const requestData = { url, method: 'GET' };
   const authHeader = oauth.toHeader(oauth.authorize(requestData, token));
-  
-  console.log(`[OAuth Debug] Request URL: ${url}`);
-  console.log(`[OAuth Debug] Auth Header:`, authHeader);
-  console.log(`[OAuth Debug] Consumer Key: ${process.env.BRICKLINK_CONSUMER_KEY?.substring(0, 10)}...`);
-  console.log(`[OAuth Debug] Token Value: ${process.env.BRICKLINK_TOKEN_VALUE?.substring(0, 10)}...`);
   
   let success = false;
   try {
@@ -1002,9 +998,10 @@ export async function bricklinkCatalogRequest(endpoint: string, queryParams?: Re
 
   // Catalog API uses same /api/store/v1 base as other endpoints
   let url = `https://api.bricklink.com/api/store/v1${endpoint}`;
-  if (queryParams) {
+  if (queryParams && Object.keys(queryParams).length > 0) {
     const params = new URLSearchParams(queryParams);
-    url = `${url}?${params.toString()}`;
+    const qs = params.toString();
+    if (qs) url = `${url}?${qs}`;
   }
   
   const requestData = { url, method: 'GET' };
