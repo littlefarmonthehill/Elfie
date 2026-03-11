@@ -18,6 +18,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/login"><Redirect to="/" /></Route>
+      <Route path="/landing" component={Landing} />
       <Route path="/signup" component={Signup} />
 
       <Route path="/platform-admin">
