@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import DashboardNotifications from "./DashboardNotifications";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CompactModeProvider, useCompactMode } from "@/contexts/CompactMode";
+import { CompactModeProvider } from "@/contexts/CompactMode";
 
 interface GeneralDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
@@ -85,31 +85,28 @@ function LaneCard({
 
 function LaneSection({ label, children, collapsible = false, className = "" }: { label?: string; children: React.ReactNode; collapsible?: boolean; className?: string }) {
   const [expanded, setExpanded] = useState(false);
-  const compact = useCompactMode();
 
   if (collapsible && label) {
     return (
       <div className={`relative mt-auto z-20 ${className}`}>
-        {/* Content — opens upward, overlays items above up to the lane title */}
         {expanded && (
           <div
             className="absolute bottom-full left-0 right-0 z-30"
-            style={{ top: undefined }}
           >
             <div className="space-y-1.5 overflow-y-auto px-3 pb-2 pt-1 bg-gray-900/95 border-x border-t border-border/40 rounded-t-lg" style={{ maxHeight: 'calc(100vh - 10rem)' }}>
               {children}
             </div>
           </div>
         )}
-        {/* Trigger bar — pinned to card bottom via mt-auto */}
         <button
           onClick={() => setExpanded(v => !v)}
-          className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-white/5 transition-colors duration-100 border-t-2 border-border/50 cockpit-trigger-bar"
+          className="flex items-center gap-2 w-full text-left px-3 py-2 transition-colors duration-100 border-t-2 border-cyan-500/30 bg-gradient-to-r from-cyan-950/20 via-transparent to-cyan-950/20 cockpit-trigger-bar"
+          style={{ boxShadow: expanded ? 'none' : '0 -4px 12px rgba(6,182,212,0.08)' }}
           data-testid={`collapse-${label.toLowerCase().replace(/\s+/g, '-')}`}
         >
-          <Clock className="w-3 h-3 shrink-0 text-muted-foreground/70" />
-          <p className="text-[10px] uppercase tracking-widest text-foreground/60 font-semibold flex-1">{label}</p>
-          <ChevronUp className={`w-3.5 h-3.5 text-muted-foreground/70 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
+          <Clock className="w-3 h-3 shrink-0 text-cyan-400/70" />
+          <p className="text-[10px] uppercase tracking-widest text-cyan-300/70 font-semibold flex-1">{label}</p>
+          <ChevronUp className={`w-3.5 h-3.5 text-cyan-400/60 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
         </button>
       </div>
     );
@@ -561,12 +558,13 @@ function OrdersLane({ stats, dashboardOrders, fulfillmentStats, orderSyncRunning
 
 // ── SYSTEM PULSE STRIP ────────────────────────────────────────────────────────
 
-export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings }: {
+export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings, children }: {
   setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }>;
   billingStatus?: { plan: string; status: string; interval?: string | null; trialEndsAt?: string | null; subscriptionEndsAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number } } | null;
   rateLimit?: { allowed: boolean; callsLast24h: number; blocked?: boolean } | null;
   blApiCallLimit?: number;
   onOpenSettings?: (section: any) => void;
+  children?: React.ReactNode;
 }) {
   const planLabels: Record<string, string> = { trial: 'Trial', foundation: 'Foundation', core: 'Core', flagship: 'Flagship' };
 
@@ -596,7 +594,7 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
 
   const hasAlerts = all.length > 0;
   const hasPlanInfo = !!billingStatus;
-  if (!hasAlerts && !hasPlanInfo) return null;
+  if (!hasAlerts && !hasPlanInfo && !children) return null;
 
   const trialSeverity = trialDaysLeft !== null && trialDaysLeft <= 3 ? 'error' : trialDaysLeft !== null && trialDaysLeft <= 7 ? 'warn' : null;
 
@@ -658,12 +656,11 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
         <LaneSection><AllGood label="All systems normal" /></LaneSection>
       )}
 
-      <LaneSection label="Status" collapsible>
-        {renewalDateStr && !isTrial && (
-          <ActivityItem icon={CreditCard} iconColor="text-purple-400" label="Subscription active" sub={`Renews ${renewalDateStr}`} onClick={() => onOpenSettings?.('billing')} />
-        )}
-        <ActivityItem icon={Activity} iconColor="text-purple-300" label="No new notifications" sub="Updates and alerts will appear here" />
-      </LaneSection>
+      {children && (
+        <LaneSection label="Communications">
+          {children}
+        </LaneSection>
+      )}
 
     </LaneCard>
   );
@@ -780,15 +777,20 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     <div className={panelMode ? "flex flex-col p-2 h-full gap-1" : "p-3 md:p-4 lg:p-5 xl:p-6 space-y-4 md:space-y-4 xl:space-y-5"}>
 
       {/* System Pulse — only shows when there are errors or setup gaps (hidden in panelMode — rendered separately) */}
-      {!panelMode && <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings} />}
-
-      {/* Sync issue notifications (per-item detail feed) */}
-      <DashboardNotifications />
+      {!panelMode && (
+        <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings}>
+          <DashboardNotifications />
+        </SystemPulse>
+      )}
 
       {/* Ops Lanes */}
       <div className={panelMode ? "grid grid-cols-3 gap-3 items-stretch flex-1 min-h-0" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-4 xl:gap-5 items-stretch"} data-testid="ops-lanes">
 
-        {panelMode && <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings} />}
+        {panelMode && (
+          <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings}>
+            <DashboardNotifications />
+          </SystemPulse>
+        )}
 
         <InventoryLane
           stats={stats}
