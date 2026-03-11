@@ -360,21 +360,19 @@ export default function Home() {
       {/* ── TOP ROW: Your Plan tile (left) + Ops Central (right) ── */}
       <div className="flex overflow-hidden" style={{ flex: 2, gap: '5px' }}>
 
-        {/* Your Plan — standalone tile, same width as one Ops Central lane */}
-        <div className="flex flex-col rounded-lg overflow-hidden" style={{ flex: 1, border: '1px solid hsla(270,60%,55%,0.35)' }}>
-          <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(270,60%,55%,0.25), hsla(270,60%,55%,0.08))', borderColor: 'hsla(270,60%,55%,0.35)' }}>
+        {/* Your Plan — free-floating, no border box */}
+        <div className="flex flex-col overflow-hidden" style={{ flex: 1 }}>
+          <div className="shrink-0 flex items-center px-3 py-1.5">
             <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: 'hsl(270,60%,75%)', textShadow: '0 0 8px hsla(270,60%,55%,0.7)' }}>Your Plan</span>
           </div>
-          <div className="flex-1 overflow-y-auto min-h-0" style={{ background: 'radial-gradient(ellipse at top, hsla(270,60%,55%,0.12) 0%, transparent 55%), linear-gradient(to bottom, hsla(270,60%,55%,0.15), hsla(270,60%,55%,0.03) 100%)' }}>
-            <div className="p-2">
-              <SystemPulse
-                setupItems={systemPulseSetupItems}
-                billingStatus={billingStatus}
-                rateLimit={blRateLimit}
-                blApiCallLimit={appSettingsHome?.blApiCallLimit}
-                onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-              />
-            </div>
+          <div className="flex-1 overflow-y-auto min-h-0 px-2 pb-2">
+            <SystemPulse
+              setupItems={systemPulseSetupItems}
+              billingStatus={billingStatus}
+              rateLimit={blRateLimit}
+              blApiCallLimit={appSettingsHome?.blApiCallLimit}
+              onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
+            />
           </div>
         </div>
 
