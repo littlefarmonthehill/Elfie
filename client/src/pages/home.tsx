@@ -355,7 +355,7 @@ export default function Home() {
   };
 
   const renderPanelMode = () => (
-    <div className="flex flex-col h-full" style={{ padding: '5px', gap: '5px' }}>
+    <div className="flex flex-col h-full" style={{ padding: '5px', gap: '0px' }}>
 
       {/* ── TOP ROW: Your Plan tile (left) + Ops Central (right) ── */}
       <div className="flex overflow-hidden" style={{ flex: '0 0 45%', gap: '5px' }}>
