@@ -7,12 +7,12 @@
  */
 
 import { db } from '../db';
-import { appSettings, syncMetadata } from '@shared/schema';
+import { appSettings, syncMetadata, PLATFORM_ORG_ID } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { syncBrickLinkForum } from './bl-forum-scraper';
 import { recordSyncIssue, resolveSchedulerIssues } from './sync-issue-service';
 
-const ORG_ID = 'org_planetbrick';
+const ORG_ID = PLATFORM_ORG_ID;
 
 const SYNC_ID = 'forum_sync';
 const SYNC_TYPE = 'forum_sync';

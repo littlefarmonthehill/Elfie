@@ -1,12 +1,12 @@
 import { db } from "../db";
-import { setPartRelationships, syncMetadata } from "@shared/schema";
+import { setPartRelationships, syncMetadata, PLATFORM_ORG_ID } from "@shared/schema";
 import { sql, eq } from "drizzle-orm";
 import https from "https";
 import { parse } from "csv-parse";
 import { createGunzip } from "zlib";
 import { Readable } from "stream";
 
-const ORG_ID = 'org_planetbrick';
+const ORG_ID = PLATFORM_ORG_ID;
 const SYNC_ID = 'rebrickable_set_parts';
 
 let isRunning = false;

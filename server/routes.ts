@@ -13,7 +13,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, PLATFORM_ORG_ID } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -84,11 +84,11 @@ async function getOrgSettings(orgId: string) {
 }
 
 /**
- * Get the platform-wide OpenAI API key from the platform org's appSettings row.
+ * Get the platform-wide OpenAI API key from the dedicated platform settings row.
  * This is the single source of truth for all OpenAI usage across every org.
  */
 export async function getPlatformOpenAIKey(): Promise<string | null> {
-  const settings = await getOrgSettings('org_planetbrick');
+  const settings = await getOrgSettings(PLATFORM_ORG_ID);
   return settings?.openaiApiKey || null;
 }
 
@@ -98,7 +98,7 @@ export async function getPlatformBrickLinkCredentials(): Promise<{
   tokenValue: string;
   tokenSecret: string;
 } | null> {
-  const settings = await getOrgSettings('org_planetbrick');
+  const settings = await getOrgSettings(PLATFORM_ORG_ID);
   if (!settings?.bricklinkConsumerKey || !settings?.bricklinkConsumerSecret ||
       !settings?.bricklinkTokenValue || !settings?.bricklinkTokenSecret) {
     return null;
@@ -580,7 +580,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/platform-admin/platform-services/platform-info — get platform name
   app.get('/api/platform-admin/platform-services/platform-info', isSuperAdmin, async (_req, res) => {
     try {
-      const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, 'org_planetbrick')).limit(1);
+      const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, PLATFORM_ORG_ID)).limit(1);
       res.json({ platformName: settings?.platformName || '' });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || 'Failed to load platform info' });
@@ -596,7 +596,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       await db
         .insert(appSettings)
-        .values({ id: 'org_planetbrick', orgId: 'org_planetbrick', platformName: platformName.trim() || null })
+        .values({ id: PLATFORM_ORG_ID, orgId: PLATFORM_ORG_ID, platformName: platformName.trim() || null })
         .onConflictDoUpdate({
           target: appSettings.id,
           set: { platformName: platformName.trim() || null, updatedAt: sql`CURRENT_TIMESTAMP` },
@@ -613,7 +613,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const creds = await getPlatformBrickLinkCredentials();
       if (!creds) return res.json({ connected: false, hasCredentials: false });
       const { bricklinkRequest } = await import('./services/bricklink');
-      const result = await bricklinkRequest('/colors', undefined, 'org_planetbrick');
+      const result = await bricklinkRequest('/colors', undefined, PLATFORM_ORG_ID);
       const colorCount = Array.isArray(result.data) ? result.data.length : 0;
       res.json({
         connected: true,
@@ -631,7 +631,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const body = req.body as Record<string, string | null | undefined>;
       const updateSet: Record<string, any> = { updatedAt: sql`CURRENT_TIMESTAMP` };
-      const insertValues: Record<string, any> = { id: 'org_planetbrick', orgId: 'org_planetbrick' };
+      const insertValues: Record<string, any> = { id: PLATFORM_ORG_ID, orgId: PLATFORM_ORG_ID };
 
       const cleanCred = (v: string) => v.replace(/[^A-Za-z0-9]/g, '');
       if (typeof body.consumerKey === 'string' && body.consumerKey.trim().length > 0) {
@@ -675,7 +675,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/platform-admin/platform-services/bricklink-credentials — retrieve presence/prefix info (never full secrets)
   app.get('/api/platform-admin/platform-services/bricklink-credentials', isSuperAdmin, async (_req, res) => {
     try {
-      const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, 'org_planetbrick')).limit(1);
+      const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, PLATFORM_ORG_ID)).limit(1);
       const mask = (val: string | null | undefined) => val ? val.substring(0, 8) + '…' : '';
       res.json({
         hasConsumerKey: !!settings?.bricklinkConsumerKey,
@@ -711,7 +711,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { openaiApiKey } = req.body as { openaiApiKey: string | null };
       const [settings] = await db
         .insert(appSettings)
-        .values({ id: 'org_planetbrick', orgId: 'org_planetbrick', openaiApiKey: openaiApiKey || null })
+        .values({ id: PLATFORM_ORG_ID, orgId: PLATFORM_ORG_ID, openaiApiKey: openaiApiKey || null })
         .onConflictDoUpdate({
           target: appSettings.id,
           set: { openaiApiKey: openaiApiKey || null, updatedAt: sql`CURRENT_TIMESTAMP` },
@@ -798,7 +798,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const allOrgs = await db.select({ id: organizations.id, name: organizations.name }).from(organizations);
         for (const o of allOrgs) orgNames[o.id] = o.name;
-        const [platSettings] = await db.select({ platformName: appSettings.platformName }).from(appSettings).where(eq(appSettings.id, 'org_planetbrick')).limit(1);
+        const [platSettings] = await db.select({ platformName: appSettings.platformName }).from(appSettings).where(eq(appSettings.id, PLATFORM_ORG_ID)).limit(1);
         storedPlatformName = platSettings?.platformName || '';
       } catch {}
 

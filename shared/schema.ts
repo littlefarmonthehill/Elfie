@@ -1,6 +1,8 @@
 import { sql, relations } from "drizzle-orm";
 import { pgTable, text, varchar, integer, decimal, real, timestamp, boolean, index, jsonb, serial, date, primaryKey, customType } from "drizzle-orm/pg-core";
 
+export const PLATFORM_ORG_ID = 'platform';
+
 const bytea = customType<{ data: Buffer; notNull: false; default: false }>({
   dataType() { return 'bytea'; },
 });

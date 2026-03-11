@@ -1,8 +1,8 @@
 import { db } from "../db";
-import { appSettings, syncMetadata } from "@shared/schema";
+import { appSettings, syncMetadata, PLATFORM_ORG_ID } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 
-const ORG_ID = 'org_planetbrick';
+const ORG_ID = PLATFORM_ORG_ID;
 const SYNC_ID = 'rebrickable_set_parts';
 
 export async function startRebrickableSetsScheduler() {

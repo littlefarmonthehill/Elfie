@@ -11,7 +11,7 @@
  */
 
 import { db } from '../db';
-import { appSettings, syncMetadata } from '@shared/schema';
+import { appSettings, syncMetadata, PLATFORM_ORG_ID } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import {
   importFromRebrickable,
@@ -21,7 +21,7 @@ import {
   getUniversalCatalogState,
 } from './universal-clip-catalog';
 
-const ORG_ID    = 'org_planetbrick';
+const ORG_ID    = PLATFORM_ORG_ID;
 const META_ID   = 'universal_catalog_refresh';
 const CHECK_MS  = 6 * 60 * 60 * 1000;   // check every 6 hours
 

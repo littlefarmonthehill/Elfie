@@ -649,7 +649,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [platformNameInput, setPlatformNameInput] = useState("");
   const [platformNameSaving, setPlatformNameSaving] = useState(false);
 
-  // Platform BrickLink Settings (stored on org_planetbrick, used for PoM & data enrichment)
+  // Platform BrickLink Settings (stored on platform settings row, used for PoM & data enrichment)
   const [platformBlConsumerKey, setPlatformBlConsumerKey] = useState("");
   const [platformBlConsumerSecret, setPlatformBlConsumerSecret] = useState("");
   const [platformBlTokenValue, setPlatformBlTokenValue] = useState("");

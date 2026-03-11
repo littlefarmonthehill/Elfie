@@ -15,7 +15,7 @@ const ORG_ID = 'org_planetbrick';
  */
 async function fetchAndCacheMissingLot(inventoryId: number): Promise<boolean> {
   try {
-    const { data } = await bricklinkRequest(`/inventories/${inventoryId}`);
+    const { data } = await bricklinkRequest(`/inventories/${inventoryId}`, undefined, ORG_ID);
     if (!data) return false;
 
     const lotData = {

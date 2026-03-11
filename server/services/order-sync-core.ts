@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { appSettings } from "@shared/schema";
 import { syncLock } from "./sync-lock";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
 
 export type SyncPlatform = "bricklink" | "brickowl" | "all";
 
@@ -48,7 +48,7 @@ export async function runPlatformOrderSync(
   }
 
   try {
-  const [settings] = await db.select().from(appSettings).limit(1);
+  const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, 'org_planetbrick')).limit(1);
   const newOrderIds: string[] = [];
 
   // ── BrickLink ──────────────────────────────────────────────────────────────

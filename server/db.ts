@@ -223,6 +223,29 @@ export async function runMigrations() {
     // ── Phase-9: Platform name column on app_settings ────────────────────────
     await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS platform_name TEXT`);
     console.log('[Migration] Phase-9 (platform_name column) complete.');
+
+    // ── Phase-10: Separate platform settings row from org_planetbrick ──────
+    // Platform services (OpenAI key, platform BrickLink creds, platform name)
+    // now live in their own row with id='platform', org_id='platform'.
+    // One-time copy from org_planetbrick row, only if the platform row doesn't exist yet.
+    const { rows: srcRows } = await client.query(`SELECT id FROM app_settings WHERE id = 'org_planetbrick'`);
+    if (srcRows.length > 0) {
+      await client.query(`
+        INSERT INTO app_settings (id, org_id, openai_api_key, bricklink_consumer_key, bricklink_consumer_secret,
+          bricklink_token_value, bricklink_token_secret, platform_name, ai_enabled, selected_model)
+        SELECT 'platform', 'platform', openai_api_key, bricklink_consumer_key, bricklink_consumer_secret,
+          bricklink_token_value, bricklink_token_secret, platform_name, ai_enabled, selected_model
+        FROM app_settings WHERE id = 'org_planetbrick'
+        ON CONFLICT (id) DO NOTHING
+      `);
+    } else {
+      await client.query(`
+        INSERT INTO app_settings (id, org_id, ai_enabled, selected_model)
+        VALUES ('platform', 'platform', true, 'gpt-4o-mini')
+        ON CONFLICT (id) DO NOTHING
+      `);
+    }
+    console.log('[Migration] Phase-10 (platform settings row) complete.');
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

@@ -27,7 +27,7 @@ PlanetBrick's core functionality revolves around BrickLink as the primary produc
 -   **EasyPost API:** For multi-carrier shipping label generation, rate shopping, and tracking.
 -   **Stripe API:** For processing payments, managing subscriptions, and pulling refund data.
 -   **PayPal Webhooks & Capture Polling:** For processing payment refunds and reversals, and syncing capture details.
--   **OpenAI API:** Powers E.L.F.I.E. (GPT-4o-mini completions + tool calling) and embeddings (`text-embedding-3-small`). Platform-wide key stored in `app_settings` under `org_planetbrick`. Elfie agent runs as a platform cost (orgId=null). Usage tracked locally in `ai_usage_log` table (not via OpenAI billing API). Per-org cost attribution via `org_id` column — tracks which org triggered each embedding call. Admin dashboard shows per-org breakdown at `/api/platform-admin/platform-services/openai-billing/by-org`. Replit Anthropic AI integration is installed but no longer used by the app.
+-   **OpenAI API:** Powers E.L.F.I.E. (GPT-4o-mini completions + tool calling) and embeddings (`text-embedding-3-small`). Platform-wide key stored in `app_settings` under `id='platform'` (separate from any customer org). Elfie agent runs as a platform cost (orgId=null). Usage tracked locally in `ai_usage_log` table (not via OpenAI billing API). Per-org cost attribution via `org_id` column — tracks which org triggered each embedding call. Admin dashboard shows per-org breakdown at `/api/platform-admin/platform-services/openai-billing/by-org`. Replit Anthropic AI integration is installed but no longer used by the app.
 -   **Brickognize API:** For LEGO part image recognition within the Brickanalyzer tool.
 -   **Neon:** Serverless PostgreSQL database with the `pgvector` extension for vector embeddings.
 
@@ -57,6 +57,15 @@ Plan configurations are stored in the `planConfigs` DB table (seeded once from `
 - **Sunset**: Marks a plan so it cannot be offered to new signups; existing customers are unaffected
 - **Plan service**: `server/services/planConfigService.ts` — `seedPlanConfigsIfEmpty()`, `getAllPlanConfigsWithCounts()`, `updatePlanConfig()`, `setPlanSunset()`
 - **API routes**: `GET /api/platform-admin/plans`, `PATCH /api/platform-admin/plans/:planKey`, `PATCH /api/platform-admin/plans/:planKey/sunset`
+
+## Platform vs Customer Org Architecture
+
+Platform services and customer orgs are fully separated in `app_settings`:
+- **Platform row** (`id='platform'`, `org_id='platform'`): Stores platform-wide settings — OpenAI API key, platform BrickLink credentials (used for catalog enrichment, Price-o-Matic, forum sync), and the configurable platform name. The constant `PLATFORM_ORG_ID` in `shared/schema.ts` is used throughout the codebase.
+- **Customer org rows** (e.g., `id='org_planetbrick'`): Store org-specific settings — their own BrickLink API credentials for inventory/order syncs, PayPal credentials, shipping vendor configs, etc.
+- **Platform schedulers** (universal-catalog, rebrickable, pom, bl-forum) read settings from the platform row.
+- **Org schedulers** (inventory-sync, order-sync, channel-sync) read settings from the org's own row.
+- **Migration Phase-10** copies platform-level credentials from `org_planetbrick` to the new `platform` row on first run.
 
 ## System Health — Database Vacuum & Cleanup
 

@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { blCategories, blColors, blInventory, blCatalog, blApiCalls, appSettings, priceGuideCache, partPriceHistory, setPartRelationships, orderDetails, orders, organizations } from "@shared/schema";
+import { blCategories, blColors, blInventory, blCatalog, blApiCalls, appSettings, priceGuideCache, partPriceHistory, setPartRelationships, orderDetails, orders, organizations, PLATFORM_ORG_ID } from "@shared/schema";
 import { eq, gte, sql, inArray, and, gt, desc } from "drizzle-orm";
 import OAuth from "oauth-1.0a";
 import crypto from "crypto";
@@ -66,7 +66,7 @@ async function getOrgCallCeiling(orgId: string): Promise<number> {
 }
 
 // Check rate limit status for the last 24 hours — scoped to a single org
-export async function checkRateLimit(orgId: string = 'org_planetbrick'): Promise<RateLimitStatus> {
+export async function checkRateLimit(orgId: string = PLATFORM_ORG_ID): Promise<RateLimitStatus> {
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   
   const recentCalls = await db
@@ -138,7 +138,7 @@ export async function checkRateLimit(orgId: string = 'org_planetbrick'): Promise
 }
 
 // Track a BL API call with org attribution
-async function trackApiCall(endpoint: string, success: boolean = true, orgId: string = 'org_planetbrick'): Promise<void> {
+async function trackApiCall(endpoint: string, success: boolean = true, orgId: string = PLATFORM_ORG_ID): Promise<void> {
   await db.insert(blApiCalls).values({
     endpoint,
     success,
@@ -147,7 +147,7 @@ async function trackApiCall(endpoint: string, success: boolean = true, orgId: st
 }
 
 // Make a BrickLink API request with rate limiting (GET)
-export async function bricklinkRequest(endpoint: string, queryParams?: Record<string, string>, orgId: string = 'org_planetbrick'): Promise<{ data: any; apiCalls: number }> {
+export async function bricklinkRequest(endpoint: string, queryParams?: Record<string, string>, orgId: string = PLATFORM_ORG_ID): Promise<{ data: any; apiCalls: number }> {
   // Get credentials from database settings (with fallback to env vars), scoped to org
   const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
   
@@ -239,7 +239,7 @@ export async function bricklinkRequest(endpoint: string, queryParams?: Record<st
 }
 
 // Make a BrickLink API PUT request (for updating inventory)
-async function bricklinkPutRequest(endpoint: string, body: any, orgId: string = 'org_planetbrick'): Promise<{ data: any; apiCalls: number }> {
+async function bricklinkPutRequest(endpoint: string, body: any, orgId: string = PLATFORM_ORG_ID): Promise<{ data: any; apiCalls: number }> {
   // Get credentials from database settings (with fallback to env vars), scoped to org
   const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
   
@@ -318,7 +318,7 @@ async function bricklinkPutRequest(endpoint: string, body: any, orgId: string = 
 export async function adjustBrickLinkInventoryDelta(
   inventoryId: number,
   delta: number,
-  orgId: string = 'org_planetbrick'
+  orgId: string = PLATFORM_ORG_ID
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (delta === 0) return { success: true };
@@ -357,7 +357,7 @@ export async function updateBrickLinkInventoryQuantity(
 export async function updateBrickLinkInventoryItem(
   inventoryId: number,
   updates: Record<string, any>,
-  orgId: string = 'org_planetbrick'
+  orgId: string = PLATFORM_ORG_ID
 ): Promise<{ success: boolean; error?: string }> {
   try {
     console.log(`Updating BrickLink inventory ${inventoryId} with:`, updates);
@@ -372,7 +372,7 @@ export async function updateBrickLinkInventoryItem(
   }
 }
 
-export async function syncBricklinkCategories(orgId: string = 'org_planetbrick'): Promise<{ added: number; updated: number; apiCalls: number }> {
+export async function syncBricklinkCategories(orgId: string = PLATFORM_ORG_ID): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
     const { data: responseData, apiCalls } = await bricklinkRequest('/categories', undefined, orgId);
     
@@ -422,7 +422,7 @@ export async function syncBricklinkCategories(orgId: string = 'org_planetbrick')
   }
 }
 
-export async function syncBricklinkColors(orgId: string = 'org_planetbrick'): Promise<{ added: number; updated: number; apiCalls: number }> {
+export async function syncBricklinkColors(orgId: string = PLATFORM_ORG_ID): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
     const { data: responseData, apiCalls } = await bricklinkRequest('/colors', undefined, orgId);
     
@@ -497,7 +497,7 @@ function buildBricklinkImageUrl(itemType: string, colorId: number | null, itemNo
   }
 }
 
-export async function syncBricklinkInventory(callComplete = true, orgId: string = 'org_planetbrick'): Promise<{ added: number; updated: number; apiCalls: number }> {
+export async function syncBricklinkInventory(callComplete = true, orgId: string = PLATFORM_ORG_ID): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
     const { syncProgressTracker } = await import('./sync-progress');
     if (callComplete) syncProgressTracker.start();
@@ -764,7 +764,7 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
 }
 
 // OLD VERSION WITH STATUS FILTERS - KEPT FOR REFERENCE
-async function syncBricklinkInventoryByStatus(orgId: string = 'org_planetbrick'): Promise<{ added: number; updated: number; apiCalls: number }> {
+async function syncBricklinkInventoryByStatus(orgId: string = PLATFORM_ORG_ID): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
     let added = 0;
     let updated = 0;
@@ -830,7 +830,7 @@ async function syncBricklinkInventoryByStatus(orgId: string = 'org_planetbrick')
   }
 }
 
-export async function syncBricklinkData(orgId: string = 'org_planetbrick'): Promise<BricklinkSyncResult> {
+export async function syncBricklinkData(orgId: string = PLATFORM_ORG_ID): Promise<BricklinkSyncResult> {
   
   // Acquire inventory sync lock to prevent order sync conflicts
   const lockAcquired = await syncLock.acquireInventoryLock();
@@ -947,7 +947,7 @@ export async function syncBricklinkData(orgId: string = 'org_planetbrick'): Prom
 // ====== PRICE-O-MAGIC FUNCTIONS ======
 
 // Make a BrickLink Catalog API request (different base URL)
-export async function bricklinkCatalogRequest(endpoint: string, queryParams?: Record<string, string>, orgId: string = 'org_planetbrick'): Promise<{ data: any; apiCalls: number }> {
+export async function bricklinkCatalogRequest(endpoint: string, queryParams?: Record<string, string>, orgId: string = PLATFORM_ORG_ID): Promise<{ data: any; apiCalls: number }> {
   const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
   
   console.log('[Price-o-Matic Debug] Settings loaded:', {
@@ -1135,7 +1135,7 @@ const POM_FORMULA_DEFAULTS: PomFormulaConfig = {
 
 export async function getPomFormulaConfig(): Promise<PomFormulaConfig> {
   try {
-    const [settings] = await db.select().from(appSettings).limit(1);
+    const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, PLATFORM_ORG_ID)).limit(1);
     if (!settings) return POM_FORMULA_DEFAULTS;
     return {
       basePremium: settings.pomBasePremium ?? POM_FORMULA_DEFAULTS.basePremium,
@@ -1251,7 +1251,7 @@ export function getPomSyncProgress() { return { ...pomSyncProgress }; }
 
 // Fetch and cache Price-o-Matic data for an item
 // Sync Price-o-Matic data for up to N inventory items (default from settings)
-export async function syncPriceOMagicCache(maxItems?: number, orgId: string = 'org_planetbrick'): Promise<{
+export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PLATFORM_ORG_ID): Promise<{
   itemsUpdated: number;
   itemsSkipped: number;
   apiCallsUsed: number;
@@ -1295,7 +1295,7 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = 'o
     const [tierSettings] = await db.select({
       pomQtyPromoteThreshold: appSettings.pomQtyPromoteThreshold,
       pomQtyDemoteThreshold: appSettings.pomQtyDemoteThreshold,
-    }).from(appSettings).limit(1);
+    }).from(appSettings).where(eq(appSettings.id, PLATFORM_ORG_ID)).limit(1);
 
     const qtyPromote = tierSettings?.pomQtyPromoteThreshold ?? 5;
     const qtyDemote = tierSettings?.pomQtyDemoteThreshold ?? 500;
@@ -1496,7 +1496,7 @@ export async function fetchPriceOMagicData(
   skipStock: boolean = false,
   localItemData?: { name?: string | null; imageUrl?: string | null; thumbnailUrl?: string | null; categoryId?: number | null },
   apiCounter?: { count: number },
-  orgId: string = 'org_planetbrick',
+  orgId: string = PLATFORM_ORG_ID,
   forceRefresh: boolean = false
 ): Promise<any> {
   try {
@@ -1842,7 +1842,7 @@ export async function fetchPriceOMagicData(
 export async function searchBricklinkCatalogItem(
   itemNo: string,
   itemType: string = 'PART',
-  orgId: string = 'org_planetbrick'
+  orgId: string = PLATFORM_ORG_ID
 ): Promise<any> {
   try {
     console.log(`[BrickLink Catalog Search] Searching for ${itemType}/${itemNo}`);
