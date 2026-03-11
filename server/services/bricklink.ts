@@ -156,6 +156,8 @@ export async function bricklinkRequest(endpoint: string, queryParams?: Record<st
   const tokenValue = cleanToken(settings?.bricklinkTokenValue || process.env.BRICKLINK_TOKEN_VALUE || '');
   const tokenSecret = cleanToken(settings?.bricklinkTokenSecret || process.env.BRICKLINK_TOKEN_SECRET || '');
   
+  console.log(`[BL-OAuth] orgId=${orgId} consumer=${consumerKey.substring(0,8)}… token=${tokenValue.substring(0,8)}… (row id=${settings?.id}, row orgId=${settings?.orgId})`);
+
   if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
     throw new Error('BrickLink credentials not configured. Please add them in Settings.');
   }
