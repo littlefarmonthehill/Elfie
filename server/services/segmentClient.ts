@@ -67,10 +67,14 @@ export function startService() {
         ready = true;
         console.log(`[SegClient] Service ready (stderr signal) in ${((Date.now() - startedAt) / 1000).toFixed(1)}s`);
       }
-      // Only log unexpected errors (suppress Flask's normal startup banner)
-      if (!line.startsWith('WARNING') && !line.startsWith('Press') && !line.startsWith(' * ')) {
-        console.error(`[SegService ERR] ${line}`);
-      }
+      // Suppress noisy but harmless lines:
+      // - Flask startup banner
+      // - Expected 404/502 from /embed-url when BrickLink CDN images are missing
+      // - Download progress bars from model downloads
+      if (line.startsWith('WARNING') || line.startsWith('Press') || line.startsWith(' * ')) return;
+      if (line.includes('POST /embed-url') && (line.includes('404') || line.includes('502'))) return;
+      if (/^\d+%\|/.test(line)) return; // progress bar lines like "18%|██..."
+      console.error(`[SegService ERR] ${line}`);
     });
   });
 

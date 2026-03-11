@@ -1,4 +1,4 @@
-import sys, io, base64, os, traceback, urllib.request
+import sys, io, base64, os, traceback, urllib.request, logging
 import numpy as np
 from PIL import Image
 import cv2
@@ -11,6 +11,16 @@ import torch
 import torchvision
 
 app = Flask(__name__)
+
+class QuietRequestFilter(logging.Filter):
+    """Suppress Flask request logs for expected 404s on /embed-url (missing CDN images)."""
+    def filter(self, record):
+        msg = record.getMessage()
+        if "POST /embed-url" in msg and ("404" in msg or "502" in msg):
+            return False
+        return True
+
+logging.getLogger('werkzeug').addFilter(QuietRequestFilter())
 
 
 # ── Watershed Default Config ─────────────────────────────────────────────────

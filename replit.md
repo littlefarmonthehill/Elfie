@@ -57,3 +57,12 @@ Plan configurations are stored in the `planConfigs` DB table (seeded once from `
 - **Sunset**: Marks a plan so it cannot be offered to new signups; existing customers are unaffected
 - **Plan service**: `server/services/planConfigService.ts` — `seedPlanConfigsIfEmpty()`, `getAllPlanConfigsWithCounts()`, `updatePlanConfig()`, `setPlanSunset()`
 - **API routes**: `GET /api/platform-admin/plans`, `PATCH /api/platform-admin/plans/:planKey`, `PATCH /api/platform-admin/plans/:planKey/sunset`
+
+## System Health — Database Vacuum & Cleanup
+
+The Database tab in System Health (super admin only) includes a **Vacuum & Cleanup Tools** panel:
+
+- **Vacuum**: `POST /api/platform-admin/db-vacuum` — runs VACUUM ANALYZE on specified tables (validated table names via regex allowlist)
+- **Cleanup**: `POST /api/platform-admin/db-cleanup` — purges stale rows from known targets with configurable age (0–3650 days, parameterized SQL)
+- **Cleanup targets**: `bl_api_calls` (14d), `embedding_jobs` (7d), `restore_jobs` (7d), `sync_issues` (30d), `price_guide_cache` (30d), `sessions` (expired), `brickanalyzer_scans` (60d), `conversations` (90d), `universal_catalog_queue` (14d)
+- **UI**: Two vacuum buttons (flagged tables / all tables) + 8 individual purge buttons with row counts, located in SettingsModal Database tab

@@ -1249,6 +1249,37 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     },
   });
 
+  const vacuumMutation = useMutation({
+    mutationFn: async (tables: string[]) => {
+      const res = await apiRequest('POST', '/api/platform-admin/db-vacuum', { tables });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/db-tables'] });
+      const ok = data.results?.filter((r: any) => r.ok).length ?? 0;
+      const fail = data.results?.filter((r: any) => !r.ok).length ?? 0;
+      toast({ title: "Vacuum Complete", description: `${ok} table${ok !== 1 ? 's' : ''} vacuumed${fail ? `, ${fail} failed` : ''}` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Vacuum Failed", description: err.message || "Could not run vacuum.", variant: "destructive" });
+    },
+  });
+
+  const cleanupMutation = useMutation({
+    mutationFn: async ({ target, daysOld }: { target: string; daysOld: number }) => {
+      const res = await apiRequest('POST', '/api/platform-admin/db-cleanup', { target, daysOld });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/db-tables'] });
+      const deleted = data.results?.[0]?.deleted ?? 0;
+      toast({ title: "Cleanup Complete", description: `${deleted.toLocaleString()} row${deleted !== 1 ? 's' : ''} purged` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Cleanup Failed", description: err.message || "Could not run cleanup.", variant: "destructive" });
+    },
+  });
+
   useEffect(() => {
     if (settings) {
       setAiEnabled(settings.aiEnabled);
@@ -6451,6 +6482,107 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </div>
                             );
                           })()}
+                          {/* Vacuum & Cleanup Tools */}
+                          <div className="rounded-lg border border-gray-700 overflow-hidden mb-3">
+                            <div className="flex items-center gap-2 px-3 py-2 bg-gray-800/80 border-b border-gray-700">
+                              <Wrench className="h-3 w-3 text-yellow-500/70" />
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-300">Vacuum & Cleanup Tools</span>
+                            </div>
+
+                            {/* Quick Vacuum */}
+                            {(() => {
+                              const needsVacuum = dbTables.filter(t => {
+                                const deadRatio = t.liveRows > 0 ? t.deadRows / t.liveRows : 0;
+                                return (t.deadRows > 100 && deadRatio > 0.05) || (!t.lastVacuum && t.liveRows > 500);
+                              }).map(t => t.tableName);
+                              return (
+                                <div className="px-3 py-2.5 border-b border-gray-700/40">
+                                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <div className="min-w-0">
+                                      <p className="text-[11px] text-gray-200 font-medium">Vacuum All Flagged Tables</p>
+                                      <p className="text-[10px] text-gray-500 mt-0.5">
+                                        {needsVacuum.length > 0
+                                          ? `${needsVacuum.length} table${needsVacuum.length !== 1 ? 's' : ''} with dead tuples or never vacuumed`
+                                          : 'All tables are healthy'}
+                                      </p>
+                                    </div>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={needsVacuum.length === 0 || vacuumMutation.isPending}
+                                      onClick={() => vacuumMutation.mutate(needsVacuum)}
+                                      data-testid="button-vacuum-flagged"
+                                    >
+                                      {vacuumMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Zap className="h-3 w-3 mr-1" />}
+                                      Vacuum {needsVacuum.length > 0 ? `(${needsVacuum.length})` : ''}
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
+                            {/* Vacuum All */}
+                            <div className="px-3 py-2.5 border-b border-gray-700/40">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div className="min-w-0">
+                                  <p className="text-[11px] text-gray-200 font-medium">Vacuum All Tables</p>
+                                  <p className="text-[10px] text-gray-500 mt-0.5">Run VACUUM ANALYZE on every table in the database</p>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={vacuumMutation.isPending}
+                                  onClick={() => vacuumMutation.mutate(dbTables.map(t => t.tableName))}
+                                  data-testid="button-vacuum-all"
+                                >
+                                  {vacuumMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Database className="h-3 w-3 mr-1" />}
+                                  Vacuum All
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* Data Cleanup Targets */}
+                            <div className="px-3 py-2 bg-gray-800/40 border-b border-gray-700/40">
+                              <span className="text-[9px] uppercase tracking-widest text-gray-400 font-semibold">Purge Stale Data</span>
+                            </div>
+                            {[
+                              { target: 'bl_api_calls',          label: 'API Call Logs',        desc: 'BrickLink API call history',    defaultDays: 14 },
+                              { target: 'embedding_jobs',        label: 'Completed Jobs',       desc: 'Finished embedding/restore jobs', defaultDays: 7 },
+                              { target: 'sync_issues',           label: 'Sync Issues',          desc: 'Old sync warning/error logs',   defaultDays: 30 },
+                              { target: 'price_guide_cache',     label: 'Price Guide Cache',    desc: 'Stale BrickLink price data',    defaultDays: 30 },
+                              { target: 'sessions',              label: 'Expired Sessions',     desc: 'Auth sessions past expiry',     defaultDays: 0 },
+                              { target: 'brickanalyzer_scans',   label: 'Old Scans',            desc: 'BrickSpotter scan image data',  defaultDays: 60 },
+                              { target: 'conversations',         label: 'Old Conversations',    desc: 'AI chat history',               defaultDays: 90 },
+                              { target: 'universal_catalog_queue', label: 'Catalog Queue',      desc: 'Processed universal queue items', defaultDays: 14 },
+                            ].map(item => {
+                              const tableInfo = dbTables.find(t => t.tableName === item.target);
+                              const rowCount = tableInfo?.liveRows ?? 0;
+                              return (
+                                <div key={item.target} className="px-3 py-2 border-b border-gray-700/30 flex items-center justify-between gap-2 flex-wrap">
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <p className="text-[11px] text-gray-200 font-mono">{item.label}</p>
+                                      {rowCount > 0 && (
+                                        <span className="text-[9px] text-gray-500 font-mono">{rowCount.toLocaleString()} rows</span>
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] text-gray-500">{item.desc}{item.defaultDays > 0 ? ` older than ${item.defaultDays}d` : ''}</p>
+                                  </div>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={cleanupMutation.isPending || rowCount === 0}
+                                    onClick={() => cleanupMutation.mutate({ target: item.target, daysOld: item.defaultDays })}
+                                    data-testid={`button-cleanup-${item.target}`}
+                                  >
+                                    {cleanupMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                                    Purge
+                                  </Button>
+                                </div>
+                              );
+                            })}
+                          </div>
+
                           <div className="rounded-lg border border-gray-700">
                             {/* Column header */}
                             <div className="grid grid-cols-[12px_1fr_50px_60px_44px] gap-x-2 px-3 py-1.5 bg-gray-800/80 border-b border-gray-700 rounded-t-lg">

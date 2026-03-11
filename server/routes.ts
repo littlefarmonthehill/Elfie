@@ -909,6 +909,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/platform-admin/db-vacuum — run VACUUM ANALYZE on specific tables
+  app.post('/api/platform-admin/db-vacuum', isSuperAdmin, async (req, res) => {
+    const { tables } = req.body as { tables?: string[] };
+    if (!tables || !Array.isArray(tables) || tables.length === 0) {
+      return res.status(400).json({ message: 'tables array is required' });
+    }
+    const validName = /^[a-z_][a-z0-9_]*$/;
+    const invalid = tables.filter(t => !validName.test(t));
+    if (invalid.length) return res.status(400).json({ message: `Invalid table names: ${invalid.join(', ')}` });
+
+    const results: { table: string; ok: boolean; error?: string }[] = [];
+    for (const table of tables) {
+      try {
+        await db.execute(sql.raw(`VACUUM ANALYZE ${table}`));
+        results.push({ table, ok: true });
+      } catch (err: any) {
+        results.push({ table, ok: false, error: err.message?.slice(0, 200) });
+      }
+    }
+    res.json({ results });
+  });
+
+  // POST /api/platform-admin/db-cleanup — purge stale rows from known cleanup targets
+  app.post('/api/platform-admin/db-cleanup', isSuperAdmin, async (req, res) => {
+    const { target, daysOld } = req.body as { target: string; daysOld?: number };
+    const VALID_TARGETS = ['bl_api_calls', 'embedding_jobs', 'restore_jobs', 'sync_issues', 'price_guide_cache', 'sessions', 'brickanalyzer_scans', 'conversations', 'universal_catalog_queue'];
+    if (!target || !VALID_TARGETS.includes(target)) {
+      return res.status(400).json({ message: `Invalid target. Allowed: ${VALID_TARGETS.join(', ')}` });
+    }
+    const age = Math.max(0, Math.min(3650, Math.floor(Number(daysOld) || 30)));
+    const cutoff = sql`NOW() - (${age} * INTERVAL '1 day')`;
+
+    const results: { target: string; deleted: number; error?: string }[] = [];
+
+    try {
+      switch (target) {
+        case 'bl_api_calls': {
+          const r = await db.execute(sql`DELETE FROM bl_api_calls WHERE timestamp < ${cutoff}`);
+          results.push({ target, deleted: r.rowCount ?? 0 });
+          break;
+        }
+        case 'embedding_jobs': {
+          const r = await db.execute(sql`DELETE FROM embedding_jobs WHERE status IN ('completed', 'failed') AND created_at < ${cutoff}`);
+          results.push({ target, deleted: r.rowCount ?? 0 });
+          break;
+        }
+        case 'restore_jobs': {
+          const r = await db.execute(sql`DELETE FROM restore_jobs WHERE status IN ('completed', 'failed') AND created_at < ${cutoff}`);
+          results.push({ target, deleted: r.rowCount ?? 0 });
+          break;
+        }
+        case 'sync_issues': {
+          const r = await db.execute(sql`DELETE FROM sync_issues WHERE created_at < ${cutoff}`);
+          results.push({ target, deleted: r.rowCount ?? 0 });
+          break;
+        }
+        case 'price_guide_cache': {
+          const r = await db.execute(sql`DELETE FROM price_guide_cache WHERE fetched_at < ${cutoff}`);
+          results.push({ target, deleted: r.rowCount ?? 0 });
+          break;
+        }
+        case 'sessions': {
+          const r = await db.execute(sql`DELETE FROM sessions WHERE expire < NOW()`);
+          results.push({ target, deleted: r.rowCount ?? 0 });
+          break;
+        }
+        case 'brickanalyzer_scans': {
+          const r = await db.execute(sql`DELETE FROM brickanalyzer_scans WHERE created_at < ${cutoff}`);
+          results.push({ target, deleted: r.rowCount ?? 0 });
+          break;
+        }
+        case 'conversations': {
+          const r = await db.execute(sql`DELETE FROM conversations WHERE updated_at < ${cutoff}`);
+          results.push({ target, deleted: r.rowCount ?? 0 });
+          break;
+        }
+        case 'universal_catalog_queue': {
+          const r = await db.execute(sql`DELETE FROM universal_catalog_queue WHERE status IN ('embedded', 'no_image', 'failed') AND attempted_at < ${cutoff}`);
+          results.push({ target, deleted: r.rowCount ?? 0 });
+          break;
+        }
+        default:
+          return res.status(400).json({ message: `Unknown cleanup target: ${target}` });
+      }
+      res.json({ results });
+    } catch (error: any) {
+      console.error(`db-cleanup error for ${target}:`, error);
+      res.status(500).json({ message: error.message?.slice(0, 300) });
+    }
+  });
+
   // POST /api/platform-admin/migrate-catalog — one-time migration to populate bl_catalog
   // Idempotent: safe to run multiple times. Pulls distinct catalog data from bl_inventory
   // and merges with any richer data already in price_guide_cache.
