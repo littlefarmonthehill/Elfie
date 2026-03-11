@@ -357,8 +357,8 @@ export default function Home() {
   const renderPanelMode = () => (
     <div className="flex flex-col h-full" style={{ padding: '5px', gap: '5px' }}>
 
-      {/* ── TOP ROW: Your Plan tile (left) + Ops Central (right) — stretches down toward date picker ── */}
-      <div className="flex overflow-hidden" style={{ flex: 1, gap: '5px' }}>
+      {/* ── TOP ROW: Your Plan tile (left) + Ops Central (right) ── */}
+      <div className="flex overflow-hidden" style={{ flex: '0 0 45%', gap: '5px' }}>
 
         {/* Your Plan — standalone tile, same width as one Ops Central lane */}
         <div className="flex flex-col rounded-lg overflow-hidden" style={{ flex: 1, border: '1px solid hsla(270,60%,55%,0.35)' }}>
@@ -398,7 +398,7 @@ export default function Home() {
       </div>
 
       {/* ── BOTTOM: Product full-height left | date picker + 3 dashboards right ── */}
-      <div className="flex min-h-0 overflow-hidden" style={{ flex: '0 0 55%', gap: '5px' }}>
+      <div className="flex flex-1 min-h-0 overflow-hidden" style={{ gap: '5px' }}>
 
         {/* Product / Inventory — full height, top-flush */}
         <div className="flex flex-col rounded-md overflow-hidden" style={{ flex: 1, minWidth: '160px', border: '1px solid hsla(220,85%,55%,0.35)' }}>
