@@ -1,18 +1,8 @@
 import { useState, useMemo, useDeferredValue } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { UserPlus, RefreshCcw, Trophy, Megaphone, Search, X, Info, Calendar, Mail, MapPin, Users, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  Users, Sparkles, Info,
-  Megaphone, UserPlus, RefreshCcw, Trophy, X, Search, MapPin, Mail, Calendar,
-} from "lucide-react";
-
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
+import { Button } from "@/components/ui/button";
 import {
   Popover,
   PopoverContent,
@@ -53,6 +43,7 @@ interface MarketingDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
   activeDrawer: MarketingDrawer;
   onDrawerChange: (drawer: MarketingDrawer) => void;
+  renderDrawerOnly?: boolean;
 }
 
 function parseShipTo(raw: string | null | undefined): { name: string; city: string; state: string; country: string } {
@@ -181,7 +172,7 @@ function CustomerRow({
   );
 }
 
-function CustomerListDrawer({
+function CustomerListPanel({
   open,
   onClose,
   title,
@@ -232,88 +223,88 @@ function CustomerListDrawer({
   const displayed = filtered.slice(0, page * PAGE_SIZE);
   const hasMore = displayed.length < filtered.length;
 
-  return (
-    <Drawer open={open} onOpenChange={(o) => { if (!o) { onClose(); setPage(1); } }}>
-      <DrawerContent className="h-[90vh] flex flex-col">
-        <DrawerHeader className="relative border-b border-gray-700/60 pb-3 shrink-0">
-          <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
-            <Icon className={`w-5 h-5 ${accentColor}`} />
-            {title}
-          </DrawerTitle>
-          <DrawerClose className="absolute right-4 top-4" data-testid={`button-close-${title.toLowerCase().replace(/\s+/g, '-')}`}>
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </DrawerClose>
-          <div className="relative mt-3">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search by username, email, city, country…"
-              value={searchQuery}
-              onChange={e => { onSearchChange(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded-md text-gray-200 placeholder-gray-600 focus:outline-none focus:border-gray-500"
-              data-testid={`input-search-${title.toLowerCase().replace(/\s+/g, '-')}`}
-            />
-            {searchQuery && (
-              <button
-                onClick={() => { onSearchChange(''); setPage(1); }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            )}
-          </div>
-          <p className={`text-[11px] mt-1.5 transition-opacity ${isStale ? 'opacity-40' : 'opacity-100'} text-gray-600`}>
-            {isLoading ? 'Loading…' : `${filtered.length} of ${customers.length} customer${customers.length !== 1 ? 's' : ''}${searchQuery ? ' match' : ''}`}
-          </p>
-        </DrawerHeader>
+  if (!open) return null;
 
-        <div className="flex-1 overflow-y-auto min-h-0">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-current border-t-transparent opacity-40" style={{ color: 'inherit' }} />
-              <p className="text-sm text-gray-500">Loading customers…</p>
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-6">
-              <Icon className={`w-10 h-10 ${accentColor} opacity-30`} />
-              <p className="text-sm text-gray-400">
-                {searchQuery ? `No customers match "${deferredSearch}"` : emptyMessage}
-              </p>
-            </div>
-          ) : (
-            <div>
-              {displayed.map((c, i) => (
-                <CustomerRow
-                  key={c.customerUsername}
-                  customer={c}
-                  rank={showRank ? i + 1 : undefined}
-                  subtitle={renderSubtitle(c)}
-                  badge={renderBadge?.(c)}
-                  accentClass={accentColor}
-                  onClick={() => onCustomerClick(c)}
-                />
-              ))}
-              {hasMore && (
-                <div className="py-4 flex justify-center border-t border-gray-700/40">
-                  <button
-                    onClick={() => setPage(p => p + 1)}
-                    className="text-xs text-gray-400 hover:text-gray-200 px-4 py-2 rounded-md border border-gray-700 hover-elevate"
-                    data-testid="button-load-more"
-                  >
-                    Show {Math.min(PAGE_SIZE, filtered.length - displayed.length)} more of {filtered.length - displayed.length} remaining
-                  </button>
-                </div>
-              )}
-            </div>
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
+        <div className="flex items-center gap-1.5">
+          <Icon className={`w-5 h-5 ${accentColor} flex-shrink-0`} />
+          <span className="text-sm font-semibold text-gray-200">{title}</span>
+        </div>
+        <Button size="icon" variant="ghost" onClick={() => { onClose(); setPage(1); }} data-testid={`button-close-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+          <X className="w-4 h-4" />
+        </Button>
+      </div>
+      <div className="px-4 py-2 border-b border-white/5">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search by username, email, city, country…"
+            value={searchQuery}
+            onChange={e => { onSearchChange(e.target.value); setPage(1); }}
+            className="w-full pl-9 pr-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded-md text-gray-200 placeholder-gray-600 focus:outline-none focus:border-gray-500"
+            data-testid={`input-search-${title.toLowerCase().replace(/\s+/g, '-')}`}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => { onSearchChange(''); setPage(1); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400"
+            >
+              <X className="h-3 w-3" />
+            </button>
           )}
         </div>
-      </DrawerContent>
-    </Drawer>
+        <p className={`text-[11px] mt-1.5 transition-opacity ${isStale ? 'opacity-40' : 'opacity-100'} text-gray-600`}>
+          {isLoading ? 'Loading…' : `${filtered.length} of ${customers.length} customer${customers.length !== 1 ? 's' : ''}${searchQuery ? ' match' : ''}`}
+        </p>
+      </div>
+      <div className="flex-1 overflow-y-auto min-h-0">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-current border-t-transparent opacity-40" style={{ color: 'inherit' }} />
+            <p className="text-sm text-gray-500">Loading customers…</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-6">
+            <Icon className={`w-10 h-10 ${accentColor} opacity-30`} />
+            <p className="text-sm text-gray-400">
+              {searchQuery ? `No customers match "${deferredSearch}"` : emptyMessage}
+            </p>
+          </div>
+        ) : (
+          <div>
+            {displayed.map((c, i) => (
+              <CustomerRow
+                key={c.customerUsername}
+                customer={c}
+                rank={showRank ? i + 1 : undefined}
+                subtitle={renderSubtitle(c)}
+                badge={renderBadge?.(c)}
+                accentClass={accentColor}
+                onClick={() => onCustomerClick(c)}
+              />
+            ))}
+            {hasMore && (
+              <div className="py-4 flex justify-center border-t border-gray-700/40">
+                <button
+                  onClick={() => setPage(p => p + 1)}
+                  className="text-xs text-gray-400 hover:text-gray-200 px-4 py-2 rounded-md border border-gray-700 hover-elevate"
+                  data-testid="button-load-more"
+                >
+                  Show {Math.min(PAGE_SIZE, filtered.length - displayed.length)} more of {filtered.length - displayed.length} remaining
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
-export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, activeDrawer, onDrawerChange }: MarketingDashboardProps) {
+export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, activeDrawer, onDrawerChange, renderDrawerOnly }: MarketingDashboardProps) {
   const [newSearch, setNewSearch] = useState('');
   const [repeatSearch, setRepeatSearch] = useState('');
   const [topSearch, setTopSearch] = useState('');
@@ -365,6 +356,82 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
       onItemClick('order', customer.mostRecentOrderId);
     }
   };
+
+  if (renderDrawerOnly) {
+    return (
+      <>
+        {activeDrawer === 'attract' && (
+          <div className="flex flex-col h-full">
+            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-1.5">
+                <Megaphone className="w-5 h-5 text-indigo-400 flex-shrink-0" />
+                <span className="text-sm font-semibold text-gray-200">Attract New Customers</span>
+              </div>
+              <Button size="icon" variant="ghost" onClick={() => onDrawerChange(null)} data-testid="button-close-attract">
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="flex flex-col items-center justify-center flex-1 px-4 pb-8 gap-4 text-center">
+              <div className="w-16 h-16 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+                <Megaphone className="w-7 h-7 text-indigo-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-200">Coming Soon</h3>
+              <p className="text-sm text-gray-400 max-w-sm">Campaigns, store promotions, and new buyer acquisition tools are on the roadmap.</p>
+            </div>
+          </div>
+        )}
+        <CustomerListPanel
+          open={activeDrawer === 'engage-new'}
+          onClose={() => onDrawerChange(null)}
+          title="New Customers"
+          icon={UserPlus}
+          accentColor="text-cyan-400"
+          customers={newCustomers}
+          renderSubtitle={c => `First order ${fmtDate(c.firstOrderDate)} · ${fmtCurrency(c.totalRevenue)}`}
+          renderBadge={c => {
+            const days = (Date.now() - new Date(c.lastOrderDate).getTime()) / 86400000;
+            return days <= 7 ? 'This week' : days <= 30 ? 'This month' : undefined;
+          }}
+          searchQuery={newSearch}
+          onSearchChange={setNewSearch}
+          onCustomerClick={handleCustomerClick}
+          emptyMessage="No new customers in this date range."
+          isLoading={isLoading}
+        />
+        <CustomerListPanel
+          open={activeDrawer === 'engage-repeat'}
+          onClose={() => onDrawerChange(null)}
+          title="Repeating Customers"
+          icon={RefreshCcw}
+          accentColor="text-blue-400"
+          customers={repeatCustomers}
+          renderSubtitle={c => `${c.orderCount} orders · ${fmtCurrency(c.totalRevenue)} · last ${fmtDate(c.lastOrderDate)}`}
+          renderBadge={c => c.orderCount >= 5 ? `${c.orderCount}x buyer` : undefined}
+          searchQuery={repeatSearch}
+          onSearchChange={setRepeatSearch}
+          onCustomerClick={handleCustomerClick}
+          emptyMessage="No repeat customers in this date range."
+          isLoading={isLoading}
+        />
+        <CustomerListPanel
+          open={activeDrawer === 'engage-top'}
+          onClose={() => onDrawerChange(null)}
+          title="Top Spenders"
+          icon={Trophy}
+          accentColor="text-amber-400"
+          customers={topSpenders}
+          renderSubtitle={c => `${fmtCurrency(c.totalRevenue)} · ${c.orderCount} order${c.orderCount !== 1 ? 's' : ''} · last ${fmtDate(c.lastOrderDate)}`}
+          renderBadge={c => c.totalRevenue >= 500 ? 'VIP' : undefined}
+          showRank
+          searchQuery={topSearch}
+          onSearchChange={setTopSearch}
+          onCustomerClick={handleCustomerClick}
+          emptyMessage="No customer data in this date range."
+          isLoading={isLoading}
+        />
+      </>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -577,85 +644,6 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
 
       </div>
 
-      {/* ── Attract Drawer ── */}
-      <Drawer open={activeDrawer === 'attract'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[90vh]">
-          <DrawerHeader className="relative">
-            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
-              <Megaphone className="w-5 h-5 text-indigo-400" />
-              Attract New Customers
-            </DrawerTitle>
-            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-attract">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </DrawerClose>
-          </DrawerHeader>
-          <div className="flex flex-col items-center justify-center flex-1 px-4 pb-8 gap-4 text-center">
-            <div className="w-16 h-16 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-              <Megaphone className="w-7 h-7 text-indigo-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-200">Coming Soon</h3>
-            <p className="text-sm text-gray-400 max-w-sm">
-              Campaigns, store promotions, and new buyer acquisition tools are on the roadmap. Stay tuned.
-            </p>
-          </div>
-        </DrawerContent>
-      </Drawer>
-
-      {/* ── Engage New Drawer ── */}
-      <CustomerListDrawer
-        open={activeDrawer === 'engage-new'}
-        onClose={() => onDrawerChange(null)}
-        title="New Customers"
-        icon={UserPlus}
-        accentColor="text-cyan-400"
-        customers={newCustomers}
-        renderSubtitle={c => `First order ${fmtDate(c.firstOrderDate)} · ${fmtCurrency(c.totalRevenue)}`}
-        renderBadge={c => {
-          const days = (Date.now() - new Date(c.lastOrderDate).getTime()) / 86400000;
-          return days <= 7 ? 'This week' : days <= 30 ? 'This month' : undefined;
-        }}
-        searchQuery={newSearch}
-        onSearchChange={setNewSearch}
-        onCustomerClick={handleCustomerClick}
-        emptyMessage="No new customers in this date range."
-        isLoading={isLoading}
-      />
-
-      {/* ── Engage Repeat Drawer ── */}
-      <CustomerListDrawer
-        open={activeDrawer === 'engage-repeat'}
-        onClose={() => onDrawerChange(null)}
-        title="Repeating Customers"
-        icon={RefreshCcw}
-        accentColor="text-blue-400"
-        customers={repeatCustomers}
-        renderSubtitle={c => `${c.orderCount} orders · ${fmtCurrency(c.totalRevenue)} · last ${fmtDate(c.lastOrderDate)}`}
-        renderBadge={c => c.orderCount >= 5 ? `${c.orderCount}x buyer` : undefined}
-        searchQuery={repeatSearch}
-        onSearchChange={setRepeatSearch}
-        onCustomerClick={handleCustomerClick}
-        emptyMessage="No repeat customers in this date range."
-        isLoading={isLoading}
-      />
-
-      {/* ── Engage Top Drawer ── */}
-      <CustomerListDrawer
-        open={activeDrawer === 'engage-top'}
-        onClose={() => onDrawerChange(null)}
-        title="Top Spenders"
-        icon={Trophy}
-        accentColor="text-amber-400"
-        customers={topSpenders}
-        renderSubtitle={c => `${fmtCurrency(c.totalRevenue)} · ${c.orderCount} order${c.orderCount !== 1 ? 's' : ''} · last ${fmtDate(c.lastOrderDate)}`}
-        renderBadge={c => c.totalRevenue >= 500 ? 'VIP' : undefined}
-        showRank
-        searchQuery={topSearch}
-        onSearchChange={setTopSearch}
-        onCustomerClick={handleCustomerClick}
-        emptyMessage="No customer data in this date range."
-        isLoading={isLoading}
-      />
     </div>
   );
 }

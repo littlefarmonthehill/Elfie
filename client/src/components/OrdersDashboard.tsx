@@ -1,25 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import {
-  ShoppingCart, Truck, PackageCheck, X,
-  Sparkles, Info, SlidersHorizontal,
+  ShoppingCart, Truck, PackageCheck,
+  Sparkles, Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import MetricCard from "./MetricCard";
-import FulfillmentTool from "./FulfillmentTool";
-import ShippedOrdersTool from "./ShippedOrdersTool";
 import { DateRangeValue } from "./DateRangeSelector";
 
 interface OrderStats {
@@ -219,73 +210,6 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
 
       </div>
 
-      {/* ── Fulfillment Drawer ── */}
-      <Drawer open={activeDrawer === 'fulfillment'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[90vh]">
-          <DrawerHeader className="relative pr-16">
-            <DrawerTitle className="flex items-center justify-between gap-2 text-base md:text-lg">
-              <div className="flex items-center gap-2">
-                <Truck className="w-5 h-5 text-orange-400" />
-                Fulfillment and Shipping
-              </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="shrink-0 text-xs text-gray-400 hover:text-gray-200 gap-1.5"
-                onClick={() => onOpenSettings?.('automation')}
-                data-testid="button-fulfillment-settings"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                Sync settings
-              </Button>
-            </DrawerTitle>
-            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-fulfillment">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </DrawerClose>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <FulfillmentTool />
-          </div>
-        </DrawerContent>
-      </Drawer>
-
-      {/* ── Shipped Orders Drawer ── */}
-      <Drawer open={activeDrawer === 'shipped'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="h-[90vh]">
-          <DrawerHeader className="relative pr-16">
-            <DrawerTitle className="flex items-center justify-between gap-2 text-base md:text-lg">
-              <div className="flex items-center gap-2">
-                <PackageCheck className="w-5 h-5 text-green-400" />
-                Shipped Orders
-              </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="shrink-0 text-xs text-gray-400 hover:text-gray-200 gap-1.5"
-                onClick={() => onOpenSettings?.('platforms')}
-                data-testid="button-shipped-settings"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                Shipping settings
-              </Button>
-            </DrawerTitle>
-            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-shipped">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </DrawerClose>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <ShippedOrdersTool
-              dateRange={dateRange}
-              onItemClick={(type, id) => {
-                onDrawerChange(null);
-                onItemClick?.(type, id);
-              }}
-            />
-          </div>
-        </DrawerContent>
-      </Drawer>
     </div>
   );
 }

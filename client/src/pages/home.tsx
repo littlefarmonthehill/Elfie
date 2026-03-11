@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Package, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut, ArrowLeft, RotateCw, AlertCircle, Mail } from "lucide-react";
+import { Package, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut, ArrowLeft, RotateCw, AlertCircle, Mail, Sparkles, Warehouse, ListChecks, ScanSearch, Truck, PackageCheck, SlidersHorizontal, Info } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminScaling } from "@/hooks/useAdminScaling";
@@ -22,6 +22,12 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ElfieCharacter } from "@/components/ElfieCharacter";
+import PriceOMaticDashboard from "@/components/PriceOMaticDashboard";
+import WarehouseManagement from "@/components/WarehouseManagement";
+import ListomaticPriority from "@/components/ListomaticPriority";
+import BrickanalyzerTool from "@/components/BrickanalyzerTool";
+import FulfillmentTool from "@/components/FulfillmentTool";
+import ShippedOrdersTool from "@/components/ShippedOrdersTool";
 
 export default function Home() {
   useAdminScaling();
@@ -339,6 +345,154 @@ export default function Home() {
       default:
         return <GeneralDashboard onItemClick={handleDashboardItemClick} onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }} onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }} onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }} onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }} onNavigate={(tab) => setActiveDashboard(tab as DashboardType)} />;
     }
+  };
+
+  const closeActiveDrawer = () => {
+    setActiveInventoryDrawer(null);
+    setActiveOrdersDrawer(null);
+    setActiveMarketingDrawer(null);
+  };
+
+  const renderActiveDrawer = () => {
+    const openSettings = (section: string) => {
+      setSettingsInitialSection(section as any);
+      setSettingsOpen(true);
+    };
+
+    if (activeInventoryDrawer === 'priceomatic') {
+      return (
+        <div className="flex flex-col h-full">
+          <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-5 h-5 text-purple-400 flex-shrink-0" />
+              <span className="text-sm font-semibold text-gray-200">Price-o-Matic</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button size="sm" variant="ghost" className="text-xs text-gray-400 gap-1" onClick={() => openSettings('priceomatic')} data-testid="button-pom-settings">
+                <SlidersHorizontal className="w-3.5 h-3.5" /> Settings
+              </Button>
+              <Button size="icon" variant="ghost" onClick={closeActiveDrawer} data-testid="button-close-drawer"><X className="w-4 h-4" /></Button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <PriceOMaticDashboard onItemClick={(type, id) => handleDashboardItemClick(type, id, 'pricing')} />
+          </div>
+        </div>
+      );
+    }
+    if (activeInventoryDrawer === 'warehouse') {
+      return (
+        <div className="flex flex-col h-full">
+          <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
+            <div className="flex items-center gap-1.5">
+              <Warehouse className="w-5 h-5 text-blue-400 flex-shrink-0" />
+              <span className="text-sm font-semibold text-gray-200">Warehouse Management</span>
+            </div>
+            <Button size="icon" variant="ghost" onClick={closeActiveDrawer} data-testid="button-close-drawer"><X className="w-4 h-4" /></Button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <WarehouseManagement onItemClick={handleDashboardItemClick} />
+          </div>
+        </div>
+      );
+    }
+    if (activeInventoryDrawer === 'platformsync') {
+      return (
+        <div className="flex flex-col h-full">
+          <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
+            <div className="flex items-center gap-1.5">
+              <ListChecks className="w-5 h-5 text-green-400 flex-shrink-0" />
+              <span className="text-sm font-semibold text-gray-200">List-o-Matic</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button size="sm" variant="ghost" className="text-xs text-gray-400 gap-1" onClick={() => openSettings('automation')} data-testid="button-lom-settings">
+                <SlidersHorizontal className="w-3.5 h-3.5" /> Settings
+              </Button>
+              <Button size="icon" variant="ghost" onClick={closeActiveDrawer} data-testid="button-close-drawer"><X className="w-4 h-4" /></Button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <ListomaticPriority />
+          </div>
+        </div>
+      );
+    }
+    if (activeInventoryDrawer === 'brickanalyzer') {
+      return (
+        <div className="flex flex-col h-full">
+          <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
+            <div className="flex items-center gap-1.5">
+              <ScanSearch className="w-5 h-5 text-lego-yellow flex-shrink-0" />
+              <span className="text-sm font-semibold text-gray-200">Brick Spotter 3000</span>
+            </div>
+            <Button size="icon" variant="ghost" onClick={closeActiveDrawer} data-testid="button-close-drawer"><X className="w-4 h-4" /></Button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <BrickanalyzerTool />
+          </div>
+        </div>
+      );
+    }
+    if (activeOrdersDrawer === 'fulfillment') {
+      return (
+        <div className="flex flex-col h-full">
+          <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
+            <div className="flex items-center gap-1.5">
+              <Truck className="w-5 h-5 text-orange-400 flex-shrink-0" />
+              <span className="text-sm font-semibold text-gray-200">Fulfillment & Shipping</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button size="sm" variant="ghost" className="text-xs text-gray-400 gap-1" onClick={() => openSettings('automation')} data-testid="button-fulfillment-settings">
+                <SlidersHorizontal className="w-3.5 h-3.5" /> Settings
+              </Button>
+              <Button size="icon" variant="ghost" onClick={closeActiveDrawer} data-testid="button-close-drawer"><X className="w-4 h-4" /></Button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <FulfillmentTool />
+          </div>
+        </div>
+      );
+    }
+    if (activeOrdersDrawer === 'shipped') {
+      return (
+        <div className="flex flex-col h-full">
+          <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
+            <div className="flex items-center gap-1.5">
+              <PackageCheck className="w-5 h-5 text-green-400 flex-shrink-0" />
+              <span className="text-sm font-semibold text-gray-200">Shipped Orders</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button size="sm" variant="ghost" className="text-xs text-gray-400 gap-1" onClick={() => openSettings('platforms')} data-testid="button-shipped-settings">
+                <SlidersHorizontal className="w-3.5 h-3.5" /> Settings
+              </Button>
+              <Button size="icon" variant="ghost" onClick={closeActiveDrawer} data-testid="button-close-drawer"><X className="w-4 h-4" /></Button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <ShippedOrdersTool
+              dateRange={dateRange}
+              onItemClick={(type, id) => {
+                closeActiveDrawer();
+                handleDashboardItemClick(type, id);
+              }}
+            />
+          </div>
+        </div>
+      );
+    }
+    if (activeMarketingDrawer) {
+      return (
+        <MarketingDashboard
+          dateRange={dateRange}
+          onItemClick={handleDashboardItemClick}
+          activeDrawer={activeMarketingDrawer}
+          onDrawerChange={setActiveMarketingDrawer}
+          renderDrawerOnly
+        />
+      );
+    }
+    return null;
   };
 
   const getChatContext = () => {
@@ -737,7 +891,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground">
+    <div className="flex flex-col h-screen bg-[#04080F] text-foreground">
       {/* Impersonation Banner — shown when super admin is viewing as another org */}
       {impersonationStatus?.isImpersonating && (
         <div className="flex-shrink-0 bg-amber-500/20 border-b border-amber-500/40 px-4 py-2 flex items-center gap-3 z-[100]">
@@ -794,16 +948,27 @@ export default function Home() {
         </div>
       )}
       
-      {/* Dashboard area */}
-      <div className="flex-1 overflow-y-auto">
-        <div className={`h-full ${
-          activeDashboard === 'dashboard' ? 'bg-gradient-to-b from-lego-red/20 to-lego-red/5' :
-          activeDashboard === 'inventory' ? 'bg-gradient-to-b from-lego-blue/20 to-lego-blue/5' :
-          activeDashboard === 'orders' ? 'bg-gradient-to-b from-lego-orange/20 to-lego-orange/5' :
-          activeDashboard === 'sales' ? 'bg-gradient-to-b from-lego-green/20 to-lego-green/5' :
-          'bg-gradient-to-b from-lego-yellow/20 to-lego-yellow/5'
-        }`}>
-          {renderDashboard()}
+      {/* Dashboard area — consistent blue background with themed card */}
+      <div className="flex-1 overflow-y-auto bg-[#04080F]">
+        <div className="h-full p-2 md:p-4 lg:p-6">
+          <div className={`h-full rounded-lg border overflow-hidden ${
+            activeDashboard === 'dashboard' ? 'border-lego-red/30 bg-gradient-to-br from-lego-red/15 via-gray-950/80 to-lego-red/5' :
+            activeDashboard === 'inventory' ? 'border-lego-blue/30 bg-gradient-to-br from-lego-blue/15 via-gray-950/80 to-lego-blue/5' :
+            activeDashboard === 'orders' ? 'border-lego-orange/30 bg-gradient-to-br from-lego-orange/15 via-gray-950/80 to-lego-orange/5' :
+            activeDashboard === 'sales' ? 'border-lego-green/30 bg-gradient-to-br from-lego-green/15 via-gray-950/80 to-lego-green/5' :
+            'border-lego-yellow/30 bg-gradient-to-br from-lego-yellow/15 via-gray-950/80 to-lego-yellow/5'
+          }`}>
+            <div className="h-full flex flex-row">
+              <div className={`flex-1 overflow-y-auto min-w-0 ${(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer) ? 'hidden md:block' : ''}`}>
+                {renderDashboard()}
+              </div>
+              {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer) && (
+                <div className="w-full md:w-[40%] md:max-w-[520px] flex-shrink-0 border-l border-white/10 overflow-y-auto bg-gray-950/60">
+                  {renderActiveDrawer()}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

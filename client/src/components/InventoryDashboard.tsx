@@ -3,7 +3,7 @@ import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import { InfoIcon, Package, Sparkles, Warehouse, RefreshCw, Info, ListChecks, ScanSearch, AlertTriangle, Globe, Boxes, SlidersHorizontal, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { InfoIcon, Package, Sparkles, RefreshCw, Info, ScanSearch, Globe, Boxes, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,24 +11,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import PriceOMaticDashboard from "./PriceOMaticDashboard";
-import WarehouseManagement from "./WarehouseManagement";
-import PlatformSyncTool from "./PlatformSyncTool";
-import ListomaticPriority from "./ListomaticPriority";
-import BrickanalyzerTool, { BrickanalyzerToolRef } from "./BrickanalyzerTool";
 
 interface InventoryStats {
   totalLots: number;
@@ -51,7 +35,6 @@ type BrowseType = 'lots' | 'parts' | 'categories';
 export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange, onOpenSettings }: InventoryDashboardProps) {
 
   const { toast } = useToast();
-  const brickanalyzerRef = useRef<BrickanalyzerToolRef>(null);
 
   const [browseDrawer, setBrowseDrawer] = useState<BrowseType | null>(null);
   const [browseVisible, setBrowseVisible] = useState(false);
@@ -82,17 +65,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
     if (panelRef.current) panelRef.current.style.transform = '';
     if (swipeDelta.current > 80) closeBrowse();
   };
-
-  // Lock drawer height to a pixel value captured before any keyboard appears.
-  // Viewport-unit heights (dvh/svh) recompute when iOS repositions for the keyboard,
-  // causing the drawer to jump. A fixed pixel height never changes.
-  const [drawerH, setDrawerH] = useState('92svh');
-  useEffect(() => {
-    const capture = () => setDrawerH(`${Math.floor(window.innerHeight * 0.92)}px`);
-    capture();
-    window.addEventListener('resize', capture);
-    return () => window.removeEventListener('resize', capture);
-  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => setBrowseSearch(browseSearchInput), 350);
@@ -485,147 +457,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </div>
       )}
 
-      {/* Price-O-Matic Drawer */}
-      <Drawer open={activeDrawer === 'priceomatic'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="flex flex-col" style={{ height: drawerH }}>
-          <DrawerHeader>
-            <DrawerTitle className="flex items-center justify-between gap-2 text-base md:text-lg">
-              {/* Left: title + info inline */}
-              <div className="flex items-center gap-1.5">
-                <Sparkles className="w-5 h-5 text-purple-400 flex-shrink-0" />
-                <span>Price-o-Matic</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button size="icon" variant="ghost" className="w-6 h-6" data-testid="button-pom-info">
-                      <Info className="w-3.5 h-3.5 text-gray-500" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent side="bottom" align="start" className="w-80 bg-gray-900 border-gray-700 p-3">
-                    <h3 className="text-xs font-bold text-purple-400 mb-2">How It Works</h3>
-                    <ul className="text-xs text-gray-300 space-y-1.5">
-                      <li>• Fetches item details, avg listed price + <strong className="text-purple-300">85th-percentile sold price</strong> from BrickLink — 3 API calls per item.</li>
-                      <li>• Applies your premium formula (Settings) to compute a suggested price, then applies cost floor and minimum price if configured.</li>
-                      <li>• Items priced <strong className="text-red-300">too high</strong> are losing sales; <strong className="text-orange-300">too low</strong> are leaving margin on the table.</li>
-                      <li>• Stops automatically at the daily API call ceiling to preserve your quota.</li>
-                      <li>• Items with 0 stock are skipped. Formula changes apply instantly.</li>
-                    </ul>
-                    <p className="text-[10px] text-gray-500 pt-2 mt-2 border-t border-gray-700">Does not auto-reprice. You review each flag and decide what to change.</p>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="shrink-0 text-xs text-gray-400 hover:text-gray-200 gap-1.5"
-                onClick={() => onOpenSettings?.('priceomatic')}
-                data-testid="button-pom-settings"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                Pricing settings
-              </Button>
-            </DrawerTitle>
-          </DrawerHeader>
-
-          <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <PriceOMaticDashboard onItemClick={(type, id) => onItemClick?.(type, id, 'pricing')} />
-          </div>
-        </DrawerContent>
-      </Drawer>
-
-      {/* Warehouse Management Drawer */}
-      <Drawer open={activeDrawer === 'warehouse'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent style={{ height: drawerH }}>
-          <DrawerHeader>
-            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
-              <Warehouse className="w-5 h-5 text-blue-400" />
-              Warehouse Management
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <WarehouseManagement onItemClick={onItemClick} />
-          </div>
-        </DrawerContent>
-      </Drawer>
-
-      {/* List O Matic Drawer */}
-      <Drawer open={activeDrawer === 'platformsync'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="flex flex-col" style={{ height: drawerH }}>
-          <DrawerHeader>
-            <DrawerTitle className="flex items-center justify-between gap-2 text-base md:text-lg">
-              <div className="flex items-center gap-2">
-                <ListChecks className="w-5 h-5 text-green-400" />
-                List-o-Matic
-              </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="shrink-0 text-xs text-gray-400 hover:text-gray-200 gap-1.5"
-                onClick={() => onOpenSettings?.('automation')}
-                data-testid="button-lom-settings"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                LOM settings
-              </Button>
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <ListomaticPriority />
-          </div>
-        </DrawerContent>
-      </Drawer>
-
-      {/* Brickanalyzer Drawer */}
-      <Drawer open={activeDrawer === 'brickanalyzer'} onOpenChange={(open) => !open && onDrawerChange(null)}>
-        <DrawerContent className="flex flex-col" style={{ height: drawerH }}>
-          <DrawerHeader className="flex items-center justify-between gap-2 pr-10">
-            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
-              <ScanSearch className="w-5 h-5 text-lego-yellow" />
-              Brick Spotter 3000
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button className="text-gray-500 hover:text-gray-300 transition-colors" data-testid="button-brickanalyzer-info">
-                    <Info className="w-4 h-4" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent side="bottom" align="start" className="w-72 bg-gray-900 border border-gray-700 text-white p-0 space-y-0">
-                  <div className="px-3 py-2.5 border-b border-gray-700">
-                    <div className="flex items-center gap-1.5 mb-1.5">
-                      <Info className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
-                      <span className="text-xs font-semibold text-blue-300">Setup for best results</span>
-                    </div>
-                    <ul className="text-xs text-blue-400/80 space-y-1 pl-4 list-disc">
-                      <li>Place pieces on a plain white or light-colored surface</li>
-                      <li>Spread them out so no pieces overlap or touch</li>
-                      <li>Use good lighting — avoid harsh shadows</li>
-                      <li>Shoot straight down for a flat overhead view</li>
-                      <li>Up to ~30 pieces per scan for best accuracy</li>
-                    </ul>
-                  </div>
-                  <div className="px-3 py-2.5 flex gap-2 items-start">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-300">
-                      Results are <strong>not saved</strong>. Once you close or dismiss the scan the data is permanently deleted. Screenshot or note what you need before closing.
-                    </p>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </DrawerTitle>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="shrink-0 text-xs text-gray-400 hover:text-gray-200 gap-1.5"
-              onClick={() => onOpenSettings?.('ai')}
-              data-testid="button-brickspotter-settings"
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              AI settings
-            </Button>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4 flex-1">
-            <BrickanalyzerTool ref={brickanalyzerRef} />
-          </div>
-        </DrawerContent>
-      </Drawer>
     </div>
   );
 }
