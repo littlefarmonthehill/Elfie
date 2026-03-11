@@ -378,8 +378,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Ops Central — 4x the width of Your Plan (matches 4-lane grid inside) */}
-        <div className="flex flex-col min-w-0 rounded-lg overflow-hidden" style={{ flex: 4, border: '1px solid hsla(0,85%,55%,0.35)' }}>
+        {/* Ops Central — 3x the width of Your Plan (matches Product:right-group ratio below) */}
+        <div className="flex flex-col min-w-0 rounded-lg overflow-hidden" style={{ flex: 3, border: '1px solid hsla(0,85%,55%,0.35)' }}>
           <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(0,85%,55%,0.25), hsla(0,85%,55%,0.08))', borderColor: 'hsla(0,85%,55%,0.35)' }}>
             <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: 'hsl(0,85%,72%)', textShadow: '0 0 8px hsla(0,85%,55%,0.7)' }}>Ops Central</span>
           </div>
