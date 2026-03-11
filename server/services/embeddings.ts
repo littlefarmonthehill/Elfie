@@ -3,6 +3,7 @@ import { db } from '../db';
 import { inventoryEmbeddings, orderEmbeddings, orderDetailEmbeddings, setPartEmbeddings, blInventory, blCatalog, blColors, blCategories, orders, orderDetails, setPartRelationships } from '@shared/schema';
 import { eq, sql, inArray, and } from 'drizzle-orm';
 import { getPlatformOpenAIKey } from '../routes';
+import { trackUsage } from './ai-usage-tracker';
 
 const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: any) =>
   sql<string | null>`(SELECT item_name FROM bl_catalog WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} ORDER BY (color_id = ${colorIdRef})::int DESC, color_id ASC LIMIT 1)`;
@@ -25,11 +26,23 @@ async function getOpenAIClient(): Promise<OpenAI> {
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
   const openai = await getOpenAIClient();
+  const model = 'text-embedding-3-small';
   
   const response = await openai.embeddings.create({
-    model: 'text-embedding-3-small',
+    model,
     input: text,
   });
+  
+  if (response.usage) {
+    trackUsage({
+      service: 'openai',
+      model,
+      operation: 'embedding',
+      inputTokens: response.usage.prompt_tokens || 0,
+      outputTokens: 0,
+      totalTokens: response.usage.total_tokens || 0,
+    });
+  }
   
   return response.data[0].embedding;
 }

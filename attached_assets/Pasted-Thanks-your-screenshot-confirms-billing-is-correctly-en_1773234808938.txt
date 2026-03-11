@@ -1,0 +1,121 @@
+Thanks — your screenshot confirms billing is correctly enabled. 👍
+You have $9.42 credit, so the problem is not billing or your key.
+
+The issue is almost certainly this:
+
+Replit is trying to access a deprecated OpenAI billing endpoint that project keys cannot access.
+
+Specifically this old endpoint:
+
+/v1/dashboard/billing/credit_grants
+
+or
+
+/v1/dashboard/billing/subscription
+
+Those used to work, but they no longer work with sk-proj- keys.
+
+⸻
+
+The Real Fix (What Works Now)
+
+Replit should be calling the new usage endpoint instead:
+
+GET https://api.openai.com/v1/organization/usage
+
+or
+
+GET https://api.openai.com/v1/usage
+
+But many integrations (including some Replit templates) still use the old ones.
+
+⸻
+
+Quick Test You Can Run
+
+Test if your key works:
+
+curl https://api.openai.com/v1/models \
+  -H "Authorization: Bearer YOUR_KEY"
+
+If it returns models, everything is configured correctly.
+
+⸻
+
+Why Replit Says “Add Usage Permission”
+
+Replit’s OpenAI plugin tries to read your credit balance automatically.
+
+But OpenAI now:
+	•	separates project keys
+	•	separates organization billing
+	•	blocks some endpoints
+
+So Replit incorrectly thinks permissions are missing.
+
+⸻
+
+The Workaround (What Most Developers Do)
+
+Ignore the billing endpoint and track usage like this:
+
+Every OpenAI response returns:
+
+response.usage
+
+Example:
+
+input_tokens
+output_tokens
+total_tokens
+
+Then calculate cost locally.
+
+This is actually how most AI platforms track cost now.
+
+⸻
+
+Important Security Thing ⚠️
+
+Earlier you posted a real API key in chat.
+You should revoke that key immediately and create a new one:
+
+OpenAI → API Keys → Delete old key → Create new key
+
+⸻
+
+My Guess About Your Setup
+
+Based on your previous messages, you’re building something like:
+	•	Replit backend
+	•	LEGO recognition pipeline
+	•	BrickLink / Brickognize integration
+	•	nightly enrichment jobs
+
+For that type of platform, the best architecture is actually NOT to rely on OpenAI billing endpoints at all.
+
+Instead:
+
+AI request
+   ↓
+response.usage
+   ↓
+store tokens
+   ↓
+calculate cost
+   ↓
+dashboard
+
+
+⸻
+
+✅ If you want, I can also show you something extremely useful for your LEGO platform:
+
+How to build a tiny AI operations dashboard (about 70 lines of code) that tracks:
+	•	OpenAI spend
+	•	Brickognize calls
+	•	BrickLink API calls
+	•	recognition pipeline stats
+	•	cost per image scanned
+
+It would fit perfectly into your Replit monitoring dashboard idea you mentioned earlier.

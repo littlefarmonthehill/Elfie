@@ -200,6 +200,23 @@ export async function runMigrations() {
       SET item_name = COALESCE(bl_catalog.item_name, EXCLUDED.item_name)
     `);
     console.log('[Migration] Phase-7 (bl_catalog backfill from universal_catalog_queue) complete.');
+
+    // ── Phase-8: AI usage tracking table ─────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ai_usage_log (
+        id SERIAL PRIMARY KEY,
+        service VARCHAR(30) NOT NULL,
+        model VARCHAR(80) NOT NULL,
+        operation VARCHAR(50) NOT NULL,
+        input_tokens INTEGER NOT NULL DEFAULT 0,
+        output_tokens INTEGER NOT NULL DEFAULT 0,
+        total_tokens INTEGER NOT NULL DEFAULT 0,
+        estimated_cost REAL NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_ai_usage_log_created_at ON ai_usage_log (created_at)`);
+    console.log('[Migration] Phase-8 (ai_usage_log table) complete.');
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

@@ -591,121 +591,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/platform-admin/platform-services/openai-billing — fetch billing/usage from OpenAI API
+  // GET /api/platform-admin/platform-services/openai-billing — locally tracked AI usage
   app.get('/api/platform-admin/platform-services/openai-billing', isSuperAdmin, async (_req, res) => {
     try {
-      const apiKey = await getPlatformOpenAIKey();
-      if (!apiKey) return res.status(400).json({ message: 'No OpenAI API key configured' });
+      const { getUsageSummary, getUsageMtd, getUsageLast30d } = await import('./services/ai-usage-tracker');
 
-      const headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
+      const [summary, mtd, last30d] = await Promise.all([
+        getUsageSummary(30),
+        getUsageMtd(),
+        getUsageLast30d(),
+      ]);
 
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const startTs = Math.floor(startOfMonth.getTime() / 1000);
-      const endTs = Math.floor(now.getTime() / 1000);
-      const prev30Start = Math.floor((now.getTime() - 30 * 24 * 60 * 60 * 1000) / 1000);
-      const costsQueryStart = Math.min(startTs, prev30Start);
-
-      const costsEndpoints = [
-        `https://api.openai.com/v1/organization/costs?start_time=${costsQueryStart}&end_time=${endTs}&limit=31`,
-        `https://api.openai.com/v1/organization/usage/completions?start_time=${costsQueryStart}&end_time=${endTs}&limit=31&group_by=model`,
-        `https://api.openai.com/v1/organization/usage/embeddings?start_time=${costsQueryStart}&end_time=${endTs}&limit=31&group_by=model`,
-      ];
-
-      const [costsRes, completionsRes, embeddingsRes] = await Promise.allSettled(
-        costsEndpoints.map(url => fetch(url, { headers }))
-      );
-
-      let costs: any = null;
-      let completions: any = null;
-      let embeddings: any = null;
-
-      for (const [label, result, setter] of [
-        ['Costs', costsRes, (v: any) => { costs = v; }],
-        ['Completions Usage', completionsRes, (v: any) => { completions = v; }],
-        ['Embeddings Usage', embeddingsRes, (v: any) => { embeddings = v; }],
-      ] as [string, PromiseSettledResult<Response>, (v: any) => void][]) {
-        if (result.status === 'fulfilled') {
-          if (result.value.ok) {
-            setter(await result.value.json());
-          } else {
-            const errText = await result.value.text();
-            console.log(`[OpenAI Billing] ${label} API ${result.value.status}: ${errText.substring(0, 200)}`);
-          }
-        }
-      }
-
-      let last30Spent = 0;
-      let mtdSpent = 0;
-      const costByModel: Record<string, number> = {};
-      let costsAvailable = false;
-
-      if (costs?.data) {
-        costsAvailable = true;
-        for (const bucket of costs.data) {
-          for (const item of (bucket.results || [])) {
-            const amt = (item.amount?.value ?? 0) / 100;
-            if (bucket.start_time >= prev30Start) last30Spent += amt;
-            if (bucket.start_time >= startTs) mtdSpent += amt;
-            const lineItem = item.line_item || 'other';
-            costByModel[lineItem] = (costByModel[lineItem] || 0) + amt;
-          }
-        }
-      }
-
-      const usageByModel: Record<string, { input_tokens: number; output_tokens: number; requests: number }> = {};
-      let totalTokens = 0;
-
-      for (const usageData of [completions, embeddings]) {
-        if (usageData?.data) {
-          costsAvailable = true;
-          for (const bucket of usageData.data) {
-            for (const item of (bucket.results || [])) {
-              const model = item.model || item.snapshot_id || 'unknown';
-              if (!usageByModel[model]) usageByModel[model] = { input_tokens: 0, output_tokens: 0, requests: 0 };
-              usageByModel[model].input_tokens += item.input_tokens || 0;
-              usageByModel[model].output_tokens += item.output_tokens || 0;
-              usageByModel[model].requests += item.num_model_requests || 0;
-              totalTokens += (item.input_tokens || 0) + (item.output_tokens || 0);
-            }
-          }
-        }
-      }
-
-      const topModels = Object.keys(costByModel).length > 0
-        ? Object.entries(costByModel)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 8)
-            .map(([model, cost]) => ({ model, cost: Math.round(cost * 10000) / 10000 }))
-        : Object.entries(usageByModel)
-            .sort((a, b) => (b[1].input_tokens + b[1].output_tokens) - (a[1].input_tokens + a[1].output_tokens))
-            .slice(0, 8)
-            .map(([model, usage]) => ({
-              model,
-              cost: 0,
-              input_tokens: usage.input_tokens,
-              output_tokens: usage.output_tokens,
-              requests: usage.requests,
-            }));
+      const topModels = summary
+        .sort((a, b) => Number(b.totalTokens) - Number(a.totalTokens))
+        .slice(0, 10)
+        .map(row => ({
+          model: row.model,
+          service: row.service,
+          cost: Math.round(Number(row.totalCost) * 10000) / 10000,
+          input_tokens: Number(row.totalInput),
+          output_tokens: Number(row.totalOutput),
+          requests: Number(row.requests),
+        }));
 
       res.json({
-        billing: {
-          totalGranted: 0,
-          totalUsed: 0,
-          totalAvailable: 0,
-          grants: [],
-        },
+        billing: { totalGranted: 0, totalUsed: 0, totalAvailable: 0, grants: [] },
         usage: {
-          last30Days: Math.round(last30Spent * 10000) / 10000,
-          mtd: Math.round(mtdSpent * 10000) / 10000,
+          last30Days: Math.round(Number(last30d.totalCost) * 10000) / 10000,
+          mtd: Math.round(Number(mtd.totalCost) * 10000) / 10000,
           topModels,
-          totalTokens,
+          totalTokens: Number(last30d.totalTokens),
+          totalRequests: Number(last30d.requests),
+          mtdTokens: Number(mtd.totalTokens),
+          mtdRequests: Number(mtd.requests),
         },
-        costsAvailable,
+        costsAvailable: summary.length > 0,
         creditsAvailable: false,
+        source: 'local',
       });
     } catch (err: any) {
-      res.status(500).json({ message: err?.message || 'Failed to fetch OpenAI billing data' });
+      res.status(500).json({ message: err?.message || 'Failed to fetch AI usage data' });
     }
   });
 
@@ -11839,8 +11764,9 @@ Your response MUST be valid JSON with these exact keys: title, refinedDescriptio
 
       const client = new OpenAI({ apiKey });
 
+      const completionModel = "gpt-4o-mini";
       const completion = await client.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: completionModel,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -11849,6 +11775,18 @@ Your response MUST be valid JSON with these exact keys: title, refinedDescriptio
         temperature: 0.4,
         max_tokens: 600,
       });
+
+      if (completion.usage) {
+        const { trackUsage } = await import('./services/ai-usage-tracker');
+        trackUsage({
+          service: 'openai',
+          model: completionModel,
+          operation: 'feedback-refine',
+          inputTokens: completion.usage.prompt_tokens || 0,
+          outputTokens: completion.usage.completion_tokens || 0,
+          totalTokens: completion.usage.total_tokens || 0,
+        });
+      }
 
       const text = completion.choices[0]?.message?.content ?? "{}";
       const parsed = JSON.parse(text);

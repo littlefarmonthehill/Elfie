@@ -27,7 +27,7 @@ PlanetBrick's core functionality revolves around BrickLink as the primary produc
 -   **EasyPost API:** For multi-carrier shipping label generation, rate shopping, and tracking.
 -   **Stripe API:** For processing payments, managing subscriptions, and pulling refund data.
 -   **PayPal Webhooks & Capture Polling:** For processing payment refunds and reversals, and syncing capture details.
--   **OpenAI API:** Powers E.L.F.I.E. for completions (GPT-4o-mini) and embeddings (`text-embedding-3-small`).
+-   **OpenAI API:** Powers E.L.F.I.E. for completions (GPT-4o-mini) and embeddings (`text-embedding-3-small`). Platform-wide key stored in `app_settings` under `org_planetbrick`. Usage tracked locally in `ai_usage_log` table (not via OpenAI billing API).
 -   **Brickognize API:** For LEGO part image recognition within the Brickanalyzer tool.
 -   **Neon:** Serverless PostgreSQL database with the `pgvector` extension for vector embeddings.
 

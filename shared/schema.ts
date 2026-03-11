@@ -1444,3 +1444,17 @@ export const planConfigs = pgTable("plan_configs", {
 export const insertPlanConfigSchema = createInsertSchema(planConfigs).omit({ id: true, updatedAt: true });
 export type InsertPlanConfig = z.infer<typeof insertPlanConfigSchema>;
 export type PlanConfig = typeof planConfigs.$inferSelect;
+
+export const aiUsageLog = pgTable("ai_usage_log", {
+  id: serial("id").primaryKey(),
+  service: varchar("service", { length: 30 }).notNull(),
+  model: varchar("model", { length: 80 }).notNull(),
+  operation: varchar("operation", { length: 50 }).notNull(),
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  totalTokens: integer("total_tokens").notNull().default(0),
+  estimatedCost: real("estimated_cost").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type AiUsageLog = typeof aiUsageLog.$inferSelect;

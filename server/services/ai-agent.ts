@@ -84,8 +84,9 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
 
     let response: Anthropic.Message;
     try {
+      const agentModel = 'claude-sonnet-4-6';
       response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
+        model: agentModel,
         max_tokens: 4096,
         system: systemPrompt,
         messages: conversationMessages,
@@ -93,6 +94,17 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
         tool_choice: { type: 'auto' },
       });
       console.log(`⏱️ Anthropic API call took ${Date.now() - iterStart}ms (iteration ${iterations})`);
+      if (response.usage) {
+        const { trackUsage } = await import('./ai-usage-tracker');
+        trackUsage({
+          service: 'anthropic',
+          model: agentModel,
+          operation: 'elfie-agent',
+          inputTokens: response.usage.input_tokens || 0,
+          outputTokens: response.usage.output_tokens || 0,
+          totalTokens: (response.usage.input_tokens || 0) + (response.usage.output_tokens || 0),
+        });
+      }
     } catch (error: any) {
       if (error.message?.includes('timeout')) {
         throw new Error('Anthropic API request timed out');

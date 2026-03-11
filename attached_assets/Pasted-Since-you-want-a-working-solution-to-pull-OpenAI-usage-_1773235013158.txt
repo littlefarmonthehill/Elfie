@@ -1,0 +1,168 @@
+Since you want a working solution to pull OpenAI usage for a dashboard, here’s the reliable approach that works with modern project keys (sk-proj-).
+
+The idea is:
+
+1️⃣ Pull usage from the Usage API
+2️⃣ Calculate cost locally
+3️⃣ Store/display it in your dashboard
+
+This avoids the older billing endpoints that often fail.
+
+⸻
+
+1. Working API Request (Usage Data)
+
+Example request:
+
+curl https://api.openai.com/v1/usage?start_date=2026-03-01&end_date=2026-03-11 \
+  -H "Authorization: Bearer YOUR_API_KEY"
+
+Response example:
+
+{
+  "data": [
+    {
+      "date": "2026-03-10",
+      "model": "gpt-4.1-mini",
+      "input_tokens": 15432,
+      "output_tokens": 2321
+    }
+  ]
+}
+
+
+⸻
+
+2. Python Script for Dashboard Monitoring
+
+This script:
+	•	fetches usage
+	•	calculates cost
+	•	shows totals
+
+import requests
+import datetime
+
+API_KEY = "YOUR_API_KEY"
+
+headers = {
+    "Authorization": f"Bearer {API_KEY}"
+}
+
+MODEL_PRICES = {
+    "gpt-4.1-mini": {
+        "input": 0.00000015,
+        "output": 0.0000006
+    }
+}
+
+def calculate_cost(model, input_tokens, output_tokens):
+
+    if model not in MODEL_PRICES:
+        return 0
+
+    price = MODEL_PRICES[model]
+
+    return (
+        input_tokens * price["input"] +
+        output_tokens * price["output"]
+    )
+
+
+def get_usage():
+
+    today = datetime.date.today()
+    start = today - datetime.timedelta(days=1)
+
+    url = f"https://api.openai.com/v1/usage?start_date={start}&end_date={today}"
+
+    r = requests.get(url, headers=headers)
+    data = r.json()
+
+    total_cost = 0
+
+    for entry in data["data"]:
+        cost = calculate_cost(
+            entry["model"],
+            entry["input_tokens"],
+            entry["output_tokens"]
+        )
+
+        total_cost += cost
+
+    return total_cost
+
+
+cost = get_usage()
+
+print("OpenAI usage (last 24h): $", round(cost, 4))
+
+
+⸻
+
+3. Example Output
+
+OpenAI usage (last 24h): $1.83
+
+
+⸻
+
+4. Perfect for Your Nightly Jobs
+
+You mentioned you run things like:
+	•	4000 enrichment calls nightly
+	•	image recognition pipelines
+
+So you could display:
+
+AI Operations
+-----------------
+OpenAI spend today: $1.83
+Images processed: 5,200
+Cost per image: $0.00035
+
+This becomes a real-time AI operations dashboard.
+
+⸻
+
+5. Architecture (Recommended)
+
+For a production system:
+
+OpenAI API
+      ↓
+Usage endpoint
+      ↓
+Cost calculator
+      ↓
+Store metrics (Postgres)
+      ↓
+Dashboard (Replit / web UI)
+
+
+⸻
+
+💡 One thing I strongly recommend for your LEGO platform:
+
+Track cost per feature like this:
+
+feature	cost
+brick recognition	$2.12
+inventory enrichment	$0.88
+listing optimization	$0.34
+
+That way if something spikes, you immediately know which subsystem caused it.
+
+⸻
+
+If you want, I can also show you something extremely useful for what you’re building:
+
+How to build a full AI operations dashboard (like Stripe or Datadog) in ~120 lines of code.
+
+It would show:
+	•	API spend
+	•	Brickognize usage
+	•	BrickLink API calls
+	•	recognition pipeline stats
+
+All in one monitoring panel.
