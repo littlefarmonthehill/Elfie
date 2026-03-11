@@ -202,6 +202,7 @@ function AllGood({ label = 'All clear' }: { label?: string }) {
 
 function InventoryLane({
   stats, globalSyncStatuses, invSyncProgress, pomStatus, pricingInsights, underpricedThreshold, deepSpaceKeys, futureMissionsKeys, onItemClick, onOpenBrickanalyzer, onOpenPriceomatic, onOpenSettings,
+  channelSyncRunning, syncStatus,
 }: any) {
   const lastInvSync = globalSyncStatuses?.inventory;
   const lastPom = pomStatus?.data ?? globalSyncStatuses?.priceomatic;
@@ -210,6 +211,19 @@ function InventoryLane({
   const isInvComplete = invSyncProgress?.status === 'complete';
   const isPomRunning = pomStatus?.data?.liveProgress?.active === true;
   const pomProgress = pomStatus?.data?.liveProgress;
+  const isChannelSyncing = channelSyncRunning?.running === true;
+  const channelSyncFailed = lastChannelSync?.lastSyncStatus === 'failed' || lastChannelSync?.lastSyncStatus === 'error';
+  const targets: any[] = syncStatus?.targets ?? [];
+  const channelIssues = targets.map((t: any) => {
+    const name = t.name ?? t.platform ?? 'Unknown channel';
+    const connected = t.enabled ?? t.connected;
+    const missingLots: number = t.discrepancies?.missingLots || 0;
+    const priceDiffs: number = t.discrepancies?.priceDifferences || 0;
+    const qtyDiffs: number = t.discrepancies?.quantityDifferences || 0;
+    const disc = missingLots + priceDiffs + qtyDiffs;
+    return { name, connected, disc, missingLots, priceDiffs, qtyDiffs };
+  }).filter(c => !c.connected || c.disc > 0);
+  const hasChannelIssues = channelIssues.length > 0 || channelSyncFailed;
 
   const { data: activeInvEmbed } = useQuery<{ id: string; status: string } | null>({
     queryKey: ['/api/embeddings/jobs/active/inventory'],
@@ -255,7 +269,7 @@ function InventoryLane({
     <LaneCard title="Inventory" Icon={Package} color="cyan" summary={summary}>
 
       {/* Needs Attention */}
-      {(invSyncFailed || pomFailed || highOpportunityCount > 0 || tooHighCount > 0) ? (
+      {(invSyncFailed || pomFailed || highOpportunityCount > 0 || tooHighCount > 0 || hasChannelIssues) ? (
         <LaneSection label="Attention">
           {invSyncFailed && (
             <AlertItem icon={XCircle} iconColor="text-red-400" label="Inventory sync failed" sub={lastInvSync?.errorMessage ?? 'Check BrickLink connection'} onClick={() => onOpenSettings?.('platforms')} severity="error" />
@@ -266,13 +280,32 @@ function InventoryLane({
           {highOpportunityCount > 0 && (
             <AlertItem icon={TrendingDown} iconColor="text-orange-400" label={`${highOpportunityCount} items underpriced (score > ${threshold}x)`} sub="Open Price-o-Matic to review" onClick={onOpenPriceomatic} severity="warn" />
           )}
+          {channelIssues.map(c => (
+            <div key={c.name}>
+              {!c.connected && (
+                <AlertItem icon={XCircle} iconColor="text-red-400" label={`${c.name} disconnected`} sub="Tap to reconnect" onClick={() => onOpenSettings?.('platforms')} severity="error" />
+              )}
+              {c.missingLots > 0 && (
+                <AlertItem icon={AlertTriangle} iconColor="text-yellow-400" label={`${c.name}: ${c.missingLots} missing lot${c.missingLots !== 1 ? 's' : ''}`} severity="warn" />
+              )}
+              {c.priceDiffs > 0 && (
+                <AlertItem icon={AlertTriangle} iconColor="text-yellow-400" label={`${c.name}: ${c.priceDiffs} price diff${c.priceDiffs !== 1 ? 's' : ''}`} severity="warn" />
+              )}
+              {c.qtyDiffs > 0 && (
+                <AlertItem icon={AlertTriangle} iconColor="text-yellow-400" label={`${c.name}: ${c.qtyDiffs} qty diff${c.qtyDiffs !== 1 ? 's' : ''}`} severity="warn" />
+              )}
+            </div>
+          ))}
+          {channelSyncFailed && (
+            <AlertItem icon={XCircle} iconColor="text-red-400" label="Channel sync failed" sub={lastChannelSync?.errorMessage ?? 'Check channel connections'} onClick={() => onOpenSettings?.('platforms')} severity="error" />
+          )}
         </LaneSection>
       ) : (
         <LaneSection><AllGood /></LaneSection>
       )}
 
       {/* Running Jobs */}
-      {hasRunningJobs && (
+      {(hasRunningJobs || isChannelSyncing) && (
         <LaneSection label="Running">
           {isInvSyncing && (
             <JobBar
@@ -292,6 +325,12 @@ function InventoryLane({
               sublabel={`${pomProgress.itemsProcessed.toLocaleString()} / ${pomProgress.itemsTotal.toLocaleString()} lots`}
               color="purple"
             />
+          )}
+          {isChannelSyncing && (
+            <div className="flex items-center gap-1.5 px-1.5">
+              <RefreshCw className="w-3 h-3 text-teal-400 animate-spin shrink-0" />
+              <span className="text-[10px] text-teal-300 font-medium">Channel sync running…</span>
+            </div>
           )}
           {activeInvEmbed && (
             <div className="flex items-center gap-1.5 px-1.5">
@@ -436,106 +475,6 @@ function OrdersLane({ stats, dashboardOrders, fulfillmentStats, orderSyncRunning
   );
 }
 
-// ── MULTICHANNEL LANE ─────────────────────────────────────────────────────────
-
-export function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, totalDiscrepancies, onOpenSettings }: any) {
-  const isChannelSyncing = channelSyncRunning?.running === true;
-  const lastChannelSync = globalSyncStatuses?.channel;
-  const channelSyncFailed = lastChannelSync?.lastSyncStatus === 'failed' || lastChannelSync?.lastSyncStatus === 'error';
-
-  const targets: any[] = syncStatus?.targets ?? [];
-  const connectedChannels = targets.filter((t: any) => t.enabled ?? t.connected);
-  const disconnectedChannels = targets.filter((t: any) => !(t.enabled ?? t.connected));
-
-  const summary = (
-    <>
-      <span>{connectedChannels.length > 0 ? `${connectedChannels.length} connected` : 'None connected'}</span>
-      <button
-        onClick={() => onOpenSettings?.('platforms')}
-        className="text-teal-400 hover:text-teal-300 transition-colors shrink-0 font-medium"
-        data-testid="multichannel-add-link"
-      >+ Add</button>
-    </>
-  );
-
-  return (
-    <LaneCard title="Multichannel" Icon={Globe} color="teal" summary={summary}>
-
-      {/* Attention — grouped by channel */}
-      {(() => {
-        const channelIssues = targets.map((t: any) => {
-          const name = t.name ?? t.platform ?? 'Unknown channel';
-          const connected = t.enabled ?? t.connected;
-          const missingLots: number = t.discrepancies?.missingLots || 0;
-          const priceDiffs: number = t.discrepancies?.priceDifferences || 0;
-          const qtyDiffs: number = t.discrepancies?.quantityDifferences || 0;
-          const disc = missingLots + priceDiffs + qtyDiffs;
-          return { name, connected, disc, missingLots, priceDiffs, qtyDiffs };
-        }).filter(c => !c.connected || c.disc > 0);
-
-        const hasIssues = channelIssues.length > 0 || channelSyncFailed;
-        if (!hasIssues) {
-          return connectedChannels.length > 0 ? (
-            <LaneSection><AllGood label="All channels aligned" /></LaneSection>
-          ) : null;
-        }
-
-        return (
-          <LaneSection label="Attention">
-            {channelIssues.map(c => (
-              <div key={c.name}>
-                <div className="px-3 pt-1.5 pb-0.5">
-                  <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/60">{c.name}</span>
-                </div>
-                {!c.connected && (
-                  <AlertItem icon={XCircle} iconColor="text-red-400" label="Disconnected" sub="Tap to reconnect" onClick={() => onOpenSettings?.('platforms')} severity="error" />
-                )}
-                {c.missingLots > 0 && (
-                  <AlertItem icon={AlertTriangle} iconColor="text-yellow-400" label={`${c.missingLots} missing lot${c.missingLots !== 1 ? 's' : ''}`} severity="warn" />
-                )}
-                {c.priceDiffs > 0 && (
-                  <AlertItem icon={AlertTriangle} iconColor="text-yellow-400" label={`${c.priceDiffs} price difference${c.priceDiffs !== 1 ? 's' : ''}`} severity="warn" />
-                )}
-                {c.qtyDiffs > 0 && (
-                  <AlertItem icon={AlertTriangle} iconColor="text-yellow-400" label={`${c.qtyDiffs} quantity difference${c.qtyDiffs !== 1 ? 's' : ''}`} severity="warn" />
-                )}
-              </div>
-            ))}
-            {channelSyncFailed && (
-              <AlertItem icon={XCircle} iconColor="text-red-400" label="Channel sync failed" sub={lastChannelSync?.errorMessage ?? 'Check channel connections'} onClick={() => onOpenSettings?.('platforms')} severity="error" />
-            )}
-          </LaneSection>
-        );
-      })()}
-
-      {/* Running */}
-      {isChannelSyncing && (
-        <LaneSection label="Running">
-          <div className="flex items-center gap-1.5">
-            <RefreshCw className="w-3 h-3 text-teal-400 animate-spin shrink-0" />
-            <span className="text-xs text-teal-300 font-medium">Channel sync running…</span>
-          </div>
-        </LaneSection>
-      )}
-
-      {/* Last Actions */}
-      <LaneSection label="Last Actions" collapsible>
-        {lastChannelSync?.lastSyncTime ? (
-          <ActivityItem
-            icon={lastChannelSync.lastSyncStatus === 'success' ? CheckCircle : lastChannelSync.lastSyncStatus === 'partial' ? AlertCircle : XCircle}
-            iconColor={lastChannelSync.lastSyncStatus === 'success' ? 'text-green-400' : lastChannelSync.lastSyncStatus === 'partial' ? 'text-yellow-400' : 'text-red-400'}
-            label={`Channel sync — ${lastChannelSync.lastSyncStatus}`}
-            sub={lastChannelSync.lastSyncStatus === 'success' ? `${lastChannelSync.recordsUpdated ?? 0} items synced` : lastChannelSync.errorMessage ?? undefined}
-            time={relTime(lastChannelSync.lastSyncTime)}
-          />
-        ) : (
-          <ActivityItem icon={Clock} iconColor="text-muted-foreground" label="No channel sync yet" />
-        )}
-      </LaneSection>
-
-    </LaneCard>
-  );
-}
 
 // ── AI INTELLIGENCE LANE ──────────────────────────────────────────────────────
 
@@ -961,10 +900,6 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     if (!appSettings?.stripeSecretKey && !appSettings?.stripeConnectedViaEnv) setupItems.push({ id: 'stripe', label: 'Connect Stripe', section: 'platforms' });
   }
 
-  const totalDiscrepancies = syncStatus?.targets?.reduce((total: number, platform: any) => {
-    return total + (platform.discrepancies?.missingLots || 0) + (platform.discrepancies?.priceDifferences || 0) + (platform.discrepancies?.quantityDifferences || 0);
-  }, 0) || 0;
-
   return (
     <CompactModeProvider value={panelMode ?? false}>
     <div className={panelMode ? "flex flex-col p-2 h-full gap-1" : "p-3 md:p-4 lg:p-5 xl:p-6 space-y-4 md:space-y-4 xl:space-y-5"}>
@@ -987,6 +922,8 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           underpricedThreshold={underpricedThreshold}
           deepSpaceKeys={deepSpaceKeySet}
           futureMissionsKeys={futureMissionsKeySet}
+          channelSyncRunning={channelSyncRunning}
+          syncStatus={syncStatus}
           onItemClick={onItemClick}
           onOpenBrickanalyzer={onOpenBrickanalyzer}
           onOpenPriceomatic={onOpenPriceomatic}
