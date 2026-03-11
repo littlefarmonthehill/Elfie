@@ -167,17 +167,15 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   </PopoverContent>
                 </Popover>
               </div>
-              {!panelMode && (
               <div className="flex flex-wrap gap-1 min-h-[1.25rem]" data-testid="fulfillment-stats">
-                {(fulfillmentStats?.unfulfilled ?? 0) > 0 ? (
+                {(stats?.pendingOrders ?? 0) > 0 ? (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-600/30" data-testid="fulfillment-count">
-                    {fulfillmentStats!.unfulfilled} need action
+                    {formatNumber(stats!.pendingOrders)} pending
                   </span>
-                ) : fulfillmentStats ? (
+                ) : stats ? (
                   <span className="text-[9px] text-green-400/70">All caught up</span>
                 ) : null}
               </div>
-              )}
             </button>
 
             {/* Shipped Orders */}
@@ -208,17 +206,15 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
                   </PopoverContent>
                 </Popover>
               </div>
-              {!panelMode && (
               <div className="flex flex-wrap gap-1 min-h-[1.25rem]" data-testid="shipped-stats">
                 {(stats?.shippedOrders ?? 0) > 0 ? (
                   <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-600/30" data-testid="shipped-count">
-                    {formatNumber(stats!.shippedOrders)} shipped total
+                    {formatNumber(stats!.shippedOrders)} shipped
                   </span>
                 ) : stats ? (
                   <span className="text-[9px] text-gray-500/70">No shipments yet</span>
                 ) : null}
               </div>
-              )}
             </button>
 
           </div>
