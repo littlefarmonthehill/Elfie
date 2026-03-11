@@ -951,6 +951,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [invEmbCount] = await db.select({ count: count() }).from(inventoryEmbeddings);
       const [ordEmbCount] = await db.select({ count: count() }).from(orderEmbeddings);
 
+      const syncJobs = await db
+        .select({
+          id: syncMetadata.id,
+          orgId: syncMetadata.orgId,
+          lastSyncTime: syncMetadata.lastSyncTime,
+          lastSyncStatus: syncMetadata.lastSyncStatus,
+          recordsAdded: syncMetadata.recordsAdded,
+          recordsUpdated: syncMetadata.recordsUpdated,
+          errorMessage: syncMetadata.errorMessage,
+          updatedAt: syncMetadata.updatedAt,
+        })
+        .from(syncMetadata)
+        .orderBy(desc(syncMetadata.updatedAt))
+        .limit(30);
+
       res.json({
         platform: {
           totalOrganizations: orgCount.count,
@@ -965,6 +980,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           active: activeJobs,
           recent: recentJobs,
         },
+        syncJobs,
       });
     } catch (error) {
       console.error("Error fetching system health:", error);

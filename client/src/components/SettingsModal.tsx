@@ -935,6 +935,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     staleTime: 0,
   });
 
+  type SyncJobRow = {
+    id: string; orgId: string | null; lastSyncTime: string | null; lastSyncStatus: string;
+    recordsAdded: number; recordsUpdated: number; errorMessage: string | null; updatedAt: string;
+  };
   type SystemHealthData = {
     platform: { totalOrganizations: number; totalUsers: number; activeSubscriptions: number };
     embeddings: { inventoryEmbeddings: number; orderEmbeddings: number };
@@ -942,6 +946,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       active: Array<{ id: string; orgId: string; jobType: string; status: string; processedItems: number; totalItems: number; errorMessage: string | null; createdAt: string; completedAt: string | null }>;
       recent: Array<{ id: string; orgId: string; jobType: string; status: string; processedItems: number; totalItems: number; errorMessage: string | null; createdAt: string; completedAt: string | null }>;
     };
+    syncJobs?: SyncJobRow[];
   };
 
   const { data: orgLimitsUsage, isLoading: orgLimitsLoading } = useQuery<{
@@ -6343,31 +6348,74 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           )}
                         </div>
 
-                        {/* Recent jobs */}
-                        <div>
-                          <p className="sm-group-label mb-2 px-1">Recent Jobs</p>
-                          <div className="sm-card-inset">
-                            {systemHealth.jobs.recent.length === 0 ? (
-                              <div className="px-4 py-4 text-center text-xs text-gray-500">No completed jobs yet</div>
-                            ) : systemHealth.jobs.recent.map(job => (
-                              <div key={job.id} className="flex items-center gap-3 px-4 py-2.5">
-                                <div className="shrink-0">
-                                  {job.status === 'completed'
-                                    ? <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
-                                    : <AlertTriangle className="h-3.5 w-3.5 text-red-400" />}
+                        {/* Recent embedding jobs */}
+                        {systemHealth.jobs.recent.length > 0 && (
+                          <div>
+                            <p className="sm-group-label mb-2 px-1">Recent Embedding Jobs</p>
+                            <div className="sm-card-inset">
+                              {systemHealth.jobs.recent.map(job => (
+                                <div key={job.id} className="flex items-center gap-3 px-4 py-2.5">
+                                  <div className="shrink-0">
+                                    {job.status === 'completed'
+                                      ? <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />
+                                      : <AlertTriangle className="h-3.5 w-3.5 text-red-400" />}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs text-gray-300 capitalize">{job.jobType}</p>
+                                    {job.errorMessage && <p className="text-[10px] text-red-400/80 truncate">{job.errorMessage}</p>}
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <p className="text-[10px] text-gray-500">{job.processedItems}/{job.totalItems}</p>
+                                    <p className="text-[9px] text-gray-600 font-mono">{job.completedAt ? new Date(job.completedAt).toLocaleDateString() : '—'}</p>
+                                  </div>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs text-gray-300 capitalize">{job.jobType}</p>
-                                  {job.errorMessage && <p className="text-[10px] text-red-400/80 truncate">{job.errorMessage}</p>}
-                                </div>
-                                <div className="text-right shrink-0">
-                                  <p className="text-[10px] text-gray-500">{job.processedItems}/{job.totalItems}</p>
-                                  <p className="text-[9px] text-gray-600 font-mono">{job.completedAt ? new Date(job.completedAt).toLocaleDateString() : '—'}</p>
-                                </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
-                        </div>
+                        )}
+
+                        {/* BrickLink / Platform Sync Jobs */}
+                        {systemHealth.syncJobs && systemHealth.syncJobs.length > 0 && (
+                          <div>
+                            <div className="flex items-center gap-2 mb-2 px-1">
+                              <p className="sm-group-label">Platform Sync Jobs</p>
+                              {systemHealth.syncJobs.some(j => j.lastSyncStatus === 'in_progress') && (
+                                <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+                              )}
+                            </div>
+                            <div className="sm-card-inset">
+                              {systemHealth.syncJobs.map(job => {
+                                const isActive = job.lastSyncStatus === 'in_progress';
+                                const isFailed = job.lastSyncStatus === 'failed';
+                                const label = job.id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                                return (
+                                  <div key={job.id} className="flex items-center gap-3 px-4 py-2.5">
+                                    <div className="shrink-0">
+                                      {isActive
+                                        ? <Loader2 className="h-3.5 w-3.5 text-yellow-400 animate-spin" />
+                                        : isFailed
+                                          ? <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
+                                          : <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs text-gray-300">{label}</p>
+                                      {job.orgId && <p className="text-[9px] text-gray-600 font-mono">{job.orgId}</p>}
+                                      {job.errorMessage && <p className="text-[10px] text-red-400/80 truncate">{job.errorMessage}</p>}
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                      {(job.recordsAdded > 0 || job.recordsUpdated > 0) && (
+                                        <p className="text-[10px] text-gray-500">+{job.recordsAdded} / ~{job.recordsUpdated}</p>
+                                      )}
+                                      <p className="text-[9px] text-gray-600 font-mono">
+                                        {job.lastSyncTime ? new Date(job.lastSyncTime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <div className="flex flex-col items-center justify-center gap-3 py-10">
