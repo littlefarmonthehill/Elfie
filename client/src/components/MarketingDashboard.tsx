@@ -421,7 +421,8 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
             <button
               onClick={() => onDrawerChange('attract')}
               data-testid="tool-attract"
-              className={cn("group rounded-lg border border-indigo-500/50 bg-gradient-to-br from-indigo-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(99,102,241,0.09)]", panelMode ? "flex items-center gap-2 p-2" : "flex flex-col gap-1.5 p-3")}
+              className={cn("group rounded-lg border border-indigo-500/50 bg-gradient-to-br from-indigo-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", panelMode ? "flex items-center gap-2 p-2" : "flex flex-col gap-1.5 p-3")}
+              style={{ '--tool-glow-color': 'rgba(99,102,241,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-indigo-900/70 p-1.5 ring-1 ring-indigo-500/45 shadow-[0_0_10px_rgba(99,102,241,0.22)]">
@@ -457,7 +458,8 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
             <button
               onClick={() => onDrawerChange('engage-new')}
               data-testid="tool-engage-new"
-              className={cn("group rounded-lg border border-cyan-500/50 bg-gradient-to-br from-cyan-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(6,182,212,0.09)]", panelMode ? "flex items-center gap-2 p-2" : "flex flex-col gap-1.5 p-3")}
+              className={cn("group rounded-lg border border-cyan-500/50 bg-gradient-to-br from-cyan-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", panelMode ? "flex items-center gap-2 p-2" : "flex flex-col gap-1.5 p-3")}
+              style={{ '--tool-glow-color': 'rgba(6,182,212,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-cyan-900/70 p-1.5 ring-1 ring-cyan-500/45 shadow-[0_0_10px_rgba(6,182,212,0.22)]">
@@ -499,7 +501,8 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
             <button
               onClick={() => onDrawerChange('engage-repeat')}
               data-testid="tool-engage-repeat"
-              className={cn("group rounded-lg border border-blue-500/50 bg-gradient-to-br from-blue-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(59,130,246,0.09)]", panelMode ? "flex items-center gap-2 p-2" : "flex flex-col gap-1.5 p-3")}
+              className={cn("group rounded-lg border border-blue-500/50 bg-gradient-to-br from-blue-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", panelMode ? "flex items-center gap-2 p-2" : "flex flex-col gap-1.5 p-3")}
+              style={{ '--tool-glow-color': 'rgba(59,130,246,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-blue-900/70 p-1.5 ring-1 ring-blue-500/45 shadow-[0_0_10px_rgba(59,130,246,0.22)]">
@@ -541,7 +544,8 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
             <button
               onClick={() => onDrawerChange('engage-top')}
               data-testid="tool-engage-top"
-              className={cn("group rounded-lg border border-amber-500/50 bg-gradient-to-br from-amber-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all shadow-[0_0_14px_rgba(245,158,11,0.09)]", panelMode ? "flex items-center gap-2 p-2" : "flex flex-col gap-1.5 p-3")}
+              className={cn("group rounded-lg border border-amber-500/50 bg-gradient-to-br from-amber-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", panelMode ? "flex items-center gap-2 p-2" : "flex flex-col gap-1.5 p-3")}
+              style={{ '--tool-glow-color': 'rgba(245,158,11,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-amber-900/70 p-1.5 ring-1 ring-amber-500/45 shadow-[0_0_10px_rgba(245,158,11,0.22)]">

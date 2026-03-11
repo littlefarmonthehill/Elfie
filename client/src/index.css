@@ -513,3 +513,55 @@ html.admin-mode {
 .retro-wave-ring-1 { animation: retro-wave 2.4s cubic-bezier(0.15, 0.8, 0.4, 1) infinite; }
 .retro-wave-ring-2 { animation: retro-wave 2.4s cubic-bezier(0.15, 0.8, 0.4, 1) 0.8s infinite; }
 .retro-wave-ring-3 { animation: retro-wave 2.4s cubic-bezier(0.15, 0.8, 0.4, 1) 1.6s infinite; }
+
+/* ── #3 Gentle breathing pulse for attention alert icons ── */
+@keyframes cockpit-breathe {
+  0%, 100% { opacity: 1; filter: brightness(1); }
+  50%      { opacity: 0.7; filter: brightness(1.4); }
+}
+.cockpit-alert-pulse {
+  animation: cockpit-breathe 2.5s ease-in-out infinite;
+}
+
+/* ── #4 Cockpit vignette — darkened edges ── */
+.cockpit-vignette {
+  position: relative;
+}
+.cockpit-vignette::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.45) 100%);
+}
+
+/* ── #5 Glowing separator line between panel sections ── */
+.cockpit-glow-separator {
+  height: 1px;
+  background: linear-gradient(to right, transparent 5%, rgba(120,180,255,0.35) 30%, rgba(120,180,255,0.5) 50%, rgba(120,180,255,0.35) 70%, transparent 95%);
+  box-shadow: 0 0 8px rgba(120,180,255,0.25), 0 0 20px rgba(120,180,255,0.1);
+}
+
+/* ── #6 Last Actions trigger bar glow underline ── */
+.cockpit-trigger-bar {
+  position: relative;
+}
+.cockpit-trigger-bar::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(160,180,255,0.4) 30%, rgba(160,180,255,0.5) 50%, rgba(160,180,255,0.4) 70%, transparent);
+  box-shadow: 0 0 6px rgba(160,180,255,0.2);
+}
+
+/* ── #7 Tool button glow ring on hover ── */
+.cockpit-tool-btn {
+  transition: box-shadow 0.2s ease;
+}
+.cockpit-tool-btn:hover {
+  box-shadow: 0 0 18px var(--tool-glow-color, rgba(120,180,255,0.3)), 0 0 6px var(--tool-glow-color, rgba(120,180,255,0.15));
+}

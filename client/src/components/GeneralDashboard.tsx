@@ -56,13 +56,13 @@ function LaneCard({
   const shineCls = color === 'cyan' ? 'via-cyan-400/50' : color === 'orange' ? 'via-orange-400/50' : color === 'teal' ? 'via-teal-400/50' : 'via-purple-400/50';
   const badgeCls = color === 'cyan' ? 'bg-cyan-900/60 ring-cyan-500/50' : color === 'orange' ? 'bg-orange-900/60 ring-orange-500/50' : color === 'teal' ? 'bg-teal-900/60 ring-teal-500/50' : 'bg-purple-900/60 ring-purple-500/50';
   const iconCls = color === 'cyan' ? 'text-cyan-200' : color === 'orange' ? 'text-orange-200' : color === 'teal' ? 'text-teal-200' : 'text-purple-200';
-  const glowColor = color === 'cyan' ? 'rgba(6,182,212,0.28)' : color === 'orange' ? 'rgba(249,115,22,0.28)' : color === 'teal' ? 'rgba(20,184,166,0.28)' : 'rgba(168,85,247,0.28)';
-  const badgeGlowColor = color === 'cyan' ? 'rgba(6,182,212,0.55)' : color === 'orange' ? 'rgba(249,115,22,0.55)' : color === 'teal' ? 'rgba(20,184,166,0.55)' : 'rgba(168,85,247,0.55)';
+  const glowColor = color === 'cyan' ? 'rgba(6,182,212,0.22)' : color === 'orange' ? 'rgba(249,115,22,0.22)' : color === 'teal' ? 'rgba(20,184,166,0.22)' : 'rgba(168,85,247,0.22)';
+  const badgeGlowColor = color === 'cyan' ? 'rgba(6,182,212,0.5)' : color === 'orange' ? 'rgba(249,115,22,0.5)' : color === 'teal' ? 'rgba(20,184,166,0.5)' : 'rgba(168,85,247,0.5)';
 
   return (
     <div
       className={`relative flex flex-col h-full rounded-lg border ${borderCls} bg-gradient-to-b ${gradCls} to-gray-900/85`}
-      style={{ boxShadow: `0 0 40px ${glowColor}, 0 0 12px ${glowColor}` }}
+      style={{ boxShadow: `0 0 24px ${glowColor}, 0 0 8px ${glowColor}` }}
     >
       {/* Shine line */}
       <div className={`absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent ${shineCls} to-transparent pointer-events-none z-10`} />
@@ -105,7 +105,7 @@ function LaneSection({ label, children, collapsible = false, className = "" }: {
         {/* Trigger bar — pinned to card bottom via mt-auto */}
         <button
           onClick={() => setExpanded(v => !v)}
-          className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-white/5 transition-colors duration-100 border-t-2 border-border/50"
+          className="flex items-center gap-2 w-full text-left px-3 py-2 hover:bg-white/5 transition-colors duration-100 border-t-2 border-border/50 cockpit-trigger-bar"
           data-testid={`collapse-${label.toLowerCase().replace(/\s+/g, '-')}`}
         >
           <Clock className="w-3 h-3 shrink-0 text-muted-foreground/70" />
@@ -174,7 +174,7 @@ function AlertItem({ icon: Icon, iconColor, label, sub, onClick, severity = 'war
       onClick={onClick}
       className={`flex items-start gap-2 rounded border px-2 py-1.5 ${bg} ${onClick ? 'cursor-pointer hover-elevate' : ''}`}
     >
-      <div className="relative shrink-0 mt-0.5 w-3 h-3 flex items-center justify-center">
+      <div className="relative shrink-0 mt-0.5 w-3 h-3 flex items-center justify-center cockpit-alert-pulse">
         <div className={`retro-wave-ring retro-wave-ring-1 ${ringColor}`} />
         <div className={`retro-wave-ring retro-wave-ring-2 ${ringColor}`} />
         <div className={`retro-wave-ring retro-wave-ring-3 ${ringColor}`} />

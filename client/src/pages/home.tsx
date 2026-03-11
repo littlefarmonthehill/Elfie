@@ -355,7 +355,7 @@ export default function Home() {
   };
 
   const renderPanelMode = () => (
-    <div className="flex h-full" style={{ padding: '5px', gap: '5px' }}>
+    <div className="flex h-full cockpit-vignette" style={{ padding: '5px', gap: '5px' }}>
 
       {/* ── LEFT COLUMN: Your Plan (top) + spacer + Product (aligned with date picker) ── */}
       <div className="flex flex-col min-h-0 overflow-hidden self-stretch" style={{ flex: 1, gap: '10px' }}>
@@ -370,6 +370,8 @@ export default function Home() {
             onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
           />
         </div>
+
+        <div className="cockpit-glow-separator shrink-0" />
 
         {/* Product / Inventory — matches date picker group height */}
         <div className="flex flex-col min-h-0 rounded-md overflow-hidden" style={{ flex: 3, border: '1px solid hsla(220,85%,55%,0.35)' }}>
@@ -388,6 +390,8 @@ export default function Home() {
         </div>
 
       </div>
+
+      <div className="shrink-0 self-stretch" style={{ width: '1px', background: 'linear-gradient(to bottom, transparent 5%, rgba(120,180,255,0.35) 30%, rgba(120,180,255,0.5) 50%, rgba(120,180,255,0.35) 70%, transparent 95%)', boxShadow: '0 0 8px rgba(120,180,255,0.25), 0 0 20px rgba(120,180,255,0.1)' }} />
 
       {/* ── RIGHT COLUMN: Ops Central (top) + date picker group (bottom) ── */}
       <div className="flex flex-col min-h-0 overflow-hidden" style={{ flex: 3, gap: '10px' }}>
@@ -408,6 +412,8 @@ export default function Home() {
             />
           </div>
         </div>
+
+        <div className="cockpit-glow-separator shrink-0" />
 
         {/* ─── GROUP: Date Picker + Orders · Marketing · Sales ─── */}
         <div className="flex flex-col min-h-0 rounded-lg overflow-hidden" style={{ flex: 3, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}>
