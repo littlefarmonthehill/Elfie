@@ -175,8 +175,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
   return (
     <CompactModeProvider value={panelMode ?? false}>
-    <div className={cn(panelMode ? "p-2 space-y-1.5 h-full" : "bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)] p-2 xl:p-4 space-y-1.5 xl:space-y-3")}>
-      <div className={cn(panelMode ? "space-y-1.5" : "space-y-1.5 xl:space-y-3")}>
+    <div className={cn(panelMode ? "p-2 space-y-1.5 h-full flex flex-col" : "bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)] p-2 xl:p-4 space-y-1.5 xl:space-y-3")}>
+      <div className={cn(panelMode ? "space-y-1.5 flex flex-col flex-1 min-h-0" : "space-y-1.5 xl:space-y-3")}>
 
         {/* Combined Inventory Info + Values */}
         <div className={cn("relative bg-gradient-to-b from-blue-950/25 to-gray-900/85 border border-blue-500/40 rounded-lg shadow-[0_0_22px_rgba(59,130,246,0.12)] overflow-hidden", panelMode ? "p-2" : "p-3 xl:p-5")} data-testid="section-inventory-overview">
@@ -298,7 +298,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </div>
 
         {/* Selling Channels */}
-        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", panelMode ? "p-2" : "p-3 xl:p-5")} data-testid="section-selling-channels">
+        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", panelMode ? "p-2 flex-1" : "p-3 xl:p-5")} data-testid="section-selling-channels">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
           <div className={cn("flex items-center gap-2", panelMode ? "mb-1" : "mb-3 xl:mb-4")}>
             <div className="p-1.5 xl:p-2 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
