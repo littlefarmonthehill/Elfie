@@ -4,7 +4,6 @@ import {
   Sparkles, Info, SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CompactModeProvider } from "@/contexts/CompactMode";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -38,10 +37,9 @@ interface OrdersDashboardProps {
   onDrawerChange: (drawer: 'fulfillment' | 'shipped' | null) => void;
   dateRange?: DateRangeValue;
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'billing') => void;
-  panelMode?: boolean;
 }
 
-export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange = 'mtd', onOpenSettings, panelMode }: OrdersDashboardProps) {
+export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange = 'mtd', onOpenSettings }: OrdersDashboardProps) {
   const { data: stats, isLoading: statsLoading } = useQuery<OrderStats>({
     queryKey: ['/api/orders/stats', dateRange],
     queryFn: async () => {
@@ -102,20 +100,19 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
   }
 
   return (
-    <CompactModeProvider value={panelMode ?? false}>
     <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-orange/5 to-transparent rounded-lg border border-lego-orange/10 shadow-[0_0_15px_rgba(251,146,60,0.1)]">
       <div className="space-y-1.5">
 
         {/* ── Orders Info ── */}
-        <div className={cn("relative bg-gradient-to-b from-orange-950/25 to-gray-900/85 border border-orange-500/40 rounded-lg shadow-[0_0_22px_rgba(249,115,22,0.12)] overflow-hidden", panelMode ? "p-2" : "p-3")} data-testid="section-orders-overview">
+        <div className={cn("relative bg-gradient-to-b from-orange-950/25 to-gray-900/85 border border-orange-500/40 rounded-lg shadow-[0_0_22px_rgba(249,115,22,0.12)] overflow-hidden", "")} data-testid="section-orders-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-400/50 to-transparent" />
-          <div className={cn("flex items-center gap-2", panelMode ? "mb-1" : "mb-2.5")}>
+          <div className={cn("flex items-center gap-2", "")}>
             <div className="p-1.5 rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)]">
-              <ShoppingCart className={cn("w-3 h-3 text-orange-200", !panelMode && "md:w-4 md:h-4")} />
+              <ShoppingCart className={cn("w-3 h-3 text-orange-200", "")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-orange-200 uppercase tracking-wide", !panelMode && "md:text-base lg:text-lg")}>Orders</h3>
+            <h3 className={cn("text-xs font-semibold text-orange-200 uppercase tracking-wide", "")}>Orders</h3>
           </div>
-          <div className={cn("grid grid-cols-3 gap-1.5", panelMode ? "mb-0.5" : "mb-1.5")} data-testid="section-orders-counts">
+          <div className={cn("grid grid-cols-3 gap-1.5", "")} data-testid="section-orders-counts">
             <MetricCard label="Total" value={stats ? formatNumber(stats.totalOrders) : '—'} color="orange" data-testid="metric-total-orders" />
             <MetricCard label="Pending" value={stats ? formatNumber(stats.pendingOrders) : '—'} color="orange" data-testid="metric-pending-orders" />
             <MetricCard label="Shipped" value={stats ? formatNumber(stats.shippedOrders) : '—'} color="green" data-testid="metric-shipped-orders" />
@@ -129,28 +126,28 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
         </div>
 
         {/* ── Tools ── */}
-        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", panelMode ? "p-2" : "p-3")} data-testid="section-order-tools">
+        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", "")} data-testid="section-order-tools">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
-          <div className={cn("flex items-center gap-2", panelMode ? "mb-1" : "mb-3")}>
+          <div className={cn("flex items-center gap-2", "")}>
             <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
-              <Sparkles className={cn("w-3 h-3 text-gray-200", !panelMode && "md:w-4 md:h-4")} />
+              <Sparkles className={cn("w-3 h-3 text-gray-200", "")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", !panelMode && "md:text-base lg:text-lg")}>Tools</h3>
+            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "")}>Tools</h3>
           </div>
-          <div className={cn("grid grid-cols-2", panelMode ? "gap-1.5" : "gap-2")}>
+          <div className={cn("grid grid-cols-2", "")}>
 
             {/* Fulfillment & Shipping */}
             <button
               onClick={() => onDrawerChange('fulfillment')}
               data-testid="tool-fulfillment"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-500/50 bg-gradient-to-br from-orange-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", panelMode ? "p-2" : "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-500/50 bg-gradient-to-br from-orange-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "")}
               style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-orange-900/70 p-1.5 ring-1 ring-orange-500/45 shadow-[0_0_10px_rgba(249,115,22,0.22)]">
-                  <Truck className={cn("w-3.5 h-3.5 text-orange-200", !panelMode && "md:w-5 md:h-5")} />
+                  <Truck className={cn("w-3.5 h-3.5 text-orange-200", "")} />
                 </div>
-                <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", !panelMode && "md:text-sm")}>Fulfillment</span>
+                <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", "")}>Fulfillment</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -182,14 +179,14 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             <button
               onClick={() => onDrawerChange('shipped')}
               data-testid="tool-shipped"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-500/50 bg-gradient-to-br from-green-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", panelMode ? "p-2" : "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-500/50 bg-gradient-to-br from-green-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "")}
               style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-green-900/70 p-1.5 ring-1 ring-green-500/45 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
-                  <PackageCheck className={cn("w-3.5 h-3.5 text-green-200", !panelMode && "md:w-5 md:h-5")} />
+                  <PackageCheck className={cn("w-3.5 h-3.5 text-green-200", "")} />
                 </div>
-                <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", !panelMode && "md:text-sm")}>Shipped Orders</span>
+                <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", "")}>Shipped Orders</span>
                 <Popover>
                   <PopoverTrigger asChild>
                     <span
@@ -290,6 +287,5 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
         </DrawerContent>
       </Drawer>
     </div>
-    </CompactModeProvider>
   );
 }

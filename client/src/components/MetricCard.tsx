@@ -1,6 +1,5 @@
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { useCompactMode } from "@/contexts/CompactMode";
 
 interface MetricCardProps {
   label: string;
@@ -10,8 +9,6 @@ interface MetricCardProps {
 }
 
 export default function MetricCard({ label, value, color = 'blue', className }: MetricCardProps) {
-  const compact = useCompactMode();
-
   const colorClass = {
     red: 'border-lego-red/20',
     blue: 'border-lego-blue/20',
@@ -29,20 +26,15 @@ export default function MetricCard({ label, value, color = 'blue', className }: 
   return (
     <Card
       className={cn(
-        "bg-gray-900/50 border",
-        compact ? "p-1.5" : "p-1.5 md:p-4 lg:p-6",
+        "bg-gray-900/50 border p-1.5 md:p-4 lg:p-6",
         colorClass,
         className
       )}
       data-testid={`metric-${label.toLowerCase().replace(/\s/g, '-')}`}
     >
+      <div className="text-gray-400 mb-0.5 leading-tight text-[9px] md:text-sm lg:text-lg md:mb-2 lg:mb-3">{label}</div>
       <div className={cn(
-        "text-gray-400 mb-0.5 leading-tight",
-        compact ? "text-[9px]" : "text-[9px] md:text-sm lg:text-lg md:mb-2 lg:mb-3"
-      )}>{label}</div>
-      <div className={cn(
-        "font-semibold font-mono",
-        compact ? "text-xs" : "text-xs md:text-lg lg:text-2xl",
+        "font-semibold font-mono text-xs md:text-lg lg:text-2xl",
         textColorClass
       )}>{value}</div>
     </Card>

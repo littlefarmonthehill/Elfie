@@ -3,7 +3,6 @@ import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import { CompactModeProvider } from "@/contexts/CompactMode";
 import { InfoIcon, Package, Sparkles, Warehouse, RefreshCw, Info, ListChecks, ScanSearch, AlertTriangle, Globe, Boxes, SlidersHorizontal, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import { Input } from "@/components/ui/input";
@@ -45,12 +44,11 @@ interface InventoryDashboardProps {
   activeDrawer: 'priceomatic' | 'warehouse' | 'platformsync' | 'brickanalyzer' | null;
   onDrawerChange: (drawer: 'priceomatic' | 'warehouse' | 'platformsync' | 'brickanalyzer' | null) => void;
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'priceomatic') => void;
-  panelMode?: boolean;
 }
 
 type BrowseType = 'lots' | 'parts' | 'categories';
 
-export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange, onOpenSettings, panelMode }: InventoryDashboardProps) {
+export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange, onOpenSettings }: InventoryDashboardProps) {
 
   const { toast } = useToast();
   const brickanalyzerRef = useRef<BrickanalyzerToolRef>(null);
@@ -174,18 +172,17 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   }
 
   return (
-    <CompactModeProvider value={panelMode ?? false}>
-    <div className={cn(panelMode ? "p-3 space-y-3 h-full flex flex-col" : "bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)] p-2 xl:p-4 space-y-1.5 xl:space-y-3")}>
-      <div className={cn(panelMode ? "space-y-3 flex flex-col flex-1 min-h-0" : "space-y-1.5 xl:space-y-3")}>
+    <div className={cn("")}>
+      <div className={cn("")}>
 
         {/* Combined Inventory Info + Values */}
-        <div className={cn("relative bg-gradient-to-b from-blue-950/25 to-gray-900/85 border border-blue-500/40 rounded-lg shadow-[0_0_22px_rgba(59,130,246,0.12)] overflow-hidden", panelMode ? "p-2.5" : "p-3 xl:p-5")} data-testid="section-inventory-overview">
-          <div className={cn("absolute top-0 left-0 right-0 bg-gradient-to-r from-transparent via-blue-400/50 to-transparent", panelMode ? "h-[2px] shadow-[0_0_6px_rgba(96,165,250,0.4)]" : "h-px")} />
-          <div className={cn("flex items-center gap-2", panelMode ? "mb-1" : "mb-2.5 xl:mb-4")}>
+        <div className={cn("relative bg-gradient-to-b from-blue-950/25 to-gray-900/85 border border-blue-500/40 rounded-lg shadow-[0_0_22px_rgba(59,130,246,0.12)] overflow-hidden", "")} data-testid="section-inventory-overview">
+          <div className={cn("absolute top-0 left-0 right-0 bg-gradient-to-r from-transparent via-blue-400/50 to-transparent", "")} />
+          <div className={cn("flex items-center gap-2", "")}>
             <div className="p-1.5 xl:p-2 rounded-md bg-blue-900/60 ring-1 ring-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.25)]">
-              <Package className={cn("w-3 h-3 text-blue-200", !panelMode && "md:w-4 md:h-4 xl:w-5 xl:h-5")} />
+              <Package className={cn("w-3 h-3 text-blue-200", "")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-blue-200 uppercase tracking-wide", !panelMode && "md:text-base lg:text-lg xl:text-xl")}>Inventory</h3>
+            <h3 className={cn("text-xs font-semibold text-blue-200 uppercase tracking-wide", "")}>Inventory</h3>
             <div className="flex items-center gap-1.5 ml-auto">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -203,7 +200,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               </Tooltip>
             </div>
           </div>
-          <div className={cn("grid grid-cols-3 gap-1.5", panelMode ? "mb-1" : "mb-2")} data-testid="section-inventory-info">
+          <div className={cn("grid grid-cols-3 gap-1.5", "")} data-testid="section-inventory-info">
             {([
               { key: 'lots', label: 'Lots', value: stats ? formatNumber(stats.totalLots) : '0' },
               { key: 'parts', label: 'Parts', value: stats ? formatNumber(stats.totalParts) : '0' },
@@ -213,12 +210,12 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 key={key}
                 onClick={() => openBrowse(key)}
                 data-testid={`metric-${key}`}
-                className={cn("relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-md border border-lego-blue/20 bg-gray-900/50 p-1.5", !panelMode && "md:p-4 lg:p-6 xl:p-8")}
+                className={cn("relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-md border border-lego-blue/20 bg-gray-900/50 p-1.5", "")}
               >
-                <span className={cn("text-[9px] text-gray-400 mb-0.5 leading-tight", !panelMode && "md:text-sm lg:text-lg xl:text-xl md:mb-2 lg:mb-3 xl:mb-4")}>{label}</span>
-                <span className={cn("text-xs font-semibold font-mono text-lego-blue", !panelMode && "md:text-lg lg:text-2xl xl:text-3xl")}>{value}</span>
-                <span className={cn("absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-lego-blue/20 group-hover:bg-lego-blue/50 transition-colors", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")}>
-                  <ChevronRight className={cn("w-2.5 h-2.5 text-white", !panelMode && "md:w-3 md:h-3 xl:w-4 xl:h-4")} />
+                <span className={cn("text-[9px] text-gray-400 mb-0.5 leading-tight", "")}>{label}</span>
+                <span className={cn("text-xs font-semibold font-mono text-lego-blue", "")}>{value}</span>
+                <span className={cn("absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-lego-blue/20 group-hover:bg-lego-blue/50 transition-colors", "")}>
+                  <ChevronRight className={cn("w-2.5 h-2.5 text-white", "")} />
                 </span>
               </button>
             ))}
@@ -231,28 +228,28 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </div>
 
         {/* Tools — Primary Workflows */}
-        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", panelMode ? "p-2.5" : "p-3 xl:p-5")} data-testid="section-tools">
-          <div className={cn("absolute top-0 left-0 right-0 bg-gradient-to-r from-transparent via-gray-400/40 to-transparent", panelMode ? "h-[2px] shadow-[0_0_6px_rgba(156,163,175,0.3)]" : "h-px")} />
-          <div className={cn("flex items-center gap-2", panelMode ? "mb-1" : "mb-3 xl:mb-4")}>
+        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", "")} data-testid="section-tools">
+          <div className={cn("absolute top-0 left-0 right-0 bg-gradient-to-r from-transparent via-gray-400/40 to-transparent", "")} />
+          <div className={cn("flex items-center gap-2", "")}>
             <div className="p-1.5 xl:p-2 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
-              <Sparkles className={cn("w-3 h-3 text-gray-200", !panelMode && "md:w-4 md:h-4 xl:w-5 xl:h-5")} />
+              <Sparkles className={cn("w-3 h-3 text-gray-200", "")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", !panelMode && "md:text-base lg:text-lg xl:text-xl")}>Tools</h3>
+            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "")}>Tools</h3>
           </div>
-          <div className={cn("grid grid-cols-2", panelMode ? "gap-1.5" : "gap-2 xl:gap-3")}>
+          <div className={cn("grid grid-cols-2", "")}>
 
             {/* Price-O-Matic */}
             <button
               onClick={() => onDrawerChange('priceomatic')}
               data-testid="tool-priceomatic"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-purple-500/50 bg-gradient-to-br from-purple-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", panelMode ? "p-2" : "p-3 xl:p-5")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-purple-500/50 bg-gradient-to-br from-purple-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "")}
               style={{ '--tool-glow-color': 'rgba(168,85,247,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-purple-900/70 p-1.5 xl:p-2.5 ring-1 ring-purple-500/45 shadow-[0_0_10px_rgba(168,85,247,0.22)]">
-                  <Sparkles className={cn("w-3.5 h-3.5 text-purple-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
+                  <Sparkles className={cn("w-3.5 h-3.5 text-purple-200", "")} />
                 </div>
-                <span className={cn("text-xs font-bold text-purple-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>Price-O-Matic</span>
+                <span className={cn("text-xs font-bold text-purple-100 leading-tight flex-1", "")}>Price-O-Matic</span>
               </div>
               <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="pom-action-stats">
                 {(pomInsights?.data?.summary?.tooHigh ?? 0) + (pomInsights?.data?.summary?.tooLow ?? 0) > 0 ? (
@@ -269,14 +266,14 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('platformsync')}
               data-testid="tool-listomatic"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-500/50 bg-gradient-to-br from-green-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", panelMode ? "p-2" : "p-3 xl:p-5")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-500/50 bg-gradient-to-br from-green-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "")}
               style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-green-900/70 p-1.5 xl:p-2.5 ring-1 ring-green-500/45 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
-                  <Globe className={cn("w-3.5 h-3.5 text-green-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
+                  <Globe className={cn("w-3.5 h-3.5 text-green-200", "")} />
                 </div>
-                <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>List-O-Matic</span>
+                <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", "")}>List-O-Matic</span>
               </div>
               <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="listomatic-action-stats">
                 <span className="text-[9px] text-green-400/70">Sync across channels</span>
@@ -287,14 +284,14 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('warehouse')}
               data-testid="tool-warehouse"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-teal-500/50 bg-gradient-to-br from-teal-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", panelMode ? "p-2" : "p-3 xl:p-5")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-teal-500/50 bg-gradient-to-br from-teal-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "")}
               style={{ '--tool-glow-color': 'rgba(20,184,166,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-teal-900/70 p-1.5 xl:p-2.5 ring-1 ring-teal-500/45 shadow-[0_0_10px_rgba(20,184,166,0.22)]">
-                  <Boxes className={cn("w-3.5 h-3.5 text-teal-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
+                  <Boxes className={cn("w-3.5 h-3.5 text-teal-200", "")} />
                 </div>
-                <span className={cn("text-xs font-bold text-teal-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>Warehouse</span>
+                <span className={cn("text-xs font-bold text-teal-100 leading-tight flex-1", "")}>Warehouse</span>
               </div>
               <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="warehouse-action-stats">
                 {(toolStats?.warehouseUnassigned ?? 0) > 0 ? (
@@ -311,14 +308,14 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('brickanalyzer')}
               data-testid="tool-brickspotter"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-amber-500/50 bg-gradient-to-br from-amber-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", panelMode ? "p-2" : "p-3 xl:p-5")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-amber-500/50 bg-gradient-to-br from-amber-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "")}
               style={{ '--tool-glow-color': 'rgba(245,158,11,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-amber-900/70 p-1.5 xl:p-2.5 ring-1 ring-amber-500/45 shadow-[0_0_10px_rgba(245,158,11,0.22)]">
-                  <ScanSearch className={cn("w-3.5 h-3.5 text-amber-200", !panelMode && "md:w-5 md:h-5 xl:w-6 xl:h-6")} />
+                  <ScanSearch className={cn("w-3.5 h-3.5 text-amber-200", "")} />
                 </div>
-                <span className={cn("text-xs font-bold text-amber-100 leading-tight flex-1", !panelMode && "md:text-sm lg:text-base xl:text-lg")}>Brick Spotter</span>
+                <span className={cn("text-xs font-bold text-amber-100 leading-tight flex-1", "")}>Brick Spotter</span>
               </div>
               <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="brickspotter-action-stats">
                 {(toolStats?.pendingScans ?? 0) > 0 ? (
@@ -336,13 +333,13 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </div>
 
         {/* Selling Channels */}
-        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", panelMode ? "p-2.5 flex-1" : "p-3 xl:p-5")} data-testid="section-selling-channels">
-          <div className={cn("absolute top-0 left-0 right-0 bg-gradient-to-r from-transparent via-gray-400/40 to-transparent", panelMode ? "h-[2px] shadow-[0_0_6px_rgba(156,163,175,0.3)]" : "h-px")} />
-          <div className={cn("flex items-center gap-2", panelMode ? "mb-1" : "mb-3 xl:mb-4")}>
+        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", "")} data-testid="section-selling-channels">
+          <div className={cn("absolute top-0 left-0 right-0 bg-gradient-to-r from-transparent via-gray-400/40 to-transparent", "")} />
+          <div className={cn("flex items-center gap-2", "")}>
             <div className="p-1.5 xl:p-2 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
-              <Globe className={cn("w-3 h-3 text-gray-200", !panelMode && "md:w-4 md:h-4 xl:w-5 xl:h-5")} />
+              <Globe className={cn("w-3 h-3 text-gray-200", "")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", !panelMode && "md:text-base lg:text-lg xl:text-xl")}>Selling Channels</h3>
+            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "")}>Selling Channels</h3>
           </div>
           <ChannelSyncPanel onOpenSettings={onOpenSettings} />
         </div>
@@ -630,6 +627,5 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </DrawerContent>
       </Drawer>
     </div>
-    </CompactModeProvider>
   );
 }
