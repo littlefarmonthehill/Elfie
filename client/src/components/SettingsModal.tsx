@@ -985,7 +985,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   type OpenAIBillingGrant = { id: string; amount: number; used: number; effective: string; expires: string };
   type OpenAIBillingData = {
     billing: { totalGranted: number; totalUsed: number; totalAvailable: number; grants: OpenAIBillingGrant[] };
-    usage: { last30Days: number; mtd: number; topModels: { model: string; cost: number }[] };
+    usage: { last30Days: number; mtd: number; topModels: { model: string; cost: number; input_tokens?: number; output_tokens?: number; requests?: number }[]; totalTokens?: number };
     costsAvailable: boolean;
     creditsAvailable: boolean;
   };
@@ -7430,29 +7430,47 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                           {openAIBillingData?.costsAvailable && (
                             <div className="space-y-2 pt-1 border-t border-gray-700/40">
-                              <div className="grid grid-cols-2 gap-2">
-                                <div className="bg-gray-900/60 rounded p-2.5 text-center">
-                                  <p className="text-[9px] text-gray-500 uppercase tracking-wider mb-0.5">Month-to-Date</p>
-                                  <p className="text-sm font-semibold text-yellow-400" data-testid="text-openai-mtd">${openAIBillingData.usage.mtd.toFixed(4)}</p>
+                              {openAIBillingData.usage.mtd > 0 || openAIBillingData.usage.last30Days > 0 ? (
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="bg-gray-900/60 rounded p-2.5 text-center">
+                                    <p className="text-[9px] text-gray-500 uppercase tracking-wider mb-0.5">Month-to-Date</p>
+                                    <p className="text-sm font-semibold text-yellow-400" data-testid="text-openai-mtd">${openAIBillingData.usage.mtd.toFixed(4)}</p>
+                                  </div>
+                                  <div className="bg-gray-900/60 rounded p-2.5 text-center">
+                                    <p className="text-[9px] text-gray-500 uppercase tracking-wider mb-0.5">Last 30 Days</p>
+                                    <p className="text-sm font-semibold text-gray-200" data-testid="text-openai-30d">${openAIBillingData.usage.last30Days.toFixed(4)}</p>
+                                  </div>
                                 </div>
-                                <div className="bg-gray-900/60 rounded p-2.5 text-center">
-                                  <p className="text-[9px] text-gray-500 uppercase tracking-wider mb-0.5">Last 30 Days</p>
-                                  <p className="text-sm font-semibold text-gray-200" data-testid="text-openai-30d">${openAIBillingData.usage.last30Days.toFixed(4)}</p>
+                              ) : openAIBillingData.usage.totalTokens ? (
+                                <div className="grid grid-cols-1 gap-2">
+                                  <div className="bg-gray-900/60 rounded p-2.5 text-center">
+                                    <p className="text-[9px] text-gray-500 uppercase tracking-wider mb-0.5">Total Tokens (30d)</p>
+                                    <p className="text-sm font-semibold text-yellow-400" data-testid="text-openai-tokens">{openAIBillingData.usage.totalTokens.toLocaleString()}</p>
+                                  </div>
                                 </div>
-                              </div>
+                              ) : null}
 
                               {openAIBillingData.usage.topModels.length > 0 && (
                                 <div className="space-y-1">
-                                  <p className="text-[9px] text-gray-500 uppercase tracking-wider">Cost by Model (30d)</p>
+                                  <p className="text-[9px] text-gray-500 uppercase tracking-wider">
+                                    {openAIBillingData.usage.topModels[0]?.cost > 0 ? 'Cost by Model (30d)' : 'Usage by Model (30d)'}
+                                  </p>
                                   {openAIBillingData.usage.topModels.map(m => {
-                                    const maxCost = openAIBillingData.usage.topModels[0]?.cost || 1;
+                                    const hasCost = m.cost > 0;
+                                    const tokens = (m.input_tokens || 0) + (m.output_tokens || 0);
+                                    const maxVal = hasCost
+                                      ? (openAIBillingData.usage.topModels[0]?.cost || 1)
+                                      : Math.max(...openAIBillingData.usage.topModels.map(t => (t.input_tokens || 0) + (t.output_tokens || 0)), 1);
+                                    const barPct = hasCost ? (m.cost / maxVal) * 100 : (tokens / maxVal) * 100;
                                     return (
                                       <div key={m.model} className="flex items-center gap-2 text-[10px]">
                                         <span className="text-gray-400 w-40 truncate shrink-0 font-mono" title={m.model}>{m.model}</span>
                                         <div className="flex-1 bg-gray-800 rounded-full h-1 overflow-hidden">
-                                          <div className="h-full bg-yellow-500/60 rounded-full" style={{ width: `${(m.cost / maxCost) * 100}%` }} />
+                                          <div className="h-full bg-yellow-500/60 rounded-full" style={{ width: `${barPct}%` }} />
                                         </div>
-                                        <span className="text-gray-500 w-14 text-right shrink-0">${m.cost.toFixed(4)}</span>
+                                        <span className="text-gray-500 w-20 text-right shrink-0">
+                                          {hasCost ? `$${m.cost.toFixed(4)}` : `${tokens.toLocaleString()} tok`}
+                                        </span>
                                       </div>
                                     );
                                   })}
@@ -7462,7 +7480,13 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           )}
 
                           {!openAIBillingLoading && !openAIBillingData?.costsAvailable && !openAIBillingData?.creditsAvailable && (
-                            <p className="text-[10px] text-gray-500">Billing data is not available for this API key. The key may not have admin/billing permissions.</p>
+                            <div className="space-y-2">
+                              <p className="text-[10px] text-gray-400">Usage data is not available. Your API key needs the <span className="text-yellow-400 font-mono">api.usage.read</span> permission scope.</p>
+                              <p className="text-[10px] text-gray-500">To fix this, generate a new project key on the OpenAI dashboard with the "Usage" permission enabled, then paste it above.</p>
+                              <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" data-testid="link-openai-create-key" className="inline-flex items-center gap-1 text-[10px] text-yellow-400 hover:text-yellow-300 border border-yellow-500/30 rounded px-2 py-1 transition-colors">
+                                <ExternalLink className="h-3 w-3 shrink-0" />Create Key with Usage Permission
+                              </a>
+                            </div>
                           )}
                         </div>
                       </div>

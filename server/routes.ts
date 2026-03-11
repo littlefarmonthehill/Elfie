@@ -603,41 +603,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const startTs = Math.floor(startOfMonth.getTime() / 1000);
       const endTs = Math.floor(now.getTime() / 1000);
-
       const prev30Start = Math.floor((now.getTime() - 30 * 24 * 60 * 60 * 1000) / 1000);
       const costsQueryStart = Math.min(startTs, prev30Start);
 
-      const [costsRes, creditsRes] = await Promise.allSettled([
-        fetch(`https://api.openai.com/v1/organization/costs?start_time=${costsQueryStart}&end_time=${endTs}&limit=31`, { headers }),
-        fetch('https://api.openai.com/dashboard/billing/credit_grants', { headers }),
-      ]);
+      const costsEndpoints = [
+        `https://api.openai.com/v1/organization/costs?start_time=${costsQueryStart}&end_time=${endTs}&limit=31`,
+        `https://api.openai.com/v1/organization/usage/completions?start_time=${costsQueryStart}&end_time=${endTs}&limit=31&group_by=model`,
+        `https://api.openai.com/v1/organization/usage/embeddings?start_time=${costsQueryStart}&end_time=${endTs}&limit=31&group_by=model`,
+      ];
+
+      const [costsRes, completionsRes, embeddingsRes] = await Promise.allSettled(
+        costsEndpoints.map(url => fetch(url, { headers }))
+      );
 
       let costs: any = null;
-      let credits: any = null;
+      let completions: any = null;
+      let embeddings: any = null;
 
-      if (costsRes.status === 'fulfilled') {
-        if (costsRes.value.ok) {
-          costs = await costsRes.value.json();
-        } else {
-          const errText = await costsRes.value.text();
-          console.log(`[OpenAI Billing] Costs API ${costsRes.value.status}: ${errText}`);
-        }
-      }
-
-      if (creditsRes.status === 'fulfilled') {
-        if (creditsRes.value.ok) {
-          credits = await creditsRes.value.json();
-        } else {
-          const errText = await creditsRes.value.text();
-          console.log(`[OpenAI Billing] Credits API ${creditsRes.value.status}: ${errText}`);
+      for (const [label, result, setter] of [
+        ['Costs', costsRes, (v: any) => { costs = v; }],
+        ['Completions Usage', completionsRes, (v: any) => { completions = v; }],
+        ['Embeddings Usage', embeddingsRes, (v: any) => { embeddings = v; }],
+      ] as [string, PromiseSettledResult<Response>, (v: any) => void][]) {
+        if (result.status === 'fulfilled') {
+          if (result.value.ok) {
+            setter(await result.value.json());
+          } else {
+            const errText = await result.value.text();
+            console.log(`[OpenAI Billing] ${label} API ${result.value.status}: ${errText.substring(0, 200)}`);
+          }
         }
       }
 
       let last30Spent = 0;
       let mtdSpent = 0;
       const costByModel: Record<string, number> = {};
+      let costsAvailable = false;
 
       if (costs?.data) {
+        costsAvailable = true;
         for (const bucket of costs.data) {
           for (const item of (bucket.results || [])) {
             const amt = (item.amount?.value ?? 0) / 100;
@@ -649,43 +653,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const topModels = Object.entries(costByModel)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 8)
-        .map(([model, cost]) => ({ model, cost: Math.round(cost * 10000) / 10000 }));
+      const usageByModel: Record<string, { input_tokens: number; output_tokens: number; requests: number }> = {};
+      let totalTokens = 0;
 
-      let totalGranted = 0;
-      let totalUsed = 0;
-      let totalAvailable = 0;
-      let grants: any[] = [];
-
-      if (credits) {
-        totalGranted = credits.total_granted ?? 0;
-        totalUsed = credits.total_used ?? 0;
-        totalAvailable = credits.total_available ?? 0;
-        grants = (credits.grants?.data || []).map((g: any) => ({
-          id: g.id,
-          amount: g.grant_amount,
-          used: g.used_amount,
-          effective: g.effective_at ? new Date(g.effective_at * 1000).toISOString() : null,
-          expires: g.expires_at ? new Date(g.expires_at * 1000).toISOString() : null,
-        }));
+      for (const usageData of [completions, embeddings]) {
+        if (usageData?.data) {
+          costsAvailable = true;
+          for (const bucket of usageData.data) {
+            for (const item of (bucket.results || [])) {
+              const model = item.model || item.snapshot_id || 'unknown';
+              if (!usageByModel[model]) usageByModel[model] = { input_tokens: 0, output_tokens: 0, requests: 0 };
+              usageByModel[model].input_tokens += item.input_tokens || 0;
+              usageByModel[model].output_tokens += item.output_tokens || 0;
+              usageByModel[model].requests += item.num_model_requests || 0;
+              totalTokens += (item.input_tokens || 0) + (item.output_tokens || 0);
+            }
+          }
+        }
       }
+
+      const topModels = Object.keys(costByModel).length > 0
+        ? Object.entries(costByModel)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 8)
+            .map(([model, cost]) => ({ model, cost: Math.round(cost * 10000) / 10000 }))
+        : Object.entries(usageByModel)
+            .sort((a, b) => (b[1].input_tokens + b[1].output_tokens) - (a[1].input_tokens + a[1].output_tokens))
+            .slice(0, 8)
+            .map(([model, usage]) => ({
+              model,
+              cost: 0,
+              input_tokens: usage.input_tokens,
+              output_tokens: usage.output_tokens,
+              requests: usage.requests,
+            }));
 
       res.json({
         billing: {
-          totalGranted: Math.round(totalGranted * 100) / 100,
-          totalUsed: Math.round(totalUsed * 100) / 100,
-          totalAvailable: Math.round(totalAvailable * 100) / 100,
-          grants,
+          totalGranted: 0,
+          totalUsed: 0,
+          totalAvailable: 0,
+          grants: [],
         },
         usage: {
           last30Days: Math.round(last30Spent * 10000) / 10000,
           mtd: Math.round(mtdSpent * 10000) / 10000,
           topModels,
+          totalTokens,
         },
-        costsAvailable: costs !== null,
-        creditsAvailable: credits !== null,
+        costsAvailable,
+        creditsAvailable: false,
       });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || 'Failed to fetch OpenAI billing data' });

@@ -1,0 +1,97 @@
+First — you should immediately revoke that API key. 🔑⚠️
+You just posted a live secret key, which means anyone could potentially use it.
+
+Do this now:
+	1.	Go to OpenAI Dashboard → API Keys
+	2.	Delete / revoke the key you posted.
+	3.	Generate a new one.
+
+(You should never paste API keys into chats, GitHub, screenshots, etc.)
+
+⸻
+
+Now to the actual issue you’re seeing.
+
+Why the billing endpoints are failing
+
+The older endpoints like:
+
+/v1/dashboard/billing/credit_grants
+/v1/dashboard/billing/subscription
+
+were part of the legacy OpenAI billing API and many accounts can’t access them anymore, especially when using:
+	•	project keys (sk-proj-...)
+	•	newer platform billing system
+
+Project keys are scoped to models, not organization billing.
+
+So the API returns errors like:
+	•	401 unauthorized
+	•	403 access denied
+	•	not found
+
+⸻
+
+What works now (recommended)
+
+Instead of the old billing endpoints, use the Usage API.
+
+Example:
+
+curl https://api.openai.com/v1/organization/usage \
+  -H "Authorization: Bearer YOUR_API_KEY"
+
+or
+
+curl https://api.openai.com/v1/usage
+
+These return:
+	•	tokens used
+	•	cost
+	•	usage by model
+	•	usage by day
+
+⸻
+
+Important difference: Project vs Org keys
+
+Key type	Can access billing	Can call models
+Project key (sk-proj)	❌ No	✅ Yes
+Org key (legacy sk-...)	✅ Yes	✅ Yes
+
+So if you want billing info programmatically, you may need an organization-level key instead of a project-scoped key.
+
+⸻
+
+What I suspect in your case
+
+Since your key starts with:
+
+sk-proj-
+
+it’s a project API key, so:
+
+✔ model calls work
+❌ billing endpoints blocked
+
+⸻
+
+Best solution for your monitoring dashboard
+
+Most platforms now do this:
+	1.	Pull usage metrics from /v1/usage
+	2.	Track cost locally in your DB
+	3.	Combine with OpenAI pricing table
+
+This is actually more accurate for per-feature tracking anyway.
+
+⸻
+
+💡 Since you’re building a pretty sophisticated platform (Replit dashboards + nightly API jobs), I can also show you something very useful:
+
+A tiny “AI spend monitor” service (50 lines of code) that automatically tracks:
+	•	daily OpenAI spend
+	•	cost per feature
+	•	projected monthly bill
+
+It’s the same pattern used by a lot of AI startups to prevent runaway costs.
