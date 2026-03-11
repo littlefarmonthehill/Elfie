@@ -974,6 +974,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         total: Number(catalogTotal?.count || 0),
       };
 
+      const [platformSettings] = await db.select().from(appSettings).where(eq(appSettings.orgId, PLATFORM_ORG_ID)).limit(1);
+
+      const { getActiveBuild } = await import('./services/clip-search.js');
+      const clipBuild = getActiveBuild();
+      const { getUniversalCatalogState } = await import('./services/universal-clip-catalog.js');
+      const ucWorker = getUniversalCatalogState();
+
+      const schedulerConfig: Record<string, any> = {
+        priceomatic_cache: {
+          enabled: !!platformSettings?.pomScheduleEnabled,
+          schedule: platformSettings?.pomSyncTime || '14:00',
+          frequency: 'Daily',
+          batchSize: platformSettings?.pomScheduleBatchSize ?? 1500,
+        },
+        universal_catalog_refresh: {
+          enabled: !!platformSettings?.universalCatalogScheduleEnabled,
+          schedule: `Every ${platformSettings?.universalCatalogRefreshMonths ?? 1} month(s)`,
+          frequency: `${platformSettings?.universalCatalogRefreshMonths ?? 1}mo`,
+          retryDays: platformSettings?.universalCatalogRetryDays ?? 30,
+          workerRunning: !!ucWorker?.running,
+        },
+        rebrickable_set_parts: {
+          enabled: !!platformSettings?.rebrickableSetSyncEnabled,
+          schedule: platformSettings?.rebrickableSetSyncTime || '04:00',
+          frequency: 'Monthly',
+        },
+        forum_sync: {
+          enabled: !!platformSettings?.forumSyncEnabled,
+          schedule: `Every ${platformSettings?.forumSyncFrequency ?? 60} min`,
+          frequency: `${platformSettings?.forumSyncFrequency ?? 60}min`,
+        },
+        clip_catalog: {
+          enabled: true,
+          schedule: 'Auto-resume on restart',
+          frequency: 'Continuous',
+          workerRunning: !!clipBuild?.running,
+        },
+      };
+
       res.json({
         platform: {
           totalOrganizations: orgCount.count,
@@ -990,10 +1029,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         syncJobs,
         clipCatalogStatus,
+        schedulerConfig,
       });
     } catch (error) {
       console.error("Error fetching system health:", error);
       res.status(500).json({ message: "Failed to fetch system health" });
+    }
+  });
+
+  // POST /api/platform-admin/scheduler/:jobId/trigger — manually run a platform job
+  app.post('/api/platform-admin/scheduler/:jobId/trigger', isSuperAdmin, async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      switch (jobId) {
+        case 'priceomatic_cache': {
+          const { getPomIsRunning } = await import('./services/pom-scheduler.js');
+          if (getPomIsRunning()) return res.status(409).json({ message: 'Price-o-Matic is already running' });
+          const { syncPriceOMagicCache } = await import('./services/bricklink.js');
+          const { syncLock } = await import('./services/sync-lock.js');
+          if (syncLock.isRunning()) return res.status(409).json({ message: `Blocked by: ${syncLock.getActive().join(', ')}` });
+          const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, PLATFORM_ORG_ID)).limit(1);
+          const batchSize = settings?.pomScheduleBatchSize ?? 1500;
+          const { setPomIsRunning } = await import('./services/pom-scheduler.js');
+          setPomIsRunning(true);
+          await db.insert(syncMetadata).values({ id: 'priceomatic_cache', lastSyncStatus: 'in_progress', lastSyncTime: new Date(), recordsAdded: 0, recordsUpdated: 0, orgId: PLATFORM_ORG_ID }).onConflictDoUpdate({ target: syncMetadata.id, set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date() } });
+          syncPriceOMagicCache(batchSize).then(async (result: any) => {
+            await db.insert(syncMetadata).values({ id: 'priceomatic_cache', lastSyncStatus: result.stopped ? 'partial' : 'success', lastSyncTime: new Date(), recordsAdded: 0, recordsUpdated: result.itemsUpdated, errorMessage: result.stopReason || null, orgId: PLATFORM_ORG_ID }).onConflictDoUpdate({ target: syncMetadata.id, set: { lastSyncStatus: result.stopped ? 'partial' : 'success', updatedAt: new Date(), recordsUpdated: result.itemsUpdated, errorMessage: result.stopReason || null } });
+            setPomIsRunning(false);
+          }).catch(async (err: any) => {
+            await db.insert(syncMetadata).values({ id: 'priceomatic_cache', lastSyncStatus: 'error', lastSyncTime: new Date(), recordsAdded: 0, recordsUpdated: 0, errorMessage: err.message, orgId: PLATFORM_ORG_ID }).onConflictDoUpdate({ target: syncMetadata.id, set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: err.message } });
+            setPomIsRunning(false);
+          });
+          return res.json({ message: 'Price-o-Matic sync triggered' });
+        }
+        case 'universal_catalog_refresh': {
+          const { isUniversalImporting, getUniversalCatalogState, importFromRebrickable, retryStaleItems, startUniversalWorker } = await import('./services/universal-clip-catalog.js');
+          if (isUniversalImporting() || getUniversalCatalogState()?.running) return res.status(409).json({ message: 'Universal Catalog is already running' });
+          await db.insert(syncMetadata).values({ id: 'universal_catalog_refresh', orgId: PLATFORM_ORG_ID, lastSyncStatus: 'in_progress', lastSyncTime: new Date(), recordsAdded: 0, recordsUpdated: 0 }).onConflictDoUpdate({ target: syncMetadata.id, set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date() } });
+          (async () => {
+            try {
+              const { imported } = await importFromRebrickable();
+              const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, PLATFORM_ORG_ID)).limit(1);
+              const reset = await retryStaleItems(settings?.universalCatalogRetryDays ?? 30);
+              await startUniversalWorker();
+              await db.insert(syncMetadata).values({ id: 'universal_catalog_refresh', orgId: PLATFORM_ORG_ID, lastSyncStatus: 'success', lastSyncTime: new Date(), recordsAdded: imported, recordsUpdated: reset, errorMessage: null }).onConflictDoUpdate({ target: syncMetadata.id, set: { lastSyncStatus: 'success', lastSyncTime: new Date(), recordsAdded: imported, recordsUpdated: reset, errorMessage: null, updatedAt: new Date() } });
+            } catch (err: any) {
+              await db.insert(syncMetadata).values({ id: 'universal_catalog_refresh', orgId: PLATFORM_ORG_ID, lastSyncStatus: 'error', lastSyncTime: new Date(), recordsAdded: 0, recordsUpdated: 0, errorMessage: err.message }).onConflictDoUpdate({ target: syncMetadata.id, set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: err.message } });
+            }
+          })();
+          return res.json({ message: 'Universal Catalog refresh triggered' });
+        }
+        case 'rebrickable_set_parts': {
+          const { syncRebrickableSetParts, getRebrickableSyncIsRunning } = await import('./services/rebrickable.js');
+          if (getRebrickableSyncIsRunning()) return res.status(409).json({ message: 'Rebrickable sync is already running' });
+          syncRebrickableSetParts(false).catch((err: any) => { console.error('[Manual Rebrickable] Failed:', err.message); });
+          return res.json({ message: 'Rebrickable set-parts sync triggered' });
+        }
+        case 'forum_sync': {
+          const { triggerManualForumSync } = await import('./services/bl-forum-scheduler.js');
+          const result = await triggerManualForumSync();
+          if (!result.success) return res.status(409).json({ message: result.error || 'Forum sync failed' });
+          return res.json({ message: 'Forum sync triggered' });
+        }
+        case 'clip_catalog': {
+          const { getActiveBuild, buildCatalogEmbeddings } = await import('./services/clip-search.js');
+          if (getActiveBuild()?.running) return res.status(409).json({ message: 'CLIP Catalog build is already running' });
+          const rows = await db.select({ itemNo: blInventory.itemNo, colorId: blInventory.colorId }).from(blInventory);
+          const items = rows.map((r: any) => ({ itemNo: r.itemNo, colorId: Number(r.colorId), itemType: 'PART' }));
+          buildCatalogEmbeddings(items, () => {}).catch((e: any) => { console.error('[Manual CLIP Build] Failed:', e.message); });
+          return res.json({ message: 'CLIP Catalog build triggered' });
+        }
+        default:
+          return res.status(400).json({ message: `Unknown job: ${jobId}` });
+      }
+    } catch (error: any) {
+      console.error('Error triggering scheduler:', error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // POST /api/platform-admin/scheduler/:jobId/toggle — pause/resume a platform job
+  app.post('/api/platform-admin/scheduler/:jobId/toggle', isSuperAdmin, async (req, res) => {
+    try {
+      const { jobId } = req.params;
+      const { enabled } = req.body;
+      if (typeof enabled !== 'boolean') return res.status(400).json({ message: 'enabled (boolean) is required' });
+
+      const settingMap: Record<string, string> = {
+        priceomatic_cache: 'pomScheduleEnabled',
+        universal_catalog_refresh: 'universalCatalogScheduleEnabled',
+        rebrickable_set_parts: 'rebrickableSetSyncEnabled',
+        forum_sync: 'forumSyncEnabled',
+      };
+
+      const column = settingMap[jobId];
+      if (!column) {
+        if (jobId === 'clip_catalog') {
+          if (!enabled) {
+            const { stopUniversalWorker } = await import('./services/universal-clip-catalog.js');
+            stopUniversalWorker();
+          }
+          return res.json({ message: enabled ? 'CLIP Catalog will auto-resume' : 'CLIP worker stopped' });
+        }
+        return res.status(400).json({ message: `Unknown job: ${jobId}` });
+      }
+
+      await db.update(appSettings).set({ [column]: enabled, updatedAt: new Date() } as any).where(eq(appSettings.orgId, PLATFORM_ORG_ID));
+
+      if (!enabled) {
+        if (jobId === 'universal_catalog_refresh') {
+          const { stopUniversalWorker } = await import('./services/universal-clip-catalog.js');
+          stopUniversalWorker();
+        }
+      }
+
+      res.json({ message: `${jobId} ${enabled ? 'enabled' : 'paused'}` });
+    } catch (error: any) {
+      console.error('Error toggling scheduler:', error);
+      res.status(500).json({ message: error.message });
     }
   });
 

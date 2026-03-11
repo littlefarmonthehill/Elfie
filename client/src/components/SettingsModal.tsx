@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Activity, Flag, Power, Zap, Globe, ToggleLeft, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Activity, Flag, Power, Zap, Globe, ToggleLeft, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { PomCategoryTiers } from "@/components/PomCategoryTiers";
@@ -948,6 +948,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     };
     syncJobs?: SyncJobRow[];
     clipCatalogStatus?: { embedded: number; total: number };
+    schedulerConfig?: Record<string, { enabled: boolean; schedule: string; frequency: string; batchSize?: number; retryDays?: number; workerRunning?: boolean }>;
   };
 
   const { data: orgLimitsUsage, isLoading: orgLimitsLoading } = useQuery<{
@@ -6311,14 +6312,19 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         universal_catalog_refresh: 'Universal Catalog',
                         rebrickable_set_parts: 'Rebrickable Sets',
                         forum_sync: 'Forum Sync',
+                        clip_catalog: 'CLIP Catalog Build',
                       };
                       const jobDescriptions: Record<string, string> = {
                         priceomatic_cache: 'Daily price guide refresh via BrickLink API',
                         universal_catalog_refresh: 'Rebrickable import + BrickLink catalog enrichment',
                         rebrickable_set_parts: 'Monthly set-to-part relationship sync',
                         forum_sync: 'BrickLink forum scraping + embeddings',
+                        clip_catalog: 'Visual search embeddings for catalog items',
                       };
-                      const allPlatformJobs = [
+                      const config = systemHealth.schedulerConfig || {};
+                      const clipStatus = systemHealth.clipCatalogStatus;
+
+                      const allJobs = [
                         ...(systemHealth.syncJobs || []).map(job => ({
                           id: job.id,
                           label: jobLabels[job.id] || job.id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
@@ -6328,11 +6334,42 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           recordsAdded: job.recordsAdded,
                           recordsUpdated: job.recordsUpdated,
                           error: job.errorMessage,
-                          updatedAt: job.updatedAt,
+                          config: config[job.id],
                         })),
+                        ...(clipStatus ? [{
+                          id: 'clip_catalog',
+                          label: 'CLIP Catalog Build',
+                          description: 'Visual search embeddings for catalog items',
+                          status: config.clip_catalog?.workerRunning ? 'in_progress' : (clipStatus.embedded >= clipStatus.total ? 'success' : 'idle'),
+                          lastRun: null as string | null,
+                          recordsAdded: clipStatus.embedded,
+                          recordsUpdated: clipStatus.total,
+                          error: null as string | null,
+                          config: config.clip_catalog,
+                        }] : []),
                       ];
-                      const clipStatus = systemHealth.clipCatalogStatus;
-                      const hasActiveJob = allPlatformJobs.some(j => j.status === 'in_progress') || (clipStatus && clipStatus.embedded < clipStatus.total);
+
+                      const hasActiveJob = allJobs.some(j => j.status === 'in_progress');
+
+                      const handleTrigger = async (jobId: string) => {
+                        try {
+                          await apiRequest('POST', `/api/platform-admin/scheduler/${jobId}/trigger`);
+                          queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/system-health'] });
+                        } catch (err: any) {
+                          const msg = err?.message || 'Trigger failed';
+                          alert(msg);
+                        }
+                      };
+
+                      const handleToggle = async (jobId: string, enabled: boolean) => {
+                        try {
+                          await apiRequest('POST', `/api/platform-admin/scheduler/${jobId}/toggle`, { enabled });
+                          queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/system-health'] });
+                        } catch (err: any) {
+                          alert(err?.message || 'Toggle failed');
+                        }
+                      };
+
                       return (
                         <>
                           <div className="flex items-center gap-2 px-1">
@@ -6340,73 +6377,92 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             {hasActiveJob && <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />}
                           </div>
 
-                          {clipStatus && (
-                            <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-3">
-                              <div className="flex items-center gap-3">
-                                <div className="shrink-0">
-                                  {clipStatus.embedded < clipStatus.total
-                                    ? <Loader2 className="h-3.5 w-3.5 text-yellow-400 animate-spin" />
-                                    : <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs text-gray-200">CLIP Catalog Build</p>
-                                  <p className="text-[10px] text-gray-500">Visual search embeddings for catalog items</p>
-                                </div>
-                                <div className="text-right shrink-0">
-                                  <p className="text-[11px] font-mono text-gray-300">{clipStatus.embedded.toLocaleString()}/{clipStatus.total.toLocaleString()}</p>
-                                </div>
-                              </div>
-                              {clipStatus.total > 0 && (
-                                <div className="mt-2 flex items-center gap-2">
-                                  <div className="flex-1 bg-gray-700 rounded-full h-1">
-                                    <div className="bg-yellow-500 h-1 rounded-full transition-all" style={{ width: `${Math.round((clipStatus.embedded / clipStatus.total) * 100)}%` }} />
-                                  </div>
-                                  <span className="text-[9px] text-gray-500">{Math.round((clipStatus.embedded / clipStatus.total) * 100)}%</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          <div className="sm-card-inset">
-                            {allPlatformJobs.length === 0 ? (
-                              <div className="px-4 py-6 text-center">
-                                <p className="sm-description">No platform sync jobs recorded yet</p>
-                              </div>
-                            ) : allPlatformJobs.map(job => {
+                          <div className="space-y-2">
+                            {allJobs.map(job => {
                               const isActive = job.status === 'in_progress';
-                              const isFailed = job.status === 'failed';
+                              const isFailed = job.status === 'failed' || job.status === 'error';
                               const isPartial = job.status === 'partial';
+                              const isClip = job.id === 'clip_catalog';
+                              const cfg = job.config;
+                              const isEnabled = cfg?.enabled ?? false;
+
                               return (
-                                <div key={job.id} className="px-4 py-3 space-y-1">
-                                  <div className="flex items-center gap-3">
-                                    <div className="shrink-0">
-                                      {isActive
-                                        ? <Loader2 className="h-3.5 w-3.5 text-yellow-400 animate-spin" />
-                                        : isFailed
-                                          ? <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
-                                          : isPartial
-                                            ? <AlertTriangle className="h-3.5 w-3.5 text-orange-400" />
-                                            : <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />}
+                                <div key={job.id} className="rounded-lg bg-gray-800/40 border border-gray-700/60">
+                                  <div className="px-4 py-3 space-y-2">
+                                    <div className="flex items-center gap-3">
+                                      <div className="shrink-0">
+                                        {isActive
+                                          ? <Loader2 className="h-3.5 w-3.5 text-yellow-400 animate-spin" />
+                                          : isFailed
+                                            ? <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
+                                            : isPartial
+                                              ? <AlertTriangle className="h-3.5 w-3.5 text-orange-400" />
+                                              : !isEnabled && !isClip
+                                                ? <Pause className="h-3.5 w-3.5 text-gray-500" />
+                                                : <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs text-gray-200">{job.label}</p>
+                                        <p className="text-[10px] text-gray-500">{job.description}</p>
+                                      </div>
+                                      <div className="text-right shrink-0">
+                                        <p className={`text-[10px] font-medium capitalize ${isActive ? 'text-yellow-400' : isFailed ? 'text-red-400' : isPartial ? 'text-orange-400' : !isEnabled && !isClip ? 'text-gray-500' : 'text-green-400/70'}`}>
+                                          {!isEnabled && !isClip ? 'paused' : job.status === 'never' ? 'never run' : job.status}
+                                        </p>
+                                        {!isClip && (
+                                          <p className="text-[9px] text-gray-600 font-mono">
+                                            {job.lastRun ? new Date(job.lastRun).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'never'}
+                                          </p>
+                                        )}
+                                      </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-xs text-gray-200">{job.label}</p>
-                                      <p className="text-[10px] text-gray-500">{job.description}</p>
-                                    </div>
-                                    <div className="text-right shrink-0">
-                                      <p className={`text-[10px] font-medium capitalize ${isActive ? 'text-yellow-400' : isFailed ? 'text-red-400' : isPartial ? 'text-orange-400' : 'text-green-400/70'}`}>
-                                        {job.status}
-                                      </p>
-                                      <p className="text-[9px] text-gray-600 font-mono">
-                                        {job.lastRun ? new Date(job.lastRun).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'never'}
-                                      </p>
+
+                                    {job.error && (
+                                      <p className="text-[10px] text-red-400/80 truncate pl-6">{job.error}</p>
+                                    )}
+
+                                    {isClip && clipStatus && clipStatus.total > 0 && (
+                                      <div className="flex items-center gap-2 pl-6">
+                                        <div className="flex-1 bg-gray-700 rounded-full h-1">
+                                          <div className="bg-yellow-500 h-1 rounded-full transition-all" style={{ width: `${Math.round((clipStatus.embedded / clipStatus.total) * 100)}%` }} />
+                                        </div>
+                                        <span className="text-[9px] text-gray-500 shrink-0">{clipStatus.embedded.toLocaleString()}/{clipStatus.total.toLocaleString()} ({Math.round((clipStatus.embedded / clipStatus.total) * 100)}%)</span>
+                                      </div>
+                                    )}
+
+                                    {!isClip && (job.recordsAdded > 0 || job.recordsUpdated > 0) && (
+                                      <p className="text-[9px] text-gray-600 pl-6">+{job.recordsAdded} added, {job.recordsUpdated} updated</p>
+                                    )}
+
+                                    <div className="flex items-center gap-2 pl-6 pt-1 border-t border-gray-700/40">
+                                      {cfg && (
+                                        <span className="text-[9px] text-gray-500 font-mono flex-1">{cfg.schedule}{cfg.batchSize ? ` · batch ${cfg.batchSize}` : ''}</span>
+                                      )}
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        <button
+                                          data-testid={`button-trigger-${job.id}`}
+                                          onClick={() => handleTrigger(job.id)}
+                                          disabled={isActive}
+                                          className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-yellow-500/10 text-yellow-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                                          title="Run now"
+                                        >
+                                          <Play className="h-2.5 w-2.5" />
+                                          Run
+                                        </button>
+                                        {!isClip && (
+                                          <button
+                                            data-testid={`button-toggle-${job.id}`}
+                                            onClick={() => handleToggle(job.id, !isEnabled)}
+                                            className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium ${isEnabled ? 'bg-green-500/10 text-green-400' : 'bg-gray-500/10 text-gray-400'}`}
+                                            title={isEnabled ? 'Pause scheduler' : 'Resume scheduler'}
+                                          >
+                                            {isEnabled ? <Pause className="h-2.5 w-2.5" /> : <Play className="h-2.5 w-2.5" />}
+                                            {isEnabled ? 'Pause' : 'Resume'}
+                                          </button>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
-                                  {job.error && (
-                                    <p className="text-[10px] text-red-400/80 truncate pl-6">{job.error}</p>
-                                  )}
-                                  {(job.recordsAdded > 0 || job.recordsUpdated > 0) && (
-                                    <p className="text-[9px] text-gray-600 pl-6">+{job.recordsAdded} added, {job.recordsUpdated} updated</p>
-                                  )}
                                 </div>
                               );
                             })}
