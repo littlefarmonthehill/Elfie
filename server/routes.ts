@@ -565,6 +565,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/platform-admin/platform-services/openai-billing — fetch billing/usage from OpenAI API
+  app.get('/api/platform-admin/platform-services/openai-billing', isSuperAdmin, async (_req, res) => {
+    try {
+      const [settings] = await db.select().from(organizations).where(eq(organizations.id, 'org_planetbrick')).limit(1);
+      const apiKey = settings?.openaiApiKey || process.env.OPENAI_API_KEY;
+      if (!apiKey) return res.status(400).json({ message: 'No OpenAI API key configured' });
+
+      const headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
+
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const startTs = Math.floor(startOfMonth.getTime() / 1000);
+      const endTs = Math.floor(now.getTime() / 1000);
+
+      const prev30Start = Math.floor((now.getTime() - 30 * 24 * 60 * 60 * 1000) / 1000);
+      const costsQueryStart = Math.min(startTs, prev30Start);
+
+      const [costsRes, creditsRes] = await Promise.allSettled([
+        fetch(`https://api.openai.com/v1/organization/costs?start_time=${costsQueryStart}&end_time=${endTs}&limit=31`, { headers }),
+        fetch('https://api.openai.com/dashboard/billing/credit_grants', { headers }),
+      ]);
+
+      let costs: any = null;
+      let credits: any = null;
+
+      if (costsRes.status === 'fulfilled' && costsRes.value.ok) {
+        costs = await costsRes.value.json();
+      }
+
+      if (creditsRes.status === 'fulfilled' && creditsRes.value.ok) {
+        credits = await creditsRes.value.json();
+      }
+
+      let last30Spent = 0;
+      let mtdSpent = 0;
+      const costByModel: Record<string, number> = {};
+
+      if (costs?.data) {
+        for (const bucket of costs.data) {
+          for (const item of (bucket.results || [])) {
+            const amt = (item.amount?.value ?? 0) / 100;
+            if (bucket.start_time >= prev30Start) last30Spent += amt;
+            if (bucket.start_time >= startTs) mtdSpent += amt;
+            const lineItem = item.line_item || 'other';
+            costByModel[lineItem] = (costByModel[lineItem] || 0) + amt;
+          }
+        }
+      }
+
+      const topModels = Object.entries(costByModel)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([model, cost]) => ({ model, cost: Math.round(cost * 10000) / 10000 }));
+
+      let totalGranted = 0;
+      let totalUsed = 0;
+      let totalAvailable = 0;
+      let grants: any[] = [];
+
+      if (credits) {
+        totalGranted = credits.total_granted ?? 0;
+        totalUsed = credits.total_used ?? 0;
+        totalAvailable = credits.total_available ?? 0;
+        grants = (credits.grants?.data || []).map((g: any) => ({
+          id: g.id,
+          amount: g.grant_amount,
+          used: g.used_amount,
+          effective: g.effective_at ? new Date(g.effective_at * 1000).toISOString() : null,
+          expires: g.expires_at ? new Date(g.expires_at * 1000).toISOString() : null,
+        }));
+      }
+
+      res.json({
+        billing: {
+          totalGranted: Math.round(totalGranted * 100) / 100,
+          totalUsed: Math.round(totalUsed * 100) / 100,
+          totalAvailable: Math.round(totalAvailable * 100) / 100,
+          grants,
+        },
+        usage: {
+          last30Days: Math.round(last30Spent * 10000) / 10000,
+          mtd: Math.round(mtdSpent * 10000) / 10000,
+          topModels,
+        },
+        costsAvailable: costs !== null,
+        creditsAvailable: credits !== null,
+      });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || 'Failed to fetch OpenAI billing data' });
+    }
+  });
+
   // GET /api/platform-admin/admin-team — list all super admins
   app.get('/api/platform-admin/admin-team', isSuperAdmin, async (_req, res) => {
     try {
