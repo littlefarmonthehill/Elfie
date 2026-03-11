@@ -717,6 +717,12 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [rebrickableSetSyncTime, setRebrickableSetSyncTime] = useState("04:00");
   const [ordersSyncFrequency, setOrdersSyncFrequency] = useState(15);
   const [ordersSyncFrequencyStr, setOrdersSyncFrequencyStr] = useState("15");
+  const [forumSyncEnabled, setForumSyncEnabled] = useState(true);
+  const [forumSyncFrequency, setForumSyncFrequency] = useState(60);
+  const [forumSyncFrequencyStr, setForumSyncFrequencyStr] = useState("60");
+  const [universalCatalogScheduleEnabled, setUniversalCatalogScheduleEnabled] = useState(false);
+  const [universalCatalogRefreshMonths, setUniversalCatalogRefreshMonths] = useState(1);
+  const [universalCatalogRetryDays, setUniversalCatalogRetryDays] = useState(30);
 
   // Price-o-Matic Formula Settings
   const [pomBasePremium, setPomBasePremium] = useState(10);
@@ -1413,6 +1419,12 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       setOrdersSyncFrequencyStr(String(settings.ordersSyncFrequency || 15));
       setRebrickableSetSyncEnabled(settings.rebrickableSetSyncEnabled || false);
       setRebrickableSetSyncTime(settings.rebrickableSetSyncTime || '04:00');
+      setForumSyncEnabled(settings.forumSyncEnabled !== false);
+      setForumSyncFrequency(settings.forumSyncFrequency || 60);
+      setForumSyncFrequencyStr(String(settings.forumSyncFrequency || 60));
+      setUniversalCatalogScheduleEnabled(settings.universalCatalogScheduleEnabled || false);
+      setUniversalCatalogRefreshMonths(settings.universalCatalogRefreshMonths ?? 1);
+      setUniversalCatalogRetryDays(settings.universalCatalogRetryDays ?? 30);
 
       // Price-o-Matic formula settings
       setPomBasePremium(settings.pomBasePremium ?? 10);
@@ -7259,63 +7271,23 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* ── Jobs tab ──────────────────────────────────── */}
                 {activePlatformServicesTab === 'jobs' && (
-                  <div className="space-y-4">
+                  <div className="space-y-5">
                     {systemHealthLoading ? (
                       <div className="flex items-center justify-center py-10">
                         <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
                       </div>
                     ) : systemHealth ? (() => {
-                      const jobLabels: Record<string, string> = {
-                        priceomatic_cache: 'Price-o-Matic',
-                        universal_catalog_refresh: 'Universal Catalog',
-                        rebrickable_set_parts: 'Rebrickable Sets',
-                        forum_sync: 'Forum Sync',
-                        clip_catalog: 'CLIP Catalog Build',
-                      };
-                      const jobDescriptions: Record<string, string> = {
-                        priceomatic_cache: 'Daily price guide refresh via BrickLink API',
-                        universal_catalog_refresh: 'Rebrickable import + BrickLink catalog enrichment',
-                        rebrickable_set_parts: 'Monthly set-to-part relationship sync',
-                        forum_sync: 'BrickLink forum scraping + embeddings',
-                        clip_catalog: 'Visual search embeddings for catalog items',
-                      };
                       const config = systemHealth.schedulerConfig || {};
                       const clipStatus = systemHealth.clipCatalogStatus;
-
-                      const allJobs = [
-                        ...(systemHealth.syncJobs || []).map(job => ({
-                          id: job.id,
-                          label: jobLabels[job.id] || job.id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-                          description: jobDescriptions[job.id] || '',
-                          status: job.lastSyncStatus,
-                          lastRun: job.lastSyncTime,
-                          recordsAdded: job.recordsAdded,
-                          recordsUpdated: job.recordsUpdated,
-                          error: job.errorMessage,
-                          config: config[job.id],
-                        })),
-                        ...(clipStatus ? [{
-                          id: 'clip_catalog',
-                          label: 'CLIP Catalog Build',
-                          description: 'Visual search embeddings for catalog items',
-                          status: config.clip_catalog?.workerRunning ? 'in_progress' : (clipStatus.embedded >= clipStatus.total ? 'success' : 'idle'),
-                          lastRun: null as string | null,
-                          recordsAdded: clipStatus.embedded,
-                          recordsUpdated: clipStatus.total,
-                          error: null as string | null,
-                          config: config.clip_catalog,
-                        }] : []),
-                      ];
-
-                      const hasActiveJob = allJobs.some(j => j.status === 'in_progress');
+                      const syncJobs = systemHealth.syncJobs || [];
+                      const getJob = (id: string) => syncJobs.find(j => j.id === id);
 
                       const handleTrigger = async (jobId: string) => {
                         try {
                           await apiRequest('POST', `/api/platform-admin/scheduler/${jobId}/trigger`);
                           queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/system-health'] });
                         } catch (err: any) {
-                          const msg = err?.message || 'Trigger failed';
-                          alert(msg);
+                          alert(err?.message || 'Trigger failed');
                         }
                       };
 
@@ -7328,131 +7300,270 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         }
                       };
 
+                      const StatusDot = ({ status, enabled }: { status: string | null; enabled: boolean }) => {
+                        if (status === 'in_progress') return <Loader2 className="h-4 w-4 text-yellow-400 animate-spin" />;
+                        if (status === 'failed' || status === 'error') return <AlertTriangle className="h-4 w-4 text-red-400" />;
+                        if (status === 'partial') return <AlertTriangle className="h-4 w-4 text-orange-400" />;
+                        if (!enabled) return <Pause className="h-4 w-4 text-gray-500" />;
+                        return <CheckCircle2 className="h-4 w-4 text-green-400" />;
+                      };
+
+                      const StatusLabel = ({ status, enabled }: { status: string | null; enabled: boolean }) => {
+                        const label = !enabled ? 'Paused' : status === 'in_progress' ? 'Running' : status === 'never' ? 'Never run' : status === 'success' ? 'Completed' : status === 'partial' ? 'Partial' : status === 'failed' || status === 'error' ? 'Failed' : 'Idle';
+                        const color = !enabled ? 'text-gray-500' : status === 'in_progress' ? 'text-yellow-400' : status === 'failed' || status === 'error' ? 'text-red-400' : status === 'partial' ? 'text-orange-400' : 'text-green-400/80';
+                        return <span className={`sm-hint font-medium capitalize ${color}`}>{label}</span>;
+                      };
+
+                      const LastRun = ({ job }: { job: any }) => (
+                        <span className="sm-hint">
+                          {job?.lastSyncTime ? new Date(job.lastSyncTime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never'}
+                        </span>
+                      );
+
+                      const RecordCounts = ({ job }: { job: any }) => {
+                        if (!job || (job.recordsAdded === 0 && job.recordsUpdated === 0)) return null;
+                        return <span className="sm-hint">+{job.recordsAdded} added · {job.recordsUpdated} updated</span>;
+                      };
+
+                      const pomJob = getJob('priceomatic_cache');
+                      const ucJob = getJob('universal_catalog_refresh');
+                      const rbJob = getJob('rebrickable_set_parts');
+                      const fmJob = getJob('forum_sync');
+                      const pomActive = pomJob?.lastSyncStatus === 'in_progress';
+                      const ucActive = ucJob?.lastSyncStatus === 'in_progress';
+                      const rbActive = rbJob?.lastSyncStatus === 'in_progress';
+                      const fmActive = fmJob?.lastSyncStatus === 'in_progress';
+                      const clipActive = config.clip_catalog?.workerRunning;
+
                       return (
                         <>
                           <div className="flex items-center gap-2 px-1">
-                            <p className="sm-group-label">Platform Scheduled Jobs</p>
-                            {hasActiveJob && <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />}
+                            <p className="sm-group-label flex-1">Platform Job Scheduler</p>
+                            {(pomActive || ucActive || rbActive || fmActive || clipActive) && <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />}
                           </div>
 
-                          <div className="space-y-2">
-                            {allJobs.map(job => {
-                              const isActive = job.status === 'in_progress';
-                              const isFailed = job.status === 'failed' || job.status === 'error';
-                              const isPartial = job.status === 'partial';
-                              const isClip = job.id === 'clip_catalog';
-                              const cfg = job.config;
-                              const isEnabled = cfg?.enabled ?? false;
-
-                              return (
-                                <div key={job.id} className="rounded-lg bg-gray-800/40 border border-gray-700/60">
-                                  <div className="px-4 py-3 space-y-2">
-                                    <div className="flex items-center gap-3">
-                                      <div className="shrink-0">
-                                        {isActive
-                                          ? <Loader2 className="h-3.5 w-3.5 text-yellow-400 animate-spin" />
-                                          : isFailed
-                                            ? <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
-                                            : isPartial
-                                              ? <AlertTriangle className="h-3.5 w-3.5 text-orange-400" />
-                                              : !isEnabled && !isClip
-                                                ? <Pause className="h-3.5 w-3.5 text-gray-500" />
-                                                : <CheckCircle2 className="h-3.5 w-3.5 text-green-400" />}
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-xs text-gray-200">{job.label}</p>
-                                        <p className="text-[10px] text-gray-500">{job.description}</p>
-                                      </div>
-                                      <div className="text-right shrink-0">
-                                        <p className={`text-[10px] font-medium capitalize ${isActive ? 'text-yellow-400' : isFailed ? 'text-red-400' : isPartial ? 'text-orange-400' : !isEnabled && !isClip ? 'text-gray-500' : 'text-green-400/70'}`}>
-                                          {!isEnabled && !isClip ? 'paused' : job.status === 'never' ? 'never run' : job.status}
-                                        </p>
-                                        {!isClip && (
-                                          <p className="text-[9px] text-gray-600 font-mono">
-                                            {job.lastRun ? new Date(job.lastRun).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'never'}
-                                          </p>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    {job.error && (
-                                      <p className="text-[10px] text-red-400/80 truncate pl-6">{job.error}</p>
-                                    )}
-
-                                    {isClip && clipStatus && clipStatus.total > 0 && (
-                                      <div className="flex items-center gap-2 pl-6">
-                                        <div className="flex-1 bg-gray-700 rounded-full h-1">
-                                          <div className="bg-yellow-500 h-1 rounded-full transition-all" style={{ width: `${Math.round((clipStatus.embedded / clipStatus.total) * 100)}%` }} />
-                                        </div>
-                                        <span className="text-[9px] text-gray-500 shrink-0">{clipStatus.embedded.toLocaleString()}/{clipStatus.total.toLocaleString()} ({Math.round((clipStatus.embedded / clipStatus.total) * 100)}%)</span>
-                                      </div>
-                                    )}
-
-                                    {!isClip && (job.recordsAdded > 0 || job.recordsUpdated > 0) && (
-                                      <p className="text-[9px] text-gray-600 pl-6">+{job.recordsAdded} added, {job.recordsUpdated} updated</p>
-                                    )}
-
-                                    <div className="flex items-center gap-2 pl-6 pt-1 border-t border-gray-700/40">
-                                      {cfg && (
-                                        <span className="text-[9px] text-gray-500 font-mono flex-1">{cfg.schedule}{cfg.batchSize ? ` · batch ${cfg.batchSize}` : ''}</span>
-                                      )}
-                                      <div className="flex items-center gap-1 shrink-0">
-                                        <button
-                                          data-testid={`button-trigger-${job.id}`}
-                                          onClick={() => handleTrigger(job.id)}
-                                          disabled={isActive}
-                                          className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium bg-yellow-500/10 text-yellow-400 disabled:opacity-30 disabled:cursor-not-allowed"
-                                          title="Run now"
-                                        >
-                                          <Play className="h-2.5 w-2.5" />
-                                          Run
-                                        </button>
-                                        {!isClip && (
-                                          <button
-                                            data-testid={`button-toggle-${job.id}`}
-                                            onClick={() => handleToggle(job.id, !isEnabled)}
-                                            className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium ${isEnabled ? 'bg-green-500/10 text-green-400' : 'bg-gray-500/10 text-gray-400'}`}
-                                            title={isEnabled ? 'Pause scheduler' : 'Resume scheduler'}
-                                          >
-                                            {isEnabled ? <Pause className="h-2.5 w-2.5" /> : <Play className="h-2.5 w-2.5" />}
-                                            {isEnabled ? 'Pause' : 'Resume'}
-                                          </button>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
+                          {/* ── Price-o-Matic ──────────────────────────── */}
+                          <div className="sm-card">
+                            <div className="sm-card-header">
+                              <StatusDot status={pomJob?.lastSyncStatus || null} enabled={pomScheduleEnabled} />
+                              <div className="flex-1 min-w-0">
+                                <p className="sm-label">Price-o-Matic</p>
+                                <p className="sm-hint">Daily price guide refresh via BrickLink API</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <StatusLabel status={pomJob?.lastSyncStatus || null} enabled={pomScheduleEnabled} />
+                                <Button size="icon" variant="ghost" disabled={pomActive} onClick={() => handleTrigger('priceomatic_cache')} title="Run now" data-testid="button-trigger-pom">
+                                  {pomActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="px-4 py-3 space-y-3">
+                              {pomJob?.errorMessage && (
+                                <p className="text-xs text-red-400/80 truncate">{pomJob.errorMessage}</p>
+                              )}
+                              <div className="sm-row">
+                                <span className="sm-label">Enabled</span>
+                                <Switch checked={pomScheduleEnabled} onCheckedChange={(checked) => { setPomScheduleEnabled(checked); updateSettingsMutation.mutate({ pomScheduleEnabled: checked }); }} data-testid="switch-pom-scheduler" />
+                              </div>
+                              <div className="sm-row">
+                                <span className="sm-label">Run time</span>
+                                <Input type="time" value={pomSyncTime} onChange={(e) => setPomSyncTime(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ pomSyncTime })} className="w-28 text-xs text-right" data-testid="input-pom-scheduler-time" />
+                              </div>
+                              <div className="sm-row">
+                                <div>
+                                  <span className="sm-label">Batch size</span>
+                                  <p className="sm-hint">Lots per scheduled run</p>
                                 </div>
-                              );
-                            })}
+                                <Input type="number" min={100} max={5000} step={100} value={pomScheduleBatchSize} onChange={(e) => setPomScheduleBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomScheduleBatchSize })} className="w-24 text-xs text-right" data-testid="input-pom-scheduler-batch" />
+                              </div>
+                              <div className="sm-row">
+                                <div>
+                                  <span className="sm-label">Manual batch size</span>
+                                  <p className="sm-hint">Lots when triggered via Run button</p>
+                                </div>
+                                <Input type="number" min={100} max={5000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomBatchSize })} className="w-24 text-xs text-right" data-testid="input-pom-manual-batch" />
+                              </div>
+                              <div className="flex items-center justify-between gap-4 pt-1 border-t border-gray-700/40">
+                                <LastRun job={pomJob} />
+                                <RecordCounts job={pomJob} />
+                              </div>
+                            </div>
                           </div>
 
+                          {/* ── Universal Catalog ──────────────────────── */}
+                          <div className="sm-card">
+                            <div className="sm-card-header">
+                              <StatusDot status={ucJob?.lastSyncStatus || null} enabled={universalCatalogScheduleEnabled} />
+                              <div className="flex-1 min-w-0">
+                                <p className="sm-label">Universal Catalog</p>
+                                <p className="sm-hint">Rebrickable import + BrickLink catalog enrichment</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <StatusLabel status={ucJob?.lastSyncStatus || null} enabled={universalCatalogScheduleEnabled} />
+                                <Button size="icon" variant="ghost" disabled={ucActive} onClick={() => handleTrigger('universal_catalog_refresh')} title="Run now" data-testid="button-trigger-uc">
+                                  {ucActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="px-4 py-3 space-y-3">
+                              {ucJob?.errorMessage && (
+                                <p className="text-xs text-red-400/80 truncate">{ucJob.errorMessage}</p>
+                              )}
+                              <div className="sm-row">
+                                <span className="sm-label">Enabled</span>
+                                <Switch checked={universalCatalogScheduleEnabled} onCheckedChange={(checked) => { setUniversalCatalogScheduleEnabled(checked); updateSettingsMutation.mutate({ universalCatalogScheduleEnabled: checked }); }} data-testid="switch-uc-scheduler" />
+                              </div>
+                              <div className="sm-row">
+                                <div>
+                                  <span className="sm-label">Refresh interval</span>
+                                  <p className="sm-hint">Months between full imports</p>
+                                </div>
+                                <Input type="number" min={1} max={12} value={universalCatalogRefreshMonths} onChange={(e) => setUniversalCatalogRefreshMonths(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ universalCatalogRefreshMonths })} className="w-20 text-xs text-right" data-testid="input-uc-refresh-months" />
+                              </div>
+                              <div className="sm-row">
+                                <div>
+                                  <span className="sm-label">Retry stale after</span>
+                                  <p className="sm-hint">Days before retrying failed items</p>
+                                </div>
+                                <Input type="number" min={1} max={365} value={universalCatalogRetryDays} onChange={(e) => setUniversalCatalogRetryDays(parseInt(e.target.value) || 30)} onBlur={() => updateSettingsMutation.mutate({ universalCatalogRetryDays })} className="w-20 text-xs text-right" data-testid="input-uc-retry-days" />
+                              </div>
+                              <div className="flex items-center justify-between gap-4 pt-1 border-t border-gray-700/40">
+                                <LastRun job={ucJob} />
+                                <RecordCounts job={ucJob} />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* ── Rebrickable Sets ───────────────────────── */}
+                          <div className="sm-card">
+                            <div className="sm-card-header">
+                              <StatusDot status={rbJob?.lastSyncStatus || null} enabled={rebrickableSetSyncEnabled} />
+                              <div className="flex-1 min-w-0">
+                                <p className="sm-label">Rebrickable Sets</p>
+                                <p className="sm-hint">Set-to-part relationship sync</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <StatusLabel status={rbJob?.lastSyncStatus || null} enabled={rebrickableSetSyncEnabled} />
+                                <Button size="icon" variant="ghost" disabled={rbActive} onClick={() => handleTrigger('rebrickable_set_parts')} title="Run now" data-testid="button-trigger-rb">
+                                  {rbActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="px-4 py-3 space-y-3">
+                              {rbJob?.errorMessage && (
+                                <p className="text-xs text-red-400/80 truncate">{rbJob.errorMessage}</p>
+                              )}
+                              <div className="sm-row">
+                                <span className="sm-label">Enabled</span>
+                                <Switch checked={rebrickableSetSyncEnabled} onCheckedChange={(checked) => { setRebrickableSetSyncEnabled(checked); updateSettingsMutation.mutate({ rebrickableSetSyncEnabled: checked }); }} data-testid="switch-rb-scheduler" />
+                              </div>
+                              <div className="sm-row">
+                                <span className="sm-label">Run time</span>
+                                <Input type="time" value={rebrickableSetSyncTime} onChange={(e) => setRebrickableSetSyncTime(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ rebrickableSetSyncTime })} className="w-28 text-xs text-right" data-testid="input-rb-scheduler-time" />
+                              </div>
+                              <div className="flex items-center justify-between gap-4 pt-1 border-t border-gray-700/40">
+                                <LastRun job={rbJob} />
+                                <RecordCounts job={rbJob} />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* ── Forum Sync ─────────────────────────────── */}
+                          <div className="sm-card">
+                            <div className="sm-card-header">
+                              <StatusDot status={fmJob?.lastSyncStatus || null} enabled={forumSyncEnabled} />
+                              <div className="flex-1 min-w-0">
+                                <p className="sm-label">Forum Sync</p>
+                                <p className="sm-hint">BrickLink forum scraping + embeddings</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <StatusLabel status={fmJob?.lastSyncStatus || null} enabled={forumSyncEnabled} />
+                                <Button size="icon" variant="ghost" disabled={fmActive} onClick={() => handleTrigger('forum_sync')} title="Run now" data-testid="button-trigger-fm">
+                                  {fmActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="px-4 py-3 space-y-3">
+                              {fmJob?.errorMessage && (
+                                <p className="text-xs text-red-400/80 truncate">{fmJob.errorMessage}</p>
+                              )}
+                              <div className="sm-row">
+                                <span className="sm-label">Enabled</span>
+                                <Switch checked={forumSyncEnabled} onCheckedChange={(checked) => { setForumSyncEnabled(checked); updateSettingsMutation.mutate({ forumSyncEnabled: checked }); }} data-testid="switch-fm-scheduler" />
+                              </div>
+                              <div className="sm-row">
+                                <div>
+                                  <span className="sm-label">Frequency</span>
+                                  <p className="sm-hint">Minutes between runs</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Input type="number" min={5} max={1440} value={forumSyncFrequencyStr} onChange={(e) => setForumSyncFrequencyStr(e.target.value)} onBlur={() => { const val = parseInt(forumSyncFrequencyStr) || 60; setForumSyncFrequency(val); setForumSyncFrequencyStr(String(val)); updateSettingsMutation.mutate({ forumSyncFrequency: val }); }} className="w-20 text-xs text-right" data-testid="input-fm-frequency" />
+                                  <span className="sm-hint">min</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between gap-4 pt-1 border-t border-gray-700/40">
+                                <LastRun job={fmJob} />
+                                <RecordCounts job={fmJob} />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* ── CLIP Catalog Build ─────────────────────── */}
+                          <div className="sm-card">
+                            <div className="sm-card-header">
+                              {clipActive
+                                ? <Loader2 className="h-4 w-4 text-yellow-400 animate-spin" />
+                                : clipStatus && clipStatus.embedded >= clipStatus.total
+                                  ? <CheckCircle2 className="h-4 w-4 text-green-400" />
+                                  : <Pause className="h-4 w-4 text-gray-500" />}
+                              <div className="flex-1 min-w-0">
+                                <p className="sm-label">CLIP Catalog Build</p>
+                                <p className="sm-hint">Visual search embeddings for catalog items</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={`sm-hint font-medium ${clipActive ? 'text-yellow-400' : clipStatus && clipStatus.embedded >= clipStatus.total ? 'text-green-400/80' : 'text-gray-500'}`}>
+                                  {clipActive ? 'Running' : clipStatus && clipStatus.embedded >= clipStatus.total ? 'Complete' : 'Idle'}
+                                </span>
+                                <Button size="icon" variant="ghost" disabled={!!clipActive} onClick={() => handleTrigger('clip_catalog')} title="Run now" data-testid="button-trigger-clip">
+                                  {clipActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                            </div>
+                            {clipStatus && clipStatus.total > 0 && (
+                              <div className="px-4 py-3 space-y-2">
+                                <div className="flex items-center gap-3">
+                                  <div className="flex-1 bg-gray-700 rounded-full h-1.5">
+                                    <div className="bg-yellow-500 h-1.5 rounded-full transition-all" style={{ width: `${Math.round((clipStatus.embedded / clipStatus.total) * 100)}%` }} />
+                                  </div>
+                                  <span className="sm-hint shrink-0 font-mono">{clipStatus.embedded.toLocaleString()} / {clipStatus.total.toLocaleString()}</span>
+                                </div>
+                                <p className="sm-hint">{Math.round((clipStatus.embedded / clipStatus.total) * 100)}% complete</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* ── Embedding Worker ───────────────────────── */}
                           {(systemHealth.jobs.active.length > 0 || systemHealth.jobs.recent.length > 0) && (
                             <div>
                               <p className="sm-group-label mb-2 px-1">Embedding Worker</p>
                               <div className="sm-card-inset">
                                 {systemHealth.jobs.active.map(job => (
-                                  <div key={job.id} className="px-4 py-2.5 flex items-center gap-3">
-                                    <Loader2 className="h-3.5 w-3.5 text-yellow-400 animate-spin shrink-0" />
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-xs text-gray-200 capitalize">{job.jobType}</p>
-                                    </div>
-                                    <div className="text-right shrink-0">
-                                      {job.totalItems > 0 && <p className="text-[10px] text-gray-400 font-mono">{job.processedItems}/{job.totalItems}</p>}
-                                    </div>
+                                  <div key={job.id} className="px-4 py-3 flex items-center gap-3">
+                                    <Loader2 className="h-4 w-4 text-yellow-400 animate-spin shrink-0" />
+                                    <p className="sm-label flex-1 capitalize">{job.jobType}</p>
+                                    {job.totalItems > 0 && <span className="sm-hint font-mono">{job.processedItems}/{job.totalItems}</span>}
                                   </div>
                                 ))}
                                 {systemHealth.jobs.recent.slice(0, 5).map(job => (
-                                  <div key={job.id} className="px-4 py-2.5 flex items-center gap-3">
-                                    <div className="shrink-0">
-                                      {job.status === 'completed' ? <CheckCircle2 className="h-3.5 w-3.5 text-green-400" /> : <AlertTriangle className="h-3.5 w-3.5 text-red-400" />}
-                                    </div>
+                                  <div key={job.id} className="px-4 py-3 flex items-center gap-3">
+                                    {job.status === 'completed' ? <CheckCircle2 className="h-4 w-4 text-green-400" /> : <AlertTriangle className="h-4 w-4 text-red-400" />}
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-xs text-gray-300 capitalize">{job.jobType}</p>
-                                      {job.errorMessage && <p className="text-[10px] text-red-400/80 truncate">{job.errorMessage}</p>}
+                                      <p className="sm-label capitalize">{job.jobType}</p>
+                                      {job.errorMessage && <p className="sm-hint text-red-400/80 truncate">{job.errorMessage}</p>}
                                     </div>
                                     <div className="text-right shrink-0">
-                                      <p className="text-[10px] text-gray-500 font-mono">{job.processedItems}/{job.totalItems}</p>
-                                      <p className="text-[9px] text-gray-600 font-mono">{job.completedAt ? new Date(job.completedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</p>
+                                      <p className="sm-hint font-mono">{job.processedItems}/{job.totalItems}</p>
+                                      <p className="sm-hint">{job.completedAt ? new Date(job.completedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</p>
                                     </div>
                                   </div>
                                 ))}
@@ -7470,7 +7581,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         <p className="sm-description">Failed to load health data</p>
                         <button
                           onClick={() => refetchSystemHealth()}
-                          className="text-[11px] text-yellow-500/70 hover:text-yellow-400 underline"
+                          className="text-xs text-yellow-500/70 hover:text-yellow-400 underline"
                         >
                           Retry
                         </button>
