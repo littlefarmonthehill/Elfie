@@ -12,7 +12,7 @@ import { syncShipStationOrders } from "./services/shipstation";
 import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, asc } from "drizzle-orm";
 import { z } from "zod";
@@ -921,11 +921,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     const results: { table: string; ok: boolean; error?: string }[] = [];
     for (const table of tables) {
+      const client = await pool.connect();
       try {
-        await db.execute(sql.raw(`VACUUM ANALYZE ${table}`));
+        await client.query(`VACUUM ANALYZE ${table}`);
         results.push({ table, ok: true });
       } catch (err: any) {
         results.push({ table, ok: false, error: err.message?.slice(0, 200) });
+      } finally {
+        client.release();
       }
     }
     res.json({ results });
