@@ -600,123 +600,72 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
 
   const trialSeverity = trialDaysLeft !== null && trialDaysLeft <= 3 ? 'error' : trialDaysLeft !== null && trialDaysLeft <= 7 ? 'warn' : null;
 
-  return (
-    <div
-      className="relative rounded-lg border border-violet-500/40 bg-gradient-to-b from-violet-950/30 to-gray-900/85"
-      style={{ boxShadow: '0 0 40px rgba(168,85,247,0.28), 0 0 12px rgba(168,85,247,0.28)' }}
-      data-testid="system-pulse"
+  const planSummary = billingStatus ? (
+    <button
+      onClick={() => onOpenSettings?.('billing')}
+      className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+      data-testid="system-pulse-plan"
     >
-      {/* Shine line */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-400/50 to-transparent pointer-events-none z-10" />
-      {/* Header — plan name + interval + renewal date right-aligned */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-violet-500/40 bg-gradient-to-b from-violet-950/40 to-gray-900/80 rounded-t-lg">
-        <div
-          className="p-1 rounded-md bg-purple-900/60 ring-1 ring-purple-500/50 shrink-0"
-          style={{ boxShadow: '0 0 8px rgba(168,85,247,0.55)' }}
-        >
-          <CreditCard className="w-3 h-3 text-purple-200" />
-        </div>
-        <span className="text-xs font-semibold uppercase tracking-widest text-purple-200">Your Plan</span>
-        {billingStatus && (
-          <button
-            onClick={() => onOpenSettings?.('billing')}
-            className="ml-auto flex items-center gap-1.5 hover:opacity-80 transition-opacity"
-            data-testid="system-pulse-plan"
-          >
-            <span className="text-[10px] text-violet-300 font-semibold">
-              {planLabels[billingStatus.plan] ?? billingStatus.plan}
-            </span>
-            {intervalLabel && !isTrial && (
-              <span className="text-[9px] text-muted-foreground/70 bg-gray-800/60 rounded px-1 py-0.5 leading-none">
-                {intervalLabel}
-              </span>
-            )}
-            {renewalDateStr && !isTrial && (
-              <span className="text-[9px] text-muted-foreground/60 leading-none">
-                renews {renewalDateStr}
-              </span>
-            )}
-          </button>
+      <span className="text-[10px] text-violet-300 font-semibold">
+        {planLabels[billingStatus.plan] ?? billingStatus.plan}
+      </span>
+      {intervalLabel && !isTrial && (
+        <span className="text-[9px] text-muted-foreground/70 bg-gray-800/60 rounded px-1 py-0.5 leading-none">
+          {intervalLabel}
+        </span>
+      )}
+    </button>
+  ) : undefined;
+
+  return (
+    <LaneCard title="Your Plan" Icon={CreditCard} color="purple" summary={planSummary}>
+
+      {(hasAlerts || (bsLimited && (bsNearLimit || bsAtLimit)) || (isTrial && trialDaysLeft !== null)) ? (
+        <LaneSection label="Attention">
+          {all.map((item) => (
+            <AlertItem
+              key={item.id}
+              icon={item.severity === 'error' ? XCircle : item.severity === 'info' ? Settings : AlertCircle}
+              iconColor={item.severity === 'error' ? 'text-red-400' : item.severity === 'info' ? 'text-blue-400' : 'text-yellow-400'}
+              label={item.label}
+              sub={item.section ? 'Tap to fix' : undefined}
+              severity={item.severity}
+              onClick={item.section ? () => onOpenSettings?.(item.section) : undefined}
+            />
+          ))}
+          {bsLimited && (bsNearLimit || bsAtLimit) && (
+            <AlertItem
+              icon={ScanSearch}
+              iconColor={bsAtLimit ? 'text-red-400' : 'text-yellow-400'}
+              label={`BrickSpotter ${bsAtLimit ? 'limit reached' : 'near limit'}`}
+              sub={`${bs.scansUsed} / ${bs.scansLimit} scans used`}
+              severity={bsAtLimit ? 'error' : 'warn'}
+              onClick={() => onOpenSettings?.('billing')}
+            />
+          )}
+          {isTrial && trialDaysLeft !== null && (
+            <AlertItem
+              icon={Clock}
+              iconColor={trialSeverity === 'error' ? 'text-red-400' : trialSeverity === 'warn' ? 'text-yellow-400' : 'text-muted-foreground'}
+              label={trialDaysLeft === 0 ? 'Trial ending today' : `${trialDaysLeft} days left in trial`}
+              sub="Upgrade to keep access"
+              severity={trialSeverity ?? 'info'}
+              onClick={() => onOpenSettings?.('billing')}
+            />
+          )}
+        </LaneSection>
+      ) : (
+        <LaneSection><AllGood label="All systems normal" /></LaneSection>
+      )}
+
+      <LaneSection label="Status" collapsible>
+        {renewalDateStr && !isTrial && (
+          <ActivityItem icon={CreditCard} iconColor="text-purple-400" label="Subscription active" sub={`Renews ${renewalDateStr}`} onClick={() => onOpenSettings?.('billing')} />
         )}
-      </div>
+        <ActivityItem icon={Activity} iconColor="text-purple-300" label="No new notifications" sub="Updates and alerts will appear here" />
+      </LaneSection>
 
-      {/* Rows — one per status item, matching ActivityItem / AlertItem style */}
-      <div className="flex flex-col divide-y divide-border/40">
-
-        {/* ── Attention items first ── */}
-
-        {/* Sync errors and setup items */}
-        {all.map((item) => (
-          <AlertItem
-            key={item.id}
-            icon={item.severity === 'error' ? XCircle : item.severity === 'info' ? Settings : AlertCircle}
-            iconColor={item.severity === 'error' ? 'text-red-400' : item.severity === 'info' ? 'text-blue-400' : 'text-yellow-400'}
-            label={item.label}
-            sub={item.section ? 'Tap to fix' : undefined}
-            severity={item.severity}
-            onClick={item.section ? () => onOpenSettings?.(item.section) : undefined}
-          />
-        ))}
-
-        {/* BrickSpotter scan quota */}
-        {bsLimited && (bsNearLimit || bsAtLimit) && (
-          <div
-            onClick={() => onOpenSettings?.('billing')}
-            className="flex items-start gap-2 rounded px-3 py-1.5 cursor-pointer hover-elevate"
-            data-testid="system-pulse-brickspotter"
-          >
-            <ScanSearch className={`w-3 h-3 shrink-0 mt-0.5 ${bsAtLimit ? 'text-red-400' : 'text-yellow-400'}`} />
-            <div className="flex-1 min-w-0">
-              <p className={`text-xs leading-tight truncate ${bsAtLimit ? 'text-red-300' : 'text-yellow-300'}`}>
-                BrickSpotter {bsAtLimit ? 'limit reached' : 'near limit'}
-              </p>
-              <p className="text-[10px] text-muted-foreground truncate">{bs.scansUsed} / {bs.scansLimit} scans used</p>
-            </div>
-            <ArrowRight className="w-3 h-3 shrink-0 mt-0.5 text-muted-foreground" />
-          </div>
-        )}
-
-        {/* Trial countdown */}
-        {isTrial && trialDaysLeft !== null && (
-          <div
-            onClick={() => onOpenSettings?.('billing')}
-            className="flex items-start gap-2 rounded px-3 py-1.5 cursor-pointer hover-elevate"
-            data-testid="system-pulse-trial"
-          >
-            <Clock className={`w-3 h-3 shrink-0 mt-0.5 ${trialSeverity === 'error' ? 'text-red-400' : trialSeverity === 'warn' ? 'text-yellow-400' : 'text-muted-foreground'}`} />
-            <div className="flex-1 min-w-0">
-              <p className={`text-xs leading-tight truncate ${trialSeverity === 'error' ? 'text-red-300' : trialSeverity === 'warn' ? 'text-yellow-300' : 'text-foreground'}`}>
-                {trialDaysLeft === 0 ? 'Trial ending today' : `${trialDaysLeft} days left in trial`}
-              </p>
-              <p className="text-[10px] text-muted-foreground truncate">Upgrade to keep access</p>
-            </div>
-            <ArrowRight className="w-3 h-3 shrink-0 mt-0.5 text-muted-foreground" />
-          </div>
-        )}
-
-        {/* ── Informational items last ── */}
-
-        {/* Placeholder only when nothing at all is shown */}
-        {!hasAlerts && !(bsLimited && (bsNearLimit || bsAtLimit)) && !(isTrial && trialDaysLeft !== null) && (
-          <AllGood label="All systems normal" />
-        )}
-
-      </div>
-
-      {/* Notifications section */}
-      <div className="border-t border-purple-500/30">
-        <div className="px-3 py-2 space-y-1.5">
-          <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">Notifications</p>
-          <div className="flex items-start gap-2 py-1">
-            <Activity className="w-3.5 h-3.5 shrink-0 text-purple-300 mt-0.5" />
-            <div className="min-w-0">
-              <p className="text-[11px] font-medium text-foreground/90 leading-tight">No new notifications</p>
-              <p className="text-[10px] text-muted-foreground leading-snug mt-0.5">Updates and alerts will appear here</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    </LaneCard>
   );
 }
 
@@ -837,7 +786,9 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
       <DashboardNotifications />
 
       {/* Ops Lanes */}
-      <div className={panelMode ? "grid grid-cols-2 gap-3 items-stretch flex-1 min-h-0" : "grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-4 xl:gap-5 items-stretch"} data-testid="ops-lanes">
+      <div className={panelMode ? "grid grid-cols-3 gap-3 items-stretch flex-1 min-h-0" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-4 xl:gap-5 items-stretch"} data-testid="ops-lanes">
+
+        {panelMode && <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings} />}
 
         <InventoryLane
           stats={stats}

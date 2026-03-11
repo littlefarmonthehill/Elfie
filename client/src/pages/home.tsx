@@ -13,7 +13,7 @@ import SettingsModal from "@/components/SettingsModal";
 import InventoryDashboard from "@/components/InventoryDashboard";
 import SalesDashboard from "@/components/SalesDashboard";
 import MarketingDashboard, { MarketingDrawer } from "@/components/MarketingDashboard";
-import GeneralDashboard, { SystemPulse } from "@/components/GeneralDashboard";
+import GeneralDashboard from "@/components/GeneralDashboard";
 import OrdersDashboard from "@/components/OrdersDashboard";
 import ChatInterface from "@/components/ChatInterface";
 import DetailModal, { DetailData } from "@/components/DetailModal";
@@ -40,27 +40,6 @@ export default function Home() {
     onError: () => toast({ title: 'Failed to exit impersonation', variant: 'destructive' }),
   });
   const { data: org } = useQuery<Organization>({ queryKey: ['/api/org'] });
-  const { data: billingStatus } = useQuery<{ plan: string; status: string; interval: string | null; trialEndsAt: string | null; subscriptionEndsAt: string | null; brickspotter: { scansUsed: number; scansLimit: number } }>({
-    queryKey: ['/api/billing/status'],
-    refetchInterval: 60000,
-  });
-  const { data: blRateLimit } = useQuery<{ allowed: boolean; callsLast24h: number; blocked?: boolean }>({
-    queryKey: ['/api/bricklink/rate-limit'],
-    refetchInterval: 60000,
-  });
-  const { data: appSettingsHome } = useQuery<{ bricklinkConsumerKey?: string | null; paypalClientId?: string | null; stripeSecretKey?: string | null; paypalConnectedViaEnv?: boolean; stripeConnectedViaEnv?: boolean; blApiCallLimit?: number }>({
-    queryKey: ['/api/settings'],
-  });
-  const systemPulseSetupItems = (() => {
-    const items: Array<{ id: string; label: string; section: 'general' | 'platforms' }> = [];
-    if (org?.onboardingCompleted) {
-      if (!org?.address) items.push({ id: 'address', label: 'Add business address', section: 'general' });
-      if (!appSettingsHome?.bricklinkConsumerKey) items.push({ id: 'bricklink', label: 'Connect BrickLink', section: 'platforms' });
-      if (!appSettingsHome?.paypalClientId && !appSettingsHome?.paypalConnectedViaEnv) items.push({ id: 'paypal', label: 'Connect PayPal', section: 'platforms' });
-      if (!appSettingsHome?.stripeSecretKey && !appSettingsHome?.stripeConnectedViaEnv) items.push({ id: 'stripe', label: 'Connect Stripe', section: 'platforms' });
-    }
-    return items;
-  })();
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
   const [isPanelMode, setIsPanelMode] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1280);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -389,15 +368,6 @@ export default function Home() {
             <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: 'hsl(0,85%,72%)', textShadow: '0 0 8px hsla(0,85%,55%,0.7)' }}>Ops Central</span>
           </div>
           <div className="flex-1 overflow-y-auto min-h-0" style={{ background: 'radial-gradient(ellipse at top, hsla(0,85%,55%,0.15) 0%, transparent 55%), linear-gradient(to bottom, hsla(0,85%,55%,0.18), hsla(0,85%,55%,0.04) 100%)' }}>
-            <div className="p-2">
-              <SystemPulse
-                setupItems={systemPulseSetupItems}
-                billingStatus={billingStatus}
-                rateLimit={blRateLimit}
-                blApiCallLimit={appSettingsHome?.blApiCallLimit}
-                onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-              />
-            </div>
             <GeneralDashboard
               panelMode
               onItemClick={handleDashboardItemClick}
