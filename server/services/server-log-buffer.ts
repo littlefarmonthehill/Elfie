@@ -95,6 +95,7 @@ export function installLogInterceptor(): void {
   console.error = (...args: unknown[]) => {
     _origError(...args);
     const msg = args.map(a => (typeof a === 'string' ? a : (a instanceof Error ? a.message : String(a)))).join(' ');
+    if (/\[SegService ERR\].*"(POST|GET) \/.*" (200|204)/.test(msg)) return;
     push('error', msg);
   };
 }

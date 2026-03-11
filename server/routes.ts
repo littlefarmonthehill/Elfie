@@ -1061,6 +1061,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(getRecentLogs(40));
   });
 
+  // DELETE /api/platform-admin/server-logs — clear all buffered log entries
+  app.delete('/api/platform-admin/server-logs', isSuperAdmin, (_req, res) => {
+    const { clearLogs } = require('./services/server-log-buffer');
+    clearLogs();
+    res.json({ ok: true });
+  });
+
   // GET /api/platform-admin/db-tables — table health from pg_stat_user_tables
   app.get('/api/platform-admin/db-tables', isSuperAdmin, async (_req, res) => {
     const TABLE_DESCRIPTIONS: Record<string, string> = {

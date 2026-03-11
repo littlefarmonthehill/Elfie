@@ -6403,20 +6403,35 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <span className="h-1.5 w-1.5 rounded-full bg-yellow-500" />
                           )}
                         </div>
-                        <button
-                          onClick={() => refetchServerLogs()}
-                          className="text-gray-600 hover:text-gray-400 transition-colors"
-                          data-testid="button-refresh-server-logs"
-                        >
-                          <RefreshCw className="h-3 w-3" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {serverLogs && serverLogs.length > 0 && (
+                            <button
+                              onClick={async () => {
+                                const { apiRequest } = await import('@/lib/queryClient');
+                                await apiRequest('DELETE', '/api/platform-admin/server-logs');
+                                refetchServerLogs();
+                              }}
+                              className="text-[10px] text-gray-600 hover:text-gray-400 transition-colors"
+                              data-testid="button-clear-server-logs"
+                            >
+                              Clear
+                            </button>
+                          )}
+                          <button
+                            onClick={() => refetchServerLogs()}
+                            className="text-gray-600 hover:text-gray-400 transition-colors"
+                            data-testid="button-refresh-server-logs"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                          </button>
+                        </div>
                       </div>
                       {serverLogsLoading ? (
                         <div className="flex items-center justify-center py-6">
                           <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
                         </div>
                       ) : serverLogs && serverLogs.length > 0 ? (
-                        <div className="rounded-lg border border-gray-700 overflow-hidden divide-y divide-gray-700/40 w-full">
+                        <div className="rounded-lg border border-gray-700 overflow-hidden divide-y divide-gray-700/40 w-full max-w-full">
                           {serverLogs.map(entry => {
                             const isError = entry.level === 'error';
                             const relativeTime = (() => {
@@ -6429,11 +6444,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               return `${hours}h ago`;
                             })();
                             return (
-                              <div key={entry.id} className="flex items-start gap-2.5 px-3 py-2 min-w-0 w-full">
+                              <div key={entry.id} className="flex items-start gap-2.5 px-3 py-2 min-w-0 w-full overflow-hidden">
                                 <span className={`mt-0.5 shrink-0 text-[10px] font-bold uppercase tracking-wider px-1 py-0.5 rounded ${isError ? 'bg-red-500/15 text-red-400' : 'bg-yellow-500/15 text-yellow-400'}`}>
                                   {entry.level}
                                 </span>
-                                <div className="flex-1 min-w-0">
+                                <div className="flex-1 min-w-0 overflow-hidden">
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <p className="text-[11px] text-gray-300 leading-snug truncate cursor-default">{entry.message}</p>
