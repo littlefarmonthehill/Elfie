@@ -24,7 +24,7 @@ async function getOpenAIClient(): Promise<OpenAI> {
 /**
  * Generate an embedding vector for text using OpenAI
  */
-export async function generateEmbedding(text: string): Promise<number[]> {
+export async function generateEmbedding(text: string, orgId?: string | null): Promise<number[]> {
   const openai = await getOpenAIClient();
   const model = 'text-embedding-3-small';
   
@@ -41,6 +41,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
       inputTokens: response.usage.prompt_tokens || 0,
       outputTokens: 0,
       totalTokens: response.usage.total_tokens || 0,
+      orgId: orgId || null,
     });
   }
   
@@ -150,7 +151,7 @@ export async function embedInventoryItem(inventoryId: number) {
     const content = createInventoryContent(enrichedItem);
     
     // Generate embedding
-    const embedding = await generateEmbedding(content);
+    const embedding = await generateEmbedding(content, item.orgId);
     
     // Check if embedding already exists
     const existing = await db.query.inventoryEmbeddings.findFirst({
@@ -202,7 +203,7 @@ export async function embedOrder(orderId: string) {
     const content = createOrderContent(order, order.items);
     
     // Generate embedding
-    const embedding = await generateEmbedding(content);
+    const embedding = await generateEmbedding(content, (order as any).orgId);
     
     // Check if embedding already exists
     const existing = await db.query.orderEmbeddings.findFirst({
@@ -309,7 +310,7 @@ export async function embedOrderDetail(orderDetailId: string) {
     const content = createOrderDetailContent(orderDetail, orderDetail.order, inventoryItem);
     
     // Generate embedding
-    const embedding = await generateEmbedding(content);
+    const embedding = await generateEmbedding(content, (orderDetail.order as any)?.orgId);
     
     // Check if embedding already exists
     const existing = await db.query.orderDetailEmbeddings.findFirst({

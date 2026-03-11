@@ -216,6 +216,8 @@ export async function runMigrations() {
       )
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_ai_usage_log_created_at ON ai_usage_log (created_at)`);
+    await client.query(`ALTER TABLE ai_usage_log ADD COLUMN IF NOT EXISTS org_id VARCHAR(100)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_ai_usage_log_org_id ON ai_usage_log (org_id)`);
     console.log('[Migration] Phase-8 (ai_usage_log table) complete.');
     console.log('[Migration] All startup migrations finished successfully.');
 

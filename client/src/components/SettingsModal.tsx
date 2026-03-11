@@ -997,6 +997,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     retry: 0,
   });
 
+  type OrgUsageOp = { operation: string; tokens: number; cost: number; requests: number };
+  type OrgUsageEntry = { orgId: string; orgName: string; totalTokens: number; totalCost: number; requests: number; operations: OrgUsageOp[] };
+  type OrgUsageData = { orgs: OrgUsageEntry[] };
+  const { data: orgUsageData, isLoading: orgUsageLoading } = useQuery<OrgUsageData>({
+    queryKey: ['/api/platform-admin/platform-services/openai-billing/by-org'],
+    enabled: open && activeSection === 'apiKeys' && activePlatformServicesTab === 'openai' && superAdmin && !!openAIStatusData?.connected,
+    staleTime: 120000,
+    retry: 0,
+  });
+
   const { data: systemHealth, isLoading: systemHealthLoading, isError: systemHealthError, refetch: refetchSystemHealth } = useQuery<SystemHealthData>({
     queryKey: ['/api/platform-admin/system-health'],
     enabled: open && activeSection === 'systemHealth',
@@ -7480,6 +7490,47 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           {!openAIBillingLoading && !openAIBillingData?.costsAvailable && (
                             <p className="text-[10px] text-gray-500">No AI usage tracked yet. Usage will appear here as API calls are made.</p>
                           )}
+                        </div>
+                      </div>
+                    )}
+
+                    {openAIStatusData?.connected && (
+                      <div className="sm-card">
+                        <div className="sm-card-header">
+                          <BarChart2 className="h-3.5 w-3.5 text-blue-400/70" />
+                          <span className="text-xs font-semibold text-gray-200">Usage by Organization (30d)</span>
+                          {orgUsageLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-auto" />}
+                        </div>
+                        <div className="px-4 py-3 space-y-2">
+                          {orgUsageData?.orgs && orgUsageData.orgs.length > 0 ? (
+                            <>
+                              {orgUsageData.orgs.map(org => {
+                                const maxTokens = orgUsageData.orgs[0]?.totalTokens || 1;
+                                return (
+                                  <div key={org.orgId} className="bg-gray-900/60 rounded p-2.5 space-y-1.5" data-testid={`org-usage-${org.orgId}`}>
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="text-[11px] font-medium text-gray-200 truncate">{org.orgName}</span>
+                                      <span className="text-[10px] text-gray-400 shrink-0 tabular-nums">
+                                        {org.totalCost > 0 ? `$${org.totalCost.toFixed(4)}` : ''} {org.totalTokens.toLocaleString()} tokens
+                                      </span>
+                                    </div>
+                                    <div className="w-full bg-gray-800 rounded-full h-1 overflow-hidden">
+                                      <div className="h-full bg-blue-500/60 rounded-full" style={{ width: `${(org.totalTokens / maxTokens) * 100}%` }} />
+                                    </div>
+                                    <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+                                      {org.operations.map(op => (
+                                        <span key={op.operation} className="text-[9px] text-gray-500">
+                                          {op.operation}: {op.tokens.toLocaleString()}t / {op.requests.toLocaleString()} calls
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </>
+                          ) : !orgUsageLoading ? (
+                            <p className="text-[10px] text-gray-500">No per-org usage tracked yet. Data will appear as embedding jobs run.</p>
+                          ) : null}
                         </div>
                       </div>
                     )}

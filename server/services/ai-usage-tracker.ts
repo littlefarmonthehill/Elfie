@@ -1,6 +1,6 @@
 import { db } from '../db';
 import { aiUsageLog } from '@shared/schema';
-import { sql, gte, and } from 'drizzle-orm';
+import { sql, gte, eq, and } from 'drizzle-orm';
 
 const MODEL_COSTS: Record<string, { input: number; output: number }> = {
   'text-embedding-3-small': { input: 0.02 / 1_000_000, output: 0 },
@@ -25,6 +25,7 @@ export async function trackUsage(params: {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  orgId?: string | null;
 }) {
   try {
     const cost = estimateCost(params.model, params.inputTokens, params.outputTokens);
@@ -32,6 +33,7 @@ export async function trackUsage(params: {
       service: params.service,
       model: params.model,
       operation: params.operation,
+      orgId: params.orgId || null,
       inputTokens: params.inputTokens,
       outputTokens: params.outputTokens,
       totalTokens: params.totalTokens,
@@ -88,4 +90,23 @@ export async function getUsageLast30d() {
     .where(gte(aiUsageLog.createdAt, since));
 
   return result;
+}
+
+export async function getUsageByOrg(days: number = 30) {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const rows = await db.select({
+    orgId: aiUsageLog.orgId,
+    operation: aiUsageLog.operation,
+    totalInput: sql<number>`COALESCE(SUM(${aiUsageLog.inputTokens}), 0)`.as('total_input'),
+    totalOutput: sql<number>`COALESCE(SUM(${aiUsageLog.outputTokens}), 0)`.as('total_output'),
+    totalTokens: sql<number>`COALESCE(SUM(${aiUsageLog.totalTokens}), 0)`.as('total_tokens'),
+    totalCost: sql<number>`COALESCE(SUM(${aiUsageLog.estimatedCost}), 0)`.as('total_cost'),
+    requests: sql<number>`COUNT(*)`.as('requests'),
+  })
+    .from(aiUsageLog)
+    .where(gte(aiUsageLog.createdAt, since))
+    .groupBy(aiUsageLog.orgId, aiUsageLog.operation);
+
+  return rows;
 }

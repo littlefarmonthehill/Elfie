@@ -634,6 +634,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/platform-admin/platform-services/openai-billing/by-org — per-org AI usage breakdown
+  app.get('/api/platform-admin/platform-services/openai-billing/by-org', isSuperAdmin, async (_req, res) => {
+    try {
+      const { getUsageByOrg } = await import('./services/ai-usage-tracker');
+      const rows = await getUsageByOrg(30);
+
+      const orgMap: Record<string, { orgId: string; totalTokens: number; totalCost: number; requests: number; operations: Record<string, { tokens: number; cost: number; requests: number }> }> = {};
+
+      for (const row of rows) {
+        const oid = row.orgId || 'platform';
+        if (!orgMap[oid]) {
+          orgMap[oid] = { orgId: oid, totalTokens: 0, totalCost: 0, requests: 0, operations: {} };
+        }
+        const entry = orgMap[oid];
+        const tokens = Number(row.totalTokens);
+        const cost = Number(row.totalCost);
+        const reqs = Number(row.requests);
+        entry.totalTokens += tokens;
+        entry.totalCost += cost;
+        entry.requests += reqs;
+        const op = row.operation || 'other';
+        if (!entry.operations[op]) entry.operations[op] = { tokens: 0, cost: 0, requests: 0 };
+        entry.operations[op].tokens += tokens;
+        entry.operations[op].cost += cost;
+        entry.operations[op].requests += reqs;
+      }
+
+      const orgNames: Record<string, string> = {};
+      try {
+        const orgs = await db.select({ id: organizations.id, name: organizations.name }).from(organizations);
+        for (const o of orgs) orgNames[o.id] = o.name;
+      } catch {}
+
+      const orgs = Object.values(orgMap)
+        .map(o => ({
+          ...o,
+          orgName: orgNames[o.orgId] || (o.orgId === 'platform' ? 'Platform (no org)' : o.orgId),
+          totalCost: Math.round(o.totalCost * 10000) / 10000,
+          operations: Object.entries(o.operations).map(([op, d]) => ({
+            operation: op,
+            tokens: d.tokens,
+            cost: Math.round(d.cost * 10000) / 10000,
+            requests: d.requests,
+          })),
+        }))
+        .sort((a, b) => b.totalTokens - a.totalTokens);
+
+      res.json({ orgs });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || 'Failed to fetch per-org usage' });
+    }
+  });
+
   // GET /api/platform-admin/admin-team — list all super admins
   app.get('/api/platform-admin/admin-team', isSuperAdmin, async (_req, res) => {
     try {
@@ -4232,6 +4285,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           systemPrompt,
           messages,
           maxIterations: 5,
+          orgId,
         });
         assistantMessage = agentResult.message;
         bricklinkCatalogItem = agentResult.bricklinkItem;
@@ -11740,6 +11794,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   // POST /api/feedback/refine — use OpenAI to refine raw feedback into structured form
   app.post("/api/feedback/refine", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const { type, rawDescription } = req.body;
       if (!rawDescription?.trim()) return res.status(400).json({ error: "rawDescription is required" });
       const apiKey = await getPlatformOpenAIKey();
@@ -11785,6 +11840,7 @@ Your response MUST be valid JSON with these exact keys: title, refinedDescriptio
           inputTokens: completion.usage.prompt_tokens || 0,
           outputTokens: completion.usage.completion_tokens || 0,
           totalTokens: completion.usage.total_tokens || 0,
+          orgId: orgId || null,
         });
       }
 

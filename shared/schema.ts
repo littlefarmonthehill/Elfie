@@ -1450,6 +1450,7 @@ export const aiUsageLog = pgTable("ai_usage_log", {
   service: varchar("service", { length: 30 }).notNull(),
   model: varchar("model", { length: 80 }).notNull(),
   operation: varchar("operation", { length: 50 }).notNull(),
+  orgId: varchar("org_id", { length: 100 }),
   inputTokens: integer("input_tokens").notNull().default(0),
   outputTokens: integer("output_tokens").notNull().default(0),
   totalTokens: integer("total_tokens").notNull().default(0),

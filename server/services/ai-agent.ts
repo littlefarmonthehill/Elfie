@@ -22,6 +22,7 @@ interface AgentLoopOptions {
   systemPrompt: string;
   messages: Array<{ role: string; content: string; tool_calls?: any[]; tool_call_id?: string; name?: string }>;
   maxIterations?: number;
+  orgId?: string | null;
 }
 
 interface AgentLoopResult {
@@ -103,6 +104,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
           inputTokens: response.usage.input_tokens || 0,
           outputTokens: response.usage.output_tokens || 0,
           totalTokens: (response.usage.input_tokens || 0) + (response.usage.output_tokens || 0),
+          orgId: options.orgId || null,
         });
       }
     } catch (error: any) {
