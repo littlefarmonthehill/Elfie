@@ -1072,15 +1072,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .groupBy(blApiCalls.orgId, blApiCalls.endpoint, blApiCalls.success);
 
       const orgMap = new Map<string, {
-        orgId: string; total: number; inventory: number; orders: number;
+        orgId: string; orgName: string; total: number; inventory: number; orders: number;
         catalog: number; priceGuide: number; other: number;
         success: number; failed: number;
       }>();
 
       for (const row of rows) {
         const oid = row.orgId || 'unknown';
+        if (oid === 'platform') continue;
         if (!orgMap.has(oid)) {
-          orgMap.set(oid, { orgId: oid, total: 0, inventory: 0, orders: 0, catalog: 0, priceGuide: 0, other: 0, success: 0, failed: 0 });
+          orgMap.set(oid, { orgId: oid, orgName: '', total: 0, inventory: 0, orders: 0, catalog: 0, priceGuide: 0, other: 0, success: 0, failed: 0 });
         }
         const entry = orgMap.get(oid)!;
         const count = Number(row.calls);
@@ -1096,6 +1097,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         else if (ep.includes('/items/') || ep.includes('/item_mapping')) entry.catalog += count;
         else if (ep.includes('/categories') || ep.includes('/colors')) entry.catalog += count;
         else entry.other += count;
+      }
+
+      const orgIds = Array.from(orgMap.keys());
+      if (orgIds.length > 0) {
+        const orgs = await db.select({ id: organizations.id, name: organizations.name }).from(organizations).where(inArray(organizations.id, orgIds));
+        for (const org of orgs) {
+          const entry = orgMap.get(org.id);
+          if (entry) entry.orgName = org.name;
+        }
       }
 
       const result = Array.from(orgMap.values()).sort((a, b) => b.total - a.total);

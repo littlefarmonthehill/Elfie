@@ -1124,7 +1124,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   });
 
   type BlApiBreakdownRow = {
-    orgId: string; total: number; inventory: number; orders: number;
+    orgId: string; orgName: string; total: number; inventory: number; orders: number;
     catalog: number; priceGuide: number; other: number;
     success: number; failed: number;
   };
@@ -6822,7 +6822,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {activeCustomerHealthTab === 'bricklink' && (
                   <div className="p-4 space-y-4 min-w-0 overflow-hidden">
-                    <p className="sm-group-label px-1">BrickLink API Usage by Organization (24h)</p>
+                    <p className="sm-group-label px-1">API Usage by Customer (24h)</p>
                     {blApiBreakdownLoading ? (
                       <div className="flex items-center justify-center py-10">
                         <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
@@ -6831,8 +6831,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       const sortCol = blBreakdownSort.col;
                       const sortDir = blBreakdownSort.dir;
                       const sorted = [...blApiBreakdown].sort((a, b) => {
-                        const av = sortCol === 'orgId' ? a.orgId : (a as any)[sortCol] as number;
-                        const bv = sortCol === 'orgId' ? b.orgId : (b as any)[sortCol] as number;
+                        const av = sortCol === 'orgId' ? (a.orgName || a.orgId) : (a as any)[sortCol] as number;
+                        const bv = sortCol === 'orgId' ? (b.orgName || b.orgId) : (b as any)[sortCol] as number;
                         if (typeof av === 'string' && typeof bv === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
                         return sortDir === 'asc' ? (av as number) - (bv as number) : (bv as number) - (av as number);
                       });
@@ -6844,29 +6844,29 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       const columns = [
                         { key: 'orgId', label: 'Organization', align: 'left' as const },
                         { key: 'total', label: 'Total', align: 'right' as const },
-                        { key: 'inventory', label: 'Inventory', align: 'right' as const },
-                        { key: 'orders', label: 'Orders', align: 'right' as const },
-                        { key: 'catalog', label: 'Catalog', align: 'right' as const },
-                        { key: 'priceGuide', label: 'Price Guide', align: 'right' as const },
-                        { key: 'other', label: 'Other', align: 'right' as const },
-                        { key: 'failed', label: 'Failed', align: 'right' as const },
+                        { key: 'inventory', label: 'Inv', align: 'right' as const },
+                        { key: 'orders', label: 'Ord', align: 'right' as const },
+                        { key: 'catalog', label: 'Cat', align: 'right' as const },
+                        { key: 'priceGuide', label: 'PG', align: 'right' as const },
+                        { key: 'other', label: 'Oth', align: 'right' as const },
+                        { key: 'failed', label: 'Fail', align: 'right' as const },
                       ];
                       return (
-                        <div className="rounded-lg border border-gray-700 overflow-hidden overflow-x-auto">
-                          <table className="w-full text-[11px]" data-testid="table-bl-api-breakdown">
+                        <div className="rounded-lg border border-gray-700 overflow-x-auto">
+                          <table className="w-full text-[10px] table-fixed" style={{ minWidth: '420px' }} data-testid="table-bl-api-breakdown">
                             <thead>
                               <tr className="bg-gray-800/80 border-b border-gray-700/60">
                                 {columns.map(col => (
                                   <th
                                     key={col.key}
                                     onClick={() => toggleSort(col.key)}
-                                    className={`px-2.5 py-2 font-semibold cursor-pointer select-none transition-colors hover:text-yellow-400 ${col.align === 'right' ? 'text-right' : 'text-left'} ${sortCol === col.key ? 'text-yellow-400' : 'text-gray-500'}`}
+                                    className={`px-1.5 py-2 font-semibold cursor-pointer select-none transition-colors hover:text-yellow-400 whitespace-nowrap ${col.align === 'right' ? 'text-right' : 'text-left'} ${sortCol === col.key ? 'text-yellow-400' : 'text-gray-500'} ${col.key === 'orgId' ? 'w-[35%]' : ''}`}
                                     data-testid={`sort-bl-${col.key}`}
                                   >
                                     <span className="inline-flex items-center gap-0.5">
                                       {col.label}
                                       {sortCol === col.key && (
-                                        <span className="text-[9px]">{sortDir === 'desc' ? '▼' : '▲'}</span>
+                                        <span className="text-[8px]">{sortDir === 'desc' ? '▼' : '▲'}</span>
                                       )}
                                     </span>
                                   </th>
@@ -6876,14 +6876,14 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <tbody className="divide-y divide-gray-700/30">
                               {sorted.map(row => (
                                 <tr key={row.orgId} className="hover-elevate" data-testid={`row-bl-org-${row.orgId}`}>
-                                  <td className="px-2.5 py-1.5 font-mono text-gray-300 truncate max-w-[160px]">{row.orgId}</td>
-                                  <td className="px-2.5 py-1.5 text-right font-mono font-semibold text-gray-200">{row.total.toLocaleString()}</td>
-                                  <td className="px-2.5 py-1.5 text-right font-mono text-gray-400">{row.inventory > 0 ? row.inventory.toLocaleString() : '—'}</td>
-                                  <td className="px-2.5 py-1.5 text-right font-mono text-gray-400">{row.orders > 0 ? row.orders.toLocaleString() : '—'}</td>
-                                  <td className="px-2.5 py-1.5 text-right font-mono text-gray-400">{row.catalog > 0 ? row.catalog.toLocaleString() : '—'}</td>
-                                  <td className="px-2.5 py-1.5 text-right font-mono text-gray-400">{row.priceGuide > 0 ? row.priceGuide.toLocaleString() : '—'}</td>
-                                  <td className="px-2.5 py-1.5 text-right font-mono text-gray-400">{row.other > 0 ? row.other.toLocaleString() : '—'}</td>
-                                  <td className={`px-2.5 py-1.5 text-right font-mono ${row.failed > 0 ? 'text-red-400 font-semibold' : 'text-gray-600'}`}>{row.failed > 0 ? row.failed.toLocaleString() : '—'}</td>
+                                  <td className="px-1.5 py-1.5 text-gray-300 truncate">{row.orgName || row.orgId}</td>
+                                  <td className="px-1.5 py-1.5 text-right font-mono font-semibold text-gray-200">{row.total.toLocaleString()}</td>
+                                  <td className="px-1.5 py-1.5 text-right font-mono text-gray-400">{row.inventory > 0 ? row.inventory.toLocaleString() : '—'}</td>
+                                  <td className="px-1.5 py-1.5 text-right font-mono text-gray-400">{row.orders > 0 ? row.orders.toLocaleString() : '—'}</td>
+                                  <td className="px-1.5 py-1.5 text-right font-mono text-gray-400">{row.catalog > 0 ? row.catalog.toLocaleString() : '—'}</td>
+                                  <td className="px-1.5 py-1.5 text-right font-mono text-gray-400">{row.priceGuide > 0 ? row.priceGuide.toLocaleString() : '—'}</td>
+                                  <td className="px-1.5 py-1.5 text-right font-mono text-gray-400">{row.other > 0 ? row.other.toLocaleString() : '—'}</td>
+                                  <td className={`px-1.5 py-1.5 text-right font-mono ${row.failed > 0 ? 'text-red-400 font-semibold' : 'text-gray-600'}`}>{row.failed > 0 ? row.failed.toLocaleString() : '—'}</td>
                                 </tr>
                               ))}
                             </tbody>
