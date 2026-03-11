@@ -419,10 +419,9 @@ export default function Home() {
         {/* ─── GROUP: Date Picker + Orders · Marketing · Sales ─── */}
         <div className="flex flex-col min-h-0 rounded-lg overflow-hidden" style={{ flex: 3, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}>
 
-          {/* Date picker strip — header of the group */}
-          <div className="shrink-0 flex items-center gap-3 px-4 py-1.5 border-b" style={{ background: 'linear-gradient(to right, rgba(255,255,255,0.06), rgba(255,255,255,0.02))', borderColor: 'rgba(255,255,255,0.08)' }}>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] shrink-0 whitespace-nowrap" style={{ color: 'rgba(255,255,255,0.4)' }}>Date Range</span>
-            <DateRangeSelector value={dateRange} onChange={setDateRange} compact />
+          {/* Date picker strip — centered above the 3 dashboards */}
+          <div className="shrink-0 flex items-center justify-center py-2 border-b" style={{ background: 'linear-gradient(to right, rgba(255,255,255,0.06), rgba(255,255,255,0.02))', borderColor: 'rgba(255,255,255,0.08)' }}>
+            <DateRangeSelector value={dateRange} onChange={setDateRange} />
           </div>
 
           {/* Orders · Marketing · Sales columns — fill remaining height */}
