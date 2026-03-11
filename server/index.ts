@@ -37,6 +37,11 @@ process.on('uncaughtException', (err) => {
     return;
   }
   console.error('[CRASH] Uncaught Exception:', err.message, err.stack);
+  if (err.message && err.message.includes('EADDRINUSE')) {
+    console.error('[CRASH] Port in use — exiting so workflow can retry cleanly');
+    _allowExit = true;
+    setTimeout(() => { _originalExit(1); }, 1000);
+  }
 });
 process.on('unhandledRejection', (reason: any) => {
   if (reason && reason.message && reason.message.startsWith('SuppressedExit:')) {
