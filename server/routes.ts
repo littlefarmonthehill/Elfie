@@ -715,6 +715,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/platform-admin/bl-api-usage — platform-wide BrickLink API usage (all orgs combined)
+  app.get('/api/platform-admin/bl-api-usage', isSuperAdmin, async (_req, res) => {
+    try {
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+      const [totalRow] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(blApiCalls)
+        .where(gte(blApiCalls.timestamp, twentyFourHoursAgo));
+      const callsLast24h = Number(totalRow?.count) || 0;
+
+      const hourlyRows = await db
+        .select({
+          hourEpoch: sql<string>`EXTRACT(EPOCH FROM date_trunc('hour', ${blApiCalls.timestamp}))::bigint`,
+          calls: sql<number>`count(*)`,
+        })
+        .from(blApiCalls)
+        .where(gte(blApiCalls.timestamp, twentyFourHoursAgo))
+        .groupBy(sql`date_trunc('hour', ${blApiCalls.timestamp})`)
+        .orderBy(sql`date_trunc('hour', ${blApiCalls.timestamp})`);
+
+      const hourlyMap = new Map(hourlyRows.map(r => [Number(r.hourEpoch) * 1000, Number(r.calls)]));
+      const hourlyBuckets: { hourStart: string; rollsOffAt: string; calls: number }[] = [];
+      for (let i = 23; i >= 0; i--) {
+        const slotStartMs = Math.floor(Date.now() / 3600000) * 3600000 - i * 3600000;
+        hourlyBuckets.push({
+          hourStart: new Date(slotStartMs).toISOString(),
+          rollsOffAt: new Date(slotStartMs + 24 * 60 * 60 * 1000).toISOString(),
+          calls: hourlyMap.get(slotStartMs) ?? 0,
+        });
+      }
+
+      const perOrgRows = await db
+        .select({
+          orgId: blApiCalls.orgId,
+          calls: sql<number>`count(*)`,
+        })
+        .from(blApiCalls)
+        .where(gte(blApiCalls.timestamp, twentyFourHoursAgo))
+        .groupBy(blApiCalls.orgId)
+        .orderBy(sql`count(*) DESC`)
+        .limit(20);
+
+      const [totalAllTime] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(blApiCalls);
+
+      const [successRow] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(blApiCalls)
+        .where(and(gte(blApiCalls.timestamp, twentyFourHoursAgo), eq(blApiCalls.success, true)));
+      const [failRow] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(blApiCalls)
+        .where(and(gte(blApiCalls.timestamp, twentyFourHoursAgo), eq(blApiCalls.success, false)));
+
+      const recentEndpoints = await db
+        .select({
+          endpoint: blApiCalls.endpoint,
+          calls: sql<number>`count(*)`,
+        })
+        .from(blApiCalls)
+        .where(gte(blApiCalls.timestamp, twentyFourHoursAgo))
+        .groupBy(blApiCalls.endpoint)
+        .orderBy(sql`count(*) DESC`)
+        .limit(10);
+
+      res.json({
+        callsLast24h,
+        totalAllTime: Number(totalAllTime?.count) || 0,
+        successLast24h: Number(successRow?.count) || 0,
+        failLast24h: Number(failRow?.count) || 0,
+        hourlyBuckets,
+        perOrg: perOrgRows.map(r => ({ orgId: r.orgId, calls: Number(r.calls) })),
+        topEndpoints: recentEndpoints.map(r => ({ endpoint: r.endpoint, calls: Number(r.calls) })),
+        ceiling: 5000,
+      });
+    } catch (error) {
+      console.error("Error fetching platform BL API usage:", error);
+      res.status(500).json({ message: "Failed to fetch BL API usage" });
+    }
+  });
+
   // GET /api/platform-admin/server-logs — recent WARN/ERROR log entries from in-memory buffer
   app.get('/api/platform-admin/server-logs', isSuperAdmin, (_req, res) => {
     const { getRecentLogs } = require('./services/server-log-buffer');
