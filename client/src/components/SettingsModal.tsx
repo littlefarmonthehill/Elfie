@@ -1118,8 +1118,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     ceiling: number;
   }>({
     queryKey: ['/api/platform-admin/bl-api-usage'],
-    enabled: open && superAdmin && ((activeSection === 'systemHealth' && activeHealthTab === 'bricklink') || (activeSection === 'apiKeys' && activePlatformServicesTab === 'bricklink')),
-    refetchInterval: ((activeSection === 'systemHealth' && activeHealthTab === 'bricklink') || (activeSection === 'apiKeys' && activePlatformServicesTab === 'bricklink')) ? 15000 : false,
+    enabled: open && superAdmin && activeSection === 'systemHealth' && activeHealthTab === 'bricklink',
+    refetchInterval: (activeSection === 'systemHealth' && activeHealthTab === 'bricklink') ? 15000 : false,
     retry: 0,
   });
 
@@ -7419,10 +7419,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                 {/* ── BrickLink tab ────────────────────────────────── */}
                 {activePlatformServicesTab === 'bricklink' && (
                   <div className="space-y-4">
+                    <p className="text-[11px] text-gray-400 leading-relaxed px-1">Platform-level BrickLink OAuth credentials used for catalog enrichment, price guides (POM), and color data. Org-level credentials (configured per-org) handle inventory sync and order imports. Usage stats are in <strong className="text-gray-300">Platform Health &gt; BrickLink</strong>.</p>
                     <div className="sm-card">
                       <div className="sm-card-header">
                         <Key className="h-3.5 w-3.5 text-blue-400/80" />
-                        <span className="text-xs font-semibold text-gray-200">Platform API Connection</span>
+                        <span className="text-xs font-semibold text-gray-200">Credentials &amp; Status</span>
                         {platformBlStatusLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-auto" />}
                         {platformBlStatusData && !platformBlStatusLoading && (
                           <Badge variant="outline" className={`ml-auto text-[9px] ${platformBlStatusData.connected ? 'text-green-400 border-green-500/30 bg-green-500/5' : platformBlStatusData.hasCredentials ? 'text-red-400 border-red-500/30 bg-red-500/5' : 'text-gray-400 border-gray-600 bg-gray-500/5'}`}>
@@ -7431,7 +7432,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         )}
                       </div>
                       <div className="px-4 py-3 space-y-3">
-                        <p className="text-[11px] text-gray-400 leading-relaxed">Platform-level BrickLink API credentials used for <strong className="text-gray-300">Price-o-Matic</strong> and <strong className="text-gray-300">data enrichment</strong> (catalog, price guides, color data). Org-level credentials remain separate for inventory sync and order imports.</p>
                         {[
                           { label: 'Consumer Key', value: platformBlConsumerKey, setter: setPlatformBlConsumerKey, type: 'text' as const, configured: platformBlCredsData?.hasConsumerKey, prefix: platformBlCredsData?.consumerKeyPrefix, testId: 'input-platform-bl-consumer-key' },
                           { label: 'Consumer Secret', value: platformBlConsumerSecret, setter: setPlatformBlConsumerSecret, type: 'password' as const, configured: platformBlCredsData?.hasConsumerSecret, prefix: undefined, testId: 'input-platform-bl-consumer-secret' },
@@ -7534,99 +7534,18 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     <div className="sm-card">
                       <div className="sm-card-header">
                         <Blocks className="h-3.5 w-3.5 text-blue-400/80" />
-                        <span className="text-xs font-semibold text-gray-200">Rate Limits & Configuration</span>
-                        <Badge variant="outline" className="ml-auto text-[9px] text-blue-400 border-blue-500/30 bg-blue-500/5">Catalog Enrichment</Badge>
+                        <span className="text-xs font-semibold text-gray-200">Platform Limits</span>
                       </div>
                       <div className="px-4 py-3 space-y-3">
-                        <p className="text-[11px] text-gray-400 leading-relaxed">The platform BrickLink API is used for <strong className="text-gray-300">catalog data enrichment</strong> — pulling part details, category mappings, color data, and price guides (POM). Individual org API credentials (configured in their Platforms section) are used for org-specific operations like inventory sync and order imports.</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {[
-                            { label: 'Rate Window', value: 'Rolling 24h' },
-                            { label: 'Primary Use', value: 'Price Guides (POM)' },
-                            { label: 'Caching', value: '6-month window' },
-                            { label: 'Batch Size', value: '1,500 items/run' },
-                          ].map(({ label, value }) => (
-                            <div key={label} className="bg-gray-900/40 border border-gray-700/60 rounded px-3 py-2">
-                              <p className="app-label mb-0.5">{label}</p>
-                              <p className="text-[11px] text-gray-300">{value}</p>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="pt-2 border-t border-gray-700/60 space-y-1.5">
-                          <Label className="text-xs text-gray-200">Platform Daily API Limit</Label>
-                          <p className="text-[10px] text-gray-500">Hard stop for all BrickLink API calls across the platform. BrickLink enforces a hard cap of 5,000/day per credential set.</p>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-gray-200">Daily API Call Limit</Label>
+                          <p className="text-[10px] text-gray-500">Hard stop for platform BrickLink API calls. BrickLink enforces a cap of 5,000/day per credential set (rolling 24h window).</p>
                           <div className="flex items-center gap-2">
                             <Input type="number" min={500} max={5000} step={100} value={blApiCallLimit} onChange={(e) => setBlApiCallLimit(parseInt(e.target.value) || 500)} onBlur={() => updateSettingsMutation.mutate({ blApiCallLimit })} className="text-xs w-24 text-right" data-testid="input-bl-api-limit" />
                             <span className="text-[10px] text-gray-500">/ 5,000</span>
                           </div>
                         </div>
                       </div>
-                    </div>
-
-                    {platformBlApiUsage && (
-                      <div className="sm-card">
-                        <div className="sm-card-header">
-                          <BarChart2 className="h-3.5 w-3.5 text-yellow-500/70" />
-                          <span className="text-xs font-semibold text-gray-200">Platform Usage (All Orgs)</span>
-                          <span className="ml-auto text-[10px] text-gray-500 font-mono">{platformBlApiUsage.callsLast24h.toLocaleString()} / 24h</span>
-                        </div>
-                        <div className="px-4 py-3 space-y-3">
-                          <div className="grid grid-cols-3 gap-2">
-                            {[
-                              { label: 'Last 24h', value: platformBlApiUsage.callsLast24h.toLocaleString(), color: 'text-blue-400' },
-                              { label: 'Successful', value: platformBlApiUsage.successLast24h.toLocaleString(), color: 'text-emerald-400' },
-                              { label: 'Failed', value: platformBlApiUsage.failLast24h.toLocaleString(), color: platformBlApiUsage.failLast24h > 0 ? 'text-red-400' : 'text-gray-500' },
-                            ].map(({ label, value, color }) => (
-                              <div key={label} className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-2.5 text-center">
-                                <p className={`text-sm font-bold ${color}`}>{value}</p>
-                                <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">{label}</p>
-                              </div>
-                            ))}
-                          </div>
-
-                          {platformBlApiUsage.perOrg.length > 0 && (
-                            <div>
-                              <p className="text-[9px] text-gray-500 uppercase tracking-wide mb-1.5">Per-Org Quota</p>
-                              <div className="space-y-1.5">
-                                {platformBlApiUsage.perOrg.map(org => {
-                                  const pct = Math.min((org.calls / platformBlApiUsage.ceiling) * 100, 100);
-                                  const freeNow = Math.max(0, platformBlApiUsage.ceiling - org.calls);
-                                  const barColor = pct >= 80 ? 'bg-red-500/70' : pct >= 50 ? 'bg-orange-500/70' : 'bg-blue-500/70';
-                                  const statusColor = pct >= 90 ? 'text-red-400' : pct >= 60 ? 'text-orange-400' : 'text-emerald-400';
-                                  return (
-                                    <div key={org.orgId} className="flex items-center gap-2">
-                                      <span className="text-[10px] text-gray-500 font-mono w-24 truncate shrink-0">{org.orgId}</span>
-                                      <div className="flex-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                                        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
-                                      </div>
-                                      <span className={`text-[10px] font-mono shrink-0 w-14 text-right ${statusColor}`}>{freeNow.toLocaleString()} free</span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-
-                          {platformBlApiUsage.topEndpoints.length > 0 && (
-                            <div>
-                              <p className="text-[9px] text-gray-500 uppercase tracking-wide mb-1.5">Top Endpoints (24h)</p>
-                              <div className="space-y-px">
-                                {platformBlApiUsage.topEndpoints.map(ep => (
-                                  <div key={ep.endpoint} className="flex items-center justify-between gap-2 px-2 py-1 rounded bg-gray-800/40">
-                                    <span className="text-[10px] text-gray-400 font-mono truncate flex-1 min-w-0">{ep.endpoint}</span>
-                                    <span className="text-[10px] text-gray-300 font-mono shrink-0">{ep.calls.toLocaleString()}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 px-4 py-3">
-                      <p className="app-label mb-2">About BrickLink API Limits</p>
-                      <p className="text-[11px] text-gray-400 leading-relaxed">BrickLink enforces a hard cap of <strong className="text-gray-300">5,000 API calls per day</strong> per set of OAuth credentials (rolling 24-hour window). Each org has its own set of credentials. The platform caches price guide data for 6 months and uses conditional fetching to minimize unnecessary calls. Heavy consumers like Price-o-Matic batch their operations and can pause mid-run when approaching the limit.</p>
                     </div>
                   </div>
                 )}
