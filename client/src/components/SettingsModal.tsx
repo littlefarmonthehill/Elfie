@@ -633,6 +633,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
   // AI Settings
   const [aiEnabled, setAiEnabled] = useState(true);
+  const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string }>>([]);
@@ -973,31 +974,12 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     retry: 0,
   });
 
-  type OpenAIStatusData = { connected: boolean; models?: string[]; keyPrefix?: string; error?: string; provider?: string };
+  type OpenAIStatusData = { connected: boolean; models?: string[]; keyPrefix?: string; error?: string };
   const { data: openAIStatusData, isLoading: openAIStatusLoading } = useQuery<OpenAIStatusData>({
     queryKey: ['/api/platform-admin/platform-services/openai-status'],
-    enabled: open && superAdmin && ((activeSection === 'apiKeys' && activePlatformServicesTab === 'openai') || activeSection === 'enrichment'),
+    enabled: open && activeSection === 'apiKeys' && activePlatformServicesTab === 'openai' && superAdmin,
     staleTime: 60000,
     retry: 0,
-  });
-
-  const [platformOpenaiKey, setPlatformOpenaiKey] = useState("");
-  const [platformKeyDirty, setPlatformKeyDirty] = useState(false);
-  const savePlatformOpenaiKey = useMutation({
-    mutationFn: async (key: string | null) => {
-      const res = await fetch('/api/platform-admin/platform-services/openai-key', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ openaiApiKey: key }),
-      });
-      if (!res.ok) throw new Error('Failed to save');
-      return res.json();
-    },
-    onSuccess: () => {
-      setPlatformKeyDirty(false);
-      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/platform-services/openai-status'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/platform-services/openai-billing'] });
-    },
   });
 
   type OpenAIBillingGrant = { id: string; amount: number; used: number; effective: string; expires: string };
@@ -1006,8 +988,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     usage: { last30Days: number; mtd: number; topModels: { model: string; cost: number }[] };
     costsAvailable: boolean;
     creditsAvailable: boolean;
-    provider?: string;
-    note?: string;
   };
   const { data: openAIBillingData, isLoading: openAIBillingLoading } = useQuery<OpenAIBillingData>({
     queryKey: ['/api/platform-admin/platform-services/openai-billing'],
@@ -1317,6 +1297,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   useEffect(() => {
     if (settings) {
       setAiEnabled(settings.aiEnabled);
+      setOpenaiApiKey(settings.openaiApiKey || "");
       setSelectedModel(settings.selectedModel || "gpt-4o-mini");
       setSystemPrompt(settings.systemPrompt || "");
       setBricklinkConsumerKey(settings.bricklinkConsumerKey || "");
@@ -3874,6 +3855,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         onBlur={() => {
                           updateSettingsMutation.mutate({
                             aiEnabled,
+                            openaiApiKey: openaiApiKey || null,
                             selectedModel: selectedModel || null,
                             systemPrompt: systemPrompt || null,
                           });
@@ -4741,7 +4723,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <div className="flex-1 min-w-0">
                     <p className="app-label">OpenAI API Key</p>
                     <p className="text-[11px] text-gray-500 mt-0.5">
-                      {openAIStatusData?.connected ? <span className="text-green-400/80">Key configured (platform)</span> : <span className="text-gray-600">Not configured</span>}
+                      {openaiApiKey ? <span className="text-green-400/80">Key configured</span> : <span className="text-gray-600">Not configured</span>}
                       {' — '}configured in <button onClick={() => { setActiveSection('apiKeys'); setActivePlatformServicesTab('openai'); }} className="text-yellow-400/80 hover:text-yellow-300 underline-offset-2 hover:underline" data-testid="link-goto-platform-services-openai">Platform Services → OpenAI</button>
                     </p>
                   </div>
@@ -7362,20 +7344,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       </div>
                       <div className="px-4 py-3 space-y-3">
                         <div>
-                          <label className="block app-label mb-1">Platform API Key</label>
-                          <div className="flex gap-2">
-                            <input
-                              type="password"
-                              placeholder="sk-…"
-                              value={platformKeyDirty ? platformOpenaiKey : (openAIStatusData?.keyPrefix || platformOpenaiKey || '')}
-                              onChange={e => { setPlatformOpenaiKey(e.target.value); setPlatformKeyDirty(true); }}
-                              onBlur={() => { if (platformKeyDirty) savePlatformOpenaiKey.mutate(platformOpenaiKey || null); }}
-                              data-testid="input-ps-openai-api-key"
-                              className="flex-1 min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500 font-mono"
-                            />
-                            {savePlatformOpenaiKey.isPending && <Loader2 className="h-4 w-4 animate-spin text-gray-500 self-center shrink-0" />}
-                          </div>
-                          <p className="text-[9px] text-gray-500 mt-1">Shared across all orgs for embeddings, AI assistant, and analytics.</p>
+                          <label className="block app-label mb-1">API Key</label>
+                          <input
+                            type="password"
+                            placeholder="sk-…"
+                            value={openaiApiKey}
+                            onChange={e => setOpenaiApiKey(e.target.value)}
+                            onBlur={() => updateSettingsMutation.mutate({ openaiApiKey: openaiApiKey || null })}
+                            data-testid="input-ps-openai-api-key"
+                            className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500 font-mono"
+                          />
                         </div>
                         {openAIStatusData?.connected && openAIStatusData.models && openAIStatusData.models.length > 0 && (
                           <div className="flex flex-wrap gap-1">
@@ -7471,36 +7449,19 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           )}
 
                           {!openAIBillingLoading && !openAIBillingData?.costsAvailable && !openAIBillingData?.creditsAvailable && (
-                            <p className="text-[10px] text-gray-500">
-                              {openAIBillingData?.provider === 'openrouter'
-                                ? 'Billing is managed through OpenRouter. Visit openrouter.ai/account for usage details.'
-                                : 'Billing data is not available for this API key. The key may not have admin/billing permissions.'}
-                            </p>
+                            <p className="text-[10px] text-gray-500">Billing data is not available for this API key. The key may not have admin/billing permissions.</p>
                           )}
                         </div>
                       </div>
                     )}
 
                     <div className="flex flex-wrap gap-2 px-1">
-                      {openAIStatusData?.provider === 'openrouter' ? (
-                        <>
-                          <a href="https://openrouter.ai/account" target="_blank" rel="noopener noreferrer" data-testid="link-openai-usage-dashboard" className="inline-flex items-center gap-1 text-[10px] text-yellow-400 hover:text-yellow-300 border border-yellow-500/30 rounded px-2 py-1 transition-colors">
-                            <ExternalLink className="h-3 w-3 shrink-0" />OpenRouter Account
-                          </a>
-                          <a href="https://openrouter.ai/credits" target="_blank" rel="noopener noreferrer" data-testid="link-openai-billing" className="inline-flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-300 border border-gray-600 rounded px-2 py-1 transition-colors">
-                            <ExternalLink className="h-3 w-3 shrink-0" />Credits
-                          </a>
-                        </>
-                      ) : (
-                        <>
-                          <a href="https://platform.openai.com/usage" target="_blank" rel="noopener noreferrer" data-testid="link-openai-usage-dashboard" className="inline-flex items-center gap-1 text-[10px] text-yellow-400 hover:text-yellow-300 border border-yellow-500/30 rounded px-2 py-1 transition-colors">
-                            <ExternalLink className="h-3 w-3 shrink-0" />Usage Dashboard
-                          </a>
-                          <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" rel="noopener noreferrer" data-testid="link-openai-billing" className="inline-flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-300 border border-gray-600 rounded px-2 py-1 transition-colors">
-                            <ExternalLink className="h-3 w-3 shrink-0" />Billing Settings
-                          </a>
-                        </>
-                      )}
+                      <a href="https://platform.openai.com/usage" target="_blank" rel="noopener noreferrer" data-testid="link-openai-usage-dashboard" className="inline-flex items-center gap-1 text-[10px] text-yellow-400 hover:text-yellow-300 border border-yellow-500/30 rounded px-2 py-1 transition-colors">
+                        <ExternalLink className="h-3 w-3 shrink-0" />Usage Dashboard
+                      </a>
+                      <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" rel="noopener noreferrer" data-testid="link-openai-billing" className="inline-flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-300 border border-gray-600 rounded px-2 py-1 transition-colors">
+                        <ExternalLink className="h-3 w-3 shrink-0" />Billing Settings
+                      </a>
                     </div>
                   </div>
                 )}
