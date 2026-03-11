@@ -175,7 +175,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
   return (
     <CompactModeProvider value={panelMode ?? false}>
-    <div className={cn("bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)]", panelMode ? "p-2 space-y-1.5" : "p-2 xl:p-4 space-y-1.5 xl:space-y-3")}>
+    <div className={cn(panelMode ? "p-2 space-y-1.5 h-full" : "bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)] p-2 xl:p-4 space-y-1.5 xl:space-y-3")}>
       <div className={cn(panelMode ? "space-y-1.5" : "space-y-1.5 xl:space-y-3")}>
 
         {/* Combined Inventory Info + Values */}
