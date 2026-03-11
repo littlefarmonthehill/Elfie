@@ -7350,7 +7350,20 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             placeholder="sk-…"
                             value={openaiApiKey}
                             onChange={e => setOpenaiApiKey(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ openaiApiKey: openaiApiKey || null })}
+                            onBlur={async () => {
+                              try {
+                                const res = await fetch('/api/platform-admin/platform-services/openai-key', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ openaiApiKey: openaiApiKey || null }),
+                                });
+                                if (!res.ok) throw new Error('Failed to save');
+                                queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/platform-services/openai-status'] });
+                                queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/platform-services/openai-billing'] });
+                              } catch (err) {
+                                console.error('Failed to save OpenAI key:', err);
+                              }
+                            }}
                             data-testid="input-ps-openai-api-key"
                             className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500 font-mono"
                           />
