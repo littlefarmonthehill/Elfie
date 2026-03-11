@@ -348,30 +348,35 @@ export async function embedOrderDetail(orderDetailId: string) {
  */
 export async function searchInventorySemantic(query: string, limit: number = 5, orgId?: number) {
   try {
-    // Generate query embedding
     const queryEmbedding = await generateEmbedding(query);
-    
-    const orgFilter = orgId != null ? `AND bi.org_id = ${orgId}` : '';
+    const safeLimit = Math.max(1, Math.min(100, Math.floor(Number(limit) || 5)));
+    const vecLiteral = `[${queryEmbedding.join(',')}]`;
 
-    // Search using cosine similarity, always scoped to org when provided
-    const results = await db.execute(sql.raw(`
+    const orgCondition = orgId != null ? sql`AND bi.org_id = ${orgId}` : sql``;
+
+    const results = await db.execute(sql`
       SELECT 
         ie.inventory_id,
         ie.content,
         bi.item_no,
-        bi.item_name,
         bi.item_type,
-        bi.color_name,
         bi.quantity,
         bi.unit_price,
         bi.new_or_used,
-        1 - (ie.embedding <=> '${JSON.stringify(queryEmbedding)}'::vector) as similarity
+        bi.remarks,
+        bc.item_name,
+        clr.name AS color_name,
+        cat.name AS category_name,
+        1 - (ie.embedding <=> ${sql.raw(`'${vecLiteral}'::vector`)}) as similarity
       FROM inventory_embeddings ie
       JOIN bl_inventory bi ON ie.inventory_id = bi.id
-      WHERE 1=1 ${orgFilter}
-      ORDER BY ie.embedding <=> '${JSON.stringify(queryEmbedding)}'::vector
-      LIMIT ${limit}
-    `));
+      LEFT JOIN bl_catalog bc ON bi.item_no = bc.item_no AND bi.item_type = bc.item_type AND bi.color_id = bc.color_id
+      LEFT JOIN bl_colors clr ON bi.color_id = clr.id
+      LEFT JOIN bl_categories cat ON bc.category_id = cat.id
+      WHERE 1=1 ${orgCondition}
+      ORDER BY ie.embedding <=> ${sql.raw(`'${vecLiteral}'::vector`)}
+      LIMIT ${safeLimit}
+    `);
     
     return results.rows;
   } catch (error: any) {
@@ -385,13 +390,13 @@ export async function searchInventorySemantic(query: string, limit: number = 5, 
  */
 export async function searchOrders(query: string, limit: number = 5, orgId?: number) {
   try {
-    // Generate query embedding
     const queryEmbedding = await generateEmbedding(query);
+    const safeLimit = Math.max(1, Math.min(100, Math.floor(Number(limit) || 5)));
+    const vecLiteral = `[${queryEmbedding.join(',')}]`;
 
-    const orgFilter = orgId != null ? `AND o.org_id = ${orgId}` : '';
+    const orgCondition = orgId != null ? sql`AND o.org_id = ${orgId}` : sql``;
 
-    // Search using cosine similarity, always scoped to org when provided
-    const results = await db.execute(sql.raw(`
+    const results = await db.execute(sql`
       SELECT 
         oe.order_id,
         oe.content,
@@ -401,13 +406,13 @@ export async function searchOrders(query: string, limit: number = 5, orgId?: num
         o.order_status,
         o.customer_username,
         o.order_total,
-        1 - (oe.embedding <=> '${JSON.stringify(queryEmbedding)}'::vector) as similarity
+        1 - (oe.embedding <=> ${sql.raw(`'${vecLiteral}'::vector`)}) as similarity
       FROM order_embeddings oe
       JOIN orders o ON oe.order_id = o.id
-      WHERE 1=1 ${orgFilter}
-      ORDER BY oe.embedding <=> '${JSON.stringify(queryEmbedding)}'::vector
-      LIMIT ${limit}
-    `));
+      WHERE 1=1 ${orgCondition}
+      ORDER BY oe.embedding <=> ${sql.raw(`'${vecLiteral}'::vector`)}
+      LIMIT ${safeLimit}
+    `);
     
     return results.rows;
   } catch (error: any) {
@@ -425,17 +430,21 @@ export async function findSimilarItems(inventoryId: number, limit: number = 5) {
       SELECT 
         bi.id,
         bi.item_no,
-        bi.item_name,
         bi.item_type,
-        bi.color_name,
         bi.quantity,
         bi.unit_price,
-        1 - (ie1.embedding <=> ie2.embedding) as similarity
-      FROM inventory_embeddings ie1
-      JOIN inventory_embeddings ie2 ON ie1.inventory_id = ${inventoryId}
-      JOIN bl_inventory bi ON ie1.inventory_id = bi.id
-      WHERE ie1.inventory_id != ${inventoryId}
-      ORDER BY ie1.embedding <=> ie2.embedding
+        bc.item_name,
+        clr.name AS color_name,
+        cat.name AS category_name,
+        1 - (ie_other.embedding <=> ie_anchor.embedding) as similarity
+      FROM inventory_embeddings ie_anchor
+      JOIN inventory_embeddings ie_other ON ie_other.inventory_id != ${inventoryId}
+      JOIN bl_inventory bi ON ie_other.inventory_id = bi.id
+      LEFT JOIN bl_catalog bc ON bi.item_no = bc.item_no AND bi.item_type = bc.item_type AND bi.color_id = bc.color_id
+      LEFT JOIN bl_colors clr ON bi.color_id = clr.id
+      LEFT JOIN bl_categories cat ON bc.category_id = cat.id
+      WHERE ie_anchor.inventory_id = ${inventoryId}
+      ORDER BY ie_other.embedding <=> ie_anchor.embedding
       LIMIT ${limit}
     `);
     
