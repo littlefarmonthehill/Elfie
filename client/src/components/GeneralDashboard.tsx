@@ -831,6 +831,20 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
         )}
 
       </div>
+
+      {/* Notifications section */}
+      <div className="border-t border-purple-500/30">
+        <div className="px-3 py-2 space-y-1.5">
+          <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">Notifications</p>
+          <div className="flex items-start gap-2 py-1">
+            <Activity className="w-3.5 h-3.5 shrink-0 text-purple-300 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium text-foreground/90 leading-tight">No new notifications</p>
+              <p className="text-[10px] text-muted-foreground leading-snug mt-0.5">Updates and alerts will appear here</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

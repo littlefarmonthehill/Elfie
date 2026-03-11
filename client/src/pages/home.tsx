@@ -360,43 +360,15 @@ export default function Home() {
       {/* ── LEFT COLUMN: Your Plan (top) + spacer + Product (aligned with date picker) ── */}
       <div className="flex flex-col min-h-0 overflow-hidden self-stretch" style={{ flex: 1, gap: '10px' }}>
 
-        {/* Your Plan — purple-themed lane box, same structure as Ops Central lanes */}
-        <div
-          className="relative flex flex-col h-full rounded-lg border border-purple-500/40 bg-gradient-to-b from-purple-950/30 to-gray-900/85"
-          style={{ flex: 2, boxShadow: '0 0 40px rgba(168,85,247,0.28), 0 0 12px rgba(168,85,247,0.28)' }}
-        >
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-400/50 to-transparent pointer-events-none z-10" />
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-purple-500/40 bg-gradient-to-b from-purple-950/40 to-gray-900/80 rounded-t-lg">
-            <div className="p-1 rounded-md bg-purple-900/60 ring-1 ring-purple-500/50 shrink-0" style={{ boxShadow: '0 0 8px rgba(168,85,247,0.55)' }}>
-              <ClipboardList className="w-3 h-3 text-purple-200" />
-            </div>
-            <span className="text-xs font-semibold uppercase tracking-widest text-purple-200">Your Plan</span>
-          </div>
-          <div className="flex-1 flex flex-col divide-y divide-border/40 min-h-0 overflow-visible">
-            {/* Onboarding */}
-            <div className="px-3 py-2 space-y-1.5">
-              <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">Onboarding</p>
-              <SystemPulse
-                setupItems={systemPulseSetupItems}
-                billingStatus={billingStatus}
-                rateLimit={blRateLimit}
-                blApiCallLimit={appSettingsHome?.blApiCallLimit}
-                onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-              />
-            </div>
-
-            {/* Notifications */}
-            <div className="px-3 py-2 space-y-1.5">
-              <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">Notifications</p>
-              <div className="flex items-start gap-2 py-1">
-                <Mail className="w-3.5 h-3.5 shrink-0 text-purple-300 mt-0.5" />
-                <div className="min-w-0">
-                  <p className="text-[11px] font-medium text-foreground/90 leading-tight">No new notifications</p>
-                  <p className="text-[10px] text-muted-foreground leading-snug mt-0.5">Updates and alerts will appear here</p>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* Your Plan — SystemPulse already renders the full purple lane card */}
+        <div className="flex flex-col overflow-visible" style={{ flex: 2 }}>
+          <SystemPulse
+            setupItems={systemPulseSetupItems}
+            billingStatus={billingStatus}
+            rateLimit={blRateLimit}
+            blApiCallLimit={appSettingsHome?.blApiCallLimit}
+            onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
+          />
         </div>
 
         {/* Product / Inventory — matches date picker group height */}
