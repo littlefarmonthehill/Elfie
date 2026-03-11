@@ -1,34 +1,23 @@
 import OpenAI from 'openai';
 import { db } from '../db';
-import { inventoryEmbeddings, orderEmbeddings, orderDetailEmbeddings, setPartEmbeddings, blInventory, blCatalog, blColors, blCategories, orders, orderDetails, setPartRelationships, appSettings } from '@shared/schema';
+import { inventoryEmbeddings, orderEmbeddings, orderDetailEmbeddings, setPartEmbeddings, blInventory, blCatalog, blColors, blCategories, orders, orderDetails, setPartRelationships } from '@shared/schema';
 import { eq, sql, inArray, and } from 'drizzle-orm';
+import { getPlatformOpenAIKey } from '../routes';
 
 const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: any) =>
   sql<string | null>`(SELECT item_name FROM bl_catalog WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} ORDER BY (color_id = ${colorIdRef})::int DESC, color_id ASC LIMIT 1)`;
 
 /**
- * Get OpenAI client with API key from settings or environment.
- * For embeddings we need a native OpenAI key, so the env-var secret
- * (OPENAI_API_KEY) takes priority over the in-app settings key which
- * may be an OpenRouter key.  If the resolved key is an OpenRouter key
- * (sk-or- prefix), we route through the OpenRouter base URL which
- * also supports the OpenAI embeddings API.
+ * Get OpenAI client using the platform-wide API key.
+ * OpenRouter keys (sk-or-…) are routed through the OpenRouter base URL.
  */
 async function getOpenAIClient(): Promise<OpenAI> {
-  const settings = await db.query.appSettings.findFirst({
-    where: eq(appSettings.id, 'default'),
-  });
-
-  // Env var takes priority so that a proper OpenAI key stored as a
-  // Replit secret is not overshadowed by an OpenRouter key in the DB.
-  const apiKey = process.env.OPENAI_API_KEY || settings?.openaiApiKey;
+  const apiKey = await getPlatformOpenAIKey();
 
   if (!apiKey) {
-    throw new Error('OpenAI API key not configured. Please add it in Settings.');
+    throw new Error('OpenAI API key not configured. Please add it in Platform Services settings.');
   }
 
-  // OpenRouter keys (sk-or-…) require a different base URL.
-  // OpenRouter exposes an OpenAI-compatible embeddings endpoint.
   if (apiKey.startsWith('sk-or-')) {
     return new OpenAI({
       apiKey,

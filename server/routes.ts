@@ -83,6 +83,17 @@ async function getOrgSettings(orgId: string) {
   return created;
 }
 
+/**
+ * Get the platform-wide OpenAI API key. Env var takes priority, then
+ * the platform org's appSettings row. This is the single source of truth
+ * for all OpenAI usage across every org.
+ */
+export async function getPlatformOpenAIKey(): Promise<string | null> {
+  if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY;
+  const settings = await getOrgSettings('org_planetbrick');
+  return settings?.openaiApiKey || null;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Seed plan configs from static tierConfig.ts on first run (idempotent)
   await seedPlanConfigsIfEmpty();
@@ -552,8 +563,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/platform-admin/platform-services/openai-status
   app.get('/api/platform-admin/platform-services/openai-status', isSuperAdmin, async (_req, res) => {
     try {
-      const [settings] = await db.select().from(organizations).where(eq(organizations.id, 'org_planetbrick')).limit(1);
-      const apiKey = settings?.openaiApiKey || process.env.OPENAI_API_KEY;
+      const apiKey = await getPlatformOpenAIKey();
       if (!apiKey) return res.json({ connected: false, models: [] });
       const OpenAI = (await import('openai')).default;
       const client = new OpenAI({ apiKey });
@@ -565,11 +575,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/platform-admin/platform-services/openai-key — save platform-wide OpenAI API key
+  app.post('/api/platform-admin/platform-services/openai-key', isSuperAdmin, async (req, res) => {
+    try {
+      const { openaiApiKey } = req.body as { openaiApiKey: string | null };
+      const [settings] = await db
+        .insert(appSettings)
+        .values({ id: 'org_planetbrick', orgId: 'org_planetbrick', openaiApiKey: openaiApiKey || null })
+        .onConflictDoUpdate({
+          target: appSettings.id,
+          set: { openaiApiKey: openaiApiKey || null, updatedAt: sql`CURRENT_TIMESTAMP` },
+        })
+        .returning();
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || 'Failed to save API key' });
+    }
+  });
+
   // GET /api/platform-admin/platform-services/openai-billing — fetch billing/usage from OpenAI API
   app.get('/api/platform-admin/platform-services/openai-billing', isSuperAdmin, async (_req, res) => {
     try {
-      const [settings] = await db.select().from(organizations).where(eq(organizations.id, 'org_planetbrick')).limit(1);
-      const apiKey = settings?.openaiApiKey || process.env.OPENAI_API_KEY;
+      const apiKey = await getPlatformOpenAIKey();
       if (!apiKey) return res.status(400).json({ message: 'No OpenAI API key configured' });
 
       const headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
@@ -11765,9 +11792,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
     try {
       const { type, rawDescription } = req.body;
       if (!rawDescription?.trim()) return res.status(400).json({ error: "rawDescription is required" });
-      const orgId = reqOrgId(req);
-      const settings = await getOrgSettings(orgId);
-      const apiKey = settings?.openaiApiKey || process.env.OPENAI_API_KEY;
+      const apiKey = await getPlatformOpenAIKey();
       if (!apiKey) return res.status(400).json({ error: "OpenAI API key not configured" });
 
       const typeLabels: Record<string, string> = {
