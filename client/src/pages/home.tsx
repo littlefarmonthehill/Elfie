@@ -415,16 +415,18 @@ export default function Home() {
 
         <div className="cockpit-glow-separator shrink-0" />
 
-        {/* ─── GROUP: Date Picker + Orders · Marketing · Sales ─── */}
-        <div className="flex flex-col min-h-0 rounded-lg overflow-hidden" style={{ flex: 3, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.02)' }}>
+        {/* ─── GROUP: Mission Deck — Date Picker + Orders · Marketing · Sales ─── */}
+        <div className="relative flex flex-col min-h-0 rounded-lg overflow-hidden" style={{ flex: 3, border: '1px solid hsla(200,75%,50%,0.35)', boxShadow: '0 0 24px hsla(200,75%,50%,0.15), 0 0 8px hsla(200,75%,50%,0.1)' }}>
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-400/50 to-transparent pointer-events-none z-10" />
 
-          {/* Date picker strip — centered above the 3 dashboards */}
-          <div className="shrink-0 flex items-center justify-center py-2 border-b" style={{ background: 'linear-gradient(to right, rgba(255,255,255,0.06), rgba(255,255,255,0.02))', borderColor: 'rgba(255,255,255,0.08)' }}>
+          {/* Section header — matches Ops Central / Product pattern */}
+          <div className="shrink-0 flex items-center justify-between px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(200,75%,50%,0.25), hsla(200,75%,50%,0.08))', borderColor: 'hsla(200,75%,50%,0.35)' }}>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: 'hsl(200,75%,72%)', textShadow: '0 0 8px hsla(200,75%,50%,0.7)' }}>Mission Deck</span>
             <DateRangeSelector value={dateRange} onChange={setDateRange} />
           </div>
 
           {/* Orders · Marketing · Sales columns — fill remaining height */}
-          <div className="flex flex-1 min-h-0 overflow-x-auto overflow-y-hidden" style={{ gap: '4px', padding: '4px' }}>
+          <div className="flex flex-1 min-h-0 overflow-x-auto overflow-y-hidden" style={{ gap: '4px', padding: '4px', background: 'radial-gradient(ellipse at top, hsla(200,75%,50%,0.1) 0%, transparent 55%), linear-gradient(to bottom, hsla(200,75%,50%,0.12), hsla(200,75%,50%,0.02) 100%)' }}>
 
             {/* Orders */}
             <div className="flex flex-col rounded-md overflow-hidden" style={{ flex: 1, minWidth: '160px', border: '1px solid hsla(25,95%,55%,0.35)' }}>
