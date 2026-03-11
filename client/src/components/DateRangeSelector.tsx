@@ -1,3 +1,5 @@
+import { useState, useEffect } from "react";
+
 export type DateRangeValue = 'mtd' | 'lastmonth' | '3months' | '1year' | 'prevyear' | 'all';
 
 interface DateRangeSelectorProps {
@@ -7,37 +9,47 @@ interface DateRangeSelectorProps {
   compact?: boolean;
 }
 
+const fullLabels: { label: string; short: string; value: DateRangeValue }[] = [
+  { label: 'This Month',  short: 'MTD',   value: 'mtd' },
+  { label: 'Prev Month',  short: 'Prev',  value: 'lastmonth' },
+  { label: '3 Months',    short: '3M',    value: '3months' },
+  { label: '1 Year',      short: '1Y',    value: '1year' },
+  { label: 'Prev Year',   short: 'PY',    value: 'prevyear' },
+  { label: 'All Time',    short: 'All',   value: 'all' },
+];
+
 export default function DateRangeSelector({ value, onChange, className = "", compact = false }: DateRangeSelectorProps) {
-  const options: { label: string; value: DateRangeValue }[] = [
-    { label: 'This Month',  value: 'mtd' },
-    { label: 'Prev Month',  value: 'lastmonth' },
-    { label: '3 Months',    value: '3months' },
-    { label: '1 Year',      value: '1year' },
-    { label: 'Prev Year',   value: 'prevyear' },
-    { label: 'All Time',    value: 'all' },
-  ];
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   const isActive = (v: DateRangeValue) => value === v;
+  const useCompact = compact || isMobile;
 
   return (
     <div
-      className={`inline-flex items-center ${compact ? 'gap-0.5' : 'gap-0'} ${className}`}
+      className={`inline-flex items-center ${useCompact ? 'gap-0.5' : 'gap-0'} ${className}`}
       style={{
         borderRadius: '999px',
-        padding: compact ? '2px' : '3px',
+        padding: useCompact ? '2px' : '3px',
         background: 'linear-gradient(135deg, hsla(200,80%,25%,0.5) 0%, hsla(220,60%,15%,0.7) 50%, hsla(200,80%,25%,0.5) 100%)',
         border: '1px solid hsla(200,80%,55%,0.3)',
         boxShadow: '0 0 12px hsla(200,80%,50%,0.15), inset 0 1px 0 hsla(200,80%,70%,0.1)',
+        maxWidth: '100%',
       }}
     >
-      {options.map((option, i) => (
+      {fullLabels.map((option) => (
         <button
           key={option.value}
           onClick={() => onChange(option.value)}
-          className="relative transition-all duration-200"
+          className="relative transition-all duration-200 whitespace-nowrap"
           style={{
-            padding: compact ? '3px 8px' : '6px 16px',
-            fontSize: compact ? '10px' : '12px',
+            padding: useCompact ? '3px 6px' : '6px 16px',
+            fontSize: useCompact ? '9px' : '12px',
             fontWeight: 700,
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
@@ -71,7 +83,7 @@ export default function DateRangeSelector({ value, onChange, className = "", com
           }}
           data-testid={`button-range-${option.value}`}
         >
-          {option.label}
+          {isMobile ? option.short : option.label}
         </button>
       ))}
     </div>

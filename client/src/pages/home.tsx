@@ -905,7 +905,7 @@ export default function Home() {
 
       {/* Date Range Selector - Show for sales, marketing, and orders (tabbed mode only) */}
       {!isPanelMode && (activeDashboard === 'sales' || activeDashboard === 'marketing' || activeDashboard === 'orders') && (
-        <div className="sticky top-24 md:top-[8.5rem] lg:top-40 z-30 px-3 md:px-8 lg:px-10 py-2 md:py-4 lg:py-5 bg-gradient-to-r from-pink-950/30 via-fuchsia-950/20 to-pink-950/30 border-b border-pink-800/30 backdrop-blur-sm">
+        <div className="sticky top-24 md:top-[8.5rem] lg:top-40 z-30 px-2 md:px-8 lg:px-10 py-1.5 md:py-4 lg:py-5 bg-gradient-to-r from-pink-950/30 via-fuchsia-950/20 to-pink-950/30 border-b border-pink-800/30 backdrop-blur-sm flex justify-center overflow-x-auto">
           <DateRangeSelector value={dateRange} onChange={setDateRange} />
         </div>
       )}
