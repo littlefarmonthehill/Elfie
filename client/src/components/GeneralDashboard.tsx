@@ -438,7 +438,7 @@ function OrdersLane({ stats, dashboardOrders, fulfillmentStats, orderSyncRunning
 
 // ── MULTICHANNEL LANE ─────────────────────────────────────────────────────────
 
-function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, totalDiscrepancies, onOpenSettings }: any) {
+export function MultichannelLane({ channelSyncRunning, globalSyncStatuses, syncStatus, totalDiscrepancies, onOpenSettings }: any) {
   const isChannelSyncing = channelSyncRunning?.running === true;
   const lastChannelSync = globalSyncStatuses?.channel;
   const channelSyncFailed = lastChannelSync?.lastSyncStatus === 'failed' || lastChannelSync?.lastSyncStatus === 'error';
@@ -976,7 +976,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
       <DashboardNotifications />
 
       {/* Four Ops Lanes */}
-      <div className={panelMode ? "grid grid-cols-4 gap-3 items-stretch flex-1 min-h-0" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-4 xl:gap-5 items-stretch"} data-testid="ops-lanes">
+      <div className={panelMode ? "grid grid-cols-3 gap-3 items-stretch flex-1 min-h-0" : "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 md:gap-4 xl:gap-5 items-stretch"} data-testid="ops-lanes">
 
         <InventoryLane
           stats={stats}
@@ -1001,14 +1001,6 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           globalSyncStatuses={globalSyncStatuses}
           onItemClick={onItemClick}
           onOpenFulfillment={onOpenFulfillment}
-        />
-
-        <MultichannelLane
-          channelSyncRunning={channelSyncRunning}
-          globalSyncStatuses={globalSyncStatuses}
-          syncStatus={syncStatus}
-          totalDiscrepancies={totalDiscrepancies}
-          onOpenSettings={onOpenSettings}
         />
 
         <AIIntelligenceLane

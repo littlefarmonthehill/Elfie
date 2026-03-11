@@ -30,6 +30,7 @@ import WarehouseManagement from "./WarehouseManagement";
 import PlatformSyncTool from "./PlatformSyncTool";
 import ListomaticPriority from "./ListomaticPriority";
 import BrickanalyzerTool, { BrickanalyzerToolRef } from "./BrickanalyzerTool";
+import { MultichannelLane } from "./GeneralDashboard";
 
 interface InventoryStats {
   totalLots: number;
@@ -111,6 +112,23 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
     staleTime: 60000,
   });
   const configuredTimezone = appSettings?.timezone || 'America/Chicago';
+
+  const { data: channelSyncRunning } = useQuery<{ running: boolean }>({
+    queryKey: ['/api/channel-sync/running'],
+    refetchInterval: 4000,
+    staleTime: 0,
+  });
+  const { data: globalSyncStatuses } = useQuery<any>({
+    queryKey: ['/api/sync/statuses'],
+    refetchInterval: 15000,
+  });
+  const { data: syncStatus } = useQuery<any>({
+    queryKey: ['/api/platform-sync/status'],
+    refetchInterval: 30000,
+  });
+  const totalDiscrepancies = syncStatus?.targets?.reduce((total: number, platform: any) => {
+    return total + (platform.discrepancies?.missingLots || 0) + (platform.discrepancies?.priceDifferences || 0) + (platform.discrepancies?.quantityDifferences || 0);
+  }, 0) || 0;
 
   const { data: stats, isLoading } = useQuery<InventoryStats>({
     queryKey: ['/api/inventory/stats'],
@@ -308,6 +326,15 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           </div>
           <ChannelSyncPanel onOpenSettings={onOpenSettings} />
         </div>
+
+        {/* Multichannel Status Lane */}
+        <MultichannelLane
+          channelSyncRunning={channelSyncRunning}
+          globalSyncStatuses={globalSyncStatuses}
+          syncStatus={syncStatus}
+          totalDiscrepancies={totalDiscrepancies}
+          onOpenSettings={onOpenSettings}
+        />
 
 
       </div>
