@@ -357,24 +357,11 @@ export default function Home() {
   const renderPanelMode = () => (
     <div className="flex h-full cockpit-vignette" style={{ padding: '5px', gap: '5px' }}>
 
-      {/* ── LEFT COLUMN: Your Plan (top) + spacer + Product (aligned with date picker) ── */}
+      {/* ── LEFT COLUMN: Product / Inventory ── */}
       <div className="flex flex-col min-h-0 overflow-hidden self-stretch" style={{ flex: 1, gap: '10px' }}>
 
-        {/* Your Plan — SystemPulse already renders the full purple lane card */}
-        <div className="flex flex-col overflow-visible" style={{ flex: 2 }}>
-          <SystemPulse
-            setupItems={systemPulseSetupItems}
-            billingStatus={billingStatus}
-            rateLimit={blRateLimit}
-            blApiCallLimit={appSettingsHome?.blApiCallLimit}
-            onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-          />
-        </div>
-
-        <div className="cockpit-glow-separator shrink-0" />
-
         {/* Product / Inventory — matches date picker group height */}
-        <div className="flex flex-col min-h-0 rounded-md overflow-hidden" style={{ flex: 3, border: '1px solid hsla(220,85%,55%,0.35)' }}>
+        <div className="flex flex-col min-h-0 rounded-md overflow-hidden flex-1" style={{ border: '1px solid hsla(220,85%,55%,0.35)' }}>
           <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(220,85%,55%,0.28), hsla(220,85%,55%,0.08))', borderColor: 'hsla(220,85%,55%,0.35)' }}>
             <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(220,85%,75%)', textShadow: '0 0 8px hsla(220,85%,55%,0.7)' }}>Product</span>
           </div>
@@ -402,6 +389,15 @@ export default function Home() {
             <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: 'hsl(0,85%,72%)', textShadow: '0 0 8px hsla(0,85%,55%,0.7)' }}>Ops Central</span>
           </div>
           <div className="flex-1 overflow-y-auto min-h-0" style={{ background: 'radial-gradient(ellipse at top, hsla(0,85%,55%,0.15) 0%, transparent 55%), linear-gradient(to bottom, hsla(0,85%,55%,0.18), hsla(0,85%,55%,0.04) 100%)' }}>
+            <div className="p-2">
+              <SystemPulse
+                setupItems={systemPulseSetupItems}
+                billingStatus={billingStatus}
+                rateLimit={blRateLimit}
+                blApiCallLimit={appSettingsHome?.blApiCallLimit}
+                onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
+              />
+            </div>
             <GeneralDashboard
               panelMode
               onItemClick={handleDashboardItemClick}

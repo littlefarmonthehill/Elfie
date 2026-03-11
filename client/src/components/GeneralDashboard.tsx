@@ -237,13 +237,6 @@ function InventoryLane({
     refetchInterval: 10000,
   });
 
-  const { data: catalogStatus } = useQuery<{ catalog: number; confirmed: number; total: number }>({
-    queryKey: ['/api/brickspotter/catalog-status'],
-    refetchInterval: 10000,
-  });
-
-  const catalogPct = catalogStatus && catalogStatus.total > 0
-    ? Math.round((catalogStatus.catalog / catalogStatus.total) * 100) : 0;
   const invEmbedPct = embedStats && embedStats.inventory.total > 0
     ? Math.round((embedStats.inventory.embedded / embedStats.inventory.total) * 100) : 0;
 
@@ -418,14 +411,6 @@ function InventoryLane({
             time={relTime(lastChannelSync.lastSyncTime)}
           />
         ) : null}
-        {catalogStatus && (
-          <ActivityItem
-            icon={ScanSearch}
-            iconColor="text-purple-400"
-            label={`Visual catalog — ${catalogPct}% built`}
-            sub={`${catalogStatus.catalog} / ${catalogStatus.total} parts embedded`}
-          />
-        )}
         {embedStats && (
           <ActivityItem
             icon={embedStats.inventory.embedded >= embedStats.inventory.total && embedStats.inventory.total > 0 ? CheckCircle : RefreshCw}
