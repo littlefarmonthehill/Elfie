@@ -219,6 +219,10 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE ai_usage_log ADD COLUMN IF NOT EXISTS org_id VARCHAR(100)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_ai_usage_log_org_id ON ai_usage_log (org_id)`);
     console.log('[Migration] Phase-8 (ai_usage_log table) complete.');
+
+    // ── Phase-9: Platform name column on app_settings ────────────────────────
+    await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS platform_name TEXT`);
+    console.log('[Migration] Phase-9 (platform_name column) complete.');
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

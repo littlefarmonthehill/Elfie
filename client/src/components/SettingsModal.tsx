@@ -645,6 +645,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [bricklinkTokenValue, setBricklinkTokenValue] = useState("");
   const [bricklinkTokenSecret, setBricklinkTokenSecret] = useState("");
 
+  // Platform Information
+  const [platformNameInput, setPlatformNameInput] = useState("");
+  const [platformNameSaving, setPlatformNameSaving] = useState(false);
+
   // Platform BrickLink Settings (stored on org_planetbrick, used for PoM & data enrichment)
   const [platformBlConsumerKey, setPlatformBlConsumerKey] = useState("");
   const [platformBlConsumerSecret, setPlatformBlConsumerSecret] = useState("");
@@ -744,7 +748,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [activeOrg, setActiveOrg] = useState<OrgWithUsage | null>(null);
   const [activeOrgTab, setActiveOrgTab] = useState<'features' | 'limits' | 'billing'>('features');
   const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'features' | 'limits' | 'billing'>('info');
-  const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'stripe' | 'openai' | 'bricklink'>('stripe');
+  const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'platform' | 'stripe' | 'openai' | 'bricklink'>('platform');
   const [activeHealthTab, setActiveHealthTab] = useState<'overview' | 'jobs' | 'logs' | 'database' | 'bricklink'>('overview');
   const [showBlSchedulePopup, setShowBlSchedulePopup] = useState(false);
   const [activePlanTab, setActivePlanTab] = useState<string>('trial');
@@ -1014,6 +1018,20 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     staleTime: 120000,
     retry: 0,
   });
+
+  type PlatformInfoData = { platformName: string };
+  const { data: platformInfoData } = useQuery<PlatformInfoData>({
+    queryKey: ['/api/platform-admin/platform-services/platform-info'],
+    enabled: open && activeSection === 'apiKeys' && superAdmin,
+    staleTime: 60000,
+    retry: 0,
+  });
+
+  useEffect(() => {
+    if (platformInfoData) {
+      setPlatformNameInput(platformInfoData.platformName || '');
+    }
+  }, [platformInfoData]);
 
   type PlatformBlStatusData = { connected: boolean; hasCredentials: boolean; keyPrefix?: string; testResult?: string; error?: string };
   const { data: platformBlStatusData, isLoading: platformBlStatusLoading } = useQuery<PlatformBlStatusData>({
@@ -7155,7 +7173,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
               <div className="p-4 space-y-4">
                 {/* Tab strip */}
                 {(() => {
-                  const psTabs: Array<{ id: 'stripe' | 'openai' | 'bricklink'; label: string; Icon: React.ElementType }> = [
+                  const psTabs: Array<{ id: 'platform' | 'stripe' | 'openai' | 'bricklink'; label: string; Icon: React.ElementType }> = [
+                    { id: 'platform', label: 'Platform', Icon: Building2 },
                     { id: 'bricklink', label: 'BrickLink', Icon: Blocks },
                     { id: 'stripe', label: 'Stripe', Icon: CreditCard },
                     { id: 'openai', label: 'OpenAI', Icon: Brain },
@@ -7176,6 +7195,82 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </div>
                   );
                 })()}
+
+                {/* ── Platform tab ────────────────────────────────── */}
+                {activePlatformServicesTab === 'platform' && (
+                  <div className="space-y-4">
+                    <div className="sm-card">
+                      <div className="sm-card-header">
+                        <Building2 className="h-3.5 w-3.5 text-violet-400/80" />
+                        <span className="text-xs font-semibold text-gray-200">Platform Information</span>
+                      </div>
+                      <div className="px-4 py-3 space-y-3">
+                        <p className="text-[11px] text-gray-400 leading-relaxed">Set the display name for this platform. This name is used across all platform services to identify platform-level usage and operations.</p>
+                        <div>
+                          <label className="block app-label mb-1">Platform Name</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. PlanetBrick"
+                            value={platformNameInput}
+                            onChange={e => setPlatformNameInput(e.target.value)}
+                            maxLength={100}
+                            data-testid="input-platform-name"
+                            className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            onClick={async () => {
+                              setPlatformNameSaving(true);
+                              try {
+                                const res = await fetch('/api/platform-admin/platform-services/platform-info', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ platformName: platformNameInput }),
+                                });
+                                if (!res.ok) throw new Error('Failed to save');
+                                queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/platform-services/platform-info'] });
+                                queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/platform-services/openai-billing/by-org'] });
+                                toast({ title: "Saved", description: "Platform name updated." });
+                              } catch {
+                                toast({ title: "Error", description: "Failed to save platform name.", variant: "destructive" });
+                              } finally {
+                                setPlatformNameSaving(false);
+                              }
+                            }}
+                            disabled={platformNameSaving}
+                            data-testid="button-save-platform-name"
+                            className="inline-flex items-center gap-1.5 text-[10px] font-medium text-violet-400 hover:text-violet-300 border border-violet-500/30 rounded px-3 py-1.5 transition-colors disabled:opacity-50"
+                          >
+                            {platformNameSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="sm-card">
+                      <div className="sm-card-header">
+                        <Info className="h-3.5 w-3.5 text-gray-500" />
+                        <span className="text-xs font-semibold text-gray-200">Where This Name Appears</span>
+                      </div>
+                      <div className="px-4 py-3 space-y-2">
+                        <div className="grid grid-cols-1 gap-2">
+                          {[
+                            { label: 'OpenAI Cost Attribution', desc: 'Identifies platform-level AI usage (Elfie, embeddings) separate from org usage' },
+                            { label: 'BrickLink Usage Tracking', desc: 'Labels platform API calls for Price-o-Matic and catalog enrichment' },
+                            { label: 'Platform Services', desc: 'Display name for all platform-scoped operations and billing' },
+                          ].map(({ label, desc }) => (
+                            <div key={label} className="bg-gray-900/40 border border-gray-700/60 rounded px-3 py-2">
+                              <p className="text-[10px] font-medium text-gray-300 mb-0.5">{label}</p>
+                              <p className="text-[9px] text-gray-500">{desc}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* ── BrickLink tab ────────────────────────────────── */}
                 {activePlatformServicesTab === 'bricklink' && (
@@ -7656,7 +7751,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                     <p className="text-[9px] text-yellow-500/80 uppercase tracking-wider font-semibold mb-1.5">Platform</p>
                                     <div className="bg-yellow-900/20 border border-yellow-500/15 rounded p-2.5 space-y-1.5" data-testid="org-usage-platform">
                                       <div className="flex items-center justify-between gap-2">
-                                        <span className="text-[11px] font-medium text-yellow-300/90">Platform Operations</span>
+                                        <span className="text-[11px] font-medium text-yellow-300/90">{platformEntry.orgName || 'Platform'}</span>
                                         <span className="text-[10px] text-yellow-400/70 shrink-0 tabular-nums">
                                           {platformEntry.totalCost > 0 ? `$${platformEntry.totalCost.toFixed(4)}` : ''} {platformEntry.totalTokens.toLocaleString()} tokens
                                         </span>

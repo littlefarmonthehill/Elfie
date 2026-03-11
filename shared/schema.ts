@@ -468,6 +468,7 @@ export const shipmentsRelations = relations(shipments, ({ one }) => ({
 export const appSettings = pgTable("app_settings", {
   id: varchar("id").primaryKey().default('default'),
   orgId: varchar("org_id"),                            // FK → organizations.id
+  platformName: text("platform_name"),                   // Configurable platform display name
   aiEnabled: boolean("ai_enabled").default(true).notNull(),
   // OpenAI Configuration (used for both chat and embeddings)
   openaiApiKey: text("openai_api_key"),

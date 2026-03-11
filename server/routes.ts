@@ -577,6 +577,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/platform-admin/platform-services/platform-info — get platform name
+  app.get('/api/platform-admin/platform-services/platform-info', isSuperAdmin, async (_req, res) => {
+    try {
+      const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, 'org_planetbrick')).limit(1);
+      res.json({ platformName: settings?.platformName || '' });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || 'Failed to load platform info' });
+    }
+  });
+
+  // POST /api/platform-admin/platform-services/platform-info — save platform name
+  app.post('/api/platform-admin/platform-services/platform-info', isSuperAdmin, async (req, res) => {
+    try {
+      const { platformName } = req.body as { platformName: string };
+      if (typeof platformName !== 'string' || platformName.length > 100) {
+        return res.status(400).json({ message: 'Platform name must be a string (max 100 chars)' });
+      }
+      await db
+        .insert(appSettings)
+        .values({ id: 'org_planetbrick', orgId: 'org_planetbrick', platformName: platformName.trim() || null })
+        .onConflictDoUpdate({
+          target: appSettings.id,
+          set: { platformName: platformName.trim() || null, updatedAt: sql`CURRENT_TIMESTAMP` },
+        });
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err?.message || 'Failed to save platform info' });
+    }
+  });
+
   // GET /api/platform-admin/platform-services/bricklink-status — check platform BrickLink connection
   app.get('/api/platform-admin/platform-services/bricklink-status', isSuperAdmin, async (_req, res) => {
     try {
@@ -759,15 +789,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const orgNames: Record<string, string> = {};
+      let storedPlatformName = '';
       try {
-        const orgs = await db.select({ id: organizations.id, name: organizations.name }).from(organizations);
-        for (const o of orgs) orgNames[o.id] = o.name;
+        const allOrgs = await db.select({ id: organizations.id, name: organizations.name }).from(organizations);
+        for (const o of allOrgs) orgNames[o.id] = o.name;
+        const [platSettings] = await db.select({ platformName: appSettings.platformName }).from(appSettings).where(eq(appSettings.id, 'org_planetbrick')).limit(1);
+        storedPlatformName = platSettings?.platformName || '';
       } catch {}
 
       const orgs = Object.values(orgMap)
         .map(o => ({
           ...o,
-          orgName: orgNames[o.orgId] || (o.orgId === 'platform' ? 'Platform (no org)' : o.orgId),
+          orgName: orgNames[o.orgId] || (o.orgId === 'platform' ? (storedPlatformName || 'Platform') : o.orgId),
           totalCost: Math.round(o.totalCost * 10000) / 10000,
           operations: Object.entries(o.operations).map(([op, d]) => ({
             operation: op,
