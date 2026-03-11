@@ -1052,7 +1052,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const batchSize = settings?.pomScheduleBatchSize ?? 1500;
           const { setPomIsRunning } = await import('./services/pom-scheduler.js');
           setPomIsRunning(true);
-          await db.insert(syncMetadata).values({ id: 'priceomatic_cache', lastSyncStatus: 'in_progress', lastSyncTime: new Date(), recordsAdded: 0, recordsUpdated: 0, orgId: PLATFORM_ORG_ID }).onConflictDoUpdate({ target: syncMetadata.id, set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date() } });
+          await db.insert(syncMetadata).values({ id: 'priceomatic_cache', lastSyncStatus: 'in_progress', lastSyncTime: new Date(), recordsAdded: 0, recordsUpdated: 0, orgId: PLATFORM_ORG_ID }).onConflictDoUpdate({ target: syncMetadata.id, set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: null } });
           syncPriceOMagicCache(batchSize).then(async (result: any) => {
             await db.insert(syncMetadata).values({ id: 'priceomatic_cache', lastSyncStatus: result.stopped ? 'partial' : 'success', lastSyncTime: new Date(), recordsAdded: 0, recordsUpdated: result.itemsUpdated, errorMessage: result.stopReason || null, orgId: PLATFORM_ORG_ID }).onConflictDoUpdate({ target: syncMetadata.id, set: { lastSyncStatus: result.stopped ? 'partial' : 'success', updatedAt: new Date(), recordsUpdated: result.itemsUpdated, errorMessage: result.stopReason || null } });
             setPomIsRunning(false);
@@ -1065,7 +1065,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         case 'universal_catalog_refresh': {
           const { isUniversalImporting, getUniversalCatalogState, importFromRebrickable, retryStaleItems, startUniversalWorker } = await import('./services/universal-clip-catalog.js');
           if (isUniversalImporting() || getUniversalCatalogState()?.running) return res.status(409).json({ message: 'Universal Catalog is already running' });
-          await db.insert(syncMetadata).values({ id: 'universal_catalog_refresh', orgId: PLATFORM_ORG_ID, lastSyncStatus: 'in_progress', lastSyncTime: new Date(), recordsAdded: 0, recordsUpdated: 0 }).onConflictDoUpdate({ target: syncMetadata.id, set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date() } });
+          await db.insert(syncMetadata).values({ id: 'universal_catalog_refresh', orgId: PLATFORM_ORG_ID, lastSyncStatus: 'in_progress', lastSyncTime: new Date(), recordsAdded: 0, recordsUpdated: 0 }).onConflictDoUpdate({ target: syncMetadata.id, set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: null } });
           (async () => {
             try {
               const { imported } = await importFromRebrickable();

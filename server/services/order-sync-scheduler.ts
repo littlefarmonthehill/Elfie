@@ -89,7 +89,7 @@ async function runScheduledOrderSync() {
     orgId: ORG_ID,
   }).onConflictDoUpdate({
     target: syncMetadata.id,
-    set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date() },
+    set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: null },
   });
 
   try {
