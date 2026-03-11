@@ -358,7 +358,7 @@ export default function Home() {
     <div className="flex h-full" style={{ padding: '5px', gap: '5px' }}>
 
       {/* ── LEFT COLUMN: Your Plan (top) + spacer + Product (fills rest to bottom) ── */}
-      <div className="flex flex-col min-h-0 overflow-hidden" style={{ flex: 1 }}>
+      <div className="flex flex-col min-h-0 overflow-hidden self-stretch" style={{ flex: 1 }}>
 
         {/* Your Plan — free-floating, no border box */}
         <div className="flex flex-col shrink-0 overflow-hidden">
