@@ -84,12 +84,10 @@ async function getOrgSettings(orgId: string) {
 }
 
 /**
- * Get the platform-wide OpenAI API key. Env var takes priority, then
- * the platform org's appSettings row. This is the single source of truth
- * for all OpenAI usage across every org.
+ * Get the platform-wide OpenAI API key from the platform org's appSettings row.
+ * This is the single source of truth for all OpenAI usage across every org.
  */
 export async function getPlatformOpenAIKey(): Promise<string | null> {
-  if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY;
   const settings = await getOrgSettings('org_planetbrick');
   return settings?.openaiApiKey || null;
 }
