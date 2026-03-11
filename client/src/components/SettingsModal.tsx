@@ -1383,21 +1383,22 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   useEffect(() => {
     if (settings) {
       setAiEnabled(settings.aiEnabled);
-      setOpenaiApiKey(settings.openaiApiKey || "");
+      const unmask = (val: string | null | undefined) => (val && !val.includes('····')) ? val : '';
+      setOpenaiApiKey(unmask(settings.openaiApiKey));
       setSelectedModel(settings.selectedModel || "gpt-4o-mini");
       setSystemPrompt(settings.systemPrompt || "");
-      setBricklinkConsumerKey(settings.bricklinkConsumerKey || "");
-      setBricklinkConsumerSecret(settings.bricklinkConsumerSecret || "");
-      setBricklinkTokenValue(settings.bricklinkTokenValue || "");
-      setBricklinkTokenSecret(settings.bricklinkTokenSecret || "");
-      setBrickowlApiKey(settings.brickowlApiKey || "");
-      setPaypalClientId(settings.paypalClientId || "");
-      setPaypalClientSecret(settings.paypalClientSecret || "");
+      setBricklinkConsumerKey(unmask(settings.bricklinkConsumerKey));
+      setBricklinkConsumerSecret(unmask(settings.bricklinkConsumerSecret));
+      setBricklinkTokenValue(unmask(settings.bricklinkTokenValue));
+      setBricklinkTokenSecret(unmask(settings.bricklinkTokenSecret));
+      setBrickowlApiKey(unmask(settings.brickowlApiKey));
+      setPaypalClientId(unmask(settings.paypalClientId));
+      setPaypalClientSecret(unmask(settings.paypalClientSecret));
       setPaypalEnvironment((settings.paypalEnvironment as 'sandbox' | 'live') || 'live');
-      setStripeSecretKey(settings.stripeSecretKey || "");
+      setStripeSecretKey(unmask(settings.stripeSecretKey));
       setStripeEnvironment((settings.stripeEnvironment as 'test' | 'live') || 'live');
-      setEasypostApiKey(settings.easypostApiKey || "");
-      setEasypostTestApiKey(settings.easypostTestApiKey || "");
+      setEasypostApiKey(unmask(settings.easypostApiKey));
+      setEasypostTestApiKey(unmask(settings.easypostTestApiKey));
       setEasypostKeyMode((settings.easypostKeyMode as 'test' | 'production') || 'test');
       setCustomsSigner(settings.customsSigner || "");
       setBlIossNumber(settings.blIossNumber || "");
@@ -3526,9 +3527,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       </span>
                     </div>
                     {[
-                      { key: 'bricklink', label: 'BrickLink', connected: !!bricklinkConsumerKey, badge: 'Read only', badgeColor: 'text-blue-400 border-blue-500/20 bg-blue-500/10' },
-                      { key: 'paypal',    label: 'PayPal',    connected: !!(paypalClientId || (settings as any)?.paypalConnectedViaEnv), badge: 'Read only', badgeColor: 'text-blue-400 border-blue-500/20 bg-blue-500/10' },
-                      { key: 'stripe',    label: 'Stripe',    connected: !!(stripeSecretKey || (settings as any)?.stripeConnectedViaEnv), badge: 'Read only', badgeColor: 'text-blue-400 border-blue-500/20 bg-blue-500/10' },
+                      { key: 'bricklink', label: 'BrickLink', connected: !!bricklinkConsumerKey || !!(settings as any)?.has_bricklinkConsumerKey, badge: 'Read only', badgeColor: 'text-blue-400 border-blue-500/20 bg-blue-500/10' },
+                      { key: 'paypal',    label: 'PayPal',    connected: !!(paypalClientId || (settings as any)?.has_paypalClientId || (settings as any)?.paypalConnectedViaEnv), badge: 'Read only', badgeColor: 'text-blue-400 border-blue-500/20 bg-blue-500/10' },
+                      { key: 'stripe',    label: 'Stripe',    connected: !!(stripeSecretKey || (settings as any)?.has_stripeSecretKey || (settings as any)?.stripeConnectedViaEnv), badge: 'Read only', badgeColor: 'text-blue-400 border-blue-500/20 bg-blue-500/10' },
                     ].map(p => (
                       <button key={p.key} onClick={() => setActivePlatform(p.key)}
                         className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors group"
@@ -3554,7 +3555,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors group"
                       data-testid="nav-platform-brickowl"
                     >
-                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${brickowlApiKey || (settings as any)?.brickowlConnectedViaEnv ? 'bg-green-400' : 'bg-gray-600'}`} />
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${brickowlApiKey || (settings as any)?.has_brickowlApiKey || (settings as any)?.brickowlConnectedViaEnv ? 'bg-green-400' : 'bg-gray-600'}`} />
                       <span className="flex-1 text-left">BrickOwl</span>
                       <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border text-amber-400 border-amber-500/20 bg-amber-500/10">Read + Write</span>
                       <ChevronRight className="h-4 w-4 text-gray-600 flex-shrink-0" />
@@ -3676,7 +3677,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors group"
                       data-testid="nav-platform-easypost"
                     >
-                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${easypostApiKey || easypostTestApiKey ? 'bg-green-400' : 'bg-gray-600'}`} />
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${easypostApiKey || easypostTestApiKey || (settings as any)?.has_easypostApiKey || (settings as any)?.has_easypostTestApiKey ? 'bg-green-400' : 'bg-gray-600'}`} />
                       <span className="flex-1 text-left">EasyPost</span>
                       <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border text-amber-400 border-amber-500/20 bg-amber-500/10">Read + Write</span>
                       <ChevronRight className="h-4 w-4 text-gray-600 flex-shrink-0" />
@@ -3735,10 +3736,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-blue-500/10 text-blue-400 border-blue-500/20">Read only</span>
                       <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0" /></TooltipTrigger><TooltipContent side="right" className="max-w-xs text-xs">BrickLink is the source of truth for inventory. Data flows one way — into this platform. Inventory is never written back to BrickLink.</TooltipContent></Tooltip>
                     </div>
-                    <div className="space-y-2"><Label htmlFor="bricklink-key" className="text-xs text-gray-200">Consumer Key</Label><Input id="bricklink-key" placeholder="Enter BrickLink Consumer Key" className="text-xs" value={bricklinkConsumerKey} onChange={(e) => setBricklinkConsumerKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })} data-testid="input-bricklink-key" /></div>
-                    <div className="space-y-2"><Label htmlFor="bricklink-secret" className="text-xs text-gray-200">Consumer Secret</Label><Input id="bricklink-secret" type="password" placeholder="Enter BrickLink Consumer Secret" className="text-xs" value={bricklinkConsumerSecret} onChange={(e) => setBricklinkConsumerSecret(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })} data-testid="input-bricklink-secret" /></div>
-                    <div className="space-y-2"><Label htmlFor="bricklink-token" className="text-xs text-gray-200">Token Value</Label><Input id="bricklink-token" placeholder="Enter BrickLink Token Value" className="text-xs" value={bricklinkTokenValue} onChange={(e) => setBricklinkTokenValue(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })} data-testid="input-bricklink-token" /></div>
-                    <div className="space-y-2"><Label htmlFor="bricklink-token-secret" className="text-xs text-gray-200">Token Secret</Label><Input id="bricklink-token-secret" type="password" placeholder="Enter BrickLink Token Secret" className="text-xs" value={bricklinkTokenSecret} onChange={(e) => setBricklinkTokenSecret(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || null, bricklinkConsumerSecret: bricklinkConsumerSecret || null, bricklinkTokenValue: bricklinkTokenValue || null, bricklinkTokenSecret: bricklinkTokenSecret || null })} data-testid="input-bricklink-token-secret" /></div>
+                    <div className="space-y-2"><Label htmlFor="bricklink-key" className="text-xs text-gray-200">Consumer Key</Label><Input id="bricklink-key" placeholder={(settings as any)?.has_bricklinkConsumerKey ? "Key saved — leave blank to keep" : "Enter BrickLink Consumer Key"} className="text-xs" value={bricklinkConsumerKey} onChange={(e) => setBricklinkConsumerKey(e.target.value)} onBlur={() => { if (bricklinkConsumerKey || bricklinkConsumerSecret || bricklinkTokenValue || bricklinkTokenSecret) updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || undefined, bricklinkConsumerSecret: bricklinkConsumerSecret || undefined, bricklinkTokenValue: bricklinkTokenValue || undefined, bricklinkTokenSecret: bricklinkTokenSecret || undefined }); }} data-testid="input-bricklink-key" /></div>
+                    <div className="space-y-2"><Label htmlFor="bricklink-secret" className="text-xs text-gray-200">Consumer Secret</Label><Input id="bricklink-secret" type="password" placeholder={(settings as any)?.has_bricklinkConsumerSecret ? "Key saved — leave blank to keep" : "Enter BrickLink Consumer Secret"} className="text-xs" value={bricklinkConsumerSecret} onChange={(e) => setBricklinkConsumerSecret(e.target.value)} onBlur={() => { if (bricklinkConsumerKey || bricklinkConsumerSecret || bricklinkTokenValue || bricklinkTokenSecret) updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || undefined, bricklinkConsumerSecret: bricklinkConsumerSecret || undefined, bricklinkTokenValue: bricklinkTokenValue || undefined, bricklinkTokenSecret: bricklinkTokenSecret || undefined }); }} data-testid="input-bricklink-secret" /></div>
+                    <div className="space-y-2"><Label htmlFor="bricklink-token" className="text-xs text-gray-200">Token Value</Label><Input id="bricklink-token" placeholder={(settings as any)?.has_bricklinkTokenValue ? "Key saved — leave blank to keep" : "Enter BrickLink Token Value"} className="text-xs" value={bricklinkTokenValue} onChange={(e) => setBricklinkTokenValue(e.target.value)} onBlur={() => { if (bricklinkConsumerKey || bricklinkConsumerSecret || bricklinkTokenValue || bricklinkTokenSecret) updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || undefined, bricklinkConsumerSecret: bricklinkConsumerSecret || undefined, bricklinkTokenValue: bricklinkTokenValue || undefined, bricklinkTokenSecret: bricklinkTokenSecret || undefined }); }} data-testid="input-bricklink-token" /></div>
+                    <div className="space-y-2"><Label htmlFor="bricklink-token-secret" className="text-xs text-gray-200">Token Secret</Label><Input id="bricklink-token-secret" type="password" placeholder={(settings as any)?.has_bricklinkTokenSecret ? "Key saved — leave blank to keep" : "Enter BrickLink Token Secret"} className="text-xs" value={bricklinkTokenSecret} onChange={(e) => setBricklinkTokenSecret(e.target.value)} onBlur={() => { if (bricklinkConsumerKey || bricklinkConsumerSecret || bricklinkTokenValue || bricklinkTokenSecret) updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || undefined, bricklinkConsumerSecret: bricklinkConsumerSecret || undefined, bricklinkTokenValue: bricklinkTokenValue || undefined, bricklinkTokenSecret: bricklinkTokenSecret || undefined }); }} data-testid="input-bricklink-token-secret" /></div>
                     <div className="pt-2 border-t border-gray-700">
                       <p className="text-[10px] text-gray-500">This org's API credentials are used for inventory sync and order imports. The platform-wide daily API limit is configured in <button onClick={() => { setActiveSection('apiKeys'); setActivePlatformServicesTab('bricklink'); }} className="text-yellow-400/80 hover:text-yellow-300 underline-offset-2 hover:underline" data-testid="link-goto-platform-services-bricklink">Platform Services</button>.</p>
                     </div>
@@ -3752,7 +3753,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-amber-500/10 text-amber-400 border-amber-500/20">Read + Write</span>
                       <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0" /></TooltipTrigger><TooltipContent side="right" className="max-w-xs text-xs">Orders and inventory are pulled from BrickOwl. Inventory updates are also pushed back to keep BrickOwl in sync.</TooltipContent></Tooltip>
                     </div>
-                    <div className="space-y-2"><Label htmlFor="brickowl-key" className="text-xs text-gray-200">API Key</Label><Input id="brickowl-key" type="password" placeholder="Enter BrickOwl API Key" className="text-xs" value={brickowlApiKey} onChange={(e) => setBrickowlApiKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ brickowlApiKey: brickowlApiKey || null })} data-testid="input-brickowl-key" /></div>
+                    <div className="space-y-2"><Label htmlFor="brickowl-key" className="text-xs text-gray-200">API Key</Label><Input id="brickowl-key" type="password" placeholder={(settings as any)?.has_brickowlApiKey ? "Key saved — leave blank to keep" : "Enter BrickOwl API Key"} className="text-xs" value={brickowlApiKey} onChange={(e) => setBrickowlApiKey(e.target.value)} onBlur={() => { if (brickowlApiKey) updateSettingsMutation.mutate({ brickowlApiKey }); }} data-testid="input-brickowl-key" /></div>
                     <div className="pt-2 border-t border-gray-700 flex justify-end">
                       <Button variant="ghost" size="sm" className="text-xs gap-1 text-red-400/80 hover:text-red-400" data-testid="button-remove-brickowl" onClick={() => setRemovePrimaryDialog('brickowl')}><Trash2 className="w-3 h-3" /> Remove</Button>
                     </div>
@@ -3775,8 +3776,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       {paypalEnvironment === 'sandbox' && <p className="text-xs text-yellow-500/80">Sandbox mode — test credentials only</p>}
                       {paypalEnvironment === 'live' && <p className="text-xs text-green-500/80">Live mode — real PayPal transactions</p>}
                     </div>
-                    <div className="space-y-2"><Label htmlFor="paypal-client-id" className="text-xs text-gray-200">Client ID</Label><Input id="paypal-client-id" placeholder="Enter PayPal Client ID" className="text-xs" value={paypalClientId} onChange={(e) => setPaypalClientId(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ paypalClientId: paypalClientId || null })} data-testid="input-paypal-client-id" /></div>
-                    <div className="space-y-2"><Label htmlFor="paypal-client-secret" className="text-xs text-gray-200">Client Secret</Label><Input id="paypal-client-secret" type="password" placeholder="Enter PayPal Client Secret" className="text-xs" value={paypalClientSecret} onChange={(e) => setPaypalClientSecret(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ paypalClientSecret: paypalClientSecret || null })} data-testid="input-paypal-client-secret" /></div>
+                    <div className="space-y-2"><Label htmlFor="paypal-client-id" className="text-xs text-gray-200">Client ID</Label><Input id="paypal-client-id" placeholder={(settings as any)?.has_paypalClientId ? "Key saved — leave blank to keep" : "Enter PayPal Client ID"} className="text-xs" value={paypalClientId} onChange={(e) => setPaypalClientId(e.target.value)} onBlur={() => { if (paypalClientId) updateSettingsMutation.mutate({ paypalClientId }); }} data-testid="input-paypal-client-id" /></div>
+                    <div className="space-y-2"><Label htmlFor="paypal-client-secret" className="text-xs text-gray-200">Client Secret</Label><Input id="paypal-client-secret" type="password" placeholder={(settings as any)?.has_paypalClientSecret ? "Key saved — leave blank to keep" : "Enter PayPal Client Secret"} className="text-xs" value={paypalClientSecret} onChange={(e) => setPaypalClientSecret(e.target.value)} onBlur={() => { if (paypalClientSecret) updateSettingsMutation.mutate({ paypalClientSecret }); }} data-testid="input-paypal-client-secret" /></div>
                   </div>
                 )}
 
@@ -3796,7 +3797,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       {stripeEnvironment === 'test' && <p className="text-xs text-yellow-500/80">Test mode — use a <code className="font-mono">sk_test_</code> key</p>}
                       {stripeEnvironment === 'live' && <p className="text-xs text-green-500/80">Live mode — use a <code className="font-mono">sk_live_</code> or restricted key</p>}
                     </div>
-                    <div className="space-y-2"><Label htmlFor="stripe-secret-key" className="text-xs text-gray-200">Secret Key</Label><Input id="stripe-secret-key" type="password" placeholder={stripeEnvironment === 'test' ? 'sk_test_...' : 'sk_live_... or rk_live_...'} className="text-xs" value={stripeSecretKey} onChange={(e) => setStripeSecretKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ stripeSecretKey: stripeSecretKey || null })} data-testid="input-stripe-secret-key" /></div>
+                    <div className="space-y-2"><Label htmlFor="stripe-secret-key" className="text-xs text-gray-200">Secret Key</Label><Input id="stripe-secret-key" type="password" placeholder={(settings as any)?.has_stripeSecretKey ? "Key saved — leave blank to keep" : (stripeEnvironment === 'test' ? 'sk_test_...' : 'sk_live_... or rk_live_...')} className="text-xs" value={stripeSecretKey} onChange={(e) => setStripeSecretKey(e.target.value)} onBlur={() => { if (stripeSecretKey) updateSettingsMutation.mutate({ stripeSecretKey }); }} data-testid="input-stripe-secret-key" /></div>
                   </div>
                 )}
 
@@ -3816,8 +3817,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       {easypostKeyMode === 'test' && <p className="text-xs text-yellow-500/80">Test mode — labels will use test tracking numbers</p>}
                       {easypostKeyMode === 'production' && <p className="text-xs text-green-500/80">Production mode — real shipping labels will be created</p>}
                     </div>
-                    <div className="space-y-2"><Label htmlFor="easypost-key" className="text-xs text-gray-200">Production API Key</Label><Input id="easypost-key" type="password" placeholder="Enter EasyPost Production API Key" className="text-xs" value={easypostApiKey} onChange={(e) => setEasypostApiKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ easypostApiKey: easypostApiKey || null })} data-testid="input-easypost-key" /></div>
-                    <div className="space-y-2"><Label htmlFor="easypost-test-key" className="text-xs text-gray-200">Test API Key</Label><Input id="easypost-test-key" type="password" placeholder="Enter EasyPost Test API Key" className="text-xs" value={easypostTestApiKey} onChange={(e) => setEasypostTestApiKey(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ easypostTestApiKey: easypostTestApiKey || null })} data-testid="input-easypost-test-key" /></div>
+                    <div className="space-y-2"><Label htmlFor="easypost-key" className="text-xs text-gray-200">Production API Key</Label><Input id="easypost-key" type="password" placeholder={(settings as any)?.has_easypostApiKey ? "Key saved — leave blank to keep" : "Enter EasyPost Production API Key"} className="text-xs" value={easypostApiKey} onChange={(e) => setEasypostApiKey(e.target.value)} onBlur={() => { if (easypostApiKey) updateSettingsMutation.mutate({ easypostApiKey }); }} data-testid="input-easypost-key" /></div>
+                    <div className="space-y-2"><Label htmlFor="easypost-test-key" className="text-xs text-gray-200">Test API Key</Label><Input id="easypost-test-key" type="password" placeholder={(settings as any)?.has_easypostTestApiKey ? "Key saved — leave blank to keep" : "Enter EasyPost Test API Key"} className="text-xs" value={easypostTestApiKey} onChange={(e) => setEasypostTestApiKey(e.target.value)} onBlur={() => { if (easypostTestApiKey) updateSettingsMutation.mutate({ easypostTestApiKey }); }} data-testid="input-easypost-test-key" /></div>
                     <div className="pt-3 border-t border-gray-700 space-y-3">
                       <div>
                         <p className="text-xs font-semibold text-gray-300 mb-0.5">International Shipping</p>
@@ -3948,7 +3949,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         onBlur={() => {
                           updateSettingsMutation.mutate({
                             aiEnabled,
-                            openaiApiKey: openaiApiKey || null,
+                            ...(openaiApiKey ? { openaiApiKey } : {}),
                             selectedModel: selectedModel || null,
                             systemPrompt: systemPrompt || null,
                           });
@@ -4816,7 +4817,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   <div className="flex-1 min-w-0">
                     <p className="app-label">OpenAI API Key</p>
                     <p className="text-[11px] text-gray-500 mt-0.5">
-                      {openaiApiKey ? <span className="text-green-400/80">Key configured</span> : <span className="text-gray-600">Not configured</span>}
+                      {(openaiApiKey || (settings as any)?.has_openaiApiKey) ? <span className="text-green-400/80">Key configured</span> : <span className="text-gray-600">Not configured</span>}
                       {' — '}configured in <button onClick={() => { setActiveSection('apiKeys'); setActivePlatformServicesTab('openai'); }} className="text-yellow-400/80 hover:text-yellow-300 underline-offset-2 hover:underline" data-testid="link-goto-platform-services-openai">Platform Services → OpenAI</button>
                     </p>
                   </div>
@@ -7810,10 +7811,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           <label className="block app-label mb-1">Secret Key</label>
                           <input
                             type="password"
-                            placeholder={stripeEnvironment === 'test' ? 'sk_test_…' : 'sk_live_… or rk_live_…'}
+                            placeholder={(settings as any)?.has_stripeSecretKey ? "Key saved — leave blank to keep" : (stripeEnvironment === 'test' ? 'sk_test_…' : 'sk_live_… or rk_live_…')}
                             value={stripeSecretKey}
                             onChange={e => setStripeSecretKey(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ stripeSecretKey: stripeSecretKey || null })}
+                            onBlur={() => { if (stripeSecretKey) updateSettingsMutation.mutate({ stripeSecretKey }); }}
                             data-testid="input-ps-stripe-secret-key"
                             className="w-full bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500 font-mono"
                           />
@@ -7893,15 +7894,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           <label className="block app-label mb-1">API Key</label>
                           <input
                             type="password"
-                            placeholder="sk-…"
+                            placeholder={(settings as any)?.has_openaiApiKey ? "Key saved — leave blank to keep" : "sk-…"}
                             value={openaiApiKey}
                             onChange={e => setOpenaiApiKey(e.target.value)}
                             onBlur={async () => {
+                              if (!openaiApiKey) return;
                               try {
                                 const res = await fetch('/api/platform-admin/platform-services/openai-key', {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ openaiApiKey: openaiApiKey || null }),
+                                  body: JSON.stringify({ openaiApiKey }),
                                 });
                                 if (!res.ok) throw new Error('Failed to save');
                                 queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/platform-services/openai-status'] });

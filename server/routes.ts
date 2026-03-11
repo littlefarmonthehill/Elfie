@@ -1,6 +1,39 @@
 import { createHash } from "crypto";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+
+const SECRET_FIELDS = [
+  'openaiApiKey',
+  'bricklinkConsumerKey',
+  'bricklinkConsumerSecret',
+  'bricklinkTokenValue',
+  'bricklinkTokenSecret',
+  'brickowlApiKey',
+  'easypostApiKey',
+  'easypostTestApiKey',
+  'paypalClientId',
+  'paypalClientSecret',
+  'stripeSecretKey',
+  'shipstationApiKey',
+  'shipstationApiSecret',
+] as const;
+
+function maskSecret(value: string | null | undefined): string | null {
+  if (!value) return null;
+  if (value.length <= 8) return '········';
+  return value.substring(0, 4) + '····' + value.substring(value.length - 4);
+}
+
+function maskSettingsSecrets(settings: Record<string, any> | null): Record<string, any> | null {
+  if (!settings) return settings;
+  const masked = { ...settings };
+  for (const field of SECRET_FIELDS) {
+    const val = masked[field];
+    masked[field] = maskSecret(val);
+    masked[`has_${field}`] = !!val;
+  }
+  return masked;
+}
 import { storage } from "./storage";
 import { getEffectiveLimits } from "@shared/tierConfig";
 import { seedPlanConfigsIfEmpty, getAllPlanConfigsWithCounts, updatePlanConfig, setPlanSunset, dbPlanToLimits } from "./services/planConfigService";
@@ -3508,12 +3541,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const orgId = reqOrgId(req);
       const settings = await getOrgSettings(orgId);
-      // Merge env-var presence so the dashboard correctly reflects connection status
-      // when credentials are stored as environment variables rather than in the DB row.
+      const masked = maskSettingsSecrets(settings as any);
       res.json({
-        ...settings,
-        // Boolean flags so the dashboard knows a credential is active via env var even when
-        // the DB field is null. Kept separate so the settings form inputs don't get polluted.
+        ...masked,
         paypalConnectedViaEnv: !settings?.paypalClientId && !!process.env.PAYPAL_CLIENT_ID,
         stripeConnectedViaEnv: !settings?.stripeSecretKey && !!process.env.STRIPE_SECRET_KEY,
         brickowlConnectedViaEnv: !settings?.brickowlApiKey && !!process.env.BRICKOWL_API_KEY,
@@ -3529,6 +3559,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orgId = reqOrgId(req);
       const data = insertAppSettingsSchema.parse(req.body);
       
+      for (const field of SECRET_FIELDS) {
+        const val = (data as any)[field];
+        if (val && typeof val === 'string' && val.includes('····')) {
+          delete (data as any)[field];
+        }
+      }
+      
       const [settings] = await db
         .insert(appSettings)
         .values({ ...data, id: orgId, orgId })
@@ -3541,7 +3578,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .returning();
 
-      res.json(settings);
+      res.json(maskSettingsSecrets(settings as any));
     } catch (error) {
       console.error("Error updating settings:", error);
       res.status(500).json({ error: "Failed to update settings" });

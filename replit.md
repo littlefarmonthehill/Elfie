@@ -67,6 +67,10 @@ Platform services and customer orgs are fully separated in `app_settings`:
 - **Org schedulers** (inventory-sync, order-sync, channel-sync) read settings from the org's own row.
 - **Migration Phase-10** copies platform-level credentials from `org_planetbrick` to the new `platform` row on first run.
 
+## API Credential Security
+
+`GET /api/settings` and `POST /api/settings` mask all secret fields (API keys, tokens, secrets) before returning them to the frontend. The `maskSettingsSecrets()` function in `routes.ts` replaces secret values with `first4····last4` format and adds `has_fieldName` boolean flags. The frontend uses these flags for connection status indicators and shows "Key saved — leave blank to keep" as placeholder text. Empty inputs on blur do NOT overwrite saved keys. The server-side guard strips any field containing `····` to prevent masked values from being persisted. Secret fields covered: openaiApiKey, bricklinkConsumerKey/Secret, bricklinkTokenValue/Secret, brickowlApiKey, easypostApiKey/TestApiKey, paypalClientId/Secret, stripeSecretKey, shipstationApiKey/Secret.
+
 ## System Health — Database Vacuum & Cleanup
 
 The Database tab in System Health (super admin only) includes a **Vacuum & Cleanup Tools** panel:
