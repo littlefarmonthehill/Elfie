@@ -1862,7 +1862,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   </button>
                 )}
               </div>
-              <DialogHeader className="flex-1 p-0 text-center sm:text-center">
+              <div className="flex-1 p-0 text-center">
                 <DialogTitle className="text-sm font-semibold text-gray-100 tracking-wide">
                   {activeSection === null
                     ? 'Settings'
@@ -1877,7 +1877,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         ? activeOrg.name
                         : allNavItems.find(i => i.id === activeSection)?.label ?? 'Settings'}
                 </DialogTitle>
-              </DialogHeader>
+              </div>
               <div className="w-8 flex-shrink-0" />
             </div>
 
@@ -6852,42 +6852,44 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         { key: 'failed', label: 'Fail', align: 'right' as const },
                       ];
                       return (
-                        <div className="rounded-lg border border-gray-700 overflow-x-auto">
-                          <table className="w-full text-[10px] table-fixed" style={{ minWidth: '420px' }} data-testid="table-bl-api-breakdown">
-                            <thead>
-                              <tr className="bg-gray-800/80 border-b border-gray-700/60">
-                                {columns.map(col => (
-                                  <th
-                                    key={col.key}
-                                    onClick={() => toggleSort(col.key)}
-                                    className={`px-1.5 py-2 font-semibold cursor-pointer select-none transition-colors hover:text-yellow-400 whitespace-nowrap ${col.align === 'right' ? 'text-right' : 'text-left'} ${sortCol === col.key ? 'text-yellow-400' : 'text-gray-500'} ${col.key === 'orgId' ? 'w-[35%]' : ''}`}
-                                    data-testid={`sort-bl-${col.key}`}
-                                  >
-                                    <span className="inline-flex items-center gap-0.5">
-                                      {col.label}
-                                      {sortCol === col.key && (
-                                        <span className="text-[8px]">{sortDir === 'desc' ? '▼' : '▲'}</span>
-                                      )}
-                                    </span>
-                                  </th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-700/30">
-                              {sorted.map(row => (
-                                <tr key={row.orgId} className="hover-elevate" data-testid={`row-bl-org-${row.orgId}`}>
-                                  <td className="px-1.5 py-1.5 text-gray-300 truncate">{row.orgName || row.orgId}</td>
-                                  <td className="px-1.5 py-1.5 text-right font-mono font-semibold text-gray-200">{row.total.toLocaleString()}</td>
-                                  <td className="px-1.5 py-1.5 text-right font-mono text-gray-400">{row.inventory > 0 ? row.inventory.toLocaleString() : '—'}</td>
-                                  <td className="px-1.5 py-1.5 text-right font-mono text-gray-400">{row.orders > 0 ? row.orders.toLocaleString() : '—'}</td>
-                                  <td className="px-1.5 py-1.5 text-right font-mono text-gray-400">{row.catalog > 0 ? row.catalog.toLocaleString() : '—'}</td>
-                                  <td className="px-1.5 py-1.5 text-right font-mono text-gray-400">{row.priceGuide > 0 ? row.priceGuide.toLocaleString() : '—'}</td>
-                                  <td className="px-1.5 py-1.5 text-right font-mono text-gray-400">{row.other > 0 ? row.other.toLocaleString() : '—'}</td>
-                                  <td className={`px-1.5 py-1.5 text-right font-mono ${row.failed > 0 ? 'text-red-400 font-semibold' : 'text-gray-600'}`}>{row.failed > 0 ? row.failed.toLocaleString() : '—'}</td>
+                        <div className="rounded-lg border border-gray-700 overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-[10px]" data-testid="table-bl-api-breakdown">
+                              <thead>
+                                <tr className="bg-gray-800/80 border-b border-gray-700/60">
+                                  {columns.map(col => (
+                                    <th
+                                      key={col.key}
+                                      onClick={() => toggleSort(col.key)}
+                                      className={`px-1 py-1.5 font-semibold cursor-pointer select-none transition-colors hover:text-yellow-400 whitespace-nowrap ${col.align === 'right' ? 'text-right' : 'text-left'} ${sortCol === col.key ? 'text-yellow-400' : 'text-gray-500'}`}
+                                      data-testid={`sort-bl-${col.key}`}
+                                    >
+                                      <span className="inline-flex items-center gap-0.5">
+                                        {col.label}
+                                        {sortCol === col.key && (
+                                          <span className="text-[8px]">{sortDir === 'desc' ? '▼' : '▲'}</span>
+                                        )}
+                                      </span>
+                                    </th>
+                                  ))}
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                              </thead>
+                              <tbody className="divide-y divide-gray-700/30">
+                                {sorted.map(row => (
+                                  <tr key={row.orgId} className="hover-elevate" data-testid={`row-bl-org-${row.orgId}`}>
+                                    <td className="px-1 py-1.5 text-gray-300 truncate max-w-[120px]">{row.orgName || row.orgId}</td>
+                                    <td className="px-1 py-1.5 text-right font-mono font-semibold text-gray-200">{row.total.toLocaleString()}</td>
+                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.inventory > 0 ? row.inventory.toLocaleString() : '—'}</td>
+                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.orders > 0 ? row.orders.toLocaleString() : '—'}</td>
+                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.catalog > 0 ? row.catalog.toLocaleString() : '—'}</td>
+                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.priceGuide > 0 ? row.priceGuide.toLocaleString() : '—'}</td>
+                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.other > 0 ? row.other.toLocaleString() : '—'}</td>
+                                    <td className={`px-1 py-1.5 text-right font-mono ${row.failed > 0 ? 'text-red-400 font-semibold' : 'text-gray-600'}`}>{row.failed > 0 ? row.failed.toLocaleString() : '—'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
                       );
                     })() : (
