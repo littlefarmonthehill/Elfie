@@ -360,23 +360,25 @@ export default function Home() {
       {/* ── LEFT COLUMN: Your Plan (top) + spacer + Product (aligned with date picker) ── */}
       <div className="flex flex-col min-h-0 overflow-hidden self-stretch" style={{ flex: 1, gap: '10px' }}>
 
-        {/* Your Plan — free-floating, includes onboarding + announcements + communications */}
-        <div className="flex flex-col overflow-hidden" style={{ flex: 2 }}>
-          <div className="shrink-0 flex items-center px-3 py-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: 'hsl(270,60%,75%)', textShadow: '0 0 8px hsla(270,60%,55%,0.7)' }}>Your Plan</span>
+        {/* Your Plan — purple-themed lane box */}
+        <div className="flex flex-col rounded-lg overflow-visible" style={{ flex: 2, border: '1px solid hsla(270,60%,55%,0.35)', boxShadow: '0 0 40px rgba(168,85,247,0.28), 0 0 12px rgba(168,85,247,0.28)' }}>
+          <div className="shrink-0 flex items-center gap-2 px-3 py-2 rounded-t-lg border-b" style={{ background: 'linear-gradient(to bottom, hsla(270,60%,55%,0.4), hsla(0,0%,10%,0.8))', borderColor: 'hsla(270,60%,55%,0.35)' }}>
+            <span className="text-xs font-semibold uppercase tracking-widest text-purple-200">Your Plan</span>
           </div>
-          <div className="flex-1 overflow-y-auto min-h-0 px-2 pb-2 space-y-3">
+          <div className="flex-1 flex flex-col divide-y divide-border/30 min-h-0 overflow-y-auto" style={{ background: 'radial-gradient(ellipse at top, hsla(270,60%,55%,0.12) 0%, transparent 55%), linear-gradient(to bottom, hsla(270,60%,55%,0.15), hsla(270,60%,55%,0.03) 100%)' }}>
             {/* Onboarding / Setup */}
-            <SystemPulse
-              setupItems={systemPulseSetupItems}
-              billingStatus={billingStatus}
-              rateLimit={blRateLimit}
-              blApiCallLimit={appSettingsHome?.blApiCallLimit}
-              onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-            />
+            <div className="px-3 py-2">
+              <SystemPulse
+                setupItems={systemPulseSetupItems}
+                billingStatus={billingStatus}
+                rateLimit={blRateLimit}
+                blApiCallLimit={appSettingsHome?.blApiCallLimit}
+                onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
+              />
+            </div>
 
             {/* Announcements */}
-            <div className="space-y-1.5">
+            <div className="px-3 py-2 space-y-1.5">
               <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">Announcements</p>
               <div className="flex items-start gap-2 py-1">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-400 mt-0.5" />
@@ -388,10 +390,10 @@ export default function Home() {
             </div>
 
             {/* Communications */}
-            <div className="space-y-1.5">
+            <div className="px-3 py-2 space-y-1.5">
               <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">Communications</p>
               <div className="flex items-start gap-2 py-1">
-                <Mail className="w-3.5 h-3.5 shrink-0 text-blue-400 mt-0.5" />
+                <Mail className="w-3.5 h-3.5 shrink-0 text-purple-300 mt-0.5" />
                 <div className="min-w-0">
                   <p className="text-[11px] font-medium text-foreground/90 leading-tight">Communications coming soon</p>
                   <p className="text-[10px] text-muted-foreground leading-snug mt-0.5">Manage messages and notifications</p>
