@@ -9044,6 +9044,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                  COUNT(*)                                          AS total_lots
           FROM ${blInventory}
           WHERE item_type = 'PART'
+            AND org_id = ${orgId}
           GROUP BY category_id
         ) inv ON c.id = inv.category_id
         LEFT JOIN (
@@ -9053,6 +9054,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           JOIN ${blInventory} i ON od.sku = CAST(i.id AS TEXT)
           WHERE o.order_status NOT IN ('cancelled', 'Cancelled')
             AND i.item_type = 'PART'
+            AND o.org_id = ${orgId}
+            AND i.org_id = ${orgId}
           GROUP BY i.category_id
         ) sold ON c.id = sold.category_id
         WHERE COALESCE(inv.current_qty, 0) + COALESCE(inv.sold_out_lots, 0) + COALESCE(sold.total_sold, 0) > 0
