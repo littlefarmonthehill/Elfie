@@ -366,8 +366,9 @@ export default function Home() {
             <span className="text-xs font-semibold uppercase tracking-widest text-purple-200">Your Plan</span>
           </div>
           <div className="flex-1 flex flex-col divide-y divide-border/30 min-h-0 overflow-y-auto" style={{ background: 'radial-gradient(ellipse at top, hsla(270,60%,55%,0.12) 0%, transparent 55%), linear-gradient(to bottom, hsla(270,60%,55%,0.15), hsla(270,60%,55%,0.03) 100%)' }}>
-            {/* Onboarding / Setup */}
-            <div className="px-3 py-2">
+            {/* Onboarding */}
+            <div className="px-3 py-2 space-y-1.5">
+              <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">Onboarding</p>
               <SystemPulse
                 setupItems={systemPulseSetupItems}
                 billingStatus={billingStatus}
