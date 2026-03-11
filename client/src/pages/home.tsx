@@ -357,8 +357,8 @@ export default function Home() {
   const renderPanelMode = () => (
     <div className="flex h-full" style={{ padding: '5px', gap: '5px' }}>
 
-      {/* ── LEFT COLUMN: Your Plan (top) + spacer + Product (fills rest to bottom) ── */}
-      <div className="flex flex-col min-h-0 overflow-hidden self-stretch" style={{ flex: 1 }}>
+      {/* ── LEFT COLUMN: Your Plan (top) + spacer + Product (aligned with date picker) ── */}
+      <div className="flex flex-col min-h-0 overflow-hidden self-stretch" style={{ flex: 1, gap: '10px' }}>
 
         {/* Your Plan — free-floating, no border box */}
         <div className="flex flex-col shrink-0 overflow-hidden">
@@ -376,11 +376,11 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Spacer — pushes Product down */}
-        <div style={{ flex: '0 0 15%' }} />
+        {/* Spacer — matches Ops Central height so Product aligns with date picker */}
+        <div style={{ flex: 2 }} />
 
-        {/* Product / Inventory — fills remaining height to bottom */}
-        <div className="flex flex-col flex-1 min-h-0 rounded-md overflow-hidden" style={{ border: '1px solid hsla(220,85%,55%,0.35)' }}>
+        {/* Product / Inventory — matches date picker group height */}
+        <div className="flex flex-col min-h-0 rounded-md overflow-hidden" style={{ flex: 3, border: '1px solid hsla(220,85%,55%,0.35)' }}>
           <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(220,85%,55%,0.28), hsla(220,85%,55%,0.08))', borderColor: 'hsla(220,85%,55%,0.35)' }}>
             <span className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: 'hsl(220,85%,75%)', textShadow: '0 0 8px hsla(220,85%,55%,0.7)' }}>Product</span>
           </div>
