@@ -360,8 +360,8 @@ export default function Home() {
       {/* ── TOP ROW: Your Plan tile (left) + Ops Central (right) ── */}
       <div className="flex overflow-hidden" style={{ flex: '0 0 37%', gap: '5px' }}>
 
-        {/* Your Plan — standalone tile */}
-        <div className="flex flex-col rounded-lg overflow-hidden shrink-0" style={{ width: '220px', border: '1px solid hsla(270,60%,55%,0.35)' }}>
+        {/* Your Plan — standalone tile, same width as one Ops Central lane */}
+        <div className="flex flex-col rounded-lg overflow-hidden" style={{ flex: 1, border: '1px solid hsla(270,60%,55%,0.35)' }}>
           <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(270,60%,55%,0.25), hsla(270,60%,55%,0.08))', borderColor: 'hsla(270,60%,55%,0.35)' }}>
             <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: 'hsl(270,60%,75%)', textShadow: '0 0 8px hsla(270,60%,55%,0.7)' }}>Your Plan</span>
           </div>
@@ -378,8 +378,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Ops Central — takes remaining width */}
-        <div className="flex flex-col flex-1 min-w-0 rounded-lg overflow-hidden" style={{ border: '1px solid hsla(0,85%,55%,0.35)' }}>
+        {/* Ops Central — 4x the width of Your Plan (matches 4-lane grid inside) */}
+        <div className="flex flex-col min-w-0 rounded-lg overflow-hidden" style={{ flex: 4, border: '1px solid hsla(0,85%,55%,0.35)' }}>
           <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(0,85%,55%,0.25), hsla(0,85%,55%,0.08))', borderColor: 'hsla(0,85%,55%,0.35)' }}>
             <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: 'hsl(0,85%,72%)', textShadow: '0 0 8px hsla(0,85%,55%,0.7)' }}>Ops Central</span>
           </div>
