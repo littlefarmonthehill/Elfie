@@ -360,12 +360,13 @@ export default function Home() {
       {/* ── LEFT COLUMN: Your Plan (top) + spacer + Product (aligned with date picker) ── */}
       <div className="flex flex-col min-h-0 overflow-hidden self-stretch" style={{ flex: 1, gap: '10px' }}>
 
-        {/* Your Plan — free-floating, no border box */}
-        <div className="flex flex-col shrink-0 overflow-hidden">
+        {/* Your Plan — free-floating, includes onboarding + announcements + communications */}
+        <div className="flex flex-col overflow-hidden" style={{ flex: 2 }}>
           <div className="shrink-0 flex items-center px-3 py-1.5">
             <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: 'hsl(270,60%,75%)', textShadow: '0 0 8px hsla(270,60%,55%,0.7)' }}>Your Plan</span>
           </div>
-          <div className="overflow-y-auto min-h-0 px-2 pb-2">
+          <div className="flex-1 overflow-y-auto min-h-0 px-2 pb-2 space-y-3">
+            {/* Onboarding / Setup */}
             <SystemPulse
               setupItems={systemPulseSetupItems}
               billingStatus={billingStatus}
@@ -373,18 +374,10 @@ export default function Home() {
               blApiCallLimit={appSettingsHome?.blApiCallLimit}
               onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
             />
-          </div>
-        </div>
 
-        {/* Announcements & Communications — fills space between Your Plan and Product */}
-        <div className="flex flex-col rounded-lg overflow-visible" style={{ flex: 2, border: '1px solid hsla(200,70%,50%,0.35)' }}>
-          <div className="shrink-0 flex items-center px-3 py-1.5 border-b" style={{ background: 'linear-gradient(to right, hsla(200,70%,50%,0.25), hsla(200,70%,50%,0.08))', borderColor: 'hsla(200,70%,50%,0.35)' }}>
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: 'hsl(200,70%,72%)', textShadow: '0 0 8px hsla(200,70%,50%,0.7)' }}>Announcements</span>
-          </div>
-          <div className="flex-1 flex flex-col min-h-0 overflow-y-auto" style={{ background: 'radial-gradient(ellipse at top, hsla(200,70%,50%,0.12) 0%, transparent 55%), linear-gradient(to bottom, hsla(200,70%,50%,0.15), hsla(200,70%,50%,0.03) 100%)' }}>
-            {/* Attention */}
-            <div className="px-3 py-2 space-y-1.5 border-b border-border/30">
-              <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">Attention</p>
+            {/* Announcements */}
+            <div className="space-y-1.5">
+              <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">Announcements</p>
               <div className="flex items-start gap-2 py-1">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-400 mt-0.5" />
                 <div className="min-w-0">
@@ -393,9 +386,10 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            {/* Recent */}
-            <div className="px-3 py-2 space-y-1.5">
-              <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">Recent</p>
+
+            {/* Communications */}
+            <div className="space-y-1.5">
+              <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-semibold">Communications</p>
               <div className="flex items-start gap-2 py-1">
                 <Mail className="w-3.5 h-3.5 shrink-0 text-blue-400 mt-0.5" />
                 <div className="min-w-0">
