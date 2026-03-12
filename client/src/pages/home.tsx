@@ -997,62 +997,64 @@ export default function Home() {
         </div>
 
         {/* DESKTOP layout (lg+): Your Plan (left) | Dynamic Board (center 2x) | Ops Central (right) */}
-        <div className="hidden lg:flex h-full p-3 gap-3">
-          {/* Left column — Your Plan */}
-          <div className="w-[345px] xl:w-[400px] flex-shrink-0 h-full overflow-y-auto rounded-xl border border-white/10 bg-gray-950/40">
-            <GeneralDashboard
-              onItemClick={handleDashboardItemClick}
-              onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
-              onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
-              onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
-              onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-              onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
-              section="plan"
-            />
-          </div>
-
-          {/* Center column — dynamic dashboard with drawer overlay */}
-          <div className="flex-1 h-full relative min-w-0 flex flex-col gap-0">
-            {/* Date picker — sits above dynamic board on desktop */}
-            {(activeDashboard === 'sales' || activeDashboard === 'marketing' || activeDashboard === 'orders') && (
-              <div className="flex-shrink-0 flex justify-center py-2 px-3 rounded-xl border border-pink-800/30 bg-gradient-to-r from-pink-950/30 via-fuchsia-950/20 to-pink-950/30 overflow-x-auto mb-3">
-                <DateRangeSelector value={dateRange} onChange={setDateRange} />
-              </div>
-            )}
-
-            <div className="flex-1 overflow-y-auto min-h-0">
-              <div className={`h-full rounded-xl border overflow-hidden ${
-                activeDashboard === 'inventory' ? 'border-lego-blue/30 bg-gradient-to-br from-lego-blue/15 via-gray-950/80 to-lego-blue/5' :
-                activeDashboard === 'orders' ? 'border-lego-orange/30 bg-gradient-to-br from-lego-orange/15 via-gray-950/80 to-lego-orange/5' :
-                activeDashboard === 'sales' ? 'border-lego-green/30 bg-gradient-to-br from-lego-green/15 via-gray-950/80 to-lego-green/5' :
-                'border-lego-yellow/30 bg-gradient-to-br from-lego-yellow/15 via-gray-950/80 to-lego-yellow/5'
-              }`} style={{ transformOrigin: 'top center', transform: 'scale(0.88)', height: '113.6%' }}>
-                {renderDynamicDashboard()}
-              </div>
+        <div className="hidden lg:flex h-full p-4 gap-4">
+          <div className="flex h-full w-full rounded-2xl border border-white/8 bg-gradient-to-br from-gray-900/60 via-gray-950/80 to-gray-900/60 shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-hidden">
+            {/* Left column — Your Plan */}
+            <div className="w-[345px] xl:w-[400px] flex-shrink-0 h-full overflow-y-auto border-r border-white/5">
+              <GeneralDashboard
+                onItemClick={handleDashboardItemClick}
+                onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
+                onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
+                onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
+                onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
+                onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
+                section="plan"
+              />
             </div>
 
-            {/* Drawer overlay — covers entire dynamic board */}
-            {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer) && (
-              <div className="absolute inset-0 z-20 flex flex-col">
-                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm rounded-xl" onClick={closeActiveDrawer} />
-                <div className="relative flex-1 bg-gray-950/95 border border-white/10 rounded-xl m-3 overflow-y-auto shadow-2xl">
-                  {renderActiveDrawer()}
+            {/* Center column — dynamic dashboard with drawer overlay */}
+            <div className="flex-1 h-full relative min-w-0 flex flex-col">
+              {/* Date picker — compact, sits above dynamic board on desktop */}
+              {(activeDashboard === 'sales' || activeDashboard === 'marketing' || activeDashboard === 'orders') && (
+                <div className="flex-shrink-0 flex justify-center py-1.5 border-b border-white/5 overflow-x-auto" style={{ transform: 'scale(0.85)', transformOrigin: 'center center' }}>
+                  <DateRangeSelector value={dateRange} onChange={setDateRange} />
+                </div>
+              )}
+
+              <div className="flex-1 overflow-y-auto min-h-0">
+                <div className={`h-full overflow-hidden ${
+                  activeDashboard === 'inventory' ? 'bg-gradient-to-br from-lego-blue/10 via-transparent to-lego-blue/5' :
+                  activeDashboard === 'orders' ? 'bg-gradient-to-br from-lego-orange/10 via-transparent to-lego-orange/5' :
+                  activeDashboard === 'sales' ? 'bg-gradient-to-br from-lego-green/10 via-transparent to-lego-green/5' :
+                  'bg-gradient-to-br from-lego-yellow/10 via-transparent to-lego-yellow/5'
+                }`} style={{ transformOrigin: 'top center', transform: 'scale(0.88)', height: '113.6%' }}>
+                  {renderDynamicDashboard()}
                 </div>
               </div>
-            )}
-          </div>
 
-          {/* Right column — Ops Central cards */}
-          <div className="w-[400px] xl:w-[450px] flex-shrink-0 h-full overflow-y-auto rounded-xl border border-white/10 bg-gray-950/40 p-3">
-            <GeneralDashboard
-              onItemClick={handleDashboardItemClick}
-              onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
-              onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
-              onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
-              onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-              onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
-              section="ops"
-            />
+              {/* Drawer overlay — covers entire dynamic board */}
+              {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer) && (
+                <div className="absolute inset-0 z-20 flex flex-col">
+                  <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeActiveDrawer} />
+                  <div className="relative flex-1 bg-gray-950/95 border border-white/10 rounded-lg m-3 overflow-y-auto shadow-2xl">
+                    {renderActiveDrawer()}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right column — Ops Central cards */}
+            <div className="w-[400px] xl:w-[450px] flex-shrink-0 h-full overflow-y-auto border-l border-white/5 p-3">
+              <GeneralDashboard
+                onItemClick={handleDashboardItemClick}
+                onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
+                onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
+                onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
+                onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
+                onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
+                section="ops"
+              />
+            </div>
           </div>
         </div>
       </div>
