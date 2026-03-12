@@ -31,8 +31,6 @@ interface LotPriceEntry {
   stockAvgPrice: string | null;
   soldAvgPrice: string | null;
   stockTotalLots: number | null;
-  suggestedPrice: string;
-  premiumPercentage: number;
 }
 
 interface InventoryLot {
@@ -43,10 +41,8 @@ interface InventoryLot {
   quantity: number;
   unitPrice: string | null;
   newOrUsed: string;
-  suggestedPrice?: string | null;
   opportunityScore?: number | null;
   marketPeakSoldPrice?: string | null;
-  floorApplied?: 'cost' | 'min' | 'none' | null;
 }
 
 interface SpotLookupResult {
@@ -70,13 +66,13 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
   const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  // lotKey → suggestedPrice from on-demand pricing fetch
-  const [pricingCache, setPricingCache] = useState<Map<string, { suggestedPrice?: string | null; soldMaxPrice?: string | null }>>(new Map());
+  // lotKey → market data from on-demand pricing fetch
+  const [pricingCache, setPricingCache] = useState<Map<string, { stockAvgPrice?: string | null; soldMaxPrice?: string | null }>>(new Map());
   const [pricingLoading, setPricingLoading] = useState<Set<string>>(new Set());
 
   const fetchPricingMutation = useMutation({
     mutationFn: async (lots: Array<{ itemNo: string; itemType: string; colorId: number | null; newOrUsed: string; key: string }>) => {
-      const results: Array<{ key: string; suggestedPrice: string | null; soldMaxPrice: string | null }> = [];
+      const results: Array<{ key: string; stockAvgPrice: string | null; soldMaxPrice: string | null }> = [];
       await Promise.all(lots.map(async (lot) => {
         const data = await apiRequest("POST", "/api/priceomatic/fetch-pricing", {
           itemNo: lot.itemNo,
@@ -84,7 +80,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
           colorId: lot.colorId,
           newOrUsed: lot.newOrUsed,
         });
-        results.push({ key: lot.key, suggestedPrice: data.suggestedPrice ?? null, soldMaxPrice: data.soldMaxPrice ?? null });
+        results.push({ key: lot.key, stockAvgPrice: data.stockAvgPrice ?? null, soldMaxPrice: data.soldMaxPrice ?? null });
       }));
       return results;
     },
@@ -102,13 +98,13 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
       setPricingCache(prev => {
         const next = new Map(prev);
         results.forEach(r => {
-          next.set(r.key, { suggestedPrice: r.suggestedPrice, soldMaxPrice: r.soldMaxPrice });
+          next.set(r.key, { stockAvgPrice: r.stockAvgPrice, soldMaxPrice: r.soldMaxPrice });
         });
         return next;
       });
     },
     onError: () => {
-      toast({ title: "Pricing failed", description: "Could not fetch suggested price from BrickLink", variant: "destructive" });
+      toast({ title: "Refresh failed", description: "Could not fetch market data from BrickLink", variant: "destructive" });
     },
   });
 
@@ -159,11 +155,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
     const allInsights = insightsCache?.data;
 
     if (allInsights) {
-      const allItems: any[] = [
-        ...(allInsights.tooHigh ?? []),
-        ...(allInsights.tooLow ?? []),
-        ...(allInsights.wellPriced ?? []),
-      ];
+      const allItems: any[] = allInsights.items ?? [];
 
       const matches = allItems.filter((item) => {
         const partMatch = item.itemNo.toUpperCase() === searchPart;
@@ -182,8 +174,6 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
             stockAvgPrice: m.stockAvgPrice ?? null,
             soldAvgPrice: m.soldAvgPrice ?? null,
             stockTotalLots: m.stockTotalLots ?? null,
-            suggestedPrice: m.suggestedPrice,
-            premiumPercentage: 0,
           };
         }
 
@@ -199,8 +189,6 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
           stockAvgPrice: primaryMatch.stockAvgPrice ?? null,
           soldAvgPrice: primaryMatch.soldAvgPrice ?? null,
           stockTotalLots: primaryMatch.stockTotalLots ?? null,
-          suggestedPrice: primaryMatch.suggestedPrice,
-          premiumPercentage: 0,
         };
 
         // Compute market peak from cached insights (max marketPeakSoldPrice across all matched lots)
@@ -217,10 +205,8 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
           quantity: m.quantity,
           unitPrice: m.currentPrice,
           newOrUsed: m.newOrUsed,
-          suggestedPrice: m.suggestedPrice ?? null,
           opportunityScore: m.opportunityScore ?? null,
           marketPeakSoldPrice: m.marketPeakSoldPrice ?? null,
-          floorApplied: m.floorApplied ?? null,
         }));
 
         const settingsCache = queryClient.getQueryData<any>(['/api/settings']);
@@ -465,15 +451,15 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
                 if (!lot) return <span className="text-[10px] text-gray-700 w-14 text-right flex-shrink-0">—</span>;
                 const lotKey = `${lot.colorId ?? "null"}_${lot.newOrUsed}`;
                 const fetchedEntry = pricingCache.get(lotKey) ?? null;
-                const fetchedSugg = fetchedEntry?.suggestedPrice ?? null;
+                const fetchedAvg = fetchedEntry?.stockAvgPrice ?? null;
                 return (
                   <div className="flex flex-col items-end w-14 flex-shrink-0">
                     <span className="text-[10px] font-mono text-gray-300 leading-tight">
                       {lot.unitPrice ? formatCurrency(lot.unitPrice) : "—"}
                     </span>
-                    {fetchedSugg ? (
-                      <span className="text-[9px] font-mono text-purple-400 leading-tight">
-                        {formatCurrency(fetchedSugg)}
+                    {fetchedAvg ? (
+                      <span className="text-[9px] font-mono text-blue-400 leading-tight">
+                        {formatCurrency(fetchedAvg)}
                       </span>
                     ) : null}
                   </div>
@@ -605,8 +591,8 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
                       {/* N Cur + optional suggested */}
                       <div className="flex flex-col items-end w-14 flex-shrink-0">
                         <span className="text-[10px] font-mono text-gray-600 leading-tight">—</span>
-                        {pricingCache.get('newlisting_N')?.suggestedPrice && (
-                          <span className="text-[9px] font-mono text-purple-400 leading-tight">{formatCurrency(pricingCache.get('newlisting_N')!.suggestedPrice!)}</span>
+                        {pricingCache.get('newlisting_N')?.stockAvgPrice && (
+                          <span className="text-[9px] font-mono text-blue-400 leading-tight">{formatCurrency(pricingCache.get('newlisting_N')!.stockAvgPrice!)}</span>
                         )}
                       </div>
                       <span className="text-[10px] font-mono text-gray-700 text-right flex-shrink-0 w-[58px]">—</span>

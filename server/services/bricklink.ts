@@ -1269,8 +1269,6 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
   stopped: boolean;
   stopReason?: string;
 }> {
-  // Load settings-based config at sync start
-  const pomConfig = await getPomFormulaConfig();
   const [pomSettings] = await db.select({
     pomBatchSize: appSettings.pomBatchSize,
     blApiCallLimit: appSettings.blApiCallLimit,
@@ -1463,8 +1461,8 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
           item.itemType,
           item.colorId || undefined,
           item.newOrUsed,
-          pomConfig.basePremium,
-          pomConfig,
+          undefined,
+          undefined,
           false, // fetch both sold + stock (2 API calls per item)
           {
             name: item.itemName,
@@ -1533,8 +1531,8 @@ export async function fetchPriceOMagicData(
   itemType: string,
   colorId?: number,
   newOrUsed: string = 'N',
-  premiumPercentage: number = 15,
-  config: PomFormulaConfig = POM_FORMULA_DEFAULTS,
+  _premiumPercentage: number = 15,
+  _config: any = null,
   skipStock: boolean = false,
   localItemData?: { name?: string | null; imageUrl?: string | null; thumbnailUrl?: string | null; categoryId?: number | null },
   apiCounter?: { count: number },
@@ -1620,26 +1618,13 @@ export async function fetchPriceOMagicData(
     const { data: soldPriceData } = await bricklinkCatalogRequest(stockPriceEndpoint, soldPriceParams, orgId);
     if (apiCounter) apiCounter.count += 1;
 
-    // Calculate suggested price with supply adjustment
-    // For stock price, use avg (mid-market reference)
-    // For sold price, use 85th percentile of actual transactions (more accurate than mean, filters cheap outliers)
+    // Parse raw market data from BrickLink API responses
     const stockAvgPrice = (stockPriceData?.avg_price && parseFloat(stockPriceData.avg_price) > 0) ? parseFloat(stockPriceData.avg_price) : null;
     const soldP85Price = computeWeightedPercentile(soldPriceData?.price_detail, 85);
     const soldAvgPrice = soldP85Price ?? (soldPriceData?.avg_price ? parseFloat(soldPriceData.avg_price) : null);
-    const stockTotalLots = stockPriceData?.total_lots ? parseInt(stockPriceData.total_lots.toString()) : 0;   // BL seller listing count (scarcity tiers)
-    const marketStockQty = stockPriceData?.unit_quantity ? parseInt(stockPriceData.unit_quantity.toString()) : 0; // Total pieces for sale globally (supply signal)
-    const marketSoldQty  = soldPriceData?.unit_quantity  ? parseInt(soldPriceData.unit_quantity.toString())  : 0; // Total pieces sold globally (demand signal)
 
-    // Suggested price only computed when stock data is available (on-demand pricing, not score-only sync)
-    let suggestedPrice: number | null = null;
-    if (!skipStock) {
-      const marketPrice = calculateSuggestedPriceWithSupply(stockAvgPrice, soldAvgPrice, stockTotalLots, premiumPercentage, apiItemType, config, marketSoldQty, marketStockQty);
-      const { finalPrice: suggestedPriceNum } = applyPomFloors(marketPrice, null, config);
-      suggestedPrice = Number(suggestedPriceNum.toFixed(4));
-    }
-
-    // When skipStock=true, preserve existing stock/suggestedPrice from cache so previous pricing data isn't lost
-    let preservedStock: { stockAvgPrice?: string | null; stockMinPrice?: string | null; stockMaxPrice?: string | null; stockQuantity?: number | null; stockTotalLots?: number | null; suggestedPrice?: string | null } = {};
+    // When skipStock=true, preserve existing stock data from cache so previous data isn't lost
+    let preservedStock: { stockAvgPrice?: string | null; stockMinPrice?: string | null; stockMaxPrice?: string | null; stockQuantity?: number | null; stockTotalLots?: number | null } = {};
     if (skipStock) {
       const existingRec = await db
         .select({
@@ -1648,7 +1633,6 @@ export async function fetchPriceOMagicData(
           stockMaxPrice: priceGuideCache.stockMaxPrice,
           stockQuantity: priceGuideCache.stockQuantity,
           stockTotalLots: priceGuideCache.stockTotalLots,
-          suggestedPrice: priceGuideCache.suggestedPrice,
         })
         .from(priceGuideCache)
         .where(
@@ -1694,10 +1678,6 @@ export async function fetchPriceOMagicData(
       soldMaxPrice: soldPriceData?.max_price ? soldPriceData.max_price.toString() : null,
       soldQuantity: soldPriceData?.qty_avg || null,
       soldTotalLots: soldPriceData?.unit_quantity || null, // Number of lots/listings
-      
-      // Price-O-Matic (null when skipStock=true; preserved from cache if available)
-      suggestedPrice: skipStock ? (preservedStock.suggestedPrice ?? null) : (suggestedPrice?.toString() ?? null),
-      premiumPercentage,
     };
 
     // Delete old cache entry if exists

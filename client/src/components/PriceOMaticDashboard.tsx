@@ -97,28 +97,26 @@ interface PricingInsight {
   newOrUsed: string;
   currentPrice: string;
   myCost?: string | null;
-  suggestedPrice: string;
-  marketPrice?: string;
-  floorApplied?: 'cost' | 'min' | 'none';
-  stockAvgPrice: string;
+  stockAvgPrice: string | null;
+  stockMinPrice?: string | null;
+  stockMaxPrice?: string | null;
+  stockQuantity?: number | null;
+  stockTotalLots?: number | null;
+  soldAvgPrice?: string | null;
+  soldMinPrice?: string | null;
   soldMaxPrice?: string | null;
+  soldQuantity?: number | null;
+  soldTotalLots?: number | null;
   marketPeakSoldPrice?: string | null;
   opportunityScore: number | null;
-  variance: number;
   quantity: number;
   lastFetched: string;
-  category: 'too_high' | 'too_low' | 'good';
 }
 
 interface InsightsData {
-  tooHigh: PricingInsight[];
-  tooLow: PricingInsight[];
-  wellPriced: PricingInsight[];
+  items: PricingInsight[];
   summary: {
     total: number;
-    tooHigh: number;
-    tooLow: number;
-    wellPriced: number;
   };
 }
 
@@ -478,7 +476,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           colorId: lot.colorId,
           newOrUsed: lot.newOrUsed,
         });
-        results[condition] = data.suggestedPrice ?? null;
+        results[condition] = data.stockAvgPrice ?? null;
       }));
       return { key: group.key, results };
     },
@@ -490,9 +488,10 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
     },
     onSuccess: ({ key, results }) => {
       setPricingData(prev => new Map(prev).set(key, results));
+      queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/insights'] });
     },
     onError: () => {
-      toast({ title: "Pricing failed", description: "Could not fetch suggested price from BrickLink", variant: "destructive" });
+      toast({ title: "Refresh failed", description: "Could not fetch market data from BrickLink", variant: "destructive" });
     },
   });
 
@@ -559,7 +558,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
 
   const getAllGroups = (): GroupedInsight[] => {
     if (!insightsData) return [];
-    const allItems = [...insightsData.tooHigh, ...insightsData.tooLow, ...insightsData.wellPriced];
+    const allItems = insightsData.items;
     const map = new Map<string, GroupedInsight>();
     for (const item of allItems) {
       const key = `${item.itemNo}_${item.colorId ?? 'null'}`;

@@ -38,7 +38,7 @@ import { storage } from "./storage";
 import { getEffectiveLimits } from "@shared/tierConfig";
 import { seedPlanConfigsIfEmpty, getAllPlanConfigsWithCounts, updatePlanConfig, setPlanSunset, dbPlanToLimits } from "./services/planConfigService";
 import { setupAuth, isAuthenticated, isApproved, isOrgOwner, getOrgId, isSuperAdmin } from "./auth";
-import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, getPomFormulaConfig, calculateSuggestedPriceWithSupply, applyPomFloors, bricklinkCatalogRequest } from "./services/bricklink";
+import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, bricklinkCatalogRequest } from "./services/bricklink";
 import { getPomIsRunning, setPomIsRunning } from "./services/pom-scheduler";
 import { syncLock } from "./services/sync-lock";
 import { syncShipStationOrders } from "./services/shipstation";
@@ -6090,10 +6090,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         }
       }
 
-      // Load POM config once
-      const pomConfig = await getPomFormulaConfig();
       const pomSettings = await getOrgSettings(orgId);
-      const premiumPct = pomSettings?.pomBasePremium ?? 15;
 
       // Progress: enrichment phase
       setProgress(scanId, 'Looking up prices', `Fetching market data for ${filteredIdentified.length} piece${filteredIdentified.length !== 1 ? 's' : ''}…`, 80);
@@ -6324,7 +6321,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               console.log(`[Brickanalyzer] Live BL fetch (new) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
               const pgDataN = await fetchPriceOMagicData(
                 piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined,
-                'N', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter, orgId, true
+                'N', undefined, undefined, false, localPomItemData, blApiCallsCounter, orgId, true
               );
               if (pgDataN) {
                 marketSoldMaxNew = pgDataN.soldMaxPrice ? Number(pgDataN.soldMaxPrice) : null;
@@ -6341,7 +6338,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               console.log(`[Brickanalyzer] Live BL fetch (used) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
               const pgDataU = await fetchPriceOMagicData(
                 piece.partNo, blItemType as any, blItemType === 'PART' ? (colorId ?? undefined) : undefined,
-                'U', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter, orgId, true
+                'U', undefined, undefined, false, localPomItemData, blApiCallsCounter, orgId, true
               );
               if (pgDataU) {
                 marketSoldMaxUsed = pgDataU.soldMaxPrice ? Number(pgDataU.soldMaxPrice) : null;
@@ -6372,7 +6369,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             const correctColorName = catalogColorMap.get(correctColorId)?.name ?? catalogColorsList[0].color_name ?? '';
             console.log(`[Brickanalyzer] Catalog-color fallback for ${piece.partNo}: retrying POM with colorId=${correctColorId} "${correctColorName}" (was ${colorId ?? 'null'})`);
             try {
-              const fbN = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'N', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter, orgId, true);
+              const fbN = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'N', undefined, undefined, false, localPomItemData, blApiCallsCounter, orgId, true);
               if (fbN) {
                 marketSoldMaxNew = fbN.soldMaxPrice ? Number(fbN.soldMaxPrice) : null;
                 if (fbN.soldAvgPrice != null) marketSoldAvgNew = Number(fbN.soldAvgPrice) || null;
@@ -6381,7 +6378,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                 if (!thumbnailUrl) thumbnailUrl = fbN.thumbnailUrl || fbN.imageUrl || null;
                 if (!piece.partName && fbN.itemName) piece.partName = fbN.itemName;
               }
-              const fbU = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'U', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter, orgId, true);
+              const fbU = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'U', undefined, undefined, false, localPomItemData, blApiCallsCounter, orgId, true);
               if (fbU) {
                 marketSoldMaxUsed = fbU.soldMaxPrice ? Number(fbU.soldMaxPrice) : null;
                 if (fbU.soldAvgPrice != null) marketSoldAvgUsed = Number(fbU.soldAvgPrice) || null;
@@ -6495,15 +6492,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                   if (lot.colorId == null) continue;
                   if (lot.peakNew !== null || lot.peakUsed !== null) continue; // already cached
                   try {
-                    const liveN = await fetchPriceOMagicData(piece.partNo, blItemType as any, lot.colorId, 'N', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter);
+                    const liveN = await fetchPriceOMagicData(piece.partNo, blItemType as any, lot.colorId, 'N', undefined, undefined, false, localPomItemData, blApiCallsCounter);
                     if (liveN) {
                       lot.peakNew = liveN.soldMaxPrice ? Number(liveN.soldMaxPrice) : null;
-                      // Stock avg as secondary signal when no sold history (guard > 0: BL returns "0.0000" when nobody is selling)
                       if (lot.peakNew === null && liveN.stockAvgPrice != null && Number(liveN.stockAvgPrice) > 0) lot.peakNew = Number(liveN.stockAvgPrice);
                       if (!thumbnailUrl) thumbnailUrl = liveN.thumbnailUrl || liveN.imageUrl || null;
                       if (!piece.partName && liveN.itemName) piece.partName = liveN.itemName;
                     }
-                    const liveU = await fetchPriceOMagicData(piece.partNo, blItemType as any, lot.colorId, 'U', premiumPct, pomConfig, false, localPomItemData, blApiCallsCounter);
+                    const liveU = await fetchPriceOMagicData(piece.partNo, blItemType as any, lot.colorId, 'U', undefined, undefined, false, localPomItemData, blApiCallsCounter);
                     if (liveU) lot.peakUsed = liveU.soldMaxPrice ? Number(liveU.soldMaxPrice) : null;
                     console.log(`[Brickanalyzer] Lot POM ${piece.partNo}/${lot.colorId} "${lot.colorName}": peakN=${lot.peakNew} peakU=${lot.peakUsed}`);
                   } catch (lotErr: any) {
@@ -8141,7 +8137,6 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         return res.status(400).json({ error: "itemNo, itemType and newOrUsed are required" });
       }
       const colorIdNum = colorId != null ? parseInt(colorId) : undefined;
-      const config = await getPomFormulaConfig();
 
       // Force full refresh: delete existing cache entry so fetchPriceOMagicData re-fetches both sold + stock
       const { priceGuideCache: pgc } = await import("@shared/schema");
@@ -8159,18 +8154,18 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         itemType,
         colorIdNum,
         newOrUsed,
-        config.basePremium ?? 15,
-        config,
-        false // full fetch — stock guide included
       );
 
       res.json({
-        suggestedPrice: result.suggestedPrice,
         stockAvgPrice: result.stockAvgPrice,
         stockMinPrice: result.stockMinPrice,
+        stockMaxPrice: result.stockMaxPrice,
         stockTotalLots: result.stockTotalLots,
         soldAvgPrice: result.soldAvgPrice,
+        soldMinPrice: result.soldMinPrice,
         soldMaxPrice: result.soldMaxPrice,
+        soldQuantity: result.soldQuantity,
+        soldTotalLots: result.soldTotalLots,
       });
     } catch (error) {
       console.error("[POM fetch-pricing] Error:", error);
@@ -8189,7 +8184,6 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       }
 
       const partNoClean = partNo.trim().toUpperCase();
-      const config = await getPomFormulaConfig();
       const colorIdNum = colorId ? parseInt(colorId as string) : undefined;
 
       // If forceRefresh=true, delete any cached entry so fetchPriceOMagicData makes fresh API calls
@@ -8204,16 +8198,15 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         ));
       }
 
-      // Market demand & supply signals come from the BL price guide API inside fetchPriceOMagicData.
-      // skipStock=true — score-only fetch; user clicks "Get pricing" for suggested price.
+      // Fetch market data (sold guide only when skipStock=true; both when full fetch)
       const priceData = await fetchPriceOMagicData(
         partNoClean,
         itemType as string,
         colorIdNum,
         newOrUsed as string,
-        config.basePremium,
-        config,
-        true // skipStock
+        undefined,
+        undefined,
+        true // skipStock — sold guide only for spot lookup
       );
 
       // Also check inventory for this part — filter by color if one was specified
@@ -8295,11 +8288,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         }
       });
 
-      // Enrich each inventory lot with suggestedPrice + per-color opportunityScore
+      // Enrich each inventory lot with per-color opportunityScore
       const inventoryLotsEnriched = inventoryLots.map(lot => {
         const colorKey = String(lot.colorId ?? 'null');
-        const lotKey = `${colorKey}_${lot.newOrUsed}`;
-        const lotPd = lotPriceData[lotKey] as any;
         const colorPeak = peakByColor.get(colorKey) ?? null;
         const currentPrice = lot.unitPrice ? parseFloat(lot.unitPrice) : 0;
         const opportunityScore = (colorPeak && currentPrice > 0)
@@ -8307,7 +8298,6 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           : null;
         return {
           ...lot,
-          suggestedPrice: lotPd?.suggestedPrice ?? null,
           opportunityScore,
           marketPeakSoldPrice: colorPeak ? colorPeak.toFixed(4) : null,
         };
@@ -10059,20 +10049,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   app.get("/api/priceomatic/insights", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const { priceGuideCache, appSettings: appSettingsTable } = await import("@shared/schema");
-      
-      // Load current formula config AND flag thresholds — formula is applied live so changes take effect immediately
-      const [pomCfg] = await db.select({
-        pomTooHighThreshold: appSettingsTable.pomTooHighThreshold,
-        pomTooLowThreshold: appSettingsTable.pomTooLowThreshold,
-      }).from(appSettingsTable).where(eq(appSettingsTable.id, orgId)).limit(1);
-      const tooHighPct = pomCfg?.pomTooHighThreshold ?? 20;
-      const tooLowPct = pomCfg?.pomTooLowThreshold ?? 20;
+      const { priceGuideCache } = await import("@shared/schema");
 
-      // Load current formula config to recompute suggested price on-the-fly
-      const formulaConfig = await getPomFormulaConfig();
-      
-      // Pre-compute the peak sold price per item/type/color in one pass (avoids correlated subquery per row)
+      // Pre-compute the peak sold price per item/type/color in one pass
       const peakSoldSub = db
         .select({
           itemNo: priceGuideCache.itemNo,
@@ -10084,7 +10063,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         .groupBy(priceGuideCache.itemNo, priceGuideCache.itemType, priceGuideCache.colorId)
         .as('peak_sold_sub');
 
-      // Join inventory with cached price data — select raw market data so we can recompute live
+      // Join inventory with cached price data — pure data enrichment, no formula computation
       const insights = await db
         .select({
           inventoryId: blInventory.id,
@@ -10097,9 +10076,15 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           currentPrice: blInventory.unitPrice,
           myCost: blInventory.myCost,
           stockAvgPrice: priceGuideCache.stockAvgPrice,
-          soldAvgPrice: priceGuideCache.soldAvgPrice,
-          soldMaxPrice: priceGuideCache.soldMaxPrice,
+          stockMinPrice: priceGuideCache.stockMinPrice,
+          stockMaxPrice: priceGuideCache.stockMaxPrice,
+          stockQuantity: priceGuideCache.stockQuantity,
           stockTotalLots: priceGuideCache.stockTotalLots,
+          soldAvgPrice: priceGuideCache.soldAvgPrice,
+          soldMinPrice: priceGuideCache.soldMinPrice,
+          soldMaxPrice: priceGuideCache.soldMaxPrice,
+          soldQuantity: priceGuideCache.soldQuantity,
+          soldTotalLots: priceGuideCache.soldTotalLots,
           quantity: blInventory.quantity,
           lastFetched: priceGuideCache.fetchedAt,
           marketPeakSoldPrice: peakSoldSub.peakSold,
@@ -10126,28 +10111,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         )
         .where(and(eq(blInventory.orgId, orgId), sql`${blInventory.unitPrice} IS NOT NULL AND (${priceGuideCache.stockAvgPrice} IS NOT NULL OR ${priceGuideCache.soldAvgPrice} IS NOT NULL)`))
 
-      // Recompute suggested price live from current formula — formula changes take effect immediately
-      const categorizedInsights = insights.map(item => {
+      // Enrich with opportunity score — no suggested price computation
+      const enrichedItems = insights.map(item => {
         const currentPrice = parseFloat(item.currentPrice || '0');
-        const stockAvg = item.stockAvgPrice ? parseFloat(item.stockAvgPrice) : null;
-        const soldAvg = item.soldAvgPrice ? parseFloat(item.soldAvgPrice) : null;
-        const lots = item.stockTotalLots ?? 0;
-        const marketPrice = calculateSuggestedPriceWithSupply(stockAvg, soldAvg, lots, formulaConfig.basePremium, item.itemType, formulaConfig);
-        if (marketPrice === 0) return null;
-        const myCost = item.myCost ? parseFloat(item.myCost) : null;
-        const { finalPrice: suggestedPrice, floorApplied } = applyPomFloors(marketPrice, myCost, formulaConfig);
-        const variance = ((currentPrice - suggestedPrice) / suggestedPrice) * 100;
-        
-        let category: 'too_high' | 'too_low' | 'good' = 'good';
-        if (variance > tooHighPct) category = 'too_high';
-        else if (variance < -tooLowPct) category = 'too_low';
-
-        // Opportunity score: highest sold price across ALL conditions / our current price
         const marketPeak = item.marketPeakSoldPrice ? parseFloat(item.marketPeakSoldPrice) : null;
         const opportunityScore = (marketPeak !== null && currentPrice > 0)
           ? Number((marketPeak / currentPrice).toFixed(2))
           : null;
-        
+
         return {
           inventoryId: item.inventoryId,
           itemNo: item.itemNo,
@@ -10158,36 +10129,29 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           newOrUsed: item.newOrUsed,
           currentPrice: item.currentPrice,
           myCost: item.myCost,
-          suggestedPrice: suggestedPrice.toFixed(4),
-          marketPrice: marketPrice.toFixed(4),
-          floorApplied,
           stockAvgPrice: item.stockAvgPrice,
+          stockMinPrice: item.stockMinPrice,
+          stockMaxPrice: item.stockMaxPrice,
+          stockQuantity: item.stockQuantity,
+          stockTotalLots: item.stockTotalLots,
+          soldAvgPrice: item.soldAvgPrice,
+          soldMinPrice: item.soldMinPrice,
           soldMaxPrice: item.soldMaxPrice,
+          soldQuantity: item.soldQuantity,
+          soldTotalLots: item.soldTotalLots,
           marketPeakSoldPrice: item.marketPeakSoldPrice,
           opportunityScore,
-          variance: Math.round(variance),
           quantity: item.quantity,
           lastFetched: item.lastFetched,
-          category,
         };
-      }).filter((i): i is NonNullable<typeof i> => i !== null);
-
-      // Separate into categories
-      const tooHigh = categorizedInsights.filter(i => i.category === 'too_high');
-      const tooLow = categorizedInsights.filter(i => i.category === 'too_low');
-      const wellPriced = categorizedInsights.filter(i => i.category === 'good');
+      });
 
       res.json({
         success: true,
         data: {
-          tooHigh,
-          tooLow,
-          wellPriced,
+          items: enrichedItems,
           summary: {
-            total: categorizedInsights.length,
-            tooHigh: tooHigh.length,
-            tooLow: tooLow.length,
-            wellPriced: wellPriced.length,
+            total: enrichedItems.length,
           },
         },
       });
