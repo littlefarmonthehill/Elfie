@@ -827,12 +827,11 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
       </div>
 
       {/* ── Tools Section ── */}
-      <div className="relative bg-gradient-to-b from-gray-800/20 to-gray-900/85 border border-gray-600/35 rounded-lg shadow-[0_0_18px_rgba(156,163,175,0.08)] overflow-hidden">
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/50 to-transparent" />
-        <div className="p-2">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="p-1.5 rounded-md bg-gray-800/70 ring-1 ring-gray-500/40 shadow-[0_0_8px_rgba(156,163,175,0.2)]">
-              <BarChart2 className="w-3.5 h-3.5 text-gray-300" />
+      <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", "p-2.5")}>
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
+          <div className={cn("flex items-center gap-2", "mb-2")}>
+            <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
+              <BarChart2 className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4")} />
             </div>
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Tools</h3>
           </div>
@@ -840,7 +839,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
             <button
               onClick={() => setChartOpen(true)}
               data-testid="tool-sales-chart"
-              className="group flex flex-col gap-1.5 rounded-lg border border-green-500/50 bg-gradient-to-br from-green-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn"
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-500/50 bg-gradient-to-br from-green-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
               style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
@@ -855,7 +854,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
             <button
               onClick={() => setPlatformPerfOpen(true)}
               data-testid="tool-platform-performance"
-              className="group flex flex-col gap-1.5 rounded-lg border border-orange-500/50 bg-gradient-to-br from-orange-950/65 to-gray-950/80 p-3 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn"
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-500/50 bg-gradient-to-br from-orange-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
               style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
@@ -896,7 +895,6 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
             </button>
           </div>
         </div>
-      </div>
 
       {/* ── Sales Chart Drawer ── */}
       <Drawer open={chartOpen} onOpenChange={(open) => !open && setChartOpen(false)}>
