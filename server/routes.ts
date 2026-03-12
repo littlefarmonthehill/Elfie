@@ -9482,18 +9482,16 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         )
         .where(and(gt(blInventory.quantity, 0), sql`${priceGuideCache.id} IS NULL`));
 
-      // If the DB shows in_progress but no sync is actually running in memory,
-      // the process was killed mid-run. Auto-correct the stale record.
       let resolvedStatus = status;
       if (status?.lastSyncStatus === 'in_progress' && !getPomIsRunning()) {
         const staleFix = {
-          lastSyncStatus: 'error' as const,
-          errorMessage: 'Sync interrupted — server was restarted or sync was killed mid-run.',
+          lastSyncStatus: 'interrupted' as const,
+          errorMessage: 'Sync interrupted by server restart. Will auto-resume.',
           updatedAt: new Date(),
         };
         await db.update(syncMetadata).set(staleFix).where(and(eq(syncMetadata.orgId, PLATFORM_ORG_ID), eq(syncMetadata.id, 'priceomatic_cache')));
         resolvedStatus = { ...status, ...staleFix };
-        console.log('[POM] Cleared stale in_progress status from previous run');
+        console.log('[POM] Marked stale in_progress as interrupted for auto-resume');
       }
 
       res.json({

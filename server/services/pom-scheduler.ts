@@ -8,10 +8,13 @@ import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 const ORG_ID = PLATFORM_ORG_ID;
 
 const SYNC_TYPE = 'priceomatic_sync';
-const MAX_RETRIES = 5;
-const RETRY_BASE_MS = 5 * 60 * 1000;
+const MAX_RESTART_RETRIES = 3;
+const MAX_ERROR_RETRIES = 5;
+const ERROR_RETRY_BASE_MS = 5 * 60 * 1000;
 
 const retry = { count: 0, nextAt: 0 };
+let restartRetryCount = 0;
+let lastResumeAttemptDate = '';
 
 export function getPomIsRunning() {
   return syncLock.getActive().includes('Price-o-Matic');
@@ -28,7 +31,37 @@ export function setPomIsRunning(value: boolean): boolean {
 
 export async function startPomSyncScheduler() {
   console.log('💰 Price-o-Matic sync scheduler initialized');
+
+  setTimeout(async () => {
+    try {
+      await detectAndResumeInterruptedSync();
+    } catch (e) {
+      console.error('[POM] Error during startup resume check:', e);
+    }
+  }, 15_000);
+
   setInterval(async () => { await checkAndRunPomSync(); }, 60 * 1000);
+}
+
+async function detectAndResumeInterruptedSync() {
+  try {
+    const [meta] = await db.select().from(syncMetadata)
+      .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, 'priceomatic_cache')))
+      .limit(1);
+
+    if (meta?.lastSyncStatus === 'in_progress' && !getPomIsRunning()) {
+      console.log('[POM] Detected stale in_progress from previous run — marking as interrupted for auto-resume');
+      await db.update(syncMetadata)
+        .set({
+          lastSyncStatus: 'interrupted',
+          errorMessage: 'Sync interrupted by server restart. Will auto-resume.',
+          updatedAt: new Date(),
+        })
+        .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, 'priceomatic_cache')));
+    }
+  } catch (err) {
+    console.error('[POM] Error in detectAndResumeInterruptedSync:', err);
+  }
 }
 
 async function checkAndRunPomSync() {
@@ -48,8 +81,59 @@ async function checkAndRunPomSync() {
 
     const tz = settings.timezone || 'America/Chicago';
     const now = new Date();
+    const todayStr = now.toLocaleDateString('en-US', { timeZone: tz });
 
-    // Time-of-day gate
+    const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, 'priceomatic_cache'))).limit(1);
+    const lastRunTs = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
+
+    if (meta?.lastSyncStatus === 'interrupted') {
+      if (lastResumeAttemptDate !== todayStr) {
+        restartRetryCount = 0;
+        lastResumeAttemptDate = todayStr;
+      }
+
+      if (restartRetryCount >= MAX_RESTART_RETRIES) {
+        console.log(`[POM] All ${MAX_RESTART_RETRIES} restart resume attempts exhausted for today — marking as error`);
+        await db.update(syncMetadata)
+          .set({
+            lastSyncStatus: 'error',
+            errorMessage: `Auto-resume failed after ${MAX_RESTART_RETRIES} restart attempts.`,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, 'priceomatic_cache')));
+        return;
+      }
+
+      restartRetryCount++;
+      console.log(`[POM] Auto-resuming interrupted sync (restart attempt ${restartRetryCount}/${MAX_RESTART_RETRIES})...`);
+
+      if (getPomIsRunning()) {
+        console.log('⏭️ POM sync already in progress, skipping resume');
+        return;
+      }
+      if (syncLock.isRunning()) {
+        const blocker = syncLock.getActive().join(', ');
+        console.log(`⏭️ POM resume blocked by: ${blocker} — will retry next minute`);
+        restartRetryCount--;
+        return;
+      }
+
+      await runScheduledPomSync(settings.pomScheduleBatchSize ?? 1500);
+      return;
+    }
+
+    if (meta?.lastSyncStatus === 'in_progress' && !getPomIsRunning()) {
+      console.log('[POM] Found stale in_progress — marking as interrupted for next cycle');
+      await db.update(syncMetadata)
+        .set({
+          lastSyncStatus: 'interrupted',
+          errorMessage: 'Sync interrupted by server restart. Will auto-resume.',
+          updatedAt: new Date(),
+        })
+        .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, 'priceomatic_cache')));
+      return;
+    }
+
     const localTimeStr = now.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
     const [hStr, mStr] = localTimeStr.replace(/\u202f/g, '').split(':');
     const currentTotalMinutes = parseInt(hStr) * 60 + parseInt(mStr);
@@ -58,19 +142,14 @@ async function checkAndRunPomSync() {
     const scheduledTotalMinutes = parseInt(schedH) * 60 + parseInt(schedM);
     if (currentTotalMinutes < scheduledTotalMinutes) return;
 
-    const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, 'priceomatic_cache'))).limit(1);
-    const lastRunTs = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
-
     if (meta?.lastSyncStatus === 'error') {
-      if (retry.count >= MAX_RETRIES) {
-        console.log(`[POM] All ${MAX_RETRIES} retries exhausted — waiting for next scheduled window`);
+      if (retry.count >= MAX_ERROR_RETRIES) {
+        console.log(`[POM] All ${MAX_ERROR_RETRIES} retries exhausted — waiting for next scheduled window`);
         return;
       }
       if (Date.now() < retry.nextAt) return;
-      console.log(`[POM] Retrying after failure (attempt ${retry.count + 1}/${MAX_RETRIES})...`);
+      console.log(`[POM] Retrying after failure (attempt ${retry.count + 1}/${MAX_ERROR_RETRIES})...`);
     } else {
-      // Calendar-date dedup in local timezone
-      const todayStr = now.toLocaleDateString('en-US', { timeZone: tz });
       const lastRunStr = lastRunTs ? new Date(lastRunTs).toLocaleDateString('en-US', { timeZone: tz }) : '';
       if (todayStr === lastRunStr) { retry.count = 0; return; }
       retry.count = 0;
@@ -143,16 +222,17 @@ async function runScheduledPomSync(batchSize: number) {
     });
 
     retry.count = 0;
+    restartRetryCount = 0;
     resolveSchedulerIssues(SYNC_TYPE);
   } catch (error: any) {
     retry.count++;
-    retry.nextAt = Date.now() + retry.count * RETRY_BASE_MS;
+    retry.nextAt = Date.now() + retry.count * ERROR_RETRY_BASE_MS;
     const minsUntilRetry = retry.count * 5;
-    console.error(`❌ Scheduled POM sync failed (attempt ${retry.count}/${MAX_RETRIES}): ${error.message}`);
-    if (retry.count < MAX_RETRIES) {
+    console.error(`❌ Scheduled POM sync failed (attempt ${retry.count}/${MAX_ERROR_RETRIES}): ${error.message}`);
+    if (retry.count < MAX_ERROR_RETRIES) {
       console.log(`[POM] Next retry in ${minsUntilRetry} minute(s)`);
     } else {
-      console.log(`[POM] All ${MAX_RETRIES} retries exhausted`);
+      console.log(`[POM] All ${MAX_ERROR_RETRIES} retries exhausted`);
     }
 
     await db.insert(syncMetadata).values({
@@ -172,9 +252,9 @@ async function runScheduledPomSync(batchSize: number) {
       syncType: SYNC_TYPE,
       platform: 'scheduler',
       issueType: 'sync_failed',
-      issueDescription: `Scheduled Price-o-Matic sync failed (attempt ${retry.count}/${MAX_RETRIES}): ${error.message}`,
+      issueDescription: `Scheduled Price-o-Matic sync failed (attempt ${retry.count}/${MAX_ERROR_RETRIES}): ${error.message}`,
       severity: 'medium',
-      metadata: { error: error.message, attempt: retry.count, maxRetries: MAX_RETRIES, timestamp: new Date().toISOString() },
+      metadata: { error: error.message, attempt: retry.count, maxRetries: MAX_ERROR_RETRIES, timestamp: new Date().toISOString() },
     });
   } finally {
     syncLock.release('Price-o-Matic');
