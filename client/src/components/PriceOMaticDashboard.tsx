@@ -367,35 +367,31 @@ const scoreColor = (score: number | null) => {
 const GR = 'grid grid-cols-[1fr_52px_52px_52px_52px]';
 const cell = (extra = '') => `px-1 py-1 text-center text-[10px] font-mono tabular-nums border-l border-white/[0.06] ${extra}`;
 
-type HighlightMask = { sold?: boolean; listed?: boolean; mine?: boolean };
+type CellHL = { sN?: boolean; sU?: boolean; lN?: boolean; lU?: boolean };
 
-const HL_BG = 'bg-violet-500/[0.12]';
-const HL_RING = 'ring-1 ring-inset ring-violet-400/30';
+const HL_CELL = 'bg-violet-500/[0.18] ring-1 ring-inset ring-violet-400/40';
 
 function PricingGrid({ group, activeSort }: { group: GroupedInsight; activeSort: SortField }) {
   const nLot = group.newLot;
   const uLot = group.usedLot;
 
-  const hlMap: Record<string, HighlightMask> = {};
-  if (activeSort === 'ceiling')   { hlMap['Max'] = { sold: true }; hlMap['Mine'] = { mine: true }; }
-  if (activeSort === 'velocity')  { hlMap['Qty'] = { sold: true, listed: true }; }
-  if (activeSort === 'scarcity')  { hlMap['Qty'] = { listed: true }; }
-  if (activeSort === 'undercut')  { hlMap['Min'] = { listed: true }; hlMap['Mine'] = { mine: true }; }
+  const hlMap: Record<string, CellHL> = {};
+  if (activeSort === 'ceiling')  { hlMap['Max'] = { sN: true, sU: true }; hlMap['Mine'] = { sN: true, sU: true }; }
+  if (activeSort === 'velocity') { hlMap['Qty'] = { sN: true, sU: true, lN: true, lU: true }; }
+  if (activeSort === 'scarcity') { hlMap['Qty'] = { lN: true, lU: true }; }
+  if (activeSort === 'undercut') { hlMap['Min'] = { lN: true, lU: true }; hlMap['Mine'] = { sN: true, sU: true }; }
 
   const DataRow = ({ label, sN, sU, lN, lU, isMoney, bold, mine }: {
     label: string; sN: any; sU: any; lN: any; lU: any; isMoney?: boolean; bold?: boolean; mine?: boolean;
   }) => {
     const hl = hlMap[label];
-    const hlSold = hl?.sold || (mine && hl?.mine);
-    const hlListed = hl?.listed || (mine && hl?.mine);
-    const rowHl = hlSold || hlListed;
     return (
-      <div className={`${GR} border-b border-white/[0.04] ${bold ? 'bg-white/[0.03]' : ''} ${rowHl ? HL_BG : ''}`}>
+      <div className={`${GR} border-b border-white/[0.04] ${bold ? 'bg-white/[0.03]' : ''}`}>
         <div className={`px-2 py-1 text-[10px] ${mine ? 'text-emerald-400 font-semibold' : bold ? 'text-gray-200 font-semibold' : 'text-gray-500'}`}>{label}</div>
-        <div className={cell(`${mine ? 'text-emerald-300 font-semibold' : bold ? 'text-amber-300 font-semibold' : 'text-gray-200'} ${hlSold ? HL_RING : ''}`)}>{isMoney ? fmt(sN) : fmtInt(sN)}</div>
-        <div className={cell(`${mine ? 'text-emerald-300 font-semibold' : bold ? 'text-amber-300 font-semibold' : 'text-gray-200'} ${hlSold ? HL_RING : ''}`)}>{isMoney ? fmt(sU) : fmtInt(sU)}</div>
-        <div className={cell(`${mine ? 'text-gray-700' : bold ? 'text-sky-300 font-semibold' : 'text-gray-400'} ${hlListed && !mine ? HL_RING : ''}`)}>{mine ? '' : isMoney ? fmt(lN) : fmtInt(lN)}</div>
-        <div className={cell(`${mine ? 'text-gray-700' : bold ? 'text-sky-300 font-semibold' : 'text-gray-400'} ${hlListed && !mine ? HL_RING : ''}`)}>{mine ? '' : isMoney ? fmt(lU) : fmtInt(lU)}</div>
+        <div className={cell(`${mine ? 'text-emerald-300 font-semibold' : bold ? 'text-amber-300 font-semibold' : 'text-gray-200'} ${hl?.sN ? HL_CELL : ''}`)}>{isMoney ? fmt(sN) : fmtInt(sN)}</div>
+        <div className={cell(`${mine ? 'text-emerald-300 font-semibold' : bold ? 'text-amber-300 font-semibold' : 'text-gray-200'} ${hl?.sU ? HL_CELL : ''}`)}>{isMoney ? fmt(sU) : fmtInt(sU)}</div>
+        <div className={cell(`${mine ? 'text-gray-700' : bold ? 'text-sky-300 font-semibold' : 'text-gray-400'} ${hl?.lN && !mine ? HL_CELL : ''}`)}>{mine ? '' : isMoney ? fmt(lN) : fmtInt(lN)}</div>
+        <div className={cell(`${mine ? 'text-gray-700' : bold ? 'text-sky-300 font-semibold' : 'text-gray-400'} ${hl?.lU && !mine ? HL_CELL : ''}`)}>{mine ? '' : isMoney ? fmt(lU) : fmtInt(lU)}</div>
       </div>
     );
   };
