@@ -454,12 +454,12 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
         {/* ── Customer Overview ── */}
         <div className={cn("relative bg-gradient-to-b from-yellow-950/20 to-gray-900/85 border border-yellow-500/40 rounded-lg shadow-[0_0_22px_rgba(234,179,8,0.10)] overflow-hidden", "p-2.5")} data-testid="section-customer-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-yellow-400/50 to-transparent" />
-          <div className={cn("flex items-center gap-2", "mb-2")}>
+          <div className={cn("flex flex-wrap items-center gap-2", "mb-2")}>
             <div className="p-1.5 rounded-md bg-yellow-900/60 ring-1 ring-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.22)]">
               <Users className={cn("w-3 h-3 text-yellow-200", "md:w-4 md:h-4")} />
             </div>
             <h3 className={cn("text-xs font-semibold text-yellow-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Customers</h3>
-            {dateRangeSlot && <div className="ml-auto">{dateRangeSlot}</div>}
+            {dateRangeSlot && <div className="ml-auto max-w-full overflow-x-auto">{dateRangeSlot}</div>}
           </div>
           <div className={cn("grid grid-cols-3 gap-1.5", "mb-2")} data-testid="section-customer-counts">
             <MetricCard label="Total" value={String(totalCustomers)} color="yellow" data-testid="metric-total-customers" />

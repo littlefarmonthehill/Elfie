@@ -1148,12 +1148,12 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
       {/* ── Top Metrics ── */}
       <div className={cn("relative bg-gradient-to-b from-green-950/25 to-gray-900/85 border border-green-500/40 rounded-lg shadow-[0_0_22px_rgba(34,197,94,0.12)] overflow-hidden", "p-2.5")} data-testid="section-sales-overview">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-400/50 to-transparent" />
-        <div className={cn("flex items-center gap-2", "mb-2")}>
+        <div className={cn("flex flex-wrap items-center gap-2", "mb-2")}>
           <div className="p-1.5 rounded-md bg-green-900/60 ring-1 ring-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.25)]">
             <TrendingUp className={cn("w-3 h-3 text-green-200", "md:w-4 md:h-4")} />
           </div>
           <h3 className={cn("text-xs font-semibold text-green-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Sales</h3>
-            {dateRangeSlot && <div className="ml-auto">{dateRangeSlot}</div>}
+            {dateRangeSlot && <div className="ml-auto max-w-full overflow-x-auto">{dateRangeSlot}</div>}
         </div>
         <div className={cn("grid grid-cols-3 gap-1.5", "mb-2")} data-testid="section-sales-metrics">
           <MetricCard label="Orders" value={filteredOrders.length} color="green" data-testid="metric-sales-orders" />

@@ -1042,11 +1042,20 @@ export default function Home() {
               </div>
 
               {/* Drawer overlay — covers entire dynamic board */}
-              {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer) && (
+              {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer || detailModal.open) && (
                 <div className="absolute inset-0 z-20 flex flex-col">
-                  <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={closeActiveDrawer} />
+                  <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={() => { closeActiveDrawer(); setDetailModal({ open: false, data: null }); }} />
                   <div className="relative flex-1 bg-gray-950/95 border border-white/10 rounded-lg m-3 overflow-y-auto shadow-2xl animate-[slideUp_250ms_ease-out]">
-                    {renderActiveDrawer()}
+                    {detailModal.open ? (
+                      <DetailModal
+                        open={detailModal.open}
+                        onClose={() => setDetailModal({ open: false, data: null })}
+                        detail={detailModal.data}
+                        onOrderSelect={handleOrderSelect}
+                        onBrickLinkClick={setBrickLinkUrl}
+                        inline
+                      />
+                    ) : renderActiveDrawer()}
                   </div>
                 </div>
               )}
@@ -1140,8 +1149,8 @@ export default function Home() {
 
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} initialSection={settingsInitialSection ?? undefined} />
       
-      {/* Detail modal - positioned lower-left in landscape mode */}
-      <div className={detailModal.open ? 'landscape:fixed landscape:bottom-4 landscape:left-4 landscape:w-[45%] landscape:max-h-[60vh]' : ''}>
+      {/* Detail modal — Vaul drawer on mobile only; desktop uses inline overlay in center column */}
+      {!isDesktop && (
         <DetailModal 
           open={detailModal.open} 
           onClose={() => setDetailModal({ open: false, data: null })} 
@@ -1149,7 +1158,7 @@ export default function Home() {
           onOrderSelect={handleOrderSelect}
           onBrickLinkClick={setBrickLinkUrl}
         />
-      </div>
+      )}
 
       {/* BrickLink in-app browser dialog */}
       <Dialog open={!!brickLinkUrl} onOpenChange={() => setBrickLinkUrl(null)}>

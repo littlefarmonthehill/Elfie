@@ -1,5 +1,6 @@
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, X, Package, ShoppingCart, TrendingUp, Megaphone } from "lucide-react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
+import { Button } from "@/components/ui/button";
 import InventoryDetail from "./details/InventoryDetail";
 import OrderDetail from "./details/OrderDetail";
 import SalesDetail from "./details/SalesDetail";
@@ -19,9 +20,17 @@ interface DetailModalProps {
   detail: DetailData | null;
   onOrderSelect?: (orderId: string) => void;
   onBrickLinkClick?: (url: string) => void;
+  inline?: boolean;
 }
 
-export default function DetailModal({ open, onClose, detail, onOrderSelect, onBrickLinkClick }: DetailModalProps) {
+const titleConfig: Record<DetailType, { icon: typeof Package; label: string; color: string }> = {
+  inventory: { icon: Package, label: 'Inventory Detail', color: 'text-blue-400' },
+  order: { icon: ShoppingCart, label: 'Order Detail', color: 'text-orange-400' },
+  sales: { icon: TrendingUp, label: 'Sales Detail', color: 'text-green-400' },
+  marketing: { icon: Megaphone, label: 'Marketing Detail', color: 'text-yellow-400' },
+};
+
+export default function DetailModal({ open, onClose, detail, onOrderSelect, onBrickLinkClick, inline }: DetailModalProps) {
   if (!detail) return null;
 
   const renderDetail = () => {
@@ -38,6 +47,28 @@ export default function DetailModal({ open, onClose, detail, onOrderSelect, onBr
         return null;
     }
   };
+
+  if (inline) {
+    if (!open) return null;
+    const cfg = titleConfig[detail.type];
+    const Icon = cfg.icon;
+    return (
+      <div className="flex flex-col h-full">
+        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
+          <div className="flex items-center gap-1.5">
+            <Icon className={`w-5 h-5 ${cfg.color} flex-shrink-0`} />
+            <span className="text-sm font-semibold text-gray-200">{cfg.label}</span>
+          </div>
+          <Button size="icon" variant="ghost" onClick={onClose} data-testid="button-close-detail">
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-3 min-h-0">
+          {renderDetail()}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Drawer open={open} onOpenChange={onClose}>
