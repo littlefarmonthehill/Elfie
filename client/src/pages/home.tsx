@@ -46,7 +46,10 @@ export default function Home() {
     onError: () => toast({ title: 'Failed to exit impersonation', variant: 'destructive' }),
   });
   const { data: org } = useQuery<Organization>({ queryKey: ['/api/org'] });
-  const [activeDashboard, setActiveDashboard] = useState<DashboardType>('dashboard');
+  const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024);
+  const [activeDashboard, setActiveDashboard] = useState<DashboardType>(() =>
+    typeof window !== 'undefined' && window.innerWidth >= 1024 ? 'inventory' : 'dashboard'
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'priceomatic' | null>(null);
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
@@ -56,6 +59,18 @@ export default function Home() {
   const [elfieClosing, setElfieClosing] = useState(false);
   const [elfieResting, setElfieResting] = useState(false);
   const [elfieThinking, setElfieThinking] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      const nowDesktop = window.innerWidth >= 1024;
+      setIsDesktop(nowDesktop);
+      if (nowDesktop && activeDashboard === 'dashboard') {
+        setActiveDashboard('inventory');
+      }
+    };
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, [activeDashboard]);
+
   const [forumNews, setForumNews] = useState<{
     count: number;
     posts: Array<{
@@ -332,7 +347,7 @@ export default function Home() {
     }
   };
 
-  const renderDashboard = () => {
+  const renderDynamicDashboard = () => {
     switch (activeDashboard) {
       case 'inventory':
         return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }} />;
@@ -343,8 +358,15 @@ export default function Home() {
       case 'marketing':
         return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} />;
       default:
-        return <GeneralDashboard onItemClick={handleDashboardItemClick} onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }} onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }} onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }} onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }} onNavigate={(tab) => setActiveDashboard(tab as DashboardType)} />;
+        return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }} />;
     }
+  };
+
+  const renderMobileDashboard = () => {
+    if (activeDashboard === 'dashboard') {
+      return <GeneralDashboard onItemClick={handleDashboardItemClick} onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }} onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }} onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }} onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }} onNavigate={(tab) => setActiveDashboard(tab as DashboardType)} />;
+    }
+    return renderDynamicDashboard();
   };
 
   const closeActiveDrawer = () => {
@@ -938,7 +960,7 @@ export default function Home() {
       
       {/* Dashboard Nav */}
       <div className="sticky top-14 md:top-20 lg:top-24 z-40 bg-gradient-to-r from-purple-950/40 via-blue-950/30 to-purple-950/40 backdrop-blur-sm">
-        <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} />
+        <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} hideOpsCentral={isDesktop} />
       </div>
 
       {/* Date Range Selector - Show for sales, marketing, and orders */}
@@ -948,26 +970,70 @@ export default function Home() {
         </div>
       )}
       
-      {/* Dashboard area — consistent blue background with themed card */}
-      <div className="flex-1 overflow-y-auto bg-[#04080F]">
-        <div className="h-full p-2 md:p-4 lg:p-6">
-          <div className={`h-full rounded-lg border overflow-hidden ${
-            activeDashboard === 'dashboard' ? 'border-lego-red/30 bg-gradient-to-br from-lego-red/15 via-gray-950/80 to-lego-red/5' :
-            activeDashboard === 'inventory' ? 'border-lego-blue/30 bg-gradient-to-br from-lego-blue/15 via-gray-950/80 to-lego-blue/5' :
-            activeDashboard === 'orders' ? 'border-lego-orange/30 bg-gradient-to-br from-lego-orange/15 via-gray-950/80 to-lego-orange/5' :
-            activeDashboard === 'sales' ? 'border-lego-green/30 bg-gradient-to-br from-lego-green/15 via-gray-950/80 to-lego-green/5' :
-            'border-lego-yellow/30 bg-gradient-to-br from-lego-yellow/15 via-gray-950/80 to-lego-yellow/5'
-          }`}>
-            <div className="h-full flex flex-row">
-              <div className={`flex-1 overflow-y-auto min-w-0 ${(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer) ? 'hidden md:block' : ''}`}>
-                {renderDashboard()}
+      {/* Dashboard area */}
+      <div className="flex-1 overflow-hidden bg-[#04080F]">
+        {/* MOBILE layout (< lg): single column, same as before */}
+        <div className="lg:hidden h-full overflow-y-auto">
+          <div className="h-full p-2 md:p-4">
+            <div className={`h-full rounded-lg border overflow-hidden ${
+              activeDashboard === 'dashboard' ? 'border-lego-red/30 bg-gradient-to-br from-lego-red/15 via-gray-950/80 to-lego-red/5' :
+              activeDashboard === 'inventory' ? 'border-lego-blue/30 bg-gradient-to-br from-lego-blue/15 via-gray-950/80 to-lego-blue/5' :
+              activeDashboard === 'orders' ? 'border-lego-orange/30 bg-gradient-to-br from-lego-orange/15 via-gray-950/80 to-lego-orange/5' :
+              activeDashboard === 'sales' ? 'border-lego-green/30 bg-gradient-to-br from-lego-green/15 via-gray-950/80 to-lego-green/5' :
+              'border-lego-yellow/30 bg-gradient-to-br from-lego-yellow/15 via-gray-950/80 to-lego-yellow/5'
+            }`}>
+              <div className="h-full flex flex-row">
+                <div className={`flex-1 overflow-y-auto min-w-0 ${(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer) ? 'hidden md:block' : ''}`}>
+                  {renderMobileDashboard()}
+                </div>
+                {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer) && (
+                  <div className="w-full md:w-[40%] md:max-w-[520px] flex-shrink-0 border-l border-white/10 overflow-y-auto bg-gray-950/60">
+                    {renderActiveDrawer()}
+                  </div>
+                )}
               </div>
-              {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer) && (
-                <div className="w-full md:w-[40%] md:max-w-[520px] flex-shrink-0 border-l border-white/10 overflow-y-auto bg-gray-950/60">
+            </div>
+          </div>
+        </div>
+
+        {/* DESKTOP layout (lg+): Ops Central left (1/3), dynamic dashboard right (2/3) */}
+        <div className="hidden lg:flex h-full gap-0">
+          {/* Left column — Ops Central, permanently visible */}
+          <div className="w-1/3 min-w-[320px] max-w-[420px] h-full overflow-y-auto border-r border-white/10 p-4">
+            <div className="rounded-lg border border-lego-red/30 bg-gradient-to-br from-lego-red/15 via-gray-950/80 to-lego-red/5 overflow-hidden h-full">
+              <GeneralDashboard
+                onItemClick={handleDashboardItemClick}
+                onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
+                onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
+                onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
+                onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
+                onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
+              />
+            </div>
+          </div>
+
+          {/* Right column — dynamic dashboard with drawer overlay */}
+          <div className="flex-1 h-full relative">
+            <div className="h-full overflow-y-auto p-4">
+              <div className={`h-full rounded-lg border overflow-hidden ${
+                activeDashboard === 'inventory' ? 'border-lego-blue/30 bg-gradient-to-br from-lego-blue/15 via-gray-950/80 to-lego-blue/5' :
+                activeDashboard === 'orders' ? 'border-lego-orange/30 bg-gradient-to-br from-lego-orange/15 via-gray-950/80 to-lego-orange/5' :
+                activeDashboard === 'sales' ? 'border-lego-green/30 bg-gradient-to-br from-lego-green/15 via-gray-950/80 to-lego-green/5' :
+                'border-lego-yellow/30 bg-gradient-to-br from-lego-yellow/15 via-gray-950/80 to-lego-yellow/5'
+              }`}>
+                {renderDynamicDashboard()}
+              </div>
+            </div>
+
+            {/* Drawer overlay on top of dynamic dashboard */}
+            {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer) && (
+              <div className="absolute inset-0 z-20 flex items-stretch justify-end">
+                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeActiveDrawer} />
+                <div className="relative w-full max-w-[560px] bg-gray-950/95 border-l border-white/10 overflow-y-auto shadow-2xl">
                   {renderActiveDrawer()}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

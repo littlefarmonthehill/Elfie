@@ -5,6 +5,7 @@ export type DashboardType = 'dashboard' | 'inventory' | 'orders' | 'marketing' |
 interface DashboardNavProps {
   active: DashboardType;
   onSelect: (dashboard: DashboardType) => void;
+  hideOpsCentral?: boolean;
 }
 
 const dashboards = [
@@ -15,13 +16,13 @@ const dashboards = [
   { id: 'sales' as const, label: 'Sales', color: 'lego-green' },
 ];
 
-export default function DashboardNav({ active, onSelect }: DashboardNavProps) {
+export default function DashboardNav({ active, onSelect, hideOpsCentral }: DashboardNavProps) {
+  const filtered = hideOpsCentral ? dashboards.filter(d => d.id !== 'dashboard') : dashboards;
+
   return (
     <nav className="h-14 md:h-16 lg:h-18 border-b border-gray-800 flex items-center gap-1 md:gap-4 lg:gap-5 px-2 md:px-8 lg:px-10 overflow-x-auto scrollbar-hide">
-      {dashboards.map((dashboard) => {
+      {filtered.map((dashboard) => {
         const isActive = active === dashboard.id;
-        const bgColor = `bg-${dashboard.color}`;
-        const textColor = `text-${dashboard.color}`;
         
         return (
           <button
