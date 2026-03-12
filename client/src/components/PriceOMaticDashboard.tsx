@@ -34,6 +34,7 @@ interface StoredGroupInfo {
   itemName: string | null;
   colorId: number | null;
   colorName: string | null;
+  colorRgb: string | null;
 }
 
 function lsLoadDeepSpace(): Set<string> {
@@ -93,6 +94,7 @@ interface PricingInsight {
   itemType: string;
   colorId: number | null;
   colorName: string | null;
+  colorRgb: string | null;
   newOrUsed: string;
   currentPrice: string;
   myCost?: string | null;
@@ -130,6 +132,7 @@ interface GroupedInsight {
   itemName: string | null;
   colorId: number | null;
   colorName: string | null;
+  colorRgb: string | null;
   newLot: PricingInsight | null;
   usedLot: PricingInsight | null;
   bestCeiling: number | null;
@@ -398,11 +401,11 @@ function PricingGrid({ group }: { group: GroupedInsight }) {
         <div className={cell('text-[8px] uppercase font-bold text-blue-300 py-0.5')}>New</div>
         <div className={cell('text-[8px] uppercase font-bold text-orange-300 py-0.5')}>Used</div>
       </div>
-      <DataRow mine bold label="Mine" sN={nLot?.currentPrice} sU={uLot?.currentPrice} lN={null} lU={null} isMoney />
       <DataRow label="Qty" sN={nLot?.soldTotalLots} sU={uLot?.soldTotalLots} lN={nLot?.stockTotalLots} lU={uLot?.stockTotalLots} />
       <DataRow label="Min" sN={nLot?.soldMinPrice} sU={uLot?.soldMinPrice} lN={nLot?.stockMinPrice} lU={uLot?.stockMinPrice} isMoney />
       <DataRow bold label="Avg" sN={nLot?.soldAvgPrice} sU={uLot?.soldAvgPrice} lN={nLot?.stockAvgPrice} lU={uLot?.stockAvgPrice} isMoney />
       <DataRow label="Max" sN={nLot?.soldMaxPrice} sU={uLot?.soldMaxPrice} lN={nLot?.stockMaxPrice} lU={uLot?.stockMaxPrice} isMoney />
+      <DataRow mine bold label="Mine" sN={nLot?.currentPrice} sU={uLot?.currentPrice} lN={null} lU={null} isMoney />
     </div>
   );
 }
@@ -478,7 +481,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
       lsSaveDeepSpace(serverSet);
       lsSaveDeepSpaceItems(serverItemsMap);
     } else if (localKeys.length > 0) {
-      const migratedItems = localKeys.map(k => localItems.get(k) ?? { key: k, itemNo: k.split('_')[0], itemName: null, colorId: null, colorName: null });
+      const migratedItems = localKeys.map(k => localItems.get(k) ?? { key: k, itemNo: k.split('_')[0], itemName: null, colorId: null, colorName: null, colorRgb: null });
       apiRequest('PUT', '/api/priceomatic/deep-space', { items: migratedItems }).catch(() => {});
     }
   }, [deepSpaceData]);
@@ -509,7 +512,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   }, [futureMissionsData]);
 
   const onMoveToZone = useCallback((group: GroupedInsight, targetZone: ZoneFilter) => {
-    const stored: StoredGroupInfo = { key: group.key, itemNo: group.itemNo, itemName: group.itemName, colorId: group.colorId, colorName: group.colorName };
+    const stored: StoredGroupInfo = { key: group.key, itemNo: group.itemNo, itemName: group.itemName, colorId: group.colorId, colorName: group.colorName, colorRgb: group.colorRgb };
 
     const newDeepKeys = new Set(lsLoadDeepSpace());
     const newDeepItems = lsLoadDeepSpaceItems();
@@ -627,7 +630,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
       const key = `${item.itemNo}_${item.colorId ?? 'null'}`;
       if (!map.has(key)) {
         map.set(key, {
-          key, itemNo: item.itemNo, itemName: item.itemName, colorId: item.colorId, colorName: item.colorName,
+          key, itemNo: item.itemNo, itemName: item.itemName, colorId: item.colorId, colorName: item.colorName, colorRgb: item.colorRgb,
           newLot: null, usedLot: null,
           bestCeiling: null, bestVelocity: null, bestScarcity: null, bestUndercut: null, bestCombined: null,
         });
@@ -657,7 +660,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   };
 
   const makeFallbackGroup = (item: StoredGroupInfo): GroupedInsight => ({
-    key: item.key, itemNo: item.itemNo, itemName: item.itemName, colorId: item.colorId, colorName: item.colorName,
+    key: item.key, itemNo: item.itemNo, itemName: item.itemName, colorId: item.colorId, colorName: item.colorName, colorRgb: item.colorRgb,
     newLot: null, usedLot: null,
     bestCeiling: null, bestVelocity: null, bestScarcity: null, bestUndercut: null, bestCombined: null,
   });
@@ -898,6 +901,12 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                         <span className="inline-flex items-center gap-1 text-[10px] font-mono text-emerald-400/80 bg-emerald-500/10 rounded px-1 py-0.5 flex-shrink-0">
                           ×{totalQty}
                         </span>
+                        {group.colorRgb && (
+                          <span
+                            className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-white/20"
+                            style={{ backgroundColor: `#${group.colorRgb}` }}
+                          />
+                        )}
                         <span className="text-[10px] text-slate-400 truncate min-w-0">{group.colorName || '—'}</span>
                       </div>
 
