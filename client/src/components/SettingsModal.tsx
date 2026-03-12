@@ -7411,7 +7411,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Market Price Guides</p>
-                                  <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Pulls supply (currently for sale) and sold (recent sales) price guide data from BrickLink for every item in the catalog. Uses 2 API calls per item. Freshness window: 7 days.</TooltipContent></Tooltip>
+                                  <Tooltip><TooltipTrigger asChild><span onClick={e => e.stopPropagation()}><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></span></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Pulls supply (currently for sale) and sold (recent sales) price guide data from BrickLink for every item in the catalog. Uses 2 API calls per item. Freshness window: 7 days.</TooltipContent></Tooltip>
                                   <span className={`sm-hint font-medium ${statusInfo(pomJob?.lastSyncStatus || null, pomScheduleEnabled).color}`}>{statusInfo(pomJob?.lastSyncStatus || null, pomScheduleEnabled).label}</span>
                                 </div>
                                 <p className="sm-hint">{pomScheduleEnabled ? `Daily at ${pomSyncTime} · batch ${pomScheduleBatchSize} · fresh ${pomFreshnessDays}d` : 'Schedule disabled'} · Last: {formatLastRun(pomJob?.lastSyncTime || null)}</p>
@@ -7512,7 +7512,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Catalog Detail Completion</p>
-                                  <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Fills in missing item details (name, image, weight, dimensions, year released) by calling the BrickLink Item Detail API. Only targets items with stock &gt; 0 across the platform. Uses 1 API call per item.</TooltipContent></Tooltip>
+                                  <Tooltip><TooltipTrigger asChild><span onClick={e => e.stopPropagation()}><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></span></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Fills in missing item details (name, image, weight, dimensions, year released) by calling the BrickLink Item Detail API. Only targets items with stock &gt; 0 across the platform. Uses 1 API call per item.</TooltipContent></Tooltip>
                                   <span className={`sm-hint font-medium ${statusInfo(cdJob?.lastSyncStatus || null, catalogDetailEnabled).color}`}>{statusInfo(cdJob?.lastSyncStatus || null, catalogDetailEnabled).label}</span>
                                 </div>
                                 <p className="sm-hint">{catalogDetailEnabled ? `Every ${catalogDetailFrequencyHours}h · batch ${catalogDetailBatchSize} · fresh ${catalogDetailFreshnessDays}d` : 'Schedule disabled'} · Last: {formatLastRun(cdJob?.lastSyncTime || null)}</p>
@@ -7611,7 +7611,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Inventory Catalog Scan</p>
-                                  <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Scans all inventory rows across stores to find items with missing or stale catalog data and new part+color combinations. Feeds items into the enrichment queue for both Market Price Guides and Catalog Detail Completion. No API calls — database scan only.</TooltipContent></Tooltip>
+                                  <Tooltip><TooltipTrigger asChild><span onClick={e => e.stopPropagation()}><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></span></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Scans all inventory rows across stores to find items with missing or stale catalog data and new part+color combinations. Feeds items into the enrichment queue for both Market Price Guides and Catalog Detail Completion. No API calls — database scan only.</TooltipContent></Tooltip>
                                   <span className={`sm-hint font-medium ${statusInfo(csJob?.lastSyncStatus || null, catalogScanEnabled).color}`}>{statusInfo(csJob?.lastSyncStatus || null, catalogScanEnabled).label}</span>
                                 </div>
                                 <p className="sm-hint">{catalogScanEnabled ? `Every ${catalogScanFrequencyHours}h · ${catalogScanZeroStockSkip ? 'zero-stock skip' : 'all items'}` : 'Schedule disabled'} · Last: {formatLastRun(csJob?.lastSyncTime || null)}</p>
@@ -7681,7 +7681,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Rebrickable Set Parts</p>
-                                  <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Imports set-to-part relationships from Rebrickable. Maps which parts belong to which LEGO sets, enabling set completion analysis and BrickSpotter set detection.</TooltipContent></Tooltip>
+                                  <Tooltip><TooltipTrigger asChild><span onClick={e => e.stopPropagation()}><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></span></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Imports set-to-part relationships from Rebrickable. Maps which parts belong to which LEGO sets, enabling set completion analysis and BrickSpotter set detection.</TooltipContent></Tooltip>
                                   <span className={`sm-hint font-medium ${statusInfo(rbJob?.lastSyncStatus || null, rebrickableSetSyncEnabled).color}`}>{statusInfo(rbJob?.lastSyncStatus || null, rebrickableSetSyncEnabled).label}</span>
                                 </div>
                                 <p className="sm-hint">{rebrickableSetSyncEnabled ? `Daily at ${rebrickableSetSyncTime}` : 'Schedule disabled'} · Last: {formatLastRun(rbJob?.lastSyncTime || null)}</p>
@@ -7724,7 +7724,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Universal Catalog</p>
-                                  <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Imports item images and metadata from BrickLink into the shared catalog. Feeds the CLIP Catalog Build worker to generate visual search embeddings. No BrickLink API calls — uses public image URLs.</TooltipContent></Tooltip>
+                                  <Tooltip><TooltipTrigger asChild><span onClick={e => e.stopPropagation()}><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></span></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Imports item images and metadata from BrickLink into the shared catalog. Feeds the CLIP Catalog Build worker to generate visual search embeddings. No BrickLink API calls — uses public image URLs.</TooltipContent></Tooltip>
                                   <span className={`sm-hint font-medium ${statusInfo(ucJob?.lastSyncStatus || null, universalCatalogScheduleEnabled).color}`}>{statusInfo(ucJob?.lastSyncStatus || null, universalCatalogScheduleEnabled).label}</span>
                                 </div>
                                 <p className="sm-hint">{universalCatalogScheduleEnabled ? `Every ${universalCatalogRefreshMonths}mo · retry after ${universalCatalogRetryDays}d` : 'Schedule disabled'} · Last: {formatLastRun(ucJob?.lastSyncTime || null)}</p>
@@ -7774,7 +7774,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">CLIP Catalog Build</p>
-                                  <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Generates CLIP visual embeddings (512-dim vectors) for every item image in the catalog. Powers BrickSpotter visual search — matching photos of parts to catalog entries. Runs continuously in the background and auto-resumes on restart.</TooltipContent></Tooltip>
+                                  <Tooltip><TooltipTrigger asChild><span onClick={e => e.stopPropagation()}><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></span></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Generates CLIP visual embeddings (512-dim vectors) for every item image in the catalog. Powers BrickSpotter visual search — matching photos of parts to catalog entries. Runs continuously in the background and auto-resumes on restart.</TooltipContent></Tooltip>
                                   <span className={`sm-hint font-medium ${clipActive ? 'text-yellow-400' : clipStatus && clipStatus.embedded >= clipStatus.total ? 'text-green-400/80' : 'text-gray-500'}`}>
                                     {clipActive ? 'Running' : clipStatus && clipStatus.embedded >= clipStatus.total ? 'Complete' : 'Idle'}
                                   </span>
@@ -7877,7 +7877,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Forum Sync</p>
-                                  <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Scrapes BrickLink forum discussions for market sentiment and trending topics. Posts are embedded for AI context, enabling market-aware responses in conversations. Purges stale posts with no replies older than 6 months.</TooltipContent></Tooltip>
+                                  <Tooltip><TooltipTrigger asChild><span onClick={e => e.stopPropagation()}><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></span></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Scrapes BrickLink forum discussions for market sentiment and trending topics. Posts are embedded for AI context, enabling market-aware responses in conversations. Purges stale posts with no replies older than 6 months.</TooltipContent></Tooltip>
                                   <span className={`sm-hint font-medium ${statusInfo(fmJob?.lastSyncStatus || null, forumSyncEnabled).color}`}>{statusInfo(fmJob?.lastSyncStatus || null, forumSyncEnabled).label}</span>
                                 </div>
                                 <p className="sm-hint">{forumSyncEnabled ? `Every ${forumSyncFrequency} min` : 'Schedule disabled'} · Last: {formatLastRun(fmJob?.lastSyncTime || null)}</p>
