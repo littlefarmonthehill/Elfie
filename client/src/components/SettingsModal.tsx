@@ -2777,9 +2777,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         <div className="w-full h-1.5 bg-gray-700/60 rounded-full overflow-hidden">
                           <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${pomProgressPct}%` }} />
                         </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[10px] text-gray-500">24h API: {pomCallsLast24h.toLocaleString()} · This sync: {pomCurrentSyncCalls.toLocaleString()} / {pomApiCeiling.toLocaleString()}</span>
-                          <span className="text-[10px] text-gray-500">Without POM: {pomUnenrichedCount.toLocaleString()}</span>
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className="text-[10px] text-gray-500">{(pomLiveProgress.itemsNew ?? 0).toLocaleString()} new · {(pomLiveProgress.itemsRefreshed ?? 0).toLocaleString()} refreshed</span>
+                          <span className="text-[10px] text-gray-500">API: {pomCurrentSyncCalls.toLocaleString()} / {pomApiCeiling.toLocaleString()}</span>
                         </div>
                       </div>
                     )}
@@ -7280,9 +7280,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 <div className="w-full h-1.5 bg-gray-700/60 rounded-full overflow-hidden">
                                   <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${pomProgressPct}%` }} />
                                 </div>
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-[10px] text-gray-500">24h API: {pomCallsLast24h.toLocaleString()} · This sync: {pomCurrentSyncCalls.toLocaleString()} / {pomApiCeiling.toLocaleString()}</span>
-                                  <span className="text-[10px] text-gray-500">Without POM: {pomUnenrichedCount.toLocaleString()}</span>
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <span className="text-[10px] text-gray-500">{(pomLiveProgress.itemsNew ?? 0).toLocaleString()} new · {(pomLiveProgress.itemsRefreshed ?? 0).toLocaleString()} refreshed</span>
+                                  <span className="text-[10px] text-gray-500">API: {pomCurrentSyncCalls.toLocaleString()} / {pomApiCeiling.toLocaleString()}</span>
                                 </div>
                               </div>
                             )}

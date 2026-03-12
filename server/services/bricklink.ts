@@ -1246,7 +1246,7 @@ let pomSyncStopRequested = false;
 export function requestPomSyncStop() { pomSyncStopRequested = true; }
 
 // Live progress object — updated throughout the sync loop so the status endpoint can surface it
-let pomSyncProgress = { active: false, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: 0 };
+let pomSyncProgress = { active: false, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: 0, itemsNew: 0, itemsRefreshed: 0 };
 export function getPomSyncProgress() { return { ...pomSyncProgress }; }
 
 // Fetch and cache Price-o-Matic data for an item
@@ -1287,9 +1287,9 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
       .where(and(eq(blApiCalls.orgId, orgId), gte(blApiCalls.timestamp, twentyFourHoursAgo)));
     const callsLast24h = Number(usageRow?.count) || 0;
 
-    pomSyncProgress = { active: true, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: callsLast24h };
+    pomSyncProgress = { active: true, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: callsLast24h, itemsNew: 0, itemsRefreshed: 0 };
     if (callsLast24h >= apiCallCeiling) {
-      pomSyncProgress = { active: false, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: callsLast24h };
+      pomSyncProgress = { active: false, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: callsLast24h, itemsNew: 0, itemsRefreshed: 0 };
       return {
         itemsUpdated: 0,
         itemsSkipped: 0,
@@ -1410,7 +1410,7 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
           ? `No API calls remaining (${apiCallCeiling}/${apiCallCeiling} used in last 24h). Try again later.`
           : 'No items to process.';
       console.log(`[Price-o-Matic Sync] ${reason}`);
-      pomSyncProgress = { active: false, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: pomSyncProgress.apiCallsAtStart };
+      pomSyncProgress = { active: false, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: pomSyncProgress.apiCallsAtStart, itemsNew: 0, itemsRefreshed: 0 };
       return { itemsUpdated: 0, itemsSkipped: 0, apiCallsUsed: 0, stopped: true, stopReason: reason };
     }
 
@@ -1467,12 +1467,15 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
         );
 
         itemsUpdated++;
-        // Progress counts every attempted item (updated + skipped) so the bar always moves
+        if (item.lastFetched) {
+          pomSyncProgress.itemsRefreshed++;
+        } else {
+          pomSyncProgress.itemsNew++;
+        }
         pomSyncProgress.itemsProcessed = itemsUpdated + itemsSkipped;
         
-        // Log progress every 100 items
         if ((itemsUpdated + itemsSkipped) % 100 === 0) {
-          console.log(`[Price-o-Matic Sync] Progress: ${itemsUpdated + itemsSkipped}/${itemsToProcess.length} items attempted (${itemsUpdated} updated, ${itemsSkipped} skipped)`);
+          console.log(`[Price-o-Matic Sync] Progress: ${itemsUpdated + itemsSkipped}/${itemsToProcess.length} items (${pomSyncProgress.itemsNew} new, ${pomSyncProgress.itemsRefreshed} refreshed, ${itemsSkipped} skipped)`);
         }
 
       } catch (error) {
@@ -1496,8 +1499,8 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
       .where(and(eq(blApiCalls.orgId, orgId), gte(blApiCalls.timestamp, finalAgo)));
     const finalCalls = Number(finalUsage?.count) || 0;
     apiCallsUsed = Math.max(0, finalCalls - pomSyncProgress.apiCallsAtStart);
-    console.log(`[Price-o-Matic Sync] Completed: ${itemsUpdated} updated, ${itemsSkipped} skipped, ${apiCallsUsed} actual API calls used (${itemsUpdated - apiCallsUsed} served from cache)`);
-    pomSyncProgress = { active: false, itemsProcessed: itemsUpdated, itemsTotal: itemsToProcess.length, apiCallsAtStart: pomSyncProgress.apiCallsAtStart };
+    console.log(`[Price-o-Matic Sync] Completed: ${pomSyncProgress.itemsNew} new, ${pomSyncProgress.itemsRefreshed} refreshed, ${itemsSkipped} skipped, ${apiCallsUsed} API calls used`);
+    pomSyncProgress = { active: false, itemsProcessed: itemsUpdated, itemsTotal: itemsToProcess.length, apiCallsAtStart: pomSyncProgress.apiCallsAtStart, itemsNew: pomSyncProgress.itemsNew, itemsRefreshed: pomSyncProgress.itemsRefreshed };
 
     return {
       itemsUpdated,
