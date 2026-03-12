@@ -349,7 +349,7 @@ export default function Home() {
   };
 
   const dateRangeNode = (
-    <DateRangeSelector value={dateRange} onChange={setDateRange} compact />
+    <DateRangeSelector value={dateRange} onChange={setDateRange} compact scaled />
   );
 
   const renderDynamicDashboard = () => {

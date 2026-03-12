@@ -7,6 +7,7 @@ interface DateRangeSelectorProps {
   onChange: (value: DateRangeValue) => void;
   className?: string;
   compact?: boolean;
+  scaled?: boolean;
 }
 
 const fullLabels: { label: string; short: string; value: DateRangeValue }[] = [
@@ -18,7 +19,7 @@ const fullLabels: { label: string; short: string; value: DateRangeValue }[] = [
   { label: 'All Time',    short: 'All',   value: 'all' },
 ];
 
-export default function DateRangeSelector({ value, onChange, className = "", compact = false }: DateRangeSelectorProps) {
+export default function DateRangeSelector({ value, onChange, className = "", compact = false, scaled = false }: DateRangeSelectorProps) {
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
 
   useEffect(() => {
@@ -29,13 +30,14 @@ export default function DateRangeSelector({ value, onChange, className = "", com
 
   const isActive = (v: DateRangeValue) => value === v;
   const useCompact = compact || isMobile;
+  const useScaled = scaled && useCompact;
 
   return (
     <div
       className={`inline-flex items-center ${useCompact ? 'gap-0.5' : 'gap-1'} ${className}`}
       style={{
         borderRadius: '999px',
-        padding: useCompact ? '3px' : '4px',
+        padding: useScaled ? '2px' : useCompact ? '3px' : '4px',
         background: 'linear-gradient(135deg, hsla(200,80%,25%,0.5) 0%, hsla(220,60%,15%,0.7) 50%, hsla(200,80%,25%,0.5) 100%)',
         border: '1px solid hsla(200,80%,55%,0.3)',
         boxShadow: '0 0 12px hsla(200,80%,50%,0.15), inset 0 1px 0 hsla(200,80%,70%,0.1)',
@@ -48,8 +50,8 @@ export default function DateRangeSelector({ value, onChange, className = "", com
           onClick={() => onChange(option.value)}
           className="relative transition-all duration-200 whitespace-nowrap"
           style={{
-            padding: useCompact ? '6px 10px' : '8px 18px',
-            fontSize: useCompact ? '10px' : '13px',
+            padding: useScaled ? '4px 7px' : useCompact ? '6px 10px' : '8px 18px',
+            fontSize: useScaled ? '8px' : useCompact ? '10px' : '13px',
             fontWeight: 700,
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
