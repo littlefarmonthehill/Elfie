@@ -88,20 +88,23 @@ export async function runCatalogDetailSync(): Promise<{
     const zeroStockSkip = settings?.zeroStockSkip ?? true;
     const totalCeiling = settings?.blApiCallLimit ?? 4900;
     const budgetPct = settings?.catalogDetailApiBudgetPct ?? 20;
-    const apiCallCeiling = Math.floor(totalCeiling * budgetPct / 100);
+    const maxCallsThisRun = Math.floor(totalCeiling * budgetPct / 100);
 
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const [usageRow] = await db.select({ count: sql<number>`count(*)` })
       .from(blApiCalls).where(and(eq(blApiCalls.orgId, ORG_ID), gte(blApiCalls.timestamp, twentyFourHoursAgo)));
     const callsLast24h = Number(usageRow?.count) || 0;
 
-    if (callsLast24h >= apiCallCeiling) {
+    if (callsLast24h >= totalCeiling) {
       syncLock.release('CatalogDetail');
-      return { categoriesAdded: 0, categoriesUpdated: 0, colorsAdded: 0, colorsUpdated: 0, itemsEnriched: 0, apiCallsUsed: 0, stopped: true, stopReason: `API limit reached: ${callsLast24h}/${apiCallCeiling}` };
+      return { categoriesAdded: 0, categoriesUpdated: 0, colorsAdded: 0, colorsUpdated: 0, itemsEnriched: 0, apiCallsUsed: 0, stopped: true, stopReason: `API limit reached: ${callsLast24h}/${totalCeiling}` };
     }
 
+    const availableTotalCalls = Math.max(0, totalCeiling - callsLast24h);
+    const apiCallCeiling = Math.min(maxCallsThisRun, availableTotalCalls);
+
     cdProgress = { active: true, phase: 'Starting', itemsProcessed: 0, itemsTotal: 0, apiCallsUsed: 0, apiCallBudget: apiCallCeiling, categoriesDone: false, colorsDone: false };
-    console.log(`[CatalogDetail] Starting sync (batch: ${batchSize}, freshness: ${freshnessDays}d, zeroStockSkip: ${zeroStockSkip}, API budget: ${apiCallCeiling}/${totalCeiling} [${budgetPct}%])`);
+    console.log(`[CatalogDetail] Starting sync (batch: ${batchSize}, freshness: ${freshnessDays}d, zeroStockSkip: ${zeroStockSkip}, API budget: ${apiCallCeiling} this run [${budgetPct}% of ${totalCeiling}], total used: ${callsLast24h}/${totalCeiling})`);
 
     // Phase 1: Refresh categories (1 API call)
     cdProgress.phase = 'Categories';
@@ -206,7 +209,7 @@ export async function runCatalogDetailSync(): Promise<{
       return true;
     }).slice(0, batchSize);
 
-    const availableApiCalls = Math.max(0, apiCallCeiling - callsLast24h - apiCallsUsed);
+    const availableApiCalls = Math.max(0, apiCallCeiling - apiCallsUsed);
     const itemsToProcess = uniqueItems.slice(0, availableApiCalls);
 
     cdProgress.phase = 'Enriching items';
