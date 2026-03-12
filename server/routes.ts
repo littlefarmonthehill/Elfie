@@ -10072,6 +10072,18 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       // Load current formula config to recompute suggested price on-the-fly
       const formulaConfig = await getPomFormulaConfig();
       
+      // Pre-compute the peak sold price per item/type/color in one pass (avoids correlated subquery per row)
+      const peakSoldSub = db
+        .select({
+          itemNo: priceGuideCache.itemNo,
+          itemType: priceGuideCache.itemType,
+          colorId: priceGuideCache.colorId,
+          peakSold: sql<string>`MAX(${priceGuideCache.soldMaxPrice})`.as('peak_sold'),
+        })
+        .from(priceGuideCache)
+        .groupBy(priceGuideCache.itemNo, priceGuideCache.itemType, priceGuideCache.colorId)
+        .as('peak_sold_sub');
+
       // Join inventory with cached price data — select raw market data so we can recompute live
       const insights = await db
         .select({
@@ -10090,17 +10102,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           stockTotalLots: priceGuideCache.stockTotalLots,
           quantity: blInventory.quantity,
           lastFetched: priceGuideCache.fetchedAt,
-          // Highest sold price across ALL conditions (N + U) for this itemNo/colorId
-          marketPeakSoldPrice: sql<string | null>`(
-            SELECT MAX(pgc2.sold_max_price)
-            FROM price_guide_cache pgc2
-            WHERE pgc2.item_no = ${blInventory.itemNo}
-              AND pgc2.item_type = ${blInventory.itemType}
-              AND (
-                pgc2.color_id = ${blInventory.colorId}
-                OR (pgc2.color_id IS NULL AND ${blInventory.colorId} IS NULL)
-              )
-          )`,
+          marketPeakSoldPrice: peakSoldSub.peakSold,
         })
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
@@ -10112,6 +10114,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             eq(blInventory.itemType, priceGuideCache.itemType),
             eq(blInventory.newOrUsed, priceGuideCache.newOrUsed),
             sql`(${blInventory.colorId} = ${priceGuideCache.colorId} OR (${blInventory.colorId} IS NULL AND ${priceGuideCache.colorId} IS NULL))`
+          )
+        )
+        .leftJoin(
+          peakSoldSub,
+          and(
+            eq(blInventory.itemNo, peakSoldSub.itemNo),
+            eq(blInventory.itemType, peakSoldSub.itemType),
+            sql`(${blInventory.colorId} = ${peakSoldSub.colorId} OR (${blInventory.colorId} IS NULL AND ${peakSoldSub.colorId} IS NULL))`
           )
         )
         .where(and(eq(blInventory.orgId, orgId), sql`${blInventory.unitPrice} IS NOT NULL AND (${priceGuideCache.stockAvgPrice} IS NOT NULL OR ${priceGuideCache.soldAvgPrice} IS NOT NULL)`))
