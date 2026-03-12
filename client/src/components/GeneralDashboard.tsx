@@ -35,41 +35,6 @@ function formatCurrency(v: string | number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
 }
 
-function MetricTile({ label, value, sub, Icon, color, onClick }: {
-  label: string; value: string; sub?: string; Icon: React.ElementType; color: string; onClick?: () => void;
-}) {
-  const colorMap: Record<string, { bg: string; icon: string; border: string; glow: string }> = {
-    blue:   { bg: 'from-blue-950/40 to-blue-950/20', icon: 'text-blue-400', border: 'border-blue-500/30', glow: '0 0 20px rgba(59,130,246,0.1)' },
-    orange: { bg: 'from-orange-950/40 to-orange-950/20', icon: 'text-orange-400', border: 'border-orange-500/30', glow: '0 0 20px rgba(249,115,22,0.1)' },
-    green:  { bg: 'from-green-950/40 to-green-950/20', icon: 'text-green-400', border: 'border-green-500/30', glow: '0 0 20px rgba(34,197,94,0.1)' },
-    red:    { bg: 'from-red-950/40 to-red-950/20', icon: 'text-red-400', border: 'border-red-500/30', glow: '0 0 20px rgba(239,68,68,0.1)' },
-    purple: { bg: 'from-purple-950/40 to-purple-950/20', icon: 'text-purple-400', border: 'border-purple-500/30', glow: '0 0 20px rgba(168,85,247,0.1)' },
-    yellow: { bg: 'from-yellow-950/40 to-yellow-950/20', icon: 'text-yellow-400', border: 'border-yellow-500/30', glow: '0 0 20px rgba(234,179,8,0.1)' },
-  };
-  const c = colorMap[color] ?? colorMap.blue;
-
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "relative flex flex-col gap-1 rounded-lg border p-3 md:p-4 text-left transition-all",
-        "bg-gradient-to-br to-gray-900/80",
-        c.bg, c.border,
-        onClick && "hover-elevate active-elevate-2 cursor-pointer"
-      )}
-      style={{ boxShadow: c.glow }}
-      data-testid={`metric-${label.toLowerCase().replace(/\s+/g, '-')}`}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wide font-medium">{label}</span>
-        <Icon className={cn("w-3.5 h-3.5 md:w-4 md:h-4 shrink-0", c.icon)} />
-      </div>
-      <span className="text-lg md:text-2xl font-bold font-mono text-foreground">{value}</span>
-      {sub && <span className="text-[10px] md:text-xs text-muted-foreground">{sub}</span>}
-    </button>
-  );
-}
-
 function QuickActionCard({ label, sub, Icon, color, onClick }: {
   label: string; sub: string; Icon: React.ElementType; color: string; onClick?: () => void;
 }) {
@@ -160,8 +125,11 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
   };
   const c = colorMap[color] ?? colorMap.blue;
 
+  const sevOrder: Record<string, number> = { error: 0, warn: 1, info: 2 };
+  const sortedAlerts = [...alerts].sort((a, b) => (sevOrder[a.severity] ?? 9) - (sevOrder[b.severity] ?? 9));
+
   const hasRunning = !!isRunning;
-  const hasAlerts = alerts.length > 0;
+  const hasAlerts = sortedAlerts.length > 0;
   const validActions = (lastActions ?? []).filter(a => a.time !== 'never');
 
   return (
@@ -181,7 +149,7 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
         {hasAlerts && (
           <div className="px-3 pt-3 space-y-2">
             <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Attention</h4>
-            {alerts.map((a) => (
+            {sortedAlerts.map((a) => (
               <AlertRow key={a.id} icon={a.icon} iconColor={a.iconColor} label={a.label} sub={a.sub} severity={a.severity} onClick={a.onClick} />
             ))}
           </div>
@@ -276,6 +244,9 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
   if (isTrial && trialDaysLeft !== null) {
     alerts.push({ id: 'trial', icon: Clock, iconColor: trialSeverity === 'error' ? 'text-red-400' : trialSeverity === 'warn' ? 'text-yellow-400' : 'text-muted-foreground', label: trialDaysLeft === 0 ? 'Trial ending today' : `${trialDaysLeft} days left in trial`, sub: 'Upgrade to keep access', severity: trialSeverity ?? 'info', onClick: () => onOpenSettings?.('billing') });
   }
+
+  const sevOrder: Record<string, number> = { error: 0, warn: 1, info: 2 };
+  alerts.sort((a, b) => (sevOrder[a.severity] ?? 9) - (sevOrder[b.severity] ?? 9));
 
   return (
     <div className="rounded-lg border border-gray-500/30 overflow-hidden" data-testid="section-system-pulse">
@@ -531,41 +502,6 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
 
   return (
     <div className="p-3 md:p-5 lg:p-6 xl:p-8 space-y-5 md:space-y-6 max-w-5xl mx-auto" data-testid="launchpad">
-
-      {/* Headline Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4" data-testid="section-metrics">
-        <MetricTile
-          label="To Fulfill"
-          value={pendingOrders.toString()}
-          sub={pendingOrders > 0 ? 'orders waiting' : 'all clear'}
-          Icon={ShoppingCart}
-          color={pendingOrders > 0 ? 'orange' : 'green'}
-          onClick={pendingOrders > 0 ? onOpenFulfillment : undefined}
-        />
-        <MetricTile
-          label="Inventory"
-          value={totalLots.toLocaleString()}
-          sub={`${totalPcs.toLocaleString()} pcs`}
-          Icon={Package}
-          color="blue"
-          onClick={() => onNavigate?.('inventory')}
-        />
-        <MetricTile
-          label="Revenue"
-          value={formatCurrency(totalRevenue)}
-          sub="all time"
-          Icon={TrendingUp}
-          color="green"
-          onClick={() => onNavigate?.('sales')}
-        />
-        <MetricTile
-          label="Alerts"
-          value={urgentAlerts.length.toString()}
-          sub={urgentAlerts.length > 0 ? 'need attention' : 'all systems go'}
-          Icon={urgentAlerts.length > 0 ? AlertTriangle : CheckCircle}
-          color={urgentAlerts.length > 0 ? 'red' : 'green'}
-        />
-      </div>
 
       {/* System Pulse (plan info, setup items) */}
       <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings}>
