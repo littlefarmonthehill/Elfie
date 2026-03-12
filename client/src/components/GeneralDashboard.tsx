@@ -118,12 +118,12 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
   onClick?: () => void;
 }) {
   const [lastActionsOpen, setLastActionsOpen] = useState(false);
-  const colorMap: Record<string, { border: string; icon: string; headerBg: string }> = {
-    blue:   { border: 'border-blue-500/30', icon: 'text-blue-400', headerBg: 'from-blue-950/40 to-gray-900/80' },
-    orange: { border: 'border-orange-500/30', icon: 'text-orange-400', headerBg: 'from-orange-950/40 to-gray-900/80' },
-    green:  { border: 'border-green-500/30', icon: 'text-green-400', headerBg: 'from-green-950/40 to-gray-900/80' },
-    purple: { border: 'border-purple-500/30', icon: 'text-purple-400', headerBg: 'from-purple-950/40 to-gray-900/80' },
-    yellow: { border: 'border-yellow-500/30', icon: 'text-yellow-400', headerBg: 'from-yellow-950/40 to-gray-900/80' },
+  const colorMap: Record<string, { border: string; icon: string; headerBg: string; cardBg: string }> = {
+    blue:   { border: 'border-blue-500/30', icon: 'text-blue-400', headerBg: 'from-blue-950/40 to-gray-900/80', cardBg: 'bg-gradient-to-br from-blue-950/20 via-gray-950/80 to-blue-950/10' },
+    orange: { border: 'border-orange-500/30', icon: 'text-orange-400', headerBg: 'from-orange-950/40 to-gray-900/80', cardBg: 'bg-gradient-to-br from-orange-950/20 via-gray-950/80 to-orange-950/10' },
+    green:  { border: 'border-green-500/30', icon: 'text-green-400', headerBg: 'from-green-950/40 to-gray-900/80', cardBg: 'bg-gradient-to-br from-green-950/20 via-gray-950/80 to-green-950/10' },
+    purple: { border: 'border-purple-500/30', icon: 'text-purple-400', headerBg: 'from-purple-950/40 to-gray-900/80', cardBg: 'bg-gradient-to-br from-purple-950/20 via-gray-950/80 to-purple-950/10' },
+    yellow: { border: 'border-yellow-500/30', icon: 'text-yellow-400', headerBg: 'from-yellow-950/40 to-gray-900/80', cardBg: 'bg-gradient-to-br from-yellow-950/20 via-gray-950/80 to-yellow-950/10' },
   };
   const c = colorMap[color] ?? colorMap.blue;
 
@@ -135,7 +135,7 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
   const validActions = (lastActions ?? []).filter(a => a.time !== 'never');
 
   return (
-    <div className={cn("rounded-lg border overflow-hidden", c.border)} data-testid={`ops-area-${label.toLowerCase()}`}>
+    <div className={cn("rounded-lg border overflow-hidden", c.border, c.cardBg)} data-testid={`ops-area-${label.toLowerCase()}`}>
       <button
         onClick={onClick}
         className={cn("w-full flex items-center justify-between gap-3 px-4 py-3 text-left bg-gradient-to-r hover-elevate active-elevate-2 transition-all group", c.headerBg)}
