@@ -18,6 +18,7 @@ interface GeneralDashboardProps {
   onOpenPriceomatic?: () => void;
   onOpenSettings?: (section: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'billing') => void;
   onNavigate?: (tab: 'inventory' | 'orders' | 'sales' | 'marketing') => void;
+  section?: 'all' | 'plan' | 'ops';
 }
 
 function relTime(iso: string | null | undefined): string {
@@ -286,7 +287,7 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
   );
 }
 
-export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpenBrickanalyzer, onOpenPriceomatic, onOpenSettings, onNavigate }: GeneralDashboardProps) {
+export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpenBrickanalyzer, onOpenPriceomatic, onOpenSettings, onNavigate, section = 'all' }: GeneralDashboardProps) {
 
   const { data: stats } = useQuery<{ totalOrders: number; totalInventoryItems: number; totalInventoryQuantity: number; totalSales: number }>({
     queryKey: ['/api/dashboard/stats'],
@@ -501,16 +502,21 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   const ordEmbedPct = embedStats && embedStats.orders.total > 0
     ? Math.round((embedStats.orders.embedded / embedStats.orders.total) * 100) : 0;
 
+  const showPlan = section === 'all' || section === 'plan';
+  const showOps = section === 'all' || section === 'ops';
+
   return (
     <div className="p-3 md:p-5 lg:p-6 xl:p-8 space-y-5 md:space-y-6 max-w-5xl mx-auto" data-testid="launchpad">
 
       {/* System Pulse (plan info, setup items) */}
-      <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings}>
-        <DashboardNotifications />
-      </SystemPulse>
+      {showPlan && (
+        <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings}>
+          <DashboardNotifications />
+        </SystemPulse>
+      )}
 
       {/* Operational areas */}
-      <div className="space-y-4" data-testid="section-ops-central">
+      {showOps && (<div className="space-y-4" data-testid="section-ops-central">
         <OpAreaCard
           label="Product"
           Icon={Package}
@@ -600,7 +606,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           alerts={urgentAlerts.filter(a => a.id === 'pom-fail')}
           onClick={() => onNavigate?.('sales')}
         />
-      </div>
+      </div>)}
 
     </div>
   );

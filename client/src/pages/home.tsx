@@ -996,24 +996,23 @@ export default function Home() {
           </div>
         </div>
 
-        {/* DESKTOP layout (lg+): Ops Central left (1/3), dynamic dashboard right (2/3) */}
-        <div className="hidden lg:flex h-full gap-0">
-          {/* Left column — Ops Central, permanently visible */}
-          <div className="w-1/3 min-w-[320px] max-w-[420px] h-full overflow-y-auto border-r border-white/10 p-4">
-            <div className="rounded-lg border border-lego-red/30 bg-gradient-to-br from-lego-red/15 via-gray-950/80 to-lego-red/5 overflow-hidden h-full">
-              <GeneralDashboard
-                onItemClick={handleDashboardItemClick}
-                onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
-                onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
-                onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
-                onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-                onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
-              />
-            </div>
+        {/* DESKTOP layout (lg+): Your Plan (left) | Dynamic Board (center 2x) | Ops Central (right) */}
+        <div className="hidden lg:flex h-full">
+          {/* Left column — Your Plan */}
+          <div className="w-[260px] xl:w-[300px] flex-shrink-0 h-full overflow-y-auto border-r border-white/10 p-3">
+            <GeneralDashboard
+              onItemClick={handleDashboardItemClick}
+              onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
+              onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
+              onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
+              onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
+              onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
+              section="plan"
+            />
           </div>
 
-          {/* Right column — dynamic dashboard with drawer overlay */}
-          <div className="flex-1 h-full relative">
+          {/* Center column — dynamic dashboard with drawer overlay */}
+          <div className="flex-1 h-full relative min-w-0">
             <div className="h-full overflow-y-auto p-4">
               <div className={`h-full rounded-lg border overflow-hidden ${
                 activeDashboard === 'inventory' ? 'border-lego-blue/30 bg-gradient-to-br from-lego-blue/15 via-gray-950/80 to-lego-blue/5' :
@@ -1025,15 +1024,30 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Drawer overlay on top of dynamic dashboard */}
+            {/* Drawer overlay — covers entire dynamic board */}
             {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer) && (
-              <div className="absolute inset-0 z-20 flex items-stretch justify-end">
+              <div className="absolute inset-0 z-20 flex flex-col">
                 <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeActiveDrawer} />
-                <div className="relative w-full max-w-[560px] bg-gray-950/95 border-l border-white/10 overflow-y-auto shadow-2xl">
+                <div className="relative flex-1 bg-gray-950/95 border border-white/10 rounded-lg m-4 overflow-y-auto shadow-2xl">
                   {renderActiveDrawer()}
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Right column — Ops Central cards */}
+          <div className="w-[300px] xl:w-[340px] flex-shrink-0 h-full overflow-y-auto border-l border-white/10 p-3">
+            <div className="rounded-lg border border-lego-red/30 bg-gradient-to-br from-lego-red/15 via-gray-950/80 to-lego-red/5 overflow-hidden">
+              <GeneralDashboard
+                onItemClick={handleDashboardItemClick}
+                onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
+                onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
+                onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
+                onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
+                onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
+                section="ops"
+              />
+            </div>
           </div>
         </div>
       </div>
