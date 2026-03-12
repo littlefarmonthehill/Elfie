@@ -1,11 +1,11 @@
 import { db } from "../db";
-import { appSettings, syncMetadata, PLATFORM_ORG_ID } from "@shared/schema";
+import { appSettings, syncMetadata } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { syncLock } from "./sync-lock";
 import { runPlatformOrderSync } from "./order-sync-core";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 
-const ORG_ID = PLATFORM_ORG_ID;
+const ORG_ID = 'org_planetbrick';
 
 const SYNC_ID = 'bricklink_orders';
 const SYNC_TYPE = 'order_sync';

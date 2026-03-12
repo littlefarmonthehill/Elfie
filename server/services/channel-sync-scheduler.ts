@@ -1,11 +1,11 @@
 import { db } from "../db";
-import { appSettings, syncMetadata, PLATFORM_ORG_ID } from "@shared/schema";
+import { appSettings, syncMetadata } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { syncBrickLinkToBrickOwl } from "./brickowl";
 import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 
-const ORG_ID = PLATFORM_ORG_ID;
+const ORG_ID = 'org_planetbrick';
 
 const SYNC_TYPE = 'channel_sync';
 const MAX_RETRIES = 5;

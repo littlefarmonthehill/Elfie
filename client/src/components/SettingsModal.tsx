@@ -1426,6 +1426,23 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       setBlUkVatNumber(settings.blUkVatNumber || "");
       setBoUkVatNumber(settings.boUkVatNumber || "");
       setTimezone(settings.timezone || 'America/Chicago');
+      setInventorySyncEnabled(settings.inventorySyncEnabled || false);
+      setInventorySyncTime(settings.inventorySyncTime || "02:00");
+      setRebrickableImageSyncEnabled(settings.rebrickableImageSyncEnabled !== false);
+      setChannelSyncEnabled(settings.channelSyncEnabled || false);
+      setChannelSyncTime(settings.channelSyncTime || '03:00');
+      setChannelSyncMode((settings.channelSyncMode as 'full_control' | 'quantity_only') || 'full_control');
+      setOrdersSyncEnabled(settings.ordersSyncEnabled || false);
+      setOrdersSyncFrequency(settings.ordersSyncFrequency || 15);
+      setOrdersSyncFrequencyStr(String(settings.ordersSyncFrequency || 15));
+      setRebrickableSetSyncEnabled(settings.rebrickableSetSyncEnabled || false);
+      setRebrickableSetSyncTime(settings.rebrickableSetSyncTime || '04:00');
+      setForumSyncEnabled(settings.forumSyncEnabled !== false);
+      setForumSyncFrequency(settings.forumSyncFrequency || 60);
+      setForumSyncFrequencyStr(String(settings.forumSyncFrequency || 60));
+      setUniversalCatalogScheduleEnabled(settings.universalCatalogScheduleEnabled || false);
+      setUniversalCatalogRefreshMonths(settings.universalCatalogRefreshMonths ?? 1);
+      setUniversalCatalogRetryDays(settings.universalCatalogRetryDays ?? 30);
       setElfieMode((settings.elfieMode as 'search' | 'ai') ?? 'search');
 
       // Fetch models
@@ -1435,23 +1452,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
   useEffect(() => {
     if (platformSettings) {
-      setInventorySyncEnabled(platformSettings.inventorySyncEnabled || false);
-      setInventorySyncTime(platformSettings.inventorySyncTime || "02:00");
-      setRebrickableImageSyncEnabled(platformSettings.rebrickableImageSyncEnabled !== false);
-      setChannelSyncEnabled(platformSettings.channelSyncEnabled || false);
-      setChannelSyncTime(platformSettings.channelSyncTime || '03:00');
-      setChannelSyncMode((platformSettings.channelSyncMode as 'full_control' | 'quantity_only') || 'full_control');
-      setOrdersSyncEnabled(platformSettings.ordersSyncEnabled || false);
-      setOrdersSyncFrequency(platformSettings.ordersSyncFrequency || 15);
-      setOrdersSyncFrequencyStr(String(platformSettings.ordersSyncFrequency || 15));
-      setRebrickableSetSyncEnabled(platformSettings.rebrickableSetSyncEnabled || false);
-      setRebrickableSetSyncTime(platformSettings.rebrickableSetSyncTime || '04:00');
-      setForumSyncEnabled(platformSettings.forumSyncEnabled !== false);
-      setForumSyncFrequency(platformSettings.forumSyncFrequency || 60);
-      setForumSyncFrequencyStr(String(platformSettings.forumSyncFrequency || 60));
-      setUniversalCatalogScheduleEnabled(platformSettings.universalCatalogScheduleEnabled || false);
-      setUniversalCatalogRefreshMonths(platformSettings.universalCatalogRefreshMonths ?? 1);
-      setUniversalCatalogRetryDays(platformSettings.universalCatalogRetryDays ?? 30);
       setPriceOMaticEnabled(platformSettings.priceOMaticEnabled || false);
       setPomScheduleEnabled(platformSettings.pomScheduleEnabled || false);
       setPomSyncTime(platformSettings.pomSyncTime || '14:00');
@@ -4090,7 +4090,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             checked={inventorySyncEnabled}
                             onCheckedChange={(checked) => {
                               setInventorySyncEnabled(checked);
-                              updatePlatformSettingsMutation.mutate({ inventorySyncEnabled: checked });
+                              updateSettingsMutation.mutate({ inventorySyncEnabled: checked });
                             }}
                             data-testid="switch-inventory-sync"
                           />
@@ -4105,7 +4105,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             type="time"
                             value={inventorySyncTime}
                             onChange={(e) => setInventorySyncTime(e.target.value)}
-                            onBlur={() => updatePlatformSettingsMutation.mutate({ inventorySyncTime })}
+                            onBlur={() => updateSettingsMutation.mutate({ inventorySyncTime })}
                             className="text-xs w-32"
                             data-testid="input-inventory-time"
                           />
@@ -4195,7 +4195,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             checked={ordersSyncEnabled}
                             onCheckedChange={(checked) => {
                               setOrdersSyncEnabled(checked);
-                              updatePlatformSettingsMutation.mutate({ ordersSyncEnabled: checked });
+                              updateSettingsMutation.mutate({ ordersSyncEnabled: checked });
                             }}
                             data-testid="switch-orders-sync"
                           />
@@ -4217,7 +4217,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               const clamped = isNaN(parsed) ? 15 : Math.max(5, Math.min(120, parsed));
                               setOrdersSyncFrequency(clamped);
                               setOrdersSyncFrequencyStr(String(clamped));
-                              updatePlatformSettingsMutation.mutate({ ordersSyncFrequency: clamped });
+                              updateSettingsMutation.mutate({ ordersSyncFrequency: clamped });
                             }}
                             className="text-xs w-24"
                             data-testid="input-orders-frequency"
@@ -4304,7 +4304,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             checked={channelSyncEnabled}
                             onCheckedChange={(checked) => {
                               setChannelSyncEnabled(checked);
-                              updatePlatformSettingsMutation.mutate({ channelSyncEnabled: checked });
+                              updateSettingsMutation.mutate({ channelSyncEnabled: checked });
                             }}
                             data-testid="switch-channel-sync"
                           />
@@ -4319,7 +4319,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             type="time"
                             value={channelSyncTime}
                             onChange={(e) => setChannelSyncTime(e.target.value)}
-                            onBlur={() => updatePlatformSettingsMutation.mutate({ channelSyncTime })}
+                            onBlur={() => updateSettingsMutation.mutate({ channelSyncTime })}
                             className="text-xs w-32"
                             data-testid="input-channel-sync-time"
                           />
@@ -4342,7 +4342,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         </div>
                         <div className="grid grid-cols-1 gap-1.5">
                           <button
-                            onClick={() => { setChannelSyncMode('full_control'); updatePlatformSettingsMutation.mutate({ channelSyncMode: 'full_control' }); }}
+                            onClick={() => { setChannelSyncMode('full_control'); updateSettingsMutation.mutate({ channelSyncMode: 'full_control' }); }}
                             className={`flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors ${channelSyncMode === 'full_control' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
                             data-testid="button-sync-mode-full"
                           >
@@ -4363,7 +4363,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             </div>
                           </button>
                           <button
-                            onClick={() => { setChannelSyncMode('quantity_only'); updatePlatformSettingsMutation.mutate({ channelSyncMode: 'quantity_only' }); }}
+                            onClick={() => { setChannelSyncMode('quantity_only'); updateSettingsMutation.mutate({ channelSyncMode: 'quantity_only' }); }}
                             className={`flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors ${channelSyncMode === 'quantity_only' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
                             data-testid="button-sync-mode-qty"
                           >
@@ -5140,7 +5140,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             checked={rebrickableSetSyncEnabled}
                             onCheckedChange={(checked) => {
                               setRebrickableSetSyncEnabled(checked);
-                              updatePlatformSettingsMutation.mutate({ rebrickableSetSyncEnabled: checked });
+                              updateSettingsMutation.mutate({ rebrickableSetSyncEnabled: checked });
                             }}
                             data-testid="switch-rebrickable-set-sync"
                           />
@@ -5156,7 +5156,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 type="time"
                                 value={rebrickableSetSyncTime}
                                 onChange={(e) => setRebrickableSetSyncTime(e.target.value)}
-                                onBlur={() => updatePlatformSettingsMutation.mutate({ rebrickableSetSyncTime })}
+                                onBlur={() => updateSettingsMutation.mutate({ rebrickableSetSyncTime })}
                                 className="text-xs w-32"
                                 data-testid="input-rebrickable-sync-time"
                               />
@@ -7421,21 +7421,21 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
                                 <div className="sm-row pt-3">
                                   <span className="sm-label">Enabled</span>
-                                  <Switch checked={universalCatalogScheduleEnabled} onCheckedChange={(checked) => { setUniversalCatalogScheduleEnabled(checked); updatePlatformSettingsMutation.mutate({ universalCatalogScheduleEnabled: checked }); }} data-testid="switch-uc-scheduler" />
+                                  <Switch checked={universalCatalogScheduleEnabled} onCheckedChange={(checked) => { setUniversalCatalogScheduleEnabled(checked); updateSettingsMutation.mutate({ universalCatalogScheduleEnabled: checked }); }} data-testid="switch-uc-scheduler" />
                                 </div>
                                 <div className="sm-row">
                                   <div>
                                     <span className="sm-label">Refresh interval</span>
                                     <p className="sm-hint">Months between full imports</p>
                                   </div>
-                                  <Input type="number" min={1} max={12} value={universalCatalogRefreshMonths} onChange={(e) => setUniversalCatalogRefreshMonths(parseInt(e.target.value) || 1)} onBlur={() => updatePlatformSettingsMutation.mutate({ universalCatalogRefreshMonths })} className="w-20 text-xs text-right" data-testid="input-uc-refresh-months" />
+                                  <Input type="number" min={1} max={12} value={universalCatalogRefreshMonths} onChange={(e) => setUniversalCatalogRefreshMonths(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ universalCatalogRefreshMonths })} className="w-20 text-xs text-right" data-testid="input-uc-refresh-months" />
                                 </div>
                                 <div className="sm-row">
                                   <div>
                                     <span className="sm-label">Retry stale after</span>
                                     <p className="sm-hint">Days before retrying failed items</p>
                                   </div>
-                                  <Input type="number" min={1} max={365} value={universalCatalogRetryDays} onChange={(e) => setUniversalCatalogRetryDays(parseInt(e.target.value) || 30)} onBlur={() => updatePlatformSettingsMutation.mutate({ universalCatalogRetryDays })} className="w-20 text-xs text-right" data-testid="input-uc-retry-days" />
+                                  <Input type="number" min={1} max={365} value={universalCatalogRetryDays} onChange={(e) => setUniversalCatalogRetryDays(parseInt(e.target.value) || 30)} onBlur={() => updateSettingsMutation.mutate({ universalCatalogRetryDays })} className="w-20 text-xs text-right" data-testid="input-uc-retry-days" />
                                 </div>
                                 {(ucJob?.recordsAdded > 0 || ucJob?.recordsUpdated > 0) && (
                                   <p className="sm-hint pt-1 border-t border-gray-700/40">+{ucJob.recordsAdded} added · {ucJob.recordsUpdated} updated</p>
@@ -7467,11 +7467,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
                                 <div className="sm-row pt-3">
                                   <span className="sm-label">Enabled</span>
-                                  <Switch checked={rebrickableSetSyncEnabled} onCheckedChange={(checked) => { setRebrickableSetSyncEnabled(checked); updatePlatformSettingsMutation.mutate({ rebrickableSetSyncEnabled: checked }); }} data-testid="switch-rb-scheduler" />
+                                  <Switch checked={rebrickableSetSyncEnabled} onCheckedChange={(checked) => { setRebrickableSetSyncEnabled(checked); updateSettingsMutation.mutate({ rebrickableSetSyncEnabled: checked }); }} data-testid="switch-rb-scheduler" />
                                 </div>
                                 <div className="sm-row">
                                   <span className="sm-label">Run time</span>
-                                  <Input type="time" value={rebrickableSetSyncTime} onChange={(e) => setRebrickableSetSyncTime(e.target.value)} onBlur={() => updatePlatformSettingsMutation.mutate({ rebrickableSetSyncTime })} className="w-28 text-xs text-right" data-testid="input-rb-scheduler-time" />
+                                  <Input type="time" value={rebrickableSetSyncTime} onChange={(e) => setRebrickableSetSyncTime(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ rebrickableSetSyncTime })} className="w-28 text-xs text-right" data-testid="input-rb-scheduler-time" />
                                 </div>
                                 {(rbJob?.recordsAdded > 0 || rbJob?.recordsUpdated > 0) && (
                                   <p className="sm-hint pt-1 border-t border-gray-700/40">+{rbJob.recordsAdded} added · {rbJob.recordsUpdated} updated</p>
@@ -7503,7 +7503,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
                                 <div className="sm-row pt-3">
                                   <span className="sm-label">Enabled</span>
-                                  <Switch checked={forumSyncEnabled} onCheckedChange={(checked) => { setForumSyncEnabled(checked); updatePlatformSettingsMutation.mutate({ forumSyncEnabled: checked }); }} data-testid="switch-fm-scheduler" />
+                                  <Switch checked={forumSyncEnabled} onCheckedChange={(checked) => { setForumSyncEnabled(checked); updateSettingsMutation.mutate({ forumSyncEnabled: checked }); }} data-testid="switch-fm-scheduler" />
                                 </div>
                                 <div className="sm-row">
                                   <div>
@@ -7511,7 +7511,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                     <p className="sm-hint">Minutes between runs</p>
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    <Input type="number" min={5} max={1440} value={forumSyncFrequencyStr} onChange={(e) => setForumSyncFrequencyStr(e.target.value)} onBlur={() => { const val = parseInt(forumSyncFrequencyStr) || 60; setForumSyncFrequency(val); setForumSyncFrequencyStr(String(val)); updatePlatformSettingsMutation.mutate({ forumSyncFrequency: val }); }} className="w-20 text-xs text-right" data-testid="input-fm-frequency" />
+                                    <Input type="number" min={5} max={1440} value={forumSyncFrequencyStr} onChange={(e) => setForumSyncFrequencyStr(e.target.value)} onBlur={() => { const val = parseInt(forumSyncFrequencyStr) || 60; setForumSyncFrequency(val); setForumSyncFrequencyStr(String(val)); updateSettingsMutation.mutate({ forumSyncFrequency: val }); }} className="w-20 text-xs text-right" data-testid="input-fm-frequency" />
                                     <span className="sm-hint">min</span>
                                   </div>
                                 </div>
