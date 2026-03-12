@@ -170,7 +170,7 @@ app.use((req, res, next) => {
       const { db: dbInstance } = await import('./db');
       const { syncMetadata: syncMeta } = await import('@shared/schema');
       const { sql: drizzleSql } = await import('drizzle-orm');
-      const staleIds = ['bricklink_inventory', 'channel_sync', 'bricklink_orders', 'brickowl_orders'];
+      const staleIds = ['bricklink_inventory', 'priceomatic_cache', 'channel_sync', 'bricklink_orders', 'brickowl_orders'];
       for (const id of staleIds) {
         await dbInstance.update(syncMeta)
           .set({
@@ -179,18 +179,9 @@ app.use((req, res, next) => {
             updatedAt: new Date(),
           })
           .where(
-            drizzleSql`${syncMeta.id} = ${id} AND ${syncMeta.lastSyncStatus} = 'in_progress'`
+            drizzleSql`${syncMeta.id} = ${id} AND (${syncMeta.lastSyncStatus} = 'in_progress' OR ${syncMeta.lastSyncStatus} = 'interrupted')`
           );
       }
-      await dbInstance.update(syncMeta)
-        .set({
-          lastSyncStatus: 'interrupted',
-          errorMessage: 'Sync interrupted by server restart. Will auto-resume.',
-          updatedAt: new Date(),
-        })
-        .where(
-          drizzleSql`${syncMeta.id} = 'priceomatic_cache' AND ${syncMeta.lastSyncStatus} = 'in_progress'`
-        );
       console.log('[Startup] Cleared any stale in_progress sync records');
 
       // Also mark any brickanalyzer scans that were mid-flight as failed —
