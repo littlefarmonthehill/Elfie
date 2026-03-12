@@ -11,7 +11,7 @@ import Header from "@/components/Header";
 import DashboardNav, { DashboardType } from "@/components/DashboardNav";
 import SettingsModal from "@/components/SettingsModal";
 import InventoryDashboard from "@/components/InventoryDashboard";
-import SalesDashboard from "@/components/SalesDashboard";
+import SalesDashboard, { SalesDrawer } from "@/components/SalesDashboard";
 import MarketingDashboard, { MarketingDrawer } from "@/components/MarketingDashboard";
 import GeneralDashboard from "@/components/GeneralDashboard";
 import OrdersDashboard from "@/components/OrdersDashboard";
@@ -83,6 +83,7 @@ export default function Home() {
   const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'platformsync' | 'brickanalyzer' | null>(null);
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'shipped' | null>(null);
   const [activeMarketingDrawer, setActiveMarketingDrawer] = useState<MarketingDrawer>(null);
+  const [activeSalesDrawer, setActiveSalesDrawer] = useState<SalesDrawer>(null);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
     data: null,
@@ -360,7 +361,7 @@ export default function Home() {
       case 'orders':
         return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }} dateRangeSlot={dateRangeNode} />;
       case 'sales':
-        return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} dateRangeSlot={dateRangeNode} />;
+        return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} dateRangeSlot={dateRangeNode} activeDrawer={activeSalesDrawer} onDrawerChange={setActiveSalesDrawer} />;
       case 'marketing':
         return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} dateRangeSlot={dateRangeNode} />;
       default:
@@ -379,6 +380,7 @@ export default function Home() {
     setActiveInventoryDrawer(null);
     setActiveOrdersDrawer(null);
     setActiveMarketingDrawer(null);
+    setActiveSalesDrawer(null);
   };
 
   const renderActiveDrawer = () => {
@@ -516,6 +518,18 @@ export default function Home() {
           onItemClick={handleDashboardItemClick}
           activeDrawer={activeMarketingDrawer}
           onDrawerChange={setActiveMarketingDrawer}
+          renderDrawerOnly
+        />
+      );
+    }
+    if (activeSalesDrawer) {
+      return (
+        <SalesDashboard
+          period={salesPeriod}
+          dateRange={dateRange}
+          onItemClick={handleDashboardItemClick}
+          activeDrawer={activeSalesDrawer}
+          onDrawerChange={setActiveSalesDrawer}
           renderDrawerOnly
         />
       );
@@ -966,7 +980,7 @@ export default function Home() {
       
       {/* Dashboard Nav */}
       <div className="sticky top-14 md:top-20 lg:top-24 z-40 bg-gradient-to-r from-purple-950/40 via-blue-950/30 to-purple-950/40 backdrop-blur-sm">
-        <DashboardNav active={activeDashboard} onSelect={setActiveDashboard} hideOpsCentral={isDesktop} />
+        <DashboardNav active={activeDashboard} onSelect={(d) => { closeActiveDrawer(); setActiveDashboard(d); }} hideOpsCentral={isDesktop} />
       </div>
 
       {/* Date Range Selector - Show for sales, marketing, and orders (mobile only — desktop is inline) */}
@@ -989,10 +1003,10 @@ export default function Home() {
               'border-lego-yellow/30 bg-gradient-to-br from-lego-yellow/15 via-gray-950/80 to-lego-yellow/5'
             }`}>
               <div className="h-full flex flex-row">
-                <div className={`flex-1 overflow-y-auto min-w-0 ${(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer) ? 'hidden md:block' : ''}`}>
+                <div className={`flex-1 overflow-y-auto min-w-0 ${(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer) ? 'hidden md:block' : ''}`}>
                   {renderMobileDashboard()}
                 </div>
-                {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer) && (
+                {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer) && (
                   <div className="w-full md:w-[40%] md:max-w-[520px] flex-shrink-0 border-l border-white/10 overflow-y-auto bg-gray-950/60">
                     {renderActiveDrawer()}
                   </div>
@@ -1034,10 +1048,10 @@ export default function Home() {
               </div>
 
               {/* Drawer overlay — covers entire dynamic board */}
-              {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer) && (
+              {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer) && (
                 <div className="absolute inset-0 z-20 flex flex-col">
-                  <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeActiveDrawer} />
-                  <div className="relative flex-1 bg-gray-950/95 border border-white/10 rounded-lg m-3 overflow-y-auto shadow-2xl">
+                  <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={closeActiveDrawer} />
+                  <div className="relative flex-1 bg-gray-950/95 border border-white/10 rounded-lg m-3 overflow-y-auto shadow-2xl animate-[slideUp_250ms_ease-out]">
                     {renderActiveDrawer()}
                   </div>
                 </div>

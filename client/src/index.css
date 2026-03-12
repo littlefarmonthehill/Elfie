@@ -531,3 +531,12 @@ html.admin-mode {
 .cockpit-tool-btn:hover {
   box-shadow: 0 0 18px var(--tool-glow-color, rgba(120,180,255,0.3)), 0 0 6px var(--tool-glow-color, rgba(120,180,255,0.15));
 }
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

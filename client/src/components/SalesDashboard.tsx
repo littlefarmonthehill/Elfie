@@ -8,13 +8,7 @@ import MetricCard from "./MetricCard";
 import { DateRangeValue } from "./DateRangeSelector";
 import PlatformPerformance from "./PlatformPerformance";
 import PlatformOrdersDrawer from "./PlatformOrdersDrawer";
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
+import { Button } from "@/components/ui/button";
 import {
   Popover,
   PopoverContent,
@@ -23,11 +17,16 @@ import {
 
 type TimePeriod = 'mtd' | 'ytd' | '1y' | '5y';
 
+export type SalesDrawer = 'chart' | 'platform-perf' | null;
+
 interface SalesDashboardProps {
   period: TimePeriod;
   dateRange?: DateRangeValue;
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
   dateRangeSlot?: React.ReactNode;
+  activeDrawer?: SalesDrawer;
+  onDrawerChange?: (drawer: SalesDrawer) => void;
+  renderDrawerOnly?: boolean;
 }
 
 interface Order {
@@ -40,14 +39,12 @@ interface Order {
   customerUsername: string;
 }
 
-export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick, dateRangeSlot }: SalesDashboardProps) {
+export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick, dateRangeSlot, activeDrawer, onDrawerChange, renderDrawerOnly }: SalesDashboardProps) {
   const [platformDrawer, setPlatformDrawer] = useState<{ open: boolean; platform: string; productLine?: string }>({
     open: false,
     platform: '',
     productLine: undefined,
   });
-  const [platformPerfOpen, setPlatformPerfOpen] = useState(false);
-  const [chartOpen, setChartOpen] = useState(false);
 
   const currentYear = new Date().getFullYear();
   const [compareMode, setCompareMode] = useState(false);
@@ -786,6 +783,353 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
     yearColors[year] = colorPalette[(index + 1) % colorPalette.length];
   });
 
+  const closeDrawer = () => onDrawerChange?.(null);
+
+  if (renderDrawerOnly) {
+    return (
+      <>
+        {activeDrawer === 'chart' && (
+          <div className="flex flex-col h-full">
+            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-1.5">
+                <Activity className="w-5 h-5 text-green-400 flex-shrink-0" />
+                <span className="text-sm font-semibold text-gray-200">Sales Chart</span>
+              </div>
+              <Button size="icon" variant="ghost" onClick={closeDrawer} data-testid="button-close-sales-chart">
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-3">
+              <div className="bg-black/20 rounded-lg p-3">
+                {!compareMode ? (
+                  <>
+                    <div className="mb-1 text-xs text-gray-400">
+                      Average: <span className="text-lego-green font-mono font-semibold">${average.toLocaleString()}</span>
+                      <span className="ml-2 text-gray-500">Total Revenue: ${Math.round(totalRevenue).toLocaleString()}</span>
+                    </div>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={data}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis dataKey="date" stroke="#9CA3AF" style={{ fontSize: '10px' }} />
+                        <YAxis stroke="#9CA3AF" style={{ fontSize: '10px' }} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '12px' }}
+                          labelStyle={{ color: '#D1D5DB' }}
+                          formatter={(value: number) => [`$${value.toLocaleString()}`, 'Net Revenue']}
+                        />
+                        <Line type="monotone" dataKey="sales" name="Net Revenue" stroke="hsl(140 70% 50%)" strokeWidth={2} dot={{ fill: 'hsl(140 70% 50%)', r: 1 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </>
+                ) : comparisonType === 'year' ? (
+                  <>
+                    <div className="mb-1 text-xs text-gray-400">
+                      <span className="text-lego-green font-semibold">Year-over-Year Comparison</span>
+                    </div>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={comparisonData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis dataKey="month" stroke="#9CA3AF" style={{ fontSize: '10px' }} />
+                        <YAxis stroke="#9CA3AF" style={{ fontSize: '10px' }} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '12px' }}
+                          labelStyle={{ color: '#D1D5DB' }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: '10px' }} />
+                        {comparisonYears.map(year => (
+                          <Line
+                            key={year}
+                            type="monotone"
+                            dataKey={`${year}`}
+                            stroke={yearColors[year]}
+                            strokeWidth={2}
+                            dot={{ fill: yearColors[year], r: 1 }}
+                            name={year.toString()}
+                          />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-1 text-xs text-gray-400">
+                      <span className="text-lego-green font-semibold">Platform Comparison</span>
+                    </div>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={comparisonData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis dataKey="month" stroke="#9CA3AF" style={{ fontSize: '10px' }} />
+                        <YAxis stroke="#9CA3AF" style={{ fontSize: '10px' }} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '12px' }}
+                          labelStyle={{ color: '#D1D5DB' }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: '10px' }} />
+                        {validPlatforms.map(platform => (
+                          <Line
+                            key={platform}
+                            type="monotone"
+                            dataKey={platform}
+                            stroke={PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other']}
+                            strokeWidth={2}
+                            dot={{ fill: PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other'], r: 1 }}
+                            name={platform}
+                          />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </>
+                )}
+              </div>
+
+              {/* Compare Controls */}
+              <div className="flex flex-wrap items-center gap-2 border border-green-500/15 rounded-lg bg-black/15 px-2 py-1.5">
+                <button
+                  onClick={() => setCompareMode(!compareMode)}
+                  className={`flex items-center gap-1.5 text-[10px] md:text-sm font-bold py-1 px-2 rounded transition-all ${
+                    compareMode
+                      ? 'bg-green-600/30 text-green-200 border border-green-500/40'
+                      : 'text-gray-400 border border-gray-600/30 hover:border-green-500/30 hover:text-green-300'
+                  }`}
+                  data-testid="button-toggle-compare"
+                >
+                  <GitCompare className="w-3 h-3 md:w-4 md:h-4" />
+                  Compare
+                </button>
+                {compareMode && (
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => setComparisonType('year')}
+                      className={`text-[10px] md:text-xs font-semibold py-0.5 px-2 rounded transition-all ${
+                        comparisonType === 'year'
+                          ? 'bg-green-600/30 text-green-200 border border-green-500/40'
+                          : 'text-gray-400 border border-gray-600/30 hover:text-green-300'
+                      }`}
+                      data-testid="button-compare-year"
+                    >
+                      By Year
+                    </button>
+                    {availablePlatforms.length > 1 && (
+                      <button
+                        onClick={() => setComparisonType('platform')}
+                        className={`text-[10px] md:text-xs font-semibold py-0.5 px-2 rounded transition-all ${
+                          comparisonType === 'platform'
+                            ? 'bg-green-600/30 text-green-200 border border-green-500/40'
+                            : 'text-gray-400 border border-gray-600/30 hover:text-green-300'
+                        }`}
+                        data-testid="button-compare-platform"
+                      >
+                        By Platform
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {compareMode && comparisonType === 'year' && availableYears.length > 0 && (
+                  <div className="flex items-center gap-2 overflow-x-auto w-full">
+                    <span className="text-[9px] md:text-xs text-gray-500 flex-shrink-0">vs</span>
+                    <div className="flex gap-1.5 flex-nowrap">
+                      {(() => {
+                        const nonCurrentYears = availableYears.filter(y => y !== currentYear);
+                        const sorted = [
+                          ...[...validCompareYears].sort((a, b) => b - a),
+                          ...nonCurrentYears.filter(y => !validCompareYears.includes(y)).sort((a, b) => b - a),
+                        ];
+                        return sorted.map(year => {
+                          const isSelected = selectedCompareYears.includes(year);
+                          return (
+                            <button
+                              key={year}
+                              onClick={() => {
+                                if (isSelected) setSelectedCompareYears(selectedCompareYears.filter(y => y !== year));
+                                else setSelectedCompareYears([...selectedCompareYears, year].sort((a, b) => b - a));
+                              }}
+                              aria-pressed={isSelected}
+                              className={`text-[9px] md:text-xs font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${isSelected ? 'bg-blue-600 text-white border border-blue-500' : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'}`}
+                              data-testid={`year-toggle-drawer-${year}`}
+                            >
+                              {year}
+                            </button>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {compareMode && comparisonType === 'platform' && availablePlatforms.length > 0 && (
+                  <div className="flex items-center gap-2 overflow-x-auto w-full">
+                    <span className="text-[9px] md:text-xs text-gray-500 flex-shrink-0">select</span>
+                    <div className="flex gap-1.5 flex-nowrap">
+                      {(() => {
+                        const sorted = [
+                          ...[...validPlatforms].sort((a, b) => a.localeCompare(b)),
+                          ...availablePlatforms.filter(p => !validPlatforms.includes(p)).sort((a, b) => a.localeCompare(b)),
+                        ];
+                        return sorted.map(platform => {
+                          const isSelected = selectedPlatforms.includes(platform);
+                          return (
+                            <button
+                              key={platform}
+                              onClick={() => {
+                                if (isSelected) setSelectedPlatforms(selectedPlatforms.filter(p => p !== platform));
+                                else setSelectedPlatforms([...selectedPlatforms, platform].sort((a, b) => a.localeCompare(b)));
+                              }}
+                              aria-pressed={isSelected}
+                              className={`text-[9px] md:text-xs font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${isSelected ? 'bg-blue-600 text-white border border-blue-500' : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'}`}
+                              data-testid={`platform-toggle-drawer-${platform.toLowerCase().replace(/\s+/g, '-')}`}
+                            >
+                              {platform}
+                            </button>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {compareMode && comparisonType === 'year' && validCompareYears.length > 0 && (
+                <div className="bg-black/20 rounded-lg p-3" data-testid="section-yoy-metrics-drawer">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="p-1 rounded bg-purple-900/50 ring-1 ring-purple-500/40 shadow-[0_0_6px_rgba(168,85,247,0.25)]">
+                      <TrendingUp className="w-3 h-3 text-purple-300" />
+                    </div>
+                    <h3 className="text-[10px] md:text-sm font-semibold text-purple-300 uppercase tracking-wide">Year-over-Year Growth</h3>
+                  </div>
+                  <div className={`grid gap-2 ${validCompareYears.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                    {(() => {
+                      const yearTotals = comparisonYears.reduce((acc, year) => {
+                        acc[year] = comparisonData.reduce((sum, m) => sum + ((m[`${year}`] as number) || 0), 0);
+                        return acc;
+                      }, {} as Record<number, number>);
+                      return validCompareYears.map(compareYear => {
+                        const growth = yearTotals[compareYear] > 0 ? ((yearTotals[currentYear] - yearTotals[compareYear]) / yearTotals[compareYear]) * 100 : 0;
+                        return (
+                          <div key={compareYear} className="bg-gray-800/50 rounded p-2">
+                            <div className="text-[9px] md:text-xs text-gray-500 mb-1">{currentYear} vs {compareYear}</div>
+                            <div className={`text-sm font-mono font-bold ${growth >= 0 ? 'text-green-400' : 'text-red-400'}`}>{growth >= 0 ? '+' : ''}{growth.toFixed(1)}%</div>
+                            <div className="text-[9px] md:text-xs text-gray-400 mt-1">${Math.round(yearTotals[currentYear]).toLocaleString()} vs ${Math.round(yearTotals[compareYear]).toLocaleString()}</div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {compareMode && comparisonType === 'platform' && validPlatforms.length > 0 && (
+                <div className="bg-black/20 rounded-lg p-3" data-testid="section-platform-metrics-drawer">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="p-1 rounded bg-purple-900/50 ring-1 ring-purple-500/40 shadow-[0_0_6px_rgba(168,85,247,0.25)]">
+                      <TrendingUp className="w-3 h-3 text-purple-300" />
+                    </div>
+                    <h3 className="text-[10px] md:text-sm font-semibold text-purple-300 uppercase tracking-wide">Platform Comparison</h3>
+                  </div>
+                  <div className={`grid gap-2 ${validPlatforms.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                    {(() => {
+                      const totals = validPlatforms.reduce((acc, p) => { acc[p] = comparisonData.reduce((s, m) => s + ((m[p] as number) || 0), 0); return acc; }, {} as Record<string, number>);
+                      const totalRev = Object.values(totals).reduce((s, v) => s + v, 0);
+                      return validPlatforms.map(platform => (
+                        <div key={platform} className="bg-gray-800/50 rounded p-2">
+                          <div className="flex items-center gap-1 mb-1">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other'] }} />
+                            <div className="text-[9px] md:text-xs text-gray-500">{platform}</div>
+                          </div>
+                          <div className="text-sm font-mono font-bold text-white">${Math.round(totals[platform]).toLocaleString()}</div>
+                          <div className="text-[9px] md:text-xs text-gray-400 mt-1">{(totalRev > 0 ? (totals[platform] / totalRev) * 100 : 0).toFixed(1)}% of total</div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* Orders Table */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Target className="w-4 h-4 text-green-400" />
+                  <h4 className="text-sm font-semibold text-gray-200">Orders</h4>
+                  <span className="text-xs text-gray-500">{filteredOrders.length} total</span>
+                </div>
+                <div className="max-h-[40vh] overflow-y-auto rounded-lg border border-gray-700">
+                  <table className="w-full text-[11px]">
+                    <thead className="sticky top-0 bg-gray-800 text-gray-400 uppercase">
+                      <tr>
+                        <th className="px-2 py-1.5 text-left font-medium">Order</th>
+                        <th className="px-2 py-1.5 text-left font-medium">Date</th>
+                        <th className="px-2 py-1.5 text-left font-medium">Customer</th>
+                        <th className="px-2 py-1.5 text-left font-medium">Platform</th>
+                        <th className="px-2 py-1.5 text-left font-medium">Status</th>
+                        <th className="px-2 py-1.5 text-right font-medium">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800">
+                      {filteredOrders.map((order) => (
+                        <tr
+                          key={order.id}
+                          className="hover:bg-gray-800/40 cursor-pointer transition-colors"
+                          onClick={() => onItemClick?.('order', order.id)}
+                          data-testid={`row-order-${order.id}`}
+                        >
+                          <td className="px-2 py-1.5 font-mono text-green-300">{order.orderNumber || order.id}</td>
+                          <td className="px-2 py-1.5 text-gray-400">{format(parseISO(order.orderDate), 'MMM d, yyyy')}</td>
+                          <td className="px-2 py-1.5 text-gray-300">{order.customerUsername}</td>
+                          <td className="px-2 py-1.5 text-gray-400">{order.marketplace || '—'}</td>
+                          <td className="px-2 py-1.5">
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                              order.orderStatus === 'Shipped' ? 'bg-green-500/20 text-green-300' :
+                              order.orderStatus === 'Pending' ? 'bg-yellow-500/20 text-yellow-300' :
+                              'bg-gray-500/20 text-gray-300'
+                            }`}>{order.orderStatus}</span>
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono text-gray-200">${parseFloat(order.orderTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                        </tr>
+                      ))}
+                      {filteredOrders.length === 0 && (
+                        <tr><td colSpan={6} className="px-2 py-6 text-center text-gray-500">No orders in this period</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeDrawer === 'platform-perf' && (
+          <div className="flex flex-col h-full">
+            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-1.5">
+                <BarChart2 className="w-5 h-5 text-orange-400 flex-shrink-0" />
+                <span className="text-sm font-semibold text-gray-200">Platform Performance</span>
+              </div>
+              <Button size="icon" variant="ghost" onClick={closeDrawer} data-testid="button-close-platform-performance">
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 pb-4">
+              <PlatformPerformance
+                orders={filteredOrders}
+                onPlatformClick={(platform) => {
+                  setPlatformDrawer({ open: true, platform, productLine: undefined });
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        <PlatformOrdersDrawer
+          open={platformDrawer.open}
+          onClose={() => setPlatformDrawer({ open: false, platform: '', productLine: undefined })}
+          platform={platformDrawer.platform}
+          orders={platformOrders}
+          onOrderClick={(orderId) => onItemClick?.('order', orderId)}
+        />
+      </>
+    );
+  }
+
   return (
         <div className="p-2 space-y-3 bg-gradient-to-br from-green-500/5 to-transparent rounded-lg border border-green-500/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
       {/* Diagnostic Warnings */}
@@ -837,7 +1181,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
           </div>
           <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={() => setChartOpen(true)}
+              onClick={() => onDrawerChange?.('chart')}
               data-testid="tool-sales-chart"
               className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-500/50 bg-gradient-to-br from-green-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
               style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
@@ -852,7 +1196,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
               {<p className="text-[10px] md:text-xs text-green-300/60 leading-snug">Revenue trend &amp; year-over-year comparison</p>}
             </button>
             <button
-              onClick={() => setPlatformPerfOpen(true)}
+              onClick={() => onDrawerChange?.('platform-perf')}
               data-testid="tool-platform-performance"
               className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-500/50 bg-gradient-to-br from-orange-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
               style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
@@ -895,296 +1239,6 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
             </button>
           </div>
         </div>
-
-      {/* ── Sales Chart Drawer ── */}
-      <Drawer open={chartOpen} onOpenChange={(open) => !open && setChartOpen(false)}>
-        <DrawerContent className="h-[80vh]">
-          <DrawerHeader className="relative">
-            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
-              <Activity className="w-4 h-4 text-green-400" />
-              Sales Chart
-            </DrawerTitle>
-            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-sales-chart">
-              <X className="w-4 h-4" />
-            </DrawerClose>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4 flex-1 space-y-3">
-            <div className="bg-black/20 rounded-lg p-3">
-              {!compareMode ? (
-                <>
-                  <div className="mb-1 text-xs text-gray-400">
-                    Average: <span className="text-lego-green font-mono font-semibold">${average.toLocaleString()}</span>
-                    <span className="ml-2 text-gray-500">Total Revenue: ${Math.round(totalRevenue).toLocaleString()}</span>
-                  </div>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <LineChart data={data}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                      <XAxis dataKey="date" stroke="#9CA3AF" style={{ fontSize: '10px' }} />
-                      <YAxis stroke="#9CA3AF" style={{ fontSize: '10px' }} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '12px' }}
-                        labelStyle={{ color: '#D1D5DB' }}
-                        formatter={(value: number) => [`$${value.toLocaleString()}`, 'Net Revenue']}
-                      />
-                      <Line type="monotone" dataKey="sales" name="Net Revenue" stroke="hsl(140 70% 50%)" strokeWidth={2} dot={{ fill: 'hsl(140 70% 50%)', r: 1 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </>
-              ) : comparisonType === 'year' ? (
-                <>
-                  <div className="mb-1 text-xs text-gray-400">
-                    <span className="text-lego-green font-semibold">Year-over-Year Comparison</span>
-                  </div>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <LineChart data={comparisonData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                      <XAxis dataKey="month" stroke="#9CA3AF" style={{ fontSize: '10px' }} />
-                      <YAxis stroke="#9CA3AF" style={{ fontSize: '10px' }} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '12px' }}
-                        labelStyle={{ color: '#D1D5DB' }}
-                      />
-                      <Legend wrapperStyle={{ fontSize: '10px' }} />
-                      {comparisonYears.map(year => (
-                        <Line
-                          key={year}
-                          type="monotone"
-                          dataKey={`${year}`}
-                          stroke={yearColors[year]}
-                          strokeWidth={2}
-                          dot={{ fill: yearColors[year], r: 1 }}
-                          name={year.toString()}
-                        />
-                      ))}
-                    </LineChart>
-                  </ResponsiveContainer>
-                </>
-              ) : (
-                <>
-                  <div className="mb-1 text-xs text-gray-400">
-                    <span className="text-lego-green font-semibold">Platform Comparison</span>
-                  </div>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <LineChart data={comparisonData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                      <XAxis dataKey="month" stroke="#9CA3AF" style={{ fontSize: '10px' }} />
-                      <YAxis stroke="#9CA3AF" style={{ fontSize: '10px' }} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '6px', fontSize: '12px' }}
-                        labelStyle={{ color: '#D1D5DB' }}
-                      />
-                      <Legend wrapperStyle={{ fontSize: '10px' }} />
-                      {validPlatforms.map(platform => (
-                        <Line
-                          key={platform}
-                          type="monotone"
-                          dataKey={platform}
-                          stroke={PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other']}
-                          strokeWidth={2}
-                          dot={{ fill: PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other'], r: 1 }}
-                          name={platform}
-                        />
-                      ))}
-                    </LineChart>
-                  </ResponsiveContainer>
-                </>
-              )}
-            </div>
-
-            {/* Compare Controls */}
-            <div className="flex flex-wrap items-center gap-2 border border-green-500/15 rounded-lg bg-black/15 px-2 py-1.5">
-              <button
-                onClick={() => setCompareMode(!compareMode)}
-                className={`flex items-center gap-1.5 text-[10px] md:text-sm font-bold py-1 px-2 rounded transition-all ${
-                  compareMode
-                    ? 'bg-lego-orange text-white border border-lego-orange'
-                    : 'bg-gray-900 text-gray-400 border border-gray-700 hover-elevate'
-                }`}
-                data-testid="button-compare-toggle"
-              >
-                <GitCompare className="w-3 h-3" />
-                <span>Compare</span>
-              </button>
-
-              {/* Mode Toggle - Year vs Platform */}
-              {compareMode && (
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => setComparisonType('year')}
-                    className={`text-[10px] md:text-sm px-2 py-1 rounded transition-all ${
-                      comparisonType === 'year'
-                        ? 'bg-purple-600 text-white border border-purple-500'
-                        : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
-                    }`}
-                    data-testid="button-compare-year"
-                  >
-                    Years
-                  </button>
-                  <button
-                    onClick={() => setComparisonType('platform')}
-                    className={`text-[10px] md:text-sm px-2 py-1 rounded transition-all ${
-                      comparisonType === 'platform'
-                        ? 'bg-purple-600 text-white border border-purple-500'
-                        : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'
-                    }`}
-                    data-testid="button-compare-platform"
-                  >
-                    Platforms
-                  </button>
-                </div>
-              )}
-
-              {/* Year selector row */}
-              {compareMode && comparisonType === 'year' && availableYears.length > 0 && (
-                <div className="flex items-center gap-2 overflow-x-auto w-full">
-                  <span className="text-[9px] md:text-xs text-gray-500 flex-shrink-0">vs</span>
-                  <div className="flex gap-1.5 flex-nowrap">
-                    {(() => {
-                      const nonCurrentYears = availableYears.filter(y => y !== currentYear);
-                      const sorted = [
-                        ...[...validCompareYears].sort((a, b) => b - a),
-                        ...nonCurrentYears.filter(y => !validCompareYears.includes(y)).sort((a, b) => b - a),
-                      ];
-                      return sorted.map(year => {
-                        const isSelected = selectedCompareYears.includes(year);
-                        return (
-                          <button
-                            key={year}
-                            onClick={() => {
-                              if (isSelected) setSelectedCompareYears(selectedCompareYears.filter(y => y !== year));
-                              else setSelectedCompareYears([...selectedCompareYears, year].sort((a, b) => b - a));
-                            }}
-                            aria-pressed={isSelected}
-                            className={`text-[9px] md:text-xs font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${isSelected ? 'bg-blue-600 text-white border border-blue-500' : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'}`}
-                            data-testid={`year-toggle-${year}`}
-                          >
-                            {year}
-                          </button>
-                        );
-                      });
-                    })()}
-                  </div>
-                </div>
-              )}
-
-              {/* Platform selector row */}
-              {compareMode && comparisonType === 'platform' && availablePlatforms.length > 0 && (
-                <div className="flex items-center gap-2 overflow-x-auto w-full">
-                  <span className="text-[9px] md:text-xs text-gray-500 flex-shrink-0">select</span>
-                  <div className="flex gap-1.5 flex-nowrap">
-                    {(() => {
-                      const sorted = [
-                        ...[...validPlatforms].sort((a, b) => a.localeCompare(b)),
-                        ...availablePlatforms.filter(p => !validPlatforms.includes(p)).sort((a, b) => a.localeCompare(b)),
-                      ];
-                      return sorted.map(platform => {
-                        const isSelected = selectedPlatforms.includes(platform);
-                        return (
-                          <button
-                            key={platform}
-                            onClick={() => {
-                              if (isSelected) setSelectedPlatforms(selectedPlatforms.filter(p => p !== platform));
-                              else setSelectedPlatforms([...selectedPlatforms, platform].sort((a, b) => a.localeCompare(b)));
-                            }}
-                            aria-pressed={isSelected}
-                            className={`text-[9px] md:text-xs font-bold py-1 px-2 rounded transition-all flex-shrink-0 ${isSelected ? 'bg-blue-600 text-white border border-blue-500' : 'bg-gray-800 text-gray-400 border border-gray-700 hover-elevate'}`}
-                            data-testid={`platform-toggle-${platform.toLowerCase().replace(/\s+/g, '-')}`}
-                          >
-                            {platform}
-                          </button>
-                        );
-                      });
-                    })()}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* YoY Growth */}
-            {compareMode && comparisonType === 'year' && validCompareYears.length > 0 && (
-              <div className="bg-black/20 rounded-lg p-3" data-testid="section-yoy-metrics">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="p-1 rounded bg-purple-900/50 ring-1 ring-purple-500/40 shadow-[0_0_6px_rgba(168,85,247,0.25)]">
-                    <TrendingUp className="w-3 h-3 text-purple-300" />
-                  </div>
-                  <h3 className="text-[10px] md:text-sm font-semibold text-purple-300 uppercase tracking-wide">Year-over-Year Growth</h3>
-                </div>
-                <div className={`grid gap-2 ${validCompareYears.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                  {(() => {
-                    const yearTotals = comparisonYears.reduce((acc, year) => {
-                      acc[year] = comparisonData.reduce((sum, m) => sum + ((m[`${year}`] as number) || 0), 0);
-                      return acc;
-                    }, {} as Record<number, number>);
-                    return validCompareYears.map(compareYear => {
-                      const growth = yearTotals[compareYear] > 0 ? ((yearTotals[currentYear] - yearTotals[compareYear]) / yearTotals[compareYear]) * 100 : 0;
-                      return (
-                        <div key={compareYear} className="bg-gray-800/50 rounded p-2">
-                          <div className="text-[9px] md:text-xs text-gray-500 mb-1">{currentYear} vs {compareYear}</div>
-                          <div className={`text-sm font-mono font-bold ${growth >= 0 ? 'text-green-400' : 'text-red-400'}`}>{growth >= 0 ? '+' : ''}{growth.toFixed(1)}%</div>
-                          <div className="text-[9px] md:text-xs text-gray-400 mt-1">${Math.round(yearTotals[currentYear]).toLocaleString()} vs ${Math.round(yearTotals[compareYear]).toLocaleString()}</div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              </div>
-            )}
-
-            {/* Platform Comparison Metrics */}
-            {compareMode && comparisonType === 'platform' && validPlatforms.length > 0 && (
-              <div className="bg-black/20 rounded-lg p-3" data-testid="section-platform-metrics">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="p-1 rounded bg-purple-900/50 ring-1 ring-purple-500/40 shadow-[0_0_6px_rgba(168,85,247,0.25)]">
-                    <TrendingUp className="w-3 h-3 text-purple-300" />
-                  </div>
-                  <h3 className="text-[10px] md:text-sm font-semibold text-purple-300 uppercase tracking-wide">Platform Comparison</h3>
-                </div>
-                <div className={`grid gap-2 ${validPlatforms.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                  {(() => {
-                    const totals = validPlatforms.reduce((acc, p) => { acc[p] = comparisonData.reduce((s, m) => s + ((m[p] as number) || 0), 0); return acc; }, {} as Record<string, number>);
-                    const totalRev = Object.values(totals).reduce((s, v) => s + v, 0);
-                    return validPlatforms.map(platform => (
-                      <div key={platform} className="bg-gray-800/50 rounded p-2">
-                        <div className="flex items-center gap-1 mb-1">
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PLATFORM_COLORS[platform] || PLATFORM_COLORS['Other'] }} />
-                          <div className="text-[9px] md:text-xs text-gray-500">{platform}</div>
-                        </div>
-                        <div className="text-sm font-mono font-bold text-white">${Math.round(totals[platform]).toLocaleString()}</div>
-                        <div className="text-[9px] md:text-xs text-gray-400 mt-1">{(totalRev > 0 ? (totals[platform] / totalRev) * 100 : 0).toFixed(1)}% of total</div>
-                      </div>
-                    ));
-                  })()}
-                </div>
-              </div>
-            )}
-          </div>
-        </DrawerContent>
-      </Drawer>
-
-      {/* ── Platform Performance Drawer ── */}
-      <Drawer open={platformPerfOpen} onOpenChange={(open) => !open && setPlatformPerfOpen(false)}>
-        <DrawerContent className="h-[90vh]">
-          <DrawerHeader className="relative">
-            <DrawerTitle className="flex items-center gap-2 text-base md:text-lg">
-              <BarChart2 className="w-5 h-5 text-orange-400" />
-              Platform Performance
-            </DrawerTitle>
-            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-platform-performance">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </DrawerClose>
-          </DrawerHeader>
-          <div className="overflow-y-auto flex-1 px-4 pb-8">
-            <PlatformPerformance
-              orders={filteredOrders}
-              onPlatformClick={(platform) => {
-                setPlatformPerfOpen(false);
-                setPlatformDrawer({ open: true, platform, productLine: undefined });
-              }}
-            />
-          </div>
-        </DrawerContent>
-      </Drawer>
 
       {/* ── Platform Orders Drawer ── */}
       <PlatformOrdersDrawer
