@@ -7267,10 +7267,14 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   const formatLastRun = (time: string | null) => time ? new Date(time).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
 
                   const pomJob = getJob('priceomatic_cache');
+                  const cdJob = getJob('catalog_detail_completion');
+                  const csJob = getJob('catalog_scan');
                   const ucJob = getJob('universal_catalog_refresh');
                   const rbJob = getJob('rebrickable_set_parts');
                   const fmJob = getJob('forum_sync');
                   const pomActive = pomJob?.lastSyncStatus === 'in_progress';
+                  const cdActive = cdJob?.lastSyncStatus === 'in_progress';
+                  const csActive = csJob?.lastSyncStatus === 'in_progress';
                   const ucActive = ucJob?.lastSyncStatus === 'in_progress';
                   const rbActive = rbJob?.lastSyncStatus === 'in_progress';
                   const fmActive = fmJob?.lastSyncStatus === 'in_progress';
@@ -7282,14 +7286,15 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       {/* ── BrickLink Catalog Tab ──────────────────── */}
                       {activeSchedulerTab === 'catalog' && (
                         <div className="space-y-3">
-                          <p className="sm-hint px-1">Price guides (supply & sold data) from BrickLink. Future: item detail enrichment.</p>
+                          <p className="sm-hint px-1">BrickLink catalog enrichment — price guides, item details, and gap detection across all stores.</p>
 
                           <div className="sm-card">
                             <button onClick={() => toggleJob('pom')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-pom-sched">
                               {statusInfo(pomJob?.lastSyncStatus || null, pomScheduleEnabled).icon}
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <p className="sm-label">Price-o-Matic</p>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="sm-label">Market Price Guides</p>
+                                  <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Pulls supply (currently for sale) and sold (recent sales) price guide data from BrickLink for every item in the catalog. Uses 2 API calls per item. Freshness window: 7 days.</TooltipContent></Tooltip>
                                   <span className={`sm-hint font-medium ${statusInfo(pomJob?.lastSyncStatus || null, pomScheduleEnabled).color}`}>{statusInfo(pomJob?.lastSyncStatus || null, pomScheduleEnabled).label}</span>
                                 </div>
                                 <p className="sm-hint">{pomScheduleEnabled ? `Daily at ${pomSyncTime} · batch ${pomScheduleBatchSize}` : 'Schedule disabled'} · Last: {formatLastRun(pomJob?.lastSyncTime || null)}</p>
@@ -7315,7 +7320,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                   <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${pomProgressPct}%` }} />
                                 </div>
                                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                                  <span className="text-[10px] text-gray-500">{(pomLiveProgress.itemsNew ?? 0).toLocaleString()} new · {(pomLiveProgress.itemsRefreshed ?? 0).toLocaleString()} refreshed · {pomUnenrichedCount.toLocaleString()} without POM</span>
+                                  <span className="text-[10px] text-gray-500">{(pomLiveProgress.itemsNew ?? 0).toLocaleString()} new · {(pomLiveProgress.itemsRefreshed ?? 0).toLocaleString()} refreshed · {pomUnenrichedCount.toLocaleString()} without price data</span>
                                   <span className="text-[10px] text-gray-500">API: {pomCurrentSyncCalls.toLocaleString()} / {pomApiCeiling.toLocaleString()}</span>
                                 </div>
                               </div>
@@ -7323,7 +7328,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             {!syncingPom && pomLiveStatus?.data && (
                               <div className="flex items-center justify-between gap-2 px-4 pb-3" data-testid="pom-api-stats-sched">
                                 <span className="text-[10px] text-gray-500">24h API: {pomCallsLast24h.toLocaleString()} / {pomApiCeiling.toLocaleString()}</span>
-                                <span className="text-[10px] text-gray-500">Without POM: {pomUnenrichedCount.toLocaleString()}</span>
+                                <span className="text-[10px] text-gray-500">Without price data: {pomUnenrichedCount.toLocaleString()}</span>
                               </div>
                             )}
                             {isExpanded('pom') && (
@@ -7356,6 +7361,34 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </div>
                             )}
                           </div>
+
+                          <div className="sm-card opacity-60">
+                            <div className="px-4 py-3 flex items-center gap-3">
+                              <Clock className="h-4 w-4 text-gray-600" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="sm-label">Catalog Detail Completion</p>
+                                  <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Fills in missing item details (name, image, weight, dimensions, year released) by calling the BrickLink Item Detail API. Only targets items with stock &gt; 0 across the platform. Uses 1 API call per item. Freshness window: 90 days.</TooltipContent></Tooltip>
+                                  <span className="sm-hint font-medium text-gray-600">Planned</span>
+                                </div>
+                                <p className="sm-hint">Every 1 hour · 1 API call/item · skip if updated within 90 days</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="sm-card opacity-60">
+                            <div className="px-4 py-3 flex items-center gap-3">
+                              <Clock className="h-4 w-4 text-gray-600" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="sm-label">Inventory Catalog Scan</p>
+                                  <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Scans all inventory rows across stores to find items with missing or stale catalog data and new part+color combinations. Feeds items into the enrichment queue for both Market Price Guides and Catalog Detail Completion. Only targets items with stock &gt; 0. No API calls — database scan only.</TooltipContent></Tooltip>
+                                  <span className="sm-hint font-medium text-gray-600">Planned</span>
+                                </div>
+                                <p className="sm-hint">Every 2 hours · zero-stock skip · feeds enrichment queue</p>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       )}
 
@@ -7368,8 +7401,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <button onClick={() => toggleJob('rb')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-rb-sched">
                               {statusInfo(rbJob?.lastSyncStatus || null, rebrickableSetSyncEnabled).icon}
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Rebrickable Set Parts</p>
+                                  <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Imports set-to-part relationships from Rebrickable. Maps which parts belong to which LEGO sets, enabling set completion analysis and BrickSpotter set detection.</TooltipContent></Tooltip>
                                   <span className={`sm-hint font-medium ${statusInfo(rbJob?.lastSyncStatus || null, rebrickableSetSyncEnabled).color}`}>{statusInfo(rbJob?.lastSyncStatus || null, rebrickableSetSyncEnabled).label}</span>
                                 </div>
                                 <p className="sm-hint">{rebrickableSetSyncEnabled ? `Daily at ${rebrickableSetSyncTime}` : 'Schedule disabled'} · Last: {formatLastRun(rbJob?.lastSyncTime || null)}</p>
@@ -7410,8 +7444,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <button onClick={() => toggleJob('uc')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-uc-sched">
                               {statusInfo(ucJob?.lastSyncStatus || null, universalCatalogScheduleEnabled).icon}
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Universal Catalog</p>
+                                  <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Imports item images and metadata from BrickLink into the shared catalog. Feeds the CLIP Catalog Build worker to generate visual search embeddings. No BrickLink API calls — uses public image URLs.</TooltipContent></Tooltip>
                                   <span className={`sm-hint font-medium ${statusInfo(ucJob?.lastSyncStatus || null, universalCatalogScheduleEnabled).color}`}>{statusInfo(ucJob?.lastSyncStatus || null, universalCatalogScheduleEnabled).label}</span>
                                 </div>
                                 <p className="sm-hint">{universalCatalogScheduleEnabled ? `Every ${universalCatalogRefreshMonths}mo · retry after ${universalCatalogRetryDays}d` : 'Schedule disabled'} · Last: {formatLastRun(ucJob?.lastSyncTime || null)}</p>
@@ -7459,8 +7494,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                   ? <CheckCircle2 className="h-4 w-4 text-green-400" />
                                   : <Clock className="h-4 w-4 text-gray-500" />}
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">CLIP Catalog Build</p>
+                                  <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Generates CLIP visual embeddings (512-dim vectors) for every item image in the catalog. Powers BrickSpotter visual search — matching photos of parts to catalog entries. Runs continuously in the background and auto-resumes on restart.</TooltipContent></Tooltip>
                                   <span className={`sm-hint font-medium ${clipActive ? 'text-yellow-400' : clipStatus && clipStatus.embedded >= clipStatus.total ? 'text-green-400/80' : 'text-gray-500'}`}>
                                     {clipActive ? 'Running' : clipStatus && clipStatus.embedded >= clipStatus.total ? 'Complete' : 'Idle'}
                                   </span>
@@ -7561,8 +7597,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <button onClick={() => toggleJob('fm')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-fm-sched">
                               {statusInfo(fmJob?.lastSyncStatus || null, forumSyncEnabled).icon}
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Forum Sync</p>
+                                  <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Scrapes BrickLink forum discussions for market sentiment and trending topics. Posts are embedded for AI context, enabling market-aware responses in conversations. Purges stale posts with no replies older than 6 months.</TooltipContent></Tooltip>
                                   <span className={`sm-hint font-medium ${statusInfo(fmJob?.lastSyncStatus || null, forumSyncEnabled).color}`}>{statusInfo(fmJob?.lastSyncStatus || null, forumSyncEnabled).label}</span>
                                 </div>
                                 <p className="sm-hint">{forumSyncEnabled ? `Every ${forumSyncFrequency} min` : 'Schedule disabled'} · Last: {formatLastRun(fmJob?.lastSyncTime || null)}</p>
