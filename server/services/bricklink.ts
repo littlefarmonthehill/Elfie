@@ -752,6 +752,34 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
       }
     }
 
+    // Bulk-upsert bl_catalog for ALL items so every inventory lot gets a name/color/category.
+    // This covers items that existed before the dual-write was added and items that
+    // didn't change (so weren't touched by the new/update paths above).
+    const CATALOG_BATCH = 1000;
+    let catalogUpserted = 0;
+    for (let i = 0; i < items.length; i += CATALOG_BATCH) {
+      const batch = items.slice(i, i + CATALOG_BATCH);
+      const catalogValues = batch.map(item => ({
+        itemNo: item.item.no,
+        itemType: item.item.type,
+        colorId: item.color_id || 0,
+        itemName: item.item.name || null,
+        colorName: item.color_name || null,
+        categoryId: item.item.category_id || null,
+      }));
+      await db.insert(blCatalog).values(catalogValues).onConflictDoUpdate({
+        target: [blCatalog.itemNo, blCatalog.itemType, blCatalog.colorId],
+        set: {
+          itemName: sql`COALESCE(EXCLUDED.item_name, bl_catalog.item_name)`,
+          colorName: sql`COALESCE(EXCLUDED.color_name, bl_catalog.color_name)`,
+          categoryId: sql`COALESCE(EXCLUDED.category_id, bl_catalog.category_id)`,
+          updatedAt: sql`NOW()`,
+        },
+      });
+      catalogUpserted += batch.length;
+    }
+    console.log(`[CatalogBackfill] Upserted ${catalogUpserted} bl_catalog rows from inventory sync`);
+
     console.log(`BrickLink inventory sync complete: ${added} added, ${updated} updated`);
     if (callComplete) {
       syncProgressTracker.complete(added, updated);

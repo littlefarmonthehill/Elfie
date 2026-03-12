@@ -67,12 +67,16 @@ const HTML_ENTITY_RE = new RegExp(
   'g'
 );
 
-// Resolves an item name from bl_catalog with a colorId=0 (Rebrickable universal) fallback.
+// Resolves an item name from bl_catalog with a colorId=0 (Rebrickable universal) fallback,
+// then falls back to price_guide_cache.item_name if bl_catalog has no entry at all.
 // Exact colorId match wins; if no color-specific row exists (e.g. only Rebrickable seeded
 // a colorId=0 row before POM has synced that specific lot), the colorId=0 name is used.
 // Used in every SELECT clause that reads item names from bl_catalog.
 const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: any) =>
-  sql<string | null>`(SELECT item_name FROM bl_catalog WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} ORDER BY (color_id = ${colorIdRef})::int DESC, color_id ASC LIMIT 1)`;
+  sql<string | null>`COALESCE(
+    (SELECT item_name FROM bl_catalog WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} ORDER BY (color_id = ${colorIdRef})::int DESC, color_id ASC LIMIT 1),
+    (SELECT item_name FROM price_guide_cache WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} AND item_name IS NOT NULL AND item_name != '' LIMIT 1)
+  )`;
 
 function decodeHtmlEntities(text: string | null | undefined): string {
   if (!text) return '';

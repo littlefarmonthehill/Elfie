@@ -292,6 +292,21 @@ export async function runMigrations() {
       await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS ${col} ${def}`);
     }
     console.log('[Migration] Phase-13 (repricing score weights) complete.');
+
+    // ── Phase-14: Ensure bl_catalog has a row for every inventory item ────────
+    // When bl_catalog was split from bl_inventory, the item_name column was dropped
+    // but the migration only seeded ~99 rows from price_guide_cache. This ensures
+    // every inventory item has a bl_catalog skeleton so the next inventory sync
+    // (which gets item.name from the BrickLink API) can fill in the names.
+    await client.query(`
+      INSERT INTO bl_catalog (item_no, item_type, color_id)
+      SELECT DISTINCT i.item_no, i.item_type, COALESCE(i.color_id, 0)
+      FROM bl_inventory i
+      LEFT JOIN bl_catalog c ON i.item_no = c.item_no AND i.item_type = c.item_type AND COALESCE(i.color_id, 0) = c.color_id
+      WHERE c.item_no IS NULL
+      ON CONFLICT (item_no, item_type, color_id) DO NOTHING
+    `);
+    console.log('[Migration] Phase-14 (bl_catalog skeleton rows from bl_inventory) complete.');
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
