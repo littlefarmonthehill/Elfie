@@ -983,12 +983,6 @@ export default function Home() {
         <DashboardNav active={activeDashboard} onSelect={(d) => { closeActiveDrawer(); setActiveDashboard(d); }} hideOpsCentral={isDesktop} />
       </div>
 
-      {/* Date Range Selector - Show for sales, marketing, and orders (mobile only — desktop is inline) */}
-      {(activeDashboard === 'sales' || activeDashboard === 'marketing' || activeDashboard === 'orders') && (
-        <div className="lg:hidden sticky top-24 md:top-[8.5rem] z-30 px-2 md:px-8 py-1.5 md:py-4 bg-gradient-to-r from-pink-950/30 via-fuchsia-950/20 to-pink-950/30 border-b border-pink-800/30 backdrop-blur-sm flex justify-center overflow-x-auto">
-          <DateRangeSelector value={dateRange} onChange={setDateRange} />
-        </div>
-      )}
       
       {/* Dashboard area */}
       <div className="flex-1 overflow-hidden bg-[#04080F]">
