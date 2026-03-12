@@ -512,11 +512,11 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
       {/* Operational areas */}
       <div className="space-y-4" data-testid="section-ops-central">
         <OpAreaCard
-          label="Inventory"
+          label="Product"
           Icon={Package}
           color="blue"
           stat={`${totalLots.toLocaleString()} lots · ${totalPcs.toLocaleString()} pcs`}
-          alerts={urgentAlerts.filter(a => ['inv-fail', 'scan', 'underpriced'].includes(a.id) || a.id.startsWith('ch-'))}
+          alerts={urgentAlerts.filter(a => ['inv-fail', 'scan', 'underpriced', 'channel-fail'].includes(a.id) || a.id.startsWith('ch-'))}
           onClick={() => onNavigate?.('inventory')}
           isRunning={isInvSyncing || isPomRunning || isScanProcessing || isChannelSyncing || !!activeInvEmbed}
           lastActions={[
@@ -588,7 +588,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           Icon={Megaphone}
           color="yellow"
           stat={targets.length > 0 ? `${targets.length} channel${targets.length !== 1 ? 's' : ''} connected` : 'No channels'}
-          alerts={urgentAlerts.filter(a => a.id.startsWith('ch-') || a.id === 'channel-fail')}
+          alerts={[]}
           onClick={() => onNavigate?.('marketing')}
         />
 
