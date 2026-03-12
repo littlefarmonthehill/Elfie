@@ -1,11 +1,11 @@
 import { db } from "../db";
-import { appSettings, syncMetadata, blInventory } from "@shared/schema";
+import { appSettings, syncMetadata, blInventory, PLATFORM_ORG_ID } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { syncBricklinkData } from "./bricklink";
 import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 
-const ORG_ID = 'org_planetbrick';
+const ORG_ID = PLATFORM_ORG_ID;
 
 /**
  * After each successful inventory sync, embed any items that don't yet have a

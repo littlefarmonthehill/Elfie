@@ -782,6 +782,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     enabled: open,
   });
 
+  const { data: platformSettings } = useQuery<AppSettings>({
+    queryKey: ['/api/platform-admin/settings'],
+    enabled: open && superAdmin,
+  });
+
   const { data: rateLimit } = useQuery<{
     allowed: boolean;
     callsLast24h: number;
@@ -881,6 +886,21 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
+    },
+  });
+
+  const updatePlatformSettingsMutation = useMutation({
+    mutationFn: async (data: Partial<AppSettings>) => {
+      const response = await fetch('/api/platform-admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to update platform settings');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/settings'] });
     },
   });
 
@@ -1405,56 +1425,59 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       setBoIossNumber(settings.boIossNumber || "");
       setBlUkVatNumber(settings.blUkVatNumber || "");
       setBoUkVatNumber(settings.boUkVatNumber || "");
-      setInventorySyncEnabled(settings.inventorySyncEnabled || false);
-      setInventorySyncTime(settings.inventorySyncTime || "02:00");
-      setPriceOMaticEnabled(settings.priceOMaticEnabled || false);
-      setPomScheduleEnabled(settings.pomScheduleEnabled || false);
-      setPomSyncTime(settings.pomSyncTime || '14:00');
       setTimezone(settings.timezone || 'America/Chicago');
-      setPomScheduleBatchSize(settings.pomScheduleBatchSize ?? 1500);
-      setRebrickableImageSyncEnabled(settings.rebrickableImageSyncEnabled !== false);
-      setChannelSyncEnabled(settings.channelSyncEnabled || false);
-      setChannelSyncTime(settings.channelSyncTime || '03:00');
-      setChannelSyncMode((settings.channelSyncMode as 'full_control' | 'quantity_only') || 'full_control');
-      setOrdersSyncEnabled(settings.ordersSyncEnabled || false);
-      setOrdersSyncFrequency(settings.ordersSyncFrequency || 15);
-      setOrdersSyncFrequencyStr(String(settings.ordersSyncFrequency || 15));
-      setRebrickableSetSyncEnabled(settings.rebrickableSetSyncEnabled || false);
-      setRebrickableSetSyncTime(settings.rebrickableSetSyncTime || '04:00');
-      setForumSyncEnabled(settings.forumSyncEnabled !== false);
-      setForumSyncFrequency(settings.forumSyncFrequency || 60);
-      setForumSyncFrequencyStr(String(settings.forumSyncFrequency || 60));
-      setUniversalCatalogScheduleEnabled(settings.universalCatalogScheduleEnabled || false);
-      setUniversalCatalogRefreshMonths(settings.universalCatalogRefreshMonths ?? 1);
-      setUniversalCatalogRetryDays(settings.universalCatalogRetryDays ?? 30);
-
-      // Price-o-Matic formula settings
-      setPomBasePremium(settings.pomBasePremium ?? 10);
-      setPomMinifigPremium(settings.pomMinifigPremium ?? 5);
-      setPomScarcityThreshold1(settings.pomScarcityThreshold1 ?? 50);
-      setPomScarcityBonus1(settings.pomScarcityBonus1 ?? 15);
-      setPomScarcityThreshold2(settings.pomScarcityThreshold2 ?? 200);
-      setPomScarcityBonus2(settings.pomScarcityBonus2 ?? 8);
-      setPomScarcityThreshold3(settings.pomScarcityThreshold3 ?? 500);
-      setPomScarcityBonus3(settings.pomScarcityBonus3 ?? 3);
-      setPomUnderpricedScore(settings.pomUnderpricedScore ?? 1.5);
-      setPomOverpricedScore(settings.pomOverpricedScore ?? 0.8);
-      setPomBatchSize(settings.pomBatchSize ?? 1500);
-      setBlApiCallLimit(settings.blApiCallLimit ?? 4900);
-      setPomCostFloorPct(settings.pomCostFloorPct ?? 0);
-      setPomMinPrice(parseFloat(String(settings.pomMinPrice ?? '0.02')));
-      setPomTrendingEnabled(settings.pomTrendingEnabled ?? false);
-      setPomTrendingDays(settings.pomTrendingDays ?? 15);
-      setPomTrendingThreshold(settings.pomTrendingThreshold ?? 500);
-      setPomTrendingBonus(settings.pomTrendingBonus ?? 60);
-      setPomHighSupplyThreshold(settings.pomHighSupplyThreshold ?? 10000);
-      setPomHighSupplyPenalty(settings.pomHighSupplyPenalty ?? 40);
       setElfieMode((settings.elfieMode as 'search' | 'ai') ?? 'search');
 
       // Fetch models
       fetchModels();
     }
   }, [settings]);
+
+  useEffect(() => {
+    if (platformSettings) {
+      setInventorySyncEnabled(platformSettings.inventorySyncEnabled || false);
+      setInventorySyncTime(platformSettings.inventorySyncTime || "02:00");
+      setRebrickableImageSyncEnabled(platformSettings.rebrickableImageSyncEnabled !== false);
+      setChannelSyncEnabled(platformSettings.channelSyncEnabled || false);
+      setChannelSyncTime(platformSettings.channelSyncTime || '03:00');
+      setChannelSyncMode((platformSettings.channelSyncMode as 'full_control' | 'quantity_only') || 'full_control');
+      setOrdersSyncEnabled(platformSettings.ordersSyncEnabled || false);
+      setOrdersSyncFrequency(platformSettings.ordersSyncFrequency || 15);
+      setOrdersSyncFrequencyStr(String(platformSettings.ordersSyncFrequency || 15));
+      setRebrickableSetSyncEnabled(platformSettings.rebrickableSetSyncEnabled || false);
+      setRebrickableSetSyncTime(platformSettings.rebrickableSetSyncTime || '04:00');
+      setForumSyncEnabled(platformSettings.forumSyncEnabled !== false);
+      setForumSyncFrequency(platformSettings.forumSyncFrequency || 60);
+      setForumSyncFrequencyStr(String(platformSettings.forumSyncFrequency || 60));
+      setUniversalCatalogScheduleEnabled(platformSettings.universalCatalogScheduleEnabled || false);
+      setUniversalCatalogRefreshMonths(platformSettings.universalCatalogRefreshMonths ?? 1);
+      setUniversalCatalogRetryDays(platformSettings.universalCatalogRetryDays ?? 30);
+      setPriceOMaticEnabled(platformSettings.priceOMaticEnabled || false);
+      setPomScheduleEnabled(platformSettings.pomScheduleEnabled || false);
+      setPomSyncTime(platformSettings.pomSyncTime || '14:00');
+      setPomScheduleBatchSize(platformSettings.pomScheduleBatchSize ?? 1500);
+      setPomBasePremium(platformSettings.pomBasePremium ?? 10);
+      setPomMinifigPremium(platformSettings.pomMinifigPremium ?? 5);
+      setPomScarcityThreshold1(platformSettings.pomScarcityThreshold1 ?? 50);
+      setPomScarcityBonus1(platformSettings.pomScarcityBonus1 ?? 15);
+      setPomScarcityThreshold2(platformSettings.pomScarcityThreshold2 ?? 200);
+      setPomScarcityBonus2(platformSettings.pomScarcityBonus2 ?? 8);
+      setPomScarcityThreshold3(platformSettings.pomScarcityThreshold3 ?? 500);
+      setPomScarcityBonus3(platformSettings.pomScarcityBonus3 ?? 3);
+      setPomUnderpricedScore(platformSettings.pomUnderpricedScore ?? 1.5);
+      setPomOverpricedScore(platformSettings.pomOverpricedScore ?? 0.8);
+      setPomBatchSize(platformSettings.pomBatchSize ?? 1500);
+      setBlApiCallLimit(platformSettings.blApiCallLimit ?? 4900);
+      setPomCostFloorPct(platformSettings.pomCostFloorPct ?? 0);
+      setPomMinPrice(parseFloat(String(platformSettings.pomMinPrice ?? '0.02')));
+      setPomTrendingEnabled(platformSettings.pomTrendingEnabled ?? false);
+      setPomTrendingDays(platformSettings.pomTrendingDays ?? 15);
+      setPomTrendingThreshold(platformSettings.pomTrendingThreshold ?? 500);
+      setPomTrendingBonus(platformSettings.pomTrendingBonus ?? 60);
+      setPomHighSupplyThreshold(platformSettings.pomHighSupplyThreshold ?? 10000);
+      setPomHighSupplyPenalty(platformSettings.pomHighSupplyPenalty ?? 40);
+    }
+  }, [platformSettings]);
 
   const fetchModels = async () => {
     setLoadingModels(true);
@@ -2720,7 +2743,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           checked={pomScheduleEnabled}
                           onCheckedChange={(checked) => {
                             setPomScheduleEnabled(checked);
-                            updateSettingsMutation.mutate({ pomScheduleEnabled: checked });
+                            updatePlatformSettingsMutation.mutate({ pomScheduleEnabled: checked });
                           }}
                           data-testid="switch-pom-schedule"
                         />
@@ -2737,7 +2760,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               type="time"
                               value={pomSyncTime}
                               onChange={(e) => setPomSyncTime(e.target.value)}
-                              onBlur={() => updateSettingsMutation.mutate({ pomSyncTime })}
+                              onBlur={() => updatePlatformSettingsMutation.mutate({ pomSyncTime })}
                               className="text-xs w-32"
                               data-testid="input-pom-sync-time"
                             />
@@ -2753,7 +2776,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               step={100}
                               value={pomScheduleBatchSize}
                               onChange={(e) => setPomScheduleBatchSize(parseInt(e.target.value) || 100)}
-                              onBlur={() => updateSettingsMutation.mutate({ pomScheduleBatchSize })}
+                              onBlur={() => updatePlatformSettingsMutation.mutate({ pomScheduleBatchSize })}
                               className="text-xs w-28 text-right"
                               data-testid="input-pom-schedule-batch"
                             />
@@ -2781,7 +2804,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </Popover>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Input type="number" min={100} max={5000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomBatchSize })} className="text-xs w-24 text-right" data-testid="input-pom-batch-size" />
+                          <Input type="number" min={100} max={25000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomBatchSize })} className="text-xs w-24 text-right" data-testid="input-pom-batch-size" />
                           <span className="text-[10px] text-gray-500 w-16">lots / run</span>
                         </div>
                       </div>
@@ -2819,7 +2842,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-gray-300">score ≥</span>
-                              <Input type="number" min={0.1} max={10} step={0.1} value={pomUnderpricedScore} onChange={(e) => setPomUnderpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updateSettingsMutation.mutate({ pomUnderpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-underpriced-score" />
+                              <Input type="number" min={0.1} max={10} step={0.1} value={pomUnderpricedScore} onChange={(e) => setPomUnderpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomUnderpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-underpriced-score" />
                               <span className="text-xs text-gray-400 w-14">× (peak)</span>
                             </div>
                           </div>
@@ -2839,7 +2862,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-gray-300">score ≤</span>
-                              <Input type="number" min={0.1} max={10} step={0.1} value={pomOverpricedScore} onChange={(e) => setPomOverpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updateSettingsMutation.mutate({ pomOverpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-overpriced-score" />
+                              <Input type="number" min={0.1} max={10} step={0.1} value={pomOverpricedScore} onChange={(e) => setPomOverpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomOverpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-overpriced-score" />
                               <span className="text-xs text-gray-400 w-14">× (peak)</span>
                             </div>
                           </div>
@@ -2896,7 +2919,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 </Popover>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Input type="number" min={0} max={100} value={pomBasePremium} onChange={(e) => setPomBasePremium(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomBasePremium })} className="text-sm w-20 text-right" data-testid="input-pom-base-premium" />
+                                <Input type="number" min={0} max={100} value={pomBasePremium} onChange={(e) => setPomBasePremium(parseInt(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomBasePremium })} className="text-sm w-20 text-right" data-testid="input-pom-base-premium" />
                                 <span className="text-xs text-gray-400 w-5">%</span>
                               </div>
                             </div>
@@ -2915,7 +2938,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 </Popover>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Input type="number" min={0} max={100} value={pomMinifigPremium} onChange={(e) => setPomMinifigPremium(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomMinifigPremium })} className="text-sm w-20 text-right" data-testid="input-pom-minifig-premium" />
+                                <Input type="number" min={0} max={100} value={pomMinifigPremium} onChange={(e) => setPomMinifigPremium(parseInt(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomMinifigPremium })} className="text-sm w-20 text-right" data-testid="input-pom-minifig-premium" />
                                 <span className="text-xs text-gray-400 w-5">%</span>
                               </div>
                             </div>
@@ -2948,23 +2971,23 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             <div className="divide-y divide-gray-700/30">
                               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
                                 <span className="text-sm font-medium text-orange-300">Very Low</span>
-                                <Input type="number" min={1} value={pomScarcityThreshold1} onChange={(e) => setPomScarcityThreshold1(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold1 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold1" />
+                                <Input type="number" min={1} value={pomScarcityThreshold1} onChange={(e) => setPomScarcityThreshold1(parseInt(e.target.value) || 1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityThreshold1 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold1" />
                                 <span className="text-xs text-gray-300">lots</span>
-                                <Input type="number" min={0} max={200} value={pomScarcityBonus1} onChange={(e) => setPomScarcityBonus1(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus1 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus1" />
+                                <Input type="number" min={0} max={200} value={pomScarcityBonus1} onChange={(e) => setPomScarcityBonus1(parseInt(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityBonus1 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus1" />
                                 <span className="text-xs text-gray-200">%</span>
                               </div>
                               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
                                 <span className="text-sm font-medium text-yellow-300">Low</span>
-                                <Input type="number" min={1} value={pomScarcityThreshold2} onChange={(e) => setPomScarcityThreshold2(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold2 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold2" />
+                                <Input type="number" min={1} value={pomScarcityThreshold2} onChange={(e) => setPomScarcityThreshold2(parseInt(e.target.value) || 1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityThreshold2 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold2" />
                                 <span className="text-xs text-gray-300">lots</span>
-                                <Input type="number" min={0} max={200} value={pomScarcityBonus2} onChange={(e) => setPomScarcityBonus2(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus2 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus2" />
+                                <Input type="number" min={0} max={200} value={pomScarcityBonus2} onChange={(e) => setPomScarcityBonus2(parseInt(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityBonus2 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus2" />
                                 <span className="text-xs text-gray-200">%</span>
                               </div>
                               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
                                 <span className="text-sm font-medium text-blue-300">Medium</span>
-                                <Input type="number" min={1} value={pomScarcityThreshold3} onChange={(e) => setPomScarcityThreshold3(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold3 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold3" />
+                                <Input type="number" min={1} value={pomScarcityThreshold3} onChange={(e) => setPomScarcityThreshold3(parseInt(e.target.value) || 1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityThreshold3 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold3" />
                                 <span className="text-xs text-gray-300">lots</span>
-                                <Input type="number" min={0} max={200} value={pomScarcityBonus3} onChange={(e) => setPomScarcityBonus3(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus3 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus3" />
+                                <Input type="number" min={0} max={200} value={pomScarcityBonus3} onChange={(e) => setPomScarcityBonus3(parseInt(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityBonus3 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus3" />
                                 <span className="text-xs text-gray-200">%</span>
                               </div>
                               <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
@@ -3042,7 +3065,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 </Popover>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Input type="number" min="0" max="200" value={pomCostFloorPct} onChange={(e) => setPomCostFloorPct(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomCostFloorPct })} className="text-sm w-20 text-right" data-testid="input-pom-cost-floor" />
+                                <Input type="number" min="0" max="200" value={pomCostFloorPct} onChange={(e) => setPomCostFloorPct(parseInt(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomCostFloorPct })} className="text-sm w-20 text-right" data-testid="input-pom-cost-floor" />
                                 <span className="text-xs text-gray-400 w-16">% above cost</span>
                               </div>
                             </div>
@@ -3062,7 +3085,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </div>
                               <div className="flex items-center gap-2">
                                 <span className="text-sm text-gray-400">$</span>
-                                <Input type="number" min="0" step="0.01" value={pomMinPrice} onChange={(e) => setPomMinPrice(parseFloat(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomMinPrice: pomMinPrice.toString() })} className="text-sm w-20 text-right" data-testid="input-pom-min-price" />
+                                <Input type="number" min="0" step="0.01" value={pomMinPrice} onChange={(e) => setPomMinPrice(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomMinPrice: pomMinPrice.toString() })} className="text-sm w-20 text-right" data-testid="input-pom-min-price" />
                               </div>
                             </div>
                           </div>
@@ -3089,7 +3112,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             </div>
                             <Switch
                               checked={pomTrendingEnabled}
-                              onCheckedChange={(v) => { setPomTrendingEnabled(v); updateSettingsMutation.mutate({ pomTrendingEnabled: v }); }}
+                              onCheckedChange={(v) => { setPomTrendingEnabled(v); updatePlatformSettingsMutation.mutate({ pomTrendingEnabled: v }); }}
                               data-testid="switch-pom-trending"
                             />
                           </div>
@@ -3109,7 +3132,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 </Popover>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Input type="number" min={1} max={50} value={pomTrendingDays} onChange={(e) => setPomTrendingDays(parseInt(e.target.value) || 15)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingDays })} className="text-sm w-20 text-right" data-testid="input-pom-market-max-adj" disabled={!pomTrendingEnabled} />
+                                <Input type="number" min={1} max={50} value={pomTrendingDays} onChange={(e) => setPomTrendingDays(parseInt(e.target.value) || 15)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomTrendingDays })} className="text-sm w-20 text-right" data-testid="input-pom-market-max-adj" disabled={!pomTrendingEnabled} />
                                 <span className="text-xs text-gray-400 w-8">%</span>
                               </div>
                             </div>
@@ -3128,7 +3151,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 </Popover>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Input type="number" min={1} step={100} value={pomTrendingThreshold} onChange={(e) => setPomTrendingThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingThreshold })} className="text-sm w-24 text-right" data-testid="input-pom-trending-threshold" disabled={!pomTrendingEnabled} />
+                                <Input type="number" min={1} step={100} value={pomTrendingThreshold} onChange={(e) => setPomTrendingThreshold(parseInt(e.target.value) || 1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomTrendingThreshold })} className="text-sm w-24 text-right" data-testid="input-pom-trending-threshold" disabled={!pomTrendingEnabled} />
                                 <span className="text-xs text-gray-400 w-14">units sold</span>
                               </div>
                             </div>
@@ -3147,7 +3170,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 </Popover>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Input type="number" min={0} max={100} value={pomTrendingBonus} onChange={(e) => setPomTrendingBonus(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingBonus })} className="text-sm w-20 text-right" data-testid="input-pom-trending-bonus" disabled={!pomTrendingEnabled} />
+                                <Input type="number" min={0} max={100} value={pomTrendingBonus} onChange={(e) => setPomTrendingBonus(parseInt(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomTrendingBonus })} className="text-sm w-20 text-right" data-testid="input-pom-trending-bonus" disabled={!pomTrendingEnabled} />
                                 <span className="text-xs text-gray-400 w-8">%</span>
                               </div>
                             </div>
@@ -3166,7 +3189,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 </Popover>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Input type="number" min={100} step={1000} value={pomHighSupplyThreshold} onChange={(e) => setPomHighSupplyThreshold(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomHighSupplyThreshold })} className="text-sm w-24 text-right" data-testid="input-pom-high-supply-threshold" disabled={!pomTrendingEnabled} />
+                                <Input type="number" min={100} step={1000} value={pomHighSupplyThreshold} onChange={(e) => setPomHighSupplyThreshold(parseInt(e.target.value) || 100)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomHighSupplyThreshold })} className="text-sm w-24 text-right" data-testid="input-pom-high-supply-threshold" disabled={!pomTrendingEnabled} />
                                 <span className="text-xs text-gray-400 w-12">pieces</span>
                               </div>
                             </div>
@@ -3185,7 +3208,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 </Popover>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Input type="number" min={0} max={100} value={pomHighSupplyPenalty} onChange={(e) => setPomHighSupplyPenalty(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomHighSupplyPenalty })} className="text-sm w-20 text-right" data-testid="input-pom-high-supply-penalty" disabled={!pomTrendingEnabled} />
+                                <Input type="number" min={0} max={100} value={pomHighSupplyPenalty} onChange={(e) => setPomHighSupplyPenalty(parseInt(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomHighSupplyPenalty })} className="text-sm w-20 text-right" data-testid="input-pom-high-supply-penalty" disabled={!pomTrendingEnabled} />
                                 <span className="text-xs text-gray-400 w-8">%</span>
                               </div>
                             </div>
@@ -4067,7 +4090,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             checked={inventorySyncEnabled}
                             onCheckedChange={(checked) => {
                               setInventorySyncEnabled(checked);
-                              updateSettingsMutation.mutate({ inventorySyncEnabled: checked });
+                              updatePlatformSettingsMutation.mutate({ inventorySyncEnabled: checked });
                             }}
                             data-testid="switch-inventory-sync"
                           />
@@ -4082,7 +4105,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             type="time"
                             value={inventorySyncTime}
                             onChange={(e) => setInventorySyncTime(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ inventorySyncTime })}
+                            onBlur={() => updatePlatformSettingsMutation.mutate({ inventorySyncTime })}
                             className="text-xs w-32"
                             data-testid="input-inventory-time"
                           />
@@ -4172,7 +4195,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             checked={ordersSyncEnabled}
                             onCheckedChange={(checked) => {
                               setOrdersSyncEnabled(checked);
-                              updateSettingsMutation.mutate({ ordersSyncEnabled: checked });
+                              updatePlatformSettingsMutation.mutate({ ordersSyncEnabled: checked });
                             }}
                             data-testid="switch-orders-sync"
                           />
@@ -4194,7 +4217,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               const clamped = isNaN(parsed) ? 15 : Math.max(5, Math.min(120, parsed));
                               setOrdersSyncFrequency(clamped);
                               setOrdersSyncFrequencyStr(String(clamped));
-                              updateSettingsMutation.mutate({ ordersSyncFrequency: clamped });
+                              updatePlatformSettingsMutation.mutate({ ordersSyncFrequency: clamped });
                             }}
                             className="text-xs w-24"
                             data-testid="input-orders-frequency"
@@ -4281,7 +4304,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             checked={channelSyncEnabled}
                             onCheckedChange={(checked) => {
                               setChannelSyncEnabled(checked);
-                              updateSettingsMutation.mutate({ channelSyncEnabled: checked });
+                              updatePlatformSettingsMutation.mutate({ channelSyncEnabled: checked });
                             }}
                             data-testid="switch-channel-sync"
                           />
@@ -4296,7 +4319,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             type="time"
                             value={channelSyncTime}
                             onChange={(e) => setChannelSyncTime(e.target.value)}
-                            onBlur={() => updateSettingsMutation.mutate({ channelSyncTime })}
+                            onBlur={() => updatePlatformSettingsMutation.mutate({ channelSyncTime })}
                             className="text-xs w-32"
                             data-testid="input-channel-sync-time"
                           />
@@ -4319,7 +4342,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         </div>
                         <div className="grid grid-cols-1 gap-1.5">
                           <button
-                            onClick={() => { setChannelSyncMode('full_control'); updateSettingsMutation.mutate({ channelSyncMode: 'full_control' }); }}
+                            onClick={() => { setChannelSyncMode('full_control'); updatePlatformSettingsMutation.mutate({ channelSyncMode: 'full_control' }); }}
                             className={`flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors ${channelSyncMode === 'full_control' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
                             data-testid="button-sync-mode-full"
                           >
@@ -4340,7 +4363,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             </div>
                           </button>
                           <button
-                            onClick={() => { setChannelSyncMode('quantity_only'); updateSettingsMutation.mutate({ channelSyncMode: 'quantity_only' }); }}
+                            onClick={() => { setChannelSyncMode('quantity_only'); updatePlatformSettingsMutation.mutate({ channelSyncMode: 'quantity_only' }); }}
                             className={`flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors ${channelSyncMode === 'quantity_only' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
                             data-testid="button-sync-mode-qty"
                           >
@@ -4412,7 +4435,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-300">score ≥</span>
-                            <Input type="number" min={0.1} max={10} step={0.1} value={pomUnderpricedScore} onChange={(e) => setPomUnderpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updateSettingsMutation.mutate({ pomUnderpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-underpriced-score" />
+                            <Input type="number" min={0.1} max={10} step={0.1} value={pomUnderpricedScore} onChange={(e) => setPomUnderpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomUnderpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-underpriced-score" />
                             <span className="text-xs text-gray-400 w-14">× (peak)</span>
                           </div>
                         </div>
@@ -4432,7 +4455,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-300">score ≤</span>
-                            <Input type="number" min={0.1} max={10} step={0.1} value={pomOverpricedScore} onChange={(e) => setPomOverpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updateSettingsMutation.mutate({ pomOverpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-overpriced-score" />
+                            <Input type="number" min={0.1} max={10} step={0.1} value={pomOverpricedScore} onChange={(e) => setPomOverpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomOverpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-overpriced-score" />
                             <span className="text-xs text-gray-400 w-14">× (peak)</span>
                           </div>
                         </div>
@@ -4491,7 +4514,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </Popover>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Input type="number" min={0} max={100} value={pomBasePremium} onChange={(e) => setPomBasePremium(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomBasePremium })} className="text-sm w-20 text-right" data-testid="input-pom-base-premium" />
+                              <Input type="number" min={0} max={100} value={pomBasePremium} onChange={(e) => setPomBasePremium(parseInt(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomBasePremium })} className="text-sm w-20 text-right" data-testid="input-pom-base-premium" />
                               <span className="text-xs text-gray-400 w-5">%</span>
                             </div>
                           </div>
@@ -4510,7 +4533,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </Popover>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Input type="number" min={0} max={100} value={pomMinifigPremium} onChange={(e) => setPomMinifigPremium(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomMinifigPremium })} className="text-sm w-20 text-right" data-testid="input-pom-minifig-premium" />
+                              <Input type="number" min={0} max={100} value={pomMinifigPremium} onChange={(e) => setPomMinifigPremium(parseInt(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomMinifigPremium })} className="text-sm w-20 text-right" data-testid="input-pom-minifig-premium" />
                               <span className="text-xs text-gray-400 w-5">%</span>
                             </div>
                           </div>
@@ -4543,23 +4566,23 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           <div className="divide-y divide-gray-700/30">
                             <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
                               <span className="text-sm font-medium text-orange-300">Very Low</span>
-                              <Input type="number" min={1} value={pomScarcityThreshold1} onChange={(e) => setPomScarcityThreshold1(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold1 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold1" />
+                              <Input type="number" min={1} value={pomScarcityThreshold1} onChange={(e) => setPomScarcityThreshold1(parseInt(e.target.value) || 1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityThreshold1 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold1" />
                               <span className="text-xs text-gray-300">lots</span>
-                              <Input type="number" min={0} max={200} value={pomScarcityBonus1} onChange={(e) => setPomScarcityBonus1(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus1 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus1" />
+                              <Input type="number" min={0} max={200} value={pomScarcityBonus1} onChange={(e) => setPomScarcityBonus1(parseInt(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityBonus1 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus1" />
                               <span className="text-xs text-gray-200">%</span>
                             </div>
                             <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
                               <span className="text-sm font-medium text-yellow-300">Low</span>
-                              <Input type="number" min={1} value={pomScarcityThreshold2} onChange={(e) => setPomScarcityThreshold2(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold2 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold2" />
+                              <Input type="number" min={1} value={pomScarcityThreshold2} onChange={(e) => setPomScarcityThreshold2(parseInt(e.target.value) || 1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityThreshold2 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold2" />
                               <span className="text-xs text-gray-300">lots</span>
-                              <Input type="number" min={0} max={200} value={pomScarcityBonus2} onChange={(e) => setPomScarcityBonus2(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus2 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus2" />
+                              <Input type="number" min={0} max={200} value={pomScarcityBonus2} onChange={(e) => setPomScarcityBonus2(parseInt(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityBonus2 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus2" />
                               <span className="text-xs text-gray-200">%</span>
                             </div>
                             <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
                               <span className="text-sm font-medium text-blue-300">Medium</span>
-                              <Input type="number" min={1} value={pomScarcityThreshold3} onChange={(e) => setPomScarcityThreshold3(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityThreshold3 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold3" />
+                              <Input type="number" min={1} value={pomScarcityThreshold3} onChange={(e) => setPomScarcityThreshold3(parseInt(e.target.value) || 1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityThreshold3 })} className="text-sm w-20 text-right" data-testid="input-pom-threshold3" />
                               <span className="text-xs text-gray-300">lots</span>
-                              <Input type="number" min={0} max={200} value={pomScarcityBonus3} onChange={(e) => setPomScarcityBonus3(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomScarcityBonus3 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus3" />
+                              <Input type="number" min={0} max={200} value={pomScarcityBonus3} onChange={(e) => setPomScarcityBonus3(parseInt(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityBonus3 })} className="text-sm w-20 text-right" data-testid="input-pom-bonus3" />
                               <span className="text-xs text-gray-200">%</span>
                             </div>
                             <div className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 py-3">
@@ -4637,7 +4660,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </Popover>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Input type="number" min="0" max="200" value={pomCostFloorPct} onChange={(e) => setPomCostFloorPct(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomCostFloorPct })} className="text-sm w-20 text-right" data-testid="input-pom-cost-floor" />
+                              <Input type="number" min="0" max="200" value={pomCostFloorPct} onChange={(e) => setPomCostFloorPct(parseInt(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomCostFloorPct })} className="text-sm w-20 text-right" data-testid="input-pom-cost-floor" />
                               <span className="text-xs text-gray-400 w-16">% above cost</span>
                             </div>
                           </div>
@@ -4657,7 +4680,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-sm text-gray-400">$</span>
-                              <Input type="number" min="0" step="0.01" value={pomMinPrice} onChange={(e) => setPomMinPrice(parseFloat(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomMinPrice: pomMinPrice.toString() })} className="text-sm w-20 text-right" data-testid="input-pom-min-price" />
+                              <Input type="number" min="0" step="0.01" value={pomMinPrice} onChange={(e) => setPomMinPrice(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomMinPrice: pomMinPrice.toString() })} className="text-sm w-20 text-right" data-testid="input-pom-min-price" />
                             </div>
                           </div>
                         </div>
@@ -4684,7 +4707,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </div>
                           <Switch
                             checked={pomTrendingEnabled}
-                            onCheckedChange={(v) => { setPomTrendingEnabled(v); updateSettingsMutation.mutate({ pomTrendingEnabled: v }); }}
+                            onCheckedChange={(v) => { setPomTrendingEnabled(v); updatePlatformSettingsMutation.mutate({ pomTrendingEnabled: v }); }}
                             data-testid="switch-pom-trending"
                           />
                         </div>
@@ -4704,7 +4727,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </Popover>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Input type="number" min={1} max={50} value={pomTrendingDays} onChange={(e) => setPomTrendingDays(parseInt(e.target.value) || 15)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingDays })} className="text-sm w-20 text-right" data-testid="input-pom-market-max-adj" disabled={!pomTrendingEnabled} />
+                              <Input type="number" min={1} max={50} value={pomTrendingDays} onChange={(e) => setPomTrendingDays(parseInt(e.target.value) || 15)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomTrendingDays })} className="text-sm w-20 text-right" data-testid="input-pom-market-max-adj" disabled={!pomTrendingEnabled} />
                               <span className="text-xs text-gray-400 w-8">%</span>
                             </div>
                           </div>
@@ -4723,7 +4746,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </Popover>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Input type="number" min={1} step={100} value={pomTrendingThreshold} onChange={(e) => setPomTrendingThreshold(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingThreshold })} className="text-sm w-24 text-right" data-testid="input-pom-trending-threshold" disabled={!pomTrendingEnabled} />
+                              <Input type="number" min={1} step={100} value={pomTrendingThreshold} onChange={(e) => setPomTrendingThreshold(parseInt(e.target.value) || 1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomTrendingThreshold })} className="text-sm w-24 text-right" data-testid="input-pom-trending-threshold" disabled={!pomTrendingEnabled} />
                               <span className="text-xs text-gray-400 w-14">units sold</span>
                             </div>
                           </div>
@@ -4742,7 +4765,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </Popover>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Input type="number" min={0} max={100} value={pomTrendingBonus} onChange={(e) => setPomTrendingBonus(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomTrendingBonus })} className="text-sm w-20 text-right" data-testid="input-pom-trending-bonus" disabled={!pomTrendingEnabled} />
+                              <Input type="number" min={0} max={100} value={pomTrendingBonus} onChange={(e) => setPomTrendingBonus(parseInt(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomTrendingBonus })} className="text-sm w-20 text-right" data-testid="input-pom-trending-bonus" disabled={!pomTrendingEnabled} />
                               <span className="text-xs text-gray-400 w-8">%</span>
                             </div>
                           </div>
@@ -4761,7 +4784,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </Popover>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Input type="number" min={100} step={1000} value={pomHighSupplyThreshold} onChange={(e) => setPomHighSupplyThreshold(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomHighSupplyThreshold })} className="text-sm w-24 text-right" data-testid="input-pom-high-supply-threshold" disabled={!pomTrendingEnabled} />
+                              <Input type="number" min={100} step={1000} value={pomHighSupplyThreshold} onChange={(e) => setPomHighSupplyThreshold(parseInt(e.target.value) || 100)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomHighSupplyThreshold })} className="text-sm w-24 text-right" data-testid="input-pom-high-supply-threshold" disabled={!pomTrendingEnabled} />
                               <span className="text-xs text-gray-400 w-12">pieces</span>
                             </div>
                           </div>
@@ -4780,7 +4803,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </Popover>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Input type="number" min={0} max={100} value={pomHighSupplyPenalty} onChange={(e) => setPomHighSupplyPenalty(parseInt(e.target.value) || 0)} onBlur={() => updateSettingsMutation.mutate({ pomHighSupplyPenalty })} className="text-sm w-20 text-right" data-testid="input-pom-high-supply-penalty" disabled={!pomTrendingEnabled} />
+                              <Input type="number" min={0} max={100} value={pomHighSupplyPenalty} onChange={(e) => setPomHighSupplyPenalty(parseInt(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomHighSupplyPenalty })} className="text-sm w-20 text-right" data-testid="input-pom-high-supply-penalty" disabled={!pomTrendingEnabled} />
                               <span className="text-xs text-gray-400 w-8">%</span>
                             </div>
                           </div>
@@ -4924,7 +4947,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           checked={pomScheduleEnabled}
                           onCheckedChange={(checked) => {
                             setPomScheduleEnabled(checked);
-                            updateSettingsMutation.mutate({ pomScheduleEnabled: checked });
+                            updatePlatformSettingsMutation.mutate({ pomScheduleEnabled: checked });
                           }}
                           data-testid="switch-pom-schedule"
                         />
@@ -4941,7 +4964,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               type="time"
                               value={pomSyncTime}
                               onChange={(e) => setPomSyncTime(e.target.value)}
-                              onBlur={() => updateSettingsMutation.mutate({ pomSyncTime })}
+                              onBlur={() => updatePlatformSettingsMutation.mutate({ pomSyncTime })}
                               className="text-xs w-32"
                               data-testid="input-pom-sync-time"
                             />
@@ -4957,7 +4980,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               step={100}
                               value={pomScheduleBatchSize}
                               onChange={(e) => setPomScheduleBatchSize(parseInt(e.target.value) || 100)}
-                              onBlur={() => updateSettingsMutation.mutate({ pomScheduleBatchSize })}
+                              onBlur={() => updatePlatformSettingsMutation.mutate({ pomScheduleBatchSize })}
                               className="text-xs w-28 text-right"
                               data-testid="input-pom-schedule-batch"
                             />
@@ -4985,7 +5008,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </Popover>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Input type="number" min={100} max={5000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomBatchSize })} className="text-xs w-24 text-right" data-testid="input-pom-batch-size" />
+                          <Input type="number" min={100} max={25000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomBatchSize })} className="text-xs w-24 text-right" data-testid="input-pom-batch-size" />
                           <span className="text-[10px] text-gray-500 w-16">lots / run</span>
                         </div>
                       </div>
@@ -5117,7 +5140,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             checked={rebrickableSetSyncEnabled}
                             onCheckedChange={(checked) => {
                               setRebrickableSetSyncEnabled(checked);
-                              updateSettingsMutation.mutate({ rebrickableSetSyncEnabled: checked });
+                              updatePlatformSettingsMutation.mutate({ rebrickableSetSyncEnabled: checked });
                             }}
                             data-testid="switch-rebrickable-set-sync"
                           />
@@ -5133,7 +5156,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 type="time"
                                 value={rebrickableSetSyncTime}
                                 onChange={(e) => setRebrickableSetSyncTime(e.target.value)}
-                                onBlur={() => updateSettingsMutation.mutate({ rebrickableSetSyncTime })}
+                                onBlur={() => updatePlatformSettingsMutation.mutate({ rebrickableSetSyncTime })}
                                 className="text-xs w-32"
                                 data-testid="input-rebrickable-sync-time"
                               />
@@ -7348,25 +7371,25 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
                                 <div className="sm-row pt-3">
                                   <span className="sm-label">Enabled</span>
-                                  <Switch checked={pomScheduleEnabled} onCheckedChange={(checked) => { setPomScheduleEnabled(checked); updateSettingsMutation.mutate({ pomScheduleEnabled: checked }); }} data-testid="switch-pom-scheduler" />
+                                  <Switch checked={pomScheduleEnabled} onCheckedChange={(checked) => { setPomScheduleEnabled(checked); updatePlatformSettingsMutation.mutate({ pomScheduleEnabled: checked }); }} data-testid="switch-pom-scheduler" />
                                 </div>
                                 <div className="sm-row">
                                   <span className="sm-label">Run time</span>
-                                  <Input type="time" value={pomSyncTime} onChange={(e) => setPomSyncTime(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ pomSyncTime })} className="w-28 text-xs text-right" data-testid="input-pom-scheduler-time" />
+                                  <Input type="time" value={pomSyncTime} onChange={(e) => setPomSyncTime(e.target.value)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSyncTime })} className="w-28 text-xs text-right" data-testid="input-pom-scheduler-time" />
                                 </div>
                                 <div className="sm-row">
                                   <div>
                                     <span className="sm-label">Scheduled batch size</span>
                                     <p className="sm-hint">Lots per scheduled auto-run</p>
                                   </div>
-                                  <Input type="number" min={100} max={5000} step={100} value={pomScheduleBatchSize} onChange={(e) => setPomScheduleBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomScheduleBatchSize })} className="w-24 text-xs text-right" data-testid="input-pom-scheduler-batch" />
+                                  <Input type="number" min={100} max={25000} step={100} value={pomScheduleBatchSize} onChange={(e) => setPomScheduleBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScheduleBatchSize })} className="w-24 text-xs text-right" data-testid="input-pom-scheduler-batch" />
                                 </div>
                                 <div className="sm-row">
                                   <div>
                                     <span className="sm-label">Manual batch size</span>
                                     <p className="sm-hint">Lots when triggered via Run button</p>
                                   </div>
-                                  <Input type="number" min={100} max={5000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updateSettingsMutation.mutate({ pomBatchSize })} className="w-24 text-xs text-right" data-testid="input-pom-manual-batch" />
+                                  <Input type="number" min={100} max={25000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomBatchSize })} className="w-24 text-xs text-right" data-testid="input-pom-manual-batch" />
                                 </div>
                                 {(pomJob?.recordsAdded > 0 || pomJob?.recordsUpdated > 0) && (
                                   <p className="sm-hint pt-1 border-t border-gray-700/40">+{pomJob.recordsAdded} added · {pomJob.recordsUpdated} updated</p>
@@ -7398,21 +7421,21 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
                                 <div className="sm-row pt-3">
                                   <span className="sm-label">Enabled</span>
-                                  <Switch checked={universalCatalogScheduleEnabled} onCheckedChange={(checked) => { setUniversalCatalogScheduleEnabled(checked); updateSettingsMutation.mutate({ universalCatalogScheduleEnabled: checked }); }} data-testid="switch-uc-scheduler" />
+                                  <Switch checked={universalCatalogScheduleEnabled} onCheckedChange={(checked) => { setUniversalCatalogScheduleEnabled(checked); updatePlatformSettingsMutation.mutate({ universalCatalogScheduleEnabled: checked }); }} data-testid="switch-uc-scheduler" />
                                 </div>
                                 <div className="sm-row">
                                   <div>
                                     <span className="sm-label">Refresh interval</span>
                                     <p className="sm-hint">Months between full imports</p>
                                   </div>
-                                  <Input type="number" min={1} max={12} value={universalCatalogRefreshMonths} onChange={(e) => setUniversalCatalogRefreshMonths(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ universalCatalogRefreshMonths })} className="w-20 text-xs text-right" data-testid="input-uc-refresh-months" />
+                                  <Input type="number" min={1} max={12} value={universalCatalogRefreshMonths} onChange={(e) => setUniversalCatalogRefreshMonths(parseInt(e.target.value) || 1)} onBlur={() => updatePlatformSettingsMutation.mutate({ universalCatalogRefreshMonths })} className="w-20 text-xs text-right" data-testid="input-uc-refresh-months" />
                                 </div>
                                 <div className="sm-row">
                                   <div>
                                     <span className="sm-label">Retry stale after</span>
                                     <p className="sm-hint">Days before retrying failed items</p>
                                   </div>
-                                  <Input type="number" min={1} max={365} value={universalCatalogRetryDays} onChange={(e) => setUniversalCatalogRetryDays(parseInt(e.target.value) || 30)} onBlur={() => updateSettingsMutation.mutate({ universalCatalogRetryDays })} className="w-20 text-xs text-right" data-testid="input-uc-retry-days" />
+                                  <Input type="number" min={1} max={365} value={universalCatalogRetryDays} onChange={(e) => setUniversalCatalogRetryDays(parseInt(e.target.value) || 30)} onBlur={() => updatePlatformSettingsMutation.mutate({ universalCatalogRetryDays })} className="w-20 text-xs text-right" data-testid="input-uc-retry-days" />
                                 </div>
                                 {(ucJob?.recordsAdded > 0 || ucJob?.recordsUpdated > 0) && (
                                   <p className="sm-hint pt-1 border-t border-gray-700/40">+{ucJob.recordsAdded} added · {ucJob.recordsUpdated} updated</p>
@@ -7444,11 +7467,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
                                 <div className="sm-row pt-3">
                                   <span className="sm-label">Enabled</span>
-                                  <Switch checked={rebrickableSetSyncEnabled} onCheckedChange={(checked) => { setRebrickableSetSyncEnabled(checked); updateSettingsMutation.mutate({ rebrickableSetSyncEnabled: checked }); }} data-testid="switch-rb-scheduler" />
+                                  <Switch checked={rebrickableSetSyncEnabled} onCheckedChange={(checked) => { setRebrickableSetSyncEnabled(checked); updatePlatformSettingsMutation.mutate({ rebrickableSetSyncEnabled: checked }); }} data-testid="switch-rb-scheduler" />
                                 </div>
                                 <div className="sm-row">
                                   <span className="sm-label">Run time</span>
-                                  <Input type="time" value={rebrickableSetSyncTime} onChange={(e) => setRebrickableSetSyncTime(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ rebrickableSetSyncTime })} className="w-28 text-xs text-right" data-testid="input-rb-scheduler-time" />
+                                  <Input type="time" value={rebrickableSetSyncTime} onChange={(e) => setRebrickableSetSyncTime(e.target.value)} onBlur={() => updatePlatformSettingsMutation.mutate({ rebrickableSetSyncTime })} className="w-28 text-xs text-right" data-testid="input-rb-scheduler-time" />
                                 </div>
                                 {(rbJob?.recordsAdded > 0 || rbJob?.recordsUpdated > 0) && (
                                   <p className="sm-hint pt-1 border-t border-gray-700/40">+{rbJob.recordsAdded} added · {rbJob.recordsUpdated} updated</p>
@@ -7480,7 +7503,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
                                 <div className="sm-row pt-3">
                                   <span className="sm-label">Enabled</span>
-                                  <Switch checked={forumSyncEnabled} onCheckedChange={(checked) => { setForumSyncEnabled(checked); updateSettingsMutation.mutate({ forumSyncEnabled: checked }); }} data-testid="switch-fm-scheduler" />
+                                  <Switch checked={forumSyncEnabled} onCheckedChange={(checked) => { setForumSyncEnabled(checked); updatePlatformSettingsMutation.mutate({ forumSyncEnabled: checked }); }} data-testid="switch-fm-scheduler" />
                                 </div>
                                 <div className="sm-row">
                                   <div>
@@ -7488,7 +7511,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                     <p className="sm-hint">Minutes between runs</p>
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    <Input type="number" min={5} max={1440} value={forumSyncFrequencyStr} onChange={(e) => setForumSyncFrequencyStr(e.target.value)} onBlur={() => { const val = parseInt(forumSyncFrequencyStr) || 60; setForumSyncFrequency(val); setForumSyncFrequencyStr(String(val)); updateSettingsMutation.mutate({ forumSyncFrequency: val }); }} className="w-20 text-xs text-right" data-testid="input-fm-frequency" />
+                                    <Input type="number" min={5} max={1440} value={forumSyncFrequencyStr} onChange={(e) => setForumSyncFrequencyStr(e.target.value)} onBlur={() => { const val = parseInt(forumSyncFrequencyStr) || 60; setForumSyncFrequency(val); setForumSyncFrequencyStr(String(val)); updatePlatformSettingsMutation.mutate({ forumSyncFrequency: val }); }} className="w-20 text-xs text-right" data-testid="input-fm-frequency" />
                                     <span className="sm-hint">min</span>
                                   </div>
                                 </div>
@@ -7779,7 +7802,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           <Label className="text-xs text-gray-200">Daily API Call Limit</Label>
                           <p className="text-[10px] text-gray-500">Hard stop for platform BrickLink API calls. BrickLink enforces a cap of 5,000/day per credential set (rolling 24h window).</p>
                           <div className="flex items-center gap-2">
-                            <Input type="number" min={500} max={5000} step={100} value={blApiCallLimit} onChange={(e) => setBlApiCallLimit(parseInt(e.target.value) || 500)} onBlur={() => updateSettingsMutation.mutate({ blApiCallLimit })} className="text-xs w-24 text-right" data-testid="input-bl-api-limit" />
+                            <Input type="number" min={500} max={25000} step={100} value={blApiCallLimit} onChange={(e) => setBlApiCallLimit(parseInt(e.target.value) || 500)} onBlur={() => updatePlatformSettingsMutation.mutate({ blApiCallLimit })} className="text-xs w-24 text-right" data-testid="input-bl-api-limit" />
                             <span className="text-[10px] text-gray-500">/ 5,000</span>
                           </div>
                         </div>

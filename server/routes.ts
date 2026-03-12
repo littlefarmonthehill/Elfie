@@ -799,6 +799,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/platform-admin/settings — read platform-level settings (POM, schedulers, etc.)
+  app.get('/api/platform-admin/settings', isSuperAdmin, async (_req, res) => {
+    try {
+      const settings = await getOrgSettings(PLATFORM_ORG_ID);
+      res.json(maskSettingsSecrets(settings as any));
+    } catch (error) {
+      console.error("Error fetching platform settings:", error);
+      res.status(500).json({ error: "Failed to fetch platform settings" });
+    }
+  });
+
+  // POST /api/platform-admin/settings — update platform-level settings
+  app.post('/api/platform-admin/settings', isSuperAdmin, async (req, res) => {
+    try {
+      const data = insertAppSettingsSchema.parse(req.body);
+      for (const field of SECRET_FIELDS) {
+        const val = (data as any)[field];
+        if (val && typeof val === 'string' && val.includes('····')) {
+          delete (data as any)[field];
+        }
+      }
+      const [settings] = await db
+        .insert(appSettings)
+        .values({ ...data, id: PLATFORM_ORG_ID, orgId: PLATFORM_ORG_ID })
+        .onConflictDoUpdate({
+          target: appSettings.id,
+          set: { ...data, updatedAt: sql`CURRENT_TIMESTAMP` },
+        })
+        .returning();
+      res.json(maskSettingsSecrets(settings as any));
+    } catch (error) {
+      console.error("Error updating platform settings:", error);
+      res.status(500).json({ error: "Failed to update platform settings" });
+    }
+  });
+
   // GET /api/platform-admin/platform-services/openai-billing/by-org — per-org AI usage breakdown
   app.get('/api/platform-admin/platform-services/openai-billing/by-org', isSuperAdmin, async (_req, res) => {
     try {
