@@ -997,7 +997,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       supply: { has: number; stale: number };
       sold: { has: number; stale: number };
       inventoryNotInCatalog: number;
-      apiBudget: { total: number; pomPct: number; catalogDetailPct: number };
+      apiBudget: { total: number; pomPct: number; catalogDetailPct: number; used24h: number };
     };
   };
 
@@ -7388,24 +7388,36 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                     </div>
                                   );
                                 })}
-                                {budget && (
+                                {budget && (() => {
+                                  const used = budget.used24h ?? 0;
+                                  const limit = budget.total ?? 4900;
+                                  const usedPct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+                                  const remaining = Math.max(0, limit - used);
+                                  return (
                                   <div className="px-4 py-2.5 border-t border-gray-700/40" data-testid="api-budget-bar">
                                     <div className="flex items-center justify-between gap-2 mb-1">
                                       <span className="sm-label">API Budget (24h)</span>
-                                      <span className="sm-hint font-mono">{(budget.total ?? 4900).toLocaleString()} calls/day</span>
+                                      <span className="sm-hint font-mono">{used.toLocaleString()} / {limit.toLocaleString()} calls</span>
                                     </div>
-                                    <div className="flex h-2 rounded-full overflow-hidden bg-gray-700">
-                                      <div className="bg-purple-500 transition-all" style={{ width: `${budget.pomPct}%` }} title={`Price Guides: ${budget.pomPct}%`} />
-                                      <div className="bg-blue-500 transition-all" style={{ width: `${budget.catalogDetailPct}%` }} title={`Catalog Detail: ${budget.catalogDetailPct}%`} />
-                                      <div className="bg-gray-500/50 transition-all" style={{ width: `${reservePct}%` }} title={`Reserve: ${reservePct}%`} />
+                                    <div className="relative h-2 rounded-full overflow-hidden bg-gray-700">
+                                      <div className="absolute inset-0 flex">
+                                        <div className="bg-purple-500/25 transition-all" style={{ width: `${budget.pomPct}%` }} />
+                                        <div className="bg-blue-500/25 transition-all" style={{ width: `${budget.catalogDetailPct}%` }} />
+                                        <div className="bg-gray-500/20 transition-all" style={{ width: `${reservePct}%` }} />
+                                      </div>
+                                      <div className={`absolute inset-y-0 left-0 transition-all rounded-full ${usedPct > 90 ? 'bg-red-500' : usedPct > 70 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: `${usedPct}%` }} />
                                     </div>
-                                    <div className="flex items-center gap-3 mt-1 flex-wrap">
-                                      <span className="text-[10px] text-purple-400/80">Price Guides {budget.pomPct}% ({Math.floor(budget.total * budget.pomPct / 100)})</span>
-                                      <span className="text-[10px] text-blue-400/80">Detail {budget.catalogDetailPct}% ({Math.floor(budget.total * budget.catalogDetailPct / 100)})</span>
-                                      <span className="text-[10px] text-gray-400/80">Reserve {reservePct}% ({Math.floor(budget.total * reservePct / 100)})</span>
+                                    <div className="flex items-center justify-between gap-2 mt-1">
+                                      <span className={`text-[10px] font-medium ${usedPct > 90 ? 'text-red-400' : usedPct > 70 ? 'text-yellow-400' : 'text-green-400/80'}`}>{usedPct}% used · {remaining.toLocaleString()} remaining</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                                      <span className="text-[10px] text-purple-400/80">PG {budget.pomPct}% ({Math.floor(limit * budget.pomPct / 100)})</span>
+                                      <span className="text-[10px] text-blue-400/80">Detail {budget.catalogDetailPct}% ({Math.floor(limit * budget.catalogDetailPct / 100)})</span>
+                                      <span className="text-[10px] text-gray-400/80">Reserve {reservePct}% ({Math.floor(limit * reservePct / 100)})</span>
                                     </div>
                                   </div>
-                                )}
+                                  );
+                                })()}
                               </div>
                             );
                           })()}

@@ -1092,8 +1092,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           total: platformSettings?.blApiCallLimit ?? 4900,
           pomPct: platformSettings?.pomApiBudgetPct ?? 70,
           catalogDetailPct: platformSettings?.catalogDetailApiBudgetPct ?? 20,
+          used24h: 0,
         },
       };
+
+      const twentyFourHoursAgoCov = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const [apiUsageRow] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(blApiCalls)
+        .where(gte(blApiCalls.timestamp, twentyFourHoursAgoCov));
+      catalogCoverage.apiBudget.used24h = Number(apiUsageRow?.count) || 0;
 
       const { getActiveBuild } = await import('./services/clip-search.js');
       const clipBuild = getActiveBuild();
