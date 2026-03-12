@@ -993,9 +993,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     catalogCoverage?: {
       totalLots: number;
       inStockLots: number;
-      detail: { has: number; stale: number };
-      supply: { has: number; stale: number };
-      sold: { has: number; stale: number };
+      detail: { has: number; hasInStock: number; stale: number; staleInStock: number };
+      supply: { has: number; hasInStock: number; stale: number; staleInStock: number };
+      sold: { has: number; hasInStock: number; stale: number; staleInStock: number };
       inventoryNotInCatalog: number;
       apiBudget: { total: number; pomPct: number; catalogDetailPct: number; used24h: number };
     };
@@ -7338,10 +7338,12 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             const invGap = cov.inventoryNotInCatalog ?? 0;
                             const budget = cov.apiBudget;
                             const reservePct = Math.max(0, 100 - (budget?.pomPct ?? 70) - (budget?.catalogDetailPct ?? 20));
+                            const detailSkip = catalogDetailZeroStockSkip;
+                            const pomSkip = pomZeroStockSkip;
                             const areas = [
-                              { label: 'Item Detail', has: cov.detail.has, stale: cov.detail.stale, freshLabel: `${catalogDetailFreshnessDays}d`, barClass: 'bg-blue-500', barStaleClass: 'bg-blue-500/30' },
-                              { label: 'Supply', has: cov.supply.has, stale: cov.supply.stale, freshLabel: `${pomFreshnessDays}d`, barClass: 'bg-green-500', barStaleClass: 'bg-green-500/30' },
-                              { label: 'Sold', has: cov.sold.has, stale: cov.sold.stale, freshLabel: `${pomFreshnessDays}d`, barClass: 'bg-purple-500', barStaleClass: 'bg-purple-500/30' },
+                              { label: 'Item Detail', scope: detailSkip ? inStock : total, has: detailSkip ? cov.detail.hasInStock : cov.detail.has, stale: detailSkip ? cov.detail.staleInStock : cov.detail.stale, freshLabel: `${catalogDetailFreshnessDays}d`, barClass: 'bg-blue-500', barStaleClass: 'bg-blue-500/30', filtered: detailSkip },
+                              { label: 'Supply', scope: pomSkip ? inStock : total, has: pomSkip ? cov.supply.hasInStock : cov.supply.has, stale: pomSkip ? cov.supply.staleInStock : cov.supply.stale, freshLabel: `${pomFreshnessDays}d`, barClass: 'bg-green-500', barStaleClass: 'bg-green-500/30', filtered: pomSkip },
+                              { label: 'Sold', scope: pomSkip ? inStock : total, has: pomSkip ? cov.sold.hasInStock : cov.sold.has, stale: pomSkip ? cov.sold.staleInStock : cov.sold.stale, freshLabel: `${pomFreshnessDays}d`, barClass: 'bg-purple-500', barStaleClass: 'bg-purple-500/30', filtered: pomSkip },
                             ];
                             return (
                               <div className="sm-card-inset">
@@ -7359,21 +7361,22 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                     <span className="text-[10px] text-yellow-500/90 font-medium">{invGap.toLocaleString()} lots not yet in catalog</span>
                                   </div>
                                 )}
-                                {areas.map(({ label, has, stale, freshLabel, barClass, barStaleClass }) => {
-                                  const missing = total - has;
+                                {areas.map(({ label, scope, has, stale, freshLabel, barClass, barStaleClass, filtered }) => {
+                                  const denom = scope || 1;
+                                  const missing = Math.max(0, denom - has);
                                   const fresh = has - stale;
-                                  const pct = Math.round((has / total) * 100);
+                                  const pct = Math.round((has / denom) * 100);
                                   const freshPct = has > 0 ? Math.round((fresh / has) * 100) : 0;
                                   return (
                                     <div key={label} className="px-4 py-2.5 flex items-center gap-3">
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between gap-2 mb-1">
                                           <span className="sm-label">{label}</span>
-                                          <span className="sm-hint font-mono">{has.toLocaleString()}/{total.toLocaleString()} lots ({pct}%)</span>
+                                          <span className="sm-hint font-mono">{has.toLocaleString()}/{denom.toLocaleString()} lots ({pct}%){filtered ? ' *' : ''}</span>
                                         </div>
                                         <div className="flex h-1.5 rounded-full overflow-hidden bg-gray-700">
-                                          <div className={`${barClass} transition-all`} style={{ width: `${Math.round((fresh / total) * 100)}%` }} />
-                                          <div className={`${barStaleClass} transition-all`} style={{ width: `${Math.round((stale / total) * 100)}%` }} />
+                                          <div className={`${barClass} transition-all`} style={{ width: `${Math.round((fresh / denom) * 100)}%` }} />
+                                          <div className={`${barStaleClass} transition-all`} style={{ width: `${Math.round((stale / denom) * 100)}%` }} />
                                         </div>
                                         <div className="flex items-center justify-between gap-2 mt-1">
                                           <span className="sm-hint">
@@ -7382,7 +7385,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                             {stale > 0 && <span className="text-orange-400/80">{stale.toLocaleString()} stale (&gt;{freshLabel})</span>}
                                             {missing === 0 && stale === 0 && <span className="text-green-400/70">All fresh</span>}
                                           </span>
-                                          {has > 0 && <span className="sm-hint">{freshPct}% fresh</span>}
+                                          <span className="sm-hint">
+                                            {has > 0 && <span>{freshPct}% fresh</span>}
+                                            {filtered && <span className="text-gray-600 ml-1">· in-stock only</span>}
+                                          </span>
                                         </div>
                                       </div>
                                     </div>
