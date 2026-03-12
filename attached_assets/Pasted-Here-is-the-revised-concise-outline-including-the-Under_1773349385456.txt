@@ -1,0 +1,106 @@
+Here is the revised concise outline including the Undercut score, which is important for determining competitive positioning in the current listings.
+
+⸻
+
+Repricing Score Metrics
+
+1. Price Ceiling Ratio
+
+What it measures
+How much historical price upside exists compared to your current listing price. This helps identify items that may be underpriced relative to past market sales.
+
+Calculation
+
+price_ceiling_ratio = market_highest_sold_price / our_listed_price
+
+Interpretation
+	•	> 1.0 → potential room to increase price
+	•	≈ 1.0 → price near historical market highs
+	•	< 1.0 → your price may already exceed typical market highs
+
+⸻
+
+2. Demand Velocity
+
+What it measures
+The rate at which items sell relative to available supply, indicating market demand strength.
+
+Calculation
+
+demand_velocity = market_quantity_sold / market_quantity_supply
+
+Interpretation
+	•	Higher score → stronger demand relative to supply
+	•	Lower score → slower market turnover
+
+⸻
+
+3. Market Scarcity Index
+
+What it measures
+How scarce the item currently is in the market based on available supply.
+
+Calculation
+
+market_scarcity_index = 1 / market_quantity_supply
+
+Interpretation
+	•	Higher score → low supply (scarce item)
+	•	Lower score → large supply (common item)
+
+⸻
+
+4. Undercut Ratio
+
+What it measures
+Your price position compared to the lowest current market listing, helping identify when you are being undercut by competitors.
+
+Calculation
+
+undercut_ratio = our_listed_price / market_lowest_price
+
+Interpretation
+	•	> 1.0 → you are priced above the lowest listing (being undercut)
+	•	≈ 1.0 → you are priced at market floor
+	•	< 1.0 → you are cheaper than competitors
+
+⸻
+
+Combined Repricing Score
+
+Repricing Opportunity Score
+
+What it measures
+An overall pricing opportunity score combining price upside, demand strength, scarcity, and competitive positioning.
+
+Calculation
+
+repricing_opportunity_score =
+    (price_ceiling_ratio * 0.4) +
+    (demand_velocity * 0.3) +
+    (market_scarcity_index * 0.2) +
+    ((1 / undercut_ratio) * 0.1)
+
+Purpose
+
+Items with the highest score represent the best candidates for repricing, balancing:
+	•	potential price increases
+	•	strong demand
+	•	limited supply
+	•	competitive market position
+
+⸻
+
+Summary Table
+
+Score Name	What It Measures	Calculation
+Price Ceiling Ratio	Historical pricing upside	highest_sold_price / our_price
+Demand Velocity	Demand vs supply turnover	quantity_sold / quantity_supply
+Market Scarcity Index	Supply scarcity	1 / quantity_supply
+Undercut Ratio	Competitive price position	our_price / lowest_market_price
+Repricing Opportunity Score	Overall repricing potential	weighted combination of all scores
+
+
+⸻
+
+If you want, I can also show you one scoring metric used by advanced repricers that dramatically improves LEGO pricing decisions, because it detects when demand spikes suddenly (like after a new set release or viral build).
