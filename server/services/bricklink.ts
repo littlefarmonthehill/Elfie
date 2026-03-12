@@ -574,26 +574,25 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
           orgId,
         }));
         
-        await db.insert(blInventory).values(values);
+        await db.insert(blInventory).values(values).onConflictDoNothing();
 
-        // Dual-write: upsert catalog-level fields to bl_catalog
-        const catalogValues = batch.map(item => ({
-          itemNo: item.item.no,
-          itemType: item.item.type,
-          colorId: item.color_id || 0,
-          itemName: item.item.name || null,
-          colorName: item.color_name || null,
-          categoryId: item.item.category_id || null,
-        }));
-        await db.insert(blCatalog).values(catalogValues).onConflictDoUpdate({
-          target: [blCatalog.itemNo, blCatalog.itemType, blCatalog.colorId],
-          set: {
-            itemName: sql`COALESCE(EXCLUDED.item_name, bl_catalog.item_name)`,
-            colorName: sql`COALESCE(EXCLUDED.color_name, bl_catalog.color_name)`,
-            categoryId: sql`COALESCE(EXCLUDED.category_id, bl_catalog.category_id)`,
-            updatedAt: sql`NOW()`,
-          },
-        });
+        // Dual-write: upsert catalog-level fields to bl_catalog (deduplicate within batch)
+        const batchCatMap = new Map<string, any>();
+        for (const item of batch) {
+          const k = `${item.item.no}|${item.item.type}|${item.color_id || 0}`;
+          if (!batchCatMap.has(k)) batchCatMap.set(k, { itemNo: item.item.no, itemType: item.item.type, colorId: item.color_id || 0, itemName: item.item.name || null, colorName: item.color_name || null, categoryId: item.item.category_id || null });
+        }
+        if (batchCatMap.size > 0) {
+          await db.insert(blCatalog).values(Array.from(batchCatMap.values())).onConflictDoUpdate({
+            target: [blCatalog.itemNo, blCatalog.itemType, blCatalog.colorId],
+            set: {
+              itemName: sql`COALESCE(EXCLUDED.item_name, bl_catalog.item_name)`,
+              colorName: sql`COALESCE(EXCLUDED.color_name, bl_catalog.color_name)`,
+              categoryId: sql`COALESCE(EXCLUDED.category_id, bl_catalog.category_id)`,
+              updatedAt: sql`NOW()`,
+            },
+          });
+        }
 
         added += batch.length;
         console.log(`Inserted batch ${Math.floor(i / BATCH_SIZE) + 1}: ${added}/${newItems.length} new items`);
@@ -755,19 +754,27 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
     // Bulk-upsert bl_catalog for ALL items so every inventory lot gets a name/color/category.
     // This covers items that existed before the dual-write was added and items that
     // didn't change (so weren't touched by the new/update paths above).
+    // Deduplicate by (item_no, item_type, color_id) first — multiple lots share the same key.
+    const catalogMap = new Map<string, { itemNo: string; itemType: string; colorId: number; itemName: string | null; colorName: string | null; categoryId: number | null }>();
+    for (const item of items) {
+      const key = `${item.item.no}|${item.item.type}|${item.color_id || 0}`;
+      if (!catalogMap.has(key)) {
+        catalogMap.set(key, {
+          itemNo: item.item.no,
+          itemType: item.item.type,
+          colorId: item.color_id || 0,
+          itemName: item.item.name || null,
+          colorName: item.color_name || null,
+          categoryId: item.item.category_id || null,
+        });
+      }
+    }
+    const uniqueCatalogValues = Array.from(catalogMap.values());
     const CATALOG_BATCH = 1000;
     let catalogUpserted = 0;
-    for (let i = 0; i < items.length; i += CATALOG_BATCH) {
-      const batch = items.slice(i, i + CATALOG_BATCH);
-      const catalogValues = batch.map(item => ({
-        itemNo: item.item.no,
-        itemType: item.item.type,
-        colorId: item.color_id || 0,
-        itemName: item.item.name || null,
-        colorName: item.color_name || null,
-        categoryId: item.item.category_id || null,
-      }));
-      await db.insert(blCatalog).values(catalogValues).onConflictDoUpdate({
+    for (let i = 0; i < uniqueCatalogValues.length; i += CATALOG_BATCH) {
+      const batch = uniqueCatalogValues.slice(i, i + CATALOG_BATCH);
+      await db.insert(blCatalog).values(batch).onConflictDoUpdate({
         target: [blCatalog.itemNo, blCatalog.itemType, blCatalog.colorId],
         set: {
           itemName: sql`COALESCE(EXCLUDED.item_name, bl_catalog.item_name)`,
