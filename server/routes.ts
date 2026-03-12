@@ -9922,7 +9922,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           MIN(pgc.fetched_at)                           AS oldest_fetched_at,
           MAX(pgc.fetched_at)                           AS last_fetched_at
         FROM bl_inventory i
-        LEFT JOIN bl_categories c ON i.category_id = c.id
+        LEFT JOIN bl_catalog bc ON i.item_no = bc.item_no AND i.item_type = bc.item_type AND COALESCE(i.color_id, 0) = bc.color_id
+        LEFT JOIN bl_categories c ON bc.category_id = c.id
         LEFT JOIN price_guide_cache pgc
           ON i.item_no = pgc.item_no
           AND i.item_type = pgc.item_type

@@ -6017,9 +6017,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
             {/* ── Platform Admin: Platform Health ──────────────────────────── */}
             {activeSection === 'systemHealth' && (
-              <div className="flex flex-col min-w-0 overflow-hidden">
+              <div className="flex flex-col min-w-0 overflow-hidden h-full">
                 {/* Tab bar */}
-                <div className="flex border-b border-gray-700/60 px-2 shrink-0">
+                <div className="flex border-b border-gray-700/60 px-3 shrink-0">
                   {([
                     { id: 'overview', label: 'Overview' },
                     { id: 'bricklink', label: 'BrickLink' },
@@ -6040,7 +6040,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Overview tab */}
                 {activeHealthTab === 'overview' && (
-                  <div className="p-4 space-y-4">
+                  <div className="p-3 space-y-4 flex-1 overflow-y-auto">
                     {systemHealthLoading ? (
                       <div className="flex items-center justify-center py-10">
                         <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
@@ -6130,7 +6130,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* BrickLink tab */}
                 {activeHealthTab === 'bricklink' && (
-                  <div className="p-4 space-y-4">
+                  <div className="p-3 space-y-4 flex-1 overflow-y-auto">
                     {!platformBlApiUsage ? (
                       <div className="flex items-center justify-center py-10">
                         <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
@@ -6314,7 +6314,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* Logs tab */}
                 {activeHealthTab === 'logs' && (
-                  <div className="p-4 space-y-4 w-full min-w-0">
+                  <div className="p-3 space-y-4 w-full min-w-0 flex-1 overflow-y-auto">
                     <div className="min-w-0">
                       <div className="flex items-center justify-between mb-2 px-1">
                         <div className="flex items-center gap-2">
@@ -6416,7 +6416,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   ];
                   const getGroup = (name: string) => DB_GROUPS.findIndex(g => g.tables.includes(name));
                   return (
-                    <div className="p-4 space-y-4">
+                    <div className="p-3 space-y-4 flex-1 overflow-y-auto">
                       <div>
                         <div className="flex items-center justify-between mb-2 px-1">
                           <p className="sm-group-label">Database Tables</p>

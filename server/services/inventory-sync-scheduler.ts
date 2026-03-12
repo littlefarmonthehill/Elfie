@@ -162,6 +162,11 @@ async function runAutomatedInventorySync() {
     // Skips items already embedded, so this is fast on days with few new items.
     triggerClipCatalogUpdate();
   } catch (error: any) {
+    if (error.message === 'Inventory sync already in progress') {
+      console.log(`⏭️ Inventory sync skipped — another sync is already in progress`);
+      return;
+    }
+
     retry.count++;
     retry.nextAt = Date.now() + retry.count * RETRY_BASE_MS;
     const minsUntilRetry = retry.count * 5;
