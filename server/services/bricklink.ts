@@ -1252,9 +1252,11 @@ export function calculateSuggestedPriceWithSupply(
   return Number(suggestedPrice.toFixed(2));
 }
 
-// Module-level stop flag — set via requestPomSyncStop(), cleared at sync start
+// Module-level stop flags — cleared at sync start
 let pomSyncStopRequested = false;
+let pomShutdownRequested = false;
 export function requestPomSyncStop() { pomSyncStopRequested = true; }
+export function requestPomShutdown() { pomShutdownRequested = true; }
 
 // Live progress object — updated throughout the sync loop so the status endpoint can surface it
 let pomSyncProgress = { active: false, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: 0, itemsNew: 0, itemsRefreshed: 0 };
@@ -1278,7 +1280,8 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
   const apiCallCeiling = pomSettings?.blApiCallLimit ?? 4900;
 
   console.log(`[Price-o-Matic Sync] Starting sync for up to ${effectiveMaxItems} items (API ceiling: ${apiCallCeiling})`);
-  pomSyncStopRequested = false; // Clear any prior stop request
+  pomSyncStopRequested = false;
+  pomShutdownRequested = false;
 
   let itemsUpdated = 0;
   let itemsSkipped = 0;
@@ -1428,7 +1431,12 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
     // No local velocity pre-computation needed.
     for (const item of itemsToProcess) {
       try {
-        // Check stop request (user-initiated stop)
+        if (pomShutdownRequested) {
+          stopped = true;
+          stopReason = 'Sync interrupted by server shutdown.';
+          console.log(`[Price-o-Matic Sync] ${stopReason}`);
+          break;
+        }
         if (pomSyncStopRequested) {
           stopped = true;
           stopReason = 'Sync stopped by user request.';

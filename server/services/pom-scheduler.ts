@@ -41,10 +41,19 @@ async function checkInterruptedResume() {
       .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, 'priceomatic_cache')))
       .limit(1);
 
-    if (meta?.lastSyncStatus !== 'error') return;
-    if (!meta.errorMessage?.includes('interrupted')) return;
+    if (!meta) { console.log('[POM] Auto-resume: no sync metadata found'); return; }
 
-    console.log(`[POM] Detected interrupted sync (${meta.errorMessage}) — auto-resuming in 30s...`);
+    const msg = meta.errorMessage ?? '';
+    const isShutdownInterrupt = msg.includes('interrupted') || msg.includes('shutdown');
+    const isError = meta.lastSyncStatus === 'error' && isShutdownInterrupt;
+    const isPartialShutdown = meta.lastSyncStatus === 'partial' && isShutdownInterrupt;
+
+    if (!isError && !isPartialShutdown) {
+      console.log(`[POM] Auto-resume: no interrupted sync (status=${meta.lastSyncStatus}, msg=${msg || 'none'})`);
+      return;
+    }
+
+    console.log(`[POM] Detected interrupted sync (status=${meta.lastSyncStatus}, msg=${msg}) — auto-resuming in 30s...`);
     await new Promise(r => setTimeout(r, 30_000));
 
     if (getPomIsRunning()) {
@@ -79,7 +88,9 @@ async function checkAndRunPomSync() {
       } else throw connErr;
     }
     const settings = settingsRow;
-    if (!settings?.pomScheduleEnabled) return;
+    if (!settings?.pomScheduleEnabled) {
+      return;
+    }
 
     const tz = settings.timezone || 'America/Chicago';
     const now = new Date();
@@ -156,9 +167,13 @@ async function runScheduledPomSync(batchSize: number) {
     const result = await syncPriceOMagicCache(batchSize);
     console.log(`[POM] Scheduled sync complete! ${result.itemsUpdated} items updated, ${result.apiCallsUsed} API calls used`);
 
+    const isShutdown = result.stopped && (result.stopReason?.includes('shutdown') || result.stopReason?.includes('interrupted'));
+    const finalStatus = result.stopped
+      ? (isShutdown ? 'error' : 'partial')
+      : 'success';
     await db.insert(syncMetadata).values({
       id: 'priceomatic_cache',
-      lastSyncStatus: result.stopped && result.stopReason?.includes('limit') ? 'partial' : 'success',
+      lastSyncStatus: finalStatus,
       lastSyncTime: new Date(),
       recordsAdded: 0,
       recordsUpdated: result.itemsUpdated,
@@ -167,7 +182,7 @@ async function runScheduledPomSync(batchSize: number) {
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: {
-        lastSyncStatus: result.stopped && result.stopReason?.includes('limit') ? 'partial' : 'success',
+        lastSyncStatus: finalStatus,
         updatedAt: new Date(),
         recordsUpdated: result.itemsUpdated,
         errorMessage: result.stopReason || null,

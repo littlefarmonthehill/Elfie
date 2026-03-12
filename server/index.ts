@@ -51,10 +51,12 @@ process.on('unhandledRejection', (reason: any) => {
   console.error('[CRASH] Unhandled Rejection reason:', reason);
 });
 process.on('SIGTERM', () => {
-  console.log('[SIGNAL] Received SIGTERM — flushing stale sync records before exit...');
-  // Best-effort: clear any in_progress sync records so the next startup
-  // doesn't have to wait for the first status poll to self-correct.
+  console.log('[SIGNAL] Received SIGTERM — stopping active syncs and flushing records...');
   const cleanup = async () => {
+    try {
+      const { requestPomShutdown } = await import('./services/bricklink');
+      requestPomShutdown();
+    } catch (_) {}
     try {
       const { db: dbInst } = await import('./db');
       const { syncMetadata: syncMeta } = await import('@shared/schema');
@@ -69,10 +71,19 @@ process.on('SIGTERM', () => {
     } catch (e: any) {
       console.error('[SIGTERM] Could not clear stale sync records:', e.message);
     }
+    await new Promise(r => setTimeout(r, 500));
+    try {
+      const { db: dbInst } = await import('./db');
+      const { syncMetadata: syncMeta } = await import('@shared/schema');
+      const { sql: drizzleSql } = await import('drizzle-orm');
+      await dbInst.update(syncMeta)
+        .set({ lastSyncStatus: 'error', errorMessage: 'Sync interrupted by server shutdown.', updatedAt: new Date() })
+        .where(drizzleSql`${syncMeta.id} = 'priceomatic_cache' AND ${syncMeta.lastSyncStatus} != 'error'`);
+      console.log('[SIGTERM] Final POM status check complete');
+    } catch (_) {}
     _allowExit = true;
     _originalExit(0);
   };
-  // Give cleanup up to 5s; force-exit either way
   const timer = setTimeout(() => { _allowExit = true; _originalExit(0); }, 5000);
   cleanup().finally(() => clearTimeout(timer));
 });

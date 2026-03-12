@@ -1123,7 +1123,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           setPomIsRunning(true);
           await db.insert(syncMetadata).values({ id: 'priceomatic_cache', lastSyncStatus: 'in_progress', lastSyncTime: new Date(), recordsAdded: 0, recordsUpdated: 0, orgId: PLATFORM_ORG_ID }).onConflictDoUpdate({ target: syncMetadata.id, set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: null } });
           syncPriceOMagicCache(batchSize).then(async (result: any) => {
-            await db.insert(syncMetadata).values({ id: 'priceomatic_cache', lastSyncStatus: result.stopped ? 'partial' : 'success', lastSyncTime: new Date(), recordsAdded: 0, recordsUpdated: result.itemsUpdated, errorMessage: result.stopReason || null, orgId: PLATFORM_ORG_ID }).onConflictDoUpdate({ target: syncMetadata.id, set: { lastSyncStatus: result.stopped ? 'partial' : 'success', updatedAt: new Date(), recordsUpdated: result.itemsUpdated, errorMessage: result.stopReason || null } });
+            const isShutdown = result.stopped && (result.stopReason?.includes('shutdown') || result.stopReason?.includes('interrupted'));
+            const finalStatus = result.stopped ? (isShutdown ? 'error' : 'partial') : 'success';
+            await db.insert(syncMetadata).values({ id: 'priceomatic_cache', lastSyncStatus: finalStatus, lastSyncTime: new Date(), recordsAdded: 0, recordsUpdated: result.itemsUpdated, errorMessage: result.stopReason || null, orgId: PLATFORM_ORG_ID }).onConflictDoUpdate({ target: syncMetadata.id, set: { lastSyncStatus: finalStatus, updatedAt: new Date(), recordsUpdated: result.itemsUpdated, errorMessage: result.stopReason || null } });
             setPomIsRunning(false);
           }).catch(async (err: any) => {
             await db.insert(syncMetadata).values({ id: 'priceomatic_cache', lastSyncStatus: 'error', lastSyncTime: new Date(), recordsAdded: 0, recordsUpdated: 0, errorMessage: err.message, orgId: PLATFORM_ORG_ID }).onConflictDoUpdate({ target: syncMetadata.id, set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: err.message } });
