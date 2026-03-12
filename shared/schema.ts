@@ -551,6 +551,18 @@ export const appSettings = pgTable("app_settings", {
   pomScheduleEnabled: boolean("pom_schedule_enabled").default(false).notNull(), // Run POM on its own schedule (independent of inventory sync)
   pomSyncTime: text("pom_sync_time").default('14:00'),                          // Standalone POM schedule time (HH:MM)
   pomScheduleBatchSize: integer("pom_schedule_batch_size").default(1500).notNull(), // Items per scheduled auto-run
+  pomFreshnessDays: integer("pom_freshness_days").default(180).notNull(),       // Skip items with price data newer than N days
+  pomZeroStockSkip: boolean("pom_zero_stock_skip").default(true).notNull(),     // Skip items with 0 stock across platform
+  // Catalog Detail Completion
+  catalogDetailEnabled: boolean("catalog_detail_enabled").default(false).notNull(),
+  catalogDetailFrequencyHours: integer("catalog_detail_frequency_hours").default(1).notNull(),
+  catalogDetailBatchSize: integer("catalog_detail_batch_size").default(500).notNull(),
+  catalogDetailFreshnessDays: integer("catalog_detail_freshness_days").default(90).notNull(),
+  catalogDetailZeroStockSkip: boolean("catalog_detail_zero_stock_skip").default(true).notNull(),
+  // Inventory Catalog Scan
+  catalogScanEnabled: boolean("catalog_scan_enabled").default(false).notNull(),
+  catalogScanFrequencyHours: integer("catalog_scan_frequency_hours").default(2).notNull(),
+  catalogScanZeroStockSkip: boolean("catalog_scan_zero_stock_skip").default(true).notNull(),
   // Universal CLIP Catalog auto-refresh scheduler
   universalCatalogScheduleEnabled: boolean("universal_catalog_schedule_enabled").default(false).notNull(),
   universalCatalogRefreshMonths: integer("universal_catalog_refresh_months").default(1).notNull(), // How many months between imports

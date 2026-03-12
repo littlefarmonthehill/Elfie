@@ -246,6 +246,24 @@ export async function runMigrations() {
       `);
     }
     console.log('[Migration] Phase-10 (platform settings row) complete.');
+
+    // ── Phase-11: BrickLink Catalog enrichment settings columns ──────
+    const phase11Cols: Array<[string, string]> = [
+      ['pom_freshness_days', 'INTEGER NOT NULL DEFAULT 180'],
+      ['pom_zero_stock_skip', 'BOOLEAN NOT NULL DEFAULT TRUE'],
+      ['catalog_detail_enabled', 'BOOLEAN NOT NULL DEFAULT FALSE'],
+      ['catalog_detail_frequency_hours', 'INTEGER NOT NULL DEFAULT 1'],
+      ['catalog_detail_batch_size', 'INTEGER NOT NULL DEFAULT 500'],
+      ['catalog_detail_freshness_days', 'INTEGER NOT NULL DEFAULT 90'],
+      ['catalog_detail_zero_stock_skip', 'BOOLEAN NOT NULL DEFAULT TRUE'],
+      ['catalog_scan_enabled', 'BOOLEAN NOT NULL DEFAULT FALSE'],
+      ['catalog_scan_frequency_hours', 'INTEGER NOT NULL DEFAULT 2'],
+      ['catalog_scan_zero_stock_skip', 'BOOLEAN NOT NULL DEFAULT TRUE'],
+    ];
+    for (const [col, def] of phase11Cols) {
+      await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS ${col} ${def}`);
+    }
+    console.log('[Migration] Phase-11 (catalog enrichment settings) complete.');
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

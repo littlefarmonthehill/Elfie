@@ -699,6 +699,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [pomSyncTime, setPomSyncTime] = useState("14:00");
   const [timezone, setTimezone] = useState("America/Chicago");
   const [pomScheduleBatchSize, setPomScheduleBatchSize] = useState(1500);
+  const [pomFreshnessDays, setPomFreshnessDays] = useState(180);
+  const [pomZeroStockSkip, setPomZeroStockSkip] = useState(true);
+  const [catalogDetailEnabled, setCatalogDetailEnabled] = useState(false);
+  const [catalogDetailFrequencyHours, setCatalogDetailFrequencyHours] = useState(1);
+  const [catalogDetailBatchSize, setCatalogDetailBatchSize] = useState(500);
+  const [catalogDetailFreshnessDays, setCatalogDetailFreshnessDays] = useState(90);
+  const [catalogDetailZeroStockSkip, setCatalogDetailZeroStockSkip] = useState(true);
+  const [catalogScanEnabled, setCatalogScanEnabled] = useState(false);
+  const [catalogScanFrequencyHours, setCatalogScanFrequencyHours] = useState(2);
+  const [catalogScanZeroStockSkip, setCatalogScanZeroStockSkip] = useState(true);
   const [rebrickableImageSyncEnabled, setRebrickableImageSyncEnabled] = useState(true);
   const [channelSyncEnabled, setChannelSyncEnabled] = useState(false);
   const [channelSyncTime, setChannelSyncTime] = useState("03:00");
@@ -1461,6 +1471,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       setPomScheduleEnabled(platformSettings.pomScheduleEnabled || false);
       setPomSyncTime(platformSettings.pomSyncTime || '14:00');
       setPomScheduleBatchSize(platformSettings.pomScheduleBatchSize ?? 1500);
+      setPomFreshnessDays(platformSettings.pomFreshnessDays ?? 180);
+      setPomZeroStockSkip(platformSettings.pomZeroStockSkip !== false);
+      setCatalogDetailEnabled(platformSettings.catalogDetailEnabled || false);
+      setCatalogDetailFrequencyHours(platformSettings.catalogDetailFrequencyHours ?? 1);
+      setCatalogDetailBatchSize(platformSettings.catalogDetailBatchSize ?? 500);
+      setCatalogDetailFreshnessDays(platformSettings.catalogDetailFreshnessDays ?? 90);
+      setCatalogDetailZeroStockSkip(platformSettings.catalogDetailZeroStockSkip !== false);
+      setCatalogScanEnabled(platformSettings.catalogScanEnabled || false);
+      setCatalogScanFrequencyHours(platformSettings.catalogScanFrequencyHours ?? 2);
+      setCatalogScanZeroStockSkip(platformSettings.catalogScanZeroStockSkip !== false);
       setPomBasePremium(platformSettings.pomBasePremium ?? 10);
       setPomMinifigPremium(platformSettings.pomMinifigPremium ?? 5);
       setPomScarcityThreshold1(platformSettings.pomScarcityThreshold1 ?? 50);
@@ -7297,7 +7317,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                   <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Pulls supply (currently for sale) and sold (recent sales) price guide data from BrickLink for every item in the catalog. Uses 2 API calls per item. Freshness window: 7 days.</TooltipContent></Tooltip>
                                   <span className={`sm-hint font-medium ${statusInfo(pomJob?.lastSyncStatus || null, pomScheduleEnabled).color}`}>{statusInfo(pomJob?.lastSyncStatus || null, pomScheduleEnabled).label}</span>
                                 </div>
-                                <p className="sm-hint">{pomScheduleEnabled ? `Daily at ${pomSyncTime} · batch ${pomScheduleBatchSize}` : 'Schedule disabled'} · Last: {formatLastRun(pomJob?.lastSyncTime || null)}</p>
+                                <p className="sm-hint">{pomScheduleEnabled ? `Daily at ${pomSyncTime} · batch ${pomScheduleBatchSize} · fresh ${pomFreshnessDays}d` : 'Schedule disabled'} · Last: {formatLastRun(pomJob?.lastSyncTime || null)}</p>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
                                 <Button size="icon" variant="ghost" disabled={pomActive} onClick={(e) => { e.stopPropagation(); handleTrigger('priceomatic_cache'); }} title="Run now" data-testid="button-trigger-pom-sched">
@@ -7355,6 +7375,23 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                   </div>
                                   <Input type="number" min={100} max={25000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomBatchSize })} className="w-24 text-xs text-right" data-testid="input-pom-manual-batch-sched" />
                                 </div>
+                                <div className="sm-row">
+                                  <div>
+                                    <span className="sm-label">Freshness window</span>
+                                    <p className="sm-hint">Skip items with price data newer than this</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Input type="number" min={1} max={365} value={pomFreshnessDays} onChange={(e) => setPomFreshnessDays(parseInt(e.target.value) || 180)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomFreshnessDays })} className="w-20 text-xs text-right" data-testid="input-pom-freshness-sched" />
+                                    <span className="sm-hint">days</span>
+                                  </div>
+                                </div>
+                                <div className="sm-row">
+                                  <div>
+                                    <span className="sm-label">Zero-stock skip</span>
+                                    <p className="sm-hint">Skip items with no stock across any store</p>
+                                  </div>
+                                  <Switch checked={pomZeroStockSkip} onCheckedChange={(checked) => { setPomZeroStockSkip(checked); updatePlatformSettingsMutation.mutate({ pomZeroStockSkip: checked }); }} data-testid="switch-pom-zerostock-sched" />
+                                </div>
                                 {(pomJob?.recordsAdded > 0 || pomJob?.recordsUpdated > 0) && (
                                   <p className="sm-hint pt-1 border-t border-gray-700/40">+{pomJob.recordsAdded} added · {pomJob.recordsUpdated} updated</p>
                                 )}
@@ -7362,32 +7399,113 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             )}
                           </div>
 
-                          <div className="sm-card opacity-60">
-                            <div className="px-4 py-3 flex items-center gap-3">
-                              <Clock className="h-4 w-4 text-gray-600" />
+                          <div className="sm-card">
+                            <button onClick={() => toggleJob('cd')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-cd-sched">
+                              {statusInfo(cdJob?.lastSyncStatus || null, catalogDetailEnabled).icon}
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Catalog Detail Completion</p>
-                                  <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Fills in missing item details (name, image, weight, dimensions, year released) by calling the BrickLink Item Detail API. Only targets items with stock &gt; 0 across the platform. Uses 1 API call per item. Freshness window: 90 days.</TooltipContent></Tooltip>
-                                  <span className="sm-hint font-medium text-gray-600">Planned</span>
+                                  <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Fills in missing item details (name, image, weight, dimensions, year released) by calling the BrickLink Item Detail API. Only targets items with stock &gt; 0 across the platform. Uses 1 API call per item.</TooltipContent></Tooltip>
+                                  <span className={`sm-hint font-medium ${statusInfo(cdJob?.lastSyncStatus || null, catalogDetailEnabled).color}`}>{statusInfo(cdJob?.lastSyncStatus || null, catalogDetailEnabled).label}</span>
                                 </div>
-                                <p className="sm-hint">Every 1 hour · 1 API call/item · skip if updated within 90 days</p>
+                                <p className="sm-hint">{catalogDetailEnabled ? `Every ${catalogDetailFrequencyHours}h · batch ${catalogDetailBatchSize} · fresh ${catalogDetailFreshnessDays}d` : 'Schedule disabled'} · Last: {formatLastRun(cdJob?.lastSyncTime || null)}</p>
                               </div>
-                            </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Button size="icon" variant="ghost" disabled={cdActive || !catalogDetailEnabled} onClick={(e) => { e.stopPropagation(); handleTrigger('catalog_detail_completion'); }} title="Run now" data-testid="button-trigger-cd-sched">
+                                  {cdActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                                </Button>
+                                {isExpanded('cd') ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-600" />}
+                              </div>
+                            </button>
+                            {cdJob?.errorMessage && <p className="px-4 pb-2 text-xs text-red-400/80 truncate -mt-1">{cdJob.errorMessage}</p>}
+                            {isExpanded('cd') && (
+                              <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
+                                <div className="sm-row pt-3">
+                                  <span className="sm-label">Enabled</span>
+                                  <Switch checked={catalogDetailEnabled} onCheckedChange={(checked) => { setCatalogDetailEnabled(checked); updatePlatformSettingsMutation.mutate({ catalogDetailEnabled: checked }); }} data-testid="switch-cd-enabled-sched" />
+                                </div>
+                                <div className="sm-row">
+                                  <div>
+                                    <span className="sm-label">Frequency</span>
+                                    <p className="sm-hint">Hours between runs</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Input type="number" min={1} max={24} value={catalogDetailFrequencyHours} onChange={(e) => setCatalogDetailFrequencyHours(parseInt(e.target.value) || 1)} onBlur={() => updatePlatformSettingsMutation.mutate({ catalogDetailFrequencyHours })} className="w-20 text-xs text-right" data-testid="input-cd-frequency-sched" />
+                                    <span className="sm-hint">hrs</span>
+                                  </div>
+                                </div>
+                                <div className="sm-row">
+                                  <div>
+                                    <span className="sm-label">Batch size</span>
+                                    <p className="sm-hint">Items per run</p>
+                                  </div>
+                                  <Input type="number" min={50} max={5000} step={50} value={catalogDetailBatchSize} onChange={(e) => setCatalogDetailBatchSize(parseInt(e.target.value) || 50)} onBlur={() => updatePlatformSettingsMutation.mutate({ catalogDetailBatchSize })} className="w-24 text-xs text-right" data-testid="input-cd-batch-sched" />
+                                </div>
+                                <div className="sm-row">
+                                  <div>
+                                    <span className="sm-label">Freshness window</span>
+                                    <p className="sm-hint">Skip items updated within this many days</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Input type="number" min={1} max={365} value={catalogDetailFreshnessDays} onChange={(e) => setCatalogDetailFreshnessDays(parseInt(e.target.value) || 90)} onBlur={() => updatePlatformSettingsMutation.mutate({ catalogDetailFreshnessDays })} className="w-20 text-xs text-right" data-testid="input-cd-freshness-sched" />
+                                    <span className="sm-hint">days</span>
+                                  </div>
+                                </div>
+                                <div className="sm-row">
+                                  <div>
+                                    <span className="sm-label">Zero-stock skip</span>
+                                    <p className="sm-hint">Skip items with no stock across any store</p>
+                                  </div>
+                                  <Switch checked={catalogDetailZeroStockSkip} onCheckedChange={(checked) => { setCatalogDetailZeroStockSkip(checked); updatePlatformSettingsMutation.mutate({ catalogDetailZeroStockSkip: checked }); }} data-testid="switch-cd-zerostock-sched" />
+                                </div>
+                              </div>
+                            )}
                           </div>
 
-                          <div className="sm-card opacity-60">
-                            <div className="px-4 py-3 flex items-center gap-3">
-                              <Clock className="h-4 w-4 text-gray-600" />
+                          <div className="sm-card">
+                            <button onClick={() => toggleJob('cs')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-cs-sched">
+                              {statusInfo(csJob?.lastSyncStatus || null, catalogScanEnabled).icon}
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Inventory Catalog Scan</p>
-                                  <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Scans all inventory rows across stores to find items with missing or stale catalog data and new part+color combinations. Feeds items into the enrichment queue for both Market Price Guides and Catalog Detail Completion. Only targets items with stock &gt; 0. No API calls — database scan only.</TooltipContent></Tooltip>
-                                  <span className="sm-hint font-medium text-gray-600">Planned</span>
+                                  <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0 cursor-help" /></TooltipTrigger><TooltipContent side="top" className="max-w-xs text-xs">Scans all inventory rows across stores to find items with missing or stale catalog data and new part+color combinations. Feeds items into the enrichment queue for both Market Price Guides and Catalog Detail Completion. No API calls — database scan only.</TooltipContent></Tooltip>
+                                  <span className={`sm-hint font-medium ${statusInfo(csJob?.lastSyncStatus || null, catalogScanEnabled).color}`}>{statusInfo(csJob?.lastSyncStatus || null, catalogScanEnabled).label}</span>
                                 </div>
-                                <p className="sm-hint">Every 2 hours · zero-stock skip · feeds enrichment queue</p>
+                                <p className="sm-hint">{catalogScanEnabled ? `Every ${catalogScanFrequencyHours}h · ${catalogScanZeroStockSkip ? 'zero-stock skip' : 'all items'}` : 'Schedule disabled'} · Last: {formatLastRun(csJob?.lastSyncTime || null)}</p>
                               </div>
-                            </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Button size="icon" variant="ghost" disabled={csActive || !catalogScanEnabled} onClick={(e) => { e.stopPropagation(); handleTrigger('catalog_scan'); }} title="Run now" data-testid="button-trigger-cs-sched">
+                                  {csActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                                </Button>
+                                {isExpanded('cs') ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-600" />}
+                              </div>
+                            </button>
+                            {csJob?.errorMessage && <p className="px-4 pb-2 text-xs text-red-400/80 truncate -mt-1">{csJob.errorMessage}</p>}
+                            {isExpanded('cs') && (
+                              <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
+                                <div className="sm-row pt-3">
+                                  <span className="sm-label">Enabled</span>
+                                  <Switch checked={catalogScanEnabled} onCheckedChange={(checked) => { setCatalogScanEnabled(checked); updatePlatformSettingsMutation.mutate({ catalogScanEnabled: checked }); }} data-testid="switch-cs-enabled-sched" />
+                                </div>
+                                <div className="sm-row">
+                                  <div>
+                                    <span className="sm-label">Frequency</span>
+                                    <p className="sm-hint">Hours between scans</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Input type="number" min={1} max={24} value={catalogScanFrequencyHours} onChange={(e) => setCatalogScanFrequencyHours(parseInt(e.target.value) || 2)} onBlur={() => updatePlatformSettingsMutation.mutate({ catalogScanFrequencyHours })} className="w-20 text-xs text-right" data-testid="input-cs-frequency-sched" />
+                                    <span className="sm-hint">hrs</span>
+                                  </div>
+                                </div>
+                                <div className="sm-row">
+                                  <div>
+                                    <span className="sm-label">Zero-stock skip</span>
+                                    <p className="sm-hint">Only scan items with stock &gt; 0</p>
+                                  </div>
+                                  <Switch checked={catalogScanZeroStockSkip} onCheckedChange={(checked) => { setCatalogScanZeroStockSkip(checked); updatePlatformSettingsMutation.mutate({ catalogScanZeroStockSkip: checked }); }} data-testid="switch-cs-zerostock-sched" />
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
