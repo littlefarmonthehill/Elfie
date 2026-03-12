@@ -27,6 +27,7 @@ interface SalesDashboardProps {
   period: TimePeriod;
   dateRange?: DateRangeValue;
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
+  dateRangeSlot?: React.ReactNode;
 }
 
 interface Order {
@@ -39,7 +40,7 @@ interface Order {
   customerUsername: string;
 }
 
-export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick }: SalesDashboardProps) {
+export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick, dateRangeSlot }: SalesDashboardProps) {
   const [platformDrawer, setPlatformDrawer] = useState<{ open: boolean; platform: string; productLine?: string }>({
     open: false,
     platform: '',
@@ -808,6 +809,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick 
             <TrendingUp className={cn("w-3 h-3 text-green-200", "md:w-4 md:h-4")} />
           </div>
           <h3 className={cn("text-xs font-semibold text-green-200 uppercase tracking-wide", "md:text-base lg:text-lg")}>Sales</h3>
+            {dateRangeSlot && <div className="ml-auto">{dateRangeSlot}</div>}
         </div>
         <div className={cn("grid grid-cols-3 gap-1.5", "mb-2")} data-testid="section-sales-metrics">
           <MetricCard label="Orders" value={filteredOrders.length} color="green" data-testid="metric-sales-orders" />

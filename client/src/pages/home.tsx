@@ -347,16 +347,22 @@ export default function Home() {
     }
   };
 
+  const dateRangeNode = (
+    <div style={{ transform: 'scale(0.8)', transformOrigin: 'right center' }}>
+      <DateRangeSelector value={dateRange} onChange={setDateRange} compact />
+    </div>
+  );
+
   const renderDynamicDashboard = () => {
     switch (activeDashboard) {
       case 'inventory':
         return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }} />;
       case 'orders':
-        return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }} />;
+        return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }} dateRangeSlot={dateRangeNode} />;
       case 'sales':
-        return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} />;
+        return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} dateRangeSlot={dateRangeNode} />;
       case 'marketing':
-        return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} />;
+        return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} dateRangeSlot={dateRangeNode} />;
       default:
         return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }} />;
     }
@@ -1014,13 +1020,6 @@ export default function Home() {
 
             {/* Center column — dynamic dashboard with drawer overlay */}
             <div className="flex-1 h-full relative min-w-0 flex flex-col">
-              {/* Date picker — compact, sits above dynamic board on desktop */}
-              {(activeDashboard === 'sales' || activeDashboard === 'marketing' || activeDashboard === 'orders') && (
-                <div className="flex-shrink-0 flex justify-center py-1.5 border-b border-white/5 overflow-x-auto" style={{ transform: 'scale(0.85)', transformOrigin: 'center center' }}>
-                  <DateRangeSelector value={dateRange} onChange={setDateRange} />
-                </div>
-              )}
-
               <div className="flex-1 overflow-y-auto min-h-0">
                 <div className={`h-full overflow-hidden ${
                   activeDashboard === 'inventory' ? 'bg-gradient-to-br from-lego-blue/10 via-transparent to-lego-blue/5' :
