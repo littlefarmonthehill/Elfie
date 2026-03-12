@@ -1020,14 +1020,16 @@ export default function Home() {
 
             {/* Center column — dynamic dashboard with drawer overlay */}
             <div className="flex-1 h-full relative min-w-0 flex flex-col">
-              <div className="flex-1 overflow-y-auto min-h-0">
-                <div className={`h-full overflow-hidden ${
+              <div className="flex-1 overflow-hidden min-h-0">
+                <div className={`h-full overflow-y-auto ${
                   activeDashboard === 'inventory' ? 'bg-gradient-to-br from-lego-blue/10 via-transparent to-lego-blue/5' :
                   activeDashboard === 'orders' ? 'bg-gradient-to-br from-lego-orange/10 via-transparent to-lego-orange/5' :
                   activeDashboard === 'sales' ? 'bg-gradient-to-br from-lego-green/10 via-transparent to-lego-green/5' :
                   'bg-gradient-to-br from-lego-yellow/10 via-transparent to-lego-yellow/5'
-                }`} style={{ transformOrigin: 'top center', transform: 'scale(0.88)', height: '113.6%' }}>
-                  {renderDynamicDashboard()}
+                }`}>
+                  <div style={{ transformOrigin: 'top left', transform: 'scale(0.88)', width: '113.6%' }}>
+                    {renderDynamicDashboard()}
+                  </div>
                 </div>
               </div>
 
