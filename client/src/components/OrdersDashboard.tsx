@@ -96,13 +96,13 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
       <div className="space-y-1.5">
 
         {/* ── Orders Info ── */}
-        <div className={cn("relative bg-gradient-to-b from-orange-950/25 to-gray-900/85 border border-orange-500/40 rounded-lg shadow-[0_0_22px_rgba(249,115,22,0.12)] overflow-hidden", "p-3")} data-testid="section-orders-overview">
+        <div className={cn("relative bg-gradient-to-b from-orange-950/25 to-gray-900/85 border border-orange-500/40 rounded-lg shadow-[0_0_22px_rgba(249,115,22,0.12)] overflow-hidden", "p-2.5")} data-testid="section-orders-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-400/50 to-transparent" />
-          <div className={cn("flex items-center gap-2", "mb-2.5")}>
+          <div className={cn("flex items-center gap-2", "mb-2")}>
             <div className="p-1.5 rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)]">
               <ShoppingCart className={cn("w-3 h-3 text-orange-200", "md:w-4 md:h-4")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-orange-200 uppercase tracking-wide", "md:text-base lg:text-lg")}>Orders</h3>
+            <h3 className={cn("text-xs font-semibold text-orange-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Orders</h3>
             {dateRangeSlot && <div className="ml-auto">{dateRangeSlot}</div>}
           </div>
           <div className={cn("grid grid-cols-3 gap-1.5", "mb-1.5")} data-testid="section-orders-counts">
@@ -119,13 +119,13 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
         </div>
 
         {/* ── Tools ── */}
-        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", "p-3")} data-testid="section-order-tools">
+        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", "p-2.5")} data-testid="section-order-tools">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
-          <div className={cn("flex items-center gap-2", "mb-3")}>
+          <div className={cn("flex items-center gap-2", "mb-2")}>
             <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
               <Sparkles className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-base lg:text-lg")}>Tools</h3>
+            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Tools</h3>
           </div>
           <div className={cn("grid grid-cols-2", "gap-2")}>
 

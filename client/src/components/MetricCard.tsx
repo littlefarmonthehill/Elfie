@@ -26,15 +26,15 @@ export default function MetricCard({ label, value, color = 'blue', className }: 
   return (
     <Card
       className={cn(
-        "bg-gray-900/50 border p-1.5 md:p-4 lg:p-6",
+        "bg-gray-900/50 border p-1.5 md:p-2.5 lg:p-3",
         colorClass,
         className
       )}
       data-testid={`metric-${label.toLowerCase().replace(/\s/g, '-')}`}
     >
-      <div className="text-gray-400 mb-0.5 leading-tight text-[9px] md:text-sm lg:text-lg md:mb-2 lg:mb-3">{label}</div>
+      <div className="text-gray-400 mb-0.5 leading-tight text-[9px] md:text-xs lg:text-sm">{label}</div>
       <div className={cn(
-        "font-semibold font-mono text-xs md:text-lg lg:text-2xl",
+        "font-semibold font-mono text-xs md:text-base lg:text-lg",
         textColorClass
       )}>{value}</div>
     </Card>

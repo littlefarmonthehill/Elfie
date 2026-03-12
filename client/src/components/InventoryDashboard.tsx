@@ -144,17 +144,17 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   }
 
   return (
-        <div className={cn("bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)] p-2 xl:p-4 space-y-1.5 xl:space-y-3")}>
-      <div className={cn("space-y-1.5 xl:space-y-3")}>
+        <div className={cn("bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)] p-2 space-y-1.5")}>
+      <div className={cn("space-y-1.5")}>
 
         {/* Combined Inventory Info + Values */}
-        <div className={cn("relative bg-gradient-to-b from-blue-950/25 to-gray-900/85 border border-blue-500/40 rounded-lg shadow-[0_0_22px_rgba(59,130,246,0.12)] overflow-hidden", "p-3 xl:p-5")} data-testid="section-inventory-overview">
+        <div className={cn("relative bg-gradient-to-b from-blue-950/25 to-gray-900/85 border border-blue-500/40 rounded-lg shadow-[0_0_22px_rgba(59,130,246,0.12)] overflow-hidden", "p-2.5 xl:p-3")} data-testid="section-inventory-overview">
           <div className={cn("absolute top-0 left-0 right-0 bg-gradient-to-r from-transparent via-blue-400/50 to-transparent", "h-px")} />
-          <div className={cn("flex items-center gap-2", "mb-2.5 xl:mb-4")}>
-            <div className="p-1.5 xl:p-2 rounded-md bg-blue-900/60 ring-1 ring-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.25)]">
-              <Package className={cn("w-3 h-3 text-blue-200", "md:w-4 md:h-4 xl:w-5 xl:h-5")} />
+          <div className={cn("flex items-center gap-2", "mb-2 xl:mb-2.5")}>
+            <div className="p-1.5 rounded-md bg-blue-900/60 ring-1 ring-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.25)]">
+              <Package className={cn("w-3 h-3 text-blue-200", "md:w-4 md:h-4")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-blue-200 uppercase tracking-wide", "md:text-base lg:text-lg xl:text-xl")}>Product</h3>
+            <h3 className={cn("text-xs font-semibold text-blue-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Product</h3>
             <div className="flex items-center gap-1.5 ml-auto">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -182,11 +182,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 key={key}
                 onClick={() => openBrowse(key)}
                 data-testid={`metric-${key}`}
-                className={cn("relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-md border border-lego-blue/20 bg-gray-900/50 p-1.5", "md:p-4 lg:p-6 xl:p-8")}
+                className={cn("relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-md border border-lego-blue/20 bg-gray-900/50 p-1.5", "md:p-2.5 lg:p-3")}
               >
-                <span className={cn("text-[9px] text-gray-400 mb-0.5 leading-tight", "md:text-sm lg:text-lg xl:text-xl md:mb-2 lg:mb-3 xl:mb-4")}>{label}</span>
-                <span className={cn("text-xs font-semibold font-mono text-lego-blue", "md:text-lg lg:text-2xl xl:text-3xl")}>{value}</span>
-                <span className={cn("absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-lego-blue/20 group-hover:bg-lego-blue/50 transition-colors", "md:w-5 md:h-5 xl:w-6 xl:h-6")}>
+                <span className={cn("text-[9px] text-gray-400 mb-0.5 leading-tight", "md:text-xs lg:text-sm")}>{label}</span>
+                <span className={cn("text-xs font-semibold font-mono text-lego-blue", "md:text-base lg:text-lg")}>{value}</span>
+                <span className={cn("absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-lego-blue/20 group-hover:bg-lego-blue/50 transition-colors", "md:w-5 md:h-5")}>
                   <ChevronRight className={cn("w-2.5 h-2.5 text-white", "md:w-3 md:h-3 xl:w-4 xl:h-4")} />
                 </span>
               </button>
@@ -200,13 +200,13 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </div>
 
         {/* Tools — Primary Workflows */}
-        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", "p-3 xl:p-5")} data-testid="section-tools">
+        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", "p-2.5 xl:p-3")} data-testid="section-tools">
           <div className={cn("absolute top-0 left-0 right-0 bg-gradient-to-r from-transparent via-gray-400/40 to-transparent", "h-px")} />
-          <div className={cn("flex items-center gap-2", "mb-3 xl:mb-4")}>
-            <div className="p-1.5 xl:p-2 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
-              <Sparkles className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4 xl:w-5 xl:h-5")} />
+          <div className={cn("flex items-center gap-2", "mb-2 xl:mb-2.5")}>
+            <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
+              <Sparkles className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-base lg:text-lg xl:text-xl")}>Tools</h3>
+            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Tools</h3>
           </div>
           <div className={cn("grid grid-cols-2", "gap-2 xl:gap-3")}>
 
