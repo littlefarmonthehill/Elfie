@@ -49,9 +49,20 @@ const BL_API_CALLS_PER_DAY_DEFAULT = 5000;
 const BL_API_CALLS_WARN_AT = 4000;
 
 // Resolve the effective call ceiling for an org.
+// Platform org → uses blApiCallLimit from appSettings (admin-configured in Platform Services).
 // Flagship plan = unlimited (-1). Otherwise uses blApiCallLimitOverride or platform default.
 async function getOrgCallCeiling(orgId: string): Promise<number> {
   try {
+    // Platform org: use the admin-configured ceiling from Platform Services settings
+    if (orgId === PLATFORM_ORG_ID) {
+      const [platformSettings] = await db
+        .select({ blApiCallLimit: appSettings.blApiCallLimit })
+        .from(appSettings)
+        .where(eq(appSettings.id, PLATFORM_ORG_ID))
+        .limit(1);
+      if (platformSettings?.blApiCallLimit != null) return platformSettings.blApiCallLimit;
+    }
+
     const [org] = await db
       .select({ plan: organizations.plan, blApiCallLimitOverride: organizations.blApiCallLimitOverride })
       .from(organizations)
