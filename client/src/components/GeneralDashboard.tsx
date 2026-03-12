@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Package, ShoppingCart, TrendingUp, Users,
   RefreshCw, CheckCircle, XCircle, AlertCircle, Loader2,
   ScanSearch, ArrowRight, Settings, AlertTriangle, Zap,
   TrendingDown, Clock, Activity, CreditCard, ChevronRight,
+  ChevronDown, ChevronUp,
   Sparkles, Globe, Boxes, Megaphone,
 } from "lucide-react";
 import DashboardNotifications from "./DashboardNotifications";
@@ -143,60 +145,97 @@ function AlertRow({ icon: Icon, iconColor, label, sub, onClick, severity = 'warn
   );
 }
 
-function OpAreaRow({ label, Icon, color, lastSync, syncOk, alerts, onClick, stat, children }: {
-  label: string; Icon: React.ElementType; color: string; lastSync: string | null; syncOk: boolean;
+function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, lastActions, onClick }: {
+  label: string; Icon: React.ElementType; color: string; stat?: string;
   alerts: Array<{ id: string; icon: React.ElementType; iconColor: string; label: string; sub?: string; severity: 'warn' | 'error' | 'info'; onClick?: () => void }>;
-  onClick?: () => void; stat?: string; children?: React.ReactNode;
+  runningJobs?: React.ReactNode; isRunning?: boolean; lastActions?: Array<{ label: string; time: string; ok: boolean }>;
+  onClick?: () => void;
 }) {
-  const colorMap: Record<string, { icon: string; dot: string }> = {
-    blue:   { icon: 'text-blue-400', dot: 'bg-blue-400' },
-    orange: { icon: 'text-orange-400', dot: 'bg-orange-400' },
-    green:  { icon: 'text-green-400', dot: 'bg-green-400' },
-    purple: { icon: 'text-purple-400', dot: 'bg-purple-400' },
-    red:    { icon: 'text-red-400', dot: 'bg-red-400' },
+  const [lastActionsOpen, setLastActionsOpen] = useState(false);
+  const colorMap: Record<string, { border: string; icon: string; headerBg: string }> = {
+    blue:   { border: 'border-blue-500/30', icon: 'text-blue-400', headerBg: 'from-blue-950/40 to-gray-900/80' },
+    orange: { border: 'border-orange-500/30', icon: 'text-orange-400', headerBg: 'from-orange-950/40 to-gray-900/80' },
+    green:  { border: 'border-green-500/30', icon: 'text-green-400', headerBg: 'from-green-950/40 to-gray-900/80' },
+    purple: { border: 'border-purple-500/30', icon: 'text-purple-400', headerBg: 'from-purple-950/40 to-gray-900/80' },
   };
   const c = colorMap[color] ?? colorMap.blue;
-  const childArr = Array.isArray(children) ? children : [children];
-  const hasChildren = childArr.some(c => c !== null && c !== undefined && c !== false);
-  const hasContent = alerts.length > 0 || hasChildren;
+
+  const hasRunning = !!isRunning;
+  const hasAlerts = alerts.length > 0;
+  const validActions = (lastActions ?? []).filter(a => a.time !== 'never');
 
   return (
-    <div data-testid={`ops-area-${label.toLowerCase()}`}>
+    <div className={cn("rounded-lg border overflow-hidden", c.border)} data-testid={`ops-area-${label.toLowerCase()}`}>
       <button
         onClick={onClick}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left hover-elevate active-elevate-2 transition-all group"
+        className={cn("w-full flex items-center justify-between gap-3 px-4 py-3 text-left bg-gradient-to-r hover-elevate active-elevate-2 transition-all group", c.headerBg)}
       >
-        <Icon className={cn("w-4 h-4 shrink-0", c.icon)} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold text-foreground">{label}</span>
-            {alerts.length > 0 && (
-              <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md bg-yellow-500/15 text-yellow-400 font-medium">
-                <AlertTriangle className="w-2.5 h-2.5" />
-                {alerts.length}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-            {stat && <span className="text-[10px] text-muted-foreground">{stat}</span>}
-            {lastSync && (
-              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", syncOk ? 'bg-green-500' : 'bg-red-500')} />
-                {lastSync}
-              </span>
-            )}
-          </div>
+        <div className="flex items-center gap-2.5">
+          <Icon className={cn("w-4 h-4 shrink-0", c.icon)} />
+          <span className="text-sm font-bold text-foreground uppercase tracking-wide">{label}</span>
         </div>
-        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 group-hover:translate-x-0.5 transition-transform" />
+        {stat && <span className="text-xs text-muted-foreground font-medium">{stat}</span>}
       </button>
-      {hasContent && (
-        <div className="px-4 pb-3 space-y-2 ml-7">
-          {alerts.map((a) => (
-            <AlertRow key={a.id} icon={a.icon} iconColor={a.iconColor} label={a.label} sub={a.sub} severity={a.severity} onClick={a.onClick} />
-          ))}
-          {children}
-        </div>
-      )}
+
+      <div className="bg-gray-950/60">
+        {hasAlerts && (
+          <div className="px-3 pt-3 space-y-2">
+            <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Attention</h4>
+            {alerts.map((a) => (
+              <AlertRow key={a.id} icon={a.icon} iconColor={a.iconColor} label={a.label} sub={a.sub} severity={a.severity} onClick={a.onClick} />
+            ))}
+          </div>
+        )}
+
+        {!hasAlerts && !hasRunning && (
+          <div className="px-3 py-2.5 flex items-center gap-1.5">
+            <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
+            <span className="text-xs text-muted-foreground">All {label.toLowerCase()} handled</span>
+          </div>
+        )}
+
+        {hasRunning && (
+          <div className="px-3 pt-3 space-y-2">
+            <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Running</h4>
+            {runningJobs}
+          </div>
+        )}
+
+        {validActions.length > 0 && (
+          <div className="px-3 pb-1 pt-2">
+            <button
+              onClick={(e) => { e.stopPropagation(); setLastActionsOpen(!lastActionsOpen); }}
+              className="w-full flex items-center justify-between gap-2 py-1.5 group"
+              data-testid={`button-last-actions-${label.toLowerCase()}`}
+            >
+              <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-blue-400">
+                <Clock className="w-3 h-3" />
+                Last Actions
+              </span>
+              {lastActionsOpen
+                ? <ChevronDown className="w-3.5 h-3.5 text-blue-400" />
+                : <ChevronUp className="w-3.5 h-3.5 text-blue-400" />
+              }
+            </button>
+            {lastActionsOpen && (
+              <div className="space-y-1 pb-2 pt-1">
+                {validActions.map((a, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {a.ok
+                        ? <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />
+                        : <XCircle className="w-3 h-3 text-red-400 shrink-0" />
+                      }
+                      <span className="text-muted-foreground truncate">{a.label}</span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground shrink-0">{a.time}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -508,18 +547,21 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
       </SystemPulse>
 
       {/* Operational areas */}
-      <div className="rounded-lg border border-border/40 bg-gradient-to-br from-gray-900/60 to-gray-950/80 overflow-hidden divide-y divide-border/20" data-testid="section-ops-central">
-          {/* Inventory */}
-          <OpAreaRow
-            label="Inventory"
-            Icon={Package}
-            color="blue"
-            lastSync={relTime(lastInvSync?.lastSyncTime)}
-            syncOk={!invSyncFailed}
-            alerts={urgentAlerts.filter(a => a.id === 'inv-fail' || a.id === 'scan')}
-            onClick={() => onNavigate?.('inventory')}
-            stat={`${totalLots.toLocaleString()} lots`}
-          >
+      <div className="space-y-4" data-testid="section-ops-central">
+        <OpAreaCard
+          label="Inventory"
+          Icon={Package}
+          color="blue"
+          stat={`${totalLots.toLocaleString()} lots · ${totalPcs.toLocaleString()} pcs`}
+          alerts={urgentAlerts.filter(a => ['inv-fail', 'scan', 'underpriced'].includes(a.id) || a.id.startsWith('ch-'))}
+          onClick={() => onNavigate?.('inventory')}
+          isRunning={isInvSyncing || isPomRunning || isScanProcessing || isChannelSyncing || !!activeInvEmbed}
+          lastActions={[
+            { label: 'Inventory sync', time: relTime(lastInvSync?.lastSyncTime), ok: !invSyncFailed },
+            { label: 'Price-o-Matic', time: relTime(lastPom?.lastSyncTime), ok: !pomFailed },
+            { label: 'Channel sync', time: relTime(lastChannelSync?.lastSyncTime), ok: !channelSyncFailed },
+          ]}
+          runningJobs={<>
             {isInvSyncing && (
               <JobBar label="Inventory Sync" pct={invSyncProgress?.progress ?? 0} sublabel={invSyncProgress?.currentStep} color="cyan" />
             )}
@@ -532,6 +574,12 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
                 <span className="text-xs text-purple-300 font-medium">BrickSpotter scanning...</span>
               </div>
             )}
+            {isChannelSyncing && (
+              <div className="flex items-center gap-1.5">
+                <RefreshCw className="w-3 h-3 text-teal-400 animate-spin shrink-0" />
+                <span className="text-xs text-teal-300 font-medium">Channel sync running...</span>
+              </div>
+            )}
             {activeInvEmbed && embedStats ? (
               <JobBar label="Inventory embedding" pct={invEmbedPct} sublabel={`${embedStats.inventory.embedded.toLocaleString()} / ${embedStats.inventory.total.toLocaleString()} items`} color="purple" />
             ) : activeInvEmbed ? (
@@ -540,19 +588,21 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
                 <span className="text-xs text-blue-400">Embedding inventory...</span>
               </div>
             ) : null}
-          </OpAreaRow>
+          </>}
+        />
 
-          {/* Orders */}
-          <OpAreaRow
-            label="Orders"
-            Icon={ShoppingCart}
-            color="orange"
-            lastSync={relTime(lastOrderSync?.lastSyncTime)}
-            syncOk={!orderSyncFailed}
-            alerts={urgentAlerts.filter(a => a.id === 'pending' || a.id === 'order-fail')}
-            onClick={() => onNavigate?.('orders')}
-            stat={pendingOrders > 0 ? `${pendingOrders} to fulfill` : `${(stats?.totalOrders ?? 0).toLocaleString()} total`}
-          >
+        <OpAreaCard
+          label="Orders"
+          Icon={ShoppingCart}
+          color="orange"
+          stat={pendingOrders > 0 ? `${pendingOrders} to fulfill` : `${(stats?.totalOrders ?? 0).toLocaleString()} total`}
+          alerts={urgentAlerts.filter(a => a.id === 'pending' || a.id === 'order-fail')}
+          onClick={() => onNavigate?.('orders')}
+          isRunning={isOrderSyncing || !!activeOrdEmbed}
+          lastActions={[
+            { label: 'Order sync', time: relTime(lastOrderSync?.lastSyncTime), ok: !orderSyncFailed },
+          ]}
+          runningJobs={<>
             {isOrderSyncing && (
               <div className="flex items-center gap-1.5">
                 <RefreshCw className="w-3 h-3 text-orange-400 animate-spin shrink-0" />
@@ -567,38 +617,26 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
                 <span className="text-xs text-blue-400">Embedding orders...</span>
               </div>
             ) : null}
-          </OpAreaRow>
+          </>}
+        />
 
-          {/* Sales */}
-          <OpAreaRow
-            label="Sales"
-            Icon={TrendingUp}
-            color="green"
-            lastSync={null}
-            syncOk={true}
-            alerts={urgentAlerts.filter(a => a.id === 'underpriced' || a.id === 'pom-fail')}
-            onClick={() => onNavigate?.('sales')}
-            stat={formatCurrency(totalRevenue)}
-          />
+        <OpAreaCard
+          label="Sales"
+          Icon={TrendingUp}
+          color="green"
+          stat={formatCurrency(totalRevenue)}
+          alerts={urgentAlerts.filter(a => a.id === 'pom-fail')}
+          onClick={() => onNavigate?.('sales')}
+        />
 
-          {/* Channels & Marketing */}
-          <OpAreaRow
-            label="Channels"
-            Icon={Globe}
-            color="purple"
-            lastSync={relTime(lastChannelSync?.lastSyncTime)}
-            syncOk={!channelSyncFailed}
-            alerts={urgentAlerts.filter(a => a.id.startsWith('ch-') || a.id === 'channel-fail')}
-            onClick={() => onNavigate?.('marketing')}
-            stat={targets.length > 0 ? `${targets.length} connected` : 'Not configured'}
-          >
-            {isChannelSyncing && (
-              <div className="flex items-center gap-1.5">
-                <RefreshCw className="w-3 h-3 text-teal-400 animate-spin shrink-0" />
-                <span className="text-xs text-teal-300 font-medium">Channel sync running...</span>
-              </div>
-            )}
-          </OpAreaRow>
+        <OpAreaCard
+          label="Marketing"
+          Icon={Megaphone}
+          color="purple"
+          stat={targets.length > 0 ? `${targets.length} channel${targets.length !== 1 ? 's' : ''} connected` : 'No channels'}
+          alerts={urgentAlerts.filter(a => a.id.startsWith('ch-') || a.id === 'channel-fail')}
+          onClick={() => onNavigate?.('marketing')}
+        />
       </div>
 
     </div>
