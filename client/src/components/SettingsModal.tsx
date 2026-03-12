@@ -32,7 +32,7 @@ interface SettingsModalProps {
   initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'priceomatic';
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'systemHealth' | 'customerHealth' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'adminTeam' | 'priceomatic' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'systemHealth' | 'customerHealth' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'priceomatic' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -755,7 +755,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [activeOrg, setActiveOrg] = useState<OrgWithUsage | null>(null);
   const [activeOrgTab, setActiveOrgTab] = useState<'features' | 'limits' | 'billing'>('features');
   const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'features' | 'limits' | 'billing'>('info');
-  const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'jobs' | 'platform' | 'stripe' | 'openai' | 'bricklink'>('platform');
+  const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'stripe' | 'openai' | 'bricklink'>('bricklink');
+  const [activePlatformGeneralTab, setActivePlatformGeneralTab] = useState<'info' | 'jobs'>('info');
   const [activeHealthTab, setActiveHealthTab] = useState<'overview' | 'logs' | 'database' | 'bricklink'>('overview');
   const [activeCustomerHealthTab, setActiveCustomerHealthTab] = useState<'overview' | 'bricklink'>('overview');
   const [blBreakdownSort, setBlBreakdownSort] = useState<{ col: string; dir: 'asc' | 'desc' }>({ col: 'total', dir: 'desc' });
@@ -1058,7 +1059,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   type PlatformInfoData = { platformName: string };
   const { data: platformInfoData } = useQuery<PlatformInfoData>({
     queryKey: ['/api/platform-admin/platform-services/platform-info'],
-    enabled: open && activeSection === 'apiKeys' && superAdmin,
+    enabled: open && (activeSection === 'apiKeys' || activeSection === 'platformGeneral') && superAdmin,
     staleTime: 60000,
     retry: 0,
   });
@@ -1092,8 +1093,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
   const { data: systemHealth, isLoading: systemHealthLoading, isError: systemHealthError, refetch: refetchSystemHealth } = useQuery<SystemHealthData>({
     queryKey: ['/api/platform-admin/system-health'],
-    enabled: open && (activeSection === 'systemHealth' || activeSection === 'customerHealth' || (activeSection === 'apiKeys' && activePlatformServicesTab === 'jobs')),
-    refetchInterval: (activeSection === 'systemHealth' || activeSection === 'customerHealth' || (activeSection === 'apiKeys' && activePlatformServicesTab === 'jobs')) ? 15000 : false,
+    enabled: open && (activeSection === 'systemHealth' || activeSection === 'customerHealth' || (activeSection === 'platformGeneral' && activePlatformGeneralTab === 'jobs')),
+    refetchInterval: (activeSection === 'systemHealth' || activeSection === 'customerHealth' || (activeSection === 'platformGeneral' && activePlatformGeneralTab === 'jobs')) ? 15000 : false,
     retry: 0,
     staleTime: 0,
   });
@@ -1172,7 +1173,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   // Admin Team
   const { data: adminTeam, isLoading: adminTeamLoading, refetch: refetchAdminTeam } = useQuery<User[]>({
     queryKey: ['/api/platform-admin/admin-team'],
-    enabled: open && activeSection === 'adminTeam' && superAdmin,
+    enabled: open && activeSection === 'platformGeneral' && superAdmin,
     retry: 0,
   });
 
@@ -1872,13 +1873,13 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     {
       label: 'Platform',
       items: [
+        { id: 'platformGeneral' as const, label: 'General', icon: Settings },
         { id: 'apiKeys' as const, label: 'Platform Services', icon: Key },
         { id: 'systemHealth' as const, label: 'Platform Health', icon: Activity },
         { id: 'customerHealth' as const, label: 'Customer Health', icon: Users },
         { id: 'auditLog' as const, label: 'Audit Log', icon: ClipboardList },
         { id: 'enrichment' as const, label: 'Data Enrichment', icon: Database },
         { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
-        { id: 'adminTeam' as const, label: 'Admin Team', icon: Shield },
       ],
     },
   ];
@@ -6997,154 +6998,205 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
               );
             })()}
 
-            {/* Admin Team */}
-            {activeSection === 'adminTeam' && (
-              <div className="p-4 space-y-4">
-                <div className="flex items-center gap-2 px-1">
-                  <Shield className="h-4 w-4 text-yellow-500/70" />
-                  <p className="text-xs font-semibold text-gray-300 uppercase tracking-widest">Admin Team</p>
-                </div>
-
-                {/* Current admins */}
-                <div className="sm-card">
-                  <div className="sm-card-header">
-                    <Users className="h-3.5 w-3.5 text-yellow-500/70" />
-                    <span className="text-xs font-semibold text-gray-200">Super Admins</span>
-                    {adminTeamLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-auto" />}
-                    {adminTeam && <span className="text-[10px] text-gray-500 ml-auto">{adminTeam.length} member{adminTeam.length !== 1 ? 's' : ''}</span>}
-                  </div>
-                  <div className="divide-y divide-gray-700/50">
-                    {adminTeam && adminTeam.length === 0 && (
-                      <p className="px-4 py-3 text-xs text-gray-500">No super admins found.</p>
-                    )}
-                    {adminTeam?.map(admin => {
-                      const name = [admin.firstName, admin.lastName].filter(Boolean).join(' ') || admin.email || admin.id;
-                      const initials = [admin.firstName?.[0], admin.lastName?.[0]].filter(Boolean).join('').toUpperCase() || (admin.email?.[0] ?? '?').toUpperCase();
-                      const isSelf = user?.id === admin.id;
-                      return (
-                        <div key={admin.id} className="flex items-center gap-3 px-4 py-2.5" data-testid={`row-admin-${admin.id}`}>
-                          <div className="h-7 w-7 rounded-full bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center shrink-0">
-                            <span className="text-[9px] font-bold text-yellow-400">{initials}</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-gray-200 truncate">{name}</p>
-                            <p className="text-[10px] text-gray-500 truncate">{admin.email}</p>
-                          </div>
-                          {isSelf && <Badge variant="outline" className="text-[9px] border-gray-600 text-gray-500 shrink-0">You</Badge>}
-                          {!isSelf && (
-                            <button
-                              onClick={() => toggleSuperAdminMutation.mutate({ id: admin.id, superAdmin: false })}
-                              disabled={toggleSuperAdminMutation.isPending}
-                              data-testid={`button-remove-admin-${admin.id}`}
-                              className="text-[10px] text-red-400 hover:text-red-300 border border-red-500/20 rounded px-2 py-0.5 transition-colors shrink-0 disabled:opacity-40"
-                            >
-                              Remove
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Add admin */}
-                <div className="sm-card">
-                  <div className="sm-card-header">
-                    <Plus className="h-3.5 w-3.5 text-yellow-500/70" />
-                    <span className="text-xs font-semibold text-gray-200">Add Admin</span>
-                  </div>
-                  <div className="px-4 py-3 space-y-3">
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Search by email or name…"
-                        value={addAdminQuery}
-                        onChange={e => setAddAdminQuery(e.target.value)}
-                        data-testid="input-admin-search"
-                        className="flex-1 min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500"
-                      />
-                      <button
-                        onClick={() => setAddAdminSearch(addAdminQuery.trim())}
-                        disabled={addAdminQuery.trim().length < 2 || adminSearchLoading}
-                        data-testid="button-admin-search"
-                        className="px-3 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-40 rounded text-xs text-gray-200 transition-colors shrink-0 flex items-center gap-1.5"
-                      >
-                        {adminSearchLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
-                        Find
-                      </button>
-                    </div>
-                    {adminSearchResults && adminSearchResults.length === 0 && addAdminSearch && (
-                      <p className="text-[10px] text-gray-500">No users found for "{addAdminSearch}".</p>
-                    )}
-                    {adminSearchResults && adminSearchResults.length > 0 && (
-                      <div className="space-y-1">
-                        {adminSearchResults.map(u => {
-                          const alreadyAdmin = adminTeam?.some(a => a.id === u.id);
-                          const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || u.id;
-                          const initials = [u.firstName?.[0], u.lastName?.[0]].filter(Boolean).join('').toUpperCase() || (u.email?.[0] ?? '?').toUpperCase();
-                          return (
-                            <div key={u.id} className="flex items-center gap-2.5 rounded bg-gray-900/40 border border-gray-700/50 px-3 py-2">
-                              <div className="h-6 w-6 rounded-full bg-gray-700 flex items-center justify-center shrink-0">
-                                <span className="text-[8px] font-bold text-gray-300">{initials}</span>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs text-gray-200 truncate">{name}</p>
-                                <p className="text-[10px] text-gray-500 truncate">{u.email}</p>
-                              </div>
-                              {alreadyAdmin ? (
-                                <Badge variant="outline" className="text-[9px] border-green-500/30 text-green-400 shrink-0">Admin</Badge>
-                              ) : (
-                                <button
-                                  onClick={() => toggleSuperAdminMutation.mutate({ id: u.id, superAdmin: true })}
-                                  disabled={toggleSuperAdminMutation.isPending}
-                                  data-testid={`button-add-admin-${u.id}`}
-                                  className="text-[10px] text-yellow-400 hover:text-yellow-300 border border-yellow-500/30 rounded px-2 py-0.5 transition-colors shrink-0 disabled:opacity-40"
-                                >
-                                  Make Admin
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                    <p className="text-[10px] text-gray-600">Super admins have full platform access including all tenant organizations.</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Platform Services */}
-            {activeSection === 'apiKeys' && (
+            {/* Platform General */}
+            {activeSection === 'platformGeneral' && (
               <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden">
-                {/* Tab strip */}
                 {(() => {
-                  const psTabs: Array<{ id: 'jobs' | 'platform' | 'stripe' | 'openai' | 'bricklink'; label: string; Icon: React.ElementType }> = [
-                    { id: 'platform', label: 'Platform', Icon: Building2 },
-                    { id: 'jobs', label: 'Jobs', Icon: Activity },
-                    { id: 'bricklink', label: 'BrickLink', Icon: Blocks },
-                    { id: 'stripe', label: 'Stripe', Icon: CreditCard },
-                    { id: 'openai', label: 'OpenAI', Icon: Brain },
+                  const pgTabs: Array<{ id: 'info' | 'jobs'; label: string; Icon: React.ElementType }> = [
+                    { id: 'info', label: 'Platform Information', Icon: Building2 },
+                    { id: 'jobs', label: 'Scheduled Jobs', Icon: Activity },
                   ];
                   return (
                     <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1 overflow-x-auto">
-                      {psTabs.map(({ id, label, Icon }) => (
+                      {pgTabs.map(({ id, label, Icon }) => (
                         <button
                           key={id}
-                          onClick={() => setActivePlatformServicesTab(id)}
-                          data-testid={`tab-platform-services-${id}`}
-                          className={`flex items-center gap-1.5 shrink-0 justify-center px-3 py-1.5 rounded text-xs font-medium transition-colors ${activePlatformServicesTab === id ? 'bg-gray-700 text-gray-100' : 'text-gray-500 hover:text-gray-300'}`}
+                          onClick={() => setActivePlatformGeneralTab(id)}
+                          data-testid={`tab-platform-general-${id}`}
+                          className={`flex items-center gap-1.5 flex-1 justify-center px-3 py-1.5 rounded text-xs font-medium transition-colors whitespace-nowrap ${activePlatformGeneralTab === id ? 'bg-gray-700 text-gray-100' : 'text-gray-500 hover:text-gray-300'}`}
                         >
                           <Icon className="h-3 w-3 shrink-0" />
-                          <span className="whitespace-nowrap">{label}</span>
+                          {label}
                         </button>
                       ))}
                     </div>
                   );
                 })()}
 
-                {/* ── Jobs tab ──────────────────────────────────── */}
-                {activePlatformServicesTab === 'jobs' && (
+                {activePlatformGeneralTab === 'info' && (
+                  <div className="space-y-4">
+                    <div className="sm-card">
+                      <div className="sm-card-header">
+                        <Building2 className="h-3.5 w-3.5 text-violet-400/80" />
+                        <span className="text-xs font-semibold text-gray-200">Platform Information</span>
+                      </div>
+                      <div className="px-4 py-3 space-y-3">
+                        <p className="text-[11px] text-gray-400 leading-relaxed">Set the display name for this platform. This name is used across all platform services to identify platform-level usage and operations.</p>
+                        <div>
+                          <label className="block app-label mb-1">Platform Name</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. PlanetBrick"
+                            value={platformNameInput}
+                            onChange={e => setPlatformNameInput(e.target.value)}
+                            maxLength={100}
+                            data-testid="input-platform-name"
+                            className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            onClick={async () => {
+                              setPlatformNameSaving(true);
+                              try {
+                                const res = await fetch('/api/platform-admin/platform-services/platform-info', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ platformName: platformNameInput }),
+                                });
+                                if (!res.ok) throw new Error('Failed to save');
+                                queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/platform-services/platform-info'] });
+                                queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/platform-services/openai-billing/by-org'] });
+                                toast({ title: "Saved", description: "Platform name updated." });
+                              } catch {
+                                toast({ title: "Error", description: "Failed to save platform name.", variant: "destructive" });
+                              } finally {
+                                setPlatformNameSaving(false);
+                              }
+                            }}
+                            disabled={platformNameSaving}
+                            data-testid="button-save-platform-name"
+                            className="inline-flex items-center gap-1.5 text-[10px] font-medium text-violet-400 hover:text-violet-300 border border-violet-500/30 rounded px-3 py-1.5 transition-colors disabled:opacity-50"
+                          >
+                            {platformNameSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="sm-card">
+                      <div className="sm-card-header">
+                        <Info className="h-3.5 w-3.5 text-gray-500" />
+                        <span className="text-xs font-semibold text-gray-200">Where This Name Appears</span>
+                      </div>
+                      <div className="px-4 py-3 space-y-2">
+                        <div className="grid grid-cols-1 gap-2">
+                          {[
+                            { label: 'OpenAI Cost Attribution', desc: 'Identifies platform-level AI usage (Elfie, embeddings) separate from org usage' },
+                            { label: 'BrickLink Usage Tracking', desc: 'Labels platform API calls for Price-o-Matic and catalog enrichment' },
+                            { label: 'Platform Services', desc: 'Display name for all platform-scoped operations and billing' },
+                          ].map(({ label, desc }) => (
+                            <div key={label} className="bg-gray-900/40 border border-gray-700/60 rounded px-3 py-2">
+                              <p className="text-[10px] font-medium text-gray-300 mb-0.5">{label}</p>
+                              <p className="text-[9px] text-gray-500">{desc}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="sm-card">
+                      <div className="sm-card-header">
+                        <Shield className="h-3.5 w-3.5 text-yellow-500/70" />
+                        <span className="text-xs font-semibold text-gray-200">Admin Team</span>
+                        {adminTeamLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-auto" />}
+                        {adminTeam && <span className="text-[10px] text-gray-500 ml-auto">{adminTeam.length} member{adminTeam.length !== 1 ? 's' : ''}</span>}
+                      </div>
+                      <div className="divide-y divide-gray-700/50">
+                        {adminTeam && adminTeam.length === 0 && (
+                          <p className="px-4 py-3 text-xs text-gray-500">No super admins found.</p>
+                        )}
+                        {adminTeam?.map(admin => {
+                          const name = [admin.firstName, admin.lastName].filter(Boolean).join(' ') || admin.email || admin.id;
+                          const initials = [admin.firstName?.[0], admin.lastName?.[0]].filter(Boolean).join('').toUpperCase() || (admin.email?.[0] ?? '?').toUpperCase();
+                          const isSelf = user?.id === admin.id;
+                          return (
+                            <div key={admin.id} className="flex items-center gap-3 px-4 py-2.5" data-testid={`row-admin-${admin.id}`}>
+                              <div className="h-7 w-7 rounded-full bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center shrink-0">
+                                <span className="text-[9px] font-bold text-yellow-400">{initials}</span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium text-gray-200 truncate">{name}</p>
+                                <p className="text-[10px] text-gray-500 truncate">{admin.email}</p>
+                              </div>
+                              {isSelf && <Badge variant="outline" className="text-[9px] border-gray-600 text-gray-500 shrink-0">You</Badge>}
+                              {!isSelf && (
+                                <button
+                                  onClick={() => toggleSuperAdminMutation.mutate({ id: admin.id, superAdmin: false })}
+                                  disabled={toggleSuperAdminMutation.isPending}
+                                  data-testid={`button-remove-admin-${admin.id}`}
+                                  className="text-[10px] text-red-400 hover:text-red-300 border border-red-500/20 rounded px-2 py-0.5 transition-colors shrink-0 disabled:opacity-40"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="px-4 py-3 space-y-3 border-t border-gray-700/50">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Search by email or name…"
+                            value={addAdminQuery}
+                            onChange={e => setAddAdminQuery(e.target.value)}
+                            data-testid="input-admin-search"
+                            className="flex-1 min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500"
+                          />
+                          <button
+                            onClick={() => setAddAdminSearch(addAdminQuery.trim())}
+                            disabled={addAdminQuery.trim().length < 2 || adminSearchLoading}
+                            data-testid="button-admin-search"
+                            className="px-3 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-40 rounded text-xs text-gray-200 transition-colors shrink-0 flex items-center gap-1.5"
+                          >
+                            {adminSearchLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+                            Find
+                          </button>
+                        </div>
+                        {adminSearchResults && adminSearchResults.length === 0 && addAdminSearch && (
+                          <p className="text-[10px] text-gray-500">No users found for "{addAdminSearch}".</p>
+                        )}
+                        {adminSearchResults && adminSearchResults.length > 0 && (
+                          <div className="space-y-1">
+                            {adminSearchResults.map(u => {
+                              const alreadyAdmin = adminTeam?.some(a => a.id === u.id);
+                              const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || u.id;
+                              const initials = [u.firstName?.[0], u.lastName?.[0]].filter(Boolean).join('').toUpperCase() || (u.email?.[0] ?? '?').toUpperCase();
+                              return (
+                                <div key={u.id} className="flex items-center gap-2.5 rounded bg-gray-900/40 border border-gray-700/50 px-3 py-2">
+                                  <div className="h-6 w-6 rounded-full bg-gray-700 flex items-center justify-center shrink-0">
+                                    <span className="text-[8px] font-bold text-gray-300">{initials}</span>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs text-gray-200 truncate">{name}</p>
+                                    <p className="text-[10px] text-gray-500 truncate">{u.email}</p>
+                                  </div>
+                                  {alreadyAdmin ? (
+                                    <Badge variant="outline" className="text-[9px] border-green-500/30 text-green-400 shrink-0">Admin</Badge>
+                                  ) : (
+                                    <button
+                                      onClick={() => toggleSuperAdminMutation.mutate({ id: u.id, superAdmin: true })}
+                                      disabled={toggleSuperAdminMutation.isPending}
+                                      data-testid={`button-add-admin-${u.id}`}
+                                      className="text-[10px] text-yellow-400 hover:text-yellow-300 border border-yellow-500/30 rounded px-2 py-0.5 transition-colors shrink-0 disabled:opacity-40"
+                                    >
+                                      Make Admin
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        <p className="text-[10px] text-gray-600">Super admins have full platform access including all tenant organizations.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activePlatformGeneralTab === 'jobs' && (
                   <div className="space-y-3 min-w-0">
                     {systemHealthLoading ? (
                       <div className="flex items-center justify-center py-10">
@@ -7473,83 +7525,38 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     )}
                   </div>
                 )}
+              </div>
+            )}
 
-                {/* ── Platform tab ────────────────────────────────── */}
-                {activePlatformServicesTab === 'platform' && (
-                  <div className="space-y-4">
-                    <div className="sm-card">
-                      <div className="sm-card-header">
-                        <Building2 className="h-3.5 w-3.5 text-violet-400/80" />
-                        <span className="text-xs font-semibold text-gray-200">Platform Information</span>
-                      </div>
-                      <div className="px-4 py-3 space-y-3">
-                        <p className="text-[11px] text-gray-400 leading-relaxed">Set the display name for this platform. This name is used across all platform services to identify platform-level usage and operations.</p>
-                        <div>
-                          <label className="block app-label mb-1">Platform Name</label>
-                          <input
-                            type="text"
-                            placeholder="e.g. PlanetBrick"
-                            value={platformNameInput}
-                            onChange={e => setPlatformNameInput(e.target.value)}
-                            maxLength={100}
-                            data-testid="input-platform-name"
-                            className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2 pt-1">
-                          <button
-                            onClick={async () => {
-                              setPlatformNameSaving(true);
-                              try {
-                                const res = await fetch('/api/platform-admin/platform-services/platform-info', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ platformName: platformNameInput }),
-                                });
-                                if (!res.ok) throw new Error('Failed to save');
-                                queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/platform-services/platform-info'] });
-                                queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/platform-services/openai-billing/by-org'] });
-                                toast({ title: "Saved", description: "Platform name updated." });
-                              } catch {
-                                toast({ title: "Error", description: "Failed to save platform name.", variant: "destructive" });
-                              } finally {
-                                setPlatformNameSaving(false);
-                              }
-                            }}
-                            disabled={platformNameSaving}
-                            data-testid="button-save-platform-name"
-                            className="inline-flex items-center gap-1.5 text-[10px] font-medium text-violet-400 hover:text-violet-300 border border-violet-500/30 rounded px-3 py-1.5 transition-colors disabled:opacity-50"
-                          >
-                            {platformNameSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                            Save
-                          </button>
-                        </div>
-                      </div>
+
+            {/* Platform Services */}
+            {activeSection === 'apiKeys' && (
+              <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden">
+                {/* Tab strip */}
+                {(() => {
+                  const psTabs: Array<{ id: 'stripe' | 'openai' | 'bricklink'; label: string; Icon: React.ElementType }> = [
+                    { id: 'bricklink', label: 'BrickLink', Icon: Blocks },
+                    { id: 'stripe', label: 'Stripe', Icon: CreditCard },
+                    { id: 'openai', label: 'OpenAI', Icon: Brain },
+                  ];
+                  return (
+                    <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1 overflow-x-auto">
+                      {psTabs.map(({ id, label, Icon }) => (
+                        <button
+                          key={id}
+                          onClick={() => setActivePlatformServicesTab(id)}
+                          data-testid={`tab-platform-services-${id}`}
+                          className={`flex items-center gap-1.5 flex-1 justify-center px-3 py-1.5 rounded text-xs font-medium transition-colors whitespace-nowrap ${activePlatformServicesTab === id ? 'bg-gray-700 text-gray-100' : 'text-gray-500 hover:text-gray-300'}`}
+                        >
+                          <Icon className="h-3 w-3 shrink-0" />
+                          {label}
+                        </button>
+                      ))}
                     </div>
+                  );
+                })()}
 
-                    <div className="sm-card">
-                      <div className="sm-card-header">
-                        <Info className="h-3.5 w-3.5 text-gray-500" />
-                        <span className="text-xs font-semibold text-gray-200">Where This Name Appears</span>
-                      </div>
-                      <div className="px-4 py-3 space-y-2">
-                        <div className="grid grid-cols-1 gap-2">
-                          {[
-                            { label: 'OpenAI Cost Attribution', desc: 'Identifies platform-level AI usage (Elfie, embeddings) separate from org usage' },
-                            { label: 'BrickLink Usage Tracking', desc: 'Labels platform API calls for Price-o-Matic and catalog enrichment' },
-                            { label: 'Platform Services', desc: 'Display name for all platform-scoped operations and billing' },
-                          ].map(({ label, desc }) => (
-                            <div key={label} className="bg-gray-900/40 border border-gray-700/60 rounded px-3 py-2">
-                              <p className="text-[10px] font-medium text-gray-300 mb-0.5">{label}</p>
-                              <p className="text-[9px] text-gray-500">{desc}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
+                {/* Old Jobs/Platform tabs removed — now in General */}
                 {/* ── BrickLink tab ────────────────────────────────── */}
                 {activePlatformServicesTab === 'bricklink' && (
                   <div className="space-y-4">
