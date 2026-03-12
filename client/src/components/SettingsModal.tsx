@@ -1784,9 +1784,19 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   // Manual sync state for Automation tab
   const [syncingInventory, setSyncingInventory] = useState(false);
   const [syncingOrders, setSyncingOrders] = useState(false);
-  const [syncingPom, setSyncingPom] = useState(false);
+  const [syncingPomTrigger, setSyncingPomTrigger] = useState(false);
   const [syncingChannel, setSyncingChannel] = useState(false);
   const [syncingRebrickable, setSyncingRebrickable] = useState(false);
+
+  const { data: pomLiveStatus } = useQuery<{ success: boolean; data: any }>({
+    queryKey: ['/api/sync/priceomatic/status'],
+    refetchInterval: 3000,
+    staleTime: 0,
+    enabled: open && (activeSection === 'enrichment' || activeSection === 'priceomatic' || activeSection === 'automation'),
+  });
+  const pomLiveProgress = pomLiveStatus?.data?.liveProgress;
+  const syncingPom = syncingPomTrigger || pomLiveProgress?.active === true;
+  const pomProgressPct = pomLiveProgress?.itemsTotal > 0 ? Math.round((pomLiveProgress.itemsProcessed / pomLiveProgress.itemsTotal) * 100) : 0;
 
   async function runManualSync(
     endpoint: string,
@@ -1799,7 +1809,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     setLoading(true);
     try {
       const result = await apiRequest('POST', endpoint, body);
-      toast({ title: successTitle ?? `${label} complete`, description: successDescription ?? 'Sync finished successfully.' });
+      toast({ title: successTitle ?? `${label} started`, description: successDescription ?? 'Sync is running in the background.' });
     } catch (err: any) {
       const msg: string = err?.message || String(err);
       const isBlocked = msg.toLowerCase().includes('already running') || msg.toLowerCase().includes('blocked');
@@ -2733,7 +2743,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           size="icon"
                           variant="ghost"
                           disabled={syncingPom}
-                          onClick={() => runManualSync('/api/sync/priceomatic', setSyncingPom, 'Price-o-Matic', undefined, 'Price-o-Matic started', 'Sync is running in the background.')}
+                          onClick={() => runManualSync('/api/sync/priceomatic', setSyncingPomTrigger, 'Price-o-Matic', undefined, 'Price-o-Matic started', 'Sync is running in the background.')}
                           title="Run Price-o-Matic sync now"
                           data-testid="button-run-pom-sync"
                         >
@@ -2749,6 +2759,21 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         />
                       </div>
                     </div>
+
+                    {syncingPom && pomLiveProgress && (
+                      <div className="space-y-1 mt-2" data-testid="pom-progress-bar">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-blue-400 font-medium flex items-center gap-1.5">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            Syncing…
+                          </span>
+                          <span className="text-[10px] text-gray-400">{pomLiveProgress.itemsProcessed?.toLocaleString()} / {pomLiveProgress.itemsTotal?.toLocaleString()} lots · {pomProgressPct}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-gray-700/60 rounded-full overflow-hidden">
+                          <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${pomProgressPct}%` }} />
+                        </div>
+                      </div>
+                    )}
 
                     {pomScheduleEnabled && (
                       <div className="ml-4 space-y-3">
@@ -4937,7 +4962,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           size="icon"
                           variant="ghost"
                           disabled={syncingPom}
-                          onClick={() => runManualSync('/api/sync/priceomatic', setSyncingPom, 'Price-o-Matic', undefined, 'Price-o-Matic started', 'Sync is running in the background.')}
+                          onClick={() => runManualSync('/api/sync/priceomatic', setSyncingPomTrigger, 'Price-o-Matic', undefined, 'Price-o-Matic started', 'Sync is running in the background.')}
                           title="Run Price-o-Matic sync now"
                           data-testid="button-run-pom-sync"
                         >
@@ -4953,6 +4978,21 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         />
                       </div>
                     </div>
+
+                    {syncingPom && pomLiveProgress && (
+                      <div className="space-y-1 mt-2" data-testid="pom-progress-bar">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-blue-400 font-medium flex items-center gap-1.5">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            Syncing…
+                          </span>
+                          <span className="text-[10px] text-gray-400">{pomLiveProgress.itemsProcessed?.toLocaleString()} / {pomLiveProgress.itemsTotal?.toLocaleString()} lots · {pomProgressPct}%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-gray-700/60 rounded-full overflow-hidden">
+                          <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${pomProgressPct}%` }} />
+                        </div>
+                      </div>
+                    )}
 
                     {pomScheduleEnabled && (
                       <div className="ml-4 space-y-3">

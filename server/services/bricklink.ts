@@ -1282,6 +1282,7 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
     const initialRateLimit = await checkRateLimit(orgId);
     pomSyncProgress = { active: true, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: initialRateLimit.callsLast24h };
     if (!initialRateLimit.allowed) {
+      pomSyncProgress = { active: false, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: initialRateLimit.callsLast24h };
       return {
         itemsUpdated: 0,
         itemsSkipped: 0,
@@ -1394,6 +1395,17 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
 
     const tierCounts = TIER_ORDER.map(t => ({ tier: t, count: filteredItems.filter(i => getEffectiveTier(i) === t).length }));
     console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale across all tiers (${tierCounts.map(t => `${t.tier}:${t.count}`).join(', ')}), processing ${itemsToProcess.length} (batch cap: ${effectiveMaxItems}, available API calls: ${availableApiCalls})`);
+
+    if (itemsToProcess.length === 0) {
+      const reason = filteredItems.length === 0
+        ? `All ${inventoryItems.length} inventory items are up-to-date (fetched within last 6 months). Nothing to sync.`
+        : availableApiCalls <= 0
+          ? `No API calls remaining (${apiCallCeiling}/${apiCallCeiling} used in last 24h). Try again later.`
+          : 'No items to process.';
+      console.log(`[Price-o-Matic Sync] ${reason}`);
+      pomSyncProgress = { active: false, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: pomSyncProgress.apiCallsAtStart };
+      return { itemsUpdated: 0, itemsSkipped: 0, apiCallsUsed: 0, stopped: true, stopReason: reason };
+    }
 
     // Process each item in tier-priority order
     // Market dynamics (demand + supply) are computed inside fetchPriceOMagicData from BL API data.
