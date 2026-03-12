@@ -367,21 +367,38 @@ const scoreColor = (score: number | null) => {
 const GR = 'grid grid-cols-[1fr_52px_52px_52px_52px]';
 const cell = (extra = '') => `px-1 py-1 text-center text-[10px] font-mono tabular-nums border-l border-white/[0.06] ${extra}`;
 
-function PricingGrid({ group }: { group: GroupedInsight }) {
+type HighlightMask = { sold?: boolean; listed?: boolean; mine?: boolean };
+
+const HL_BG = 'bg-violet-500/[0.12]';
+const HL_RING = 'ring-1 ring-inset ring-violet-400/30';
+
+function PricingGrid({ group, activeSort }: { group: GroupedInsight; activeSort: SortField }) {
   const nLot = group.newLot;
   const uLot = group.usedLot;
 
+  const hlMap: Record<string, HighlightMask> = {};
+  if (activeSort === 'ceiling')   { hlMap['Max'] = { sold: true }; hlMap['Mine'] = { mine: true }; }
+  if (activeSort === 'velocity')  { hlMap['Qty'] = { sold: true, listed: true }; }
+  if (activeSort === 'scarcity')  { hlMap['Qty'] = { listed: true }; }
+  if (activeSort === 'undercut')  { hlMap['Min'] = { listed: true }; hlMap['Mine'] = { mine: true }; }
+
   const DataRow = ({ label, sN, sU, lN, lU, isMoney, bold, mine }: {
     label: string; sN: any; sU: any; lN: any; lU: any; isMoney?: boolean; bold?: boolean; mine?: boolean;
-  }) => (
-    <div className={`${GR} border-b border-white/[0.04] ${bold ? 'bg-white/[0.03]' : ''}`}>
-      <div className={`px-2 py-1 text-[10px] ${mine ? 'text-emerald-400 font-semibold' : bold ? 'text-gray-200 font-semibold' : 'text-gray-500'}`}>{label}</div>
-      <div className={cell(mine ? 'text-emerald-300 font-semibold' : bold ? 'text-amber-300 font-semibold' : 'text-gray-200')}>{isMoney ? fmt(sN) : fmtInt(sN)}</div>
-      <div className={cell(mine ? 'text-emerald-300 font-semibold' : bold ? 'text-amber-300 font-semibold' : 'text-gray-200')}>{isMoney ? fmt(sU) : fmtInt(sU)}</div>
-      <div className={cell(mine ? 'text-gray-700' : bold ? 'text-sky-300 font-semibold' : 'text-gray-400')}>{mine ? '' : isMoney ? fmt(lN) : fmtInt(lN)}</div>
-      <div className={cell(mine ? 'text-gray-700' : bold ? 'text-sky-300 font-semibold' : 'text-gray-400')}>{mine ? '' : isMoney ? fmt(lU) : fmtInt(lU)}</div>
-    </div>
-  );
+  }) => {
+    const hl = hlMap[label];
+    const hlSold = hl?.sold || (mine && hl?.mine);
+    const hlListed = hl?.listed || (mine && hl?.mine);
+    const rowHl = hlSold || hlListed;
+    return (
+      <div className={`${GR} border-b border-white/[0.04] ${bold ? 'bg-white/[0.03]' : ''} ${rowHl ? HL_BG : ''}`}>
+        <div className={`px-2 py-1 text-[10px] ${mine ? 'text-emerald-400 font-semibold' : bold ? 'text-gray-200 font-semibold' : 'text-gray-500'}`}>{label}</div>
+        <div className={cell(`${mine ? 'text-emerald-300 font-semibold' : bold ? 'text-amber-300 font-semibold' : 'text-gray-200'} ${hlSold ? HL_RING : ''}`)}>{isMoney ? fmt(sN) : fmtInt(sN)}</div>
+        <div className={cell(`${mine ? 'text-emerald-300 font-semibold' : bold ? 'text-amber-300 font-semibold' : 'text-gray-200'} ${hlSold ? HL_RING : ''}`)}>{isMoney ? fmt(sU) : fmtInt(sU)}</div>
+        <div className={cell(`${mine ? 'text-gray-700' : bold ? 'text-sky-300 font-semibold' : 'text-gray-400'} ${hlListed && !mine ? HL_RING : ''}`)}>{mine ? '' : isMoney ? fmt(lN) : fmtInt(lN)}</div>
+        <div className={cell(`${mine ? 'text-gray-700' : bold ? 'text-sky-300 font-semibold' : 'text-gray-400'} ${hlListed && !mine ? HL_RING : ''}`)}>{mine ? '' : isMoney ? fmt(lU) : fmtInt(lU)}</div>
+      </div>
+    );
+  };
 
   return (
     <div className="rounded-md overflow-hidden border border-white/[0.08] mt-1">
@@ -410,7 +427,11 @@ function PricingGrid({ group }: { group: GroupedInsight }) {
   );
 }
 
-function ScoresBar({ group }: { group: GroupedInsight }) {
+const SORT_TO_SCORE_LABEL: Record<SortField, string> = {
+  ceiling: 'Ceil', velocity: 'Vel', scarcity: 'Scarc', undercut: 'Undr', combined: 'Score',
+};
+
+function ScoresBar({ group, activeSort }: { group: GroupedInsight; activeSort: SortField }) {
   const items: Array<{ label: string; value: number | null; suffix?: string }> = [
     { label: 'Ceil', value: group.bestCeiling, suffix: '×' },
     { label: 'Vel', value: group.bestVelocity },
@@ -418,17 +439,21 @@ function ScoresBar({ group }: { group: GroupedInsight }) {
     { label: 'Undr', value: group.bestUndercut, suffix: '×' },
     { label: 'Score', value: group.bestCombined },
   ];
+  const activeLabel = SORT_TO_SCORE_LABEL[activeSort];
 
   return (
     <div className="flex items-center gap-0.5 mt-1.5">
-      {items.map(({ label, value, suffix }) => (
-        <div key={label} className="flex-1 text-center">
-          <div className="text-[7px] uppercase tracking-wider text-gray-600 leading-none mb-0.5">{label}</div>
-          <div className={`text-[10px] font-mono font-bold leading-none ${scoreColor(value)}`}>
-            {value != null ? `${value.toFixed(2)}${suffix ?? ''}` : '—'}
+      {items.map(({ label, value, suffix }) => {
+        const isActive = label === activeLabel;
+        return (
+          <div key={label} className={`flex-1 text-center rounded-sm py-0.5 ${isActive ? 'bg-violet-500/[0.15] ring-1 ring-inset ring-violet-400/30' : ''}`}>
+            <div className={`text-[7px] uppercase tracking-wider leading-none mb-0.5 ${isActive ? 'text-violet-300' : 'text-gray-600'}`}>{label}</div>
+            <div className={`text-[10px] font-mono font-bold leading-none ${scoreColor(value)}`}>
+              {value != null ? `${value.toFixed(2)}${suffix ?? ''}` : '—'}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -910,8 +935,8 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                         <span className="text-[10px] text-slate-400 truncate min-w-0">{group.colorName || '—'}</span>
                       </div>
 
-                      <PricingGrid group={group} />
-                      <ScoresBar group={group} />
+                      <PricingGrid group={group} activeSort={sortField} />
+                      <ScoresBar group={group} activeSort={sortField} />
                     </div>
                   </SwipeableTile>
                 );
