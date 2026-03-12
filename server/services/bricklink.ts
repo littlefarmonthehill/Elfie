@@ -1278,17 +1278,24 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
   let stopReason: string | undefined;
 
   try {
-    // Get initial rate limit status (per-org)
-    const initialRateLimit = await checkRateLimit(orgId);
-    pomSyncProgress = { active: true, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: initialRateLimit.callsLast24h };
-    if (!initialRateLimit.allowed) {
-      pomSyncProgress = { active: false, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: initialRateLimit.callsLast24h };
+    // Get initial API usage count (raw call count only — ceiling enforcement uses platform-level apiCallCeiling,
+    // NOT the org-level default from checkRateLimit, so POM respects the admin's configured limit in Platform Services).
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const [usageRow] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(blApiCalls)
+      .where(and(eq(blApiCalls.orgId, orgId), gte(blApiCalls.timestamp, twentyFourHoursAgo)));
+    const callsLast24h = Number(usageRow?.count) || 0;
+
+    pomSyncProgress = { active: true, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: callsLast24h };
+    if (callsLast24h >= apiCallCeiling) {
+      pomSyncProgress = { active: false, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: callsLast24h };
       return {
         itemsUpdated: 0,
         itemsSkipped: 0,
         apiCallsUsed: 0,
         stopped: true,
-        stopReason: initialRateLimit.warning || 'API rate limit exceeded',
+        stopReason: `BL API limit reached: ${callsLast24h}/${apiCallCeiling} calls in 24 hours. Please wait before syncing again.`,
       };
     }
 
@@ -1420,14 +1427,18 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
           break;
         }
 
-        // Check rate limit before each batch (every 10 items) to avoid hitting hard limit
+        // Check raw API usage every 10 items against the platform-level ceiling (not the org-level default)
         if (itemsUpdated % 10 === 0) {
-          const currentRateLimit = await checkRateLimit(orgId);
+          const checkAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          const [usageCheck] = await db
+            .select({ count: sql<number>`count(*)` })
+            .from(blApiCalls)
+            .where(and(eq(blApiCalls.orgId, orgId), gte(blApiCalls.timestamp, checkAgo)));
+          const currentCalls = Number(usageCheck?.count) || 0;
           
-          // Stop at configured ceiling to preserve quota
-          if (currentRateLimit.callsLast24h >= apiCallCeiling) {
+          if (currentCalls >= apiCallCeiling) {
             stopped = true;
-            stopReason = `Approaching API limit: ${currentRateLimit.callsLast24h}/5000 calls. Stopping at configured ceiling of ${apiCallCeiling}.`;
+            stopReason = `Approaching API limit: ${currentCalls}/${apiCallCeiling} calls. Stopping at configured ceiling.`;
             console.log(`[Price-o-Matic Sync] ${stopReason}`);
             break;
           }
@@ -1478,8 +1489,13 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
       }
     }
 
-    const finalRateLimit = await checkRateLimit(orgId);
-    apiCallsUsed = Math.max(0, finalRateLimit.callsLast24h - pomSyncProgress.apiCallsAtStart);
+    const finalAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const [finalUsage] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(blApiCalls)
+      .where(and(eq(blApiCalls.orgId, orgId), gte(blApiCalls.timestamp, finalAgo)));
+    const finalCalls = Number(finalUsage?.count) || 0;
+    apiCallsUsed = Math.max(0, finalCalls - pomSyncProgress.apiCallsAtStart);
     console.log(`[Price-o-Matic Sync] Completed: ${itemsUpdated} updated, ${itemsSkipped} skipped, ${apiCallsUsed} actual API calls used (${itemsUpdated - apiCallsUsed} served from cache)`);
     pomSyncProgress = { active: false, itemsProcessed: itemsUpdated, itemsTotal: itemsToProcess.length, apiCallsAtStart: pomSyncProgress.apiCallsAtStart };
 
