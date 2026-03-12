@@ -7244,7 +7244,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
             {/* Platform Services */}
             {activeSection === 'apiKeys' && (
-              <div className="p-4 space-y-4">
+              <div className="px-3 pt-3 pb-4 space-y-3">
                 {/* Tab strip */}
                 {(() => {
                   const psTabs: Array<{ id: 'jobs' | 'platform' | 'stripe' | 'openai' | 'bricklink'; label: string; Icon: React.ElementType }> = [
