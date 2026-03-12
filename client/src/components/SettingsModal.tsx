@@ -7411,7 +7411,15 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Market Price Guides</p>
-                                  <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>Pulls supply (currently for sale) and sold (recent sales) price guide data from BrickLink for every item in the catalog. Uses 2 API calls per item. Freshness window: 7 days.</PopoverContent></Popover>
+                                  <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>
+                                    <p className="mb-1.5">Pulls supply (currently for sale) and sold (recent sales) price guide data from BrickLink for every item in the catalog. Uses 2 API calls per item.</p>
+                                    <div className="space-y-1 border-t pt-1.5 text-[11px]">
+                                      <p><span className="text-gray-500 dark:text-gray-400">Freshness window:</span> <span className="font-medium">{pomFreshnessDays} days</span></p>
+                                      <p><span className="text-gray-500 dark:text-gray-400">Batch size:</span> <span className="font-medium">{pomScheduleBatchSize} items</span> ({pomScheduleBatchSize * 2} API calls)</p>
+                                      <p><span className="text-gray-500 dark:text-gray-400">Zero-stock skip:</span> <span className="font-medium">{pomZeroStockSkip ? 'On — only items in stock' : 'Off — all items'}</span></p>
+                                      <p><span className="text-gray-500 dark:text-gray-400">API budget:</span> <span className="font-medium">{pomApiBudgetPct}% of {blApiCallLimit}</span> = {Math.floor(blApiCallLimit * pomApiBudgetPct / 100)} calls/24h</p>
+                                    </div>
+                                  </PopoverContent></Popover>
                                   <span className={`sm-hint font-medium ${statusInfo(pomJob?.lastSyncStatus || null, pomScheduleEnabled).color}`}>{statusInfo(pomJob?.lastSyncStatus || null, pomScheduleEnabled).label}</span>
                                 </div>
                                 <p className="sm-hint">{pomScheduleEnabled ? `Daily at ${pomSyncTime} · batch ${pomScheduleBatchSize} · fresh ${pomFreshnessDays}d` : 'Schedule disabled'} · Last: {formatLastRun(pomJob?.lastSyncTime || null)}</p>
@@ -7512,7 +7520,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Catalog Detail Completion</p>
-                                  <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>Fills in missing item details (name, image, weight, dimensions, year released) by calling the BrickLink Item Detail API. Only targets items with stock &gt; 0 across the platform. Uses 1 API call per item.</PopoverContent></Popover>
+                                  <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>
+                                    <p className="mb-1.5">Fills in missing item details (name, image, weight, dimensions, year released) by calling the BrickLink Item Detail API. Uses 1 API call per item.</p>
+                                    <div className="space-y-1 border-t pt-1.5 text-[11px]">
+                                      <p><span className="text-gray-500 dark:text-gray-400">Freshness window:</span> <span className="font-medium">{catalogDetailFreshnessDays} days</span></p>
+                                      <p><span className="text-gray-500 dark:text-gray-400">Batch size:</span> <span className="font-medium">{catalogDetailBatchSize} items</span> ({catalogDetailBatchSize} API calls)</p>
+                                      <p><span className="text-gray-500 dark:text-gray-400">Zero-stock skip:</span> <span className="font-medium">{catalogDetailZeroStockSkip ? 'On — only items in stock' : 'Off — all items'}</span></p>
+                                      <p><span className="text-gray-500 dark:text-gray-400">API budget:</span> <span className="font-medium">{catalogDetailApiBudgetPct}% of {blApiCallLimit}</span> = {Math.floor(blApiCallLimit * catalogDetailApiBudgetPct / 100)} calls/24h</p>
+                                      <p><span className="text-gray-500 dark:text-gray-400">Frequency:</span> <span className="font-medium">Every {catalogDetailFrequencyHours}h</span></p>
+                                    </div>
+                                  </PopoverContent></Popover>
                                   <span className={`sm-hint font-medium ${statusInfo(cdJob?.lastSyncStatus || null, catalogDetailEnabled).color}`}>{statusInfo(cdJob?.lastSyncStatus || null, catalogDetailEnabled).label}</span>
                                 </div>
                                 <p className="sm-hint">{catalogDetailEnabled ? `Every ${catalogDetailFrequencyHours}h · batch ${catalogDetailBatchSize} · fresh ${catalogDetailFreshnessDays}d` : 'Schedule disabled'} · Last: {formatLastRun(cdJob?.lastSyncTime || null)}</p>
@@ -7611,7 +7628,13 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Inventory Catalog Scan</p>
-                                  <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>Scans all inventory rows across stores to find items with missing or stale catalog data and new part+color combinations. Feeds items into the enrichment queue for both Market Price Guides and Catalog Detail Completion. No API calls — database scan only.</PopoverContent></Popover>
+                                  <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>
+                                    <p className="mb-1.5">Scans all inventory rows across stores to find items with missing or stale catalog data and new part+color combinations. Feeds items into the enrichment queue for both Market Price Guides and Catalog Detail Completion. No API calls — database scan only.</p>
+                                    <div className="space-y-1 border-t pt-1.5 text-[11px]">
+                                      <p><span className="text-gray-500 dark:text-gray-400">Zero-stock skip:</span> <span className="font-medium">{catalogScanZeroStockSkip ? 'On — only items in stock' : 'Off — all items'}</span></p>
+                                      <p><span className="text-gray-500 dark:text-gray-400">Frequency:</span> <span className="font-medium">Every {catalogScanFrequencyHours}h</span></p>
+                                    </div>
+                                  </PopoverContent></Popover>
                                   <span className={`sm-hint font-medium ${statusInfo(csJob?.lastSyncStatus || null, catalogScanEnabled).color}`}>{statusInfo(csJob?.lastSyncStatus || null, catalogScanEnabled).label}</span>
                                 </div>
                                 <p className="sm-hint">{catalogScanEnabled ? `Every ${catalogScanFrequencyHours}h · ${catalogScanZeroStockSkip ? 'zero-stock skip' : 'all items'}` : 'Schedule disabled'} · Last: {formatLastRun(csJob?.lastSyncTime || null)}</p>
@@ -7681,7 +7704,12 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Rebrickable Set Parts</p>
-                                  <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>Imports set-to-part relationships from Rebrickable. Maps which parts belong to which LEGO sets, enabling set completion analysis and BrickSpotter set detection.</PopoverContent></Popover>
+                                  <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>
+                                    <p className="mb-1.5">Imports set-to-part relationships from Rebrickable. Maps which parts belong to which LEGO sets, enabling set completion analysis and BrickSpotter set detection.</p>
+                                    <div className="space-y-1 border-t pt-1.5 text-[11px]">
+                                      <p><span className="text-gray-500 dark:text-gray-400">Schedule:</span> <span className="font-medium">{rebrickableSetSyncEnabled ? `Daily at ${rebrickableSetSyncTime}` : 'Disabled'}</span></p>
+                                    </div>
+                                  </PopoverContent></Popover>
                                   <span className={`sm-hint font-medium ${statusInfo(rbJob?.lastSyncStatus || null, rebrickableSetSyncEnabled).color}`}>{statusInfo(rbJob?.lastSyncStatus || null, rebrickableSetSyncEnabled).label}</span>
                                 </div>
                                 <p className="sm-hint">{rebrickableSetSyncEnabled ? `Daily at ${rebrickableSetSyncTime}` : 'Schedule disabled'} · Last: {formatLastRun(rbJob?.lastSyncTime || null)}</p>
@@ -7724,7 +7752,13 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Universal Catalog</p>
-                                  <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>Imports item images and metadata from BrickLink into the shared catalog. Feeds the CLIP Catalog Build worker to generate visual search embeddings. No BrickLink API calls — uses public image URLs.</PopoverContent></Popover>
+                                  <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>
+                                    <p className="mb-1.5">Imports item images and metadata from BrickLink into the shared catalog. Feeds the CLIP Catalog Build worker to generate visual search embeddings. No BrickLink API calls — uses public image URLs.</p>
+                                    <div className="space-y-1 border-t pt-1.5 text-[11px]">
+                                      <p><span className="text-gray-500 dark:text-gray-400">Refresh cycle:</span> <span className="font-medium">Every {universalCatalogRefreshMonths} month{universalCatalogRefreshMonths > 1 ? 's' : ''}</span></p>
+                                      <p><span className="text-gray-500 dark:text-gray-400">Retry after failure:</span> <span className="font-medium">{universalCatalogRetryDays} days</span></p>
+                                    </div>
+                                  </PopoverContent></Popover>
                                   <span className={`sm-hint font-medium ${statusInfo(ucJob?.lastSyncStatus || null, universalCatalogScheduleEnabled).color}`}>{statusInfo(ucJob?.lastSyncStatus || null, universalCatalogScheduleEnabled).label}</span>
                                 </div>
                                 <p className="sm-hint">{universalCatalogScheduleEnabled ? `Every ${universalCatalogRefreshMonths}mo · retry after ${universalCatalogRetryDays}d` : 'Schedule disabled'} · Last: {formatLastRun(ucJob?.lastSyncTime || null)}</p>
@@ -7774,7 +7808,13 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">CLIP Catalog Build</p>
-                                  <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>Generates CLIP visual embeddings (512-dim vectors) for every item image in the catalog. Powers BrickSpotter visual search — matching photos of parts to catalog entries. Runs continuously in the background and auto-resumes on restart.</PopoverContent></Popover>
+                                  <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>
+                                    <p className="mb-1.5">Generates CLIP visual embeddings (512-dim vectors) for every item image in the catalog. Powers BrickSpotter visual search — matching photos of parts to catalog entries.</p>
+                                    <div className="space-y-1 border-t pt-1.5 text-[11px]">
+                                      <p><span className="text-gray-500 dark:text-gray-400">Mode:</span> <span className="font-medium">Continuous — runs in background, auto-resumes on restart</span></p>
+                                      {clipStatus && <p><span className="text-gray-500 dark:text-gray-400">Progress:</span> <span className="font-medium">{clipStatus.embedded.toLocaleString()} / {clipStatus.total.toLocaleString()} items embedded</span></p>}
+                                    </div>
+                                  </PopoverContent></Popover>
                                   <span className={`sm-hint font-medium ${clipActive ? 'text-yellow-400' : clipStatus && clipStatus.embedded >= clipStatus.total ? 'text-green-400/80' : 'text-gray-500'}`}>
                                     {clipActive ? 'Running' : clipStatus && clipStatus.embedded >= clipStatus.total ? 'Complete' : 'Idle'}
                                   </span>
@@ -7877,7 +7917,12 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Forum Sync</p>
-                                  <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>Scrapes BrickLink forum discussions for market sentiment and trending topics. Posts are embedded for AI context, enabling market-aware responses in conversations. Purges stale posts with no replies older than 6 months.</PopoverContent></Popover>
+                                  <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>
+                                    <p className="mb-1.5">Scrapes BrickLink forum discussions for market sentiment and trending topics. Posts are embedded for AI context, enabling market-aware responses in conversations. Purges stale posts with no replies older than 6 months.</p>
+                                    <div className="space-y-1 border-t pt-1.5 text-[11px]">
+                                      <p><span className="text-gray-500 dark:text-gray-400">Frequency:</span> <span className="font-medium">Every {forumSyncFrequency} min</span></p>
+                                    </div>
+                                  </PopoverContent></Popover>
                                   <span className={`sm-hint font-medium ${statusInfo(fmJob?.lastSyncStatus || null, forumSyncEnabled).color}`}>{statusInfo(fmJob?.lastSyncStatus || null, forumSyncEnabled).label}</span>
                                 </div>
                                 <p className="sm-hint">{forumSyncEnabled ? `Every ${forumSyncFrequency} min` : 'Schedule disabled'} · Last: {formatLastRun(fmJob?.lastSyncTime || null)}</p>
