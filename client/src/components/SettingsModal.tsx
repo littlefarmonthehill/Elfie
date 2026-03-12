@@ -717,6 +717,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [rebrickableSetSyncTime, setRebrickableSetSyncTime] = useState("04:00");
   const [ordersSyncFrequency, setOrdersSyncFrequency] = useState(15);
   const [ordersSyncFrequencyStr, setOrdersSyncFrequencyStr] = useState("15");
+  const [ordersSyncStartTime, setOrdersSyncStartTime] = useState("08:00");
+  const [ordersSyncEndTime, setOrdersSyncEndTime] = useState("20:00");
   const [forumSyncEnabled, setForumSyncEnabled] = useState(true);
   const [forumSyncFrequency, setForumSyncFrequency] = useState(60);
   const [forumSyncFrequencyStr, setForumSyncFrequencyStr] = useState("60");
@@ -1436,6 +1438,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       setOrdersSyncEnabled(settings.ordersSyncEnabled || false);
       setOrdersSyncFrequency(settings.ordersSyncFrequency || 15);
       setOrdersSyncFrequencyStr(String(settings.ordersSyncFrequency || 15));
+      setOrdersSyncStartTime(settings.ordersSyncStartTime ?? '08:00');
+      setOrdersSyncEndTime(settings.ordersSyncEndTime ?? '20:00');
       setRebrickableSetSyncEnabled(settings.rebrickableSetSyncEnabled || false);
       setRebrickableSetSyncTime(settings.rebrickableSetSyncTime || '04:00');
       setForumSyncEnabled(settings.forumSyncEnabled !== false);
@@ -4264,6 +4268,33 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             data-testid="input-orders-frequency"
                           />
                           <p className="text-[10px] md:text-sm text-gray-500">Recommended: 15 minutes</p>
+                          <div className="mt-3">
+                            <Label className="text-xs text-gray-200">Active Window</Label>
+                            <p className="text-[10px] md:text-sm text-gray-500 mb-1.5">Only sync during these hours (org timezone)</p>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="time"
+                                value={ordersSyncStartTime}
+                                onChange={(e) => {
+                                  setOrdersSyncStartTime(e.target.value);
+                                  updateSettingsMutation.mutate({ ordersSyncStartTime: e.target.value });
+                                }}
+                                className="text-xs w-28"
+                                data-testid="input-orders-sync-start-time"
+                              />
+                              <span className="text-xs text-gray-400">to</span>
+                              <Input
+                                type="time"
+                                value={ordersSyncEndTime}
+                                onChange={(e) => {
+                                  setOrdersSyncEndTime(e.target.value);
+                                  updateSettingsMutation.mutate({ ordersSyncEndTime: e.target.value });
+                                }}
+                                className="text-xs w-28"
+                                data-testid="input-orders-sync-end-time"
+                              />
+                            </div>
+                          </div>
                         </div>
                       )}
                       </div>

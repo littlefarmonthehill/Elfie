@@ -503,6 +503,8 @@ export const appSettings = pgTable("app_settings", {
   priceOMaticEnabled: boolean("price_o_matic_enabled").default(false).notNull(),
   ordersSyncEnabled: boolean("orders_sync_enabled").default(false).notNull(),
   ordersSyncFrequency: integer("orders_sync_frequency").default(15).notNull(), // minutes
+  ordersSyncStartTime: text("orders_sync_start_time").default('08:00'),        // Active window start (HH:MM, org timezone)
+  ordersSyncEndTime: text("orders_sync_end_time").default('20:00'),            // Active window end   (HH:MM, org timezone)
   forumSyncEnabled: boolean("forum_sync_enabled").default(true).notNull(),
   forumSyncFrequency: integer("forum_sync_frequency").default(60).notNull(), // minutes
   // Rebrickable Configuration

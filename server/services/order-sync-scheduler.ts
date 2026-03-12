@@ -7,6 +7,23 @@ import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 
 const ORG_ID = 'org_planetbrick';
 
+function isWithinActiveWindow(startHHMM: string, endHHMM: string, tz: string): boolean {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
+  const parts = formatter.formatToParts(now);
+  const h = parseInt(parts.find(p => p.type === 'hour')!.value);
+  const m = parseInt(parts.find(p => p.type === 'minute')!.value);
+  const nowMinutes = h * 60 + m;
+  const [sh, sm] = startHHMM.split(':').map(Number);
+  const [eh, em] = endHHMM.split(':').map(Number);
+  const startMinutes = sh * 60 + sm;
+  const endMinutes = eh * 60 + em;
+  if (startMinutes <= endMinutes) {
+    return nowMinutes >= startMinutes && nowMinutes < endMinutes;
+  }
+  return nowMinutes >= startMinutes || nowMinutes < endMinutes;
+}
+
 const SYNC_ID = 'bricklink_orders';
 const SYNC_TYPE = 'order_sync';
 const MAX_RETRIES = 5;
@@ -35,6 +52,10 @@ async function checkAndRunSync() {
     }
 
     if (!settings?.ordersSyncEnabled) return;
+
+    const startTime = settings.ordersSyncStartTime ?? '08:00';
+    const endTime = settings.ordersSyncEndTime ?? '20:00';
+    if (!isWithinActiveWindow(startTime, endTime, settings.timezone ?? 'America/Chicago')) return;
 
     const frequencyMs = (settings.ordersSyncFrequency ?? 15) * 60 * 1000;
 
