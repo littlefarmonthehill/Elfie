@@ -1444,9 +1444,9 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
           }
         }
 
-        // Fetch price data — score-only sync (1 API call: sold price guide only)
-        // Item details are sourced from local blInventory (already synced). Stock guide
-        // is skipped; existing pricing data preserved. On-demand pricing computes suggested prices.
+        // Fetch price data — full sync (2 API calls: sold + stock price guides)
+        // Item details are sourced from local blInventory (already synced).
+        // Both guides are fetched so suggested price can be computed.
         await fetchPriceOMagicData(
           item.itemNo,
           item.itemType,
@@ -1454,7 +1454,7 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
           item.newOrUsed,
           pomConfig.basePremium,
           pomConfig,
-          true, // skipStock
+          false, // fetch both sold + stock (2 API calls per item)
           {
             name: item.itemName,
             imageUrl: item.imageUrl,
