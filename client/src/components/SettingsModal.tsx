@@ -971,7 +971,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   };
   type SystemHealthData = {
     platform: { totalOrganizations: number; totalUsers: number; activeSubscriptions: number };
-    embeddings: { inventoryEmbeddings: number; orderEmbeddings: number };
+    embeddings: { inventoryEmbeddings: number; inventoryTotal: number; orderEmbeddings: number; orderTotal: number };
     jobs: {
       active: Array<{ id: string; orgId: string; jobType: string; status: string; processedItems: number; totalItems: number; errorMessage: string | null; createdAt: string; completedAt: string | null }>;
       recent: Array<{ id: string; orgId: string; jobType: string; status: string; processedItems: number; totalItems: number; errorMessage: string | null; createdAt: string; completedAt: string | null }>;
@@ -7481,36 +7481,74 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             </div>
                           </div>
 
-                          {(systemHealth.jobs.active.length > 0 || systemHealth.jobs.recent.length > 0) && (
-                            <div>
-                              <p className="sm-group-label mb-2 px-1">Text Embedding Worker</p>
-                              <div className="sm-card-inset">
-                                {systemHealth.jobs.active.map((job: any) => (
-                                  <div key={job.id} className="px-4 py-3 flex items-center gap-3">
-                                    <Loader2 className="h-4 w-4 text-yellow-400 animate-spin shrink-0" />
-                                    <p className="sm-label flex-1 capitalize">{job.jobType}</p>
-                                    {job.totalItems > 0 && <span className="sm-hint font-mono">{job.processedItems}/{job.totalItems}</span>}
-                                  </div>
-                                ))}
-                                {systemHealth.jobs.recent.slice(0, 5).map((job: any) => (
-                                  <div key={job.id} className="px-4 py-3 flex items-center gap-3">
-                                    {job.status === 'completed' ? <CheckCircle2 className="h-4 w-4 text-green-400" /> : <AlertTriangle className="h-4 w-4 text-red-400" />}
-                                    <div className="flex-1 min-w-0">
-                                      <p className="sm-label capitalize">{job.jobType}</p>
-                                      {job.errorMessage && <p className="sm-hint text-red-400/80 truncate">{job.errorMessage}</p>}
+                          <div>
+                            <p className="sm-group-label mb-2 px-1">Org-Level Text Embeddings</p>
+                            <div className="sm-card-inset">
+                              {(() => {
+                                const emb = systemHealth.embeddings;
+                                const invPct = emb.inventoryTotal > 0 ? Math.round((emb.inventoryEmbeddings / emb.inventoryTotal) * 100) : 0;
+                                const ordPct = emb.orderTotal > 0 ? Math.round((emb.orderEmbeddings / emb.orderTotal) * 100) : 0;
+                                return (
+                                  <>
+                                    <div className="px-4 py-3 flex items-center gap-3">
+                                      {invPct >= 100 ? <CheckCircle2 className="h-4 w-4 text-green-400" /> : <Database className="h-4 w-4 text-gray-500" />}
+                                      <div className="flex-1 min-w-0">
+                                        <p className="sm-label">Inventory Embeddings</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                          <div className="flex-1 bg-gray-700 rounded-full h-1.5">
+                                            <div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: `${Math.min(invPct, 100)}%` }} />
+                                          </div>
+                                          <span className="sm-hint shrink-0 font-mono">{emb.inventoryEmbeddings.toLocaleString()}/{emb.inventoryTotal.toLocaleString()} ({invPct}%)</span>
+                                        </div>
+                                      </div>
                                     </div>
-                                    <div className="text-right shrink-0">
-                                      <p className="sm-hint font-mono">{job.processedItems}/{job.totalItems}</p>
-                                      <p className="sm-hint">{job.completedAt ? new Date(job.completedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</p>
+                                    <div className="px-4 py-3 flex items-center gap-3">
+                                      {ordPct >= 100 ? <CheckCircle2 className="h-4 w-4 text-green-400" /> : <Database className="h-4 w-4 text-gray-500" />}
+                                      <div className="flex-1 min-w-0">
+                                        <p className="sm-label">Order Embeddings</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                          <div className="flex-1 bg-gray-700 rounded-full h-1.5">
+                                            <div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: `${Math.min(ordPct, 100)}%` }} />
+                                          </div>
+                                          <span className="sm-hint shrink-0 font-mono">{emb.orderEmbeddings.toLocaleString()}/{emb.orderTotal.toLocaleString()} ({ordPct}%)</span>
+                                        </div>
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
-                                {systemHealth.jobs.active.length === 0 && systemHealth.jobs.recent.length === 0 && (
-                                  <div className="px-4 py-4 text-center"><p className="sm-description">No embedding jobs</p></div>
-                                )}
-                              </div>
+                                  </>
+                                );
+                              })()}
                             </div>
-                          )}
+                            <p className="sm-hint mt-1.5 px-1">Generated automatically after Inventory Sync and Order Sync. Runs via the background Text Embedding Worker.</p>
+                          </div>
+
+                          <div>
+                            <p className="sm-group-label mb-2 px-1">Text Embedding Worker</p>
+                            <div className="sm-card-inset">
+                              {systemHealth.jobs.active.map((job: any) => (
+                                <div key={job.id} className="px-4 py-3 flex items-center gap-3">
+                                  <Loader2 className="h-4 w-4 text-yellow-400 animate-spin shrink-0" />
+                                  <p className="sm-label flex-1 capitalize">{job.jobType}</p>
+                                  {job.totalItems > 0 && <span className="sm-hint font-mono">{job.processedItems}/{job.totalItems}</span>}
+                                </div>
+                              ))}
+                              {systemHealth.jobs.recent.slice(0, 5).map((job: any) => (
+                                <div key={job.id} className="px-4 py-3 flex items-center gap-3">
+                                  {job.status === 'completed' ? <CheckCircle2 className="h-4 w-4 text-green-400" /> : <AlertTriangle className="h-4 w-4 text-red-400" />}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="sm-label capitalize">{job.jobType}</p>
+                                    {job.errorMessage && <p className="sm-hint text-red-400/80 truncate">{job.errorMessage}</p>}
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <p className="sm-hint font-mono">{job.processedItems}/{job.totalItems}</p>
+                                    <p className="sm-hint">{job.completedAt ? new Date(job.completedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</p>
+                                  </div>
+                                </div>
+                              ))}
+                              {systemHealth.jobs.active.length === 0 && systemHealth.jobs.recent.length === 0 && (
+                                <div className="px-4 py-4 text-center"><p className="sm-description">No recent embedding jobs</p></div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       )}
 

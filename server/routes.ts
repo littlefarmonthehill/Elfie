@@ -1019,6 +1019,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Embedding counts per type
       const [invEmbCount] = await db.select({ count: count() }).from(inventoryEmbeddings);
       const [ordEmbCount] = await db.select({ count: count() }).from(orderEmbeddings);
+      const [invTotalCount] = await db.select({ count: count() }).from(blInventory);
+      const [ordTotalCount] = await db.select({ count: count() }).from(orders);
 
       const platformSyncIds = ['priceomatic_cache', 'universal_catalog_refresh', 'rebrickable_set_parts', 'forum_sync'];
       const syncJobs = await db
@@ -1090,7 +1092,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         embeddings: {
           inventoryEmbeddings: invEmbCount.count,
+          inventoryTotal: invTotalCount.count,
           orderEmbeddings: ordEmbCount.count,
+          orderTotal: ordTotalCount.count,
         },
         jobs: {
           active: activeJobs,
