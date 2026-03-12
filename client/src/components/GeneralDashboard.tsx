@@ -413,13 +413,11 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   const totalRevenue = stats?.totalSales ?? 0;
 
   const isInvSyncing = invSyncProgress?.status === 'syncing';
-  const isPomRunning = pomStatus?.data?.liveProgress?.active === true;
-  const pomProgress = pomStatus?.data?.liveProgress;
   const isOrderSyncing = orderSyncRunning?.running === true;
   const isChannelSyncing = channelSyncRunning?.running === true;
   const isScanProcessing = latestScan?.status === 'processing';
 
-  const hasRunningJobs = isInvSyncing || isPomRunning || isOrderSyncing || isChannelSyncing || isScanProcessing || !!activeInvEmbed || !!activeOrdEmbed;
+  const hasRunningJobs = isInvSyncing || isOrderSyncing || isChannelSyncing || isScanProcessing || !!activeInvEmbed || !!activeOrdEmbed;
 
   const lastInvSync = globalSyncStatuses?.inventory;
   const lastPom = pomStatus?.data ?? globalSyncStatuses?.priceomatic;
@@ -524,18 +522,14 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           stat={`${totalLots.toLocaleString()} lots · ${totalPcs.toLocaleString()} pcs`}
           alerts={urgentAlerts.filter(a => ['inv-fail', 'scan', 'underpriced', 'channel-fail'].includes(a.id) || a.id.startsWith('ch-'))}
           onClick={() => onNavigate?.('inventory')}
-          isRunning={isInvSyncing || isPomRunning || isScanProcessing || isChannelSyncing || !!activeInvEmbed}
+          isRunning={isInvSyncing || isScanProcessing || isChannelSyncing || !!activeInvEmbed}
           lastActions={[
             { label: 'Inventory sync', time: relTime(lastInvSync?.lastSyncTime), ok: !invSyncFailed },
-            { label: 'Price-o-Matic', time: relTime(lastPom?.lastSyncTime), ok: !pomFailed },
             { label: 'Channel sync', time: relTime(lastChannelSync?.lastSyncTime), ok: !channelSyncFailed },
           ]}
           runningJobs={<>
             {isInvSyncing && (
               <JobBar label="Inventory Sync" pct={invSyncProgress?.progress ?? 0} sublabel={invSyncProgress?.currentStep} color="cyan" />
-            )}
-            {isPomRunning && pomProgress && (
-              <JobBar label="Price-o-Matic" pct={pomProgress.itemsTotal > 0 ? (pomProgress.itemsProcessed / pomProgress.itemsTotal) * 100 : 0} sublabel={`${pomProgress.itemsProcessed.toLocaleString()} / ${pomProgress.itemsTotal.toLocaleString()} lots`} color="purple" />
             )}
             {isScanProcessing && (
               <div className="flex items-center gap-1.5">

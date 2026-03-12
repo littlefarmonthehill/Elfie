@@ -4933,223 +4933,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 <Separator className="bg-gray-700" />
 
-                {/* Price-o-Matic */}
-                <div>
-                  <button
-                    onClick={() => setEnrichmentPomOpen(!enrichmentPomOpen)}
-                    className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
-                    data-testid="button-enrichment-pom-toggle"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-gray-200">Price-o-Matic</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${pomScheduleEnabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-500'}`}>{pomScheduleEnabled ? 'Enabled' : 'Disabled'}</span>
-                    </div>
-                    {enrichmentPomOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
-                  </button>
-                  {enrichmentPomOpen && (
-                  <div>
-                  <h3 className="text-sm font-medium text-gray-100 mb-3 sr-only">Price-o-Matic</h3>
-
-                  {/* Auto Sync Scheduler */}
-                  <div className="space-y-3 my-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <Label className="text-xs font-medium text-gray-100">Price-o-Matic Auto Sync</Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button className="sm-icon-btn">
-                                <Info className="w-3 h-3" />
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent side="bottom" className="sm-popover-lg">
-                              <p className="font-semibold text-gray-200">Price-o-Matic Auto Sync</p>
-                              <p className="text-gray-400">Fetches avg listed price, avg sold price, and lot count from BrickLink for each inventory item, then computes a suggested price using your formula. Items are processed in priority order by category tier (T1 → T4).</p>
-                              <p className="sm-description">Runs on its own independent schedule. Uses 3 BrickLink API calls per lot. Stops automatically at your daily API ceiling.</p>
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                        <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Runs independently on its own schedule</p>
-                        <SyncStatusLine entry={syncStatuses?.priceomatic ?? null} />
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          disabled={syncingPom}
-                          onClick={() => runManualSync('/api/sync/priceomatic', setSyncingPomTrigger, 'Price-o-Matic', undefined, 'Price-o-Matic started', 'Sync is running in the background.')}
-                          title="Run Price-o-Matic sync now"
-                          data-testid="button-run-pom-sync"
-                        >
-                          {syncingPom ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                        </Button>
-                        <Switch
-                          checked={pomScheduleEnabled}
-                          onCheckedChange={(checked) => {
-                            setPomScheduleEnabled(checked);
-                            updatePlatformSettingsMutation.mutate({ pomScheduleEnabled: checked });
-                          }}
-                          data-testid="switch-pom-schedule"
-                        />
-                      </div>
-                    </div>
-
-                    {syncingPom && pomLiveProgress && (
-                      <div className="space-y-1.5 mt-2" data-testid="pom-progress-bar">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[10px] text-blue-400 font-medium flex items-center gap-1.5">
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            Syncing…
-                          </span>
-                          <span className="text-[10px] text-gray-400">{pomLiveProgress.itemsProcessed?.toLocaleString()} / {pomLiveProgress.itemsTotal?.toLocaleString()} lots · {pomProgressPct}%</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-gray-700/60 rounded-full overflow-hidden">
-                          <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${pomProgressPct}%` }} />
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[10px] text-gray-500">24h API: {pomCallsLast24h.toLocaleString()} · This sync: {pomCurrentSyncCalls.toLocaleString()} / {pomApiCeiling.toLocaleString()}</span>
-                          <span className="text-[10px] text-gray-500">Without POM: {pomUnenrichedCount.toLocaleString()}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {!syncingPom && pomLiveStatus?.data && (
-                      <div className="flex items-center justify-between gap-2 mt-1.5" data-testid="pom-api-stats">
-                        <span className="text-[10px] text-gray-500">24h API: {pomCallsLast24h.toLocaleString()} / {pomApiCeiling.toLocaleString()}</span>
-                        <span className="text-[10px] text-gray-500">Without POM: {pomUnenrichedCount.toLocaleString()}</span>
-                      </div>
-                    )}
-
-                    {pomScheduleEnabled && (
-                      <div className="ml-4 space-y-3">
-                        <div className="flex items-center gap-4">
-                          <div className="space-y-1">
-                            <Label htmlFor="pom-sync-time" className="text-xs text-gray-200">Sync Time</Label>
-                            <Input
-                              id="pom-sync-time"
-                              type="time"
-                              value={pomSyncTime}
-                              onChange={(e) => setPomSyncTime(e.target.value)}
-                              onBlur={() => updatePlatformSettingsMutation.mutate({ pomSyncTime })}
-                              className="text-xs w-32"
-                              data-testid="input-pom-sync-time"
-                            />
-                            <p className="text-[10px] text-gray-500">Local timezone</p>
-                          </div>
-                          <div className="space-y-1">
-                            <Label htmlFor="pom-schedule-batch" className="text-xs text-gray-200">Lots per run</Label>
-                            <Input
-                              id="pom-schedule-batch"
-                              type="number"
-                              min={100}
-                              max={5000}
-                              step={100}
-                              value={pomScheduleBatchSize}
-                              onChange={(e) => setPomScheduleBatchSize(parseInt(e.target.value) || 100)}
-                              onBlur={() => updatePlatformSettingsMutation.mutate({ pomScheduleBatchSize })}
-                              className="text-xs w-28 text-right"
-                              data-testid="input-pom-schedule-batch"
-                            />
-                            <p className="text-[10px] text-gray-500">= {pomScheduleBatchSize} API calls</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Sync Limits — always visible, not tied to scheduler toggle */}
-                    <div className="ml-4 space-y-2 pt-2 border-t border-gray-700/40">
-                      <p className="text-[10px] text-gray-500">BrickLink allows 5,000 API calls/day. Price-o-Matic uses 3 calls per lot.</p>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <Label className="text-xs text-gray-200">Manual sync batch size</Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button className="sm-icon-btn">
-                                <Info className="w-3 h-3" />
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent side="bottom" className="sm-popover-md">
-                              Max lots to process when you hit the play button above to run a sync manually.
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Input type="number" min={100} max={25000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomBatchSize })} className="text-xs w-24 text-right" data-testid="input-pom-batch-size" />
-                          <span className="text-[10px] text-gray-500 w-16">lots / run</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator className="bg-gray-700" />
-
-                  <div className="flex items-center gap-2 rounded-md bg-gray-800/50 border border-gray-700/40 px-4 py-3">
-                    <TrendingUp className="h-4 w-4 text-purple-400 shrink-0" />
-                    <p className="text-xs text-gray-400">
-                      Pricing formula and scoring thresholds are configured in{' '}
-                      <button
-                        onClick={() => setActiveSection('priceomatic')}
-                        className="text-purple-400 hover:text-purple-300 underline-offset-2 hover:underline"
-                        data-testid="link-goto-priceomatic-settings"
-                      >
-                        Company Settings → Price-o-Matic
-                      </button>
-                    </p>
-                  </div>
-
-
-                  {/* Clear Cache */}
-                  <div className="bg-red-500/5 border border-red-500/20 rounded-md px-4 py-3">
-                    <div className="flex items-center justify-between gap-4 flex-wrap">
-                      <div className="flex items-center gap-1.5">
-                        <Label className="text-sm font-medium text-red-300">Clear Price Guide Cache</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="sm-icon-btn">
-                              <Info className="w-3.5 h-3.5" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent side="bottom" className="sm-popover">
-                            Deletes all stored price guide data and resets sync history. Use when starting fresh with new formula settings. The next sync rebuilds from scratch. No inventory data is affected.
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <Button variant="outline" size="sm" onClick={() => setShowClearPomDialog(true)} className="border-red-500/40 text-red-400 hover:text-red-300 shrink-0" data-testid="button-clear-pom-cache">
-                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                        Clear Cache
-                      </Button>
-                    </div>
-                  </div>
-
-                  <AlertDialog open={showClearPomDialog} onOpenChange={setShowClearPomDialog}>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Clear Price Guide Cache?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will permanently delete all stored Price-o-Matic price guide data and reset the sync history. The next sync run will start fresh and rebuild from scratch using your current formula settings.
-                          <br /><br />
-                          This cannot be undone, but no inventory data is affected — only the pricing cache.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => clearPomCacheMutation.mutate()}
-                          className="bg-red-600 hover:bg-red-700"
-                          data-testid="button-confirm-clear-pom"
-                        >
-                          {clearPomCacheMutation.isPending ? "Clearing..." : "Yes, Clear Cache"}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-
-                  </div>
-                  )}
-                </div>
-
-                <Separator className="bg-gray-700" />
-
                 {/* Rebrickable Set-Parts Sync */}
                 <div>
                   <button
@@ -7333,7 +7116,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
             {/* Platform Services */}
             {activeSection === 'apiKeys' && (
-              <div className="px-3 pt-3 pb-4 space-y-3">
+              <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden">
                 {/* Tab strip */}
                 {(() => {
                   const psTabs: Array<{ id: 'jobs' | 'platform' | 'stripe' | 'openai' | 'bricklink'; label: string; Icon: React.ElementType }> = [
@@ -7344,16 +7127,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     { id: 'openai', label: 'OpenAI', Icon: Brain },
                   ];
                   return (
-                    <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1">
+                    <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1 overflow-x-auto">
                       {psTabs.map(({ id, label, Icon }) => (
                         <button
                           key={id}
                           onClick={() => setActivePlatformServicesTab(id)}
                           data-testid={`tab-platform-services-${id}`}
-                          className={`flex items-center gap-1.5 flex-1 justify-center px-3 py-1.5 rounded text-xs font-medium transition-colors ${activePlatformServicesTab === id ? 'bg-gray-700 text-gray-100' : 'text-gray-500 hover:text-gray-300'}`}
+                          className={`flex items-center gap-1.5 shrink-0 justify-center px-3 py-1.5 rounded text-xs font-medium transition-colors ${activePlatformServicesTab === id ? 'bg-gray-700 text-gray-100' : 'text-gray-500 hover:text-gray-300'}`}
                         >
-                          <Icon className="h-3 w-3" />
-                          {label}
+                          <Icon className="h-3 w-3 shrink-0" />
+                          <span className="whitespace-nowrap">{label}</span>
                         </button>
                       ))}
                     </div>
@@ -7362,7 +7145,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                 {/* ── Jobs tab ──────────────────────────────────── */}
                 {activePlatformServicesTab === 'jobs' && (
-                  <div className="space-y-3">
+                  <div className="space-y-3 min-w-0">
                     {systemHealthLoading ? (
                       <div className="flex items-center justify-center py-10">
                         <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
@@ -7433,6 +7216,30 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </div>
                             </button>
                             {pomJob?.errorMessage && <p className="px-4 pb-2 text-xs text-red-400/80 truncate -mt-1">{pomJob.errorMessage}</p>}
+                            {syncingPom && pomLiveProgress && (
+                              <div className="px-4 pb-3 space-y-1.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-[10px] text-blue-400 font-medium flex items-center gap-1.5">
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    Syncing…
+                                  </span>
+                                  <span className="text-[10px] text-gray-400">{pomLiveProgress.itemsProcessed?.toLocaleString()} / {pomLiveProgress.itemsTotal?.toLocaleString()} lots · {pomProgressPct}%</span>
+                                </div>
+                                <div className="w-full h-1.5 bg-gray-700/60 rounded-full overflow-hidden">
+                                  <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${pomProgressPct}%` }} />
+                                </div>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-[10px] text-gray-500">24h API: {pomCallsLast24h.toLocaleString()} · This sync: {pomCurrentSyncCalls.toLocaleString()} / {pomApiCeiling.toLocaleString()}</span>
+                                  <span className="text-[10px] text-gray-500">Without POM: {pomUnenrichedCount.toLocaleString()}</span>
+                                </div>
+                              </div>
+                            )}
+                            {!syncingPom && pomLiveStatus?.data && (
+                              <div className="flex items-center justify-between gap-2 px-4 pb-3" data-testid="pom-api-stats-jobs">
+                                <span className="text-[10px] text-gray-500">24h API: {pomCallsLast24h.toLocaleString()} / {pomApiCeiling.toLocaleString()}</span>
+                                <span className="text-[10px] text-gray-500">Without POM: {pomUnenrichedCount.toLocaleString()}</span>
+                              </div>
+                            )}
                             {isExpanded('pom') && (
                               <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
                                 <div className="sm-row pt-3">
