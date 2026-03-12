@@ -264,6 +264,16 @@ export async function runMigrations() {
       await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS ${col} ${def}`);
     }
     console.log('[Migration] Phase-11 (catalog enrichment settings) complete.');
+
+    // ── Phase-12: API budget allocation columns ──────────────────────
+    const phase12Cols: Array<[string, string]> = [
+      ['pom_api_budget_pct', 'INTEGER NOT NULL DEFAULT 70'],
+      ['catalog_detail_api_budget_pct', 'INTEGER NOT NULL DEFAULT 20'],
+    ];
+    for (const [col, def] of phase12Cols) {
+      await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS ${col} ${def}`);
+    }
+    console.log('[Migration] Phase-12 (API budget allocation) complete.');
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

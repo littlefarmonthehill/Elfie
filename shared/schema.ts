@@ -563,6 +563,9 @@ export const appSettings = pgTable("app_settings", {
   catalogScanEnabled: boolean("catalog_scan_enabled").default(false).notNull(),
   catalogScanFrequencyHours: integer("catalog_scan_frequency_hours").default(2).notNull(),
   catalogScanZeroStockSkip: boolean("catalog_scan_zero_stock_skip").default(true).notNull(),
+  // API Budget Allocation (percentage of blApiCallLimit per job)
+  pomApiBudgetPct: integer("pom_api_budget_pct").default(70).notNull(),
+  catalogDetailApiBudgetPct: integer("catalog_detail_api_budget_pct").default(20).notNull(),
   // Universal CLIP Catalog auto-refresh scheduler
   universalCatalogScheduleEnabled: boolean("universal_catalog_schedule_enabled").default(false).notNull(),
   universalCatalogRefreshMonths: integer("universal_catalog_refresh_months").default(1).notNull(), // How many months between imports

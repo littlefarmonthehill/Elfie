@@ -1204,10 +1204,13 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
     blApiCallLimit: appSettings.blApiCallLimit,
     pomFreshnessDays: appSettings.pomFreshnessDays,
     pomZeroStockSkip: appSettings.pomZeroStockSkip,
+    pomApiBudgetPct: appSettings.pomApiBudgetPct,
   }).from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
 
   const effectiveMaxItems = maxItems ?? pomSettings?.pomBatchSize ?? 1500;
-  const apiCallCeiling = pomSettings?.blApiCallLimit ?? 4900;
+  const totalCeiling = pomSettings?.blApiCallLimit ?? 4900;
+  const budgetPct = pomSettings?.pomApiBudgetPct ?? 70;
+  const apiCallCeiling = Math.floor(totalCeiling * budgetPct / 100);
   const freshnessDays = pomSettings?.pomFreshnessDays ?? 180;
   const zeroStockSkip = pomSettings?.pomZeroStockSkip ?? true;
 

@@ -1057,7 +1057,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           (SELECT COUNT(DISTINCT item_no || '|' || item_type || '|' || COALESCE(CAST(color_id AS TEXT), '0')) FROM price_guide_cache WHERE stock_avg_price IS NOT NULL) AS has_supply,
           (SELECT COUNT(DISTINCT item_no || '|' || item_type || '|' || COALESCE(CAST(color_id AS TEXT), '0')) FROM price_guide_cache WHERE stock_avg_price IS NOT NULL AND fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays}) AS stale_supply,
           (SELECT COUNT(DISTINCT item_no || '|' || item_type || '|' || COALESCE(CAST(color_id AS TEXT), '0')) FROM price_guide_cache WHERE sold_avg_price IS NOT NULL) AS has_sold,
-          (SELECT COUNT(DISTINCT item_no || '|' || item_type || '|' || COALESCE(CAST(color_id AS TEXT), '0')) FROM price_guide_cache WHERE sold_avg_price IS NOT NULL AND fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays}) AS stale_sold
+          (SELECT COUNT(DISTINCT item_no || '|' || item_type || '|' || COALESCE(CAST(color_id AS TEXT), '0')) FROM price_guide_cache WHERE sold_avg_price IS NOT NULL AND fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays}) AS stale_sold,
+          (SELECT COUNT(DISTINCT i.item_no || '|' || i.item_type || '|' || COALESCE(CAST(i.color_id AS TEXT), '0'))
+           FROM bl_inventory i
+           LEFT JOIN bl_catalog c ON i.item_no = c.item_no AND i.item_type = c.item_type AND COALESCE(i.color_id, 0) = c.color_id
+           WHERE i.quantity > 0 AND c.item_no IS NULL) AS inventory_not_in_catalog
       `);
       const cc = catalogCoverageResult.rows[0] as any;
       const catalogCoverage = {
@@ -1065,6 +1069,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         detail: { has: parseInt(cc?.has_detail || '0'), stale: parseInt(cc?.stale_detail || '0') },
         supply: { has: parseInt(cc?.has_supply || '0'), stale: parseInt(cc?.stale_supply || '0') },
         sold: { has: parseInt(cc?.has_sold || '0'), stale: parseInt(cc?.stale_sold || '0') },
+        inventoryNotInCatalog: parseInt(cc?.inventory_not_in_catalog || '0'),
+        apiBudget: {
+          total: platformSettings?.blApiCallLimit ?? 4900,
+          pomPct: platformSettings?.pomApiBudgetPct ?? 70,
+          catalogDetailPct: platformSettings?.catalogDetailApiBudgetPct ?? 20,
+        },
       };
 
       const { getActiveBuild } = await import('./services/clip-search.js');
@@ -9515,7 +9525,10 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
 
       const [pomSettings] = await db.select({
         apiCeiling: appSettings.blApiCallLimit,
+        pomApiBudgetPct: appSettings.pomApiBudgetPct,
       }).from(appSettings).where(eq(appSettings.id, PLATFORM_ORG_ID)).limit(1);
+
+      const pomBudgetedCeiling = Math.floor((pomSettings?.apiCeiling ?? 4900) * (pomSettings?.pomApiBudgetPct ?? 70) / 100);
 
       const [unenrichedRow] = await db.select({
         count: sql<number>`COUNT(*)`,
@@ -9553,7 +9566,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             recordsUpdated: 0,
           }),
           callsLast24h: rateLimit.callsLast24h,
-          apiCeiling: pomSettings?.apiCeiling ?? 4900,
+          apiCeiling: pomBudgetedCeiling,
           unenrichedCount: unenrichedRow?.count ?? 0,
           oldestCallTime: rateLimit.oldestCallTime ?? null,
           newestCallTime: rateLimit.newestCallTime ?? null,
@@ -9598,6 +9611,46 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
     } catch (error) {
       console.error("Error stopping Price-o-Matic sync:", error);
       res.status(500).json({ success: false, error: "Failed to stop sync" });
+    }
+  });
+
+  app.get("/api/sync/catalog-detail/status", isSuperAdmin, async (req: any, res) => {
+    try {
+      const [status] = await db.select().from(syncMetadata)
+        .where(and(eq(syncMetadata.orgId, PLATFORM_ORG_ID), eq(syncMetadata.id, 'catalog_detail_completion')))
+        .limit(1);
+      const { getCatalogDetailProgress, getCatalogDetailIsRunning } = await import('./services/catalog-detail-scheduler.js');
+      const liveProgress = getCatalogDetailProgress();
+      let resolvedStatus = status;
+      if (status?.lastSyncStatus === 'in_progress' && !getCatalogDetailIsRunning()) {
+        const staleFix = { lastSyncStatus: 'error' as const, errorMessage: 'Sync interrupted — server restarted mid-run.', updatedAt: new Date() };
+        await db.update(syncMetadata).set(staleFix).where(and(eq(syncMetadata.orgId, PLATFORM_ORG_ID), eq(syncMetadata.id, 'catalog_detail_completion')));
+        resolvedStatus = { ...status, ...staleFix };
+      }
+      res.json({ success: true, data: { ...(resolvedStatus || { id: 'catalog_detail_completion', lastSyncStatus: 'never', lastSyncTime: null }), liveProgress } });
+    } catch (error) {
+      console.error("Error fetching Catalog Detail status:", error);
+      res.status(500).json({ success: false, error: "Failed to fetch status" });
+    }
+  });
+
+  app.get("/api/sync/catalog-scan/status", isSuperAdmin, async (req: any, res) => {
+    try {
+      const [status] = await db.select().from(syncMetadata)
+        .where(and(eq(syncMetadata.orgId, PLATFORM_ORG_ID), eq(syncMetadata.id, 'catalog_scan')))
+        .limit(1);
+      const { getCatalogScanProgress, getCatalogScanIsRunning } = await import('./services/catalog-scan-scheduler.js');
+      const liveProgress = getCatalogScanProgress();
+      let resolvedStatus = status;
+      if (status?.lastSyncStatus === 'in_progress' && !getCatalogScanIsRunning()) {
+        const staleFix = { lastSyncStatus: 'error' as const, errorMessage: 'Scan interrupted — server restarted mid-run.', updatedAt: new Date() };
+        await db.update(syncMetadata).set(staleFix).where(and(eq(syncMetadata.orgId, PLATFORM_ORG_ID), eq(syncMetadata.id, 'catalog_scan')));
+        resolvedStatus = { ...status, ...staleFix };
+      }
+      res.json({ success: true, data: { ...(resolvedStatus || { id: 'catalog_scan', lastSyncStatus: 'never', lastSyncTime: null }), liveProgress } });
+    } catch (error) {
+      console.error("Error fetching Catalog Scan status:", error);
+      res.status(500).json({ success: false, error: "Failed to fetch status" });
     }
   });
 

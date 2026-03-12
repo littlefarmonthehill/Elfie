@@ -708,6 +708,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [catalogScanEnabled, setCatalogScanEnabled] = useState(false);
   const [catalogScanFrequencyHours, setCatalogScanFrequencyHours] = useState(2);
   const [catalogScanZeroStockSkip, setCatalogScanZeroStockSkip] = useState(true);
+  const [pomApiBudgetPct, setPomApiBudgetPct] = useState(70);
+  const [catalogDetailApiBudgetPct, setCatalogDetailApiBudgetPct] = useState(20);
   const [rebrickableImageSyncEnabled, setRebrickableImageSyncEnabled] = useState(true);
   const [channelSyncEnabled, setChannelSyncEnabled] = useState(false);
   const [channelSyncTime, setChannelSyncTime] = useState("03:00");
@@ -993,6 +995,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       detail: { has: number; stale: number };
       supply: { has: number; stale: number };
       sold: { has: number; stale: number };
+      inventoryNotInCatalog: number;
+      apiBudget: { total: number; pomPct: number; catalogDetailPct: number };
     };
   };
 
@@ -1486,6 +1490,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       setCatalogScanEnabled(platformSettings.catalogScanEnabled || false);
       setCatalogScanFrequencyHours(platformSettings.catalogScanFrequencyHours ?? 2);
       setCatalogScanZeroStockSkip(platformSettings.catalogScanZeroStockSkip !== false);
+      setPomApiBudgetPct(platformSettings.pomApiBudgetPct ?? 70);
+      setCatalogDetailApiBudgetPct(platformSettings.catalogDetailApiBudgetPct ?? 20);
       setPomBasePremium(platformSettings.pomBasePremium ?? 10);
       setPomMinifigPremium(platformSettings.pomMinifigPremium ?? 5);
       setPomScarcityThreshold1(platformSettings.pomScarcityThreshold1 ?? 50);
@@ -1831,6 +1837,25 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const pomApiCeiling = pomLiveStatus?.data?.apiCeiling ?? 4900;
   const pomUnenrichedCount = pomLiveStatus?.data?.unenrichedCount ?? 0;
   const pomCurrentSyncCalls = pomLiveProgress?.active ? Math.max(0, pomCallsLast24h - (pomLiveProgress.apiCallsAtStart ?? pomCallsLast24h)) : 0;
+
+  const { data: cdLiveStatus } = useQuery<{ success: boolean; data: any }>({
+    queryKey: ['/api/sync/catalog-detail/status'],
+    refetchInterval: 3000,
+    staleTime: 0,
+    enabled: open && (activeSection === 'platformScheduler'),
+  });
+  const cdLiveProgress = cdLiveStatus?.data?.liveProgress;
+  const syncingCd = cdLiveProgress?.active === true;
+  const cdProgressPct = cdLiveProgress?.itemsTotal > 0 ? Math.round((cdLiveProgress.itemsProcessed / cdLiveProgress.itemsTotal) * 100) : 0;
+
+  const { data: csLiveStatus } = useQuery<{ success: boolean; data: any }>({
+    queryKey: ['/api/sync/catalog-scan/status'],
+    refetchInterval: 3000,
+    staleTime: 0,
+    enabled: open && (activeSection === 'platformScheduler'),
+  });
+  const csLiveProgress = csLiveStatus?.data?.liveProgress;
+  const syncingCs = csLiveProgress?.active === true;
 
   async function runManualSync(
     endpoint: string,
@@ -7308,6 +7333,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           {systemHealth.catalogCoverage && (() => {
                             const cov = systemHealth.catalogCoverage;
                             const total = cov.totalCatalog || 1;
+                            const invGap = cov.inventoryNotInCatalog ?? 0;
+                            const budget = cov.apiBudget;
+                            const reservePct = Math.max(0, 100 - (budget?.pomPct ?? 70) - (budget?.catalogDetailPct ?? 20));
                             const areas = [
                               { label: 'Item Detail', has: cov.detail.has, stale: cov.detail.stale, freshLabel: `${catalogDetailFreshnessDays}d`, barClass: 'bg-blue-500', barStaleClass: 'bg-blue-500/30' },
                               { label: 'Supply', has: cov.supply.has, stale: cov.supply.stale, freshLabel: `${pomFreshnessDays}d`, barClass: 'bg-green-500', barStaleClass: 'bg-green-500/30' },
@@ -7321,6 +7349,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                     <span className="sm-hint font-mono">{total.toLocaleString()} items</span>
                                   </div>
                                 </div>
+                                {invGap > 0 && (
+                                  <div className="px-4 py-2 flex items-center gap-2 border-b border-gray-700/40">
+                                    <span className="text-[10px] text-yellow-500/90 font-medium">{invGap.toLocaleString()} inventory items not yet in catalog</span>
+                                  </div>
+                                )}
                                 {areas.map(({ label, has, stale, freshLabel, barClass, barStaleClass }) => {
                                   const missing = total - has;
                                   const fresh = has - stale;
@@ -7350,6 +7383,24 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                     </div>
                                   );
                                 })}
+                                {budget && (
+                                  <div className="px-4 py-2.5 border-t border-gray-700/40" data-testid="api-budget-bar">
+                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                      <span className="sm-label">API Budget (24h)</span>
+                                      <span className="sm-hint font-mono">{(budget.total ?? 4900).toLocaleString()} calls/day</span>
+                                    </div>
+                                    <div className="flex h-2 rounded-full overflow-hidden bg-gray-700">
+                                      <div className="bg-purple-500 transition-all" style={{ width: `${budget.pomPct}%` }} title={`Price Guides: ${budget.pomPct}%`} />
+                                      <div className="bg-blue-500 transition-all" style={{ width: `${budget.catalogDetailPct}%` }} title={`Catalog Detail: ${budget.catalogDetailPct}%`} />
+                                      <div className="bg-gray-500/50 transition-all" style={{ width: `${reservePct}%` }} title={`Reserve: ${reservePct}%`} />
+                                    </div>
+                                    <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                      <span className="text-[10px] text-purple-400/80">Price Guides {budget.pomPct}% ({Math.floor(budget.total * budget.pomPct / 100)})</span>
+                                      <span className="text-[10px] text-blue-400/80">Detail {budget.catalogDetailPct}% ({Math.floor(budget.total * budget.catalogDetailPct / 100)})</span>
+                                      <span className="text-[10px] text-gray-400/80">Reserve {reservePct}% ({Math.floor(budget.total * reservePct / 100)})</span>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             );
                           })()}
@@ -7402,6 +7453,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 <div className="sm-row pt-3">
                                   <span className="sm-label">Enabled</span>
                                   <Switch checked={pomScheduleEnabled} onCheckedChange={(checked) => { setPomScheduleEnabled(checked); updatePlatformSettingsMutation.mutate({ pomScheduleEnabled: checked }); }} data-testid="switch-pom-scheduler-sched" />
+                                </div>
+                                <div className="sm-row">
+                                  <div>
+                                    <span className="sm-label">API budget</span>
+                                    <p className="sm-hint">% of daily API limit for this job</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Input type="number" min={5} max={90} value={pomApiBudgetPct} onChange={(e) => setPomApiBudgetPct(parseInt(e.target.value) || 70)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomApiBudgetPct })} className="w-20 text-xs text-right" data-testid="input-pom-budget-pct" />
+                                    <span className="sm-hint">%</span>
+                                  </div>
                                 </div>
                                 <div className="sm-row">
                                   <span className="sm-label">Run time</span>
@@ -7464,11 +7525,47 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </div>
                             </button>
                             {cdJob?.errorMessage && <p className="px-4 pb-2 text-xs text-red-400/80 truncate -mt-1">{cdJob.errorMessage}</p>}
+                            {syncingCd && cdLiveProgress && (
+                              <div className="px-4 pb-3 space-y-1.5" data-testid="cd-progress-bar">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-[10px] text-blue-400 font-medium flex items-center gap-1.5">
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    {cdLiveProgress.phase || 'Syncing'}…
+                                  </span>
+                                  <span className="text-[10px] text-gray-400">
+                                    {cdLiveProgress.phase === 'Enriching items' ? `${cdLiveProgress.itemsProcessed?.toLocaleString()} / ${cdLiveProgress.itemsTotal?.toLocaleString()} items · ${cdProgressPct}%` : cdLiveProgress.phase}
+                                  </span>
+                                </div>
+                                {cdLiveProgress.phase === 'Enriching items' && (
+                                  <div className="w-full h-1.5 bg-gray-700/60 rounded-full overflow-hidden">
+                                    <div className="h-full bg-blue-500 rounded-full transition-all duration-500" style={{ width: `${cdProgressPct}%` }} />
+                                  </div>
+                                )}
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <span className="text-[10px] text-gray-500">
+                                    {cdLiveProgress.categoriesDone ? 'Categories done' : 'Categories pending'}
+                                    {' · '}
+                                    {cdLiveProgress.colorsDone ? 'Colors done' : 'Colors pending'}
+                                  </span>
+                                  <span className="text-[10px] text-gray-500">API: {(cdLiveProgress.apiCallsUsed ?? 0).toLocaleString()} / {(cdLiveProgress.apiCallBudget ?? 0).toLocaleString()}</span>
+                                </div>
+                              </div>
+                            )}
                             {isExpanded('cd') && (
                               <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
                                 <div className="sm-row pt-3">
                                   <span className="sm-label">Enabled</span>
                                   <Switch checked={catalogDetailEnabled} onCheckedChange={(checked) => { setCatalogDetailEnabled(checked); updatePlatformSettingsMutation.mutate({ catalogDetailEnabled: checked }); }} data-testid="switch-cd-enabled-sched" />
+                                </div>
+                                <div className="sm-row">
+                                  <div>
+                                    <span className="sm-label">API budget</span>
+                                    <p className="sm-hint">% of daily API limit for this job</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Input type="number" min={5} max={90} value={catalogDetailApiBudgetPct} onChange={(e) => setCatalogDetailApiBudgetPct(parseInt(e.target.value) || 20)} onBlur={() => updatePlatformSettingsMutation.mutate({ catalogDetailApiBudgetPct })} className="w-20 text-xs text-right" data-testid="input-cd-budget-pct" />
+                                    <span className="sm-hint">%</span>
+                                  </div>
                                 </div>
                                 <div className="sm-row">
                                   <div>
@@ -7527,6 +7624,23 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </div>
                             </button>
                             {csJob?.errorMessage && <p className="px-4 pb-2 text-xs text-red-400/80 truncate -mt-1">{csJob.errorMessage}</p>}
+                            {syncingCs && csLiveProgress && (
+                              <div className="px-4 pb-3 space-y-1.5" data-testid="cs-progress-bar">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-[10px] text-blue-400 font-medium flex items-center gap-1.5">
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    {csLiveProgress.phase || 'Scanning'}…
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3 flex-wrap">
+                                  <span className="text-[10px] text-gray-500">{(csLiveProgress.inventoryRowsScanned ?? 0).toLocaleString()} inv rows</span>
+                                  {csLiveProgress.missingCatalogEntries > 0 && <span className="text-[10px] text-yellow-500/80">{csLiveProgress.missingCatalogEntries.toLocaleString()} missing</span>}
+                                  {csLiveProgress.catalogEntriesCreated > 0 && <span className="text-[10px] text-green-400/80">{csLiveProgress.catalogEntriesCreated.toLocaleString()} stubs created</span>}
+                                  {csLiveProgress.staleCatalogDetail > 0 && <span className="text-[10px] text-orange-400/80">{csLiveProgress.staleCatalogDetail.toLocaleString()} stale detail</span>}
+                                  {csLiveProgress.missingPriceGuide > 0 && <span className="text-[10px] text-yellow-500/80">{csLiveProgress.missingPriceGuide.toLocaleString()} missing PG</span>}
+                                </div>
+                              </div>
+                            )}
                             {isExpanded('cs') && (
                               <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
                                 <div className="sm-row pt-3">

@@ -17,6 +17,9 @@ export function getCatalogDetailIsRunning() {
   return syncLock.getActive().includes('CatalogDetail');
 }
 
+let cdProgress = { active: false, phase: '', itemsProcessed: 0, itemsTotal: 0, apiCallsUsed: 0, apiCallBudget: 0, categoriesDone: false, colorsDone: false };
+export function getCatalogDetailProgress() { return { ...cdProgress }; }
+
 export async function startCatalogDetailScheduler() {
   console.log('📖 Catalog Detail scheduler initialized');
   setInterval(async () => { await checkAndRun(); }, 60 * 1000);
@@ -77,12 +80,15 @@ export async function runCatalogDetailSync(): Promise<{
       freshnessDays: appSettings.catalogDetailFreshnessDays,
       zeroStockSkip: appSettings.catalogDetailZeroStockSkip,
       blApiCallLimit: appSettings.blApiCallLimit,
+      catalogDetailApiBudgetPct: appSettings.catalogDetailApiBudgetPct,
     }).from(appSettings).where(eq(appSettings.id, ORG_ID)).limit(1);
 
     const batchSize = settings?.batchSize ?? 500;
     const freshnessDays = settings?.freshnessDays ?? 90;
     const zeroStockSkip = settings?.zeroStockSkip ?? true;
-    const apiCallCeiling = settings?.blApiCallLimit ?? 4900;
+    const totalCeiling = settings?.blApiCallLimit ?? 4900;
+    const budgetPct = settings?.catalogDetailApiBudgetPct ?? 20;
+    const apiCallCeiling = Math.floor(totalCeiling * budgetPct / 100);
 
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const [usageRow] = await db.select({ count: sql<number>`count(*)` })
@@ -94,15 +100,19 @@ export async function runCatalogDetailSync(): Promise<{
       return { categoriesAdded: 0, categoriesUpdated: 0, colorsAdded: 0, colorsUpdated: 0, itemsEnriched: 0, apiCallsUsed: 0, stopped: true, stopReason: `API limit reached: ${callsLast24h}/${apiCallCeiling}` };
     }
 
-    console.log(`[CatalogDetail] Starting sync (batch: ${batchSize}, freshness: ${freshnessDays}d, zeroStockSkip: ${zeroStockSkip})`);
+    cdProgress = { active: true, phase: 'Starting', itemsProcessed: 0, itemsTotal: 0, apiCallsUsed: 0, apiCallBudget: apiCallCeiling, categoriesDone: false, colorsDone: false };
+    console.log(`[CatalogDetail] Starting sync (batch: ${batchSize}, freshness: ${freshnessDays}d, zeroStockSkip: ${zeroStockSkip}, API budget: ${apiCallCeiling}/${totalCeiling} [${budgetPct}%])`);
 
     // Phase 1: Refresh categories (1 API call)
+    cdProgress.phase = 'Categories';
     try {
       const { syncBricklinkCategories } = await import('./bricklink');
       const catResult = await syncBricklinkCategories(ORG_ID);
       categoriesAdded = catResult.added;
       categoriesUpdated = catResult.updated;
       apiCallsUsed += catResult.apiCalls;
+      cdProgress.apiCallsUsed = apiCallsUsed;
+      cdProgress.categoriesDone = true;
       console.log(`[CatalogDetail] Categories: ${catResult.added} added, ${catResult.updated} updated`);
     } catch (error) {
       console.error('[CatalogDetail] Categories sync failed (non-fatal):', error);
@@ -111,17 +121,21 @@ export async function runCatalogDetailSync(): Promise<{
     if (stopRequested || shutdownRequested) {
       stopped = true;
       stopReason = shutdownRequested ? 'Shutdown' : 'Stopped by user';
+      cdProgress = { ...cdProgress, active: false, phase: 'Stopped' };
       syncLock.release('CatalogDetail');
       return { categoriesAdded, categoriesUpdated, colorsAdded, colorsUpdated, itemsEnriched, apiCallsUsed, stopped, stopReason };
     }
 
     // Phase 2: Refresh colors (1 API call)
+    cdProgress.phase = 'Colors';
     try {
       const { syncBricklinkColors } = await import('./bricklink');
       const colorResult = await syncBricklinkColors(ORG_ID);
       colorsAdded = colorResult.added;
       colorsUpdated = colorResult.updated;
       apiCallsUsed += colorResult.apiCalls;
+      cdProgress.apiCallsUsed = apiCallsUsed;
+      cdProgress.colorsDone = true;
       console.log(`[CatalogDetail] Colors: ${colorResult.added} added, ${colorResult.updated} updated`);
     } catch (error) {
       console.error('[CatalogDetail] Colors sync failed (non-fatal):', error);
@@ -130,6 +144,7 @@ export async function runCatalogDetailSync(): Promise<{
     if (stopRequested || shutdownRequested) {
       stopped = true;
       stopReason = shutdownRequested ? 'Shutdown' : 'Stopped by user';
+      cdProgress = { ...cdProgress, active: false, phase: 'Stopped' };
       syncLock.release('CatalogDetail');
       return { categoriesAdded, categoriesUpdated, colorsAdded, colorsUpdated, itemsEnriched, apiCallsUsed, stopped, stopReason };
     }
@@ -194,6 +209,9 @@ export async function runCatalogDetailSync(): Promise<{
     const availableApiCalls = Math.max(0, apiCallCeiling - callsLast24h - apiCallsUsed);
     const itemsToProcess = uniqueItems.slice(0, availableApiCalls);
 
+    cdProgress.phase = 'Enriching items';
+    cdProgress.itemsTotal = itemsToProcess.length;
+    cdProgress.itemsProcessed = 0;
     console.log(`[CatalogDetail] Found ${candidates.length} candidates, ${uniqueItems.length} unique items, processing ${itemsToProcess.length} (API budget: ${availableApiCalls})`);
 
     for (const item of itemsToProcess) {
@@ -208,6 +226,7 @@ export async function runCatalogDetailSync(): Promise<{
         const endpoint = `/items/${apiItemType}/${item.itemNo}`;
         const { data } = await bricklinkCatalogRequest(endpoint, undefined, ORG_ID);
         apiCallsUsed++;
+        cdProgress.apiCallsUsed = apiCallsUsed;
 
         if (data) {
           await db.insert(blCatalog).values({
@@ -241,7 +260,9 @@ export async function runCatalogDetailSync(): Promise<{
 
           itemsEnriched++;
         }
+        cdProgress.itemsProcessed = itemsEnriched;
       } catch (error: any) {
+        cdProgress.itemsProcessed = itemsEnriched;
         console.error(`[CatalogDetail] Error enriching ${item.itemType}/${item.itemNo}:`, error.message || error);
       }
     }
@@ -267,10 +288,12 @@ export async function runCatalogDetailSync(): Promise<{
       },
     });
 
+    cdProgress = { ...cdProgress, active: false, phase: stopped ? 'Stopped' : 'Complete' };
     console.log(`[CatalogDetail] Complete: ${itemsEnriched} items enriched, ${categoriesAdded}+${categoriesUpdated} categories, ${colorsAdded}+${colorsUpdated} colors, ${apiCallsUsed} API calls${stopped ? ` (${stopReason})` : ''}`);
 
     return { categoriesAdded, categoriesUpdated, colorsAdded, colorsUpdated, itemsEnriched, apiCallsUsed, stopped, stopReason };
   } catch (error) {
+    cdProgress = { ...cdProgress, active: false, phase: 'Error' };
     console.error('[CatalogDetail] Sync error:', error);
     throw error;
   } finally {

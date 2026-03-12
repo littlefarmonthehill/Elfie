@@ -65,9 +65,11 @@ Platform services and customer orgs are fully separated in `app_settings`:
 - **Customer org rows** (e.g., `id='org_planetbrick'`): Store org-specific settings — their own BrickLink API credentials for inventory/order syncs, PayPal credentials, shipping vendor configs, etc.
 - **Platform schedulers** (universal-catalog, rebrickable, pom, catalog-detail, bl-forum) read settings from the platform row.
 - **Org schedulers** (inventory-sync, order-sync, channel-sync) read settings from the org's own row. Org inventory sync is lean — just pulls inventory from BrickLink (1 API call) + XML backup. Categories, colors, embeddings, and rebrickable syncs are handled at the platform level.
-- **Inventory Catalog Scan** (`catalog-scan-scheduler.ts`): Platform-level gap-finder that scans all `bl_inventory` rows, creates missing `bl_catalog` stubs, and counts stale detail / missing+stale price guides. Zero API calls — database scan only. Feeds work to Catalog Detail Completion and Market Price Guides.
-- **Catalog Detail Completion** (`catalog-detail-scheduler.ts`): Platform-level job that refreshes BL categories (1 call), colors (1 call), then enriches individual catalog items missing detail or stale (1 call each). Settings: frequency, batch size, freshness days, zero-stock skip.
+- **Inventory Catalog Scan** (`catalog-scan-scheduler.ts`): Platform-level gap-finder that scans all `bl_inventory` rows, creates missing `bl_catalog` stubs, and counts stale detail / missing+stale price guides. Zero API calls — database scan only. Feeds work to Catalog Detail Completion and Market Price Guides. Live progress tracking via `getCatalogScanProgress()`.
+- **Catalog Detail Completion** (`catalog-detail-scheduler.ts`): Platform-level job that refreshes BL categories (1 call), colors (1 call), then enriches individual catalog items missing detail or stale (1 call each). Settings: frequency, batch size, freshness days, zero-stock skip. Live progress tracking via `getCatalogDetailProgress()`.
+- **API Budget Allocation** (`pomApiBudgetPct` default 70%, `catalogDetailApiBudgetPct` default 20% in `app_settings`): Each API-calling job computes its ceiling as `floor(blApiCallLimit * budgetPct / 100)`. Remaining 10% reserved for org-level syncs. Budget bar shown in Catalog Coverage dashboard; per-job % editable in expanded settings.
 - **Migration Phase-10** copies platform-level credentials from `org_planetbrick` to the new `platform` row on first run.
+- **Migration Phase-12** adds `pom_api_budget_pct` and `catalog_detail_api_budget_pct` columns to `app_settings`.
 
 ## API Credential Security
 

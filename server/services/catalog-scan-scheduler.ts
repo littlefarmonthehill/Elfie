@@ -9,6 +9,9 @@ let running = false;
 
 export function getCatalogScanIsRunning() { return running; }
 
+let csProgress = { active: false, phase: '', inventoryRowsScanned: 0, missingCatalogEntries: 0, catalogEntriesCreated: 0, staleCatalogDetail: 0, missingPriceGuide: 0, stalePriceGuide: 0 };
+export function getCatalogScanProgress() { return { ...csProgress }; }
+
 export async function startCatalogScanScheduler() {
   console.log('🔎 Inventory Catalog Scan scheduler initialized');
   setInterval(async () => { await checkAndRun(); }, 60 * 1000);
@@ -53,37 +56,40 @@ export async function runCatalogScan(): Promise<CatalogScanResult> {
     return { inventoryRowsScanned: 0, missingCatalogEntries: 0, catalogEntriesCreated: 0, staleCatalogDetail: 0, missingPriceGuide: 0, stalePriceGuide: 0 };
   }
   running = true;
-
-  const [settings] = await db.select({
-    zeroStockSkip: appSettings.catalogScanZeroStockSkip,
-    detailFreshnessDays: appSettings.catalogDetailFreshnessDays,
-    pomFreshnessDays: appSettings.pomFreshnessDays,
-  }).from(appSettings).where(eq(appSettings.id, ORG_ID)).limit(1);
-
-  const zeroStockSkip = settings?.zeroStockSkip ?? true;
-  const detailFreshnessDays = settings?.detailFreshnessDays ?? 90;
-  const pomFreshnessDays = settings?.pomFreshnessDays ?? 180;
-
-  await db.insert(syncMetadata).values({
-    id: SYNC_ID,
-    lastSyncStatus: 'in_progress',
-    lastSyncTime: new Date(),
-    recordsAdded: 0,
-    recordsUpdated: 0,
-    orgId: ORG_ID,
-  }).onConflictDoUpdate({
-    target: syncMetadata.id,
-    set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: null },
-  });
+  csProgress = { active: true, phase: 'Starting', inventoryRowsScanned: 0, missingCatalogEntries: 0, catalogEntriesCreated: 0, staleCatalogDetail: 0, missingPriceGuide: 0, stalePriceGuide: 0 };
 
   try {
+    const [settings] = await db.select({
+      zeroStockSkip: appSettings.catalogScanZeroStockSkip,
+      detailFreshnessDays: appSettings.catalogDetailFreshnessDays,
+      pomFreshnessDays: appSettings.pomFreshnessDays,
+    }).from(appSettings).where(eq(appSettings.id, ORG_ID)).limit(1);
+
+    const zeroStockSkip = settings?.zeroStockSkip ?? true;
+    const detailFreshnessDays = settings?.detailFreshnessDays ?? 90;
+    const pomFreshnessDays = settings?.pomFreshnessDays ?? 180;
+
+    await db.insert(syncMetadata).values({
+      id: SYNC_ID,
+      lastSyncStatus: 'in_progress',
+      lastSyncTime: new Date(),
+      recordsAdded: 0,
+      recordsUpdated: 0,
+      orgId: ORG_ID,
+    }).onConflictDoUpdate({
+      target: syncMetadata.id,
+      set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: null },
+    });
     const quantityFilter = zeroStockSkip ? gt(blInventory.quantity, 0) : sql`true`;
 
+    csProgress.phase = 'Counting inventory';
     const [invCount] = await db.select({ count: count() }).from(blInventory).where(quantityFilter);
     const inventoryRowsScanned = Number(invCount?.count || 0);
+    csProgress.inventoryRowsScanned = inventoryRowsScanned;
 
     const colorMatch = sql`COALESCE(${blInventory.colorId}, 0) = ${blCatalog.colorId}`;
 
+    csProgress.phase = 'Finding missing catalog entries';
     const missingRows = await db
       .selectDistinctOn([blInventory.itemNo, blInventory.itemType, blInventory.colorId], {
         itemNo: blInventory.itemNo,
@@ -99,9 +105,11 @@ export async function runCatalogScan(): Promise<CatalogScanResult> {
       .where(and(quantityFilter, isNull(blCatalog.itemNo)));
 
     const missingCatalogEntries = missingRows.length;
+    csProgress.missingCatalogEntries = missingCatalogEntries;
 
     let catalogEntriesCreated = 0;
     if (missingRows.length > 0) {
+      csProgress.phase = 'Creating catalog stubs';
       const BATCH_SIZE = 500;
       for (let i = 0; i < missingRows.length; i += BATCH_SIZE) {
         const batch = missingRows.slice(i, i + BATCH_SIZE);
@@ -114,9 +122,11 @@ export async function runCatalogScan(): Promise<CatalogScanResult> {
           .onConflictDoNothing()
           .returning({ itemNo: blCatalog.itemNo });
         catalogEntriesCreated += inserted.length;
+        csProgress.catalogEntriesCreated = catalogEntriesCreated;
       }
     }
 
+    csProgress.phase = 'Checking stale detail';
     const detailStaleThreshold = new Date(Date.now() - detailFreshnessDays * 24 * 60 * 60 * 1000);
     const [staleDetailRow] = await db
       .select({ count: sql<number>`count(DISTINCT (${blCatalog.itemNo}, ${blCatalog.itemType}))` })
@@ -133,7 +143,9 @@ export async function runCatalogScan(): Promise<CatalogScanResult> {
         lt(blCatalog.updatedAt, detailStaleThreshold),
       ));
     const staleCatalogDetail = Number(staleDetailRow?.count || 0);
+    csProgress.staleCatalogDetail = staleCatalogDetail;
 
+    csProgress.phase = 'Checking price guides';
     const pomStaleThreshold = new Date(Date.now() - pomFreshnessDays * 24 * 60 * 60 * 1000);
 
     const [missingPgRow] = await db
@@ -159,6 +171,8 @@ export async function runCatalogScan(): Promise<CatalogScanResult> {
       ))
       .where(and(quantityFilter, lt(priceGuideCache.fetchedAt, pomStaleThreshold)));
     const stalePriceGuide = Number(stalePgRow?.count || 0);
+    csProgress.missingPriceGuide = missingPriceGuide;
+    csProgress.stalePriceGuide = stalePriceGuide;
 
     const result: CatalogScanResult = {
       inventoryRowsScanned,
@@ -169,6 +183,7 @@ export async function runCatalogScan(): Promise<CatalogScanResult> {
       stalePriceGuide,
     };
 
+    csProgress = { ...csProgress, active: false, phase: 'Complete' };
     console.log(`[CatalogScan] Complete: ${inventoryRowsScanned} inv rows, ${missingCatalogEntries} missing catalog (${catalogEntriesCreated} created), ${staleCatalogDetail} stale detail, ${missingPriceGuide} missing PG, ${stalePriceGuide} stale PG`);
 
     await db.insert(syncMetadata).values({
@@ -192,6 +207,7 @@ export async function runCatalogScan(): Promise<CatalogScanResult> {
 
     return result;
   } catch (error: any) {
+    csProgress = { ...csProgress, active: false, phase: 'Error' };
     console.error('[CatalogScan] Error:', error.message);
     await db.insert(syncMetadata).values({
       id: SYNC_ID,
