@@ -1894,7 +1894,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
           style={{ height: 'min(640px, calc(96dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)))' }}
         >
           <div
-            className="flex flex-col h-full min-h-0"
+            className="flex flex-col h-full min-h-0 min-w-0 w-full"
           >
             {/* Header */}
             <div className="flex items-center px-3 py-3 border-b border-gray-700/80 bg-gray-800/70 flex-shrink-0">
@@ -1940,7 +1940,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             </div>
 
             {/* Content */}
-            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+            <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">
               {activeSection === null ? (
                 <nav className="p-2">
                   {/* Company Settings accordion header */}
