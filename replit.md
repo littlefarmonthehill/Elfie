@@ -70,6 +70,19 @@ Platform services and customer orgs are fully separated in `app_settings`:
 - **API Budget Allocation** (`pomApiBudgetPct` default 70%, `catalogDetailApiBudgetPct` default 20% in `app_settings`): Each API-calling job computes its ceiling as `floor(blApiCallLimit * budgetPct / 100)`. Remaining 10% reserved for org-level syncs. Budget bar shown in Catalog Coverage dashboard; per-job % editable in expanded settings.
 - **Migration Phase-10** copies platform-level credentials from `org_planetbrick` to the new `platform` row on first run.
 - **Migration Phase-12** adds `pom_api_budget_pct` and `catalog_detail_api_budget_pct` columns to `app_settings`.
+- **Migration Phase-13** adds repricing score weight and threshold columns: `pom_weight_ceiling/velocity/scarcity/undercut` (combined score weights, default 0.4/0.3/0.2/0.1), `pom_velocity_high/low` (demand velocity thresholds), `pom_scarcity_high/low` (market scarcity thresholds), `pom_undercut_high/low` (undercut ratio thresholds).
+
+## Repricing Score System
+
+Five on-the-fly scores are computed in `/api/priceomatic/insights` from `price_guide_cache` + `bl_inventory` data:
+
+1. **Price Ceiling Ratio** = `sold_max_price / unit_price` (historical upside; >1 = room to raise)
+2. **Demand Velocity** = `sold_total_lots / stock_total_lots` (demand vs supply turnover)
+3. **Market Scarcity Index** = `1 / stock_total_lots` (fewer sellers = scarcer)
+4. **Undercut Ratio** = `unit_price / stock_min_price` (>1 = being undercut by competitors)
+5. **Combined Repricing Score** = weighted sum: `ceiling*w1 + velocity*w2 + scarcity*w3 + (1/undercut)*w4`
+
+All weights and thresholds are user-configurable in Settings > Price-o-Matic > Scoring. Scores are never stored — computed fresh from the latest market data each time the dashboard loads.
 
 ## API Credential Security
 

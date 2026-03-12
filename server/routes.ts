@@ -10275,13 +10275,51 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         )
         .where(and(eq(blInventory.orgId, orgId), sql`${blInventory.unitPrice} IS NOT NULL AND (${priceGuideCache.stockAvgPrice} IS NOT NULL OR ${priceGuideCache.soldAvgPrice} IS NOT NULL)`))
 
-      // Enrich with opportunity score — no suggested price computation
+      // Load scoring weights from org settings
+      const scoringSettings = await getOrgSettings(orgId);
+      const wCeiling = scoringSettings?.pomWeightCeiling ?? 0.4;
+      const wVelocity = scoringSettings?.pomWeightVelocity ?? 0.3;
+      const wScarcity = scoringSettings?.pomWeightScarcity ?? 0.2;
+      const wUndercut = scoringSettings?.pomWeightUndercut ?? 0.1;
+
+      // Enrich with all repricing scores
       const enrichedItems = insights.map(item => {
         const currentPrice = parseFloat(item.currentPrice || '0');
         const marketPeak = item.marketPeakSoldPrice ? parseFloat(item.marketPeakSoldPrice) : null;
-        const opportunityScore = (marketPeak !== null && currentPrice > 0)
-          ? Number((marketPeak / currentPrice).toFixed(2))
+
+        // 1. Price Ceiling Ratio (= old opportunityScore)
+        const priceCeilingRatio = (marketPeak !== null && currentPrice > 0)
+          ? Number((marketPeak / currentPrice).toFixed(3))
           : null;
+
+        // 2. Demand Velocity = soldTotalLots / stockTotalLots
+        const soldLots = parseInt(item.soldTotalLots || '0');
+        const stockLots = parseInt(item.stockTotalLots || '0');
+        const demandVelocity = (stockLots > 0)
+          ? Number((soldLots / stockLots).toFixed(3))
+          : null;
+
+        // 3. Market Scarcity Index = 1 / stockTotalLots
+        const marketScarcity = (stockLots > 0)
+          ? Number((1 / stockLots).toFixed(4))
+          : null;
+
+        // 4. Undercut Ratio = ourPrice / stockMinPrice
+        const stockMin = parseFloat(item.stockMinPrice || '0');
+        const undercutRatio = (stockMin > 0 && currentPrice > 0)
+          ? Number((currentPrice / stockMin).toFixed(3))
+          : null;
+
+        // 5. Combined Repricing Opportunity Score — compute if any component exists
+        let repricingScore: number | null = null;
+        const hasAnyComponent = priceCeilingRatio !== null || demandVelocity !== null || marketScarcity !== null || undercutRatio !== null;
+        if (hasAnyComponent) {
+          const ceilingComponent = (priceCeilingRatio ?? 0) * wCeiling;
+          const velocityComponent = (demandVelocity ?? 0) * wVelocity;
+          const scarcityComponent = (marketScarcity ?? 0) * wScarcity;
+          const undercutComponent = (undercutRatio && undercutRatio > 0) ? (1 / undercutRatio) * wUndercut : 0;
+          repricingScore = Number((ceilingComponent + velocityComponent + scarcityComponent + undercutComponent).toFixed(3));
+        }
 
         return {
           inventoryId: item.inventoryId,
@@ -10304,7 +10342,12 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           soldQuantity: item.soldQuantity,
           soldTotalLots: item.soldTotalLots,
           marketPeakSoldPrice: item.marketPeakSoldPrice,
-          opportunityScore,
+          opportunityScore: priceCeilingRatio,
+          priceCeilingRatio,
+          demandVelocity,
+          marketScarcity,
+          undercutRatio,
+          repricingScore,
           quantity: item.quantity,
           lastFetched: item.lastFetched,
         };

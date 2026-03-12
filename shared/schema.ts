@@ -534,6 +534,20 @@ export const appSettings = pgTable("app_settings", {
   pomTooLowThreshold: integer("pom_too_low_threshold").default(20).notNull(),    // % below suggested = too low
   pomUnderpricedScore: real("pom_underpriced_score").default(1.5).notNull(),     // Opportunity score >= this = underpriced
   pomOverpricedScore: real("pom_overpriced_score").default(0.8).notNull(),       // Opportunity score <= this = overpriced
+  // Repricing score weights (must sum to 1.0)
+  pomWeightCeiling: real("pom_weight_ceiling").default(0.4).notNull(),           // Price Ceiling Ratio weight
+  pomWeightVelocity: real("pom_weight_velocity").default(0.3).notNull(),         // Demand Velocity weight
+  pomWeightScarcity: real("pom_weight_scarcity").default(0.2).notNull(),         // Market Scarcity Index weight
+  pomWeightUndercut: real("pom_weight_undercut").default(0.1).notNull(),         // Undercut Ratio weight
+  // Demand Velocity thresholds
+  pomVelocityHigh: real("pom_velocity_high").default(2.0).notNull(),             // Velocity >= this = high demand
+  pomVelocityLow: real("pom_velocity_low").default(0.3).notNull(),               // Velocity <= this = low demand
+  // Market Scarcity thresholds
+  pomScarcityHigh: real("pom_scarcity_high").default(0.1).notNull(),             // Scarcity >= this = very scarce (≤10 sellers)
+  pomScarcityLow: real("pom_scarcity_low").default(0.005).notNull(),             // Scarcity <= this = very common (≥200 sellers)
+  // Undercut Ratio thresholds
+  pomUndercutHigh: real("pom_undercut_high").default(1.5).notNull(),             // Undercut >= this = heavily undercut
+  pomUndercutLow: real("pom_undercut_low").default(0.8).notNull(),               // Undercut <= this = cheapest seller
   pomBatchSize: integer("pom_batch_size").default(1500).notNull(),               // Items per sync run
   pomApiCallLimit: integer("pom_api_call_limit").default(4500).notNull(),        // POM daily API call ceiling
   blApiCallLimit: integer("bl_api_call_limit").default(4900).notNull(),          // Global BrickLink daily API call ceiling (hard block for all features)

@@ -749,6 +749,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [pomScarcityBonus3, setPomScarcityBonus3] = useState(3);
   const [pomUnderpricedScore, setPomUnderpricedScore] = useState(1.5);
   const [pomOverpricedScore, setPomOverpricedScore] = useState(0.8);
+  const [pomWeightCeiling, setPomWeightCeiling] = useState(0.4);
+  const [pomWeightVelocity, setPomWeightVelocity] = useState(0.3);
+  const [pomWeightScarcity, setPomWeightScarcity] = useState(0.2);
+  const [pomWeightUndercut, setPomWeightUndercut] = useState(0.1);
+  const [pomVelocityHigh, setPomVelocityHigh] = useState(2.0);
+  const [pomVelocityLow, setPomVelocityLow] = useState(0.3);
+  const [pomScarcityHigh, setPomScarcityHigh] = useState(0.1);
+  const [pomScarcityLow, setPomScarcityLow] = useState(0.005);
+  const [pomUndercutHigh, setPomUndercutHigh] = useState(1.5);
+  const [pomUndercutLow, setPomUndercutLow] = useState(0.8);
   const [pomPricingOpen, setPomPricingOpen] = useState(false);
   const [pomScoringOpen, setPomScoringOpen] = useState(false);
   const [pomBatchSize, setPomBatchSize] = useState(1500);
@@ -1503,6 +1513,16 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       setPomScarcityBonus3(platformSettings.pomScarcityBonus3 ?? 3);
       setPomUnderpricedScore(platformSettings.pomUnderpricedScore ?? 1.5);
       setPomOverpricedScore(platformSettings.pomOverpricedScore ?? 0.8);
+      setPomWeightCeiling(platformSettings.pomWeightCeiling ?? 0.4);
+      setPomWeightVelocity(platformSettings.pomWeightVelocity ?? 0.3);
+      setPomWeightScarcity(platformSettings.pomWeightScarcity ?? 0.2);
+      setPomWeightUndercut(platformSettings.pomWeightUndercut ?? 0.1);
+      setPomVelocityHigh(platformSettings.pomVelocityHigh ?? 2.0);
+      setPomVelocityLow(platformSettings.pomVelocityLow ?? 0.3);
+      setPomScarcityHigh(platformSettings.pomScarcityHigh ?? 0.1);
+      setPomScarcityLow(platformSettings.pomScarcityLow ?? 0.005);
+      setPomUndercutHigh(platformSettings.pomUndercutHigh ?? 1.5);
+      setPomUndercutLow(platformSettings.pomUndercutLow ?? 0.8);
       setPomBatchSize(platformSettings.pomBatchSize ?? 1500);
       setBlApiCallLimit(platformSettings.blApiCallLimit ?? 4900);
       setPomCostFloorPct(platformSettings.pomCostFloorPct ?? 0);
@@ -2909,63 +2929,24 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                   <Separator className="bg-gray-700" />
 
-                  {/* Scoring collapsible */}
-                  <div>
-                    <button
-                      onClick={() => setPomScoringOpen(!pomScoringOpen)}
-                      className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
-                      data-testid="button-pom-scoring-toggle"
-                    >
-                      <span className="text-sm font-semibold text-gray-200 uppercase tracking-wider">Scoring</span>
-                      {pomScoringOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
-                    </button>
-                    {pomScoringOpen && (
-                      <div className="space-y-2">
-                        <div className="divide-y divide-gray-700/30 mb-2">
-                          <div className="sm-row">
-                            <div className="flex items-center gap-1.5">
-                              <Label className="text-sm text-emerald-300">Underpriced Score</Label>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <button className="sm-icon-btn">
-                                    <Info className="w-3.5 h-3.5" />
-                                  </button>
-                                </PopoverTrigger>
-                                <PopoverContent side="bottom" className="sm-popover">
-                                  Items with an opportunity score at or above this value are flagged as underpriced in the POM dashboard filter. Score = market peak ÷ your price, so 1.5× means you're 50% below the market peak. Only items with stock on hand are counted.
-                                </PopoverContent>
-                              </Popover>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-300">score ≥</span>
-                              <Input type="number" min={0.1} max={10} step={0.1} value={pomUnderpricedScore} onChange={(e) => setPomUnderpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomUnderpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-underpriced-score" />
-                              <span className="text-xs text-gray-400 w-14">× (peak)</span>
-                            </div>
-                          </div>
-                          <div className="sm-row">
-                            <div className="flex items-center gap-1.5">
-                              <Label className="text-sm text-orange-300">Overpriced Score</Label>
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <button className="sm-icon-btn">
-                                    <Info className="w-3.5 h-3.5" />
-                                  </button>
-                                </PopoverTrigger>
-                                <PopoverContent side="bottom" className="sm-popover">
-                                  Items with an opportunity score at or below this value are flagged as overpriced in the POM dashboard filter. Score = market peak ÷ your price, so 0.8× means you're 25% above the market peak. Only items with stock on hand are counted.
-                                </PopoverContent>
-                              </Popover>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-300">score ≤</span>
-                              <Input type="number" min={0.1} max={10} step={0.1} value={pomOverpricedScore} onChange={(e) => setPomOverpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomOverpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-overpriced-score" />
-                              <span className="text-xs text-gray-400 w-14">× (peak)</span>
-                            </div>
-                          </div>
-                        </div>
-
-                      </div>
-                    )}
+                  {/* Scoring quick-view — full config is in POM settings section */}
+                  <div className="px-3 py-2 rounded bg-gray-800/20 border border-gray-700/30">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wider">Scoring</span>
+                      <button
+                        onClick={() => { setActiveSection('priceomatic'); setPomScoringOpen(true); }}
+                        className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
+                        data-testid="button-pom-scoring-goto"
+                      >
+                        Configure in Price-o-Matic settings
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 flex-wrap">
+                      <span className="text-[10px] text-gray-400">Ceiling {(pomWeightCeiling * 100).toFixed(0)}%</span>
+                      <span className="text-[10px] text-gray-400">Velocity {(pomWeightVelocity * 100).toFixed(0)}%</span>
+                      <span className="text-[10px] text-gray-400">Scarcity {(pomWeightScarcity * 100).toFixed(0)}%</span>
+                      <span className="text-[10px] text-gray-400">Undercut {(pomWeightUndercut * 100).toFixed(0)}%</span>
+                    </div>
                   </div>
 
                   {/* Pricing collapsible */}
@@ -4536,48 +4517,190 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     {pomScoringOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
                   </button>
                   {pomScoringOpen && (
-                    <div className="space-y-2">
-                      <div className="divide-y divide-gray-700/30 mb-2">
-                        <div className="sm-row">
+                    <div className="space-y-4">
+                      {/* ── Price Ceiling Ratio ── */}
+                      <div className="sm-card-inset">
+                        <div className="px-3 py-2 bg-gray-800/40 border-b border-gray-700/60">
                           <div className="flex items-center gap-1.5">
-                            <Label className="text-sm text-emerald-300">Underpriced Score</Label>
+                            <span className="text-xs font-semibold text-blue-300 uppercase tracking-wider">Price Ceiling Ratio</span>
                             <Popover>
                               <PopoverTrigger asChild>
-                                <button className="sm-icon-btn">
-                                  <Info className="w-3.5 h-3.5" />
+                                <button className="sm-icon-btn" onClick={(e) => e.stopPropagation()}>
+                                  <Info className="w-3 h-3" />
                                 </button>
                               </PopoverTrigger>
                               <PopoverContent side="bottom" className="sm-popover">
-                                Items with an opportunity score at or above this value are flagged as underpriced in the POM dashboard filter. Score = market peak ÷ your price, so 1.5× means you're 50% below the market peak. Only items with stock on hand are counted.
+                                Measures historical price upside. Calculated as market highest sold price divided by your listed price. A value above 1.0 means room to raise price; below 1.0 means you may already exceed typical market highs.
                               </PopoverContent>
                             </Popover>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-300">score ≥</span>
-                            <Input type="number" min={0.1} max={10} step={0.1} value={pomUnderpricedScore} onChange={(e) => setPomUnderpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomUnderpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-underpriced-score" />
-                            <span className="text-xs text-gray-400 w-14">× (peak)</span>
+                        </div>
+                        <div className="divide-y divide-gray-700/30">
+                          <div className="sm-row px-3">
+                            <div className="flex items-center gap-1.5">
+                              <Label className="text-xs text-emerald-300">Underpriced</Label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-400">score ≥</span>
+                              <Input type="number" min={0.1} max={10} step={0.1} value={pomUnderpricedScore} onChange={(e) => setPomUnderpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomUnderpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-underpriced-score" />
+                            </div>
+                          </div>
+                          <div className="sm-row px-3">
+                            <div className="flex items-center gap-1.5">
+                              <Label className="text-xs text-orange-300">Overpriced</Label>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-400">score ≤</span>
+                              <Input type="number" min={0.1} max={10} step={0.1} value={pomOverpricedScore} onChange={(e) => setPomOverpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomOverpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-overpriced-score" />
+                            </div>
+                          </div>
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-gray-400">Combined weight</Label>
+                            <Input type="number" min={0} max={1} step={0.05} value={pomWeightCeiling} onChange={(e) => setPomWeightCeiling(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomWeightCeiling })} className="text-sm w-20 text-right" data-testid="input-pom-weight-ceiling" />
                           </div>
                         </div>
-                        <div className="sm-row">
+                      </div>
+
+                      {/* ── Demand Velocity ── */}
+                      <div className="sm-card-inset">
+                        <div className="px-3 py-2 bg-gray-800/40 border-b border-gray-700/60">
                           <div className="flex items-center gap-1.5">
-                            <Label className="text-sm text-orange-300">Overpriced Score</Label>
+                            <span className="text-xs font-semibold text-green-300 uppercase tracking-wider">Demand Velocity</span>
                             <Popover>
                               <PopoverTrigger asChild>
-                                <button className="sm-icon-btn">
-                                  <Info className="w-3.5 h-3.5" />
+                                <button className="sm-icon-btn" onClick={(e) => e.stopPropagation()}>
+                                  <Info className="w-3 h-3" />
                                 </button>
                               </PopoverTrigger>
                               <PopoverContent side="bottom" className="sm-popover">
-                                Items with an opportunity score at or below this value are flagged as overpriced in the POM dashboard filter. Score = market peak ÷ your price, so 0.8× means you're 25% above the market peak. Only items with stock on hand are counted.
+                                Measures how fast items sell relative to available supply. Calculated as sold lots divided by stock lots (last 6 months). Higher values indicate stronger demand relative to supply.
                               </PopoverContent>
                             </Popover>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-300">score ≤</span>
-                            <Input type="number" min={0.1} max={10} step={0.1} value={pomOverpricedScore} onChange={(e) => setPomOverpricedScore(parseFloat(e.target.value) || 0.1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomOverpricedScore })} className="text-sm w-20 text-right" data-testid="input-pom-overpriced-score" />
-                            <span className="text-xs text-gray-400 w-14">× (peak)</span>
+                        </div>
+                        <div className="divide-y divide-gray-700/30">
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-emerald-300">High demand</Label>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-400">velocity ≥</span>
+                              <Input type="number" min={0} max={100} step={0.1} value={pomVelocityHigh} onChange={(e) => setPomVelocityHigh(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomVelocityHigh })} className="text-sm w-20 text-right" data-testid="input-pom-velocity-high" />
+                            </div>
+                          </div>
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-orange-300">Low demand</Label>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-400">velocity ≤</span>
+                              <Input type="number" min={0} max={100} step={0.1} value={pomVelocityLow} onChange={(e) => setPomVelocityLow(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomVelocityLow })} className="text-sm w-20 text-right" data-testid="input-pom-velocity-low" />
+                            </div>
+                          </div>
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-gray-400">Combined weight</Label>
+                            <Input type="number" min={0} max={1} step={0.05} value={pomWeightVelocity} onChange={(e) => setPomWeightVelocity(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomWeightVelocity })} className="text-sm w-20 text-right" data-testid="input-pom-weight-velocity" />
                           </div>
                         </div>
+                      </div>
+
+                      {/* ── Market Scarcity ── */}
+                      <div className="sm-card-inset">
+                        <div className="px-3 py-2 bg-gray-800/40 border-b border-gray-700/60">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold text-purple-300 uppercase tracking-wider">Market Scarcity Index</span>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="sm-icon-btn" onClick={(e) => e.stopPropagation()}>
+                                  <Info className="w-3 h-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="sm-popover">
+                                Measures how scarce the item is on the market. Calculated as 1 divided by the number of active stock lots. Higher values mean fewer sellers and a scarcer item.
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                        </div>
+                        <div className="divide-y divide-gray-700/30">
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-emerald-300">Very scarce</Label>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-400">index ≥</span>
+                              <Input type="number" min={0} max={1} step={0.005} value={pomScarcityHigh} onChange={(e) => setPomScarcityHigh(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityHigh })} className="text-sm w-20 text-right" data-testid="input-pom-scarcity-high" />
+                            </div>
+                          </div>
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-orange-300">Very common</Label>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-400">index ≤</span>
+                              <Input type="number" min={0} max={1} step={0.001} value={pomScarcityLow} onChange={(e) => setPomScarcityLow(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityLow })} className="text-sm w-20 text-right" data-testid="input-pom-scarcity-low" />
+                            </div>
+                          </div>
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-gray-400">Combined weight</Label>
+                            <Input type="number" min={0} max={1} step={0.05} value={pomWeightScarcity} onChange={(e) => setPomWeightScarcity(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomWeightScarcity })} className="text-sm w-20 text-right" data-testid="input-pom-weight-scarcity" />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ── Undercut Ratio ── */}
+                      <div className="sm-card-inset">
+                        <div className="px-3 py-2 bg-gray-800/40 border-b border-gray-700/60">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold text-amber-300 uppercase tracking-wider">Undercut Ratio</span>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="sm-icon-btn" onClick={(e) => e.stopPropagation()}>
+                                  <Info className="w-3 h-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="sm-popover">
+                                Measures your competitive price position. Calculated as your listed price divided by the lowest market listing. Above 1.0 means you're being undercut by competitors; below 1.0 means you're the cheapest seller.
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                        </div>
+                        <div className="divide-y divide-gray-700/30">
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-orange-300">Heavily undercut</Label>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-400">ratio ≥</span>
+                              <Input type="number" min={0.1} max={10} step={0.1} value={pomUndercutHigh} onChange={(e) => setPomUndercutHigh(parseFloat(e.target.value) || 0.1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomUndercutHigh })} className="text-sm w-20 text-right" data-testid="input-pom-undercut-high" />
+                            </div>
+                          </div>
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-emerald-300">Cheapest seller</Label>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-400">ratio ≤</span>
+                              <Input type="number" min={0.1} max={10} step={0.1} value={pomUndercutLow} onChange={(e) => setPomUndercutLow(parseFloat(e.target.value) || 0.1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomUndercutLow })} className="text-sm w-20 text-right" data-testid="input-pom-undercut-low" />
+                            </div>
+                          </div>
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-gray-400">Combined weight</Label>
+                            <Input type="number" min={0} max={1} step={0.05} value={pomWeightUndercut} onChange={(e) => setPomWeightUndercut(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomWeightUndercut })} className="text-sm w-20 text-right" data-testid="input-pom-weight-undercut" />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ── Weight summary ── */}
+                      <div className="px-3 py-2 rounded bg-gray-800/30 border border-gray-700/40">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-gray-400">Combined Repricing Score</span>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="sm-icon-btn" onClick={(e) => e.stopPropagation()}>
+                                  <Info className="w-3 h-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="sm-popover">
+                                The weighted combination of all four scores. Items with the highest combined score are the best repricing candidates, balancing price upside, demand strength, supply scarcity, and competitive positioning. Weights should sum to 1.0 for proper normalization.
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <span className={`text-xs font-mono ${Math.abs(pomWeightCeiling + pomWeightVelocity + pomWeightScarcity + pomWeightUndercut - 1.0) < 0.01 ? 'text-green-400' : 'text-red-400'}`} data-testid="text-weight-sum">
+                            {(pomWeightCeiling + pomWeightVelocity + pomWeightScarcity + pomWeightUndercut).toFixed(2)} / 1.00
+                          </span>
+                        </div>
+                        {Math.abs(pomWeightCeiling + pomWeightVelocity + pomWeightScarcity + pomWeightUndercut - 1.0) >= 0.01 && (
+                          <p className="text-[10px] text-red-400/80 mt-1">Weights should sum to 1.0 for proper scoring normalization.</p>
+                        )}
                       </div>
 
                     </div>

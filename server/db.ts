@@ -274,6 +274,24 @@ export async function runMigrations() {
       await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS ${col} ${def}`);
     }
     console.log('[Migration] Phase-12 (API budget allocation) complete.');
+
+    // ── Phase-13: Repricing score weights & threshold columns ───────
+    const phase13Cols: Array<[string, string]> = [
+      ['pom_weight_ceiling', 'REAL NOT NULL DEFAULT 0.4'],
+      ['pom_weight_velocity', 'REAL NOT NULL DEFAULT 0.3'],
+      ['pom_weight_scarcity', 'REAL NOT NULL DEFAULT 0.2'],
+      ['pom_weight_undercut', 'REAL NOT NULL DEFAULT 0.1'],
+      ['pom_velocity_high', 'REAL NOT NULL DEFAULT 2.0'],
+      ['pom_velocity_low', 'REAL NOT NULL DEFAULT 0.3'],
+      ['pom_scarcity_high', 'REAL NOT NULL DEFAULT 0.1'],
+      ['pom_scarcity_low', 'REAL NOT NULL DEFAULT 0.005'],
+      ['pom_undercut_high', 'REAL NOT NULL DEFAULT 1.5'],
+      ['pom_undercut_low', 'REAL NOT NULL DEFAULT 0.8'],
+    ];
+    for (const [col, def] of phase13Cols) {
+      await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS ${col} ${def}`);
+    }
+    console.log('[Migration] Phase-13 (repricing score weights) complete.');
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
