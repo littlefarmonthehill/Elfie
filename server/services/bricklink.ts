@@ -1391,17 +1391,17 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
     const TIER_ORDER = ['tier1', 'tier2', 'tier3', 'tier4'];
 
     // Cap by both the configured batch size AND the actual API calls available right now.
-    // This makes the progress bar denominator honest: it shows how many lots can realistically
-    // be processed in this run given the current 24-h usage window.
-    const availableApiCalls = Math.max(0, apiCallCeiling - initialRateLimit.callsLast24h);
-    const cappedMaxItems = Math.min(effectiveMaxItems, availableApiCalls);
+    // Each item uses 2 API calls (sold + stock), so divide available calls by 2.
+    const availableApiCalls = Math.max(0, apiCallCeiling - callsLast24h);
+    const availableItems = Math.floor(availableApiCalls / 2);
+    const cappedMaxItems = Math.min(effectiveMaxItems, availableItems);
     const itemsToProcess = filteredItems.slice(0, cappedMaxItems);
 
     // Denominator = min(stale lots, min(batchSizeLimit, availableApiCalls))
     pomSyncProgress.itemsTotal = itemsToProcess.length;
 
     const tierCounts = TIER_ORDER.map(t => ({ tier: t, count: filteredItems.filter(i => getEffectiveTier(i) === t).length }));
-    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale across all tiers (${tierCounts.map(t => `${t.tier}:${t.count}`).join(', ')}), processing ${itemsToProcess.length} (batch cap: ${effectiveMaxItems}, available API calls: ${availableApiCalls})`);
+    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale across all tiers (${tierCounts.map(t => `${t.tier}:${t.count}`).join(', ')}), processing ${itemsToProcess.length} (batch cap: ${effectiveMaxItems}, available API calls: ${availableApiCalls} → ${availableItems} items at 2 calls/item)`);
 
     if (itemsToProcess.length === 0) {
       const reason = filteredItems.length === 0
@@ -1436,9 +1436,9 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
             .where(and(eq(blApiCalls.orgId, orgId), gte(blApiCalls.timestamp, checkAgo)));
           const currentCalls = Number(usageCheck?.count) || 0;
           
-          if (currentCalls >= apiCallCeiling) {
+          if (currentCalls + 2 > apiCallCeiling) {
             stopped = true;
-            stopReason = `Approaching API limit: ${currentCalls}/${apiCallCeiling} calls. Stopping at configured ceiling.`;
+            stopReason = `Approaching API limit: ${currentCalls}/${apiCallCeiling} calls (need 2 per item). Stopping at configured ceiling.`;
             console.log(`[Price-o-Matic Sync] ${stopReason}`);
             break;
           }
