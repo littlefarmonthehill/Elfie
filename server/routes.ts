@@ -9331,14 +9331,15 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       }
 
       // Use pomBatchSize (manual sync setting) — never the scheduler's pomScheduleBatchSize
-      const pomSettings = await getOrgSettings(orgId);
+      // POM is a platform-level job, so always read from the platform settings row
+      const pomSettings = await getOrgSettings(PLATFORM_ORG_ID);
       const maxItems = req.body.maxItems ?? pomSettings?.pomBatchSize ?? 1500;
       
       // DB-level check as secondary guard (survives server restarts)
       const [existingSync] = await db
         .select()
         .from(syncMetadata)
-        .where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'priceomatic_cache')))
+        .where(and(eq(syncMetadata.orgId, PLATFORM_ORG_ID), eq(syncMetadata.id, 'priceomatic_cache')))
         .limit(1);
       
       if (existingSync?.lastSyncStatus === 'in_progress' && existingSync.lastSyncTime) {
@@ -9371,7 +9372,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           lastSyncTime: new Date(),
           recordsAdded: 0,
           recordsUpdated: 0,
-          orgId,
+          orgId: PLATFORM_ORG_ID,
         })
         .onConflictDoUpdate({
           target: syncMetadata.id,
@@ -9394,7 +9395,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             recordsAdded: 0,
             recordsUpdated: result.itemsUpdated,
             errorMessage: result.stopReason || null,
-            orgId,
+            orgId: PLATFORM_ORG_ID,
           })
           .onConflictDoUpdate({
             target: syncMetadata.id,
@@ -9418,7 +9419,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             recordsAdded: 0,
             recordsUpdated: 0,
             errorMessage: error instanceof Error ? error.message : 'Unknown error',
-            orgId,
+            orgId: PLATFORM_ORG_ID,
           })
           .onConflictDoUpdate({
             target: syncMetadata.id,
@@ -9455,7 +9456,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const [status] = await db
         .select()
         .from(syncMetadata)
-        .where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'priceomatic_cache')))
+        .where(and(eq(syncMetadata.orgId, PLATFORM_ORG_ID), eq(syncMetadata.id, 'priceomatic_cache')))
         .limit(1);
 
       const { checkRateLimit, getPomSyncProgress } = await import("./services/bricklink");
@@ -9472,7 +9473,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           errorMessage: 'Sync interrupted — server was restarted or sync was killed mid-run.',
           updatedAt: new Date(),
         };
-        await db.update(syncMetadata).set(staleFix).where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'priceomatic_cache')));
+        await db.update(syncMetadata).set(staleFix).where(and(eq(syncMetadata.orgId, PLATFORM_ORG_ID), eq(syncMetadata.id, 'priceomatic_cache')));
         resolvedStatus = { ...status, ...staleFix };
         console.log('[POM] Cleared stale in_progress status from previous run');
       }
@@ -9536,12 +9537,11 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   // Clear all Price-o-Matic cache data and reset sync status
   app.delete("/api/sync/priceomatic/cache", isApproved, async (req: any, res) => {
     try {
-      const orgId = reqOrgId(req);
       const result = await db.execute(sql`DELETE FROM price_guide_cache`);
       const deleted = (result as any).rowCount ?? 0;
 
       // Reset sync metadata so the dashboard shows 'never'
-      await db.delete(syncMetadata).where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'priceomatic_cache')));
+      await db.delete(syncMetadata).where(and(eq(syncMetadata.orgId, PLATFORM_ORG_ID), eq(syncMetadata.id, 'priceomatic_cache')));
 
       console.log(`[Price-o-Matic] Cache cleared: ${deleted} rows deleted`);
       res.json({ success: true, deleted });
@@ -9555,8 +9555,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   app.get("/api/priceomatic/deep-space", isApproved, async (req: any, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try {
-      const orgId = reqOrgId(req);
-      const settings = await getOrgSettings(orgId);
+      const settings = await getOrgSettings(PLATFORM_ORG_ID);
       const raw = settings?.pomDeepSpaceKeys || '[]';
       const parsed: unknown[] = JSON.parse(raw);
       // Support both old format (string[]) and new format (StoredGroupInfo[])
@@ -9576,13 +9575,12 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   // Deep Space: save full set of item metadata (key + display info)
   app.put("/api/priceomatic/deep-space", isApproved, async (req: any, res) => {
     try {
-      const orgId = reqOrgId(req);
       const { items } = req.body as { items?: { key: string; itemNo: string; itemName: string | null; colorId: number | null; colorName: string | null }[]; keys?: string[] };
       // Accept either new format (items[]) or legacy format (keys[])
       const toStore = items ?? (req.body.keys as string[] | undefined)?.map((k: string) => ({ key: k, itemNo: k.split('_')[0], itemName: null, colorId: null, colorName: null })) ?? [];
       if (!Array.isArray(toStore)) return res.status(400).json({ success: false, error: "items must be an array" });
       const json = JSON.stringify(toStore);
-      await db.insert(appSettings).values({ id: orgId, orgId, pomDeepSpaceKeys: json })
+      await db.insert(appSettings).values({ id: PLATFORM_ORG_ID, orgId: PLATFORM_ORG_ID, pomDeepSpaceKeys: json })
         .onConflictDoUpdate({ target: appSettings.id, set: { pomDeepSpaceKeys: json, updatedAt: new Date() } });
       res.json({ success: true, keys: toStore.map((i: { key: string }) => i.key), items: toStore });
     } catch (error) {
@@ -9594,8 +9592,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   app.get("/api/priceomatic/future-missions", isApproved, async (req: any, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try {
-      const orgId = reqOrgId(req);
-      const settings = await getOrgSettings(orgId);
+      const settings = await getOrgSettings(PLATFORM_ORG_ID);
       const raw = settings?.pomFutureMissionsKeys || '[]';
       const parsed: unknown[] = JSON.parse(raw);
       type StoredGroupInfo = { key: string; itemNo: string; itemName: string | null; colorId: number | null; colorName: string | null };
