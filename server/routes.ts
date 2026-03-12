@@ -1022,7 +1022,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [invTotalCount] = await db.select({ count: count() }).from(blInventory);
       const [ordTotalCount] = await db.select({ count: count() }).from(orders);
 
-      const platformSyncIds = ['priceomatic_cache', 'universal_catalog_refresh', 'rebrickable_set_parts', 'forum_sync', 'catalog_detail_completion'];
+      const platformSyncIds = ['priceomatic_cache', 'universal_catalog_refresh', 'rebrickable_set_parts', 'forum_sync', 'catalog_detail_completion', 'catalog_scan'];
       const syncJobs = await db
         .select({
           id: syncMetadata.id,
@@ -1107,6 +1107,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           schedule: `Every ${platformSettings?.catalogDetailFrequencyHours ?? 1}h`,
           frequency: `${platformSettings?.catalogDetailFrequencyHours ?? 1}h`,
           batchSize: platformSettings?.catalogDetailBatchSize ?? 500,
+        },
+        catalog_scan: {
+          enabled: !!platformSettings?.catalogScanEnabled,
+          schedule: `Every ${platformSettings?.catalogScanFrequencyHours ?? 2}h`,
+          frequency: `${platformSettings?.catalogScanFrequencyHours ?? 2}h`,
+          zeroStockSkip: platformSettings?.catalogScanZeroStockSkip !== false,
         },
       };
 
@@ -1201,6 +1207,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           buildCatalogEmbeddings(items, () => {}).catch((e: any) => { console.error('[Manual CLIP Build] Failed:', e.message); });
           return res.json({ message: 'CLIP Catalog build triggered' });
         }
+        case 'catalog_scan': {
+          const { getCatalogScanIsRunning, runCatalogScan } = await import('./services/catalog-scan-scheduler.js');
+          if (getCatalogScanIsRunning()) return res.status(409).json({ message: 'Catalog Scan is already running' });
+          runCatalogScan().catch((err: any) => { console.error('[Manual CatalogScan] Failed:', err.message); });
+          return res.json({ message: 'Inventory Catalog Scan triggered' });
+        }
         case 'catalog_detail_completion': {
           const { getCatalogDetailIsRunning, runCatalogDetailSync } = await import('./services/catalog-detail-scheduler.js');
           if (getCatalogDetailIsRunning()) return res.status(409).json({ message: 'Catalog Detail is already running' });
@@ -1232,6 +1244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const settingMap: Record<string, string> = {
         priceomatic_cache: 'pomScheduleEnabled',
         catalog_detail_completion: 'catalogDetailEnabled',
+        catalog_scan: 'catalogScanEnabled',
         universal_catalog_refresh: 'universalCatalogScheduleEnabled',
         rebrickable_set_parts: 'rebrickableSetSyncEnabled',
         forum_sync: 'forumSyncEnabled',

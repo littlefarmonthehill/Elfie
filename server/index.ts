@@ -7,6 +7,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { startInventorySyncScheduler } from "./services/inventory-sync-scheduler";
 import { startPomSyncScheduler } from "./services/pom-scheduler";
 import { startCatalogDetailScheduler } from "./services/catalog-detail-scheduler";
+import { startCatalogScanScheduler } from "./services/catalog-scan-scheduler";
 import { startChannelSyncScheduler } from "./services/channel-sync-scheduler";
 import { startOrderSyncScheduler } from "./services/order-sync-scheduler";
 import { startEmbeddingWorker } from "./services/embedding-worker";
@@ -62,7 +63,7 @@ process.on('SIGTERM', () => {
       const { db: dbInst } = await import('./db');
       const { syncMetadata: syncMeta } = await import('@shared/schema');
       const { sql: drizzleSql } = await import('drizzle-orm');
-      const staleIds = ['bricklink_inventory', 'priceomatic_cache', 'catalog_detail_completion', 'channel_sync', 'bricklink_orders', 'brickowl_orders'];
+      const staleIds = ['bricklink_inventory', 'priceomatic_cache', 'catalog_detail_completion', 'catalog_scan', 'channel_sync', 'bricklink_orders', 'brickowl_orders'];
       for (const id of staleIds) {
         await dbInst.update(syncMeta)
           .set({ lastSyncStatus: 'error', errorMessage: 'Sync interrupted by server shutdown.', updatedAt: new Date() })
@@ -182,7 +183,7 @@ app.use((req, res, next) => {
       const { db: dbInstance } = await import('./db');
       const { syncMetadata: syncMeta } = await import('@shared/schema');
       const { sql: drizzleSql } = await import('drizzle-orm');
-      const staleIds = ['bricklink_inventory', 'priceomatic_cache', 'catalog_detail_completion', 'channel_sync', 'bricklink_orders', 'brickowl_orders'];
+      const staleIds = ['bricklink_inventory', 'priceomatic_cache', 'catalog_detail_completion', 'catalog_scan', 'channel_sync', 'bricklink_orders', 'brickowl_orders'];
       for (const id of staleIds) {
         await dbInstance.update(syncMeta)
           .set({
@@ -235,6 +236,9 @@ app.use((req, res, next) => {
 
       // Start Catalog Detail Completion scheduler (categories, colors, item details)
       startCatalogDetailScheduler();
+
+      // Start Inventory Catalog Scan scheduler (gap-finder — no API calls)
+      startCatalogScanScheduler();
 
       // Start Channel Sync scheduler (Local DB → BrickOwl / other channels)
       startChannelSyncScheduler();
