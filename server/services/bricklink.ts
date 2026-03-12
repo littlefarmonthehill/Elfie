@@ -1274,10 +1274,14 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
   const [pomSettings] = await db.select({
     pomBatchSize: appSettings.pomBatchSize,
     blApiCallLimit: appSettings.blApiCallLimit,
+    pomFreshnessDays: appSettings.pomFreshnessDays,
+    pomZeroStockSkip: appSettings.pomZeroStockSkip,
   }).from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
 
   const effectiveMaxItems = maxItems ?? pomSettings?.pomBatchSize ?? 1500;
   const apiCallCeiling = pomSettings?.blApiCallLimit ?? 4900;
+  const freshnessDays = pomSettings?.pomFreshnessDays ?? 180;
+  const zeroStockSkip = pomSettings?.pomZeroStockSkip ?? true;
 
   console.log(`[Price-o-Matic Sync] Starting sync for up to ${effectiveMaxItems} items (API ceiling: ${apiCallCeiling})`);
   pomSyncStopRequested = false;
@@ -1311,19 +1315,10 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
       };
     }
 
-    // Load qty threshold settings for tier ordering
-    const [tierSettings] = await db.select({
-      pomQtyPromoteThreshold: appSettings.pomQtyPromoteThreshold,
-      pomQtyDemoteThreshold: appSettings.pomQtyDemoteThreshold,
-    }).from(appSettings).where(eq(appSettings.id, PLATFORM_ORG_ID)).limit(1);
-
-    const qtyPromote = tierSettings?.pomQtyPromoteThreshold ?? 5;
-    const qtyDemote = tierSettings?.pomQtyDemoteThreshold ?? 500;
-
-    // Build tier-priority-ordered queue with quantity overrides.
-    // Staleness: any item whose price guide cache is older than 6 months (or never fetched) is a candidate.
-    // Tier ordering: tier1 first, then tier2, tier3, tier4 — oldest-fetched first within each tier.
-    // Quantity overrides: stock ≤ qtyPromote → promote 1 tier; stock ≥ qtyDemote → demote 1 tier.
+    // Build candidate queue: inventory items needing price guide refresh.
+    // Sorted by oldest fetchedAt first (never-fetched items always come first).
+    // Staleness window and zero-stock skip come from scheduler settings.
+    const quantityFilter = zeroStockSkip ? gt(blInventory.quantity, 0) : undefined;
     const inventoryItems = await db
       .select({
         id: blInventory.id,
@@ -1336,13 +1331,11 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
         imageUrl: blCatalog.imageUrl,
         thumbnailUrl: blCatalog.thumbnailUrl,
         categoryId: blCatalog.categoryId,
-        categoryTier: blCategories.priorityTier,
         cacheId: priceGuideCache.id,
         lastFetched: priceGuideCache.fetchedAt,
       })
       .from(blInventory)
       .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
-      .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
       .leftJoin(
         priceGuideCache,
         and(
@@ -1352,55 +1345,19 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
           sql`${blInventory.newOrUsed} = ${priceGuideCache.newOrUsed}`
         )
       )
-      .where(gt(blInventory.quantity, 0))
+      .where(quantityFilter)
       .orderBy(
-        // Sort tier1 first (all items), then tier2, tier3, tier4.
-        // Within each tier, sort oldest fetchedAt first (never-fetched = epoch → always head of tier).
-        sql`
-          CASE
-            WHEN COALESCE(${blInventory.quantity}, 0) <= ${qtyPromote} THEN
-              GREATEST(1, (CASE COALESCE(${blCategories.priorityTier}, 'tier2')
-                WHEN 'tier1' THEN 1 WHEN 'tier2' THEN 1 WHEN 'tier3' THEN 2 WHEN 'tier4' THEN 3
-                ELSE 1 END))
-            WHEN COALESCE(${blInventory.quantity}, 0) >= ${qtyDemote} THEN
-              LEAST(4, (CASE COALESCE(${blCategories.priorityTier}, 'tier2')
-                WHEN 'tier1' THEN 2 WHEN 'tier2' THEN 3 WHEN 'tier3' THEN 4 WHEN 'tier4' THEN 4
-                ELSE 3 END))
-            ELSE
-              (CASE COALESCE(${blCategories.priorityTier}, 'tier2')
-                WHEN 'tier1' THEN 1 WHEN 'tier2' THEN 2 WHEN 'tier3' THEN 3 WHEN 'tier4' THEN 4
-                ELSE 2 END)
-          END ASC,
-          COALESCE(${priceGuideCache.fetchedAt}, '1970-01-01'::timestamp) ASC
-        `
+        sql`COALESCE(${priceGuideCache.fetchedAt}, '1970-01-01'::timestamp) ASC`
       )
-      .limit(100000); // Fetch all candidates — JS filter + slice enforces the real batch limit below
+      .limit(100000);
 
-    // Helper: compute effective tier for an item after quantity promote/demote overrides
-    const getEffectiveTier = (item: { categoryTier: string | null; quantity: number | null }) => {
-      const baseTier = item.categoryTier || 'tier2';
-      const qty = item.quantity ?? 0;
-      if (qty <= qtyPromote) {
-        const tierNum = parseInt(baseTier.replace('tier', '')) || 2;
-        return `tier${Math.max(1, tierNum - 1)}`;
-      } else if (qty >= qtyDemote) {
-        const tierNum = parseInt(baseTier.replace('tier', '')) || 2;
-        return `tier${Math.min(4, tierNum + 1)}`;
-      }
-      return baseTier;
-    };
-
-    // 6-month staleness window — items not fetched within 6 months (or never fetched) are candidates
-    const SIX_MONTHS_MS = 180 * 24 * 60 * 60 * 1000;
+    // Freshness window from scheduler settings — items not fetched within N days (or never fetched) are candidates
+    const FRESHNESS_MS = freshnessDays * 24 * 60 * 60 * 1000;
     const now = Date.now();
     const filteredItems = inventoryItems.filter((item) => {
-      if (!item.lastFetched) return true; // Never fetched — always include
-      return now - new Date(item.lastFetched).getTime() >= SIX_MONTHS_MS;
+      if (!item.lastFetched) return true;
+      return now - new Date(item.lastFetched).getTime() >= FRESHNESS_MS;
     });
-
-    // All stale items are already sorted tier1→tier2→tier3→tier4 (oldest-first within each tier).
-    // Take as many as the API call limit allows — no single-tier restriction.
-    const TIER_ORDER = ['tier1', 'tier2', 'tier3', 'tier4'];
 
     // Cap by both the configured batch size AND the actual API calls available right now.
     // Each item uses 2 API calls (sold + stock), so divide available calls by 2.
@@ -1409,15 +1366,13 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
     const cappedMaxItems = Math.min(effectiveMaxItems, availableItems);
     const itemsToProcess = filteredItems.slice(0, cappedMaxItems);
 
-    // Denominator = min(stale lots, min(batchSizeLimit, availableApiCalls))
     pomSyncProgress.itemsTotal = itemsToProcess.length;
 
-    const tierCounts = TIER_ORDER.map(t => ({ tier: t, count: filteredItems.filter(i => getEffectiveTier(i) === t).length }));
-    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale across all tiers (${tierCounts.map(t => `${t.tier}:${t.count}`).join(', ')}), processing ${itemsToProcess.length} (batch cap: ${effectiveMaxItems}, available API calls: ${availableApiCalls} → ${availableItems} items at 2 calls/item)`);
+    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale (>${freshnessDays}d), processing ${itemsToProcess.length} (batch cap: ${effectiveMaxItems}, available API calls: ${availableApiCalls} → ${availableItems} items at 2 calls/item, zeroStockSkip: ${zeroStockSkip})`);
 
     if (itemsToProcess.length === 0) {
       const reason = filteredItems.length === 0
-        ? `All ${inventoryItems.length} inventory items are up-to-date (fetched within last 6 months). Nothing to sync.`
+        ? `All ${inventoryItems.length} inventory items are up-to-date (fetched within last ${freshnessDays} days). Nothing to sync.`
         : availableApiCalls <= 0
           ? `No API calls remaining (${apiCallCeiling}/${apiCallCeiling} used in last 24h). Try again later.`
           : 'No items to process.';
@@ -1426,9 +1381,8 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
       return { itemsUpdated: 0, itemsSkipped: 0, apiCallsUsed: 0, stopped: true, stopReason: reason };
     }
 
-    // Process each item in tier-priority order
-    // Market dynamics (demand + supply) are computed inside fetchPriceOMagicData from BL API data.
-    // No local velocity pre-computation needed.
+    // Process each item — oldest-fetched first.
+    // Each item makes 2 BL API calls: stock price guide + sold price guide.
     for (const item of itemsToProcess) {
       try {
         if (pomShutdownRequested) {

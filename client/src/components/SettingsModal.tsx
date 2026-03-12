@@ -6,7 +6,6 @@ import { APP_VERSION, APP_NAME } from "@shared/version";
 import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Activity, Flag, Power, Zap, Globe, ToggleLeft, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
-import { PomCategoryTiers } from "@/components/PomCategoryTiers";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -2765,8 +2764,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             </PopoverTrigger>
                             <PopoverContent side="bottom" className="sm-popover-lg">
                               <p className="font-semibold text-gray-200">Price-o-Matic Auto Sync</p>
-                              <p className="text-gray-400">Fetches avg listed price, avg sold price, and lot count from BrickLink for each inventory item, then computes a suggested price using your formula. Items are processed in priority order by category tier (T1 → T4).</p>
-                              <p className="sm-description">Runs on its own independent schedule. Uses 3 BrickLink API calls per lot. Stops automatically at your daily API ceiling.</p>
+                              <p className="text-gray-400">Fetches supply (stock) and sold price guides from BrickLink for each inventory item using 2 API calls per item. Items are processed oldest-first based on the freshness window configured in the scheduler.</p>
+                              <p className="sm-description">Runs on its own independent schedule. Uses 2 BrickLink API calls per item (stock + sold). Stops automatically at your daily API ceiling.</p>
                             </PopoverContent>
                           </Popover>
                         </div>
@@ -2938,11 +2937,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Layers className="h-4 w-4 text-gray-400" />
-                          <p className="text-xs text-gray-200">Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly.</p>
-                        </div>
-                        <PomCategoryTiers />
+
                       </div>
                     )}
                   </div>
@@ -4558,11 +4553,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Layers className="h-4 w-4 text-gray-400" />
-                        <p className="text-xs text-gray-200">Assign categories to refresh tiers. T1 = daily, T2 = 3 days, T3 = weekly, T4 = monthly.</p>
-                      </div>
-                      <PomCategoryTiers />
+
                     </div>
                   )}
                 </div>
