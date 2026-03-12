@@ -1793,7 +1793,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     queryKey: ['/api/sync/priceomatic/status'],
     refetchInterval: 3000,
     staleTime: 0,
-    enabled: open && (activeSection === 'enrichment' || activeSection === 'priceomatic' || activeSection === 'automation'),
+    enabled: open && (activeSection === 'enrichment' || activeSection === 'priceomatic' || activeSection === 'automation' || (activeSection === 'platformGeneral' && activePlatformGeneralTab === 'jobs')),
   });
   const pomLiveProgress = pomLiveStatus?.data?.liveProgress;
   const syncingPom = syncingPomTrigger || pomLiveProgress?.active === true;
