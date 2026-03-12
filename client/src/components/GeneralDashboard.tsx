@@ -143,6 +143,64 @@ function AlertRow({ icon: Icon, iconColor, label, sub, onClick, severity = 'warn
   );
 }
 
+function OpAreaRow({ label, Icon, color, lastSync, syncOk, alerts, onClick, stat, children }: {
+  label: string; Icon: React.ElementType; color: string; lastSync: string | null; syncOk: boolean;
+  alerts: Array<{ id: string; icon: React.ElementType; iconColor: string; label: string; sub?: string; severity: 'warn' | 'error' | 'info'; onClick?: () => void }>;
+  onClick?: () => void; stat?: string; children?: React.ReactNode;
+}) {
+  const colorMap: Record<string, { icon: string; dot: string }> = {
+    blue:   { icon: 'text-blue-400', dot: 'bg-blue-400' },
+    orange: { icon: 'text-orange-400', dot: 'bg-orange-400' },
+    green:  { icon: 'text-green-400', dot: 'bg-green-400' },
+    purple: { icon: 'text-purple-400', dot: 'bg-purple-400' },
+    red:    { icon: 'text-red-400', dot: 'bg-red-400' },
+  };
+  const c = colorMap[color] ?? colorMap.blue;
+  const childArr = Array.isArray(children) ? children : [children];
+  const hasChildren = childArr.some(c => c !== null && c !== undefined && c !== false);
+  const hasContent = alerts.length > 0 || hasChildren;
+
+  return (
+    <div data-testid={`ops-area-${label.toLowerCase()}`}>
+      <button
+        onClick={onClick}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left hover-elevate active-elevate-2 transition-all group"
+      >
+        <Icon className={cn("w-4 h-4 shrink-0", c.icon)} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-foreground">{label}</span>
+            {alerts.length > 0 && (
+              <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md bg-yellow-500/15 text-yellow-400 font-medium">
+                <AlertTriangle className="w-2.5 h-2.5" />
+                {alerts.length}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+            {stat && <span className="text-[10px] text-muted-foreground">{stat}</span>}
+            {lastSync && (
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", syncOk ? 'bg-green-500' : 'bg-red-500')} />
+                {lastSync}
+              </span>
+            )}
+          </div>
+        </div>
+        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 group-hover:translate-x-0.5 transition-transform" />
+      </button>
+      {hasContent && (
+        <div className="px-4 pb-3 space-y-2 ml-7">
+          {alerts.map((a) => (
+            <AlertRow key={a.id} icon={a.icon} iconColor={a.iconColor} label={a.label} sub={a.sub} severity={a.severity} onClick={a.onClick} />
+          ))}
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings, children }: {
   setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }>;
   billingStatus?: { plan: string; status: string; interval?: string | null; trialEndsAt?: string | null; subscriptionEndsAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number } } | null;
@@ -444,46 +502,42 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
         />
       </div>
 
-      {/* Urgent Alerts */}
-      {urgentAlerts.length > 0 && (
-        <div className="space-y-2" data-testid="section-alerts">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">Needs Attention</h3>
-          {urgentAlerts.map((a) => (
-            <AlertRow key={a.id} icon={a.icon} iconColor={a.iconColor} label={a.label} sub={a.sub} severity={a.severity} onClick={a.onClick} />
-          ))}
-        </div>
-      )}
-
       {/* System Pulse (plan info, setup items) */}
       <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings}>
         <DashboardNotifications />
       </SystemPulse>
 
-      {/* Running Jobs */}
-      {hasRunningJobs && (
-        <div className="space-y-3 rounded-lg border border-border/40 bg-gradient-to-br from-gray-900/60 to-gray-950/80 p-4" data-testid="section-running-jobs">
+      {/* Ops Central — grouped by operational area */}
+      <div className="rounded-lg border border-border/40 bg-gradient-to-br from-gray-900/60 to-gray-950/80 overflow-hidden" data-testid="section-ops-central">
+        <div className="px-4 py-3 border-b border-border/30 flex items-center justify-between gap-2">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-            <Activity className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
-            Running Jobs
+            <Activity className="w-3.5 h-3.5 text-blue-400" />
+            Ops Central
           </h3>
-          <div className="space-y-3">
+          {hasRunningJobs && (
+            <span className="flex items-center gap-1 text-[10px] text-blue-400 font-medium">
+              <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+              Jobs running
+            </span>
+          )}
+        </div>
+        <div className="divide-y divide-border/20">
+          {/* Inventory */}
+          <OpAreaRow
+            label="Inventory"
+            Icon={Package}
+            color="blue"
+            lastSync={relTime(lastInvSync?.lastSyncTime)}
+            syncOk={!invSyncFailed}
+            alerts={urgentAlerts.filter(a => a.id === 'inv-fail' || a.id === 'scan')}
+            onClick={() => onNavigate?.('inventory')}
+            stat={`${totalLots.toLocaleString()} lots`}
+          >
             {isInvSyncing && (
               <JobBar label="Inventory Sync" pct={invSyncProgress?.progress ?? 0} sublabel={invSyncProgress?.currentStep} color="cyan" />
             )}
             {isPomRunning && pomProgress && (
               <JobBar label="Price-o-Matic" pct={pomProgress.itemsTotal > 0 ? (pomProgress.itemsProcessed / pomProgress.itemsTotal) * 100 : 0} sublabel={`${pomProgress.itemsProcessed.toLocaleString()} / ${pomProgress.itemsTotal.toLocaleString()} lots`} color="purple" />
-            )}
-            {isOrderSyncing && (
-              <div className="flex items-center gap-1.5">
-                <RefreshCw className="w-3 h-3 text-orange-400 animate-spin shrink-0" />
-                <span className="text-xs text-orange-300 font-medium">Order sync running...</span>
-              </div>
-            )}
-            {isChannelSyncing && (
-              <div className="flex items-center gap-1.5">
-                <RefreshCw className="w-3 h-3 text-teal-400 animate-spin shrink-0" />
-                <span className="text-xs text-teal-300 font-medium">Channel sync running...</span>
-              </div>
             )}
             {isScanProcessing && (
               <div className="flex items-center gap-1.5">
@@ -496,53 +550,68 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
             ) : activeInvEmbed ? (
               <div className="flex items-center gap-1.5">
                 <Activity className="w-3 h-3 text-blue-400 animate-pulse" />
-                <span className="text-xs text-blue-400">Embedding inventory data...</span>
+                <span className="text-xs text-blue-400">Embedding inventory...</span>
               </div>
             ) : null}
+          </OpAreaRow>
+
+          {/* Orders */}
+          <OpAreaRow
+            label="Orders"
+            Icon={ShoppingCart}
+            color="orange"
+            lastSync={relTime(lastOrderSync?.lastSyncTime)}
+            syncOk={!orderSyncFailed}
+            alerts={urgentAlerts.filter(a => a.id === 'pending' || a.id === 'order-fail')}
+            onClick={() => onNavigate?.('orders')}
+            stat={pendingOrders > 0 ? `${pendingOrders} to fulfill` : `${(stats?.totalOrders ?? 0).toLocaleString()} total`}
+          >
+            {isOrderSyncing && (
+              <div className="flex items-center gap-1.5">
+                <RefreshCw className="w-3 h-3 text-orange-400 animate-spin shrink-0" />
+                <span className="text-xs text-orange-300 font-medium">Order sync running...</span>
+              </div>
+            )}
             {activeOrdEmbed && embedStats ? (
               <JobBar label="Order embedding" pct={ordEmbedPct} sublabel={`${embedStats.orders.embedded.toLocaleString()} / ${embedStats.orders.total.toLocaleString()} orders`} color="purple" />
             ) : activeOrdEmbed ? (
               <div className="flex items-center gap-1.5">
                 <Activity className="w-3 h-3 text-blue-400 animate-pulse" />
-                <span className="text-xs text-blue-400">Embedding order data...</span>
+                <span className="text-xs text-blue-400">Embedding orders...</span>
               </div>
             ) : null}
-          </div>
-        </div>
-      )}
+          </OpAreaRow>
 
-      {/* Quick Actions */}
-      <div className="space-y-2" data-testid="section-quick-actions">
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">Jump To</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <QuickActionCard
-            label="Inventory"
-            sub={`${totalLots.toLocaleString()} lots · ${totalPcs.toLocaleString()} pieces`}
-            Icon={Package}
-            color="blue"
-            onClick={() => onNavigate?.('inventory')}
-          />
-          <QuickActionCard
-            label="Orders"
-            sub={pendingOrders > 0 ? `${pendingOrders} to fulfill` : `${(stats?.totalOrders ?? 0).toLocaleString()} total`}
-            Icon={ShoppingCart}
-            color="orange"
-            onClick={() => onNavigate?.('orders')}
-          />
-          <QuickActionCard
+          {/* Sales */}
+          <OpAreaRow
             label="Sales"
-            sub={`${formatCurrency(totalRevenue)} revenue`}
             Icon={TrendingUp}
             color="green"
+            lastSync={null}
+            syncOk={true}
+            alerts={urgentAlerts.filter(a => a.id === 'underpriced' || a.id === 'pom-fail')}
             onClick={() => onNavigate?.('sales')}
+            stat={formatCurrency(totalRevenue)}
           />
-          <QuickActionCard
-            label="Marketing"
-            sub="Customers & campaigns"
-            Icon={Megaphone}
-            color="yellow"
+
+          {/* Channels & Marketing */}
+          <OpAreaRow
+            label="Channels"
+            Icon={Globe}
+            color="purple"
+            lastSync={relTime(lastChannelSync?.lastSyncTime)}
+            syncOk={!channelSyncFailed}
+            alerts={urgentAlerts.filter(a => a.id.startsWith('ch-') || a.id === 'channel-fail')}
             onClick={() => onNavigate?.('marketing')}
-          />
+            stat={targets.length > 0 ? `${targets.length} connected` : 'Not configured'}
+          >
+            {isChannelSyncing && (
+              <div className="flex items-center gap-1.5">
+                <RefreshCw className="w-3 h-3 text-teal-400 animate-spin shrink-0" />
+                <span className="text-xs text-teal-300 font-medium">Channel sync running...</span>
+              </div>
+            )}
+          </OpAreaRow>
         </div>
       </div>
 
