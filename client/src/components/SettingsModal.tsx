@@ -4133,7 +4133,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </PopoverTrigger>
                               <PopoverContent side="bottom" className="sm-popover-lg">
                                 <p className="font-semibold text-gray-200">Inventory Sync</p>
-                                <p className="text-gray-400">Pulls your full BrickLink inventory into the local database. Also syncs BrickLink categories, colors, and Rebrickable part images. Triggers re-embedding of any changed inventory items for AI search.</p>
+                                <p className="text-gray-400">Pulls your full BrickLink inventory into the local database and saves an XML backup. Categories, colors, and catalog enrichment are handled by platform-level schedulers.</p>
                                 <p className="sm-description">Runs once daily. Safe to trigger manually at any time.</p>
                               </PopoverContent>
                             </Popover>

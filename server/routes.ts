@@ -1022,7 +1022,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [invTotalCount] = await db.select({ count: count() }).from(blInventory);
       const [ordTotalCount] = await db.select({ count: count() }).from(orders);
 
-      const platformSyncIds = ['priceomatic_cache', 'universal_catalog_refresh', 'rebrickable_set_parts', 'forum_sync'];
+      const platformSyncIds = ['priceomatic_cache', 'universal_catalog_refresh', 'rebrickable_set_parts', 'forum_sync', 'catalog_detail_completion'];
       const syncJobs = await db
         .select({
           id: syncMetadata.id,
@@ -1101,6 +1101,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           schedule: 'Auto-resume on restart',
           frequency: 'Continuous',
           workerRunning: !!clipBuild?.running,
+        },
+        catalog_detail_completion: {
+          enabled: !!platformSettings?.catalogDetailEnabled,
+          schedule: `Every ${platformSettings?.catalogDetailFrequencyHours ?? 1}h`,
+          frequency: `${platformSettings?.catalogDetailFrequencyHours ?? 1}h`,
+          batchSize: platformSettings?.catalogDetailBatchSize ?? 500,
         },
       };
 
@@ -1195,6 +1201,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           buildCatalogEmbeddings(items, () => {}).catch((e: any) => { console.error('[Manual CLIP Build] Failed:', e.message); });
           return res.json({ message: 'CLIP Catalog build triggered' });
         }
+        case 'catalog_detail_completion': {
+          const { getCatalogDetailIsRunning, runCatalogDetailSync } = await import('./services/catalog-detail-scheduler.js');
+          if (getCatalogDetailIsRunning()) return res.status(409).json({ message: 'Catalog Detail is already running' });
+          await db.insert(syncMetadata).values({ id: 'catalog_detail_completion', lastSyncStatus: 'in_progress', lastSyncTime: new Date(), recordsAdded: 0, recordsUpdated: 0, orgId: PLATFORM_ORG_ID }).onConflictDoUpdate({ target: syncMetadata.id, set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: null } });
+          runCatalogDetailSync().then(async (result) => {
+            const finalStatus = result.stopped ? 'partial' : 'success';
+            await db.insert(syncMetadata).values({ id: 'catalog_detail_completion', lastSyncStatus: finalStatus, lastSyncTime: new Date(), recordsAdded: result.itemsEnriched, recordsUpdated: result.categoriesAdded + result.categoriesUpdated + result.colorsAdded + result.colorsUpdated, errorMessage: result.stopReason || null, orgId: PLATFORM_ORG_ID }).onConflictDoUpdate({ target: syncMetadata.id, set: { lastSyncStatus: finalStatus, updatedAt: new Date(), recordsAdded: result.itemsEnriched, recordsUpdated: result.categoriesAdded + result.categoriesUpdated + result.colorsAdded + result.colorsUpdated, errorMessage: result.stopReason || null } });
+          }).catch(async (err: any) => {
+            await db.insert(syncMetadata).values({ id: 'catalog_detail_completion', lastSyncStatus: 'error', lastSyncTime: new Date(), recordsAdded: 0, recordsUpdated: 0, errorMessage: err.message, orgId: PLATFORM_ORG_ID }).onConflictDoUpdate({ target: syncMetadata.id, set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: err.message } });
+          });
+          return res.json({ message: 'Catalog Detail Completion triggered' });
+        }
         default:
           return res.status(400).json({ message: `Unknown job: ${jobId}` });
       }
@@ -1213,6 +1231,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const settingMap: Record<string, string> = {
         priceomatic_cache: 'pomScheduleEnabled',
+        catalog_detail_completion: 'catalogDetailEnabled',
         universal_catalog_refresh: 'universalCatalogScheduleEnabled',
         rebrickable_set_parts: 'rebrickableSetSyncEnabled',
         forum_sync: 'forumSyncEnabled',

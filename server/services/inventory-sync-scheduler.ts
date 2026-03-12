@@ -130,10 +130,7 @@ async function runAutomatedInventorySync() {
     const result = await syncBricklinkData(ORG_ID);
 
     console.log(`\n✨ Automated inventory sync complete!`);
-    console.log(`  📦 Categories: ${result.categoriesAdded} added, ${result.categoriesUpdated} updated`);
-    console.log(`  🎨 Colors: ${result.colorsAdded} added, ${result.colorsUpdated} updated`);
     console.log(`  📊 Inventory: ${result.inventoryAdded} added, ${result.inventoryUpdated} updated`);
-    console.log(`  🧩 Rebrickable: ${result.rebrickableSets} sets, ${result.rebrickableParts} parts`);
     console.log(`  🔗 API Calls: ${result.totalApiCalls}`);
 
     await db.insert(syncMetadata).values({

@@ -13,16 +13,10 @@ const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: a
   sql<string | null>`(SELECT item_name FROM bl_catalog WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} ORDER BY (color_id = ${colorIdRef})::int DESC, color_id ASC LIMIT 1)`;
 
 export interface BricklinkSyncResult {
-  categoriesAdded: number;
-  categoriesUpdated: number;
-  colorsAdded: number;
-  colorsUpdated: number;
   inventoryAdded: number;
   inventoryUpdated: number;
   totalApiCalls: number;
   rateLimitWarning?: string;
-  rebrickableSets?: number;
-  rebrickableParts?: number;
 }
 
 export interface RateLimitHourBucket {
@@ -852,78 +846,18 @@ export async function syncBricklinkData(orgId: string = PLATFORM_ORG_ID): Promis
   const { syncProgressTracker } = await import('./sync-progress');
 
   try {
-    // Check rate limit before starting sync (per-org)
     const rateLimit = await checkRateLimit(orgId);
     
-    console.log('\n🔄 Starting comprehensive inventory sync...');
+    console.log('\n🔄 Starting inventory sync...');
     syncProgressTracker.start();
 
-    // Step 1: Sync in order: categories, colors, inventory (tracker: 0–70%)
-    console.log('📦 Step 1/7: Syncing BrickLink data...');
-    const categoriesResult = await syncBricklinkCategories(orgId);
-    const colorsResult = await syncBricklinkColors(orgId);
-    // Pass callComplete=false so the tracker stays 'syncing' — we complete it at the very end
+    // Step 1: Sync inventory from BrickLink (the only org-level API call)
+    console.log('📦 Step 1/2: Syncing BrickLink inventory...');
     const inventoryResult = await syncBricklinkInventory(false, orgId);
-    
-    // Step 2: Sync Rebrickable set-part relationships (tracker: 70–80%)
-    console.log('🧩 Step 2/7: Syncing Rebrickable set-part relationships...');
-    syncProgressTracker.update('Syncing Rebrickable set-part data…', 72);
-    let rebrickableResult = { setsAdded: 0, partsProcessed: 0 };
-    try {
-      rebrickableResult = await syncRebrickableSetParts();
-      console.log(`✓ Rebrickable sync complete: ${rebrickableResult.setsAdded} sets, ${rebrickableResult.partsProcessed} part relationships`);
-    } catch (error) {
-      console.error('✗ Rebrickable sync failed (non-fatal):', error);
-    }
 
-    // Step 3: Schedule embedding generation in background (tracker: 80–83%)
-    console.log('🧠 Step 3/7: Scheduling AI embeddings (background)...');
-    syncProgressTracker.update('Scheduling AI embeddings…', 80);
-    try {
-      const { createEmbeddingJob } = await import('./embedding-worker');
-      await createEmbeddingJob('inventory', 'bricklink_sync');
-      console.log('✓ Inventory embedding job scheduled');
-    } catch (error) {
-      console.error('✗ Failed to schedule inventory embeddings (non-fatal):', error);
-    }
-
-    // Step 4: Schedule set embeddings in background (tracker: 83–86%)
-    console.log('🎯 Step 4/7: Scheduling set embeddings (background)...');
-    syncProgressTracker.update('Scheduling set embeddings…', 83);
-    if (rebrickableResult.setsAdded > 0 || rebrickableResult.partsProcessed > 0) {
-      try {
-        const { createEmbeddingJob } = await import('./embedding-worker');
-        await createEmbeddingJob('sets', 'bricklink_sync');
-        console.log('✓ Set embedding job scheduled');
-      } catch (error) {
-        console.error('✗ Failed to schedule set embeddings (non-fatal):', error);
-      }
-    }
-
-    // Step 5: Part ID mapping sync — always runs as part of inventory sync.
-    // Processes all unmapped BL part numbers; rate-limited by 1.2s delay per call.
-    // First run covers the full inventory; subsequent runs only touch new items.
-    try {
-      const { syncPartIdMappings } = await import('./rebrickable-images');
-      syncPartIdMappings().then(r => {
-        if (r.processed > 0) console.log(`[Part Mappings] Nightly pass: ${r.saved}/${r.processed} parts mapped`);
-      }).catch(e => {
-        console.error('[Part Mappings] Sync error (non-fatal):', e);
-      });
-    } catch (error) {
-      console.error('[Part Mappings] Scheduling error (non-fatal):', error);
-    }
-
-    // Step 6: Channel sync is now a separate scheduled job (Channel Sync scheduler).
-    // BL Inbound Sync only pulls from BrickLink → Local DB.
-    // To push Local DB → BrickOwl, run the Channel Sync or use Platform Sync manually.
-    console.log('⏭️ Step 6/7: Channel sync runs separately (see Channel Sync scheduler)');
-
-    const totalApiCalls = categoriesResult.apiCalls + colorsResult.apiCalls + inventoryResult.apiCalls;
-
-    // Step 7: Automatically save XML backup for manual restore (tracker: 99%)
-    console.log('\n✅ Comprehensive inventory sync complete!');
-    syncProgressTracker.update('Saving XML backup…', 99);
+    // Step 2: Save XML backup
+    console.log('💾 Step 2/2: Saving XML backup...');
+    syncProgressTracker.update('Saving XML backup…', 95);
     try {
       const backupFilename = await saveXMLBackup();
       console.log(`💾 XML backup saved: ${backupFilename}`);
@@ -931,20 +865,14 @@ export async function syncBricklinkData(orgId: string = PLATFORM_ORG_ID): Promis
       console.error('✗ XML backup failed (non-fatal):', error);
     }
 
-    // All 7 steps done — mark complete (auto-resets to idle after 10s)
     syncProgressTracker.complete(inventoryResult.added, inventoryResult.updated);
+    console.log('✅ Inventory sync complete!');
 
     return {
-      categoriesAdded: categoriesResult.added,
-      categoriesUpdated: categoriesResult.updated,
-      colorsAdded: colorsResult.added,
-      colorsUpdated: colorsResult.updated,
       inventoryAdded: inventoryResult.added,
       inventoryUpdated: inventoryResult.updated,
-      totalApiCalls,
+      totalApiCalls: inventoryResult.apiCalls,
       rateLimitWarning: rateLimit.warning,
-      rebrickableSets: rebrickableResult.setsAdded,
-      rebrickableParts: rebrickableResult.partsProcessed,
     };
   } catch (error) {
     syncProgressTracker.error(error instanceof Error ? error.message : 'Comprehensive sync failed');
