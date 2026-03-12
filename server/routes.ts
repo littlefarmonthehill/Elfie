@@ -10324,7 +10324,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         return {
           inventoryId: item.inventoryId,
           itemNo: item.itemNo,
-          itemName: item.itemName,
+          itemName: (item.itemName && item.itemName !== 'undefined') ? item.itemName : null,
           itemType: item.itemType,
           colorId: item.colorId,
           colorName: item.colorName,

@@ -16,6 +16,7 @@ import {
   Satellite,
   Info,
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 
 const DEEP_SPACE_LS_KEY = 'pom_deep_space_keys';
@@ -367,15 +368,15 @@ function PricingGrid({ group }: { group: GroupedInsight }) {
   const nLot = group.newLot;
   const uLot = group.usedLot;
 
-  const DataRow = ({ label, sN, sU, lN, lU, isMoney, bold }: {
-    label: string; sN: any; sU: any; lN: any; lU: any; isMoney?: boolean; bold?: boolean;
+  const DataRow = ({ label, sN, sU, lN, lU, isMoney, bold, mine }: {
+    label: string; sN: any; sU: any; lN: any; lU: any; isMoney?: boolean; bold?: boolean; mine?: boolean;
   }) => (
     <div className={`${GR} border-b border-white/[0.04] ${bold ? 'bg-white/[0.03]' : ''}`}>
-      <div className={`px-2 py-1 text-[10px] ${bold ? 'text-gray-200 font-semibold' : 'text-gray-500'}`}>{label}</div>
-      <div className={cell(bold ? 'text-amber-300 font-semibold' : 'text-gray-200')}>{isMoney ? fmt(sN) : fmtInt(sN)}</div>
-      <div className={cell(bold ? 'text-amber-300 font-semibold' : 'text-gray-200')}>{isMoney ? fmt(sU) : fmtInt(sU)}</div>
-      <div className={cell(bold ? 'text-sky-300 font-semibold' : 'text-gray-400')}>{isMoney ? fmt(lN) : fmtInt(lN)}</div>
-      <div className={cell(bold ? 'text-sky-300 font-semibold' : 'text-gray-400')}>{isMoney ? fmt(lU) : fmtInt(lU)}</div>
+      <div className={`px-2 py-1 text-[10px] ${mine ? 'text-emerald-400 font-semibold' : bold ? 'text-gray-200 font-semibold' : 'text-gray-500'}`}>{label}</div>
+      <div className={cell(mine ? 'text-emerald-300 font-semibold' : bold ? 'text-amber-300 font-semibold' : 'text-gray-200')}>{isMoney ? fmt(sN) : fmtInt(sN)}</div>
+      <div className={cell(mine ? 'text-emerald-300 font-semibold' : bold ? 'text-amber-300 font-semibold' : 'text-gray-200')}>{isMoney ? fmt(sU) : fmtInt(sU)}</div>
+      <div className={cell(mine ? 'text-gray-700' : bold ? 'text-sky-300 font-semibold' : 'text-gray-400')}>{mine ? '' : isMoney ? fmt(lN) : fmtInt(lN)}</div>
+      <div className={cell(mine ? 'text-gray-700' : bold ? 'text-sky-300 font-semibold' : 'text-gray-400')}>{mine ? '' : isMoney ? fmt(lU) : fmtInt(lU)}</div>
     </div>
   );
 
@@ -397,6 +398,7 @@ function PricingGrid({ group }: { group: GroupedInsight }) {
         <div className={cell('text-[8px] uppercase font-bold text-blue-300 py-0.5')}>New</div>
         <div className={cell('text-[8px] uppercase font-bold text-orange-300 py-0.5')}>Used</div>
       </div>
+      <DataRow mine bold label="Mine" sN={nLot?.currentPrice} sU={uLot?.currentPrice} lN={null} lU={null} isMoney />
       <DataRow label="Qty" sN={nLot?.soldTotalLots} sU={uLot?.soldTotalLots} lN={nLot?.stockTotalLots} lU={uLot?.stockTotalLots} />
       <DataRow label="Min" sN={nLot?.soldMinPrice} sU={uLot?.soldMinPrice} lN={nLot?.stockMinPrice} lU={uLot?.stockMinPrice} isMoney />
       <DataRow bold label="Avg" sN={nLot?.soldAvgPrice} sU={uLot?.soldAvgPrice} lN={nLot?.stockAvgPrice} lU={uLot?.stockAvgPrice} isMoney />
@@ -766,6 +768,23 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
         </div>
 
         <div className="flex items-center gap-0.5 px-1 pb-1">
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="text-gray-600 hover:text-gray-400 transition-colors flex-shrink-0 mr-0.5" data-testid="button-scores-info">
+                <Info className="w-3 h-3" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent side="bottom" align="start" className="w-72 text-[11px] bg-gray-900 border-gray-700 p-3 space-y-2">
+              <p className="font-semibold text-gray-200 text-xs">Repricing Scores</p>
+              <div className="space-y-1.5 text-gray-400">
+                <p><span className="text-blue-300 font-medium">Ceiling</span> — ratio of peak sold price to your current price. Higher means more room to raise prices.</p>
+                <p><span className="text-purple-300 font-medium">Velocity</span> — sold lots vs listed lots (6mo). Higher means items are selling fast relative to supply.</p>
+                <p><span className="text-amber-300 font-medium">Scarcity</span> — inverse of total listed lots. Higher means fewer sellers competing.</p>
+                <p><span className="text-rose-300 font-medium">Undercut</span> — your price vs the lowest listed price. Lower means you're closer to the floor.</p>
+                <p><span className="text-emerald-300 font-medium">Score</span> — weighted combination of all four metrics using your configured weights.</p>
+              </div>
+            </PopoverContent>
+          </Popover>
           {(Object.entries(SORT_LABELS) as [SortField, string][]).map(([field, label]) => (
             <button
               key={field}
@@ -825,7 +844,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                     >
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className="font-mono text-[11px] text-blue-200/90 font-semibold flex-shrink-0">{group.itemNo}</span>
-                        <p className="text-[11px] text-slate-300 truncate flex-1 min-w-0">{group.itemName || 'Unknown Item'}</p>
+                        <p className="text-[11px] text-slate-300 truncate flex-1 min-w-0">{group.itemName && group.itemName !== 'undefined' ? group.itemName : 'Unknown Item'}</p>
                         {primaryLot && (
                           <div className="invisible group-hover:visible flex items-center gap-0.5 flex-shrink-0">
                             <Tooltip>
@@ -880,16 +899,6 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                           ×{totalQty}
                         </span>
                         <span className="text-[10px] text-slate-400 truncate min-w-0">{group.colorName || '—'}</span>
-                        {group.newLot && (
-                          <span className="text-[9px] text-blue-400/60 flex-shrink-0">
-                            N:{fmt(group.newLot.currentPrice)}
-                          </span>
-                        )}
-                        {group.usedLot && (
-                          <span className="text-[9px] text-orange-400/60 flex-shrink-0">
-                            U:{fmt(group.usedLot.currentPrice)}
-                          </span>
-                        )}
                       </div>
 
                       <PricingGrid group={group} />
