@@ -7233,7 +7233,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   );
                 })()}
 
-                {systemHealthLoading ? (
+                {(systemHealthLoading || (!systemHealth && !systemHealthError)) ? (
                   <div className="flex items-center justify-center py-10">
                     <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
                   </div>
