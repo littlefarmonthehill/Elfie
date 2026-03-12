@@ -448,8 +448,8 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
   }
 
   return (
-        <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-yellow/5 to-transparent rounded-lg border border-lego-yellow/10 shadow-[0_0_15px_rgba(234,179,8,0.1)]">
-      <div className="space-y-1.5">
+        <div className="p-2 space-y-3 bg-gradient-to-br from-lego-yellow/5 to-transparent rounded-lg border border-lego-yellow/10 shadow-[0_0_15px_rgba(234,179,8,0.1)]">
+      <div className="space-y-3">
 
         {/* ── Customer Overview ── */}
         <div className={cn("relative bg-gradient-to-b from-yellow-950/20 to-gray-900/85 border border-yellow-500/40 rounded-lg shadow-[0_0_22px_rgba(234,179,8,0.10)] overflow-hidden", "p-2.5")} data-testid="section-customer-overview">

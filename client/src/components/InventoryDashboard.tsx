@@ -144,8 +144,8 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   }
 
   return (
-        <div className={cn("bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)] p-2 space-y-1.5")}>
-      <div className={cn("space-y-1.5")}>
+        <div className={cn("bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)] p-2 space-y-3")}>
+      <div className={cn("space-y-3")}>
 
         {/* Combined Inventory Info + Values */}
         <div className={cn("relative bg-gradient-to-b from-blue-950/25 to-gray-900/85 border border-blue-500/40 rounded-lg shadow-[0_0_22px_rgba(59,130,246,0.12)] overflow-hidden", "p-2.5 xl:p-3")} data-testid="section-inventory-overview">

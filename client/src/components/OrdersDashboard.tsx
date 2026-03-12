@@ -92,8 +92,8 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
   }
 
   return (
-        <div className="p-2 space-y-1.5 bg-gradient-to-br from-lego-orange/5 to-transparent rounded-lg border border-lego-orange/10 shadow-[0_0_15px_rgba(251,146,60,0.1)]">
-      <div className="space-y-1.5">
+        <div className="p-2 space-y-3 bg-gradient-to-br from-lego-orange/5 to-transparent rounded-lg border border-lego-orange/10 shadow-[0_0_15px_rgba(251,146,60,0.1)]">
+      <div className="space-y-3">
 
         {/* ── Orders Info ── */}
         <div className={cn("relative bg-gradient-to-b from-orange-950/25 to-gray-900/85 border border-orange-500/40 rounded-lg shadow-[0_0_22px_rgba(249,115,22,0.12)] overflow-hidden", "p-2.5")} data-testid="section-orders-overview">

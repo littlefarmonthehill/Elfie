@@ -787,7 +787,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
   });
 
   return (
-        <div className="p-2 space-y-1.5 bg-gradient-to-br from-green-500/5 to-transparent rounded-lg border border-green-500/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
+        <div className="p-2 space-y-3 bg-gradient-to-br from-green-500/5 to-transparent rounded-lg border border-green-500/10 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
       {/* Diagnostic Warnings */}
       {warnings.length > 0 && (
         <div className="bg-red-900/30 border-2 border-red-500 rounded-lg p-3" data-testid="diagnostic-warnings">
