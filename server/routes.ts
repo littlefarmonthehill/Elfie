@@ -1045,7 +1045,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         total: Number(catalogTotal?.count || 0),
       };
 
+      // Catalog coverage stats for BrickLink Catalog tab dashboard
       const [platformSettings] = await db.select().from(appSettings).where(eq(appSettings.orgId, PLATFORM_ORG_ID)).limit(1);
+      const detailFreshDays = platformSettings?.catalogDetailFreshnessDays ?? 90;
+      const priceFreshDays = platformSettings?.pomFreshnessDays ?? 180;
+      const catalogCoverageResult = await db.execute(sql`
+        SELECT
+          (SELECT COUNT(*) FROM bl_catalog) AS total_catalog,
+          (SELECT COUNT(*) FROM bl_catalog WHERE item_name IS NOT NULL AND item_name != '') AS has_detail,
+          (SELECT COUNT(*) FROM bl_catalog WHERE item_name IS NOT NULL AND item_name != '' AND updated_at < NOW() - INTERVAL '1 day' * ${detailFreshDays}) AS stale_detail,
+          (SELECT COUNT(DISTINCT item_no || '|' || item_type || '|' || COALESCE(CAST(color_id AS TEXT), '0')) FROM price_guide_cache WHERE stock_avg_price IS NOT NULL) AS has_supply,
+          (SELECT COUNT(DISTINCT item_no || '|' || item_type || '|' || COALESCE(CAST(color_id AS TEXT), '0')) FROM price_guide_cache WHERE stock_avg_price IS NOT NULL AND fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays}) AS stale_supply,
+          (SELECT COUNT(DISTINCT item_no || '|' || item_type || '|' || COALESCE(CAST(color_id AS TEXT), '0')) FROM price_guide_cache WHERE sold_avg_price IS NOT NULL) AS has_sold,
+          (SELECT COUNT(DISTINCT item_no || '|' || item_type || '|' || COALESCE(CAST(color_id AS TEXT), '0')) FROM price_guide_cache WHERE sold_avg_price IS NOT NULL AND fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays}) AS stale_sold
+      `);
+      const cc = catalogCoverageResult.rows[0] as any;
+      const catalogCoverage = {
+        totalCatalog: parseInt(cc?.total_catalog || '0'),
+        detail: { has: parseInt(cc?.has_detail || '0'), stale: parseInt(cc?.stale_detail || '0') },
+        supply: { has: parseInt(cc?.has_supply || '0'), stale: parseInt(cc?.stale_supply || '0') },
+        sold: { has: parseInt(cc?.has_sold || '0'), stale: parseInt(cc?.stale_sold || '0') },
+      };
 
       const { getActiveBuild } = await import('./services/clip-search.js');
       const clipBuild = getActiveBuild();
@@ -1103,6 +1123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         syncJobs,
         clipCatalogStatus,
         schedulerConfig,
+        catalogCoverage,
       });
     } catch (error) {
       console.error("Error fetching system health:", error);

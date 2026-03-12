@@ -989,6 +989,12 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     syncJobs?: SyncJobRow[];
     clipCatalogStatus?: { embedded: number; total: number };
     schedulerConfig?: Record<string, { enabled: boolean; schedule: string; frequency: string; batchSize?: number; retryDays?: number; workerRunning?: boolean }>;
+    catalogCoverage?: {
+      totalCatalog: number;
+      detail: { has: number; stale: number };
+      supply: { has: number; stale: number };
+      sold: { has: number; stale: number };
+    };
   };
 
   const { data: orgLimitsUsage, isLoading: orgLimitsLoading } = useQuery<{
@@ -7307,6 +7313,55 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       {activeSchedulerTab === 'catalog' && (
                         <div className="space-y-3">
                           <p className="sm-hint px-1">BrickLink catalog enrichment — price guides, item details, and gap detection across all stores.</p>
+
+                          {systemHealth.catalogCoverage && (() => {
+                            const cov = systemHealth.catalogCoverage;
+                            const total = cov.totalCatalog || 1;
+                            const areas = [
+                              { label: 'Item Detail', has: cov.detail.has, stale: cov.detail.stale, freshLabel: `${catalogDetailFreshnessDays}d`, barClass: 'bg-blue-500', barStaleClass: 'bg-blue-500/30' },
+                              { label: 'Supply', has: cov.supply.has, stale: cov.supply.stale, freshLabel: `${pomFreshnessDays}d`, barClass: 'bg-green-500', barStaleClass: 'bg-green-500/30' },
+                              { label: 'Sold', has: cov.sold.has, stale: cov.sold.stale, freshLabel: `${pomFreshnessDays}d`, barClass: 'bg-purple-500', barStaleClass: 'bg-purple-500/30' },
+                            ];
+                            return (
+                              <div className="sm-card-inset">
+                                <div className="px-4 py-2.5 bg-gray-800/40 border-b border-gray-700/60">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="sm-group-label">Catalog Coverage</span>
+                                    <span className="sm-hint font-mono">{total.toLocaleString()} items</span>
+                                  </div>
+                                </div>
+                                {areas.map(({ label, has, stale, freshLabel, barClass, barStaleClass }) => {
+                                  const missing = total - has;
+                                  const fresh = has - stale;
+                                  const pct = Math.round((has / total) * 100);
+                                  const freshPct = has > 0 ? Math.round((fresh / has) * 100) : 0;
+                                  return (
+                                    <div key={label} className="px-4 py-2.5 flex items-center gap-3">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between gap-2 mb-1">
+                                          <span className="sm-label">{label}</span>
+                                          <span className="sm-hint font-mono">{has.toLocaleString()}/{total.toLocaleString()} ({pct}%)</span>
+                                        </div>
+                                        <div className="flex h-1.5 rounded-full overflow-hidden bg-gray-700">
+                                          <div className={`${barClass} transition-all`} style={{ width: `${Math.round((fresh / total) * 100)}%` }} />
+                                          <div className={`${barStaleClass} transition-all`} style={{ width: `${Math.round((stale / total) * 100)}%` }} />
+                                        </div>
+                                        <div className="flex items-center justify-between gap-2 mt-1">
+                                          <span className="sm-hint">
+                                            {missing > 0 && <span className="text-yellow-500/80">{missing.toLocaleString()} missing</span>}
+                                            {missing > 0 && stale > 0 && <span> · </span>}
+                                            {stale > 0 && <span className="text-orange-400/80">{stale.toLocaleString()} stale (&gt;{freshLabel})</span>}
+                                            {missing === 0 && stale === 0 && <span className="text-green-400/70">All fresh</span>}
+                                          </span>
+                                          {has > 0 && <span className="sm-hint">{freshPct}% fresh</span>}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
 
                           <div className="sm-card">
                             <button onClick={() => toggleJob('pom')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-pom-sched">
