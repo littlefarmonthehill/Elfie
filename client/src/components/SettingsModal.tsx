@@ -2778,7 +2778,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                           <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${pomProgressPct}%` }} />
                         </div>
                         <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <span className="text-[10px] text-gray-500">{(pomLiveProgress.itemsNew ?? 0).toLocaleString()} new · {(pomLiveProgress.itemsRefreshed ?? 0).toLocaleString()} refreshed</span>
+                          <span className="text-[10px] text-gray-500">{(pomLiveProgress.itemsNew ?? 0).toLocaleString()} new · {(pomLiveProgress.itemsRefreshed ?? 0).toLocaleString()} refreshed · {pomUnenrichedCount.toLocaleString()} without POM</span>
                           <span className="text-[10px] text-gray-500">API: {pomCurrentSyncCalls.toLocaleString()} / {pomApiCeiling.toLocaleString()}</span>
                         </div>
                       </div>
@@ -7281,7 +7281,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                   <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${pomProgressPct}%` }} />
                                 </div>
                                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                                  <span className="text-[10px] text-gray-500">{(pomLiveProgress.itemsNew ?? 0).toLocaleString()} new · {(pomLiveProgress.itemsRefreshed ?? 0).toLocaleString()} refreshed</span>
+                                  <span className="text-[10px] text-gray-500">{(pomLiveProgress.itemsNew ?? 0).toLocaleString()} new · {(pomLiveProgress.itemsRefreshed ?? 0).toLocaleString()} refreshed · {pomUnenrichedCount.toLocaleString()} without POM</span>
                                   <span className="text-[10px] text-gray-500">API: {pomCurrentSyncCalls.toLocaleString()} / {pomApiCeiling.toLocaleString()}</span>
                                 </div>
                               </div>
