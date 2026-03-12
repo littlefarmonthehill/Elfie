@@ -32,7 +32,7 @@ interface SettingsModalProps {
   initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'priceomatic';
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'systemHealth' | 'customerHealth' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'priceomatic' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'systemHealth' | 'customerHealth' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -758,7 +758,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [activeOrgTab, setActiveOrgTab] = useState<'features' | 'limits' | 'billing'>('features');
   const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'features' | 'limits' | 'billing'>('info');
   const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'stripe' | 'openai' | 'bricklink'>('bricklink');
-  const [activePlatformGeneralTab, setActivePlatformGeneralTab] = useState<'info' | 'jobs'>('info');
+  const [activeSchedulerTab, setActiveSchedulerTab] = useState<'catalog' | 'sets' | 'embeddings' | 'market'>('catalog');
   const [activeHealthTab, setActiveHealthTab] = useState<'overview' | 'logs' | 'database' | 'bricklink'>('overview');
   const [activeCustomerHealthTab, setActiveCustomerHealthTab] = useState<'overview' | 'bricklink'>('overview');
   const [blBreakdownSort, setBlBreakdownSort] = useState<{ col: string; dir: 'asc' | 'desc' }>({ col: 'total', dir: 'desc' });
@@ -1095,8 +1095,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
   const { data: systemHealth, isLoading: systemHealthLoading, isError: systemHealthError, refetch: refetchSystemHealth } = useQuery<SystemHealthData>({
     queryKey: ['/api/platform-admin/system-health'],
-    enabled: open && (activeSection === 'systemHealth' || activeSection === 'customerHealth' || (activeSection === 'platformGeneral' && activePlatformGeneralTab === 'jobs')),
-    refetchInterval: (activeSection === 'systemHealth' || activeSection === 'customerHealth' || (activeSection === 'platformGeneral' && activePlatformGeneralTab === 'jobs')) ? 15000 : false,
+    enabled: open && (activeSection === 'systemHealth' || activeSection === 'customerHealth' || activeSection === 'platformScheduler'),
+    refetchInterval: (activeSection === 'systemHealth' || activeSection === 'customerHealth' || activeSection === 'platformScheduler') ? 15000 : false,
     retry: 0,
     staleTime: 0,
   });
@@ -1797,7 +1797,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     queryKey: ['/api/sync/priceomatic/status'],
     refetchInterval: 3000,
     staleTime: 0,
-    enabled: open && (activeSection === 'enrichment' || activeSection === 'priceomatic' || activeSection === 'automation' || (activeSection === 'platformGeneral' && activePlatformGeneralTab === 'jobs')),
+    enabled: open && (activeSection === 'enrichment' || activeSection === 'priceomatic' || activeSection === 'automation' || activeSection === 'platformScheduler'),
   });
   const pomLiveProgress = pomLiveStatus?.data?.liveProgress;
   const syncingPom = syncingPomTrigger || pomLiveProgress?.active === true;
@@ -1878,11 +1878,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       label: 'Platform',
       items: [
         { id: 'platformGeneral' as const, label: 'General', icon: Settings },
+        { id: 'platformScheduler' as const, label: 'Data Enrichment', icon: Calendar },
         { id: 'apiKeys' as const, label: 'Platform Services', icon: Key },
         { id: 'systemHealth' as const, label: 'Platform Health', icon: Activity },
         { id: 'customerHealth' as const, label: 'Customer Health', icon: Users },
         { id: 'auditLog' as const, label: 'Audit Log', icon: ClipboardList },
-        { id: 'enrichment' as const, label: 'Data Enrichment', icon: Database },
         { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
       ],
     },
@@ -7032,29 +7032,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
             {/* Platform General */}
             {activeSection === 'platformGeneral' && (
               <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden">
-                {(() => {
-                  const pgTabs: Array<{ id: 'info' | 'jobs'; label: string; Icon: React.ElementType }> = [
-                    { id: 'info', label: 'Platform Information', Icon: Building2 },
-                    { id: 'jobs', label: 'Scheduled Jobs', Icon: Activity },
-                  ];
-                  return (
-                    <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1 overflow-x-auto">
-                      {pgTabs.map(({ id, label, Icon }) => (
-                        <button
-                          key={id}
-                          onClick={() => setActivePlatformGeneralTab(id)}
-                          data-testid={`tab-platform-general-${id}`}
-                          className={`flex items-center gap-1.5 flex-1 justify-center px-3 py-1.5 rounded text-xs font-medium transition-colors whitespace-nowrap ${activePlatformGeneralTab === id ? 'bg-gray-700 text-gray-100' : 'text-gray-500 hover:text-gray-300'}`}
-                        >
-                          <Icon className="h-3 w-3 shrink-0" />
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  );
-                })()}
-
-                {activePlatformGeneralTab === 'info' && (
                   <div className="space-y-4">
                     <div className="sm-card">
                       <div className="sm-card-header">
@@ -7225,64 +7202,90 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       </div>
                     </div>
                   </div>
-                )}
+              </div>
+            )}
 
-                {activePlatformGeneralTab === 'jobs' && (
-                  <div className="space-y-3 min-w-0">
-                    {systemHealthLoading ? (
-                      <div className="flex items-center justify-center py-10">
-                        <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
-                      </div>
-                    ) : systemHealth ? (() => {
-                      const config = systemHealth.schedulerConfig || {};
-                      const clipStatus = systemHealth.clipCatalogStatus;
-                      const syncJobs = systemHealth.syncJobs || [];
-                      const getJob = (id: string) => syncJobs.find(j => j.id === id);
-                      const toggleJob = (id: string) => setExpandedJobs(prev => ({ ...prev, [id]: !prev[id] }));
-                      const isExpanded = (id: string) => !!expandedJobs[id];
 
-                      const handleTrigger = async (jobId: string) => {
-                        try {
-                          await apiRequest('POST', `/api/platform-admin/scheduler/${jobId}/trigger`);
-                          queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/system-health'] });
-                        } catch (err: any) {
-                          alert(err?.message || 'Trigger failed');
-                        }
-                      };
+            {/* Platform Scheduler — Data Enrichment */}
+            {activeSection === 'platformScheduler' && (
+              <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden">
+                {(() => {
+                  const schedTabs: Array<{ id: 'catalog' | 'sets' | 'embeddings' | 'market'; label: string; Icon: React.ElementType }> = [
+                    { id: 'catalog', label: 'BrickLink Catalog', Icon: Package },
+                    { id: 'sets', label: 'Sets', Icon: Blocks },
+                    { id: 'embeddings', label: 'Embeddings', Icon: Database },
+                    { id: 'market', label: 'Market', Icon: Globe },
+                  ];
+                  return (
+                    <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1 overflow-x-auto">
+                      {schedTabs.map(({ id, label, Icon }) => (
+                        <button
+                          key={id}
+                          onClick={() => setActiveSchedulerTab(id)}
+                          data-testid={`tab-scheduler-${id}`}
+                          className={`flex items-center gap-1.5 flex-1 justify-center px-3 py-1.5 rounded text-xs font-medium transition-colors whitespace-nowrap ${activeSchedulerTab === id ? 'bg-gray-700 text-gray-100' : 'text-gray-500 hover:text-gray-300'}`}
+                        >
+                          <Icon className="h-3 w-3 shrink-0" />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
 
-                      const statusInfo = (status: string | null, enabled: boolean) => {
-                        if (status === 'in_progress') return { icon: <Loader2 className="h-4 w-4 text-yellow-400 animate-spin" />, label: 'Running', color: 'text-yellow-400' };
-                        if (status === 'failed' || status === 'error') return { icon: <AlertTriangle className="h-4 w-4 text-red-400" />, label: 'Failed', color: 'text-red-400' };
-                        if (status === 'partial') return { icon: <AlertTriangle className="h-4 w-4 text-orange-400" />, label: 'Partial', color: 'text-orange-400' };
-                        if (!enabled) return { icon: <Pause className="h-4 w-4 text-gray-500" />, label: 'Paused', color: 'text-gray-500' };
-                        if (status === 'success') return { icon: <CheckCircle2 className="h-4 w-4 text-green-400" />, label: 'Completed', color: 'text-green-400/80' };
-                        if (status === 'never') return { icon: <Clock className="h-4 w-4 text-gray-500" />, label: 'Never run', color: 'text-gray-500' };
-                        return { icon: <CheckCircle2 className="h-4 w-4 text-green-400" />, label: 'Idle', color: 'text-green-400/80' };
-                      };
+                {systemHealthLoading ? (
+                  <div className="flex items-center justify-center py-10">
+                    <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
+                  </div>
+                ) : systemHealth ? (() => {
+                  const config = systemHealth.schedulerConfig || {};
+                  const clipStatus = systemHealth.clipCatalogStatus;
+                  const syncJobs = systemHealth.syncJobs || [];
+                  const getJob = (id: string) => syncJobs.find((j: any) => j.id === id);
+                  const toggleJob = (id: string) => setExpandedJobs(prev => ({ ...prev, [id]: !prev[id] }));
+                  const isExpanded = (id: string) => !!expandedJobs[id];
 
-                      const formatLastRun = (time: string | null) => time ? new Date(time).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
+                  const handleTrigger = async (jobId: string) => {
+                    try {
+                      await apiRequest('POST', `/api/platform-admin/scheduler/${jobId}/trigger`);
+                      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/system-health'] });
+                    } catch (err: any) {
+                      alert(err?.message || 'Trigger failed');
+                    }
+                  };
 
-                      const pomJob = getJob('priceomatic_cache');
-                      const ucJob = getJob('universal_catalog_refresh');
-                      const rbJob = getJob('rebrickable_set_parts');
-                      const fmJob = getJob('forum_sync');
-                      const pomActive = pomJob?.lastSyncStatus === 'in_progress';
-                      const ucActive = ucJob?.lastSyncStatus === 'in_progress';
-                      const rbActive = rbJob?.lastSyncStatus === 'in_progress';
-                      const fmActive = fmJob?.lastSyncStatus === 'in_progress';
-                      const clipActive = config.clip_catalog?.workerRunning;
-                      const clipPct = clipStatus && clipStatus.total > 0 ? Math.round((clipStatus.embedded / clipStatus.total) * 100) : 0;
+                  const statusInfo = (status: string | null, enabled: boolean) => {
+                    if (status === 'in_progress') return { icon: <Loader2 className="h-4 w-4 text-yellow-400 animate-spin" />, label: 'Running', color: 'text-yellow-400' };
+                    if (status === 'failed' || status === 'error') return { icon: <AlertTriangle className="h-4 w-4 text-red-400" />, label: 'Failed', color: 'text-red-400' };
+                    if (status === 'partial') return { icon: <AlertTriangle className="h-4 w-4 text-orange-400" />, label: 'Partial', color: 'text-orange-400' };
+                    if (!enabled) return { icon: <Pause className="h-4 w-4 text-gray-500" />, label: 'Paused', color: 'text-gray-500' };
+                    if (status === 'success') return { icon: <CheckCircle2 className="h-4 w-4 text-green-400" />, label: 'Completed', color: 'text-green-400/80' };
+                    if (status === 'never') return { icon: <Clock className="h-4 w-4 text-gray-500" />, label: 'Never run', color: 'text-gray-500' };
+                    return { icon: <CheckCircle2 className="h-4 w-4 text-green-400" />, label: 'Idle', color: 'text-green-400/80' };
+                  };
 
-                      return (
-                        <>
-                          <div className="flex items-center gap-2 px-1">
-                            <p className="sm-group-label flex-1">Platform Job Scheduler</p>
-                            {(pomActive || ucActive || rbActive || fmActive || clipActive) && <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />}
-                          </div>
+                  const formatLastRun = (time: string | null) => time ? new Date(time).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
 
-                          {/* ── Price-o-Matic ──────────────────────────── */}
+                  const pomJob = getJob('priceomatic_cache');
+                  const ucJob = getJob('universal_catalog_refresh');
+                  const rbJob = getJob('rebrickable_set_parts');
+                  const fmJob = getJob('forum_sync');
+                  const pomActive = pomJob?.lastSyncStatus === 'in_progress';
+                  const ucActive = ucJob?.lastSyncStatus === 'in_progress';
+                  const rbActive = rbJob?.lastSyncStatus === 'in_progress';
+                  const fmActive = fmJob?.lastSyncStatus === 'in_progress';
+                  const clipActive = config.clip_catalog?.workerRunning;
+                  const clipPct = clipStatus && clipStatus.total > 0 ? Math.round((clipStatus.embedded / clipStatus.total) * 100) : 0;
+
+                  return (
+                    <>
+                      {/* ── BrickLink Catalog Tab ──────────────────── */}
+                      {activeSchedulerTab === 'catalog' && (
+                        <div className="space-y-3">
+                          <p className="sm-hint px-1">Price guides (supply & sold data) from BrickLink. Future: item detail enrichment.</p>
+
                           <div className="sm-card">
-                            <button onClick={() => toggleJob('pom')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-pom">
+                            <button onClick={() => toggleJob('pom')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-pom-sched">
                               {statusInfo(pomJob?.lastSyncStatus || null, pomScheduleEnabled).icon}
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
@@ -7292,7 +7295,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 <p className="sm-hint">{pomScheduleEnabled ? `Daily at ${pomSyncTime} · batch ${pomScheduleBatchSize}` : 'Schedule disabled'} · Last: {formatLastRun(pomJob?.lastSyncTime || null)}</p>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <Button size="icon" variant="ghost" disabled={pomActive} onClick={(e) => { e.stopPropagation(); handleTrigger('priceomatic_cache'); }} title="Run now" data-testid="button-trigger-pom">
+                                <Button size="icon" variant="ghost" disabled={pomActive} onClick={(e) => { e.stopPropagation(); handleTrigger('priceomatic_cache'); }} title="Run now" data-testid="button-trigger-pom-sched">
                                   {pomActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                                 </Button>
                                 {isExpanded('pom') ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-600" />}
@@ -7318,7 +7321,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </div>
                             )}
                             {!syncingPom && pomLiveStatus?.data && (
-                              <div className="flex items-center justify-between gap-2 px-4 pb-3" data-testid="pom-api-stats-jobs">
+                              <div className="flex items-center justify-between gap-2 px-4 pb-3" data-testid="pom-api-stats-sched">
                                 <span className="text-[10px] text-gray-500">24h API: {pomCallsLast24h.toLocaleString()} / {pomApiCeiling.toLocaleString()}</span>
                                 <span className="text-[10px] text-gray-500">Without POM: {pomUnenrichedCount.toLocaleString()}</span>
                               </div>
@@ -7327,25 +7330,25 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
                                 <div className="sm-row pt-3">
                                   <span className="sm-label">Enabled</span>
-                                  <Switch checked={pomScheduleEnabled} onCheckedChange={(checked) => { setPomScheduleEnabled(checked); updatePlatformSettingsMutation.mutate({ pomScheduleEnabled: checked }); }} data-testid="switch-pom-scheduler" />
+                                  <Switch checked={pomScheduleEnabled} onCheckedChange={(checked) => { setPomScheduleEnabled(checked); updatePlatformSettingsMutation.mutate({ pomScheduleEnabled: checked }); }} data-testid="switch-pom-scheduler-sched" />
                                 </div>
                                 <div className="sm-row">
                                   <span className="sm-label">Run time</span>
-                                  <Input type="time" value={pomSyncTime} onChange={(e) => setPomSyncTime(e.target.value)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSyncTime })} className="w-28 text-xs text-right" data-testid="input-pom-scheduler-time" />
+                                  <Input type="time" value={pomSyncTime} onChange={(e) => setPomSyncTime(e.target.value)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSyncTime })} className="w-28 text-xs text-right" data-testid="input-pom-scheduler-time-sched" />
                                 </div>
                                 <div className="sm-row">
                                   <div>
                                     <span className="sm-label">Scheduled batch size</span>
                                     <p className="sm-hint">Lots per scheduled auto-run</p>
                                   </div>
-                                  <Input type="number" min={100} max={25000} step={100} value={pomScheduleBatchSize} onChange={(e) => setPomScheduleBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScheduleBatchSize })} className="w-24 text-xs text-right" data-testid="input-pom-scheduler-batch" />
+                                  <Input type="number" min={100} max={25000} step={100} value={pomScheduleBatchSize} onChange={(e) => setPomScheduleBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScheduleBatchSize })} className="w-24 text-xs text-right" data-testid="input-pom-scheduler-batch-sched" />
                                 </div>
                                 <div className="sm-row">
                                   <div>
                                     <span className="sm-label">Manual batch size</span>
                                     <p className="sm-hint">Lots when triggered via Run button</p>
                                   </div>
-                                  <Input type="number" min={100} max={25000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomBatchSize })} className="w-24 text-xs text-right" data-testid="input-pom-manual-batch" />
+                                  <Input type="number" min={100} max={25000} step={100} value={pomBatchSize} onChange={(e) => setPomBatchSize(parseInt(e.target.value) || 100)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomBatchSize })} className="w-24 text-xs text-right" data-testid="input-pom-manual-batch-sched" />
                                 </div>
                                 {(pomJob?.recordsAdded > 0 || pomJob?.recordsUpdated > 0) && (
                                   <p className="sm-hint pt-1 border-t border-gray-700/40">+{pomJob.recordsAdded} added · {pomJob.recordsUpdated} updated</p>
@@ -7353,66 +7356,26 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </div>
                             )}
                           </div>
+                        </div>
+                      )}
 
-                          {/* ── Universal Catalog ──────────────────────── */}
-                          <div className="sm-card">
-                            <button onClick={() => toggleJob('uc')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-uc">
-                              {statusInfo(ucJob?.lastSyncStatus || null, universalCatalogScheduleEnabled).icon}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <p className="sm-label">Universal Catalog</p>
-                                  <span className={`sm-hint font-medium ${statusInfo(ucJob?.lastSyncStatus || null, universalCatalogScheduleEnabled).color}`}>{statusInfo(ucJob?.lastSyncStatus || null, universalCatalogScheduleEnabled).label}</span>
-                                </div>
-                                <p className="sm-hint">{universalCatalogScheduleEnabled ? `Every ${universalCatalogRefreshMonths}mo · retry after ${universalCatalogRetryDays}d` : 'Schedule disabled'} · Last: {formatLastRun(ucJob?.lastSyncTime || null)}</p>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <Button size="icon" variant="ghost" disabled={ucActive} onClick={(e) => { e.stopPropagation(); handleTrigger('universal_catalog_refresh'); }} title="Run now" data-testid="button-trigger-uc">
-                                  {ucActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                                </Button>
-                                {isExpanded('uc') ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-600" />}
-                              </div>
-                            </button>
-                            {ucJob?.errorMessage && <p className="px-4 pb-2 text-xs text-red-400/80 truncate -mt-1">{ucJob.errorMessage}</p>}
-                            {isExpanded('uc') && (
-                              <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
-                                <div className="sm-row pt-3">
-                                  <span className="sm-label">Enabled</span>
-                                  <Switch checked={universalCatalogScheduleEnabled} onCheckedChange={(checked) => { setUniversalCatalogScheduleEnabled(checked); updateSettingsMutation.mutate({ universalCatalogScheduleEnabled: checked }); }} data-testid="switch-uc-scheduler" />
-                                </div>
-                                <div className="sm-row">
-                                  <div>
-                                    <span className="sm-label">Refresh interval</span>
-                                    <p className="sm-hint">Months between full imports</p>
-                                  </div>
-                                  <Input type="number" min={1} max={12} value={universalCatalogRefreshMonths} onChange={(e) => setUniversalCatalogRefreshMonths(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ universalCatalogRefreshMonths })} className="w-20 text-xs text-right" data-testid="input-uc-refresh-months" />
-                                </div>
-                                <div className="sm-row">
-                                  <div>
-                                    <span className="sm-label">Retry stale after</span>
-                                    <p className="sm-hint">Days before retrying failed items</p>
-                                  </div>
-                                  <Input type="number" min={1} max={365} value={universalCatalogRetryDays} onChange={(e) => setUniversalCatalogRetryDays(parseInt(e.target.value) || 30)} onBlur={() => updateSettingsMutation.mutate({ universalCatalogRetryDays })} className="w-20 text-xs text-right" data-testid="input-uc-retry-days" />
-                                </div>
-                                {(ucJob?.recordsAdded > 0 || ucJob?.recordsUpdated > 0) && (
-                                  <p className="sm-hint pt-1 border-t border-gray-700/40">+{ucJob.recordsAdded} added · {ucJob.recordsUpdated} updated</p>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                      {/* ── Sets (Rebrickable) Tab ──────────────────── */}
+                      {activeSchedulerTab === 'sets' && (
+                        <div className="space-y-3">
+                          <p className="sm-hint px-1">Set-part relationships from Rebrickable. Maps which parts belong to which LEGO sets.</p>
 
-                          {/* ── Rebrickable Sets ───────────────────────── */}
                           <div className="sm-card">
-                            <button onClick={() => toggleJob('rb')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-rb">
+                            <button onClick={() => toggleJob('rb')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-rb-sched">
                               {statusInfo(rbJob?.lastSyncStatus || null, rebrickableSetSyncEnabled).icon}
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <p className="sm-label">Rebrickable Sets</p>
+                                  <p className="sm-label">Rebrickable Set Parts</p>
                                   <span className={`sm-hint font-medium ${statusInfo(rbJob?.lastSyncStatus || null, rebrickableSetSyncEnabled).color}`}>{statusInfo(rbJob?.lastSyncStatus || null, rebrickableSetSyncEnabled).label}</span>
                                 </div>
                                 <p className="sm-hint">{rebrickableSetSyncEnabled ? `Daily at ${rebrickableSetSyncTime}` : 'Schedule disabled'} · Last: {formatLastRun(rbJob?.lastSyncTime || null)}</p>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <Button size="icon" variant="ghost" disabled={rbActive} onClick={(e) => { e.stopPropagation(); handleTrigger('rebrickable_set_parts'); }} title="Run now" data-testid="button-trigger-rb">
+                                <Button size="icon" variant="ghost" disabled={rbActive} onClick={(e) => { e.stopPropagation(); handleTrigger('rebrickable_set_parts'); }} title="Run now" data-testid="button-trigger-rb-sched">
                                   {rbActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                                 </Button>
                                 {isExpanded('rb') ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-600" />}
@@ -7423,11 +7386,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
                                 <div className="sm-row pt-3">
                                   <span className="sm-label">Enabled</span>
-                                  <Switch checked={rebrickableSetSyncEnabled} onCheckedChange={(checked) => { setRebrickableSetSyncEnabled(checked); updateSettingsMutation.mutate({ rebrickableSetSyncEnabled: checked }); }} data-testid="switch-rb-scheduler" />
+                                  <Switch checked={rebrickableSetSyncEnabled} onCheckedChange={(checked) => { setRebrickableSetSyncEnabled(checked); updateSettingsMutation.mutate({ rebrickableSetSyncEnabled: checked }); }} data-testid="switch-rb-scheduler-sched" />
                                 </div>
                                 <div className="sm-row">
                                   <span className="sm-label">Run time</span>
-                                  <Input type="time" value={rebrickableSetSyncTime} onChange={(e) => setRebrickableSetSyncTime(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ rebrickableSetSyncTime })} className="w-28 text-xs text-right" data-testid="input-rb-scheduler-time" />
+                                  <Input type="time" value={rebrickableSetSyncTime} onChange={(e) => setRebrickableSetSyncTime(e.target.value)} onBlur={() => updateSettingsMutation.mutate({ rebrickableSetSyncTime })} className="w-28 text-xs text-right" data-testid="input-rb-scheduler-time-sched" />
                                 </div>
                                 {(rbJob?.recordsAdded > 0 || rbJob?.recordsUpdated > 0) && (
                                   <p className="sm-hint pt-1 border-t border-gray-700/40">+{rbJob.recordsAdded} added · {rbJob.recordsUpdated} updated</p>
@@ -7435,50 +7398,59 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </div>
                             )}
                           </div>
+                        </div>
+                      )}
 
-                          {/* ── Forum Sync ─────────────────────────────── */}
+                      {/* ── Embeddings Tab ──────────────────────────── */}
+                      {activeSchedulerTab === 'embeddings' && (
+                        <div className="space-y-3">
+                          <p className="sm-hint px-1">Visual (CLIP) and text embeddings for search, AI, and catalog enrichment.</p>
+
                           <div className="sm-card">
-                            <button onClick={() => toggleJob('fm')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-fm">
-                              {statusInfo(fmJob?.lastSyncStatus || null, forumSyncEnabled).icon}
+                            <button onClick={() => toggleJob('uc')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-uc-sched">
+                              {statusInfo(ucJob?.lastSyncStatus || null, universalCatalogScheduleEnabled).icon}
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <p className="sm-label">Forum Sync</p>
-                                  <span className={`sm-hint font-medium ${statusInfo(fmJob?.lastSyncStatus || null, forumSyncEnabled).color}`}>{statusInfo(fmJob?.lastSyncStatus || null, forumSyncEnabled).label}</span>
+                                  <p className="sm-label">Universal Catalog</p>
+                                  <span className={`sm-hint font-medium ${statusInfo(ucJob?.lastSyncStatus || null, universalCatalogScheduleEnabled).color}`}>{statusInfo(ucJob?.lastSyncStatus || null, universalCatalogScheduleEnabled).label}</span>
                                 </div>
-                                <p className="sm-hint">{forumSyncEnabled ? `Every ${forumSyncFrequency} min` : 'Schedule disabled'} · Last: {formatLastRun(fmJob?.lastSyncTime || null)}</p>
+                                <p className="sm-hint">{universalCatalogScheduleEnabled ? `Every ${universalCatalogRefreshMonths}mo · retry after ${universalCatalogRetryDays}d` : 'Schedule disabled'} · Last: {formatLastRun(ucJob?.lastSyncTime || null)}</p>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <Button size="icon" variant="ghost" disabled={fmActive} onClick={(e) => { e.stopPropagation(); handleTrigger('forum_sync'); }} title="Run now" data-testid="button-trigger-fm">
-                                  {fmActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                                <Button size="icon" variant="ghost" disabled={ucActive} onClick={(e) => { e.stopPropagation(); handleTrigger('universal_catalog_refresh'); }} title="Run now" data-testid="button-trigger-uc-sched">
+                                  {ucActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                                 </Button>
-                                {isExpanded('fm') ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-600" />}
+                                {isExpanded('uc') ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-600" />}
                               </div>
                             </button>
-                            {fmJob?.errorMessage && <p className="px-4 pb-2 text-xs text-red-400/80 truncate -mt-1">{fmJob.errorMessage}</p>}
-                            {isExpanded('fm') && (
+                            {ucJob?.errorMessage && <p className="px-4 pb-2 text-xs text-red-400/80 truncate -mt-1">{ucJob.errorMessage}</p>}
+                            {isExpanded('uc') && (
                               <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
                                 <div className="sm-row pt-3">
                                   <span className="sm-label">Enabled</span>
-                                  <Switch checked={forumSyncEnabled} onCheckedChange={(checked) => { setForumSyncEnabled(checked); updateSettingsMutation.mutate({ forumSyncEnabled: checked }); }} data-testid="switch-fm-scheduler" />
+                                  <Switch checked={universalCatalogScheduleEnabled} onCheckedChange={(checked) => { setUniversalCatalogScheduleEnabled(checked); updateSettingsMutation.mutate({ universalCatalogScheduleEnabled: checked }); }} data-testid="switch-uc-scheduler-sched" />
                                 </div>
                                 <div className="sm-row">
                                   <div>
-                                    <span className="sm-label">Frequency</span>
-                                    <p className="sm-hint">Minutes between runs</p>
+                                    <span className="sm-label">Refresh interval</span>
+                                    <p className="sm-hint">Months between full imports</p>
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    <Input type="number" min={5} max={1440} value={forumSyncFrequencyStr} onChange={(e) => setForumSyncFrequencyStr(e.target.value)} onBlur={() => { const val = parseInt(forumSyncFrequencyStr) || 60; setForumSyncFrequency(val); setForumSyncFrequencyStr(String(val)); updateSettingsMutation.mutate({ forumSyncFrequency: val }); }} className="w-20 text-xs text-right" data-testid="input-fm-frequency" />
-                                    <span className="sm-hint">min</span>
-                                  </div>
+                                  <Input type="number" min={1} max={12} value={universalCatalogRefreshMonths} onChange={(e) => setUniversalCatalogRefreshMonths(parseInt(e.target.value) || 1)} onBlur={() => updateSettingsMutation.mutate({ universalCatalogRefreshMonths })} className="w-20 text-xs text-right" data-testid="input-uc-refresh-months-sched" />
                                 </div>
-                                {(fmJob?.recordsAdded > 0 || fmJob?.recordsUpdated > 0) && (
-                                  <p className="sm-hint pt-1 border-t border-gray-700/40">+{fmJob.recordsAdded} added · {fmJob.recordsUpdated} updated</p>
+                                <div className="sm-row">
+                                  <div>
+                                    <span className="sm-label">Retry stale after</span>
+                                    <p className="sm-hint">Days before retrying failed items</p>
+                                  </div>
+                                  <Input type="number" min={1} max={365} value={universalCatalogRetryDays} onChange={(e) => setUniversalCatalogRetryDays(parseInt(e.target.value) || 30)} onBlur={() => updateSettingsMutation.mutate({ universalCatalogRetryDays })} className="w-20 text-xs text-right" data-testid="input-uc-retry-days-sched" />
+                                </div>
+                                {(ucJob?.recordsAdded > 0 || ucJob?.recordsUpdated > 0) && (
+                                  <p className="sm-hint pt-1 border-t border-gray-700/40">+{ucJob.recordsAdded} added · {ucJob.recordsUpdated} updated</p>
                                 )}
                               </div>
                             )}
                           </div>
 
-                          {/* ── CLIP Catalog Build ─────────────────────── */}
                           <div className="sm-card">
                             <div className="px-4 py-3 flex items-center gap-3">
                               {clipActive
@@ -7503,25 +7475,24 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 )}
                                 <p className="sm-hint mt-0.5">Continuous background worker · auto-resumes on restart</p>
                               </div>
-                              <Button size="icon" variant="ghost" disabled={!!clipActive} onClick={() => handleTrigger('clip_catalog')} title="Run now" data-testid="button-trigger-clip">
+                              <Button size="icon" variant="ghost" disabled={!!clipActive} onClick={() => handleTrigger('clip_catalog')} title="Run now" data-testid="button-trigger-clip-sched">
                                 {clipActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                               </Button>
                             </div>
                           </div>
 
-                          {/* ── Embedding Worker ───────────────────────── */}
                           {(systemHealth.jobs.active.length > 0 || systemHealth.jobs.recent.length > 0) && (
                             <div>
-                              <p className="sm-group-label mb-2 px-1">Embedding Worker</p>
+                              <p className="sm-group-label mb-2 px-1">Text Embedding Worker</p>
                               <div className="sm-card-inset">
-                                {systemHealth.jobs.active.map(job => (
+                                {systemHealth.jobs.active.map((job: any) => (
                                   <div key={job.id} className="px-4 py-3 flex items-center gap-3">
                                     <Loader2 className="h-4 w-4 text-yellow-400 animate-spin shrink-0" />
                                     <p className="sm-label flex-1 capitalize">{job.jobType}</p>
                                     {job.totalItems > 0 && <span className="sm-hint font-mono">{job.processedItems}/{job.totalItems}</span>}
                                   </div>
                                 ))}
-                                {systemHealth.jobs.recent.slice(0, 5).map(job => (
+                                {systemHealth.jobs.recent.slice(0, 5).map((job: any) => (
                                   <div key={job.id} className="px-4 py-3 flex items-center gap-3">
                                     {job.status === 'completed' ? <CheckCircle2 className="h-4 w-4 text-green-400" /> : <AlertTriangle className="h-4 w-4 text-red-400" />}
                                     <div className="flex-1 min-w-0">
@@ -7540,25 +7511,67 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                               </div>
                             </div>
                           )}
-                        </>
-                      );
-                    })() : (
-                      <div className="flex flex-col items-center justify-center gap-3 py-10">
-                        <AlertTriangle className="h-5 w-5 text-red-400/70" />
-                        <p className="sm-description">Failed to load health data</p>
-                        <button
-                          onClick={() => refetchSystemHealth()}
-                          className="text-xs text-yellow-500/70 hover:text-yellow-400 underline"
-                        >
-                          Retry
-                        </button>
-                      </div>
-                    )}
+                        </div>
+                      )}
+
+                      {/* ── Market Tab ──────────────────────────────── */}
+                      {activeSchedulerTab === 'market' && (
+                        <div className="space-y-3">
+                          <p className="sm-hint px-1">BrickLink forum discussions for market sentiment and AI context.</p>
+
+                          <div className="sm-card">
+                            <button onClick={() => toggleJob('fm')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-fm-sched">
+                              {statusInfo(fmJob?.lastSyncStatus || null, forumSyncEnabled).icon}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className="sm-label">Forum Sync</p>
+                                  <span className={`sm-hint font-medium ${statusInfo(fmJob?.lastSyncStatus || null, forumSyncEnabled).color}`}>{statusInfo(fmJob?.lastSyncStatus || null, forumSyncEnabled).label}</span>
+                                </div>
+                                <p className="sm-hint">{forumSyncEnabled ? `Every ${forumSyncFrequency} min` : 'Schedule disabled'} · Last: {formatLastRun(fmJob?.lastSyncTime || null)}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Button size="icon" variant="ghost" disabled={fmActive} onClick={(e) => { e.stopPropagation(); handleTrigger('forum_sync'); }} title="Run now" data-testid="button-trigger-fm-sched">
+                                  {fmActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                                </Button>
+                                {isExpanded('fm') ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-600" />}
+                              </div>
+                            </button>
+                            {fmJob?.errorMessage && <p className="px-4 pb-2 text-xs text-red-400/80 truncate -mt-1">{fmJob.errorMessage}</p>}
+                            {isExpanded('fm') && (
+                              <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
+                                <div className="sm-row pt-3">
+                                  <span className="sm-label">Enabled</span>
+                                  <Switch checked={forumSyncEnabled} onCheckedChange={(checked) => { setForumSyncEnabled(checked); updateSettingsMutation.mutate({ forumSyncEnabled: checked }); }} data-testid="switch-fm-scheduler-sched" />
+                                </div>
+                                <div className="sm-row">
+                                  <div>
+                                    <span className="sm-label">Frequency</span>
+                                    <p className="sm-hint">Minutes between runs</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Input type="number" min={5} max={1440} value={forumSyncFrequencyStr} onChange={(e) => setForumSyncFrequencyStr(e.target.value)} onBlur={() => { const val = parseInt(forumSyncFrequencyStr) || 60; setForumSyncFrequency(val); setForumSyncFrequencyStr(String(val)); updateSettingsMutation.mutate({ forumSyncFrequency: val }); }} className="w-20 text-xs text-right" data-testid="input-fm-frequency-sched" />
+                                    <span className="sm-hint">min</span>
+                                  </div>
+                                </div>
+                                {(fmJob?.recordsAdded > 0 || fmJob?.recordsUpdated > 0) && (
+                                  <p className="sm-hint pt-1 border-t border-gray-700/40">+{fmJob.recordsAdded} added · {fmJob.recordsUpdated} updated</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })() : (
+                  <div className="flex flex-col items-center justify-center gap-3 py-10">
+                    <AlertTriangle className="h-5 w-5 text-red-400/70" />
+                    <p className="sm-description">Failed to load health data</p>
+                    <button onClick={() => refetchSystemHealth()} className="text-xs text-yellow-500/70 hover:text-yellow-400 underline">Retry</button>
                   </div>
                 )}
               </div>
             )}
-
 
             {/* Platform Services */}
             {activeSection === 'apiKeys' && (
