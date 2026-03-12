@@ -9555,7 +9555,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   app.get("/api/priceomatic/deep-space", isApproved, async (req: any, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try {
-      const settings = await getOrgSettings(PLATFORM_ORG_ID);
+      const orgId = reqOrgId(req);
+      const settings = await getOrgSettings(orgId);
       const raw = settings?.pomDeepSpaceKeys || '[]';
       const parsed: unknown[] = JSON.parse(raw);
       // Support both old format (string[]) and new format (StoredGroupInfo[])
@@ -9580,7 +9581,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const toStore = items ?? (req.body.keys as string[] | undefined)?.map((k: string) => ({ key: k, itemNo: k.split('_')[0], itemName: null, colorId: null, colorName: null })) ?? [];
       if (!Array.isArray(toStore)) return res.status(400).json({ success: false, error: "items must be an array" });
       const json = JSON.stringify(toStore);
-      await db.insert(appSettings).values({ id: PLATFORM_ORG_ID, orgId: PLATFORM_ORG_ID, pomDeepSpaceKeys: json })
+      const orgId = reqOrgId(req);
+      await db.insert(appSettings).values({ id: orgId, orgId, pomDeepSpaceKeys: json })
         .onConflictDoUpdate({ target: appSettings.id, set: { pomDeepSpaceKeys: json, updatedAt: new Date() } });
       res.json({ success: true, keys: toStore.map((i: { key: string }) => i.key), items: toStore });
     } catch (error) {
@@ -9592,7 +9594,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   app.get("/api/priceomatic/future-missions", isApproved, async (req: any, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try {
-      const settings = await getOrgSettings(PLATFORM_ORG_ID);
+      const orgId = reqOrgId(req);
+      const settings = await getOrgSettings(orgId);
       const raw = settings?.pomFutureMissionsKeys || '[]';
       const parsed: unknown[] = JSON.parse(raw);
       type StoredGroupInfo = { key: string; itemNo: string; itemName: string | null; colorId: number | null; colorName: string | null };
