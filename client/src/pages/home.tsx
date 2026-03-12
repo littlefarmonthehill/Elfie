@@ -349,9 +349,7 @@ export default function Home() {
   };
 
   const dateRangeNode = (
-    <div style={{ transform: 'scale(0.8)', transformOrigin: 'right center' }}>
-      <DateRangeSelector value={dateRange} onChange={setDateRange} compact />
-    </div>
+    <DateRangeSelector value={dateRange} onChange={setDateRange} compact />
   );
 
   const renderDynamicDashboard = () => {

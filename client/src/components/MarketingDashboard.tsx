@@ -459,7 +459,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
               <Users className={cn("w-3 h-3 text-yellow-200", "md:w-4 md:h-4")} />
             </div>
             <h3 className={cn("text-xs font-semibold text-yellow-200 uppercase tracking-wide shrink-0", "md:text-sm lg:text-base")}>Customers</h3>
-            {dateRangeSlot && <div className="ml-auto shrink-0">{dateRangeSlot}</div>}
+            {dateRangeSlot && <div className="ml-auto">{dateRangeSlot}</div>}
           </div>
           <div className={cn("grid grid-cols-3 gap-1.5", "mb-2")} data-testid="section-customer-counts">
             <MetricCard label="Total" value={String(totalCustomers)} color="yellow" data-testid="metric-total-customers" />
