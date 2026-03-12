@@ -507,21 +507,8 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
         <DashboardNotifications />
       </SystemPulse>
 
-      {/* Ops Central — grouped by operational area */}
-      <div className="rounded-lg border border-border/40 bg-gradient-to-br from-gray-900/60 to-gray-950/80 overflow-hidden" data-testid="section-ops-central">
-        <div className="px-4 py-3 border-b border-border/30 flex items-center justify-between gap-2">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-            <Activity className="w-3.5 h-3.5 text-blue-400" />
-            Ops Central
-          </h3>
-          {hasRunningJobs && (
-            <span className="flex items-center gap-1 text-[10px] text-blue-400 font-medium">
-              <RefreshCw className="w-2.5 h-2.5 animate-spin" />
-              Jobs running
-            </span>
-          )}
-        </div>
-        <div className="divide-y divide-border/20">
+      {/* Operational areas */}
+      <div className="rounded-lg border border-border/40 bg-gradient-to-br from-gray-900/60 to-gray-950/80 overflow-hidden divide-y divide-border/20" data-testid="section-ops-central">
           {/* Inventory */}
           <OpAreaRow
             label="Inventory"
@@ -612,7 +599,6 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
               </div>
             )}
           </OpAreaRow>
-        </div>
       </div>
 
     </div>
