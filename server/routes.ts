@@ -1051,21 +1051,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const priceFreshDays = platformSettings?.pomFreshnessDays ?? 180;
       const catalogCoverageResult = await db.execute(sql`
         SELECT
-          (SELECT COUNT(*) FROM bl_catalog) AS total_catalog,
-          (SELECT COUNT(*) FROM bl_catalog WHERE item_name IS NOT NULL AND item_name != '') AS has_detail,
-          (SELECT COUNT(*) FROM bl_catalog WHERE item_name IS NOT NULL AND item_name != '' AND updated_at < NOW() - INTERVAL '1 day' * ${detailFreshDays}) AS stale_detail,
-          (SELECT COUNT(DISTINCT item_no || '|' || item_type || '|' || COALESCE(CAST(color_id AS TEXT), '0')) FROM price_guide_cache WHERE stock_avg_price IS NOT NULL) AS has_supply,
-          (SELECT COUNT(DISTINCT item_no || '|' || item_type || '|' || COALESCE(CAST(color_id AS TEXT), '0')) FROM price_guide_cache WHERE stock_avg_price IS NOT NULL AND fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays}) AS stale_supply,
-          (SELECT COUNT(DISTINCT item_no || '|' || item_type || '|' || COALESCE(CAST(color_id AS TEXT), '0')) FROM price_guide_cache WHERE sold_avg_price IS NOT NULL) AS has_sold,
-          (SELECT COUNT(DISTINCT item_no || '|' || item_type || '|' || COALESCE(CAST(color_id AS TEXT), '0')) FROM price_guide_cache WHERE sold_avg_price IS NOT NULL AND fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays}) AS stale_sold,
-          (SELECT COUNT(DISTINCT i.item_no || '|' || i.item_type || '|' || COALESCE(CAST(i.color_id AS TEXT), '0'))
+          (SELECT COUNT(*) FROM bl_inventory) AS total_lots,
+          (SELECT COUNT(*) FROM bl_inventory WHERE quantity > 0) AS in_stock_lots,
+          (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
+           INNER JOIN bl_catalog c ON i.item_no = c.item_no AND i.item_type = c.item_type AND COALESCE(i.color_id, 0) = c.color_id
+           WHERE c.item_name IS NOT NULL AND c.item_name != '') AS has_detail,
+          (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
+           INNER JOIN bl_catalog c ON i.item_no = c.item_no AND i.item_type = c.item_type AND COALESCE(i.color_id, 0) = c.color_id
+           WHERE c.item_name IS NOT NULL AND c.item_name != '' AND c.updated_at < NOW() - INTERVAL '1 day' * ${detailFreshDays}) AS stale_detail,
+          (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
+           INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
+             AND COALESCE(i.color_id, 0) = COALESCE(p.color_id, 0) AND i.new_or_used = p.new_or_used
+           WHERE p.stock_avg_price IS NOT NULL) AS has_supply,
+          (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
+           INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
+             AND COALESCE(i.color_id, 0) = COALESCE(p.color_id, 0) AND i.new_or_used = p.new_or_used
+           WHERE p.stock_avg_price IS NOT NULL AND p.fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays}) AS stale_supply,
+          (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
+           INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
+             AND COALESCE(i.color_id, 0) = COALESCE(p.color_id, 0) AND i.new_or_used = p.new_or_used
+           WHERE p.sold_avg_price IS NOT NULL) AS has_sold,
+          (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
+           INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
+             AND COALESCE(i.color_id, 0) = COALESCE(p.color_id, 0) AND i.new_or_used = p.new_or_used
+           WHERE p.sold_avg_price IS NOT NULL AND p.fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays}) AS stale_sold,
+          (SELECT COUNT(DISTINCT i.id)
            FROM bl_inventory i
            LEFT JOIN bl_catalog c ON i.item_no = c.item_no AND i.item_type = c.item_type AND COALESCE(i.color_id, 0) = c.color_id
            WHERE i.quantity > 0 AND c.item_no IS NULL) AS inventory_not_in_catalog
       `);
       const cc = catalogCoverageResult.rows[0] as any;
       const catalogCoverage = {
-        totalCatalog: parseInt(cc?.total_catalog || '0'),
+        totalLots: parseInt(cc?.total_lots || '0'),
+        inStockLots: parseInt(cc?.in_stock_lots || '0'),
         detail: { has: parseInt(cc?.has_detail || '0'), stale: parseInt(cc?.stale_detail || '0') },
         supply: { has: parseInt(cc?.has_supply || '0'), stale: parseInt(cc?.stale_supply || '0') },
         sold: { has: parseInt(cc?.has_sold || '0'), stale: parseInt(cc?.stale_sold || '0') },

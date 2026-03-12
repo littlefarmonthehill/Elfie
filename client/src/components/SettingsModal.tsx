@@ -991,7 +991,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     clipCatalogStatus?: { embedded: number; total: number };
     schedulerConfig?: Record<string, { enabled: boolean; schedule: string; frequency: string; batchSize?: number; retryDays?: number; workerRunning?: boolean }>;
     catalogCoverage?: {
-      totalCatalog: number;
+      totalLots: number;
+      inStockLots: number;
       detail: { has: number; stale: number };
       supply: { has: number; stale: number };
       sold: { has: number; stale: number };
@@ -7332,7 +7333,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                           {systemHealth.catalogCoverage && (() => {
                             const cov = systemHealth.catalogCoverage;
-                            const total = cov.totalCatalog || 1;
+                            const total = cov.totalLots || 1;
+                            const inStock = cov.inStockLots ?? 0;
                             const invGap = cov.inventoryNotInCatalog ?? 0;
                             const budget = cov.apiBudget;
                             const reservePct = Math.max(0, 100 - (budget?.pomPct ?? 70) - (budget?.catalogDetailPct ?? 20));
@@ -7346,12 +7348,15 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 <div className="px-4 py-2.5 bg-gray-800/40 border-b border-gray-700/60">
                                   <div className="flex items-center justify-between gap-2">
                                     <span className="sm-group-label">Catalog Coverage</span>
-                                    <span className="sm-hint font-mono">{total.toLocaleString()} items</span>
+                                    <span className="sm-hint font-mono">{total.toLocaleString()} lots</span>
+                                  </div>
+                                  <div className="flex items-center gap-3 mt-0.5">
+                                    <span className="text-[10px] text-gray-500">{inStock.toLocaleString()} in stock · {(total - inStock).toLocaleString()} zero-qty</span>
                                   </div>
                                 </div>
                                 {invGap > 0 && (
                                   <div className="px-4 py-2 flex items-center gap-2 border-b border-gray-700/40">
-                                    <span className="text-[10px] text-yellow-500/90 font-medium">{invGap.toLocaleString()} inventory items not yet in catalog</span>
+                                    <span className="text-[10px] text-yellow-500/90 font-medium">{invGap.toLocaleString()} lots not yet in catalog</span>
                                   </div>
                                 )}
                                 {areas.map(({ label, has, stale, freshLabel, barClass, barStaleClass }) => {
@@ -7364,7 +7369,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between gap-2 mb-1">
                                           <span className="sm-label">{label}</span>
-                                          <span className="sm-hint font-mono">{has.toLocaleString()}/{total.toLocaleString()} ({pct}%)</span>
+                                          <span className="sm-hint font-mono">{has.toLocaleString()}/{total.toLocaleString()} lots ({pct}%)</span>
                                         </div>
                                         <div className="flex h-1.5 rounded-full overflow-hidden bg-gray-700">
                                           <div className={`${barClass} transition-all`} style={{ width: `${Math.round((fresh / total) * 100)}%` }} />
@@ -7412,11 +7417,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Market Price Guides</p>
                                   <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>
-                                    <p className="mb-1.5">Pulls supply (currently for sale) and sold (recent sales) price guide data from BrickLink for every item in the catalog. Uses 2 API calls per item.</p>
+                                    <p className="mb-1.5">Pulls supply (currently for sale) and sold (recent sales) price guide data from BrickLink for every lot in your inventory. Uses 2 API calls per lot (1 supply + 1 sold).</p>
                                     <div className="space-y-1 border-t pt-1.5 text-[11px]">
                                       <p><span className="text-gray-500 dark:text-gray-400">Freshness window:</span> <span className="font-medium">{pomFreshnessDays} days</span></p>
-                                      <p><span className="text-gray-500 dark:text-gray-400">Batch size:</span> <span className="font-medium">{pomScheduleBatchSize} items</span> ({pomScheduleBatchSize * 2} API calls)</p>
-                                      <p><span className="text-gray-500 dark:text-gray-400">Zero-stock skip:</span> <span className="font-medium">{pomZeroStockSkip ? 'On — only items in stock' : 'Off — all items'}</span></p>
+                                      <p><span className="text-gray-500 dark:text-gray-400">Batch size:</span> <span className="font-medium">{pomScheduleBatchSize} lots</span> ({pomScheduleBatchSize * 2} API calls)</p>
+                                      <p><span className="text-gray-500 dark:text-gray-400">Zero-stock skip:</span> <span className="font-medium">{pomZeroStockSkip ? 'On — only lots in stock' : 'Off — all lots'}</span></p>
                                       <p><span className="text-gray-500 dark:text-gray-400">API budget:</span> <span className="font-medium">{pomApiBudgetPct}% of {blApiCallLimit}</span> = {Math.floor(blApiCallLimit * pomApiBudgetPct / 100)} calls/24h</p>
                                     </div>
                                   </PopoverContent></Popover>
@@ -7521,11 +7526,11 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Catalog Detail Completion</p>
                                   <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>
-                                    <p className="mb-1.5">Fills in missing item details (name, image, weight, dimensions, year released) by calling the BrickLink Item Detail API. Uses 1 API call per item.</p>
+                                    <p className="mb-1.5">Fills in missing item details (name, image, weight, dimensions, year released) by calling the BrickLink Item Detail API. Uses 1 API call per unique item (shared across lots of same item).</p>
                                     <div className="space-y-1 border-t pt-1.5 text-[11px]">
                                       <p><span className="text-gray-500 dark:text-gray-400">Freshness window:</span> <span className="font-medium">{catalogDetailFreshnessDays} days</span></p>
                                       <p><span className="text-gray-500 dark:text-gray-400">Batch size:</span> <span className="font-medium">{catalogDetailBatchSize} items</span> ({catalogDetailBatchSize} API calls)</p>
-                                      <p><span className="text-gray-500 dark:text-gray-400">Zero-stock skip:</span> <span className="font-medium">{catalogDetailZeroStockSkip ? 'On — only items in stock' : 'Off — all items'}</span></p>
+                                      <p><span className="text-gray-500 dark:text-gray-400">Zero-stock skip:</span> <span className="font-medium">{catalogDetailZeroStockSkip ? 'On — only lots in stock' : 'Off — all lots'}</span></p>
                                       <p><span className="text-gray-500 dark:text-gray-400">API budget:</span> <span className="font-medium">{catalogDetailApiBudgetPct}% of {blApiCallLimit}</span> = {Math.floor(blApiCallLimit * catalogDetailApiBudgetPct / 100)} calls/24h</p>
                                       <p><span className="text-gray-500 dark:text-gray-400">Frequency:</span> <span className="font-medium">Every {catalogDetailFrequencyHours}h</span></p>
                                     </div>
@@ -7629,9 +7634,9 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Inventory Catalog Scan</p>
                                   <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>
-                                    <p className="mb-1.5">Scans all inventory rows across stores to find items with missing or stale catalog data and new part+color combinations. Feeds items into the enrichment queue for both Market Price Guides and Catalog Detail Completion. No API calls — database scan only.</p>
+                                    <p className="mb-1.5">Scans all inventory lots across stores to find lots with missing or stale catalog data and new part+color combinations. Feeds lots into the enrichment queue for both Market Price Guides and Catalog Detail Completion. No API calls — database scan only.</p>
                                     <div className="space-y-1 border-t pt-1.5 text-[11px]">
-                                      <p><span className="text-gray-500 dark:text-gray-400">Zero-stock skip:</span> <span className="font-medium">{catalogScanZeroStockSkip ? 'On — only items in stock' : 'Off — all items'}</span></p>
+                                      <p><span className="text-gray-500 dark:text-gray-400">Zero-stock skip:</span> <span className="font-medium">{catalogScanZeroStockSkip ? 'On — only lots in stock' : 'Off — all lots'}</span></p>
                                       <p><span className="text-gray-500 dark:text-gray-400">Frequency:</span> <span className="font-medium">Every {catalogScanFrequencyHours}h</span></p>
                                     </div>
                                   </PopoverContent></Popover>
