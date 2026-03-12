@@ -122,6 +122,7 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
     orange: { border: 'border-orange-500/30', icon: 'text-orange-400', headerBg: 'from-orange-950/40 to-gray-900/80' },
     green:  { border: 'border-green-500/30', icon: 'text-green-400', headerBg: 'from-green-950/40 to-gray-900/80' },
     purple: { border: 'border-purple-500/30', icon: 'text-purple-400', headerBg: 'from-purple-950/40 to-gray-900/80' },
+    yellow: { border: 'border-yellow-500/30', icon: 'text-yellow-400', headerBg: 'from-yellow-950/40 to-gray-900/80' },
   };
   const c = colorMap[color] ?? colorMap.blue;
 
@@ -583,21 +584,21 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
         />
 
         <OpAreaCard
+          label="Marketing"
+          Icon={Megaphone}
+          color="yellow"
+          stat={targets.length > 0 ? `${targets.length} channel${targets.length !== 1 ? 's' : ''} connected` : 'No channels'}
+          alerts={urgentAlerts.filter(a => a.id.startsWith('ch-') || a.id === 'channel-fail')}
+          onClick={() => onNavigate?.('marketing')}
+        />
+
+        <OpAreaCard
           label="Sales"
           Icon={TrendingUp}
           color="green"
           stat={formatCurrency(totalRevenue)}
           alerts={urgentAlerts.filter(a => a.id === 'pom-fail')}
           onClick={() => onNavigate?.('sales')}
-        />
-
-        <OpAreaCard
-          label="Marketing"
-          Icon={Megaphone}
-          color="purple"
-          stat={targets.length > 0 ? `${targets.length} channel${targets.length !== 1 ? 's' : ''} connected` : 'No channels'}
-          alerts={urgentAlerts.filter(a => a.id.startsWith('ch-') || a.id === 'channel-fail')}
-          onClick={() => onNavigate?.('marketing')}
         />
       </div>
 
