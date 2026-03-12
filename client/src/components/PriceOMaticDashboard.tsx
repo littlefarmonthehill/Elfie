@@ -17,14 +17,12 @@ import {
   Info,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { PomSpotLookup } from "@/components/PomSpotLookup";
 
 const DEEP_SPACE_LS_KEY = 'pom_deep_space_keys';
 const DEEP_SPACE_ITEMS_LS_KEY = 'pom_deep_space_items';
 const FUTURE_MISSIONS_LS_KEY = 'pom_future_missions_keys';
 const FUTURE_MISSIONS_ITEMS_LS_KEY = 'pom_future_missions_items';
 
-// Short swipe = move one zone. Long swipe = jump two zones (skip Future Missions).
 const SHORT_SWIPE = 80;
 const LONG_SWIPE = 160;
 const MAX_OFFSET = 220;
@@ -109,6 +107,11 @@ interface PricingInsight {
   soldTotalLots?: number | null;
   marketPeakSoldPrice?: string | null;
   opportunityScore: number | null;
+  priceCeilingRatio: number | null;
+  demandVelocity: number | null;
+  marketScarcity: number | null;
+  undercutRatio: number | null;
+  repricingScore: number | null;
   quantity: number;
   lastFetched: string;
 }
@@ -126,12 +129,16 @@ interface GroupedInsight {
   itemName: string | null;
   colorId: number | null;
   colorName: string | null;
-  marketPeakSoldPrice: number | null;
   newLot: PricingInsight | null;
   usedLot: PricingInsight | null;
-  newScore: number;
-  usedScore: number;
+  bestCeiling: number | null;
+  bestVelocity: number | null;
+  bestScarcity: number | null;
+  bestUndercut: number | null;
+  bestCombined: number | null;
 }
+
+type SortField = 'combined' | 'ceiling' | 'velocity' | 'scarcity' | 'undercut';
 
 interface PriceOMaticDashboardProps {
   onItemClick?: (type: 'inventory' | 'order', id: number) => void;
@@ -139,12 +146,11 @@ interface PriceOMaticDashboardProps {
 
 type ZoneFilter = 'in_orbit' | 'future_missions' | 'deep_space';
 
-// Describes what action a swipe will trigger and how to render the reveal area
 interface SwipeIntent {
   zone: ZoneFilter;
   label: string;
-  color: string;       // text color
-  bg: string;          // gradient background
+  color: string;
+  bg: string;
   icon: React.ReactNode;
 }
 
@@ -153,7 +159,6 @@ function getSwipeIntent(orbitFilter: ZoneFilter, swipeDelta: number): SwipeInten
   if (abs < SHORT_SWIPE) return null;
 
   if (orbitFilter === 'in_orbit' && swipeDelta > 0) {
-    // Right swipe from In Orbit
     if (abs >= LONG_SWIPE) {
       return {
         zone: 'deep_space',
@@ -174,7 +179,6 @@ function getSwipeIntent(orbitFilter: ZoneFilter, swipeDelta: number): SwipeInten
 
   if (orbitFilter === 'future_missions') {
     if (swipeDelta < 0) {
-      // Left → In Orbit
       return {
         zone: 'in_orbit',
         label: 'In Orbit',
@@ -183,7 +187,6 @@ function getSwipeIntent(orbitFilter: ZoneFilter, swipeDelta: number): SwipeInten
         icon: <Orbit className="w-4 h-4 text-emerald-300 flex-shrink-0" />,
       };
     }
-    // Right → Deep Space
     return {
       zone: 'deep_space',
       label: 'Deep Space',
@@ -194,7 +197,6 @@ function getSwipeIntent(orbitFilter: ZoneFilter, swipeDelta: number): SwipeInten
   }
 
   if (orbitFilter === 'deep_space' && swipeDelta < 0) {
-    // Left swipe from Deep Space
     if (abs >= LONG_SWIPE) {
       return {
         zone: 'in_orbit',
@@ -288,13 +290,11 @@ function SwipeableTile({
   const intent = getSwipeIntent(orbitFilter, swipeDelta);
   const showLabel = absSwipeDelta >= SHORT_SWIPE * 0.65;
 
-  // Detect threshold crossing for flash effect
   const isLong = absSwipeDelta >= LONG_SWIPE;
   const isMidZone = absSwipeDelta >= SHORT_SWIPE && !isLong;
 
   return (
     <div className="relative overflow-hidden rounded-lg">
-      {/* Reveal background — color changes dynamically based on intent */}
       <div
         className={`absolute inset-0 rounded-lg flex items-center px-4 gap-2 transition-all duration-150 ${
           swipeDelta < 0 ? 'justify-end' : ''
@@ -308,7 +308,6 @@ function SwipeableTile({
               <span className={`text-[10px] font-bold uppercase tracking-wider ${intent.color}`}>
                 {intent.label}
               </span>
-              {/* Threshold hint: tell the user what a longer swipe would do */}
               {isMidZone && orbitFilter === 'in_orbit' && (
                 <span className="text-[8px] text-amber-500/70 tracking-wide">keep swiping for Deep Space</span>
               )}
@@ -316,7 +315,6 @@ function SwipeableTile({
                 <span className="text-[8px] text-amber-500/70 tracking-wide">keep swiping for In Orbit</span>
               )}
             </div>
-            {/* Long-swipe zone indicator — a faint bar at the LONG threshold */}
             {(orbitFilter === 'in_orbit' || orbitFilter === 'deep_space') && (
               <div
                 className="absolute top-1 bottom-1 w-[2px] bg-white/10 rounded"
@@ -329,7 +327,6 @@ function SwipeableTile({
         )}
       </div>
 
-      {/* Tile content */}
       <div
         ref={tileRef}
         style={{
@@ -347,26 +344,113 @@ function SwipeableTile({
   );
 }
 
+const fmt = (v: any) => {
+  if (v == null) return '—';
+  const num = typeof v === 'string' ? parseFloat(v) : Number(v);
+  if (isNaN(num) || num <= 0) return '—';
+  return `$${num.toFixed(2)}`;
+};
+const fmtInt = (v: any) => v != null ? String(v) : '—';
+
+const scoreColor = (score: number | null) => {
+  if (score === null || score === undefined) return 'text-gray-600';
+  if (score >= 2.0) return 'text-emerald-400';
+  if (score >= 1.5) return 'text-orange-400';
+  if (score >= 1.0) return 'text-yellow-500';
+  return 'text-gray-500';
+};
+
+const GR = 'grid grid-cols-[1fr_52px_52px_52px_52px]';
+const cell = (extra = '') => `px-1 py-1 text-center text-[10px] font-mono tabular-nums border-l border-white/[0.06] ${extra}`;
+
+function PricingGrid({ group }: { group: GroupedInsight }) {
+  const nLot = group.newLot;
+  const uLot = group.usedLot;
+
+  const DataRow = ({ label, sN, sU, lN, lU, isMoney, bold }: {
+    label: string; sN: any; sU: any; lN: any; lU: any; isMoney?: boolean; bold?: boolean;
+  }) => (
+    <div className={`${GR} border-b border-white/[0.04] ${bold ? 'bg-white/[0.03]' : ''}`}>
+      <div className={`px-2 py-1 text-[10px] ${bold ? 'text-gray-200 font-semibold' : 'text-gray-500'}`}>{label}</div>
+      <div className={cell(bold ? 'text-amber-300 font-semibold' : 'text-gray-200')}>{isMoney ? fmt(sN) : fmtInt(sN)}</div>
+      <div className={cell(bold ? 'text-amber-300 font-semibold' : 'text-gray-200')}>{isMoney ? fmt(sU) : fmtInt(sU)}</div>
+      <div className={cell(bold ? 'text-sky-300 font-semibold' : 'text-gray-400')}>{isMoney ? fmt(lN) : fmtInt(lN)}</div>
+      <div className={cell(bold ? 'text-sky-300 font-semibold' : 'text-gray-400')}>{isMoney ? fmt(lU) : fmtInt(lU)}</div>
+    </div>
+  );
+
+  return (
+    <div className="rounded-md overflow-hidden border border-white/[0.08] mt-1">
+      <div className={`${GR} bg-white/[0.06]`}>
+        <div className="px-2 py-1" />
+        <div className="col-span-2 py-1 text-center text-[8px] uppercase tracking-widest font-bold text-amber-400 border-l border-white/[0.08]">
+          Sold 6mo
+        </div>
+        <div className="col-span-2 py-1 text-center text-[8px] uppercase tracking-widest font-bold text-sky-400 border-l border-white/[0.10]">
+          Listed
+        </div>
+      </div>
+      <div className={`${GR} border-b border-white/[0.10] bg-white/[0.03]`}>
+        <div className="px-2 py-0.5" />
+        <div className={cell('text-[8px] uppercase font-bold text-blue-300 py-0.5')}>New</div>
+        <div className={cell('text-[8px] uppercase font-bold text-orange-300 py-0.5')}>Used</div>
+        <div className={cell('text-[8px] uppercase font-bold text-blue-300 py-0.5')}>New</div>
+        <div className={cell('text-[8px] uppercase font-bold text-orange-300 py-0.5')}>Used</div>
+      </div>
+      <DataRow label="Qty" sN={nLot?.soldTotalLots} sU={uLot?.soldTotalLots} lN={nLot?.stockTotalLots} lU={uLot?.stockTotalLots} />
+      <DataRow label="Min" sN={nLot?.soldMinPrice} sU={uLot?.soldMinPrice} lN={nLot?.stockMinPrice} lU={uLot?.stockMinPrice} isMoney />
+      <DataRow bold label="Avg" sN={nLot?.soldAvgPrice} sU={uLot?.soldAvgPrice} lN={nLot?.stockAvgPrice} lU={uLot?.stockAvgPrice} isMoney />
+      <DataRow label="Max" sN={nLot?.soldMaxPrice} sU={uLot?.soldMaxPrice} lN={nLot?.stockMaxPrice} lU={uLot?.stockMaxPrice} isMoney />
+    </div>
+  );
+}
+
+function ScoresBar({ group }: { group: GroupedInsight }) {
+  const items: Array<{ label: string; value: number | null; suffix?: string }> = [
+    { label: 'Ceil', value: group.bestCeiling, suffix: '×' },
+    { label: 'Vel', value: group.bestVelocity },
+    { label: 'Scarc', value: group.bestScarcity },
+    { label: 'Undr', value: group.bestUndercut, suffix: '×' },
+    { label: 'Score', value: group.bestCombined },
+  ];
+
+  return (
+    <div className="flex items-center gap-0.5 mt-1.5">
+      {items.map(({ label, value, suffix }) => (
+        <div key={label} className="flex-1 text-center">
+          <div className="text-[7px] uppercase tracking-wider text-gray-600 leading-none mb-0.5">{label}</div>
+          <div className={`text-[10px] font-mono font-bold leading-none ${scoreColor(value)}`}>
+            {value != null ? `${value.toFixed(2)}${suffix ?? ''}` : '—'}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const SORT_LABELS: Record<SortField, string> = {
+  combined: 'Score',
+  ceiling: 'Ceiling',
+  velocity: 'Velocity',
+  scarcity: 'Scarcity',
+  undercut: 'Undercut',
+};
+
 export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboardProps) {
   const { toast } = useToast();
   const [itemsToShow, setItemsToShow] = useState(25);
   const [refreshingItems, setRefreshingItems] = useState<Set<number>>(new Set());
+  const [sortField, setSortField] = useState<SortField>('combined');
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
-  const [pricingData, setPricingData] = useState<Map<string, { n: string | null; u: string | null }>>(new Map());
   const [pricingLoading, setPricingLoading] = useState<Set<string>>(new Set());
 
-  // --- Deep Space state ---
   const [deepSpaceKeys, setDeepSpaceKeys] = useState<Set<string>>(lsLoadDeepSpace);
   const [deepSpaceItems, setDeepSpaceItems] = useState<Map<string, StoredGroupInfo>>(lsLoadDeepSpaceItems);
-
-  // --- Future Missions state ---
   const [futureMissionsKeys, setFutureMissionsKeys] = useState<Set<string>>(lsLoadFutureMissions);
   const [futureMissionsItems, setFutureMissionsItems] = useState<Map<string, StoredGroupInfo>>(lsLoadFutureMissionsItems);
 
   const [orbitFilter, setOrbitFilter] = useState<ZoneFilter>('in_orbit');
-  const [scoreFilter, setScoreFilter] = useState<'all' | 'underpriced' | 'priced_right' | 'overpriced'>('all');
 
-  // --- Server sync: Deep Space ---
   const { data: deepSpaceData } = useQuery<{ success: boolean; keys: string[]; items?: StoredGroupInfo[] }>({
     queryKey: ['/api/priceomatic/deep-space'],
     staleTime: 0,
@@ -397,7 +481,6 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
     }
   }, [deepSpaceData]);
 
-  // --- Server sync: Future Missions ---
   const { data: futureMissionsData } = useQuery<{ success: boolean; keys: string[]; items?: StoredGroupInfo[] }>({
     queryKey: ['/api/priceomatic/future-missions'],
     staleTime: 0,
@@ -423,11 +506,9 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
     }
   }, [futureMissionsData]);
 
-  // --- Zone movement callbacks ---
   const onMoveToZone = useCallback((group: GroupedInsight, targetZone: ZoneFilter) => {
     const stored: StoredGroupInfo = { key: group.key, itemNo: group.itemNo, itemName: group.itemName, colorId: group.colorId, colorName: group.colorName };
 
-    // Remove from all zones first
     const newDeepKeys = new Set(lsLoadDeepSpace());
     const newDeepItems = lsLoadDeepSpaceItems();
     const newFutureKeys = new Set(lsLoadFutureMissions());
@@ -445,7 +526,6 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
       newFutureKeys.add(group.key);
       newFutureItems.set(group.key, stored);
     }
-    // in_orbit: already removed from both, nothing to add
 
     setDeepSpaceKeys(new Set(newDeepKeys));
     setDeepSpaceItems(new Map(newDeepItems));
@@ -468,17 +548,15 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
         group.usedLot ? { lot: group.usedLot, condition: 'u' as const } : null,
       ].filter(Boolean) as { lot: PricingInsight; condition: 'n' | 'u' }[];
 
-      const results: { n: string | null; u: string | null } = { n: null, u: null };
-      await Promise.all(lots.map(async ({ lot, condition }) => {
-        const data = await apiRequest("POST", "/api/priceomatic/fetch-pricing", {
+      await Promise.all(lots.map(async ({ lot }) => {
+        await apiRequest("POST", "/api/priceomatic/fetch-pricing", {
           itemNo: lot.itemNo,
           itemType: lot.itemType,
           colorId: lot.colorId,
           newOrUsed: lot.newOrUsed,
         });
-        results[condition] = data.stockAvgPrice ?? null;
       }));
-      return { key: group.key, results };
+      return { key: group.key };
     },
     onMutate: (group) => {
       setPricingLoading(prev => new Set([...prev, group.key]));
@@ -486,8 +564,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
     onSettled: (_data, _err, group) => {
       setPricingLoading(prev => { const next = new Set(prev); next.delete(group.key); return next; });
     },
-    onSuccess: ({ key, results }) => {
-      setPricingData(prev => new Map(prev).set(key, results));
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/insights'] });
     },
     onError: () => {
@@ -528,32 +605,16 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
     refetchInterval: false,
   });
 
-  const { data: settingsData } = useQuery<any>({
-    queryKey: ['/api/settings'],
-  });
-
   const insightsData = insights?.data;
-  const pomUnderpricedScore: number = settingsData?.pomUnderpricedScore ?? 1.5;
-  const pomOverpricedScore: number = settingsData?.pomOverpricedScore ?? 0.8;
 
-  const formatCurrency = (value: string | number | null | undefined) => {
-    if (value == null) return '—';
-    const num = typeof value === 'string' ? parseFloat(value) : value;
-    if (isNaN(num)) return '—';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 3,
-    }).format(num);
-  };
-
-  const scoreColor = (score: number | null) => {
-    if (score === null) return 'text-gray-600';
-    if (score >= 2.0) return 'text-emerald-400';
-    if (score >= 1.5) return 'text-orange-400';
-    if (score >= 1.0) return 'text-yellow-500';
-    return 'text-gray-500';
+  const getGroupScoreValue = (g: GroupedInsight, field: SortField): number => {
+    switch (field) {
+      case 'combined': return g.bestCombined ?? -1;
+      case 'ceiling': return g.bestCeiling ?? -1;
+      case 'velocity': return g.bestVelocity ?? -1;
+      case 'scarcity': return g.bestScarcity ?? -1;
+      case 'undercut': return g.bestUndercut ?? -1;
+    }
   };
 
   const getAllGroups = (): GroupedInsight[] => {
@@ -565,24 +626,38 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
       if (!map.has(key)) {
         map.set(key, {
           key, itemNo: item.itemNo, itemName: item.itemName, colorId: item.colorId, colorName: item.colorName,
-          marketPeakSoldPrice: item.marketPeakSoldPrice != null ? parseFloat(String(item.marketPeakSoldPrice)) : null,
-          newLot: null, usedLot: null, newScore: 0, usedScore: 0,
+          newLot: null, usedLot: null,
+          bestCeiling: null, bestVelocity: null, bestScarcity: null, bestUndercut: null, bestCombined: null,
         });
       }
       const g = map.get(key)!;
-      if (item.newOrUsed === 'N') { g.newLot = item; g.newScore = item.opportunityScore ?? 0; }
-      else { g.usedLot = item; g.usedScore = item.opportunityScore ?? 0; }
+      if (item.newOrUsed === 'N') { g.newLot = item; }
+      else { g.usedLot = item; }
+    }
+    for (const g of map.values()) {
+      const pick = (fn: (lot: PricingInsight) => number | null | undefined) => {
+        const nv = g.newLot ? fn(g.newLot) : null;
+        const uv = g.usedLot ? fn(g.usedLot) : null;
+        if (nv != null && uv != null) return Math.max(nv, uv);
+        return nv ?? uv ?? null;
+      };
+      g.bestCeiling = pick(l => l.priceCeilingRatio);
+      g.bestVelocity = pick(l => l.demandVelocity);
+      g.bestScarcity = pick(l => l.marketScarcity);
+      g.bestUndercut = pick(l => l.undercutRatio);
+      g.bestCombined = pick(l => l.repricingScore);
     }
     return Array.from(map.values()).sort((a, b) => {
-      const aScore = Math.max(a.newScore, a.usedScore);
-      const bScore = Math.max(b.newScore, b.usedScore);
+      const aScore = getGroupScoreValue(a, sortField);
+      const bScore = getGroupScoreValue(b, sortField);
       return sortDir === 'desc' ? bScore - aScore : aScore - bScore;
     });
   };
 
   const makeFallbackGroup = (item: StoredGroupInfo): GroupedInsight => ({
     key: item.key, itemNo: item.itemNo, itemName: item.itemName, colorId: item.colorId, colorName: item.colorName,
-    marketPeakSoldPrice: null, newLot: null, usedLot: null, newScore: 0, usedScore: 0,
+    newLot: null, usedLot: null,
+    bestCeiling: null, bestVelocity: null, bestScarcity: null, bestUndercut: null, bestCombined: null,
   });
 
   const allGroups = getAllGroups().filter(g => (g.newLot?.quantity ?? 0) + (g.usedLot?.quantity ?? 0) > 0);
@@ -602,51 +677,26 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
     .map(makeFallbackGroup);
   const deepSpaceGroups = [...deepSpaceFromAnalysis, ...deepSpaceFallbacks];
 
-  const classifyGroup = (g: GroupedInsight): 'underpriced' | 'overpriced' | 'priced_right' => {
-    const maxScore = Math.max(g.newScore, g.usedScore);
-    if (maxScore <= 0) return 'priced_right';
-    if (maxScore >= pomUnderpricedScore) return 'underpriced';
-    if (maxScore <= pomOverpricedScore) return 'overpriced';
-    return 'priced_right';
-  };
-
-  const scoreFilteredOrbitGroups = scoreFilter === 'all'
-    ? inOrbitGroups
-    : inOrbitGroups.filter(g => classifyGroup(g) === scoreFilter);
-
-  const underpricedCount = inOrbitGroups.filter(g => classifyGroup(g) === 'underpriced').length;
-  const overPricedCount = inOrbitGroups.filter(g => classifyGroup(g) === 'overpriced').length;
-  const pricedRightCount = inOrbitGroups.filter(g => classifyGroup(g) === 'priced_right').length;
-
   const selectedGroups = orbitFilter === 'in_orbit'
-    ? scoreFilteredOrbitGroups
+    ? inOrbitGroups
     : orbitFilter === 'future_missions'
     ? futureMissionsGroups
     : deepSpaceGroups;
 
-  useEffect(() => { setItemsToShow(25); }, [sortDir, orbitFilter, scoreFilter]);
+  useEffect(() => { setItemsToShow(25); }, [sortDir, sortField, orbitFilter]);
 
-  const ScoreSortButton = () => (
-    <button
-      onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
-      className="flex items-center gap-0.5 text-[9px] uppercase tracking-wider rounded px-1.5 py-0.5 bg-purple-500/20 text-purple-300 whitespace-nowrap w-[52px]"
-      data-testid="button-sort-score"
-    >
-      Score
-      {sortDir === 'desc' ? <ArrowDown className="w-2.5 h-2.5 ml-0.5" /> : <ArrowUp className="w-2.5 h-2.5 ml-0.5" />}
-    </button>
-  );
+  const handleSortTap = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+    } else {
+      setSortField(field);
+      setSortDir('desc');
+    }
+  };
 
   return (
-    <div className="space-y-4">
-
-      {/* Spot Price Lookup */}
-      <PomSpotLookup formatCurrency={formatCurrency} />
-
-      {/* Item list */}
+    <div className="space-y-3">
       <div className="space-y-1.5">
-
-        {/* Zone filter tabs — compact segmented control */}
         <div className="flex items-center gap-2 px-1 pb-1">
           <div className="flex items-stretch rounded-md border border-gray-700/60 bg-gray-900/50 overflow-hidden flex-1 text-[9px] font-semibold uppercase tracking-wider">
             <button
@@ -692,7 +742,6 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             </button>
           </div>
 
-          {/* Swipe info tooltip */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button className="text-gray-600 hover:text-gray-400 transition-colors flex-shrink-0" data-testid="button-swipe-info">
@@ -716,29 +765,26 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           </Tooltip>
         </div>
 
-        {/* Score filter — compact inline strip, only for In Orbit */}
-        {orbitFilter === 'in_orbit' && (
-          <div className="flex items-center gap-0.5 px-1">
-            {([
-              { key: 'all',          label: 'All',         count: inOrbitGroups.length, active: 'bg-gray-700/50 text-gray-200',                              inactive: 'text-gray-600 hover:text-gray-400' },
-              { key: 'underpriced',  label: 'Underpriced', count: underpricedCount,      active: 'bg-emerald-500/15 text-emerald-300',                        inactive: 'text-gray-600 hover:text-gray-400' },
-              { key: 'priced_right', label: 'Right',       count: pricedRightCount,      active: 'bg-blue-500/15 text-blue-300',                              inactive: 'text-gray-600 hover:text-gray-400' },
-              { key: 'overpriced',   label: 'Overpriced',  count: overPricedCount,       active: 'bg-orange-500/15 text-orange-300',                          inactive: 'text-gray-600 hover:text-gray-400' },
-            ] as const).map(({ key, label, count, active, inactive }) => (
-              <button
-                key={key}
-                onClick={() => setScoreFilter(key)}
-                className={`flex items-center gap-0.5 text-[8px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded transition-colors ${scoreFilter === key ? active : inactive}`}
-                data-testid={`filter-score-${key}`}
-              >
-                {label}
-                <span className="opacity-60">({count})</span>
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="flex items-center gap-0.5 px-1 pb-1">
+          {(Object.entries(SORT_LABELS) as [SortField, string][]).map(([field, label]) => (
+            <button
+              key={field}
+              onClick={() => handleSortTap(field)}
+              className={`flex items-center gap-0.5 text-[8px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded transition-colors ${
+                sortField === field
+                  ? 'bg-purple-500/20 text-purple-300'
+                  : 'text-gray-600 hover:text-gray-400'
+              }`}
+              data-testid={`sort-${field}`}
+            >
+              {label}
+              {sortField === field && (
+                sortDir === 'desc' ? <ArrowDown className="w-2.5 h-2.5" /> : <ArrowUp className="w-2.5 h-2.5" />
+              )}
+            </button>
+          ))}
+        </div>
 
-        {/* Main list */}
         {(orbitFilter === 'deep_space' || orbitFilter === 'future_missions' || insightsData) ? (
           selectedGroups.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
@@ -760,19 +806,9 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
             </div>
           ) : (
             <>
-              {/* Column headers */}
-              <div className="flex items-center gap-1 px-2 pb-0.5">
-                <ScoreSortButton />
-                <div className="flex-1 min-w-0" />
-                <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">N Cur</span>
-                <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[52px] text-right flex-shrink-0">N Score</span>
-                <span className="text-[9px] uppercase tracking-wider text-gray-400 w-14 text-right flex-shrink-0">U Cur</span>
-                <span className="text-[9px] uppercase tracking-wider text-gray-400 w-[52px] text-right flex-shrink-0">U Score</span>
-                <span className="w-5 flex-shrink-0" />
-              </div>
-
               {selectedGroups.slice(0, itemsToShow).map((group) => {
                 const primaryLot = group.newLot ?? group.usedLot;
+                const totalQty = (group.newLot?.quantity ?? 0) + (group.usedLot?.quantity ?? 0);
                 return (
                   <SwipeableTile
                     key={group.key}
@@ -781,16 +817,15 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                     onMoveToZone={onMoveToZone}
                   >
                     <div
-                      className="group relative bg-gradient-to-br from-blue-950/50 via-slate-800/70 to-blue-900/30 border border-blue-700/25 rounded-lg px-2 py-1.5 cursor-pointer shadow-[0_2px_8px_rgba(15,40,100,0.35),inset_0_1px_0_rgba(147,197,253,0.07)] hover:shadow-[0_4px_14px_rgba(15,40,100,0.5),inset_0_1px_0_rgba(147,197,253,0.12)] hover:border-blue-600/40 transition-shadow duration-150"
+                      className="group relative bg-gradient-to-br from-blue-950/50 via-slate-800/70 to-blue-900/30 border border-blue-700/25 rounded-lg px-2.5 py-2 cursor-pointer shadow-[0_2px_8px_rgba(15,40,100,0.35),inset_0_1px_0_rgba(147,197,253,0.07)] hover:shadow-[0_4px_14px_rgba(15,40,100,0.5),inset_0_1px_0_rgba(147,197,253,0.12)] hover:border-blue-600/40 transition-shadow duration-150"
                       data-testid={`item-group-${group.key}`}
                       onClick={() => {
                         if (primaryLot) onItemClick?.('inventory', primaryLot.inventoryId);
                       }}
                     >
-                      {/* Row 1: Part number + Item name + buttons */}
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="font-mono text-[10px] text-blue-200/80 flex-shrink-0">{group.itemNo}</span>
-                        <p className="text-xs text-slate-300 truncate flex-1 min-w-0">{group.itemName || 'Unknown Item'}</p>
+                        <span className="font-mono text-[11px] text-blue-200/90 font-semibold flex-shrink-0">{group.itemNo}</span>
+                        <p className="text-[11px] text-slate-300 truncate flex-1 min-w-0">{group.itemName || 'Unknown Item'}</p>
                         {primaryLot && (
                           <div className="invisible group-hover:visible flex items-center gap-0.5 flex-shrink-0">
                             <Tooltip>
@@ -804,11 +839,11 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                                   className="text-gray-600 hover:text-purple-400 disabled:text-gray-700 transition-colors"
                                   data-testid={`button-price-group-${group.key}`}
                                 >
-                                  <DollarSign className={`w-2.5 h-2.5 ${pricingLoading.has(group.key) ? 'animate-pulse text-purple-400' : ''}`} />
+                                  <DollarSign className={`w-3 h-3 ${pricingLoading.has(group.key) ? 'animate-pulse text-purple-400' : ''}`} />
                                 </button>
                               </TooltipTrigger>
                               <TooltipContent side="left" className="text-xs">
-                                Get suggested price (2 API calls)
+                                Refresh market data (2 API calls)
                               </TooltipContent>
                             </Tooltip>
                             <Tooltip>
@@ -829,85 +864,36 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                                   className="text-gray-600 hover:text-gray-400 disabled:text-gray-700 transition-colors"
                                   data-testid={`button-refresh-group-${group.key}`}
                                 >
-                                  <RefreshCw className={`w-2.5 h-2.5 ${[group.newLot, group.usedLot].some(l => l && refreshingItems.has(l.inventoryId)) ? 'animate-spin text-purple-400' : ''}`} />
+                                  <RefreshCw className={`w-3 h-3 ${[group.newLot, group.usedLot].some(l => l && refreshingItems.has(l.inventoryId)) ? 'animate-spin text-purple-400' : ''}`} />
                                 </button>
                               </TooltipTrigger>
                               <TooltipContent side="left" className="text-xs">
-                                Refresh score data (2 API calls per condition)
+                                Refresh score data
                               </TooltipContent>
                             </Tooltip>
                           </div>
                         )}
                       </div>
 
-                      {/* Row 2: Qty · Color · Peak */}
-                      <div className="flex items-center gap-1.5 mt-0.5 min-w-0 overflow-hidden">
-                        <span className="text-[10px] font-mono text-slate-400 flex-shrink-0">
-                          ×{(group.newLot?.quantity ?? 0) + (group.usedLot?.quantity ?? 0)}
+                      <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-mono text-emerald-400/80 bg-emerald-500/10 rounded px-1 py-0.5 flex-shrink-0">
+                          ×{totalQty}
                         </span>
-                        <span className="text-[10px] text-slate-400 truncate min-w-0" style={{ maxWidth: '7rem' }}>{group.colorName || '—'}</span>
-                        {group.marketPeakSoldPrice != null && (
-                          <span className="text-[9px] text-blue-400/70 flex-shrink-0 whitespace-nowrap">
-                            · peak {formatCurrency(group.marketPeakSoldPrice)}
+                        <span className="text-[10px] text-slate-400 truncate min-w-0">{group.colorName || '—'}</span>
+                        {group.newLot && (
+                          <span className="text-[9px] text-blue-400/60 flex-shrink-0">
+                            N:{fmt(group.newLot.currentPrice)}
+                          </span>
+                        )}
+                        {group.usedLot && (
+                          <span className="text-[9px] text-orange-400/60 flex-shrink-0">
+                            U:{fmt(group.usedLot.currentPrice)}
                           </span>
                         )}
                       </div>
 
-                      {/* Row 3: Score | N Cur | N Score | U Cur | U Score */}
-                      <div className="flex items-center gap-1 mt-0.5 min-w-0">
-                        {(() => {
-                          const maxScore = Math.max(group.newScore ?? 0, group.usedScore ?? 0);
-                          const hasScore = (group.newLot?.opportunityScore != null) || (group.usedLot?.opportunityScore != null);
-                          return (
-                            <span className={`text-[11px] font-mono font-bold flex-shrink-0 w-[52px] ${hasScore ? scoreColor(maxScore) : 'text-slate-600'}`}>
-                              {hasScore ? `${maxScore}×` : '—'}
-                            </span>
-                          );
-                        })()}
-                        <div className="flex-1 min-w-0" />
-
-                        <div
-                          className="flex flex-col items-end w-14 flex-shrink-0 cursor-pointer"
-                          onClick={(e) => { if (group.newLot) { e.stopPropagation(); onItemClick?.('inventory', group.newLot.inventoryId); } }}
-                        >
-                          {group.newLot ? (
-                            <>
-                              <span className="text-[10px] font-mono text-slate-300 leading-tight">{formatCurrency(group.newLot.currentPrice)}</span>
-                              {pricingData.get(group.key)?.n && (
-                                <span className="text-[9px] font-mono text-purple-400 leading-tight">{formatCurrency(pricingData.get(group.key)!.n)}</span>
-                              )}
-                            </>
-                          ) : (
-                            <span className="text-[10px] text-slate-700">—</span>
-                          )}
-                        </div>
-
-                        <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[52px] ${group.newLot ? scoreColor(group.newLot.opportunityScore) : 'text-slate-700'}`}>
-                          {group.newLot?.opportunityScore != null ? `${group.newLot.opportunityScore}×` : '—'}
-                        </span>
-
-                        <div
-                          className="flex flex-col items-end w-14 flex-shrink-0 cursor-pointer"
-                          onClick={(e) => { if (group.usedLot) { e.stopPropagation(); onItemClick?.('inventory', group.usedLot.inventoryId); } }}
-                        >
-                          {group.usedLot ? (
-                            <>
-                              <span className="text-[10px] font-mono text-slate-300 leading-tight">{formatCurrency(group.usedLot.currentPrice)}</span>
-                              {pricingData.get(group.key)?.u && (
-                                <span className="text-[9px] font-mono text-purple-400 leading-tight">{formatCurrency(pricingData.get(group.key)!.u)}</span>
-                              )}
-                            </>
-                          ) : (
-                            <span className="text-[10px] text-slate-700">—</span>
-                          )}
-                        </div>
-
-                        <span className={`text-[10px] font-mono font-bold text-right flex-shrink-0 w-[52px] ${group.usedLot ? scoreColor(group.usedLot.opportunityScore) : 'text-slate-700'}`}>
-                          {group.usedLot?.opportunityScore != null ? `${group.usedLot.opportunityScore}×` : '—'}
-                        </span>
-
-                        <span className="w-5 flex-shrink-0" />
-                      </div>
+                      <PricingGrid group={group} />
+                      <ScoresBar group={group} />
                     </div>
                   </SwipeableTile>
                 );
