@@ -47,7 +47,7 @@ import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBacku
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
 import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, PLATFORM_ORG_ID } from "@shared/schema";
-import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, asc } from "drizzle-orm";
+import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
 import FormData from "form-data";
@@ -9464,6 +9464,24 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const rateLimit = await checkRateLimit(orgId);
       const liveProgress = getPomSyncProgress();
 
+      const [pomSettings] = await db.select({
+        apiCeiling: appSettings.blApiCallLimit,
+      }).from(appSettings).where(eq(appSettings.id, PLATFORM_ORG_ID)).limit(1);
+
+      const [unenrichedRow] = await db.select({
+        count: sql<number>`COUNT(*)`,
+      }).from(blInventory)
+        .leftJoin(
+          priceGuideCache,
+          and(
+            eq(blInventory.itemNo, priceGuideCache.itemNo),
+            eq(blInventory.itemType, priceGuideCache.itemType),
+            sql`(${blInventory.colorId} = ${priceGuideCache.colorId} OR (${blInventory.colorId} IS NULL AND ${priceGuideCache.colorId} IS NULL))`,
+            sql`${blInventory.newOrUsed} = ${priceGuideCache.newOrUsed}`
+          )
+        )
+        .where(and(gt(blInventory.quantity, 0), sql`${priceGuideCache.id} IS NULL`));
+
       // If the DB shows in_progress but no sync is actually running in memory,
       // the process was killed mid-run. Auto-correct the stale record.
       let resolvedStatus = status;
@@ -9488,6 +9506,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             recordsUpdated: 0,
           }),
           callsLast24h: rateLimit.callsLast24h,
+          apiCeiling: pomSettings?.apiCeiling ?? 4900,
+          unenrichedCount: unenrichedRow?.count ?? 0,
           oldestCallTime: rateLimit.oldestCallTime ?? null,
           newestCallTime: rateLimit.newestCallTime ?? null,
           hourlyBuckets: rateLimit.hourlyBuckets ?? [],

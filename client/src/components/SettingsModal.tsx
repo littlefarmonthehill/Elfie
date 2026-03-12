@@ -1797,6 +1797,10 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const pomLiveProgress = pomLiveStatus?.data?.liveProgress;
   const syncingPom = syncingPomTrigger || pomLiveProgress?.active === true;
   const pomProgressPct = pomLiveProgress?.itemsTotal > 0 ? Math.round((pomLiveProgress.itemsProcessed / pomLiveProgress.itemsTotal) * 100) : 0;
+  const pomCallsLast24h = pomLiveStatus?.data?.callsLast24h ?? 0;
+  const pomApiCeiling = pomLiveStatus?.data?.apiCeiling ?? 4900;
+  const pomUnenrichedCount = pomLiveStatus?.data?.unenrichedCount ?? 0;
+  const pomCurrentSyncCalls = pomLiveProgress?.active ? Math.max(0, pomCallsLast24h - (pomLiveProgress.apiCallsAtStart ?? pomCallsLast24h)) : 0;
 
   async function runManualSync(
     endpoint: string,
@@ -2761,7 +2765,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </div>
 
                     {syncingPom && pomLiveProgress && (
-                      <div className="space-y-1 mt-2" data-testid="pom-progress-bar">
+                      <div className="space-y-1.5 mt-2" data-testid="pom-progress-bar">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-[10px] text-blue-400 font-medium flex items-center gap-1.5">
                             <Loader2 className="w-3 h-3 animate-spin" />
@@ -2772,6 +2776,17 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         <div className="w-full h-1.5 bg-gray-700/60 rounded-full overflow-hidden">
                           <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${pomProgressPct}%` }} />
                         </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-gray-500">24h API: {pomCallsLast24h.toLocaleString()} · This sync: {pomCurrentSyncCalls.toLocaleString()} / {pomApiCeiling.toLocaleString()}</span>
+                          <span className="text-[10px] text-gray-500">Without POM: {pomUnenrichedCount.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {!syncingPom && pomLiveStatus?.data && (
+                      <div className="flex items-center justify-between gap-2 mt-1.5" data-testid="pom-api-stats">
+                        <span className="text-[10px] text-gray-500">24h API: {pomCallsLast24h.toLocaleString()} / {pomApiCeiling.toLocaleString()}</span>
+                        <span className="text-[10px] text-gray-500">Without POM: {pomUnenrichedCount.toLocaleString()}</span>
                       </div>
                     )}
 
@@ -4980,7 +4995,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                     </div>
 
                     {syncingPom && pomLiveProgress && (
-                      <div className="space-y-1 mt-2" data-testid="pom-progress-bar">
+                      <div className="space-y-1.5 mt-2" data-testid="pom-progress-bar">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-[10px] text-blue-400 font-medium flex items-center gap-1.5">
                             <Loader2 className="w-3 h-3 animate-spin" />
@@ -4991,6 +5006,17 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         <div className="w-full h-1.5 bg-gray-700/60 rounded-full overflow-hidden">
                           <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${pomProgressPct}%` }} />
                         </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-gray-500">24h API: {pomCallsLast24h.toLocaleString()} · This sync: {pomCurrentSyncCalls.toLocaleString()} / {pomApiCeiling.toLocaleString()}</span>
+                          <span className="text-[10px] text-gray-500">Without POM: {pomUnenrichedCount.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {!syncingPom && pomLiveStatus?.data && (
+                      <div className="flex items-center justify-between gap-2 mt-1.5" data-testid="pom-api-stats">
+                        <span className="text-[10px] text-gray-500">24h API: {pomCallsLast24h.toLocaleString()} / {pomApiCeiling.toLocaleString()}</span>
+                        <span className="text-[10px] text-gray-500">Without POM: {pomUnenrichedCount.toLocaleString()}</span>
                       </div>
                     )}
 
