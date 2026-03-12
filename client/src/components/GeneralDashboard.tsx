@@ -249,6 +249,7 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
   children?: React.ReactNode;
 }) {
   const planLabels: Record<string, string> = { trial: 'Trial', foundation: 'Foundation', core: 'Core', flagship: 'Flagship' };
+  const planLabel = planLabels[billingStatus?.plan ?? ''] ?? billingStatus?.plan ?? '';
 
   const trialDaysLeft = (() => {
     if (!billingStatus?.trialEndsAt) return null;
@@ -276,14 +277,39 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
     alerts.push({ id: 'trial', icon: Clock, iconColor: trialSeverity === 'error' ? 'text-red-400' : trialSeverity === 'warn' ? 'text-yellow-400' : 'text-muted-foreground', label: trialDaysLeft === 0 ? 'Trial ending today' : `${trialDaysLeft} days left in trial`, sub: 'Upgrade to keep access', severity: trialSeverity ?? 'info', onClick: () => onOpenSettings?.('billing') });
   }
 
-  if (alerts.length === 0 && !children) return null;
-
   return (
-    <div className="space-y-2" data-testid="section-system-pulse">
-      {alerts.map((a) => (
-        <AlertRow key={a.id} icon={a.icon} iconColor={a.iconColor} label={a.label} sub={a.sub} severity={a.severity} onClick={a.onClick} />
-      ))}
-      {children}
+    <div className="rounded-lg border border-gray-500/30 overflow-hidden" data-testid="section-system-pulse">
+      <button
+        onClick={() => onOpenSettings?.('billing')}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-gradient-to-r from-gray-800/60 to-gray-900/80 hover-elevate active-elevate-2 transition-all"
+      >
+        <div className="flex items-center gap-2.5">
+          <CreditCard className="w-4 h-4 text-gray-400 shrink-0" />
+          <span className="text-sm font-bold text-foreground uppercase tracking-wide">Your Plan</span>
+        </div>
+        {planLabel && <span className="text-xs text-muted-foreground font-medium">{planLabel}</span>}
+      </button>
+
+      <div className="bg-gray-950/60">
+        {alerts.length > 0 && (
+          <div className="px-3 pt-3 space-y-2">
+            <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Attention</h4>
+            {alerts.map((a) => (
+              <AlertRow key={a.id} icon={a.icon} iconColor={a.iconColor} label={a.label} sub={a.sub} severity={a.severity} onClick={a.onClick} />
+            ))}
+          </div>
+        )}
+
+        <div className="px-3 py-2.5">
+          <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Communications</h4>
+          {children ?? (
+            <div className="flex items-center gap-1.5">
+              <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
+              <span className="text-xs text-muted-foreground">No new notifications</span>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
