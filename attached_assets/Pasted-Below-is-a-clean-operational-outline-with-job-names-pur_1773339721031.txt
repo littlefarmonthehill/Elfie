@@ -1,0 +1,226 @@
+Below is a clean operational outline with job names, purpose, and schedule, including handling bulk uploads / store buyouts, API freshness windows, and zero-stock skipping.
+
+⸻
+
+Platform-Level Jobs
+
+(Uses the platform’s 5,000 API pool and improves the shared catalog for everyone)
+	•	Catalog Detail Completion
+	•	What it does:
+Finds items referenced in inventory that are missing item detail data (name, image, weight, etc.) and pulls the Item Detail API.
+	•	Filters:
+	•	Only items with stock > 0 across the platform
+	•	Skip if detail updated within 90 days
+	•	Schedule:
+Every 1 hour
+
+⸻
+
+	•	Market Supply Refresh
+	•	What it does:
+Updates global supply data (items currently listed on BrickLink market).
+	•	Filters:
+	•	Only items with stock > 0
+	•	Skip if supply updated within 7 days
+	•	Schedule:
+Every 4 hours
+
+⸻
+
+	•	Market Sold Data Refresh
+	•	What it does:
+Updates recent sales data (avg price, high price, low price).
+	•	Filters:
+	•	Only items with stock > 0
+	•	Skip if sold data updated within 7 days
+	•	Schedule:
+Every 4 hours
+
+⸻
+
+	•	Platform Inventory Catalog Scan
+	•	What it does:
+Scans all inventory rows across stores to identify:
+	•	missing catalog data
+	•	stale catalog data
+	•	new part+color combinations
+	•	Filters:
+	•	Skip items where total platform stock = 0
+	•	Schedule:
+Every 2 hours
+
+⸻
+
+	•	Catalog Enrichment Queue Processor
+	•	What it does:
+Processes the global enrichment backlog queue, prioritizing items used by multiple stores or high inventory quantities.
+	•	Filters:
+	•	Only items needing updates
+	•	Skip items updated recently
+	•	Schedule:
+Every 10 minutes (micro-batch)
+
+⸻
+
+Store-Level Jobs
+
+(Uses each store’s 5,000 rolling API limit)
+
+⸻
+
+	•	Store Inventory Sync
+	•	What it does:
+Syncs the store’s inventory from BrickLink and updates the platform inventory table.
+	•	Purpose:
+Detect:
+	•	new parts
+	•	removed parts
+	•	quantity changes
+	•	Schedule:
+Every 24 hours per store
+
+⸻
+
+	•	Store Inventory Delta Scan
+	•	What it does:
+Detects new parts added during the day that were not present during the last sync.
+	•	Purpose:
+Add them to the catalog enrichment queue.
+	•	Schedule:
+Every 3 hours
+
+⸻
+
+	•	Store Catalog Enrichment
+	•	What it does:
+Uses the store’s API quota to enrich catalog items introduced by that store.
+	•	Filters:
+	•	Only items in that store’s inventory
+	•	Skip if updated recently
+	•	Schedule:
+Every 3 hours
+
+⸻
+
+Bulk Upload / Store Buyout Jobs
+
+(Special logic when large inventory is imported)
+
+⸻
+
+	•	Bulk Inventory Deduplication
+	•	What it does:
+When a store uploads a large inventory file, the system checks if catalog data already exists before scheduling API calls.
+	•	Purpose:
+Prevent duplicate enrichment work.
+	•	Logic:
+Skip items where catalog data updated recently.
+	•	Schedule:
+Runs immediately on upload
+
+⸻
+
+	•	Bulk Catalog Enrichment Queue Builder
+	•	What it does:
+Creates a prioritized queue of items needing enrichment after bulk uploads.
+	•	Purpose:
+Spread API usage over time rather than calling APIs immediately.
+	•	Schedule:
+Runs immediately after bulk upload
+
+⸻
+
+	•	Bulk Enrichment Processor
+	•	What it does:
+Gradually processes queued bulk items using both platform and store API quotas.
+	•	Logic:
+Process items in small batches.
+	•	Schedule:
+Every 10 minutes
+
+⸻
+
+On-Demand Tool Jobs
+
+⸻
+
+	•	BrickSpotter Analysis
+	•	What it does:
+Analyzes detected LEGO parts and retrieves pricing data.
+	•	APIs Used:
+	•	item detail
+	•	supply
+	•	sold
+	•	Optimization:
+Skip APIs if catalog data updated recently.
+	•	Schedule:
+User-triggered
+
+⸻
+
+	•	BrickSpotter Batch Queue
+	•	What it does:
+Prevents API spikes by processing large scans in smaller groups.
+	•	Schedule:
+Immediate but throttled
+
+⸻
+
+Global Optimization Rules
+	•	Zero Stock Skip
+	•	Catalog updates only run for items where:
+
+inventory_quantity > 0
+
+
+
+⸻
+
+	•	Freshness Windows
+
+Data Type	Refresh Window
+Item Details	90 days
+Supply Data	7 days
+Sold Data	7 days
+
+
+⸻
+
+	•	Shared Catalog Benefit
+	•	Once any store enriches a part + color, all stores use that data.
+
+Example catalog key:
+
+part_no + color_id
+
+
+⸻
+
+Scheduler Timing Overview
+
+Job Type	Frequency
+Micro queue processor	every 10 minutes
+Platform inventory scan	every 2 hours
+Catalog detail refresh	every 1 hour
+Market supply refresh	every 4 hours
+Market sold refresh	every 4 hours
+Store inventory sync	every 24 hours
+Store delta scan	every 3 hours
+Store catalog enrichment	every 3 hours
+Bulk enrichment processor	every 10 minutes
+
+
+⸻
+
+✅ This structure handles:
+	•	new store onboarding
+	•	store buyouts
+	•	large bulk uploads
+	•	rolling API limits
+	•	catalog freshness
+
+while minimizing wasted API calls.
+
+⸻
+
+If you’d like, I can also show you one architectural trick LEGO marketplaces use that cuts enrichment workload by ~95%, which could make your API limits almost irrelevant.
