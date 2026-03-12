@@ -999,7 +999,7 @@ export default function Home() {
         {/* DESKTOP layout (lg+): Your Plan (left) | Dynamic Board (center 2x) | Ops Central (right) */}
         <div className="hidden lg:flex h-full">
           {/* Left column — Your Plan */}
-          <div className="w-[260px] xl:w-[300px] flex-shrink-0 h-full overflow-y-auto border-r border-white/10 p-3">
+          <div className="w-[345px] xl:w-[400px] flex-shrink-0 h-full overflow-y-auto border-r border-white/10 p-3">
             <GeneralDashboard
               onItemClick={handleDashboardItemClick}
               onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
@@ -1013,13 +1013,13 @@ export default function Home() {
 
           {/* Center column — dynamic dashboard with drawer overlay */}
           <div className="flex-1 h-full relative min-w-0">
-            <div className="h-full overflow-y-auto p-4">
+            <div className="h-full overflow-y-auto p-2">
               <div className={`h-full rounded-lg border overflow-hidden ${
                 activeDashboard === 'inventory' ? 'border-lego-blue/30 bg-gradient-to-br from-lego-blue/15 via-gray-950/80 to-lego-blue/5' :
                 activeDashboard === 'orders' ? 'border-lego-orange/30 bg-gradient-to-br from-lego-orange/15 via-gray-950/80 to-lego-orange/5' :
                 activeDashboard === 'sales' ? 'border-lego-green/30 bg-gradient-to-br from-lego-green/15 via-gray-950/80 to-lego-green/5' :
                 'border-lego-yellow/30 bg-gradient-to-br from-lego-yellow/15 via-gray-950/80 to-lego-yellow/5'
-              }`}>
+              }`} style={{ transformOrigin: 'top center', transform: 'scale(0.93)', height: '107.5%' }}>
                 {renderDynamicDashboard()}
               </div>
             </div>
@@ -1036,7 +1036,7 @@ export default function Home() {
           </div>
 
           {/* Right column — Ops Central cards */}
-          <div className="w-[300px] xl:w-[340px] flex-shrink-0 h-full overflow-y-auto border-l border-white/10 p-3">
+          <div className="w-[400px] xl:w-[450px] flex-shrink-0 h-full overflow-y-auto border-l border-white/10 p-3">
             <div className="rounded-lg border border-lego-red/30 bg-gradient-to-br from-lego-red/15 via-gray-950/80 to-lego-red/5 overflow-hidden">
               <GeneralDashboard
                 onItemClick={handleDashboardItemClick}
