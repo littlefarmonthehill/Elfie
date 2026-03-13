@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import {  
   Sparkles,
   RefreshCw,
+  RotateCcw,
   ChevronDown,
   ArrowUp,
   ArrowDown,
@@ -131,7 +132,7 @@ export interface SugConfig {
   storePremium: number;
 }
 
-const DEFAULT_SUG_CONFIG: SugConfig = {
+export const DEFAULT_SUG_CONFIG: SugConfig = {
   soldAvgW: 0.5, stockMinW: 0.3, soldMaxW: 0.2,
   demandMult: 0.25, compCap: 1.15, floor: 0.95, storePremium: 1.10,
 };
@@ -655,6 +656,13 @@ export function DimensionWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight 
   };
 
   const isAtCenter = Math.abs(handlePos.x - CENTER) < 2 && Math.abs(handlePos.y - CENTER) < 2;
+  const isDefaults = Math.abs(baseCfg.soldAvgW - DEFAULT_SUG_CONFIG.soldAvgW) < 0.001
+    && Math.abs(baseCfg.stockMinW - DEFAULT_SUG_CONFIG.stockMinW) < 0.001
+    && Math.abs(baseCfg.soldMaxW - DEFAULT_SUG_CONFIG.soldMaxW) < 0.001
+    && Math.abs(baseCfg.demandMult - DEFAULT_SUG_CONFIG.demandMult) < 0.001
+    && Math.abs(baseCfg.compCap - DEFAULT_SUG_CONFIG.compCap) < 0.001
+    && Math.abs(baseCfg.floor - DEFAULT_SUG_CONFIG.floor) < 0.001
+    && Math.abs(baseCfg.storePremium - DEFAULT_SUG_CONFIG.storePremium) < 0.001;
   const liveCfg = weightsToSugConfig(weights, baseCfg);
   const liveCalc = lot ? calcSuggested(lot, liveCfg) : { suggested: null, breakdown: null };
   const bd = liveCalc.breakdown;
@@ -751,6 +759,21 @@ export function DimensionWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight 
       >
         {isAtCenter ? 'Drag to adjust' : 'Apply to All Items'}
       </Button>
+
+      {!isDefaults && (
+        <button
+          onClick={() => {
+            onSave(DEFAULT_SUG_CONFIG);
+            setWeights({ demand: 0.25, rarity: 0.25, headroom: 0.25, competition: 0.25 });
+            setHandlePos({ x: CENTER, y: CENTER });
+          }}
+          className="w-full flex items-center justify-center gap-1.5 text-[10px] text-gray-500 hover:text-gray-300 transition-colors py-1"
+          data-testid="button-restore-defaults"
+        >
+          <RotateCcw className="w-3 h-3" />
+          Restore industry defaults
+        </button>
+      )}
 
       {bd && (
         <>
