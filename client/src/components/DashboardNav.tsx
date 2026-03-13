@@ -34,6 +34,21 @@ export default function DashboardNav({ active, onSelect, hideOpsCentral, onHidde
     touchStartY.current = e.touches[0].clientY;
   }, []);
 
+  const navRef = useRef<HTMLElement>(null);
+  const pullTabRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const prevent = (e: TouchEvent) => { e.preventDefault(); };
+    const navEl = navRef.current;
+    const pullEl = pullTabRef.current;
+    navEl?.addEventListener('touchmove', prevent, { passive: false });
+    pullEl?.addEventListener('touchmove', prevent, { passive: false });
+    return () => {
+      navEl?.removeEventListener('touchmove', prevent);
+      pullEl?.removeEventListener('touchmove', prevent);
+    };
+  }, [isHidden]);
+
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (touchStartY.current === null) return;
     const distance = e.changedTouches[0].clientY - touchStartY.current;
@@ -49,7 +64,8 @@ export default function DashboardNav({ active, onSelect, hideOpsCentral, onHidde
     <>
       {isHidden && (
         <div
-          className="fixed bottom-0 left-0 right-0 z-50 flex flex-col items-center pb-[max(8px,env(safe-area-inset-bottom))] pt-2 cursor-pointer"
+          ref={pullTabRef}
+          className="fixed bottom-0 left-0 right-0 z-50 flex flex-col items-center pb-[max(8px,env(safe-area-inset-bottom))] pt-2 cursor-pointer touch-none"
           onClick={() => setIsHidden(false)}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
@@ -61,8 +77,9 @@ export default function DashboardNav({ active, onSelect, hideOpsCentral, onHidde
       )}
 
       <nav
+        ref={navRef}
         className={cn(
-          "fixed bottom-0 left-0 right-0 z-50 bg-gray-950/95 backdrop-blur-md border-t border-white/8 transition-transform duration-300 ease-in-out",
+          "fixed bottom-0 left-0 right-0 z-50 bg-gray-950/95 backdrop-blur-md border-t border-white/8 transition-transform duration-300 ease-in-out touch-none",
           isHidden ? "translate-y-full" : "translate-y-0"
         )}
         onTouchStart={handleTouchStart}
