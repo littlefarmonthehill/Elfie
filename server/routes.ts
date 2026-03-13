@@ -6266,8 +6266,10 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const pomSettings = await getOrgSettings(orgId);
 
       // Progress: enrichment phase
+      console.log(`[Brickanalyzer] Enrichment phase: ${filteredIdentified.length} pieces, calibration=${calibration}`);
       setProgress(scanId, 'Looking up prices', `Fetching market data for ${filteredIdentified.length} piece${filteredIdentified.length !== 1 ? 's' : ''}…`, 80);
       let enrichDone = 0;
+      let blFetchCount = 0;
 
       // For each identified part: inventory lookup + POM price + image
       const enriched = await Promise.all(filteredIdentified.map(async (piece: any) => {
@@ -6486,10 +6488,11 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             categoryId: activeInvRows[0]?.categoryId ?? null,
           };
 
-          // 3. BrickLink price guide — always real-time for each identified piece (no cache bypass).
-          // forceRefresh=true skips the POM 6-month cache so we get live stock + sold data on every scan.
+          // 3. BrickLink price guide — always fresh API call for each identified piece.
+          // forceRefresh=true bypasses the POM 6-month cache; we always hit BL's sold + stock endpoints.
           // Results are written to priceGuideCache + partPriceHistory inside fetchPriceOMagicData.
           if (!calibration) {
+            blFetchCount++;
             try {
               console.log(`[Brickanalyzer] Live BL fetch (new) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
               const pgDataN = await fetchPriceOMagicData(
@@ -6505,7 +6508,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                 if (!piece.partName && pgDataN.itemName) piece.partName = pgDataN.itemName;
               }
             } catch (pgErrN: any) {
-              console.warn(`[Brickanalyzer] Live BL fetch (new) failed for ${piece.partNo}:`, pgErrN.message);
+              console.error(`[Brickanalyzer] Live BL fetch (new) FAILED for ${piece.partNo}:`, pgErrN.message);
             }
             try {
               console.log(`[Brickanalyzer] Live BL fetch (used) for ${piece.partNo} color ${colorId ?? 'any'} type ${blItemType}`);
@@ -6522,7 +6525,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                 if (!piece.partName && pgDataU.itemName) piece.partName = pgDataU.itemName;
               }
             } catch (pgErrU: any) {
-              console.warn(`[Brickanalyzer] Live BL fetch (used) failed for ${piece.partNo}:`, pgErrU.message);
+              console.error(`[Brickanalyzer] Live BL fetch (used) FAILED for ${piece.partNo}:`, pgErrU.message);
             }
           }
 
@@ -6752,6 +6755,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           bboxH: (piece as any).bboxH ?? null,
         };
       }));
+
+      const pricedCount = enriched.filter((p: any) =>
+        p.marketSoldMaxNew !== null || p.marketSoldMaxUsed !== null ||
+        p.marketSoldAvgNew !== null || p.marketSoldAvgUsed !== null ||
+        p.stockAvgPriceN !== null || p.stockAvgPriceU !== null ||
+        p.stockMaxPriceN !== null || p.stockMaxPriceU !== null
+      ).length;
+      console.log(`[Brickanalyzer] Enrichment complete: ${enriched.length} pieces, ${blFetchCount}/${filteredIdentified.length} attempted BL fetch, ${pricedCount} with market data, ${blApiCallsCounter.count} total BL API calls`);
 
       // Sort by peak price desc
       enriched.sort((a, b) => {
