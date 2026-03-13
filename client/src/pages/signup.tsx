@@ -74,7 +74,10 @@ function ElfieWelcome({ title, subtitle }: { title: string; subtitle: string }) 
 
 export default function Signup() {
   const [mode, setMode] = useState<SignupMode>("choose");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("email") || "";
+  });
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [firstName, setFirstName] = useState("");

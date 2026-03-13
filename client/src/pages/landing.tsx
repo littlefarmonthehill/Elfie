@@ -392,23 +392,43 @@ function LiveScreen({ onSignIn }: { onSignIn: () => void }) {
 function TVLoginScreen({ onBack }: { onBack: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [step, setStep] = useState<"email" | "password">("email");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleCheckEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/check-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      if (!res.ok) throw new Error("check failed");
+      const data = await res.json();
+      if (data.exists === true) {
+        setStep("password");
+      } else {
+        window.location.href = `/signup?email=${encodeURIComponent(email.trim())}`;
+      }
+    } catch {
+      setError("Could not verify email. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
     try {
-      await apiRequest("POST", "/api/login", { email, password });
+      await apiRequest("POST", "/api/login", { email: email.trim(), password });
       window.location.href = "/";
-    } catch (err: any) {
-      const msg = err.message || "";
-      if (msg.includes("ACCOUNT_NOT_FOUND")) {
-        window.location.href = "/signup";
-        return;
-      }
-      setError("Invalid email or password");
+    } catch {
+      setError("Invalid password");
       setIsLoading(false);
     }
   };
@@ -431,55 +451,85 @@ function TVLoginScreen({ onBack }: { onBack: () => void }) {
 
       {/* Top bar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ fontSize: "clamp(7px,0.65vw,9px)", fontFamily: "monospace", color: TEAL, letterSpacing: "0.3em" }}>CH 00 — SIGN IN</div>
-        <button onClick={onBack} style={{ background: "transparent", border: `1px solid ${TEAL}33`, borderRadius: "4px", padding: "2px 8px", cursor: "pointer", color: `${TEAL}99`, fontSize: "clamp(7px,0.65vw,9px)", fontFamily: "monospace", letterSpacing: "0.15em" }}>✕ CANCEL</button>
+        <div style={{ fontSize: "clamp(7px,0.65vw,9px)", fontFamily: "monospace", color: TEAL, letterSpacing: "0.3em" }}>CH 00 — {step === "email" ? "IDENTIFY" : "SIGN IN"}</div>
+        <button onClick={step === "password" ? () => { setStep("email"); setPassword(""); setError(null); } : onBack} style={{ background: "transparent", border: `1px solid ${TEAL}33`, borderRadius: "4px", padding: "2px 8px", cursor: "pointer", color: `${TEAL}99`, fontSize: "clamp(7px,0.65vw,9px)", fontFamily: "monospace", letterSpacing: "0.15em" }}>{step === "password" ? "← BACK" : "✕ CANCEL"}</button>
       </div>
 
       {/* Title */}
       <div style={{ textAlign: "center" }}>
         <div style={{ fontSize: "clamp(18px,2.2vw,30px)", fontWeight: 900, color: "#FFFFFF", letterSpacing: "0.08em", lineHeight: 1.1 }}>OPERATOR<br />ACCESS</div>
-        <div style={{ fontSize: "clamp(7px,0.65vw,9px)", color: `${TEAL}88`, fontFamily: "monospace", letterSpacing: "0.3em", marginTop: "5px" }}>SECURE LOGIN</div>
+        <div style={{ fontSize: "clamp(7px,0.65vw,9px)", color: `${TEAL}88`, fontFamily: "monospace", letterSpacing: "0.3em", marginTop: "5px" }}>{step === "email" ? "ENTER YOUR EMAIL" : "ENTER PASSWORD"}</div>
       </div>
 
-      {/* Form */}
-      <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "clamp(8px,1vw,12px)", flex: 1, justifyContent: "center" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          <div style={{ fontSize: "clamp(7px,0.62vw,9px)", fontFamily: "monospace", color: `${TEAL}88`, letterSpacing: "0.25em", textTransform: "uppercase" }}>Email</div>
-          <input
-            type="email" value={email} onChange={e => setEmail(e.target.value)} required
-            placeholder="operator@domain.com" style={{ ...inputStyle, borderColor: error ? "rgba(255,100,100,0.5)" : `${TEAL}44` }}
-          />
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          <div style={{ fontSize: "clamp(7px,0.62vw,9px)", fontFamily: "monospace", color: `${TEAL}88`, letterSpacing: "0.25em", textTransform: "uppercase" }}>Password</div>
-          <input
-            type="password" value={password} onChange={e => setPassword(e.target.value)} required
-            placeholder="••••••••" style={{ ...inputStyle, borderColor: error ? "rgba(255,100,100,0.5)" : `${TEAL}44` }}
-          />
-        </div>
-
-        {error && (
-          <div style={{ background: "rgba(255,80,80,0.1)", border: "1px solid rgba(255,80,80,0.3)", borderRadius: "6px", padding: "6px 10px", fontSize: "clamp(9px,0.8vw,11px)", color: "#FF8888", textAlign: "center", fontFamily: "monospace" }}>
-            {error}
+      {step === "email" ? (
+        <form onSubmit={handleCheckEmail} style={{ display: "flex", flexDirection: "column", gap: "clamp(8px,1vw,12px)", flex: 1, justifyContent: "center" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <div style={{ fontSize: "clamp(7px,0.62vw,9px)", fontFamily: "monospace", color: `${TEAL}88`, letterSpacing: "0.25em", textTransform: "uppercase" }}>Email</div>
+            <input
+              type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus
+              placeholder="operator@domain.com" style={{ ...inputStyle, borderColor: error ? "rgba(255,100,100,0.5)" : `${TEAL}44` }}
+            />
           </div>
-        )}
 
-        <button
-          type="submit" disabled={isLoading}
-          style={{
-            background: isLoading ? `rgba(0,255,238,0.12)` : `linear-gradient(135deg, ${TEAL}DD, #00BBDD)`,
-            border: "none", borderRadius: "100px",
-            padding: "clamp(9px,1vw,13px) 24px",
-            cursor: isLoading ? "wait" : "pointer",
-            color: isLoading ? TEAL : "#030A0A",
-            fontWeight: 800, fontSize: "clamp(12px,1.1vw,15px)", letterSpacing: "0.1em",
-            boxShadow: isLoading ? "none" : `0 0 22px ${TEAL}44`,
-            marginTop: "4px",
-          }}
-        >
-          {isLoading ? "CONNECTING..." : "SIGN IN →"}
-        </button>
-      </form>
+          {error && (
+            <div style={{ background: "rgba(255,80,80,0.1)", border: "1px solid rgba(255,80,80,0.3)", borderRadius: "6px", padding: "6px 10px", fontSize: "clamp(9px,0.8vw,11px)", color: "#FF8888", textAlign: "center", fontFamily: "monospace" }}>
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit" disabled={isLoading}
+            style={{
+              background: isLoading ? `rgba(0,255,238,0.12)` : `linear-gradient(135deg, ${TEAL}DD, #00BBDD)`,
+              border: "none", borderRadius: "100px",
+              padding: "clamp(9px,1vw,13px) 24px",
+              cursor: isLoading ? "wait" : "pointer",
+              color: isLoading ? TEAL : "#030A0A",
+              fontWeight: 800, fontSize: "clamp(12px,1.1vw,15px)", letterSpacing: "0.1em",
+              boxShadow: isLoading ? "none" : `0 0 22px ${TEAL}44`,
+              marginTop: "4px",
+            }}
+          >
+            {isLoading ? "CHECKING..." : "CONTINUE →"}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "clamp(8px,1vw,12px)", flex: 1, justifyContent: "center" }}>
+          <div style={{ background: `rgba(0,255,238,0.06)`, borderRadius: "6px", padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: "clamp(10px,0.9vw,13px)", fontFamily: "monospace", color: TEAL }}>{email}</span>
+            <button type="button" onClick={() => { setStep("email"); setPassword(""); setError(null); }} style={{ background: "transparent", border: "none", color: `${TEAL}88`, cursor: "pointer", fontSize: "clamp(8px,0.7vw,10px)", fontFamily: "monospace" }}>CHANGE</button>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <div style={{ fontSize: "clamp(7px,0.62vw,9px)", fontFamily: "monospace", color: `${TEAL}88`, letterSpacing: "0.25em", textTransform: "uppercase" }}>Password</div>
+            <input
+              type="password" value={password} onChange={e => setPassword(e.target.value)} required autoFocus
+              placeholder="••••••••" style={{ ...inputStyle, borderColor: error ? "rgba(255,100,100,0.5)" : `${TEAL}44` }}
+            />
+          </div>
+
+          {error && (
+            <div style={{ background: "rgba(255,80,80,0.1)", border: "1px solid rgba(255,80,80,0.3)", borderRadius: "6px", padding: "6px 10px", fontSize: "clamp(9px,0.8vw,11px)", color: "#FF8888", textAlign: "center", fontFamily: "monospace" }}>
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit" disabled={isLoading}
+            style={{
+              background: isLoading ? `rgba(0,255,238,0.12)` : `linear-gradient(135deg, ${TEAL}DD, #00BBDD)`,
+              border: "none", borderRadius: "100px",
+              padding: "clamp(9px,1vw,13px) 24px",
+              cursor: isLoading ? "wait" : "pointer",
+              color: isLoading ? TEAL : "#030A0A",
+              fontWeight: 800, fontSize: "clamp(12px,1.1vw,15px)", letterSpacing: "0.1em",
+              boxShadow: isLoading ? "none" : `0 0 22px ${TEAL}44`,
+              marginTop: "4px",
+            }}
+          >
+            {isLoading ? "CONNECTING..." : "SIGN IN →"}
+          </button>
+        </form>
+      )}
 
       {/* Footer */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

@@ -100,7 +100,7 @@ export async function setupAuth(app: Express) {
           const normalizedEmail = email.toLowerCase();
           const user = await storage.getUserByEmail(normalizedEmail);
           if (!user) {
-            return done(null, false, { message: "ACCOUNT_NOT_FOUND" });
+            return done(null, false, { message: "Invalid email or password" });
           }
 
           if (!user.password) {
@@ -217,6 +217,33 @@ export async function setupAuth(app: Express) {
       }
       console.error("Signup error:", error);
       res.status(500).json({ message: "Failed to create account" });
+    }
+  });
+
+  const emailCheckAttempts = new Map<string, { count: number; resetAt: number }>();
+  app.post("/api/check-email", async (req, res) => {
+    try {
+      const ip = req.ip || "unknown";
+      const now = Date.now();
+      const entry = emailCheckAttempts.get(ip);
+      if (entry && now < entry.resetAt) {
+        if (entry.count >= 10) {
+          return res.status(429).json({ message: "Too many requests. Try again later." });
+        }
+        entry.count++;
+      } else {
+        emailCheckAttempts.set(ip, { count: 1, resetAt: now + 60_000 });
+      }
+
+      const { email } = req.body;
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      const normalizedEmail = email.toLowerCase().trim();
+      const user = await storage.getUserByEmail(normalizedEmail);
+      res.json({ exists: !!user });
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
     }
   });
 
