@@ -2188,47 +2188,50 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   Peak
                 </button>
                 <div className="flex-1" />
-                <div className={`flex items-center gap-1.5 transition-opacity ${heatmapSource === 'peak' ? 'opacity-30' : ''}`}>
-                  {/* Condition toggle: New | Used */}
-                  <div className="flex rounded overflow-hidden border border-gray-700 text-[10px] font-medium shrink-0">
-                    {(['new', 'used'] as const).map(c => (
-                      <button
-                        key={c}
-                        data-testid={`heatmap-cond-${c}`}
-                        onClick={() => setHeatmapCondition(c)}
-                        className={`px-2 py-0.5 transition-colors ${heatmapCondition === c ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
-                      >
-                        {c === 'new' ? 'New' : 'Used'}
-                      </button>
-                    ))}
-                  </div>
-                  {/* Source toggle: Sold | Listed */}
-                  <div className="flex rounded overflow-hidden border border-gray-700 text-[10px] font-medium shrink-0">
-                    {(['sold', 'listed'] as const).map(s => (
-                      <button
-                        key={s}
-                        data-testid={`heatmap-source-${s}`}
-                        onClick={() => setHeatmapSource(s)}
-                        className={`px-2 py-0.5 transition-colors ${heatmapSource === s ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
-                      >
-                        {s === 'sold' ? 'Sold' : 'Listed'}
-                      </button>
-                    ))}
-                  </div>
-                  {/* Metric toggle: Max | Avg */}
-                  <div className="flex rounded overflow-hidden border border-gray-700 text-[10px] font-medium shrink-0">
-                    {(['max', 'avg'] as const).map(m => (
-                      <button
-                        key={m}
-                        data-testid={`heatmap-metric-${m}`}
-                        onClick={() => setHeatmapMetric(m)}
-                        className={`px-2 py-0.5 transition-colors ${heatmapMetric === m ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
-                      >
-                        {m === 'max' ? 'Max' : 'Avg'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                {(() => {
+                  const isPeak = heatmapSource === 'peak';
+                  const exitPeak = () => { if (heatmapSource === 'peak') setHeatmapSource('sold'); };
+                  return (
+                    <div className={`flex items-center gap-1.5 ${isPeak ? 'opacity-30' : ''}`}>
+                      <div className="flex rounded overflow-hidden border border-gray-700 text-[10px] font-medium shrink-0">
+                        {(['new', 'used'] as const).map(c => (
+                          <button
+                            key={c}
+                            data-testid={`heatmap-cond-${c}`}
+                            onClick={() => { setHeatmapCondition(c); exitPeak(); }}
+                            className={`px-2 py-0.5 transition-colors ${heatmapCondition === c && !isPeak ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
+                          >
+                            {c === 'new' ? 'New' : 'Used'}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex rounded overflow-hidden border border-gray-700 text-[10px] font-medium shrink-0">
+                        {(['sold', 'listed'] as const).map(s => (
+                          <button
+                            key={s}
+                            data-testid={`heatmap-source-${s}`}
+                            onClick={() => setHeatmapSource(s)}
+                            className={`px-2 py-0.5 transition-colors ${heatmapSource === s && !isPeak ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
+                          >
+                            {s === 'sold' ? 'Sold' : 'Listed'}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex rounded overflow-hidden border border-gray-700 text-[10px] font-medium shrink-0">
+                        {(['max', 'avg'] as const).map(m => (
+                          <button
+                            key={m}
+                            data-testid={`heatmap-metric-${m}`}
+                            onClick={() => { setHeatmapMetric(m); exitPeak(); }}
+                            className={`px-2 py-0.5 transition-colors ${heatmapMetric === m && !isPeak ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
+                          >
+                            {m === 'max' ? 'Max' : 'Avg'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
               {/* Scan image */}
               <div
