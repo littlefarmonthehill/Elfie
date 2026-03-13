@@ -379,6 +379,28 @@ export async function runMigrations() {
           o.universal_catalog_schedule_enabled, o.universal_catalog_refresh_months, o.universal_catalog_retry_days]);
     }
     console.log('[Migration] Phase-17 (scheduler settings to platform level) complete.');
+
+    // Phase 18: Unique index on price_guide_cache natural key to prevent race conditions
+    // between concurrent requests (e.g. two users/devices hitting the same part)
+    await client.query(`
+      DELETE FROM price_guide_cache
+      WHERE id IN (
+        SELECT id FROM (
+          SELECT id, ROW_NUMBER() OVER (
+            PARTITION BY upper(item_no), item_type, COALESCE(color_id, -1), new_or_used
+            ORDER BY fetched_at DESC
+          ) as rn
+          FROM price_guide_cache
+        ) ranked
+        WHERE rn > 1
+      )
+    `);
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS price_guide_cache_natural_key
+      ON price_guide_cache (upper(item_no), item_type, COALESCE(color_id, -1), new_or_used)
+    `);
+    console.log('[Migration] Phase-18 (price_guide_cache unique index) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

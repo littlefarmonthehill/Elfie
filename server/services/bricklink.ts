@@ -1623,24 +1623,93 @@ export async function fetchPriceOMagicData(
       stockFetchedAt: skipStock ? ((preservedStock as any).stockFetchedAt ?? new Date()) : new Date(),
     };
 
-    // Delete old cache entry if exists
-    // Case-insensitive delete — handles parts like "x161" stored lowercase but looked up as "X161"
-    await db
-      .delete(priceGuideCache)
-      .where(
-        and(
-          sql`upper(${priceGuideCache.itemNo}) = upper(${itemNo})`,
-          eq(priceGuideCache.itemType, itemType),
-          colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`,
-          eq(priceGuideCache.newOrUsed, newOrUsed)
-        )
-      );
-
-    // Insert new cache entry
-    const [insertedData] = await db
-      .insert(priceGuideCache)
-      .values([mergedData])
-      .returning();
+    // Atomic upsert — avoids the race condition where a concurrent request
+    // (e.g. two users on different devices) sees no cache row between a
+    // DELETE and the subsequent INSERT.
+    // Uses the expression-based unique index: (upper(item_no), item_type, coalesce(color_id,-1), new_or_used)
+    const upsertResult = await db.execute(sql`
+      INSERT INTO price_guide_cache (
+        id, item_no, item_type, color_id, new_or_used,
+        item_name, image_url, thumbnail_url, category_id,
+        weight, dimension_x, dimension_y, dimension_z, year_released,
+        stock_avg_price, stock_min_price, stock_max_price, stock_quantity, stock_total_lots,
+        sold_avg_price, sold_min_price, sold_max_price, sold_quantity, sold_total_lots,
+        suggested_price, premium_percentage,
+        fetched_at, sold_fetched_at, stock_fetched_at, updated_at
+      ) VALUES (
+        gen_random_uuid(),
+        ${mergedData.itemNo}, ${mergedData.itemType}, ${mergedData.colorId ?? null}, ${mergedData.newOrUsed},
+        ${mergedData.itemName ?? null}, ${mergedData.imageUrl ?? null}, ${mergedData.thumbnailUrl ?? null}, ${mergedData.categoryId ?? null},
+        ${mergedData.weight ?? null}, ${mergedData.dimensionX ?? null}, ${mergedData.dimensionY ?? null}, ${mergedData.dimensionZ ?? null}, ${mergedData.yearReleased ?? null},
+        ${mergedData.stockAvgPrice ?? null}, ${mergedData.stockMinPrice ?? null}, ${mergedData.stockMaxPrice ?? null}, ${mergedData.stockQuantity ?? null}, ${mergedData.stockTotalLots ?? null},
+        ${mergedData.soldAvgPrice ?? null}, ${mergedData.soldMinPrice ?? null}, ${mergedData.soldMaxPrice ?? null}, ${mergedData.soldQuantity ?? null}, ${mergedData.soldTotalLots ?? null},
+        ${(mergedData as any).suggestedPrice ?? null}, ${(mergedData as any).premiumPercentage ?? null},
+        ${mergedData.soldFetchedAt ?? new Date()}, ${mergedData.soldFetchedAt ?? new Date()}, ${mergedData.stockFetchedAt ?? new Date()}, NOW()
+      )
+      ON CONFLICT (upper(item_no), item_type, COALESCE(color_id, -1), new_or_used) DO UPDATE SET
+        item_name = COALESCE(EXCLUDED.item_name, price_guide_cache.item_name),
+        image_url = COALESCE(EXCLUDED.image_url, price_guide_cache.image_url),
+        thumbnail_url = COALESCE(EXCLUDED.thumbnail_url, price_guide_cache.thumbnail_url),
+        category_id = COALESCE(EXCLUDED.category_id, price_guide_cache.category_id),
+        weight = COALESCE(EXCLUDED.weight, price_guide_cache.weight),
+        dimension_x = COALESCE(EXCLUDED.dimension_x, price_guide_cache.dimension_x),
+        dimension_y = COALESCE(EXCLUDED.dimension_y, price_guide_cache.dimension_y),
+        dimension_z = COALESCE(EXCLUDED.dimension_z, price_guide_cache.dimension_z),
+        year_released = COALESCE(EXCLUDED.year_released, price_guide_cache.year_released),
+        stock_avg_price = COALESCE(EXCLUDED.stock_avg_price, price_guide_cache.stock_avg_price),
+        stock_min_price = COALESCE(EXCLUDED.stock_min_price, price_guide_cache.stock_min_price),
+        stock_max_price = COALESCE(EXCLUDED.stock_max_price, price_guide_cache.stock_max_price),
+        stock_quantity = COALESCE(EXCLUDED.stock_quantity, price_guide_cache.stock_quantity),
+        stock_total_lots = COALESCE(EXCLUDED.stock_total_lots, price_guide_cache.stock_total_lots),
+        sold_avg_price = COALESCE(EXCLUDED.sold_avg_price, price_guide_cache.sold_avg_price),
+        sold_min_price = COALESCE(EXCLUDED.sold_min_price, price_guide_cache.sold_min_price),
+        sold_max_price = COALESCE(EXCLUDED.sold_max_price, price_guide_cache.sold_max_price),
+        sold_quantity = COALESCE(EXCLUDED.sold_quantity, price_guide_cache.sold_quantity),
+        sold_total_lots = COALESCE(EXCLUDED.sold_total_lots, price_guide_cache.sold_total_lots),
+        suggested_price = COALESCE(EXCLUDED.suggested_price, price_guide_cache.suggested_price),
+        premium_percentage = COALESCE(EXCLUDED.premium_percentage, price_guide_cache.premium_percentage),
+        fetched_at = EXCLUDED.fetched_at,
+        sold_fetched_at = COALESCE(EXCLUDED.sold_fetched_at, price_guide_cache.sold_fetched_at),
+        stock_fetched_at = COALESCE(EXCLUDED.stock_fetched_at, price_guide_cache.stock_fetched_at),
+        updated_at = NOW()
+      RETURNING *
+    `);
+    const rawRow = upsertResult.rows[0] as any;
+    // Map snake_case SQL columns back to camelCase for downstream consumers
+    const insertedData = {
+      id: rawRow.id,
+      itemNo: rawRow.item_no,
+      itemType: rawRow.item_type,
+      colorId: rawRow.color_id,
+      newOrUsed: rawRow.new_or_used,
+      itemName: rawRow.item_name,
+      imageUrl: rawRow.image_url,
+      thumbnailUrl: rawRow.thumbnail_url,
+      categoryId: rawRow.category_id,
+      weight: rawRow.weight,
+      dimensionX: rawRow.dimension_x,
+      dimensionY: rawRow.dimension_y,
+      dimensionZ: rawRow.dimension_z,
+      yearReleased: rawRow.year_released,
+      stockAvgPrice: rawRow.stock_avg_price,
+      stockMinPrice: rawRow.stock_min_price,
+      stockMaxPrice: rawRow.stock_max_price,
+      stockQuantity: rawRow.stock_quantity,
+      stockTotalLots: rawRow.stock_total_lots,
+      soldAvgPrice: rawRow.sold_avg_price,
+      soldMinPrice: rawRow.sold_min_price,
+      soldMaxPrice: rawRow.sold_max_price,
+      soldQuantity: rawRow.sold_quantity,
+      soldTotalLots: rawRow.sold_total_lots,
+      suggestedPrice: rawRow.suggested_price,
+      premiumPercentage: rawRow.premium_percentage,
+      fetchedAt: rawRow.fetched_at,
+      soldFetchedAt: rawRow.sold_fetched_at,
+      stockFetchedAt: rawRow.stock_fetched_at,
+      updatedAt: rawRow.updated_at,
+      nextRefresh: rawRow.next_refresh,
+      volatilityTier: rawRow.volatility_tier,
+    };
 
     console.log(`[Price-o-Matic] Cached data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}`);
 
