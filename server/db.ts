@@ -380,14 +380,21 @@ export async function runMigrations() {
     }
     console.log('[Migration] Phase-17 (scheduler settings to platform level) complete.');
 
-    // Phase 18: Unique index on price_guide_cache natural key to prevent race conditions
-    // between concurrent requests (e.g. two users/devices hitting the same part)
+    // Phase 18: Normalize price_guide_cache for simple unique constraint
+    // 1. Uppercase all item_no values (so we don't need upper() in the index)
+    // 2. Replace null color_id with -1 (so we don't need COALESCE in the index)
+    // 3. Deduplicate any existing rows
+    // 4. Drop the old expression-based index if it exists
+    await client.query(`UPDATE price_guide_cache SET item_no = upper(item_no) WHERE item_no != upper(item_no)`);
+    await client.query(`UPDATE price_guide_cache SET color_id = -1 WHERE color_id IS NULL`);
+    await client.query(`ALTER TABLE price_guide_cache ALTER COLUMN color_id SET NOT NULL`);
+    await client.query(`ALTER TABLE price_guide_cache ALTER COLUMN color_id SET DEFAULT -1`);
     await client.query(`
       DELETE FROM price_guide_cache
       WHERE id IN (
         SELECT id FROM (
           SELECT id, ROW_NUMBER() OVER (
-            PARTITION BY upper(item_no), item_type, COALESCE(color_id, -1), new_or_used
+            PARTITION BY item_no, item_type, color_id, new_or_used
             ORDER BY fetched_at DESC
           ) as rn
           FROM price_guide_cache
@@ -395,11 +402,12 @@ export async function runMigrations() {
         WHERE rn > 1
       )
     `);
+    await client.query(`DROP INDEX IF EXISTS price_guide_cache_natural_key`);
     await client.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS price_guide_cache_natural_key
-      ON price_guide_cache (upper(item_no), item_type, COALESCE(color_id, -1), new_or_used)
+      ON price_guide_cache (item_no, item_type, color_id, new_or_used)
     `);
-    console.log('[Migration] Phase-18 (price_guide_cache unique index) complete.');
+    console.log('[Migration] Phase-18 (price_guide_cache normalize + unique index) complete.');
 
     console.log('[Migration] All startup migrations finished successfully.');
 

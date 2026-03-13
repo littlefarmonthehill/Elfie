@@ -1087,36 +1087,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
-             AND COALESCE(i.color_id, 0) = COALESCE(p.color_id, 0) AND i.new_or_used = p.new_or_used
+             AND COALESCE(i.color_id, -1) = p.color_id AND i.new_or_used = p.new_or_used
            WHERE p.stock_avg_price IS NOT NULL) AS has_supply,
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
-             AND COALESCE(i.color_id, 0) = COALESCE(p.color_id, 0) AND i.new_or_used = p.new_or_used
+             AND COALESCE(i.color_id, -1) = p.color_id AND i.new_or_used = p.new_or_used
            WHERE p.stock_avg_price IS NOT NULL AND i.quantity > 0) AS has_supply_instock,
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
-             AND COALESCE(i.color_id, 0) = COALESCE(p.color_id, 0) AND i.new_or_used = p.new_or_used
+             AND COALESCE(i.color_id, -1) = p.color_id AND i.new_or_used = p.new_or_used
            WHERE p.stock_avg_price IS NOT NULL AND p.fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays}) AS stale_supply,
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
-             AND COALESCE(i.color_id, 0) = COALESCE(p.color_id, 0) AND i.new_or_used = p.new_or_used
+             AND COALESCE(i.color_id, -1) = p.color_id AND i.new_or_used = p.new_or_used
            WHERE p.stock_avg_price IS NOT NULL AND p.fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays} AND i.quantity > 0) AS stale_supply_instock,
 
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
-             AND COALESCE(i.color_id, 0) = COALESCE(p.color_id, 0) AND i.new_or_used = p.new_or_used
+             AND COALESCE(i.color_id, -1) = p.color_id AND i.new_or_used = p.new_or_used
            WHERE p.sold_avg_price IS NOT NULL) AS has_sold,
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
-             AND COALESCE(i.color_id, 0) = COALESCE(p.color_id, 0) AND i.new_or_used = p.new_or_used
+             AND COALESCE(i.color_id, -1) = p.color_id AND i.new_or_used = p.new_or_used
            WHERE p.sold_avg_price IS NOT NULL AND i.quantity > 0) AS has_sold_instock,
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
-             AND COALESCE(i.color_id, 0) = COALESCE(p.color_id, 0) AND i.new_or_used = p.new_or_used
+             AND COALESCE(i.color_id, -1) = p.color_id AND i.new_or_used = p.new_or_used
            WHERE p.sold_avg_price IS NOT NULL AND p.fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays}) AS stale_sold,
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
-             AND COALESCE(i.color_id, 0) = COALESCE(p.color_id, 0) AND i.new_or_used = p.new_or_used
+             AND COALESCE(i.color_id, -1) = p.color_id AND i.new_or_used = p.new_or_used
            WHERE p.sold_avg_price IS NOT NULL AND p.fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays} AND i.quantity > 0) AS stale_sold_instock,
 
           (SELECT COUNT(DISTINCT i.id)
@@ -1769,7 +1769,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM price_guide_cache pgc
         WHERE c.item_no = pgc.item_no
           AND c.item_type = pgc.item_type
-          AND c.color_id = COALESCE(pgc.color_id, 0)
+          AND c.color_id = CASE WHEN pgc.color_id = -1 THEN 0 ELSE pgc.color_id END
       `);
 
       // Count results
@@ -6652,7 +6652,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                 newOrUsed: priceGuideCache.newOrUsed,
                 soldMaxPrice: priceGuideCache.soldMaxPrice,
               }).from(priceGuideCache).where(and(
-                sql`upper(${priceGuideCache.itemNo}) = upper(${piece.partNo})`,
+                eq(priceGuideCache.itemNo, piece.partNo.toUpperCase()),
                 eq(priceGuideCache.itemType, 'PART'),
                 inArray(priceGuideCache.colorId, catalogColorIds)
               ));
@@ -7170,14 +7170,15 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             soldMaxPrice: priceGuideCache.soldMaxPrice,
           })
           .from(priceGuideCache)
-          .where(sql`upper(${priceGuideCache.itemNo}) IN (${sql.join(partNos.map(p => sql`upper(${p})`), sql`, `)})`);
+          .where(inArray(priceGuideCache.itemNo, partNos.map(p => p.toUpperCase())));
 
           const stockAvgMap = new Map<string, number | null>();
           const stockMaxMap = new Map<string, number | null>();
           const soldAvgMap = new Map<string, number | null>();
           const soldMaxMap = new Map<string, number | null>();
           for (const row of cacheRows) {
-            const key = `${row.itemNo?.toUpperCase()}|${row.colorId ?? 'null'}|${row.newOrUsed}`;
+            const cid = row.colorId === -1 ? 'null' : String(row.colorId ?? 'null');
+            const key = `${row.itemNo?.toUpperCase()}|${cid}|${row.newOrUsed}`;
             stockAvgMap.set(key, row.stockAvgPrice != null && Number(row.stockAvgPrice) > 0 ? Number(row.stockAvgPrice) : null);
             stockMaxMap.set(key, row.stockMaxPrice != null && Number(row.stockMaxPrice) > 0 ? Number(row.stockMaxPrice) : null);
             soldAvgMap.set(key, row.soldAvgPrice != null && Number(row.soldAvgPrice) > 0 ? Number(row.soldAvgPrice) : null);
@@ -8356,7 +8357,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         and(
           eq(pgc.itemNo, itemNo),
           eq(pgc.itemType, itemType),
-          colorIdNum != null ? eq(pgc.colorId, colorIdNum) : sql`${pgc.colorId} IS NULL`,
+          eq(pgc.colorId, colorIdNum ?? -1),
           eq(pgc.newOrUsed, newOrUsed)
         )
       );
@@ -8403,9 +8404,9 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       if (forceRefresh === 'true') {
         const { priceGuideCache: pgc } = await import("@shared/schema");
         await db.delete(pgc).where(and(
-          sql`upper(${pgc.itemNo}) = ${partNoClean}`,
+          eq(pgc.itemNo, partNoClean.toUpperCase()),
           eq(pgc.itemType, itemType as string),
-          colorIdNum ? eq(pgc.colorId, colorIdNum) : sql`${pgc.colorId} IS NULL`,
+          eq(pgc.colorId, colorIdNum ?? -1),
           eq(pgc.newOrUsed, newOrUsed as string)
         ));
       }
@@ -9681,7 +9682,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           and(
             eq(blInventory.itemNo, priceGuideCache.itemNo),
             eq(blInventory.itemType, priceGuideCache.itemType),
-            sql`(${blInventory.colorId} = ${priceGuideCache.colorId} OR (${blInventory.colorId} IS NULL AND ${priceGuideCache.colorId} IS NULL))`,
+            sql`COALESCE(${blInventory.colorId}, -1) = ${priceGuideCache.colorId}`,
             sql`${blInventory.newOrUsed} = ${priceGuideCache.newOrUsed}`
           )
         )
@@ -10227,7 +10228,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           ON i.item_no = pgc.item_no
           AND i.item_type = pgc.item_type
           AND i.new_or_used = pgc.new_or_used
-          AND (i.color_id = pgc.color_id OR (i.color_id IS NULL AND pgc.color_id IS NULL))
+          AND COALESCE(i.color_id, -1) = pgc.color_id
         GROUP BY c.id, c.name, c.priority_tier
         ORDER BY c.name
       `);
@@ -10354,7 +10355,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             eq(blInventory.itemNo, priceGuideCache.itemNo),
             eq(blInventory.itemType, priceGuideCache.itemType),
             eq(blInventory.newOrUsed, priceGuideCache.newOrUsed),
-            sql`(${blInventory.colorId} = ${priceGuideCache.colorId} OR (${blInventory.colorId} IS NULL AND ${priceGuideCache.colorId} IS NULL))`
+            sql`COALESCE(${blInventory.colorId}, -1) = ${priceGuideCache.colorId}`
           )
         )
         .leftJoin(

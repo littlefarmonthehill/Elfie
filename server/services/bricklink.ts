@@ -1281,7 +1281,7 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
         and(
           eq(blInventory.itemNo, priceGuideCache.itemNo),
           eq(blInventory.itemType, priceGuideCache.itemType),
-          sql`(${blInventory.colorId} = ${priceGuideCache.colorId} OR (${blInventory.colorId} IS NULL AND ${priceGuideCache.colorId} IS NULL))`,
+          sql`COALESCE(${blInventory.colorId}, -1) = ${priceGuideCache.colorId}`,
           sql`${blInventory.newOrUsed} = ${priceGuideCache.newOrUsed}`
         )
       )
@@ -1479,9 +1479,9 @@ export async function fetchPriceOMagicData(
       .from(priceGuideCache)
       .where(
         and(
-          sql`upper(${priceGuideCache.itemNo}) = upper(${itemNo})`,
+          eq(priceGuideCache.itemNo, itemNo.toUpperCase()),
           eq(priceGuideCache.itemType, itemType),
-          colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`,
+          eq(priceGuideCache.colorId, colorId ?? -1),
           eq(priceGuideCache.newOrUsed, newOrUsed),
           gte(priceGuideCache.fetchedAt, cacheWindow)
         )
@@ -1577,9 +1577,9 @@ export async function fetchPriceOMagicData(
         .from(priceGuideCache)
         .where(
           and(
-            sql`upper(${priceGuideCache.itemNo}) = upper(${itemNo})`,
+            eq(priceGuideCache.itemNo, itemNo.toUpperCase()),
             eq(priceGuideCache.itemType, itemType),
-            colorId ? eq(priceGuideCache.colorId, colorId) : sql`${priceGuideCache.colorId} IS NULL`,
+            eq(priceGuideCache.colorId, colorId ?? -1),
             eq(priceGuideCache.newOrUsed, newOrUsed)
           )
         )
@@ -1627,10 +1627,14 @@ export async function fetchPriceOMagicData(
       stockFetchedAt: skipStock ? ((preservedStock as any).stockFetchedAt ?? new Date()) : new Date(),
     };
 
+    // Normalize for unique constraint: uppercase item_no, -1 for null color_id
+    const normalizedItemNo = mergedData.itemNo.toUpperCase();
+    const normalizedColorId = mergedData.colorId ?? -1;
+
     // Atomic upsert — avoids the race condition where a concurrent request
     // (e.g. two users on different devices) sees no cache row between a
     // DELETE and the subsequent INSERT.
-    // Uses the expression-based unique index: (upper(item_no), item_type, coalesce(color_id,-1), new_or_used)
+    // Uses the unique index: (item_no, item_type, color_id, new_or_used)
     const upsertResult = await db.execute(sql`
       INSERT INTO price_guide_cache (
         id, item_no, item_type, color_id, new_or_used,
@@ -1642,7 +1646,7 @@ export async function fetchPriceOMagicData(
         fetched_at, sold_fetched_at, stock_fetched_at, updated_at
       ) VALUES (
         gen_random_uuid(),
-        ${mergedData.itemNo}, ${mergedData.itemType}, ${mergedData.colorId ?? null}, ${mergedData.newOrUsed},
+        ${normalizedItemNo}, ${mergedData.itemType}, ${normalizedColorId}, ${mergedData.newOrUsed},
         ${mergedData.itemName ?? null}, ${mergedData.imageUrl ?? null}, ${mergedData.thumbnailUrl ?? null}, ${mergedData.categoryId ?? null},
         ${mergedData.weight ?? null}, ${mergedData.dimensionX ?? null}, ${mergedData.dimensionY ?? null}, ${mergedData.dimensionZ ?? null}, ${mergedData.yearReleased ?? null},
         ${mergedData.stockAvgPrice ?? null}, ${mergedData.stockMinPrice ?? null}, ${mergedData.stockMaxPrice ?? null}, ${mergedData.stockQuantity ?? null}, ${mergedData.stockTotalLots ?? null},
@@ -1650,7 +1654,7 @@ export async function fetchPriceOMagicData(
         ${(mergedData as any).suggestedPrice ?? null}, ${(mergedData as any).premiumPercentage ?? null},
         ${mergedData.soldFetchedAt ?? new Date()}, ${mergedData.soldFetchedAt ?? new Date()}, ${mergedData.stockFetchedAt ?? new Date()}, NOW()
       )
-      ON CONFLICT (upper(item_no), item_type, COALESCE(color_id, -1), new_or_used) DO UPDATE SET
+      ON CONFLICT (item_no, item_type, color_id, new_or_used) DO UPDATE SET
         item_name = COALESCE(EXCLUDED.item_name, price_guide_cache.item_name),
         image_url = COALESCE(EXCLUDED.image_url, price_guide_cache.image_url),
         thumbnail_url = COALESCE(EXCLUDED.thumbnail_url, price_guide_cache.thumbnail_url),

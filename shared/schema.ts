@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, real, timestamp, boolean, index, jsonb, serial, date, primaryKey, customType } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, real, timestamp, boolean, index, uniqueIndex, jsonb, serial, date, primaryKey, customType } from "drizzle-orm/pg-core";
 
 export const PLATFORM_ORG_ID = 'platform';
 
@@ -715,7 +715,7 @@ export const priceGuideCache = pgTable("price_guide_cache", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   itemNo: text("item_no").notNull(),
   itemType: text("item_type").notNull(),
-  colorId: integer("color_id"),
+  colorId: integer("color_id").notNull().default(-1),
   newOrUsed: text("new_or_used").notNull().default('N'), // 'N' for New, 'U' for Used
   
   // Item Details from BrickLink
@@ -754,7 +754,9 @@ export const priceGuideCache = pgTable("price_guide_cache", {
   nextRefresh: timestamp("next_refresh"), // When this item should be refreshed next
   volatilityTier: text("volatility_tier").default('stable'), // 'hot' | 'active' | 'stable'
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  uniqueIndex("price_guide_cache_natural_key").on(table.itemNo, table.itemType, table.colorId, table.newOrUsed),
+]);
 
 export const insertPriceGuideCacheSchema = createInsertSchema(priceGuideCache).omit({
   id: true,
