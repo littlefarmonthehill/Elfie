@@ -30,26 +30,37 @@ export default function DashboardNav({ active, onSelect, hideOpsCentral, onHidde
     onHiddenChange?.(isHidden);
   }, [isHidden, onHiddenChange]);
 
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
-  }, []);
-
   const navRef = useRef<HTMLElement>(null);
   const pullTabRef = useRef<HTMLDivElement>(null);
+  const preventGlobal = useRef<((e: TouchEvent) => void) | null>(null);
+
+  const lockScroll = useCallback(() => {
+    if (preventGlobal.current) return;
+    const handler = (e: TouchEvent) => { e.preventDefault(); };
+    preventGlobal.current = handler;
+    document.addEventListener('touchmove', handler, { passive: false });
+    document.body.style.overflow = 'hidden';
+  }, []);
+
+  const unlockScroll = useCallback(() => {
+    if (preventGlobal.current) {
+      document.removeEventListener('touchmove', preventGlobal.current);
+      preventGlobal.current = null;
+    }
+    document.body.style.overflow = '';
+  }, []);
 
   useEffect(() => {
-    const prevent = (e: TouchEvent) => { e.preventDefault(); };
-    const navEl = navRef.current;
-    const pullEl = pullTabRef.current;
-    navEl?.addEventListener('touchmove', prevent, { passive: false });
-    pullEl?.addEventListener('touchmove', prevent, { passive: false });
-    return () => {
-      navEl?.removeEventListener('touchmove', prevent);
-      pullEl?.removeEventListener('touchmove', prevent);
-    };
-  }, [isHidden]);
+    return () => unlockScroll();
+  }, [unlockScroll]);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+    lockScroll();
+  }, [lockScroll]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    unlockScroll();
     if (touchStartY.current === null) return;
     const distance = e.changedTouches[0].clientY - touchStartY.current;
     if (distance > SWIPE_THRESHOLD) {
@@ -58,7 +69,7 @@ export default function DashboardNav({ active, onSelect, hideOpsCentral, onHidde
       setIsHidden(false);
     }
     touchStartY.current = null;
-  }, []);
+  }, [unlockScroll]);
 
   return (
     <>
