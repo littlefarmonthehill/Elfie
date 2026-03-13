@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
-import { DimensionWheel } from "@/components/PriceOMaticDashboard";
+import { DimensionWheel, type PricingInsight } from "@/components/PriceOMaticDashboard";
 import { APP_VERSION, APP_NAME } from "@shared/version";
 import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Activity, Flag, Power, Zap, Globe, ToggleLeft, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +30,7 @@ interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
   initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'priceomatic';
+  pricingExample?: PricingInsight;
 }
 
 type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'systemHealth' | 'customerHealth' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | null;
@@ -592,7 +593,7 @@ function SyncStatusLine({ entry }: { entry: SyncStatusEntry }) {
   );
 }
 
-export default function SettingsModal({ open, onClose, initialSection }: SettingsModalProps) {
+export default function SettingsModal({ open, onClose, initialSection, pricingExample }: SettingsModalProps) {
   const { toast } = useToast();
   const { status: installStatus, promptInstall } = useInstallPrompt();
   const { isAdmin, superAdmin, user } = useAuth();
@@ -995,6 +996,24 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     queryKey: ['/api/org'],
     enabled: open,
   });
+
+  const { data: pomInsightsForExample } = useQuery<{ data: { items: PricingInsight[] } }>({
+    queryKey: ['/api/priceomatic/insights'],
+    enabled: open && activeSection === 'priceomatic' && !pricingExample,
+    staleTime: 60_000,
+  });
+
+  const wheelExample: PricingInsight | undefined = pricingExample ?? (() => {
+    const items = pomInsightsForExample?.data?.items;
+    if (!items || items.length === 0) return undefined;
+    return items.reduce((best, cur) => {
+      const bestStock = best.stockTotalLots ? parseInt(String(best.stockTotalLots)) : 0;
+      const curStock = cur.stockTotalLots ? parseInt(String(cur.stockTotalLots)) : 0;
+      const bestSold = best.soldTotalLots ? parseInt(String(best.soldTotalLots)) : 0;
+      const curSold = cur.soldTotalLots ? parseInt(String(cur.soldTotalLots)) : 0;
+      return (curStock + curSold > bestStock + bestSold) ? cur : best;
+    });
+  })();
 
   useEffect(() => { setActiveGeneralTab('info'); }, [activeSection]);
 
@@ -4402,8 +4421,17 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                             </Popover>
                           </div>
                         </div>
+                        {wheelExample && (
+                          <div className="px-3 py-1.5 border-b border-gray-700/40 flex items-center gap-1.5">
+                            <span className="text-[10px] text-gray-500">Preview using:</span>
+                            <span className="text-[10px] font-medium text-gray-300 truncate">{wheelExample.itemName || wheelExample.itemNo}</span>
+                            {wheelExample.colorName && <span className="text-[10px] text-gray-500">({wheelExample.colorName})</span>}
+                            <span className="text-[10px] text-gray-600">{wheelExample.newOrUsed === 'N' ? 'New' : 'Used'}</span>
+                          </div>
+                        )}
                         <div className="px-3 py-4 flex justify-center">
                           <DimensionWheel
+                            lot={wheelExample}
                             baseCfg={{
                               soldAvgW: pomSugSoldAvgW,
                               stockMinW: pomSugStockMinW,

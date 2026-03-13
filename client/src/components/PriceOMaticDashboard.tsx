@@ -450,7 +450,7 @@ function PricingGrid({ group, activeSort, cfg, onOpenSettings }: { group: Groupe
           <div className="px-2 py-1 text-[10px] text-purple-400 font-semibold">Suggested</div>
           <div className={cell('text-purple-300 font-semibold')}>
             {nCalc.suggested != null && nCalc.breakdown ? (
-              <BreakdownPopover bd={nCalc.breakdown} label="New Suggested" onOpenSettings={onOpenSettings}>
+              <BreakdownPopover bd={nCalc.breakdown} label="New Suggested" onOpenSettings={onOpenSettings} lot={nLot}>
                 <button onClick={(e) => e.stopPropagation()} className="underline decoration-dotted underline-offset-2 decoration-purple-500/40 hover:text-purple-200 transition-colors" data-testid="button-sug-new">
                   {fmt(nCalc.suggested)}
                 </button>
@@ -459,7 +459,7 @@ function PricingGrid({ group, activeSort, cfg, onOpenSettings }: { group: Groupe
           </div>
           <div className={cell('text-purple-300 font-semibold')}>
             {uCalc.suggested != null && uCalc.breakdown ? (
-              <BreakdownPopover bd={uCalc.breakdown} label="Used Suggested" onOpenSettings={onOpenSettings}>
+              <BreakdownPopover bd={uCalc.breakdown} label="Used Suggested" onOpenSettings={onOpenSettings} lot={uLot}>
                 <button onClick={(e) => e.stopPropagation()} className="underline decoration-dotted underline-offset-2 decoration-purple-500/40 hover:text-purple-200 transition-colors" data-testid="button-sug-used">
                   {fmt(uCalc.suggested)}
                 </button>
@@ -801,11 +801,12 @@ export function DimensionWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight 
   );
 }
 
-function BreakdownPopover({ bd, label, children, onOpenSettings }: {
+function BreakdownPopover({ bd, label, children, onOpenSettings, lot }: {
   bd: SugBreakdown;
   label: string;
   children: React.ReactNode;
-  onOpenSettings?: () => void;
+  onOpenSettings?: (lot?: PricingInsight) => void;
+  lot?: PricingInsight | null;
 }) {
   const [open, setOpen] = useState(false);
   const f = (v: number) => `$${v.toFixed(2)}`;
@@ -845,7 +846,7 @@ function BreakdownPopover({ bd, label, children, onOpenSettings }: {
           </div>
           {onOpenSettings && (
             <button
-              onClick={() => { setOpen(false); onOpenSettings(); }}
+              onClick={() => { setOpen(false); onOpenSettings(lot ?? undefined); }}
               className="flex items-center gap-1 text-[10px] text-purple-400 hover:text-purple-300 transition-colors pt-1.5 border-t border-gray-700/40 w-full"
               data-testid="button-tune-in-settings"
             >
@@ -1361,7 +1362,7 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
                         <span className="text-[10px] text-slate-400 truncate min-w-0">{group.colorName || '—'}</span>
                       </div>
 
-                      <PricingGrid group={group} activeSort={sortField} cfg={sugCfg} onOpenSettings={onOpenSettings ? () => onOpenSettings('priceomatic') : undefined} />
+                      <PricingGrid group={group} activeSort={sortField} cfg={sugCfg} onOpenSettings={onOpenSettings ? (lot) => onOpenSettings('priceomatic', lot) : undefined} />
                       <ScoresBar group={group} activeSort={sortField} />
                     </div>
                   </SwipeableTile>

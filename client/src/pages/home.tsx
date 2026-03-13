@@ -23,7 +23,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { ToolDrawer } from "@/components/ui/tool-drawer";
 import { ElfieCharacter } from "@/components/ElfieCharacter";
-import PriceOMaticDashboard from "@/components/PriceOMaticDashboard";
+import PriceOMaticDashboard, { type PricingInsight } from "@/components/PriceOMaticDashboard";
 import WarehouseManagement from "@/components/WarehouseManagement";
 import ListomaticPriority from "@/components/ListomaticPriority";
 import BrickanalyzerTool from "@/components/BrickanalyzerTool";
@@ -53,6 +53,7 @@ export default function Home() {
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'priceomatic' | null>(null);
+  const [settingsPricingExample, setSettingsPricingExample] = useState<PricingInsight | undefined>(undefined);
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
   const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
   const [chatOpen, setChatOpen] = useState(false);
@@ -383,8 +384,9 @@ export default function Home() {
   };
 
   const renderActiveDrawer = () => {
-    const openSettings = (section?: string) => {
+    const openSettings = (section?: string, pricingExample?: PricingInsight) => {
       setSettingsInitialSection(section as any);
+      setSettingsPricingExample(pricingExample);
       setSettingsOpen(true);
     };
 
@@ -1088,7 +1090,7 @@ export default function Home() {
         />
       )}
 
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} initialSection={settingsInitialSection ?? undefined} />
+      <SettingsModal open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsPricingExample(undefined); }} initialSection={settingsInitialSection ?? undefined} pricingExample={settingsPricingExample} />
       
       {/* Detail modal — Vaul drawer on mobile only; desktop uses inline overlay in center column */}
       {!isDesktop && (
