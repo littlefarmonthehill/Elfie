@@ -409,6 +409,14 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-18 (price_guide_cache normalize + unique index) complete.');
 
+    // ── Phase 19: Add qty_avg_price columns to price_guide_cache ──
+    await client.query(`
+      ALTER TABLE price_guide_cache
+        ADD COLUMN IF NOT EXISTS stock_qty_avg_price text,
+        ADD COLUMN IF NOT EXISTS sold_qty_avg_price text
+    `);
+    console.log('[Migration] Phase-19 (qty_avg_price columns) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
