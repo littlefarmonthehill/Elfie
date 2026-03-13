@@ -127,16 +127,11 @@ interface SugConfig {
   compCap: number;
   floor: number;
   storePremium: number;
-  premThreshold: number;
-  premVelW: number;
-  premScarcW: number;
-  premMult: number;
 }
 
 const DEFAULT_SUG_CONFIG: SugConfig = {
   soldAvgW: 0.5, stockMinW: 0.3, soldMaxW: 0.2,
   demandMult: 0.25, compCap: 1.15, floor: 0.95, storePremium: 1.10,
-  premThreshold: 0.40, premVelW: 0.6, premScarcW: 0.4, premMult: 0.5,
 };
 
 interface InsightsData {
@@ -423,9 +418,6 @@ function PricingGrid({ group, activeSort, cfg, onSaveWeights }: { group: Grouped
   const nCalc = calcSuggested(nLot, cfg);
   const uCalc = calcSuggested(uLot, cfg);
   const hasSuggested = nCalc.suggested != null || uCalc.suggested != null;
-  const nHasPrem = nCalc.premium != null && (nCalc.premiumScore ?? 0) >= cfg.premThreshold;
-  const uHasPrem = uCalc.premium != null && (uCalc.premiumScore ?? 0) >= cfg.premThreshold;
-  const hasPremium = nHasPrem || uHasPrem;
 
   return (
     <div className="rounded-md overflow-hidden border border-white/[0.08] mt-1">
@@ -475,31 +467,6 @@ function PricingGrid({ group, activeSort, cfg, onSaveWeights }: { group: Grouped
           <div className={cell('text-gray-700')} />
         </div>
       )}
-      {hasPremium && (
-        <div className={`${GR} border-b border-white/[0.04] bg-purple-500/[0.05]`}>
-          <div className="px-2 py-1 text-[10px] text-amber-400 font-semibold">Premium</div>
-          <div className={cell('text-amber-300 font-semibold')}>
-            {nHasPrem && nCalc.breakdown && nLot ? (
-              <BreakdownPopover bd={nCalc.breakdown} label="New Premium" lot={nLot} baseCfg={cfg} onSaveWeights={onSaveWeights}>
-                <button onClick={(e) => e.stopPropagation()} className="underline decoration-dotted underline-offset-2 decoration-amber-500/40 hover:text-amber-200 transition-colors" data-testid="button-prem-new">
-                  {fmt(nCalc.premium)}
-                </button>
-              </BreakdownPopover>
-            ) : '—'}
-          </div>
-          <div className={cell('text-amber-300 font-semibold')}>
-            {uHasPrem && uCalc.breakdown && uLot ? (
-              <BreakdownPopover bd={uCalc.breakdown} label="Used Premium" lot={uLot} baseCfg={cfg} onSaveWeights={onSaveWeights}>
-                <button onClick={(e) => e.stopPropagation()} className="underline decoration-dotted underline-offset-2 decoration-amber-500/40 hover:text-amber-200 transition-colors" data-testid="button-prem-used">
-                  {fmt(uCalc.premium)}
-                </button>
-              </BreakdownPopover>
-            ) : '—'}
-          </div>
-          <div className={cell('text-gray-700')} />
-          <div className={cell('text-gray-700')} />
-        </div>
-      )}
     </div>
   );
 }
@@ -511,29 +478,26 @@ interface SugBreakdown {
   base: number; demandAdj: number; raw: number;
   cappedRaw: number; floor: number;
   suggested: number;
-  premiumScore: number;
-  premMult: number | null;
-  premium: number | null;
+  storePremiumPct: number;
   cfg: SugConfig;
 }
 
-function calcSuggested(lot: PricingInsight | null, cfg: SugConfig = DEFAULT_SUG_CONFIG): { suggested: number | null; premium: number | null; premiumScore: number | null; breakdown: SugBreakdown | null } {
-  if (!lot) return { suggested: null, premium: null, premiumScore: null, breakdown: null };
+function calcSuggested(lot: PricingInsight | null, cfg: SugConfig = DEFAULT_SUG_CONFIG): { suggested: number | null; breakdown: SugBreakdown | null } {
+  if (!lot) return { suggested: null, breakdown: null };
   const soldAvg = parseFloat(lot.soldAvgPrice || '0');
   const soldMax = parseFloat(lot.soldMaxPrice || '0');
   const stockMin = parseFloat(lot.stockMinPrice || '0');
   const soldQty = lot.soldQuantity ?? parseInt(lot.soldTotalLots || '0');
   const stockQty = lot.stockQuantity ?? parseInt(lot.stockTotalLots || '0');
-  // Note: fallback uses lot counts when qty columns haven't been populated yet (pre-resync data)
   const velocity = (stockQty > 0) ? soldQty / stockQty : 0;
   const scarcity = (stockQty > 0) ? 1 / stockQty : 0;
 
-  if (soldAvg <= 0 && stockMin <= 0) return { suggested: null, premium: null, premiumScore: null, breakdown: null };
+  if (soldAvg <= 0 && stockMin <= 0) return { suggested: null, breakdown: null };
 
   const base = (soldAvg > 0 ? soldAvg * cfg.soldAvgW : 0)
     + (stockMin > 0 ? stockMin * cfg.stockMinW : 0)
     + (soldMax > 0 ? soldMax * cfg.soldMaxW : 0);
-  if (base <= 0) return { suggested: null, premium: null, premiumScore: null, breakdown: null };
+  if (base <= 0) return { suggested: null, breakdown: null };
 
   const demandAdj = 1 + (velocity * cfg.demandMult);
   let raw = base * demandAdj;
@@ -541,22 +505,13 @@ function calcSuggested(lot: PricingInsight | null, cfg: SugConfig = DEFAULT_SUG_
   const cappedRaw = raw <= capLimit ? raw : capLimit + (raw - capLimit) * 0.3;
 
   const floor = stockMin > 0 ? stockMin * cfg.floor : 0;
+  const storePremiumPct = (cfg.storePremium - 1) * 100;
   const suggested = Math.max(cappedRaw * cfg.storePremium, floor);
 
-  const premiumScore = (velocity * cfg.premVelW) + (scarcity * cfg.premScarcW);
-  let premium: number | null = null;
-  let premMult: number | null = null;
-  if (premiumScore >= cfg.premThreshold * 0.5) {
-    premMult = 1 + (premiumScore * cfg.premMult);
-    premium = Math.max(suggested * premMult, floor);
-  }
-
-  const breakdown: SugBreakdown = { soldAvg, soldMax, stockMin, soldQty, stockQty, velocity, scarcity, base, demandAdj, raw: base * demandAdj, cappedRaw, floor, suggested, premiumScore, premMult, premium, cfg };
+  const breakdown: SugBreakdown = { soldAvg, soldMax, stockMin, soldQty, stockQty, velocity, scarcity, base, demandAdj, raw: base * demandAdj, cappedRaw, floor, suggested, storePremiumPct, cfg };
 
   return {
     suggested: Number(suggested.toFixed(2)),
-    premium: premium != null ? Number(premium.toFixed(2)) : null,
-    premiumScore: Number(premiumScore.toFixed(2)),
     breakdown,
   };
 }
@@ -572,7 +527,7 @@ const DIMENSIONS = [
   { key: 'demand' as const, label: 'Demand', color: '#60a5fa', angle: -Math.PI / 2, desc: 'How fast it sells' },
   { key: 'rarity' as const, label: 'Rarity', color: '#a78bfa', angle: 0, desc: 'How few available' },
   { key: 'competition' as const, label: 'Competition', color: '#34d399', angle: Math.PI / 2, desc: 'Your price vs market' },
-  { key: 'headroom' as const, label: 'Headroom', color: '#fbbf24', angle: Math.PI, desc: 'Room above current' },
+  { key: 'headroom' as const, label: 'Store Prem', color: '#fbbf24', angle: Math.PI, desc: 'Deep stock & fast service' },
 ];
 
 function weightsToSugConfig(w: DimensionWeights, baseCfg: SugConfig): SugConfig {
@@ -597,21 +552,18 @@ function weightsToSugConfig(w: DimensionWeights, baseCfg: SugConfig): SugConfig 
     demandMult: 0.02 + nd * 0.8,
     compCap: 1.0 + nh * 0.6 + nd * 0.2,
     floor: 0.80 + nc * 0.18,
-    storePremium: 1.0 + nd * 0.12 + nr * 0.12 + nh * 0.06,
-    premThreshold: 0.5 - (nd + nr) * 0.25,
-    premVelW: 0.2 + nd * 0.6,
-    premScarcW: 0.1 + nr * 0.7,
-    premMult: 0.15 + (nd + nr) * 0.7,
+    storePremium: 1.0 + nh * 0.25 + nr * 0.05,
   };
 }
 
 function sugConfigToWeights(cfg: SugConfig): DimensionWeights {
   const demand = Math.max(0, (cfg.demandMult - 0.02) / 0.8);
-  const rarity = Math.max(0, (cfg.premScarcW - 0.1) / 0.7);
-  const headroom = Math.max(0, (cfg.compCap - 1.0) / 0.6);
   const competition = Math.max(0, (cfg.floor - 0.80) / 0.18);
+  const headroom = Math.max(0, (cfg.compCap - 1.0) / 0.6);
+  const rarity = Math.max(0, ((cfg.storePremium - 1.0) - headroom * 0.25) / 0.05);
+
   const total = demand + rarity + headroom + competition || 1;
-  return { demand: demand / total, rarity: rarity / total, headroom: headroom / total, competition: competition / total };
+  return { demand: demand / total, rarity: Math.max(0, rarity) / total, headroom: headroom / total, competition: competition / total };
 }
 
 function DimensionWheel({ lot, baseCfg, onSave }: { lot: PricingInsight; baseCfg: SugConfig; onSave: (cfg: SugConfig) => void }) {
@@ -772,9 +724,9 @@ function DimensionWheel({ lot, baseCfg, onSave }: { lot: PricingInsight; baseCfg
         <text x={CENTER} y={CENTER - 7} textAnchor="middle" dominantBaseline="central" fill="#e2e8f0" fontSize={16} fontWeight={700}>
           {liveCalc.suggested != null ? `$${liveCalc.suggested.toFixed(2)}` : '—'}
         </text>
-        {liveCalc.premium != null && (
+        {liveCalc.breakdown && liveCalc.breakdown.storePremiumPct > 0 && (
           <text x={CENTER} y={CENTER + 8} textAnchor="middle" dominantBaseline="central" fill="#fbbf24" fontSize={9} fontWeight={500} opacity={0.8}>
-            prem ${liveCalc.premium.toFixed(2)}
+            +{liveCalc.breakdown.storePremiumPct.toFixed(1)}% store prem
           </text>
         )}
 
@@ -834,18 +786,10 @@ function DimensionWheel({ lot, baseCfg, onSave }: { lot: PricingInsight; baseCfg
                 {row(`Velocity (${bd.soldQty} sold / ${bd.stockQty} listed)`, bd.velocity.toFixed(2))}
                 {row(`Demand adj`, `×${bd.demandAdj.toFixed(3)}`)}
                 {bd.stockMin > 0 && row(`Comp cap`, f(bd.stockMin * bd.cfg.compCap))}
-                {row(`Store premium`, `×${bd.cfg.storePremium.toFixed(2)}`)}
+                {bd.storePremiumPct > 0 && row(`Store Premium`, `+${bd.storePremiumPct.toFixed(1)}%`)}
                 {bd.floor > 0 && row(`Floor`, f(bd.floor))}
                 {row('= Suggested', f(bd.suggested), true)}
               </div>
-              {bd.premMult != null && (
-                <div className="space-y-0.5">
-                  <p className="text-[8px] uppercase tracking-wider text-amber-400/70 mb-0.5">Premium</p>
-                  {row(`Score`, bd.premiumScore.toFixed(3))}
-                  {row(`Multiplier`, `×${bd.premMult.toFixed(3)}`)}
-                  {bd.premium != null && row('= Premium', f(bd.premium), true)}
-                </div>
-              )}
             </div>
           )}
         </>
@@ -1098,10 +1042,6 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
           pomSugCompCap: Number(cfg.compCap.toFixed(3)),
           pomSugFloor: Number(cfg.floor.toFixed(3)),
           pomSugStorePremium: Number(cfg.storePremium.toFixed(3)),
-          pomSugPremThreshold: Number(cfg.premThreshold.toFixed(3)),
-          pomSugPremVelW: Number(cfg.premVelW.toFixed(3)),
-          pomSugPremScarcW: Number(cfg.premScarcW.toFixed(3)),
-          pomSugPremMult: Number(cfg.premMult.toFixed(3)),
         }),
       });
       if (!res.ok) throw new Error('Failed to save');

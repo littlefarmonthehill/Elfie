@@ -760,10 +760,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [pomSugCompCap, setPomSugCompCap] = useState(1.15);
   const [pomSugFloor, setPomSugFloor] = useState(0.95);
   const [pomSugStorePremium, setPomSugStorePremium] = useState(1.10);
-  const [pomSugPremThreshold, setPomSugPremThreshold] = useState(0.40);
-  const [pomSugPremVelW, setPomSugPremVelW] = useState(0.6);
-  const [pomSugPremScarcW, setPomSugPremScarcW] = useState(0.4);
-  const [pomSugPremMult, setPomSugPremMult] = useState(0.5);
   const [pomSugPricingOpen, setPomSugPricingOpen] = useState(false);
   const [pomVelocityHigh, setPomVelocityHigh] = useState(2.0);
   const [pomVelocityLow, setPomVelocityLow] = useState(0.3);
@@ -1537,10 +1533,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       setPomSugCompCap(platformSettings.pomSugCompCap ?? 1.15);
       setPomSugFloor(platformSettings.pomSugFloor ?? 0.95);
       setPomSugStorePremium(platformSettings.pomSugStorePremium ?? 1.10);
-      setPomSugPremThreshold(platformSettings.pomSugPremThreshold ?? 0.40);
-      setPomSugPremVelW(platformSettings.pomSugPremVelW ?? 0.6);
-      setPomSugPremScarcW(platformSettings.pomSugPremScarcW ?? 0.4);
-      setPomSugPremMult(platformSettings.pomSugPremMult ?? 0.5);
       setPomVelocityHigh(platformSettings.pomVelocityHigh ?? 2.0);
       setPomVelocityLow(platformSettings.pomVelocityLow ?? 0.3);
       setPomScarcityHigh(platformSettings.pomScarcityHigh ?? 0.1);
@@ -4438,41 +4430,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         </div>
                       </div>
 
-                      <div className="sm-card-inset">
-                        <div className="px-3 py-2 bg-gray-800/40 border-b border-gray-700/60">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-semibold text-amber-300 uppercase tracking-wider">Premium Opportunity</span>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="sm-icon-btn" onClick={(e) => e.stopPropagation()}>
-                                  <Info className="w-3 h-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent side="bottom" className="sm-popover">
-                                Identifies high-demand / low-supply parts where you should intentionally price above market. The premium score blends velocity and scarcity; when it exceeds the threshold, a premium multiplier is applied.
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                        </div>
-                        <div className="divide-y divide-gray-700/30">
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-gray-400">Show threshold (score {'\u2265'})</Label>
-                            <Input type="number" min={0} max={2} step={0.05} value={pomSugPremThreshold} onChange={(e) => setPomSugPremThreshold(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugPremThreshold })} className="text-sm w-20 text-right" data-testid="input-sug-prem-threshold" />
-                          </div>
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-gray-400">Velocity weight</Label>
-                            <Input type="number" min={0} max={1} step={0.05} value={pomSugPremVelW} onChange={(e) => setPomSugPremVelW(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugPremVelW })} className="text-sm w-20 text-right" data-testid="input-sug-prem-vel-w" />
-                          </div>
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-gray-400">Scarcity weight</Label>
-                            <Input type="number" min={0} max={1} step={0.05} value={pomSugPremScarcW} onChange={(e) => setPomSugPremScarcW(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugPremScarcW })} className="text-sm w-20 text-right" data-testid="input-sug-prem-scarc-w" />
-                          </div>
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-gray-400">Premium multiplier strength</Label>
-                            <Input type="number" min={0} max={2} step={0.05} value={pomSugPremMult} onChange={(e) => setPomSugPremMult(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugPremMult })} className="text-sm w-20 text-right" data-testid="input-sug-prem-mult" />
-                          </div>
-                        </div>
-                      </div>
 
                     </div>
                   )}
