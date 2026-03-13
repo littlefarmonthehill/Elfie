@@ -87,11 +87,23 @@ export default function DashboardNav({ active, onSelect, hideOpsCentral, onHidde
                 onClick={() => onSelect(dashboard.id)}
                 data-testid={`tab-${dashboard.id}`}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 pt-2 pb-1 px-3 min-w-0 flex-1 transition-colors duration-200",
+                  "relative flex flex-col items-center gap-0.5 pt-2 pb-1 px-3 min-w-0 flex-1 transition-colors duration-200",
                   isActive ? dashboard.activeClass : dashboard.inactiveClass
                 )}
               >
-                <Icon className="w-5 h-5 md:w-6 md:h-6 shrink-0" strokeWidth={isActive ? 2.2 : 1.6} />
+                <div className="relative">
+                  {isActive && (
+                    <div className={cn(
+                      "absolute inset-0 rounded-full blur-md scale-[2] opacity-40",
+                      dashboard.color === 'lego-red' && "bg-lego-red",
+                      dashboard.color === 'lego-blue' && "bg-lego-blue",
+                      dashboard.color === 'lego-orange' && "bg-lego-orange",
+                      dashboard.color === 'lego-yellow' && "bg-lego-yellow",
+                      dashboard.color === 'lego-green' && "bg-lego-green",
+                    )} />
+                  )}
+                  <Icon className="relative w-5 h-5 md:w-6 md:h-6 shrink-0" strokeWidth={isActive ? 2.2 : 1.6} />
+                </div>
                 <span className={cn(
                   "text-[10px] md:text-xs font-medium truncate max-w-full",
                   isActive && "font-semibold"
@@ -100,15 +112,15 @@ export default function DashboardNav({ active, onSelect, hideOpsCentral, onHidde
                 </span>
                 {isActive && (
                   <div className={cn(
-                    "w-1 h-1 rounded-full mt-0.5",
-                    dashboard.color === 'lego-red' && "bg-lego-red",
-                    dashboard.color === 'lego-blue' && "bg-lego-blue",
-                    dashboard.color === 'lego-orange' && "bg-lego-orange",
-                    dashboard.color === 'lego-yellow' && "bg-lego-yellow",
-                    dashboard.color === 'lego-green' && "bg-lego-green",
+                    "w-5 h-[2px] rounded-full mt-0.5",
+                    dashboard.color === 'lego-red' && "bg-lego-red shadow-[0_0_6px_1px] shadow-lego-red/60",
+                    dashboard.color === 'lego-blue' && "bg-lego-blue shadow-[0_0_6px_1px] shadow-lego-blue/60",
+                    dashboard.color === 'lego-orange' && "bg-lego-orange shadow-[0_0_6px_1px] shadow-lego-orange/60",
+                    dashboard.color === 'lego-yellow' && "bg-lego-yellow shadow-[0_0_6px_1px] shadow-lego-yellow/60",
+                    dashboard.color === 'lego-green' && "bg-lego-green shadow-[0_0_6px_1px] shadow-lego-green/60",
                   )} />
                 )}
-                {!isActive && <div className="w-1 h-1 mt-0.5" />}
+                {!isActive && <div className="w-5 h-[2px] mt-0.5" />}
               </button>
             );
           })}
