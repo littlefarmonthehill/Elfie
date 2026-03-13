@@ -2192,7 +2192,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   const isPeak = heatmapSource === 'peak';
                   const exitPeak = () => { if (heatmapSource === 'peak') setHeatmapSource('sold'); };
                   return (
-                    <div className={`flex items-center gap-1.5 ${isPeak ? 'opacity-30' : ''}`}>
+                    <div className={`flex items-center gap-1.5 ${isPeak ? 'opacity-50' : ''}`}>
                       <div className="flex rounded overflow-hidden border border-gray-700 text-[10px] font-medium shrink-0">
                         {(['new', 'used'] as const).map(c => (
                           <button
