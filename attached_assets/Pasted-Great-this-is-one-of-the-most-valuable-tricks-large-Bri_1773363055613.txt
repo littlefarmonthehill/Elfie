@@ -1,0 +1,162 @@
+Great — this is one of the most valuable tricks large BrickLink stores use because it identifies items where being the cheapest actually loses money.
+
+The idea is to detect high-demand / low-supply parts where buyers will pay above market floor because they just need the part to complete a set.
+
+⸻
+
+Premium Opportunity Score
+
+What it measures
+
+Identifies parts where you should intentionally price above the lowest listing because:
+	•	demand is strong
+	•	supply is limited
+	•	buyers prioritize availability over price
+
+These are often:
+	•	rare colors
+	•	old mold variations
+	•	small quantities needed for MOCs or sets
+
+⸻
+
+Premium Opportunity Score Calculation
+
+premium_opportunity_score =
+(demand_velocity * 0.6) +
+(market_scarcity_index * 0.4)
+
+Where:
+
+demand_velocity = market_qty_sold / market_qty_supply
+market_scarcity_index = 1 / market_qty_supply
+
+
+⸻
+
+Interpretation
+
+Score	Strategy
+Low	Price competitively
+Medium	Match market
+High	Add premium above market
+
+Example thresholds:
+
+0.00 – 0.20  → Competitive pricing
+0.20 – 0.40  → Match market
+0.40+        → Premium pricing
+
+
+⸻
+
+Premium Pricing Adjustment
+
+If the premium opportunity score is high, increase price relative to the lowest listing.
+
+Example rule:
+
+premium_multiplier =
+1 + (premium_opportunity_score * 0.5)
+
+Example:
+
+premium_opportunity_score = 0.50
+premium_multiplier = 1.25
+
+Meaning:
+
+Price 25% above market floor.
+
+⸻
+
+Premium Suggested Price
+
+Combine it with the earlier suggested price model.
+
+premium_price =
+suggested_price * premium_multiplier
+
+Then apply your store fee.
+
+final_price =
+premium_price * 1.10
+
+
+⸻
+
+Example
+
+Market data:
+
+lowest price = $0.60
+avg sold = $0.75
+highest sold = $1.10
+sold qty = 450
+supply qty = 500
+
+Demand:
+
+demand_velocity = 450 / 500 = 0.90
+
+Scarcity:
+
+market_scarcity_index = 1 / 500 = 0.002
+
+Premium score:
+
+premium_score =
+(0.90 * 0.6) + (0.002 * 0.4)
+
+premium_score ≈ 0.54
+
+Multiplier:
+
+1 + (0.54 * 0.5) = 1.27
+
+If suggested price was:
+
+$0.85
+
+Premium price:
+
+0.85 * 1.27 = $1.08
+
+Store fee:
+
+1.08 * 1.10 = $1.19
+
+Final suggested price:
+
+$1.19
+
+Even though the lowest listing is $0.60.
+
+This happens frequently with LEGO parts.
+
+⸻
+
+Real Behavior on BrickLink
+
+Large sellers rely on the fact that:
+	•	buyers often buy many parts from one store
+	•	they prefer fewer stores
+	•	they prioritize inventory availability
+
+So they will pay more if your store has the parts they need.
+
+⸻
+
+If You Want the Real “Pro” Version
+
+The most advanced LEGO pricing engines also include a hidden metric:
+
+Cart Completion Pressure
+
+This detects parts that buyers will pay almost anything for because they need 1–2 pieces to finish a set.
+
+When that happens, stores price 2×–5× above market and still sell.
+
+If you’d like, I can show you:
+
+The exact algorithm used to detect those parts automatically. It’s extremely powerful for a platform like the one you’re building.

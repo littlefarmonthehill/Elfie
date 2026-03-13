@@ -1,0 +1,183 @@
+To build a suggested price generator, the goal is to estimate a price that balances:
+	•	Historical willingness to pay (sold prices)
+	•	Current competition (lowest listing)
+	•	Demand strength
+	•	Supply scarcity
+
+Then you add your 10% store premium on top.
+
+Below is a practical pricing model used in many marketplaces, adapted to the metrics you already track.
+
+⸻
+
+Suggested Price Generator
+
+1. Base Market Price
+
+First calculate a balanced market reference price using historical and current market signals.
+
+Calculation
+
+base_market_price =
+    (market_avg_sold_price * 0.5) +
+    (market_lowest_price * 0.3) +
+    (market_highest_sold_price * 0.2)
+
+Why this works
+	•	Average sold price anchors the real market value
+	•	Lowest listing keeps you competitive
+	•	Highest sold price allows upward potential
+
+⸻
+
+Demand Adjustment
+
+If demand is strong, prices can rise.
+
+demand_adjustment =
+    1 + (demand_velocity * 0.25)
+
+Example
+
+demand_velocity = 0.40
+adjustment = 1 + (0.40 * 0.25)
+adjustment = 1.10
+
+Meaning 10% demand premium.
+
+⸻
+
+Scarcity Adjustment
+
+Low supply allows a small price increase.
+
+scarcity_adjustment =
+    1 + (market_scarcity_index * supply_weight)
+
+Example simplified:
+
+scarcity_adjustment =
+    1 + (1 / market_supply * 50)
+
+This prevents overreacting to supply spikes.
+
+⸻
+
+Raw Suggested Price
+
+raw_suggested_price =
+    base_market_price *
+    demand_adjustment *
+    scarcity_adjustment
+
+
+⸻
+
+Competitive Adjustment (Optional but recommended)
+
+Prevent pricing too far above the market.
+
+competitive_price =
+    min(raw_suggested_price, market_lowest_price * 1.15)
+
+Meaning you won’t price more than 15% above the lowest listing unless demand is extremely strong.
+
+⸻
+
+Final Suggested Price (with Store Premium)
+
+You mentioned your 10% premium store fee.
+
+suggested_price =
+    competitive_price * 1.10
+
+
+⸻
+
+Final Formula (Simplified)
+
+Your pricing engine could implement something like:
+
+suggested_price =
+(
+    (
+        (market_avg_sold_price * 0.5) +
+        (market_lowest_price * 0.3) +
+        (market_highest_sold_price * 0.2)
+    )
+    *
+    (1 + demand_velocity * 0.25)
+)
+* 1.10
+
+
+⸻
+
+Example
+
+Market data
+
+avg sold = $0.80
+highest sold = $1.10
+lowest listing = $0.70
+demand velocity = 0.45
+
+Step 1 — base price
+
+base =
+(0.80 * 0.5) +
+(0.70 * 0.3) +
+(1.10 * 0.2)
+
+base = 0.83
+
+Step 2 — demand adjustment
+
+1 + (0.45 * 0.25) = 1.11
+
+raw price = 0.83 * 1.11 = 0.92
+
+Step 3 — store premium
+
+suggested_price = 0.92 * 1.10 = $1.01
+
+Final suggestion:
+
+$1.01
+
+⸻
+
+Simple Implementation Version (Good for v1)
+
+You could start with a much simpler but effective version:
+
+suggested_price =
+(
+    (market_avg_sold_price * 0.6) +
+    (market_lowest_price * 0.4)
+)
+* 1.10
+
+This works surprisingly well for LEGO part marketplaces.
+
+⸻
+
+One Important Trick LEGO Repricers Use
+
+Advanced LEGO repricers also add:
+
+Minimum price floor
+
+price_floor =
+market_lowest_price * 0.95
+
+Then:
+
+suggested_price =
+max(suggested_price, price_floor)
+
+This prevents pricing too far below the market.
+
+⸻
+
+✅ If you’d like, I can also show you a very powerful pricing trick used by high-volume BrickLink stores that identifies which parts you should intentionally price ABOVE the market instead of matching it. It dramatically increases profit for rare parts.

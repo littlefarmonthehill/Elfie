@@ -423,6 +423,111 @@ function PricingGrid({ group, activeSort }: { group: GroupedInsight; activeSort:
   );
 }
 
+function calcSuggested(lot: PricingInsight | null): { suggested: number | null; premium: number | null; premiumScore: number | null } {
+  if (!lot) return { suggested: null, premium: null, premiumScore: null };
+  const soldAvg = parseFloat(lot.soldAvgPrice || '0');
+  const soldMax = parseFloat(lot.soldMaxPrice || '0');
+  const stockMin = parseFloat(lot.stockMinPrice || '0');
+  const velocity = lot.demandVelocity ?? 0;
+  const scarcity = lot.marketScarcity ?? 0;
+
+  if (soldAvg <= 0 && stockMin <= 0) return { suggested: null, premium: null, premiumScore: null };
+
+  const base = (soldAvg > 0 ? soldAvg * 0.5 : 0)
+    + (stockMin > 0 ? stockMin * 0.3 : 0)
+    + (soldMax > 0 ? soldMax * 0.2 : 0);
+  if (base <= 0) return { suggested: null, premium: null, premiumScore: null };
+
+  const demandAdj = 1 + (velocity * 0.25);
+  let raw = base * demandAdj;
+
+  if (stockMin > 0) raw = Math.min(raw, stockMin * 1.15);
+
+  const floor = stockMin > 0 ? stockMin * 0.95 : 0;
+  const suggested = Math.max(raw * 1.10, floor);
+
+  const premiumScore = (velocity * 0.6) + (scarcity * 0.4);
+  let premium: number | null = null;
+  if (premiumScore >= 0.20) {
+    const mult = 1 + (premiumScore * 0.5);
+    premium = Math.max(suggested * mult, floor);
+  }
+
+  return { suggested: Number(suggested.toFixed(2)), premium: premium != null ? Number(premium.toFixed(2)) : null, premiumScore: Number(premiumScore.toFixed(2)) };
+}
+
+function SuggestedPriceBar({ group }: { group: GroupedInsight }) {
+  const nCalc = calcSuggested(group.newLot);
+  const uCalc = calcSuggested(group.usedLot);
+
+  if (!nCalc.suggested && !uCalc.suggested) return null;
+
+  const priceDiff = (mine: string | undefined, suggested: number | null) => {
+    if (!mine || !suggested) return null;
+    const m = parseFloat(mine);
+    if (m <= 0 || suggested <= 0) return null;
+    const pct = ((m - suggested) / suggested) * 100;
+    return pct;
+  };
+
+  const renderLotPrice = (lot: PricingInsight | null, calc: { suggested: number | null; premium: number | null; premiumScore: number | null }, label: string) => {
+    if (!calc.suggested || !lot) return null;
+    const sugDiff = priceDiff(lot.currentPrice, calc.suggested);
+    const hasPremium = calc.premium != null && (calc.premiumScore ?? 0) >= 0.40;
+    const premDiff = hasPremium ? priceDiff(lot.currentPrice, calc.premium!) : null;
+
+    return (
+      <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+        <span className="text-[8px] uppercase text-gray-500 w-5 flex-shrink-0">{label}</span>
+        <span className="text-[11px] font-mono font-bold text-purple-300">${calc.suggested.toFixed(2)}</span>
+        {sugDiff != null && (
+          <span className={`text-[9px] font-mono ${sugDiff < -5 ? 'text-emerald-400' : sugDiff > 5 ? 'text-red-400' : 'text-gray-500'}`}>
+            {sugDiff > 0 ? '+' : ''}{sugDiff.toFixed(0)}%
+          </span>
+        )}
+        {hasPremium && (
+          <>
+            <span className="text-gray-600 text-[9px]">/</span>
+            <span className="text-[7px] font-bold uppercase tracking-wide bg-amber-500/20 text-amber-300 rounded px-1 py-px flex-shrink-0">Prem</span>
+            <span className="text-[11px] font-mono font-bold text-amber-300">${calc.premium!.toFixed(2)}</span>
+            {premDiff != null && (
+              <span className={`text-[9px] font-mono ${premDiff < -5 ? 'text-emerald-400' : premDiff > 5 ? 'text-red-400' : 'text-gray-500'}`}>
+                {premDiff > 0 ? '+' : ''}{premDiff.toFixed(0)}%
+              </span>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="mt-1 px-2 py-1 rounded-md bg-purple-500/[0.07] border border-purple-400/15">
+      <div className="flex items-center gap-1 mb-0.5">
+        <Sparkles className="w-2.5 h-2.5 text-purple-400" />
+        <span className="text-[8px] uppercase tracking-widest font-bold text-purple-400">Suggested Price</span>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button onClick={(e) => e.stopPropagation()} className="text-gray-600 hover:text-purple-400 transition-colors ml-auto" data-testid="button-suggested-price-info">
+              <Info className="w-2.5 h-2.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent side="top" align="end" className="w-56 text-[10px] leading-snug bg-slate-900 border-slate-700 text-gray-300 p-2.5 z-50" onClick={(e) => e.stopPropagation()}>
+            <p className="font-bold text-purple-300 mb-1">Market Baseline</p>
+            <p className="mb-1.5">Blends sold avg (50%), lowest listed (30%), and sold max (20%), adjusted for demand velocity, capped at 115% of market floor, with 10% store premium.</p>
+            <p className="font-bold text-amber-300 mb-1">Premium Opportunity</p>
+            <p>For high-velocity / scarce parts (score {'\u2265'} 0.40), applies an additional multiplier. These are parts buyers will pay above market for because they need them to complete sets.</p>
+          </PopoverContent>
+        </Popover>
+      </div>
+      <div className="flex flex-col gap-0.5">
+        {renderLotPrice(group.newLot, nCalc, 'New')}
+        {renderLotPrice(group.usedLot, uCalc, 'Used')}
+      </div>
+    </div>
+  );
+}
+
 const SORT_TO_SCORE_LABEL: Record<SortField, string> = {
   ceiling: 'Ceil', velocity: 'Vel', scarcity: 'Scarc', undercut: 'Undr', combined: 'Score',
 };
@@ -932,6 +1037,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                       </div>
 
                       <PricingGrid group={group} activeSort={sortField} />
+                      <SuggestedPriceBar group={group} />
                       <ScoresBar group={group} activeSort={sortField} />
                     </div>
                   </SwipeableTile>
