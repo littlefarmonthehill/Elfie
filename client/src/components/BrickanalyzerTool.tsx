@@ -1204,7 +1204,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     if (!authUser || heatmapPrefsInitialized.current) return;
     heatmapPrefsInitialized.current = true;
     if (authUser.heatmapCondition === 'new' || authUser.heatmapCondition === 'used') setHeatmapCondition(authUser.heatmapCondition);
-    if (authUser.heatmapSource === 'peak' || authUser.heatmapSource === 'sold' || authUser.heatmapSource === 'listed') setHeatmapSource(authUser.heatmapSource);
     if (authUser.heatmapMetric === 'max' || authUser.heatmapMetric === 'avg') setHeatmapMetric(authUser.heatmapMetric);
   }, [authUser]);
 
@@ -2189,7 +2188,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   Peak
                 </button>
                 <div className="flex-1" />
-                <div className={`flex items-center gap-1.5 transition-opacity ${heatmapSource === 'peak' ? 'opacity-30 pointer-events-none' : ''}`}>
+                <div className={`flex items-center gap-1.5 transition-opacity ${heatmapSource === 'peak' ? 'opacity-30' : ''}`}>
                   {/* Condition toggle: New | Used */}
                   <div className="flex rounded overflow-hidden border border-gray-700 text-[10px] font-medium shrink-0">
                     {(['new', 'used'] as const).map(c => (
