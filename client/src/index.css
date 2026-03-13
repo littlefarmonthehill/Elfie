@@ -240,16 +240,16 @@
   }
 
   html {
-    /* Prevent iOS text size adjustment in standalone PWA mode */
     -webkit-text-size-adjust: 100%;
     -moz-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    overscroll-behavior-y: none;
   }
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    /* Prevent iOS text size adjustment */
     -webkit-text-size-adjust: 100%;
+    overscroll-behavior-y: none;
   }
 }
 
