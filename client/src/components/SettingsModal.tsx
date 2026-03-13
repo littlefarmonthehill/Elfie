@@ -4,7 +4,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { DimensionWheel, ScoringWheel, type PricingInsight } from "@/components/PriceOMaticDashboard";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Activity, Flag, Power, Zap, Globe, ToggleLeft, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Activity, Flag, Power, Zap, Globe, ToggleLeft, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save, ClipboardPaste } from "lucide-react";
+import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
 import { Badge } from "@/components/ui/badge";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -646,6 +647,9 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const [bricklinkConsumerSecret, setBricklinkConsumerSecret] = useState("");
   const [bricklinkTokenValue, setBricklinkTokenValue] = useState("");
   const [bricklinkTokenSecret, setBricklinkTokenSecret] = useState("");
+  const [blPasteText, setBlPasteText] = useState("");
+  const [blPasteStatus, setBlPasteStatus] = useState<PasteStatus>("idle");
+  const [blParsedTokens, setBlParsedTokens] = useState<{ tokenValue: string; tokenSecret: string }[]>([]);
 
   // Platform Information
   const [platformNameInput, setPlatformNameInput] = useState("");
@@ -3592,6 +3596,67 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                       <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-blue-500/10 text-blue-400 border-blue-500/20">Read only</span>
                       <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0" /></TooltipTrigger><TooltipContent side="right" className="max-w-xs text-xs">BrickLink is the source of truth for inventory. Data flows one way — into this platform. Inventory is never written back to BrickLink.</TooltipContent></Tooltip>
                     </div>
+
+                    <div className="bg-blue-950/30 border border-blue-500/20 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5">
+                          <ClipboardPaste className="w-3.5 h-3.5 text-blue-400" />
+                          <span className="text-xs font-medium text-blue-300">Quick setup — paste from BrickLink</span>
+                        </div>
+                        <a href="https://www.bricklink.com/v2/api/register_consumer.page" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300" data-testid="link-bl-api-page-settings">
+                          Open BrickLink API page <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                      </div>
+                      <p className="text-[10px] text-gray-500 leading-relaxed">Sign in to BrickLink, open the API page above, select all the text on that page, copy it, and paste it here.</p>
+                      <Textarea
+                        placeholder="Paste the full page content here..."
+                        value={blPasteText}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setBlPasteText(val);
+                          if (!val.trim()) { setBlPasteStatus("idle"); return; }
+                          const parsed = parseBricklinkPaste(val);
+                          if (!parsed) { setBlPasteStatus("fail"); return; }
+                          if (parsed.consumerKey) setBricklinkConsumerKey(parsed.consumerKey);
+                          if (parsed.consumerSecret) setBricklinkConsumerSecret(parsed.consumerSecret);
+                          if (parsed.tokens.length === 1) {
+                            setBricklinkTokenValue(parsed.tokens[0].tokenValue);
+                            setBricklinkTokenSecret(parsed.tokens[0].tokenSecret);
+                            setBlParsedTokens([]);
+                          } else if (parsed.tokens.length > 1) {
+                            setBlParsedTokens(parsed.tokens);
+                          }
+                          setBlPasteStatus(getPasteStatus(parsed));
+                        }}
+                        className="text-xs min-h-[60px] max-h-[100px]"
+                        data-testid="textarea-bl-paste-settings"
+                      />
+                      {blPasteStatus === "success" && <p className="text-[10px] text-green-400">All 4 credentials extracted. Click into any field below and click away to save.</p>}
+                      {blPasteStatus === "partial" && <p className="text-[10px] text-yellow-400">Some credentials found but not all 4. Fill in the missing fields manually below.</p>}
+                      {blPasteStatus === "fail" && <p className="text-[10px] text-red-400">Could not find BrickLink credentials in the pasted text. Make sure you copied the full page.</p>}
+                      {blPasteStatus === "multi" && (
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] text-yellow-400">Multiple access tokens found — select which one to use:</p>
+                          {blParsedTokens.map((t, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => { setBricklinkTokenValue(t.tokenValue); setBricklinkTokenSecret(t.tokenSecret); setBlPasteStatus("success"); setBlParsedTokens([]); }}
+                              className={`w-full text-left px-2.5 py-1.5 rounded text-[10px] border transition-colors ${bricklinkTokenValue === t.tokenValue ? "bg-blue-600/20 border-blue-500/40 text-blue-300" : "bg-gray-800/50 border-gray-700/50 text-gray-400 hover:bg-gray-700/40"}`}
+                              data-testid={`button-bl-token-settings-${i}`}
+                            >
+                              Token {i + 1}: {t.tokenValue.slice(0, 8)}...{t.tokenValue.slice(-4)}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-700/50" /></div>
+                      <div className="relative flex justify-center"><span className="bg-card px-2 text-[10px] text-gray-600">or enter manually</span></div>
+                    </div>
+
                     <div className="space-y-2"><Label htmlFor="bricklink-key" className="text-xs text-gray-200">Consumer Key</Label><Input id="bricklink-key" placeholder={(settings as any)?.has_bricklinkConsumerKey ? "Key saved — leave blank to keep" : "Enter BrickLink Consumer Key"} className="text-xs" value={bricklinkConsumerKey} onChange={(e) => setBricklinkConsumerKey(e.target.value)} onBlur={() => { if (bricklinkConsumerKey || bricklinkConsumerSecret || bricklinkTokenValue || bricklinkTokenSecret) updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || undefined, bricklinkConsumerSecret: bricklinkConsumerSecret || undefined, bricklinkTokenValue: bricklinkTokenValue || undefined, bricklinkTokenSecret: bricklinkTokenSecret || undefined }); }} data-testid="input-bricklink-key" /></div>
                     <div className="space-y-2"><Label htmlFor="bricklink-secret" className="text-xs text-gray-200">Consumer Secret</Label><Input id="bricklink-secret" type="password" placeholder={(settings as any)?.has_bricklinkConsumerSecret ? "Key saved — leave blank to keep" : "Enter BrickLink Consumer Secret"} className="text-xs" value={bricklinkConsumerSecret} onChange={(e) => setBricklinkConsumerSecret(e.target.value)} onBlur={() => { if (bricklinkConsumerKey || bricklinkConsumerSecret || bricklinkTokenValue || bricklinkTokenSecret) updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || undefined, bricklinkConsumerSecret: bricklinkConsumerSecret || undefined, bricklinkTokenValue: bricklinkTokenValue || undefined, bricklinkTokenSecret: bricklinkTokenSecret || undefined }); }} data-testid="input-bricklink-secret" /></div>
                     <div className="space-y-2"><Label htmlFor="bricklink-token" className="text-xs text-gray-200">Token Value</Label><Input id="bricklink-token" placeholder={(settings as any)?.has_bricklinkTokenValue ? "Key saved — leave blank to keep" : "Enter BrickLink Token Value"} className="text-xs" value={bricklinkTokenValue} onChange={(e) => setBricklinkTokenValue(e.target.value)} onBlur={() => { if (bricklinkConsumerKey || bricklinkConsumerSecret || bricklinkTokenValue || bricklinkTokenSecret) updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || undefined, bricklinkConsumerSecret: bricklinkConsumerSecret || undefined, bricklinkTokenValue: bricklinkTokenValue || undefined, bricklinkTokenSecret: bricklinkTokenSecret || undefined }); }} data-testid="input-bricklink-token" /></div>

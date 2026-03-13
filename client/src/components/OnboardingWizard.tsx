@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, ArrowRight, Building2, Link, CreditCard, Sparkles, Smartphone, Share2, PlusSquare } from "lucide-react";
+import { CheckCircle2, ArrowRight, Building2, Link, CreditCard, Sparkles, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink } from "lucide-react";
+import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
 import type { Organization } from "@shared/schema";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 
@@ -35,6 +36,9 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
   const [blSecret, setBlSecret] = useState("");
   const [blToken, setBlToken] = useState("");
   const [blTokenSecret, setBlTokenSecret] = useState("");
+  const [blPasteText, setBlPasteText] = useState("");
+  const [blPasteStatus, setBlPasteStatus] = useState<PasteStatus>("idle");
+  const [blParsedTokens, setBlParsedTokens] = useState<{ tokenValue: string; tokenSecret: string }[]>([]);
 
   // Step 3 — Payments
   const [paypalClientId, setPaypalClientId] = useState("");
@@ -209,7 +213,68 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                 <h2 className="text-lg font-semibold text-white mb-1">Connect BrickLink</h2>
                 <p className="text-sm text-gray-400">BrickLink is your inventory source of truth. Data flows one way — into this platform. You can skip this and add credentials later in Settings.</p>
               </div>
+
               <div className="space-y-3">
+                <div className="bg-blue-950/30 border border-blue-500/20 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <ClipboardPaste className="w-3.5 h-3.5 text-blue-400" />
+                      <span className="text-xs font-medium text-blue-300">Quick setup — paste from BrickLink</span>
+                    </div>
+                    <a href="https://www.bricklink.com/v2/api/register_consumer.page" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300" data-testid="link-bl-api-page">
+                      Open BrickLink API page <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  </div>
+                  <p className="text-[10px] text-gray-500 leading-relaxed">Sign in to BrickLink, open the API page above, select all the text on that page, copy it, and paste it here. We'll extract your credentials automatically.</p>
+                  <Textarea
+                    placeholder="Paste the full page content here..."
+                    value={blPasteText}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setBlPasteText(val);
+                      if (!val.trim()) { setBlPasteStatus("idle"); return; }
+                      const parsed = parseBricklinkPaste(val);
+                      if (!parsed) { setBlPasteStatus("fail"); return; }
+                      if (parsed.consumerKey) setBlKey(parsed.consumerKey);
+                      if (parsed.consumerSecret) setBlSecret(parsed.consumerSecret);
+                      if (parsed.tokens.length === 1) {
+                        setBlToken(parsed.tokens[0].tokenValue);
+                        setBlTokenSecret(parsed.tokens[0].tokenSecret);
+                        setBlParsedTokens([]);
+                      } else if (parsed.tokens.length > 1) {
+                        setBlParsedTokens(parsed.tokens);
+                      }
+                      setBlPasteStatus(getPasteStatus(parsed));
+                    }}
+                    className="bg-gray-800 border-gray-700 text-white text-xs min-h-[60px] max-h-[100px]"
+                    data-testid="textarea-bl-paste"
+                  />
+                  {blPasteStatus === "success" && <p className="text-[10px] text-green-400">All 4 credentials extracted successfully.</p>}
+                  {blPasteStatus === "partial" && <p className="text-[10px] text-yellow-400">Some credentials found but not all 4. You can fill in the missing fields manually below.</p>}
+                  {blPasteStatus === "fail" && <p className="text-[10px] text-red-400">Could not find BrickLink credentials in the pasted text. Make sure you copied the full page.</p>}
+                  {blPasteStatus === "multi" && (
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] text-yellow-400">Multiple access tokens found — select which one to use:</p>
+                      {blParsedTokens.map((t, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => { setBlToken(t.tokenValue); setBlTokenSecret(t.tokenSecret); setBlPasteStatus("success"); setBlParsedTokens([]); }}
+                          className={`w-full text-left px-2.5 py-1.5 rounded text-[10px] border transition-colors ${blToken === t.tokenValue ? "bg-blue-600/20 border-blue-500/40 text-blue-300" : "bg-gray-800/50 border-gray-700/50 text-gray-400 hover:bg-gray-700/40"}`}
+                          data-testid={`button-bl-token-${i}`}
+                        >
+                          Token {i + 1}: {t.tokenValue.slice(0, 8)}...{t.tokenValue.slice(-4)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-700/50" /></div>
+                  <div className="relative flex justify-center"><span className="bg-gray-900 px-2 text-[10px] text-gray-600">or enter manually</span></div>
+                </div>
+
                 <div className="space-y-1.5">
                   <Label className="text-xs text-gray-400">Consumer Key</Label>
                   <Input value={blKey} onChange={(e) => setBlKey(e.target.value)} placeholder="Consumer Key" className="bg-gray-800 border-gray-700 text-white text-sm" data-testid="input-onboard-bl-key" />
