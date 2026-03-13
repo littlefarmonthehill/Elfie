@@ -1190,7 +1190,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [heatmapPopupCropIndex, setHeatmapPopupCropIndex] = useState<number | null>(null);
   // Heatmap price toggles — defaults overridden by saved user preferences once loaded
   const [heatmapCondition, setHeatmapCondition] = useState<'new' | 'used'>('new');
-  const [heatmapSource, setHeatmapSource] = useState<'sold' | 'listed'>('sold');
+  const [heatmapSource, setHeatmapSource] = useState<'peak' | 'sold' | 'listed'>('peak');
   const [heatmapMetric, setHeatmapMetric] = useState<'max' | 'avg'>('max');
   const heatmapPrefsInitialized = useRef(false);
   const heatmapSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1204,7 +1204,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
     if (!authUser || heatmapPrefsInitialized.current) return;
     heatmapPrefsInitialized.current = true;
     if (authUser.heatmapCondition === 'new' || authUser.heatmapCondition === 'used') setHeatmapCondition(authUser.heatmapCondition);
-    if (authUser.heatmapSource === 'sold' || authUser.heatmapSource === 'listed') setHeatmapSource(authUser.heatmapSource);
+    if (authUser.heatmapSource === 'peak' || authUser.heatmapSource === 'sold' || authUser.heatmapSource === 'listed') setHeatmapSource(authUser.heatmapSource);
     if (authUser.heatmapMetric === 'max' || authUser.heatmapMetric === 'avg') setHeatmapMetric(authUser.heatmapMetric);
   }, [authUser]);
 
@@ -2194,32 +2194,34 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       </button>
                     ))}
                   </div>
-                  {/* Source toggle: Sold | Listed */}
+                  {/* Source toggle: Peak | Sold | Listed */}
                   <div className="flex rounded overflow-hidden border border-gray-700 text-[10px] font-medium shrink-0">
-                    {(['sold', 'listed'] as const).map(s => (
+                    {(['peak', 'sold', 'listed'] as const).map(s => (
                       <button
                         key={s}
                         data-testid={`heatmap-source-${s}`}
                         onClick={() => setHeatmapSource(s)}
                         className={`px-2 py-0.5 transition-colors ${heatmapSource === s ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
                       >
-                        {s === 'sold' ? 'Sold' : 'Listed'}
+                        {s === 'peak' ? 'Peak' : s === 'sold' ? 'Sold' : 'Listed'}
                       </button>
                     ))}
                   </div>
-                  {/* Metric toggle: Max | Avg */}
-                  <div className="flex rounded overflow-hidden border border-gray-700 text-[10px] font-medium shrink-0">
-                    {(['max', 'avg'] as const).map(m => (
-                      <button
-                        key={m}
-                        data-testid={`heatmap-metric-${m}`}
-                        onClick={() => setHeatmapMetric(m)}
-                        className={`px-2 py-0.5 transition-colors ${heatmapMetric === m ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
-                      >
-                        {m === 'max' ? 'Max' : 'Avg'}
-                      </button>
-                    ))}
-                  </div>
+                  {/* Metric toggle: Max | Avg — hidden when Peak is selected */}
+                  {heatmapSource !== 'peak' && (
+                    <div className="flex rounded overflow-hidden border border-gray-700 text-[10px] font-medium shrink-0">
+                      {(['max', 'avg'] as const).map(m => (
+                        <button
+                          key={m}
+                          data-testid={`heatmap-metric-${m}`}
+                          onClick={() => setHeatmapMetric(m)}
+                          className={`px-2 py-0.5 transition-colors ${heatmapMetric === m ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
+                        >
+                          {m === 'max' ? 'Max' : 'Avg'}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               {/* Scan image */}
@@ -2262,6 +2264,13 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       return !dk || !dismissedItems.has(dk);
                     });
                     const heatVal = (r: ScanResult): number => {
+                      if (heatmapSource === 'peak') {
+                        if (heatmapCondition === 'new') {
+                          return Math.max(r.marketSoldMaxNew ?? 0, r.marketSoldAvgNew ?? 0, r.stockMaxPriceN ?? 0, r.stockAvgPriceN ?? 0);
+                        } else {
+                          return Math.max(r.marketSoldMaxUsed ?? 0, r.marketSoldAvgUsed ?? 0, r.stockMaxPriceU ?? 0, r.stockAvgPriceU ?? 0);
+                        }
+                      }
                       if (heatmapSource === 'listed') {
                         if (heatmapCondition === 'new') {
                           return heatmapMetric === 'max'
@@ -2274,21 +2283,13 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                         }
                       }
                       if (heatmapCondition === 'new') {
-                        const sold = heatmapMetric === 'max'
+                        return heatmapMetric === 'max'
                           ? (r.marketSoldMaxNew ?? 0)
                           : (r.marketSoldAvgNew ?? 0);
-                        if (sold > 0) return sold;
-                        return heatmapMetric === 'max'
-                          ? (r.stockMaxPriceN ?? r.stockAvgPriceN ?? 0)
-                          : (r.stockAvgPriceN ?? r.stockMaxPriceN ?? 0);
                       } else {
-                        const sold = heatmapMetric === 'max'
+                        return heatmapMetric === 'max'
                           ? (r.marketSoldMaxUsed ?? 0)
                           : (r.marketSoldAvgUsed ?? 0);
-                        if (sold > 0) return sold;
-                        return heatmapMetric === 'max'
-                          ? (r.stockMaxPriceU ?? r.stockAvgPriceU ?? 0)
-                          : (r.stockAvgPriceU ?? r.stockMaxPriceU ?? 0);
                       }
                     };
                     const allPrices = bboxResults.map(r => heatVal(r)).filter(p => p > 0);
@@ -2448,9 +2449,9 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                   </div>
                                   {/* Price rows — scrollable, updates with heatmap filter toggles */}
                                   {(() => {
-                                    // Which row and column the current filter points to
                                     const activeLabel =
-                                      heatmapSource === 'sold'
+                                      heatmapSource === 'peak' ? null
+                                      : heatmapSource === 'sold'
                                         ? (heatmapMetric === 'max' ? 'Sold Max' : 'Sold Avg')
                                         : (heatmapMetric === 'max' ? 'List Max' : 'List Avg');
                                     const activeCol = heatmapCondition; // 'new' | 'used'

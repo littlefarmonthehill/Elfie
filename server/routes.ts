@@ -1939,7 +1939,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { heatmapCondition, heatmapSource, heatmapMetric } = req.body;
       const update: Record<string, string> = {};
       if (heatmapCondition === 'new' || heatmapCondition === 'used') update.heatmapCondition = heatmapCondition;
-      if (heatmapSource === 'sold' || heatmapSource === 'listed') update.heatmapSource = heatmapSource;
+      if (heatmapSource === 'peak' || heatmapSource === 'sold' || heatmapSource === 'listed') update.heatmapSource = heatmapSource;
       if (heatmapMetric === 'max' || heatmapMetric === 'avg') update.heatmapMetric = heatmapMetric;
       if (Object.keys(update).length === 0) return res.json({ success: true });
       await db.update(users).set({ ...update, updatedAt: new Date() }).where(eq(users.id, userId));
