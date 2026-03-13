@@ -1292,17 +1292,32 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
     const now = Date.now();
     const isFresh = (ts: Date | null | undefined) => ts != null && (now - new Date(ts).getTime()) < FRESHNESS_MS;
 
+    // Check which cached entries are missing the Phase-19 qty fields so we can force re-fetch them
+    const cacheIdsWithQty = new Set<string>();
+    if (inventoryItems.length > 0) {
+      const qtyCheckResult = await db.execute(sql`
+        SELECT id FROM price_guide_cache
+        WHERE stock_quantity IS NOT NULL OR sold_quantity IS NOT NULL
+      `);
+      for (const row of qtyCheckResult.rows as any[]) {
+        cacheIdsWithQty.add(row.id);
+      }
+    }
+
     const filteredItems = inventoryItems
       .filter((item) => {
         if (!item.lastFetched) return true; // never fetched at all
+        // If cached entry exists but is missing qty fields, treat as stale
+        if (item.cacheId && !cacheIdsWithQty.has(item.cacheId)) return true;
         const soldFresh = isFresh(item.soldFetchedAt);
         const stockFresh = isFresh(item.stockFetchedAt);
         return !soldFresh || !stockFresh; // candidate if either guide is stale
       })
       .map((item) => ({
         ...item,
-        soldIsFresh: isFresh(item.soldFetchedAt),
-        stockIsFresh: isFresh(item.stockFetchedAt),
+        // If missing qty fields, both guides need re-fetch regardless of timestamp
+        soldIsFresh: item.cacheId && !cacheIdsWithQty.has(item.cacheId) ? false : isFresh(item.soldFetchedAt),
+        stockIsFresh: item.cacheId && !cacheIdsWithQty.has(item.cacheId) ? false : isFresh(item.stockFetchedAt),
       }));
 
     // Estimate API calls needed — items with one fresh guide need only 1 call, others need 2.
