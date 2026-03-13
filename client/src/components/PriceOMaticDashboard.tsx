@@ -446,6 +446,7 @@ function PricingGrid({ group, activeSort }: { group: GroupedInsight; activeSort:
 
 interface SugBreakdown {
   soldAvg: number; soldMax: number; stockMin: number;
+  soldQty: number; stockQty: number;
   velocity: number; scarcity: number;
   base: number; demandAdj: number; raw: number;
   cappedRaw: number; floor: number;
@@ -461,8 +462,10 @@ function calcSuggested(lot: PricingInsight | null, cfg: SugConfig = DEFAULT_SUG_
   const soldAvg = parseFloat(lot.soldAvgPrice || '0');
   const soldMax = parseFloat(lot.soldMaxPrice || '0');
   const stockMin = parseFloat(lot.stockMinPrice || '0');
-  const velocity = lot.demandVelocity ?? 0;
-  const scarcity = lot.marketScarcity ?? 0;
+  const soldQty = lot.soldQuantity ?? 0;
+  const stockQty = lot.stockQuantity ?? 0;
+  const velocity = (stockQty > 0) ? soldQty / stockQty : 0;
+  const scarcity = (stockQty > 0) ? 1 / stockQty : 0;
 
   if (soldAvg <= 0 && stockMin <= 0) return { suggested: null, premium: null, premiumScore: null, breakdown: null };
 
@@ -487,7 +490,7 @@ function calcSuggested(lot: PricingInsight | null, cfg: SugConfig = DEFAULT_SUG_
     premium = Math.max(suggested * premMult, floor);
   }
 
-  const breakdown: SugBreakdown = { soldAvg, soldMax, stockMin, velocity, scarcity, base, demandAdj, raw: cappedRaw, cappedRaw, floor, suggested, premiumScore, premMult, premium, cfg };
+  const breakdown: SugBreakdown = { soldAvg, soldMax, stockMin, soldQty, stockQty, velocity, scarcity, base, demandAdj, raw: cappedRaw, cappedRaw, floor, suggested, premiumScore, premMult, premium, cfg };
 
   return {
     suggested: Number(suggested.toFixed(2)),
@@ -520,7 +523,8 @@ function BreakdownPopover({ bd, label, children }: { bd: SugBreakdown; label: st
         </div>
         <div className="space-y-0.5 border-b border-gray-700/60 pb-1.5 mb-1.5">
           <p className="text-[8px] uppercase tracking-wider text-gray-500 mb-0.5">Adjustments</p>
-          {row(`Demand adj (vel ${bd.velocity.toFixed(2)} × ${bd.cfg.demandMult})`, `×${bd.demandAdj.toFixed(3)}`)}
+          {row(`Velocity (${bd.soldQty} sold / ${bd.stockQty} listed = ${bd.velocity.toFixed(2)})`, '')}
+          {row(`Demand adj (vel × ${bd.cfg.demandMult})`, `×${bd.demandAdj.toFixed(3)}`)}
           {row('Raw', f(bd.base * bd.demandAdj))}
           {bd.stockMin > 0 && row(`Comp cap (min × ${bd.cfg.compCap.toFixed(2)})`, f(bd.stockMin * bd.cfg.compCap))}
           {row(`Store premium`, `×${bd.cfg.storePremium.toFixed(2)}`)}
@@ -530,8 +534,8 @@ function BreakdownPopover({ bd, label, children }: { bd: SugBreakdown; label: st
         {bd.premMult != null && (
           <div className="space-y-0.5">
             <p className="text-[8px] uppercase tracking-wider text-amber-400/70 mb-0.5">Premium Opportunity</p>
-            {row(`Vel ${bd.velocity.toFixed(2)} × ${bd.cfg.premVelW}`, (bd.velocity * bd.cfg.premVelW).toFixed(3))}
-            {row(`Scarc ${bd.scarcity.toFixed(4)} × ${bd.cfg.premScarcW}`, (bd.scarcity * bd.cfg.premScarcW).toFixed(4))}
+            {row(`Vel ${bd.velocity.toFixed(2)} (${bd.soldQty}/${bd.stockQty}) × ${bd.cfg.premVelW}`, (bd.velocity * bd.cfg.premVelW).toFixed(3))}
+            {row(`Scarc ${bd.scarcity.toFixed(4)} (1/${bd.stockQty}) × ${bd.cfg.premScarcW}`, (bd.scarcity * bd.cfg.premScarcW).toFixed(4))}
             {row('Prem score', bd.premiumScore.toFixed(3))}
             {row(`Multiplier (1 + score × ${bd.cfg.premMult})`, `×${bd.premMult.toFixed(3)}`)}
             {bd.premium != null && row('= Premium', f(bd.premium), true)}
