@@ -402,7 +402,7 @@ export default function Home() {
               <Button size="icon" variant="ghost" onClick={closeActiveDrawer} data-testid="button-close-drawer"><X className="w-4 h-4" /></Button>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 pb-4">
+          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
             <PriceOMaticDashboard onItemClick={(type, id) => handleDashboardItemClick(type, id, 'pricing')} />
           </div>
         </div>
@@ -418,7 +418,7 @@ export default function Home() {
             </div>
             <Button size="icon" variant="ghost" onClick={closeActiveDrawer} data-testid="button-close-drawer"><X className="w-4 h-4" /></Button>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 pb-4">
+          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
             <WarehouseManagement onItemClick={handleDashboardItemClick} />
           </div>
         </div>
@@ -439,7 +439,7 @@ export default function Home() {
               <Button size="icon" variant="ghost" onClick={closeActiveDrawer} data-testid="button-close-drawer"><X className="w-4 h-4" /></Button>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 pb-4">
+          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
             <ListomaticPriority />
           </div>
         </div>
@@ -455,7 +455,7 @@ export default function Home() {
             </div>
             <Button size="icon" variant="ghost" onClick={closeActiveDrawer} data-testid="button-close-drawer"><X className="w-4 h-4" /></Button>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 pb-4">
+          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
             <BrickanalyzerTool />
           </div>
         </div>
@@ -476,7 +476,7 @@ export default function Home() {
               <Button size="icon" variant="ghost" onClick={closeActiveDrawer} data-testid="button-close-drawer"><X className="w-4 h-4" /></Button>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 pb-4">
+          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
             <FulfillmentTool />
           </div>
         </div>
@@ -497,7 +497,7 @@ export default function Home() {
               <Button size="icon" variant="ghost" onClick={closeActiveDrawer} data-testid="button-close-drawer"><X className="w-4 h-4" /></Button>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 pb-4">
+          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
             <ShippedOrdersTool
               dateRange={dateRange}
               onItemClick={(type, id) => {
