@@ -2275,7 +2275,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                     const heatVal = (r: ScanResult): number => {
                       if (heatmapSource === 'peak') {
                         return Math.max(
-                          r.ourPriceNew ?? 0, r.ourPriceUsed ?? 0,
                           r.marketSoldMaxNew ?? 0, r.marketSoldAvgNew ?? 0,
                           r.marketSoldMaxUsed ?? 0, r.marketSoldAvgUsed ?? 0,
                           r.stockMaxPriceN ?? 0, r.stockAvgPriceN ?? 0,

@@ -1752,57 +1752,34 @@ export async function fetchPriceOMagicData(
       console.warn(`[Price-o-Matic] History snapshot failed for ${itemType}/${itemNo} (non-fatal):`, histErr);
     }
 
-    // Store the official BrickLink catalog weight and dimensions in bl_inventory (not my_weight, which is user's own field)
+    // Store the official BrickLink catalog weight and dimensions in bl_catalog
     if (itemDetails?.weight || itemDetails?.dim_x || itemDetails?.dim_y || itemDetails?.dim_z) {
       try {
-        const inventoryQuery = colorId 
-          ? and(
-              eq(blInventory.itemNo, itemNo),
-              eq(blInventory.itemType, itemType),
-              eq(blInventory.colorId, colorId)
-            )
-          : and(
-              eq(blInventory.itemNo, itemNo),
-              eq(blInventory.itemType, itemType)
-            );
+        const catalogRow: Record<string, any> = {
+          itemNo,
+          itemType,
+          colorId: colorId ?? 0,
+        };
+        if (itemDetails.weight) catalogRow.blCatalogWeight = itemDetails.weight.toString();
+        if (itemDetails.dim_x) catalogRow.blDimensionX = itemDetails.dim_x.toString();
+        if (itemDetails.dim_y) catalogRow.blDimensionY = itemDetails.dim_y.toString();
+        if (itemDetails.dim_z) catalogRow.blDimensionZ = itemDetails.dim_z.toString();
+        catalogRow.updatedAt = new Date();
 
-        const catalogUpdates: Record<string, any> = {};
-        if (itemDetails.weight) catalogUpdates.blCatalogWeight = itemDetails.weight.toString();
-        if (itemDetails.dim_x) catalogUpdates.blDimensionX = itemDetails.dim_x.toString();
-        if (itemDetails.dim_y) catalogUpdates.blDimensionY = itemDetails.dim_y.toString();
-        if (itemDetails.dim_z) catalogUpdates.blDimensionZ = itemDetails.dim_z.toString();
-
-        if (Object.keys(catalogUpdates).length > 0) {
-          // Dual-write: update bl_inventory (legacy) and bl_catalog (new)
-          await db.update(blInventory).set(catalogUpdates).where(inventoryQuery);
-
-          const catalogRow: Record<string, any> = {
-            itemNo,
-            itemType,
-            colorId: colorId ?? 0,
-          };
-          if (itemDetails.weight) catalogRow.blCatalogWeight = itemDetails.weight.toString();
-          if (itemDetails.dim_x) catalogRow.blDimensionX = itemDetails.dim_x.toString();
-          if (itemDetails.dim_y) catalogRow.blDimensionY = itemDetails.dim_y.toString();
-          if (itemDetails.dim_z) catalogRow.blDimensionZ = itemDetails.dim_z.toString();
-          catalogRow.updatedAt = new Date();
-
-          await db.insert(blCatalog).values(catalogRow as any).onConflictDoUpdate({
-            target: [blCatalog.itemNo, blCatalog.itemType, blCatalog.colorId],
-            set: {
-              blCatalogWeight: sql`COALESCE(EXCLUDED.bl_catalog_weight, bl_catalog.bl_catalog_weight)`,
-              blDimensionX: sql`COALESCE(EXCLUDED.bl_dimension_x, bl_catalog.bl_dimension_x)`,
-              blDimensionY: sql`COALESCE(EXCLUDED.bl_dimension_y, bl_catalog.bl_dimension_y)`,
-              blDimensionZ: sql`COALESCE(EXCLUDED.bl_dimension_z, bl_catalog.bl_dimension_z)`,
-              updatedAt: sql`NOW()`,
-            },
-          });
-        }
+        await db.insert(blCatalog).values(catalogRow as any).onConflictDoUpdate({
+          target: [blCatalog.itemNo, blCatalog.itemType, blCatalog.colorId],
+          set: {
+            blCatalogWeight: sql`COALESCE(EXCLUDED.bl_catalog_weight, bl_catalog.bl_catalog_weight)`,
+            blDimensionX: sql`COALESCE(EXCLUDED.bl_dimension_x, bl_catalog.bl_dimension_x)`,
+            blDimensionY: sql`COALESCE(EXCLUDED.bl_dimension_y, bl_catalog.bl_dimension_y)`,
+            blDimensionZ: sql`COALESCE(EXCLUDED.bl_dimension_z, bl_catalog.bl_dimension_z)`,
+            updatedAt: sql`NOW()`,
+          },
+        });
 
         console.log(`[Price-o-Matic] Stored catalog data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}: ${itemDetails.weight}g, dims: ${itemDetails.dim_x}×${itemDetails.dim_y}×${itemDetails.dim_z}mm`);
       } catch (error) {
         console.error('[Price-o-Matic] Error storing catalog data:', error);
-        // Don't throw - this is a nice-to-have feature
       }
     }
 
