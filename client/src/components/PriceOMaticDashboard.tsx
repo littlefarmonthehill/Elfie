@@ -534,39 +534,32 @@ const DIMENSIONS = [
 ];
 
 function weightsToSugConfig(w: DimensionWeights, baseCfg: SugConfig): SugConfig {
-  const total = w.demand + w.rarity + w.headroom + w.competition;
-  if (total <= 0) return baseCfg;
-  const nd = w.demand / total;
-  const nr = w.rarity / total;
-  const nh = w.headroom / total;
-  const nc = w.competition / total;
+  const nd = (w.demand - 0.25) * 4;
+  const nr = (w.rarity - 0.25) * 4;
+  const nh = (w.headroom - 0.25) * 4;
+  const nc = (w.competition - 0.25) * 4;
 
-  const blendTotal = 1.0;
-  const avgShare = 0.2 + nc * 0.4 + nd * 0.1;
-  const minShare = 0.1 + nc * 0.5;
-  const maxShare = 0.1 + nh * 0.5 + nr * 0.1;
-  const blendSum = avgShare + minShare + maxShare;
+  if (Math.abs(nd) < 0.01 && Math.abs(nr) < 0.01 && Math.abs(nh) < 0.01 && Math.abs(nc) < 0.01) {
+    return baseCfg;
+  }
+
+  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+
+  const soldAvgW = clamp(baseCfg.soldAvgW + nd * 0.15 - nc * 0.1, 0.05, 0.9);
+  const stockMinW = clamp(baseCfg.stockMinW + nc * 0.2 - nr * 0.05, 0.05, 0.9);
+  const soldMaxW = clamp(baseCfg.soldMaxW + nr * 0.15 + nh * 0.1, 0.05, 0.9);
+  const blendSum = soldAvgW + stockMinW + soldMaxW;
 
   return {
     ...baseCfg,
-    soldAvgW: (avgShare / blendSum) * blendTotal,
-    stockMinW: (minShare / blendSum) * blendTotal,
-    soldMaxW: (maxShare / blendSum) * blendTotal,
-    demandMult: 0.02 + nd * 0.8,
-    compCap: 1.0 + nh * 0.6 + nd * 0.2,
-    floor: 0.80 + nc * 0.18,
-    storePremium: 1.0 + nh * 0.25 + nr * 0.05,
+    soldAvgW: soldAvgW / blendSum,
+    stockMinW: stockMinW / blendSum,
+    soldMaxW: soldMaxW / blendSum,
+    demandMult: clamp(baseCfg.demandMult + nd * 0.4, 0.01, 0.8),
+    compCap: clamp(baseCfg.compCap + nh * 0.3 + nd * 0.1, 1.0, 2.0),
+    floor: clamp(baseCfg.floor + nc * 0.1 - nd * 0.05, 0.5, 1.0),
+    storePremium: clamp(baseCfg.storePremium + nh * 0.15 + nr * 0.05, 1.0, 2.0),
   };
-}
-
-function sugConfigToWeights(cfg: SugConfig): DimensionWeights {
-  const demand = Math.max(0, (cfg.demandMult - 0.02) / 0.8);
-  const competition = Math.max(0, (cfg.floor - 0.80) / 0.18);
-  const headroom = Math.max(0, (cfg.compCap - 1.0) / 0.6);
-  const rarity = Math.max(0, ((cfg.storePremium - 1.0) - headroom * 0.25) / 0.05);
-
-  const total = demand + rarity + headroom + competition || 1;
-  return { demand: demand / total, rarity: Math.max(0, rarity) / total, headroom: headroom / total, competition: competition / total };
 }
 
 export function DimensionWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight | null; baseCfg: SugConfig; onSave: (cfg: SugConfig) => void }) {
@@ -577,12 +570,11 @@ export function DimensionWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight 
   const CENTER = R;
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [weights, setWeights] = useState<DimensionWeights>(() => sugConfigToWeights(baseCfg));
+  const [weights, setWeights] = useState<DimensionWeights>({ demand: 0.25, rarity: 0.25, headroom: 0.25, competition: 0.25 });
   const draggingRef = useRef(false);
   const [dragging, setDragging] = useState(false);
   const [handlePos, setHandlePos] = useState<{ x: number; y: number }>({ x: CENTER, y: CENTER });
   const [showDetail, setShowDetail] = useState(false);
-  const skipNextSyncRef = useRef(false);
 
   const updateFromPos = useCallback((x: number, y: number) => {
     const dx = x - CENTER;
@@ -611,26 +603,6 @@ export function DimensionWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight 
     }
     setWeights(newW);
   }, [CENTER, RING_R]);
-
-  useEffect(() => {
-    if (skipNextSyncRef.current) {
-      skipNextSyncRef.current = false;
-      return;
-    }
-    const w = sugConfigToWeights(baseCfg);
-    setWeights(w);
-    let bestDim = DIMENSIONS[0];
-    let bestVal = 0;
-    for (const d of DIMENSIONS) {
-      if (w[d.key] > bestVal) { bestVal = w[d.key]; bestDim = d; }
-    }
-    const deviation = bestVal - 0.25;
-    const dist = deviation * RING_R * 2;
-    setHandlePos({
-      x: CENTER + Math.cos(bestDim.angle) * dist,
-      y: CENTER + Math.sin(bestDim.angle) * dist,
-    });
-  }, [baseCfg, CENTER, RING_R]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -682,6 +654,7 @@ export function DimensionWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight 
     setDragging(false);
   };
 
+  const isAtCenter = Math.abs(handlePos.x - CENTER) < 2 && Math.abs(handlePos.y - CENTER) < 2;
   const liveCfg = weightsToSugConfig(weights, baseCfg);
   const liveCalc = lot ? calcSuggested(lot, liveCfg) : { suggested: null, breakdown: null };
   const bd = liveCalc.breakdown;
@@ -732,11 +705,15 @@ export function DimensionWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight 
         <text x={CENTER} y={CENTER - 7} textAnchor="middle" dominantBaseline="central" fill="#e2e8f0" fontSize={16} fontWeight={700}>
           {liveCalc.suggested != null ? `$${liveCalc.suggested.toFixed(2)}` : '—'}
         </text>
-        {liveCalc.breakdown && liveCalc.breakdown.storePremiumPct > 0 && (
+        {isAtCenter ? (
+          <text x={CENTER} y={CENTER + 8} textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize={8} fontWeight={500} opacity={0.7}>
+            current
+          </text>
+        ) : liveCalc.breakdown && liveCalc.breakdown.storePremiumPct > 0 ? (
           <text x={CENTER} y={CENTER + 8} textAnchor="middle" dominantBaseline="central" fill="#fbbf24" fontSize={9} fontWeight={500} opacity={0.8}>
             +{liveCalc.breakdown.storePremiumPct.toFixed(1)}% store prem
           </text>
-        )}
+        ) : null}
 
         <circle cx={handlePos.x} cy={handlePos.y} r={HANDLE_R + 8} fill="transparent" data-testid="wheel-handle-hitarea" />
         <circle
@@ -764,10 +741,15 @@ export function DimensionWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight 
         size="sm"
         variant="default"
         className="w-full bg-purple-600 hover:bg-purple-500 text-xs"
-        onClick={() => { skipNextSyncRef.current = true; onSave(liveCfg); }}
+        disabled={isAtCenter}
+        onClick={() => {
+          onSave(liveCfg);
+          setWeights({ demand: 0.25, rarity: 0.25, headroom: 0.25, competition: 0.25 });
+          setHandlePos({ x: CENTER, y: CENTER });
+        }}
         data-testid="button-apply-weights"
       >
-        Apply to All Items
+        {isAtCenter ? 'Drag to adjust' : 'Apply to All Items'}
       </Button>
 
       {bd && (
