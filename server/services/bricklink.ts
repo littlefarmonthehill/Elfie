@@ -1506,10 +1506,7 @@ export async function fetchPriceOMagicData(
       `);
       const r = fullRow.rows[0] as any;
       if (r) {
-        const hasSoldData = r.sold_avg_price != null || r.sold_min_price != null;
-        const hasStockData = r.stock_avg_price != null || r.stock_min_price != null;
-        const missingQtyFields = (hasSoldData && r.sold_quantity == null)
-                              || (hasStockData && r.stock_quantity == null);
+        const missingQtyFields = r.stock_quantity == null && r.sold_quantity == null;
         if (missingQtyFields) {
           console.log(`[Price-o-Matic] Cached entry for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}/${newOrUsed} missing qty fields — forcing re-fetch`);
         } else {
