@@ -936,6 +936,8 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/settings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/insights'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
     },
   });
 
