@@ -391,7 +391,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             </div>
 
             {/* List */}
-            <div className="flex-1 overflow-y-auto px-4 min-h-0">
+            <div className="flex-1 overflow-y-auto px-4 pt-2 min-h-0">
               {browseLoading ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />

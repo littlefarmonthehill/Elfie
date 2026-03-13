@@ -799,7 +799,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
                 <X className="w-4 h-4" />
               </Button>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-3">
+            <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-3">
               <div className="bg-black/20 rounded-lg p-3">
                 {!compareMode ? (
                   <>
@@ -1108,7 +1108,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
                 <X className="w-4 h-4" />
               </Button>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 pb-4">
+            <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
               <PlatformPerformance
                 orders={filteredOrders}
                 onPlatformClick={(platform) => {

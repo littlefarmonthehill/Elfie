@@ -261,7 +261,7 @@ function CustomerListPanel({
           {isLoading ? 'Loading…' : `${filtered.length} of ${customers.length} customer${customers.length !== 1 ? 's' : ''}${searchQuery ? ' match' : ''}`}
         </p>
       </div>
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="flex-1 overflow-y-auto min-h-0 pt-2">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-current border-t-transparent opacity-40" style={{ color: 'inherit' }} />
@@ -372,7 +372,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
                 <X className="w-4 h-4" />
               </Button>
             </div>
-            <div className="flex flex-col items-center justify-center flex-1 px-4 pb-8 gap-4 text-center">
+            <div className="flex flex-col items-center justify-center flex-1 px-4 pt-4 pb-8 gap-4 text-center">
               <div className="w-16 h-16 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
                 <Megaphone className="w-7 h-7 text-indigo-400" />
               </div>
