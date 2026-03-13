@@ -15,6 +15,7 @@ import {
   Rocket,
   Satellite,
   Info,
+  X,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
@@ -806,12 +807,22 @@ function BreakdownPopover({ bd, label, children, lot, baseCfg, onSaveWeights }: 
   baseCfg: SugConfig;
   onSaveWeights: (cfg: SugConfig) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const handleSave = useCallback((cfg: SugConfig) => {
+    onSaveWeights(cfg);
+    setOpen(false);
+  }, [onSaveWeights]);
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-72 bg-slate-900 border-slate-700 text-gray-300 p-3 z-50" onClick={(e) => e.stopPropagation()}>
-        <p className="font-bold text-purple-300 mb-2 text-xs">{label}</p>
-        <DimensionWheel lot={lot} baseCfg={baseCfg} onSave={onSaveWeights} />
+        <div className="flex items-center justify-between mb-2">
+          <p className="font-bold text-purple-300 text-xs">{label}</p>
+          <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-gray-300 transition-colors" data-testid="button-close-breakdown">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <DimensionWheel lot={lot} baseCfg={baseCfg} onSave={handleSave} />
       </PopoverContent>
     </Popover>
   );
