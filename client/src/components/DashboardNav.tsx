@@ -86,8 +86,8 @@ export default function DashboardNav({ active, onSelect, hideOpsCentral, onHidde
         onTouchEnd={handleTouchEnd}
         data-testid="bottom-nav"
       >
-        <div className="flex justify-center pt-1.5 pb-0.5">
-          <div className="w-8 h-[3px] rounded-full bg-white/15" />
+        <div className="flex justify-center pt-2 pb-1">
+          <div className="w-10 h-1 rounded-full bg-white/30" />
         </div>
 
         <div
