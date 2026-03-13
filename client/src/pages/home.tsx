@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Package, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut, ArrowLeft, RotateCw, AlertCircle, Mail, Sparkles, Warehouse, ListChecks, ScanSearch, Truck, PackageCheck, SlidersHorizontal, Info } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminScaling } from "@/hooks/useAdminScaling";
@@ -64,6 +65,7 @@ export default function Home() {
   const [elfieClosing, setElfieClosing] = useState(false);
   const [elfieResting, setElfieResting] = useState(false);
   const [elfieThinking, setElfieThinking] = useState(false);
+  const [navHidden, setNavHidden] = useState(false);
   useEffect(() => {
     const check = () => {
       const nowDesktop = window.innerWidth >= 1024;
@@ -925,17 +927,11 @@ export default function Home() {
         />
       )}
       
-      {/* Dashboard Nav */}
-      <div className="sticky top-14 md:top-20 lg:top-24 z-40 bg-gradient-to-r from-purple-950/40 via-blue-950/30 to-purple-950/40 backdrop-blur-sm">
-        <DashboardNav active={activeDashboard} onSelect={(d) => { closeActiveDrawer(); setActiveDashboard(d); }} hideOpsCentral={isDesktop} />
-      </div>
-
-      
       {/* Dashboard area */}
       <div className="flex-1 overflow-hidden bg-[#04080F]">
         {/* MOBILE layout (< lg): single column, same as before */}
         <div className="lg:hidden h-full overflow-y-auto">
-          <div className="h-full p-2 md:p-4">
+          <div className={cn("h-full p-2 md:p-4 transition-[padding] duration-300", !navHidden && "pb-20 md:pb-24")}>
             <div className={`h-full rounded-lg border overflow-hidden ${
               activeDashboard === 'dashboard' ? 'border-lego-red/30 bg-gradient-to-br from-lego-red/15 via-gray-950/80 to-lego-red/5' :
               activeDashboard === 'inventory' ? 'border-lego-blue/30 bg-gradient-to-br from-lego-blue/15 via-gray-950/80 to-lego-blue/5' :
@@ -1186,6 +1182,16 @@ export default function Home() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Bottom Nav — mobile/tablet only */}
+      <div className="lg:hidden">
+        <DashboardNav
+          active={activeDashboard}
+          onSelect={(d) => { closeActiveDrawer(); setActiveDashboard(d); }}
+          hideOpsCentral={isDesktop}
+          onHiddenChange={setNavHidden}
+        />
+      </div>
     </div>
   );
 }
