@@ -2523,7 +2523,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   grp.entries.some(e => e.cropIndex === focusedDetailCropIndex)
                 );
                 if (!focusedGroup) return (
-                  <div className="fixed inset-0 z-[999] bg-gray-950 flex flex-col" data-testid="heatmap-detail-overlay">
+                  <div className="fixed inset-0 z-[999] bg-gray-950 flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }} data-testid="heatmap-detail-overlay">
                     <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700 shrink-0">
                       <span className="text-xs text-gray-400">Unidentified piece</span>
                       <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setFocusedDetailCropIndex(null)} data-testid="button-close-detail-overlay"><X className="w-4 h-4" /></Button>
@@ -2584,7 +2584,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                 return (
                   <div
                     className="fixed inset-0 z-[999] flex flex-col"
-                    style={{ background: '#0c0c12' }}
+                    style={{ background: '#0c0c12', paddingTop: 'env(safe-area-inset-top, 0px)' }}
                     data-testid="heatmap-detail-overlay"
                   >
                     {/* ── Header bar ─────────────────────────────────────── */}
