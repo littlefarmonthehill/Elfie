@@ -1355,6 +1355,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   // ── Standard results state ────────────────────────────────────────────────
   const [expandedParts, setExpandedParts] = useState<Set<string>>(new Set());
   const [showCrops, setShowCrops] = useState(false);
+  const [resultsListExpanded, setResultsListExpanded] = useState(false);
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
   const [scanZoom, setScanZoom] = useState(1);
   const [scanPan, setScanPan] = useState({ x: 0, y: 0 });
@@ -3137,13 +3138,27 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
             </div>
           )}
 
-          {/* Results — grouped by part number, expandable */}
+          {/* Results — grouped by part number, collapsible list */}
           {groupedResults.length === 0 ? (
             <div className="text-center py-8 sm:py-16 text-gray-500 text-sm sm:text-2xl">
               No pieces could be identified. Try a clearer photo with better lighting.
             </div>
           ) : (
             <div className="space-y-1.5">
+              <button
+                className="w-full flex items-center justify-between gap-2 bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-2 hover-elevate"
+                onClick={() => setResultsListExpanded(v => !v)}
+                data-testid="button-results-list-toggle"
+              >
+                <span className="text-sm sm:text-lg font-medium text-gray-200">
+                  Results ({groupedResults.length} piece{groupedResults.length !== 1 ? "s" : ""})
+                </span>
+                {resultsListExpanded
+                  ? <ChevronUp className="w-4 h-4 text-gray-400" />
+                  : <ChevronDown className="w-4 h-4 text-gray-400" />
+                }
+              </button>
+              {!resultsListExpanded ? null : (<>
               {dismissedItems.size > 0 && (
                 <div className="text-[10px] sm:text-sm text-gray-500 px-1">
                   {dismissedItems.size} removed · {groupedResults.length - dismissedItems.size} showing
@@ -3767,6 +3782,27 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   </div>
                 );
               })}
+              <div className="flex gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => { setUiState("idle"); setScanId(null); }}
+                  data-testid="button-brickanalyzer-new-scan-bottom"
+                >
+                  New Scan
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 text-lego-red border-lego-red/40"
+                  onClick={() => dismissMutation.mutate()}
+                  disabled={dismissMutation.isPending}
+                  data-testid="button-brickanalyzer-dismiss-bottom"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                  Close &amp; Delete Results
+                </Button>
+              </div>
+              </>)}
             </div>
           )}
 
