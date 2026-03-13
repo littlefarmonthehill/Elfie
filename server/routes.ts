@@ -5314,14 +5314,35 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
   });
 
   // Get Sets Containing This Part in a Specific Color
-  // Returns sets that contain the part in the specified color
+  app.get("/api/inventory/:itemNo/:colorId/sets/count", isApproved, async (req, res) => {
+    try {
+      const { itemNo, colorId } = req.params;
+      const colorIdNum = parseInt(colorId);
+
+      const [result] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(setPartRelationships)
+        .where(
+          and(
+            eq(setPartRelationships.partNum, itemNo),
+            colorIdNum && colorIdNum > 0
+              ? eq(setPartRelationships.colorId, colorIdNum)
+              : sql`${setPartRelationships.colorId} IS NULL`
+          )
+        );
+
+      res.json({ total: result?.count ?? 0 });
+    } catch (error) {
+      console.error("Get sets count error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to get sets count" });
+    }
+  });
+
   app.get("/api/inventory/:itemNo/:colorId/sets", isApproved, async (req, res) => {
     try {
       const { itemNo, colorId } = req.params;
       const colorIdNum = parseInt(colorId);
-      const limit = parseInt(req.query.limit as string) || 100;
       
-      // Get color name for the requested color
       const colorInfo = colorIdNum && colorIdNum > 0
         ? await db
             .select({
@@ -5336,7 +5357,6 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       
       const requestedColor = colorInfo.length > 0 ? colorInfo[0] : null;
       
-      // Get sets containing this part in this specific color
       const rawData = await db
         .select({
           setNum: setPartRelationships.setNum,
@@ -5354,18 +5374,15 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         )
         .orderBy(setPartRelationships.setNum);
       
-      // Sort by set name alphabetically (case-insensitive)
       const sortedSets = rawData.sort((a, b) => {
         const nameA = (a.setName || a.setNum).toLowerCase();
         const nameB = (b.setName || b.setNum).toLowerCase();
         return nameA.localeCompare(nameB);
       });
       
-      // Apply limit
-      const sets = sortedSets.slice(0, limit);
-      
       res.json({ 
-        sets,
+        sets: sortedSets,
+        total: sortedSets.length,
         color: requestedColor ? {
           id: requestedColor.id,
           name: requestedColor.name,

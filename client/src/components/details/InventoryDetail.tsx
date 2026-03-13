@@ -1,4 +1,5 @@
-import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes } from "lucide-react";
+import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import PartImage from "@/components/PartImage";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -110,6 +111,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [dateRange, setDateRange] = useState<'all' | '1year' | '2years' | '3months' | '6months'>('all');
   const [setsDialogOpen, setSetsDialogOpen] = useState(false);
+  const [setsSearch, setSetsSearch] = useState('');
   const priceOMagic = data.priceOMagic;
 
   // Fetch current POM formula settings for live price computation
@@ -124,13 +126,18 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
     enabled: !data.loading && !!data.id,
   });
 
-  // Fetch sets containing this part in this color
+  const { data: setsCountData } = useQuery<{ total: number }>({
+    queryKey: [`/api/inventory/${data.itemNo}/${data.colorId || 0}/sets/count`],
+    enabled: !!data.itemNo,
+  });
+
   const { data: setsData, isLoading: loadingSets } = useQuery<{ 
     sets: Array<{ 
       setNum: string; 
       setName: string | null; 
       quantity: number;
     }>;
+    total: number;
     color: {
       id: number;
       name: string;
@@ -140,6 +147,14 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
     queryKey: [`/api/inventory/${data.itemNo}/${data.colorId || 0}/sets`],
     enabled: setsDialogOpen && !!data.itemNo,
   });
+
+  const setsTotal = setsData?.total ?? setsCountData?.total ?? null;
+
+  const filteredSets = setsData?.sets?.filter((set) => {
+    if (!setsSearch.trim()) return true;
+    const q = setsSearch.toLowerCase();
+    return set.setNum.toLowerCase().includes(q) || (set.setName || '').toLowerCase().includes(q);
+  }) ?? [];
 
   // Fetch analytics data
   useEffect(() => {
@@ -495,16 +510,41 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
               </div>
             )}
 
-            {/* Sets & Usage - Placeholder for future implementation */}
-            <div className="app-card-muted p-2.5">
-              <div className="flex items-center gap-1.5 mb-2">
-                <Layers className="h-3.5 w-3.5 text-purple-400" />
-                <p className="text-[10px] md:text-sm font-bold text-purple-400">APPEARS IN SETS</p>
+            {/* Appears in Sets */}
+            <button 
+              type="button"
+              className="app-card-muted p-2.5 cursor-pointer hover-elevate transition-colors w-full text-left"
+              onClick={() => setSetsDialogOpen(true)}
+              data-testid="button-appears-in-sets"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Boxes className="h-3.5 w-3.5 text-purple-400" />
+                  <p className="text-[10px] md:text-sm font-bold text-purple-400">APPEARS IN SETS</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {setsTotal !== null && (
+                    <Badge variant="secondary" className="text-[10px]" data-testid="badge-sets-count">
+                      {setsTotal} {setsTotal === 1 ? 'set' : 'sets'}
+                    </Badge>
+                  )}
+                  <ExternalLink className="h-3 w-3 text-gray-500" />
+                </div>
               </div>
-              <p className="text-[10px] md:text-sm text-gray-400 italic">
-                Set information will be available soon. This requires additional BrickLink API calls.
-              </p>
-            </div>
+              {setsTotal !== null && setsTotal > 0 && (
+                <p className="text-[10px] md:text-xs text-gray-400 mt-1.5">
+                  Tap to view all {setsTotal} sets containing this part
+                </p>
+              )}
+              {setsTotal !== null && setsTotal === 0 && (
+                <p className="text-[10px] md:text-xs text-gray-500 mt-1.5 italic">
+                  No sets found for this part in this color
+                </p>
+              )}
+              {setsTotal === null && (
+                <div className="h-3 bg-gray-800/50 rounded animate-pulse mt-1.5 w-32" />
+              )}
+            </button>
           </TabsContent>
 
           {/* Pricing Tab */}
@@ -1137,22 +1177,11 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          {/* View Sets Button */}
-          <Dialog open={setsDialogOpen} onOpenChange={setSetsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button 
-                size="sm"
-                variant="ghost"
-                className="h-6 px-2 text-[10px] md:text-sm font-bold text-lego-yellow hover:text-lego-yellow/80"
-                data-testid="button-view-sets"
-              >
-                <Boxes className="h-3.5 w-3.5 mr-1" />
-                SETS
-              </Button>
-            </DialogTrigger>
+          {/* Sets Dialog */}
+          <Dialog open={setsDialogOpen} onOpenChange={(open) => { setSetsDialogOpen(open); if (!open) setSetsSearch(''); }}>
             <DialogContent className="max-w-3xl max-h-[80vh]" aria-describedby="sets-dialog-description">
               <DialogHeader>
-                <DialogTitle className="text-base font-bold text-white flex items-center gap-2">
+                <DialogTitle className="text-base font-bold text-white flex items-center flex-wrap gap-2">
                   <span>Sets Containing {data.itemNo}</span>
                   {setsData?.color && (
                     <span className="flex items-center gap-1.5 text-sm font-normal">
@@ -1166,9 +1195,26 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                       <span className="text-lego-blue">{setsData.color.name}</span>
                     </span>
                   )}
+                  {setsTotal !== null && (
+                    <Badge variant="secondary" className="text-[10px]">
+                      {setsTotal} {setsTotal === 1 ? 'set' : 'sets'}
+                    </Badge>
+                  )}
                 </DialogTitle>
               </DialogHeader>
-              <div id="sets-dialog-description" className="mt-3 overflow-y-auto max-h-[calc(80vh-120px)]">
+              {setsData && !loadingSets && setsData.sets.length > 5 && (
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
+                  <Input
+                    placeholder="Search by set number or name..."
+                    value={setsSearch}
+                    onChange={(e) => setSetsSearch(e.target.value)}
+                    className="pl-8 text-xs h-8 bg-gray-800/50 border-gray-700"
+                    data-testid="input-sets-search"
+                  />
+                </div>
+              )}
+              <div id="sets-dialog-description" className="overflow-y-auto max-h-[calc(80vh-160px)]">
                 {loadingSets && (
                   <div className="space-y-1">
                     {[1, 2, 3, 4, 5].map((i) => (
@@ -1176,9 +1222,14 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                     ))}
                   </div>
                 )}
-                {!loadingSets && setsData?.sets && setsData.sets.length > 0 && (
-                  <div className="space-y-2">
-                    {setsData.sets.map((set, index) => (
+                {!loadingSets && filteredSets.length > 0 && (
+                  <div className="space-y-0.5">
+                    {setsSearch.trim() && (
+                      <p className="text-[10px] text-gray-500 mb-1.5 px-1">
+                        {filteredSets.length} of {setsData!.total} sets match "{setsSearch.trim()}"
+                      </p>
+                    )}
+                    {filteredSets.map((set, index) => (
                       <div 
                         key={set.setNum}
                         className={`rounded px-3 py-2 ${
@@ -1212,6 +1263,13 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+                {!loadingSets && setsSearch.trim() && filteredSets.length === 0 && setsData && setsData.total > 0 && (
+                  <div className="text-center py-8">
+                    <Search className="h-8 w-8 text-gray-600 mx-auto mb-2" />
+                    <p className="text-sm text-gray-400">No sets match "{setsSearch.trim()}"</p>
+                    <p className="text-xs text-gray-500 mt-1">Try a different search term</p>
                   </div>
                 )}
                 {!loadingSets && setsData?.sets && setsData.sets.length === 0 && (
