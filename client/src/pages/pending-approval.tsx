@@ -87,10 +87,10 @@ export default function PendingApproval() {
                 {/* Status message */}
                 <div className="flex-1 space-y-0.5 md:space-y-1">
                   <p className="text-orange-300 font-semibold text-xs md:text-base">
-                    Almost there! 🚀
+                    Almost there!
                   </p>
                   <p className="text-gray-300 text-[10px] md:text-sm leading-relaxed">
-                    E.L.F.I.E. is standing by while an admin reviews your request.
+                    Your account is waiting for approval from your company admin.
                   </p>
                 </div>
               </div>
@@ -116,8 +116,7 @@ export default function PendingApproval() {
               {/* What's next info */}
               <div className="bg-gradient-to-r from-blue-950/50 via-indigo-950/50 to-purple-950/50 rounded-xl p-3 md:p-5 border border-blue-500/20">
                 <p className="text-xs md:text-sm text-gray-300 leading-relaxed">
-                  📧 A PlanetBrick admin will review and approve your access. 
-                  <span className="hidden md:inline"> Hang tight!</span>
+                  Once approved, you'll be able to access the dashboard and start working with your team. Check back soon!
                 </p>
               </div>
 

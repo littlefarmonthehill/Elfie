@@ -127,7 +127,7 @@ export default function Signup() {
         body.joinOrgId = selectedOrgId;
       }
       await apiRequest("POST", "/api/signup", body);
-      toast({ title: "Account Created!", description: mode === "employee" ? "You've joined the team. Your admin will assign your role." : "Welcome to PlanetBrick" });
+      toast({ title: "Account Created!", description: mode === "employee" ? "Your company admin will review and approve your access." : "Welcome to PlanetBrick" });
       window.location.href = "/";
     } catch (error: any) {
       toast({ title: "Signup Failed", description: error.message || "Failed to create account", variant: "destructive" });

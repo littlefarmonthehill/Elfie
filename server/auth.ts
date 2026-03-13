@@ -170,7 +170,7 @@ export async function setupAuth(app: Express) {
         }
         orgId = joinOrgId;
         orgRole = null;
-        userApproved = true;
+        userApproved = false;
       } else {
         const baseSlug = toSlug(firstName || email.split('@')[0] || 'store');
         const suffix = Math.floor(1000 + Math.random() * 9000);

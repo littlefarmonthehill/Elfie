@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAdminScaling } from "@/hooks/useAdminScaling";
 import { useAuth } from "@/hooks/useAuth";
 import OnboardingWizard from "@/components/OnboardingWizard";
+import EmployeeWelcome, { hasCompletedEmployeeWelcome } from "@/components/EmployeeWelcome";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Organization } from "@shared/schema";
 import Header from "@/components/Header";
@@ -52,6 +53,7 @@ export default function Home() {
     typeof window !== 'undefined' && window.innerWidth >= 1024 ? 'inventory' : 'dashboard'
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [employeeWelcomeDone, setEmployeeWelcomeDone] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'priceomatic' | null>(null);
   const [settingsPricingExample, setSettingsPricingExample] = useState<PricingInsight | undefined>(undefined);
   const [settingsScoringExample, setSettingsScoringExample] = useState<PricingInsight | undefined>(undefined);
@@ -1084,11 +1086,18 @@ export default function Home() {
         </SheetContent>
       </Sheet>
       
-      {/* Onboarding wizard — shown to org owners who haven't completed setup */}
       {!user?.isAdmin && user?.orgRole === 'owner' && org && !org.onboardingCompleted && (
         <OnboardingWizard
           org={org}
           onComplete={() => queryClient.invalidateQueries({ queryKey: ['/api/org'] })}
+        />
+      )}
+
+      {user && user.orgRole !== 'owner' && !user.isAdmin && org && !employeeWelcomeDone && !hasCompletedEmployeeWelcome(user.id) && (
+        <EmployeeWelcome
+          user={user}
+          orgName={org.name}
+          onComplete={() => setEmployeeWelcomeDone(true)}
         />
       )}
 
