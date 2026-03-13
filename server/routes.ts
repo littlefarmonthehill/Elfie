@@ -10375,6 +10375,12 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             floor: scoringSettings?.pomSugFloor ?? 0.95,
             storePremium: scoringSettings?.pomSugStorePremium ?? 1.10,
           },
+          scoreConfig: {
+            wCeiling: wCeiling,
+            wVelocity: wVelocity,
+            wScarcity: wScarcity,
+            wUndercut: wUndercut,
+          },
         },
       });
     } catch (error) {

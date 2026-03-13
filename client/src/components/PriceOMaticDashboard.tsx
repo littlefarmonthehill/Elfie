@@ -148,12 +148,26 @@ export const DEFAULT_SCORE_CONFIG: ScoreConfig = {
   wCeiling: 0.4, wVelocity: 0.3, wScarcity: 0.2, wUndercut: 0.1,
 };
 
-function calcScore(lot: PricingInsight, cfg: ScoreConfig): number {
+export function calcScore(lot: PricingInsight, cfg: ScoreConfig): number {
   const c = (lot.priceCeilingRatio ?? 0) * cfg.wCeiling;
   const v = (lot.demandVelocity ?? 0) * cfg.wVelocity;
   const s = (lot.marketScarcity ?? 0) * cfg.wScarcity;
   const u = (lot.undercutRatio && lot.undercutRatio > 0) ? (1 / lot.undercutRatio) * cfg.wUndercut : 0;
   return c + v + s + u;
+}
+
+export function calcScoreBreakdown(lot: PricingInsight, cfg: ScoreConfig) {
+  const cRaw = lot.priceCeilingRatio ?? 0;
+  const vRaw = lot.demandVelocity ?? 0;
+  const sRaw = lot.marketScarcity ?? 0;
+  const uRaw = (lot.undercutRatio && lot.undercutRatio > 0) ? 1 / lot.undercutRatio : 0;
+  return {
+    ceiling: { raw: cRaw, weight: cfg.wCeiling, weighted: cRaw * cfg.wCeiling },
+    velocity: { raw: vRaw, weight: cfg.wVelocity, weighted: vRaw * cfg.wVelocity },
+    scarcity: { raw: sRaw, weight: cfg.wScarcity, weighted: sRaw * cfg.wScarcity },
+    undercut: { raw: uRaw, weight: cfg.wUndercut, weighted: uRaw * cfg.wUndercut },
+    total: cRaw * cfg.wCeiling + vRaw * cfg.wVelocity + sRaw * cfg.wScarcity + uRaw * cfg.wUndercut,
+  };
 }
 
 interface InsightsData {
@@ -162,6 +176,7 @@ interface InsightsData {
     total: number;
   };
   sugConfig?: SugConfig;
+  scoreConfig?: ScoreConfig;
 }
 
 interface GroupedInsight {
@@ -729,6 +744,7 @@ export function DimensionWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight 
           );
         })}
 
+        <circle cx={CENTER} cy={CENTER} r={24} fill="rgba(15,23,42,0.85)" />
         <text x={CENTER} y={CENTER - 7} textAnchor="middle" dominantBaseline="central" fill="#e2e8f0" fontSize={16} fontWeight={700}>
           {liveCalc.suggested != null ? `$${liveCalc.suggested.toFixed(2)}` : '—'}
         </text>
@@ -890,6 +906,61 @@ function BreakdownPopover({ bd, label, children, onOpenSettings, lot }: {
 }
 
 
+function ScoreBreakdownPopover({ lot, cfg, children, onOpenSettings }: {
+  lot: PricingInsight;
+  cfg: ScoreConfig;
+  children: React.ReactNode;
+  onOpenSettings?: (lot: PricingInsight) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const bd = calcScoreBreakdown(lot, cfg);
+  const dims = [
+    { key: 'ceiling', label: 'Ceiling', color: '#60a5fa', raw: bd.ceiling.raw, weight: bd.ceiling.weight, weighted: bd.ceiling.weighted, suffix: '×' },
+    { key: 'velocity', label: 'Velocity', color: '#34d399', raw: bd.velocity.raw, weight: bd.velocity.weight, weighted: bd.velocity.weighted },
+    { key: 'scarcity', label: 'Scarcity', color: '#a78bfa', raw: bd.scarcity.raw, weight: bd.scarcity.weight, weighted: bd.scarcity.weighted },
+    { key: 'undercut', label: 'Undercut', color: '#fbbf24', raw: bd.undercut.raw, weight: bd.undercut.weight, weighted: bd.undercut.weighted, suffix: '×' },
+  ];
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent side="top" align="start" className="w-64 bg-slate-900 border-slate-700 text-gray-300 p-3 z-50" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-2">
+          <p className="font-bold text-purple-300 text-xs">Score Breakdown</p>
+          <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-gray-300 transition-colors" data-testid="button-close-score-breakdown">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <div className="text-[10px] leading-snug space-y-1">
+          {dims.map((d) => (
+            <div key={d.key} className="flex justify-between gap-2 text-gray-400">
+              <span style={{ color: d.color }}>{d.label} <span className="text-gray-600">({(d.weight * 100).toFixed(0)}%)</span></span>
+              <span className="font-mono">
+                <span className="text-gray-600">{d.raw.toFixed(2)}{d.suffix ?? ''}</span>
+                {' '}
+                <span className="text-gray-300">{d.weighted.toFixed(3)}</span>
+              </span>
+            </div>
+          ))}
+          <div className="flex justify-between gap-2 text-purple-300 font-semibold border-t border-gray-700/40 pt-1">
+            <span>= Combined</span>
+            <span className="font-mono">{bd.total.toFixed(3)}</span>
+          </div>
+          {onOpenSettings && (
+            <button
+              onClick={() => { setOpen(false); onOpenSettings(lot); }}
+              className="flex items-center gap-1 text-[10px] text-purple-400 hover:text-purple-300 transition-colors pt-1.5 border-t border-gray-700/40 w-full"
+              data-testid="button-tune-scoring-settings"
+            >
+              <Settings2 className="w-3 h-3" />
+              Tune scoring weights
+            </button>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 const SCORE_DIMENSIONS = [
   { key: 'ceiling' as const, label: 'Ceiling', color: '#60a5fa', angle: -Math.PI / 2, desc: 'Price upside potential' },
   { key: 'velocity' as const, label: 'Velocity', color: '#34d399', angle: 0, desc: 'Sales speed vs supply' },
@@ -1028,6 +1099,7 @@ export function ScoringWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight | 
           );
         })}
 
+        <circle cx={CENTER} cy={CENTER} r={24} fill="rgba(15,23,42,0.85)" />
         <text x={CENTER} y={CENTER - 7} textAnchor="middle" dominantBaseline="central" fill="#e2e8f0" fontSize={16} fontWeight={700}>
           {liveScore != null ? liveScore.toFixed(2) : '—'}
         </text>
@@ -1131,7 +1203,12 @@ const SORT_TO_SCORE_LABEL: Record<SortField, string> = {
   ceiling: 'Ceil', velocity: 'Vel', scarcity: 'Scarc', undercut: 'Undr', combined: 'Score',
 };
 
-function ScoresBar({ group, activeSort, onTapScore }: { group: GroupedInsight; activeSort: SortField; onTapScore?: (lot: PricingInsight) => void }) {
+function ScoresBar({ group, activeSort, scoreCfg, onOpenScoringSettings }: {
+  group: GroupedInsight;
+  activeSort: SortField;
+  scoreCfg: ScoreConfig;
+  onOpenScoringSettings?: (lot: PricingInsight) => void;
+}) {
   const items: Array<{ label: string; value: number | null; suffix?: string }> = [
     { label: 'Ceil', value: group.bestCeiling, suffix: '×' },
     { label: 'Vel', value: group.bestVelocity },
@@ -1142,12 +1219,10 @@ function ScoresBar({ group, activeSort, onTapScore }: { group: GroupedInsight; a
   const activeLabel = SORT_TO_SCORE_LABEL[activeSort];
   const bestLot = group.newLot ?? group.usedLot;
 
-  return (
+  const bar = (
     <div
-      className={`flex items-center gap-0.5 mt-1.5 ${onTapScore && bestLot ? 'cursor-pointer' : ''}`}
-      onClick={(e) => {
-        if (onTapScore && bestLot) { e.stopPropagation(); onTapScore(bestLot); }
-      }}
+      className={`flex items-center gap-0.5 mt-1.5 ${bestLot ? 'cursor-pointer' : ''}`}
+      onClick={(e) => e.stopPropagation()}
       data-testid={`scores-bar-${group.key}`}
     >
       {items.map(({ label, value, suffix }) => {
@@ -1162,6 +1237,14 @@ function ScoresBar({ group, activeSort, onTapScore }: { group: GroupedInsight; a
         );
       })}
     </div>
+  );
+
+  if (!bestLot) return bar;
+
+  return (
+    <ScoreBreakdownPopover lot={bestLot} cfg={scoreCfg} onOpenSettings={onOpenScoringSettings}>
+      {bar}
+    </ScoreBreakdownPopover>
   );
 }
 
@@ -1344,6 +1427,7 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
 
   const insightsData = insights?.data;
   const sugCfg: SugConfig = insightsData?.sugConfig ?? DEFAULT_SUG_CONFIG;
+  const scoreCfg: ScoreConfig = insightsData?.scoreConfig ?? DEFAULT_SCORE_CONFIG;
 
   const getGroupScoreValue = (g: GroupedInsight, field: SortField): number => {
     switch (field) {
@@ -1636,7 +1720,7 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
                       </div>
 
                       <PricingGrid group={group} activeSort={sortField} cfg={sugCfg} onOpenSettings={onOpenSettings ? (lot) => onOpenSettings('priceomatic', lot) : undefined} />
-                      <ScoresBar group={group} activeSort={sortField} onTapScore={onOpenSettings ? (lot) => onOpenSettings('priceomatic', undefined, lot) : undefined} />
+                      <ScoresBar group={group} activeSort={sortField} scoreCfg={scoreCfg} onOpenScoringSettings={onOpenSettings ? (lot) => onOpenSettings('priceomatic', undefined, lot) : undefined} />
                     </div>
                   </SwipeableTile>
                 );

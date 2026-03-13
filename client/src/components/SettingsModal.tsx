@@ -763,7 +763,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const [pomSugCompCap, setPomSugCompCap] = useState(1.15);
   const [pomSugFloor, setPomSugFloor] = useState(0.95);
   const [pomSugStorePremium, setPomSugStorePremium] = useState(1.10);
-  const [pomSugPricingOpen, setPomSugPricingOpen] = useState(!!pricingExample);
+  const [pomSugPricingOpen, setPomSugPricingOpen] = useState(true);
   const pricingWheelRef = useRef<HTMLDivElement>(null);
   const [pomVelocityHigh, setPomVelocityHigh] = useState(2.0);
   const [pomVelocityLow, setPomVelocityLow] = useState(0.3);
@@ -771,8 +771,10 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const [pomScarcityLow, setPomScarcityLow] = useState(0.005);
   const [pomUndercutHigh, setPomUndercutHigh] = useState(1.5);
   const [pomUndercutLow, setPomUndercutLow] = useState(0.8);
-  const [pomScoringOpen, setPomScoringOpen] = useState(!!scoringExample);
+  const [pomScoringOpen, setPomScoringOpen] = useState(true);
   const scoringWheelRef = useRef<HTMLDivElement>(null);
+  const [pomScoringAdvancedOpen, setPomScoringAdvancedOpen] = useState(false);
+  const [pomPricingAdvancedOpen, setPomPricingAdvancedOpen] = useState(false);
   const [pomBatchSize, setPomBatchSize] = useState(1500);
   const [blApiCallLimit, setBlApiCallLimit] = useState(4900);
   const [pomCostFloorPct, setPomCostFloorPct] = useState(0);
@@ -4351,69 +4353,77 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                         />
                       </div>
                       <div className="border-t border-gray-700/40">
-                        <div className="px-3 py-2 bg-gray-800/40 border-b border-gray-700/60">
+                        <button
+                          onClick={() => setPomScoringAdvancedOpen(!pomScoringAdvancedOpen)}
+                          className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-gray-800/40 border-b border-gray-700/60 hover:bg-gray-800/60 transition-colors"
+                          data-testid="button-pom-scoring-advanced-toggle"
+                        >
                           <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Advanced</span>
-                        </div>
+                          {pomScoringAdvancedOpen ? <ChevronDown className="w-3 h-3 text-gray-500" /> : <ChevronRight className="w-3 h-3 text-gray-500" />}
+                        </button>
+                        {pomScoringAdvancedOpen && (
+                          <div>
+                            <div className="px-3 pt-2 pb-1">
+                              <span className="text-[9px] font-semibold text-green-400 uppercase tracking-wider">Velocity thresholds</span>
+                            </div>
+                            <div className="divide-y divide-gray-700/30">
+                              <div className="sm-row px-3">
+                                <Label className="text-xs text-emerald-300">High demand</Label>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-400">velocity ≥</span>
+                                  <Input type="number" min={0} max={100} step={0.1} value={pomVelocityHigh} onChange={(e) => setPomVelocityHigh(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomVelocityHigh })} className="text-sm w-20 text-right" data-testid="input-pom-velocity-high" />
+                                </div>
+                              </div>
+                              <div className="sm-row px-3">
+                                <Label className="text-xs text-orange-300">Low demand</Label>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-400">velocity ≤</span>
+                                  <Input type="number" min={0} max={100} step={0.1} value={pomVelocityLow} onChange={(e) => setPomVelocityLow(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomVelocityLow })} className="text-sm w-20 text-right" data-testid="input-pom-velocity-low" />
+                                </div>
+                              </div>
+                            </div>
 
-                        <div className="px-3 pt-2 pb-1">
-                          <span className="text-[9px] font-semibold text-green-400 uppercase tracking-wider">Velocity thresholds</span>
-                        </div>
-                        <div className="divide-y divide-gray-700/30">
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-emerald-300">High demand</Label>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-400">velocity ≥</span>
-                              <Input type="number" min={0} max={100} step={0.1} value={pomVelocityHigh} onChange={(e) => setPomVelocityHigh(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomVelocityHigh })} className="text-sm w-20 text-right" data-testid="input-pom-velocity-high" />
+                            <div className="px-3 pt-2 pb-1">
+                              <span className="text-[9px] font-semibold text-purple-400 uppercase tracking-wider">Scarcity thresholds</span>
                             </div>
-                          </div>
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-orange-300">Low demand</Label>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-400">velocity ≤</span>
-                              <Input type="number" min={0} max={100} step={0.1} value={pomVelocityLow} onChange={(e) => setPomVelocityLow(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomVelocityLow })} className="text-sm w-20 text-right" data-testid="input-pom-velocity-low" />
+                            <div className="divide-y divide-gray-700/30">
+                              <div className="sm-row px-3">
+                                <Label className="text-xs text-emerald-300">Very scarce</Label>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-400">index ≥</span>
+                                  <Input type="number" min={0} max={1} step={0.005} value={pomScarcityHigh} onChange={(e) => setPomScarcityHigh(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityHigh })} className="text-sm w-20 text-right" data-testid="input-pom-scarcity-high" />
+                                </div>
+                              </div>
+                              <div className="sm-row px-3">
+                                <Label className="text-xs text-orange-300">Very common</Label>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-400">index ≤</span>
+                                  <Input type="number" min={0} max={1} step={0.001} value={pomScarcityLow} onChange={(e) => setPomScarcityLow(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityLow })} className="text-sm w-20 text-right" data-testid="input-pom-scarcity-low" />
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
 
-                        <div className="px-3 pt-2 pb-1">
-                          <span className="text-[9px] font-semibold text-purple-400 uppercase tracking-wider">Scarcity thresholds</span>
-                        </div>
-                        <div className="divide-y divide-gray-700/30">
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-emerald-300">Very scarce</Label>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-400">index ≥</span>
-                              <Input type="number" min={0} max={1} step={0.005} value={pomScarcityHigh} onChange={(e) => setPomScarcityHigh(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityHigh })} className="text-sm w-20 text-right" data-testid="input-pom-scarcity-high" />
+                            <div className="px-3 pt-2 pb-1">
+                              <span className="text-[9px] font-semibold text-amber-400 uppercase tracking-wider">Undercut thresholds</span>
+                            </div>
+                            <div className="divide-y divide-gray-700/30">
+                              <div className="sm-row px-3">
+                                <Label className="text-xs text-orange-300">Heavily undercut</Label>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-400">ratio ≥</span>
+                                  <Input type="number" min={0.1} max={10} step={0.1} value={pomUndercutHigh} onChange={(e) => setPomUndercutHigh(parseFloat(e.target.value) || 0.1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomUndercutHigh })} className="text-sm w-20 text-right" data-testid="input-pom-undercut-high" />
+                                </div>
+                              </div>
+                              <div className="sm-row px-3">
+                                <Label className="text-xs text-emerald-300">Cheapest seller</Label>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-400">ratio ≤</span>
+                                  <Input type="number" min={0.1} max={10} step={0.1} value={pomUndercutLow} onChange={(e) => setPomUndercutLow(parseFloat(e.target.value) || 0.1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomUndercutLow })} className="text-sm w-20 text-right" data-testid="input-pom-undercut-low" />
+                                </div>
+                              </div>
                             </div>
                           </div>
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-orange-300">Very common</Label>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-400">index ≤</span>
-                              <Input type="number" min={0} max={1} step={0.001} value={pomScarcityLow} onChange={(e) => setPomScarcityLow(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityLow })} className="text-sm w-20 text-right" data-testid="input-pom-scarcity-low" />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="px-3 pt-2 pb-1">
-                          <span className="text-[9px] font-semibold text-amber-400 uppercase tracking-wider">Undercut thresholds</span>
-                        </div>
-                        <div className="divide-y divide-gray-700/30">
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-orange-300">Heavily undercut</Label>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-400">ratio ≥</span>
-                              <Input type="number" min={0.1} max={10} step={0.1} value={pomUndercutHigh} onChange={(e) => setPomUndercutHigh(parseFloat(e.target.value) || 0.1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomUndercutHigh })} className="text-sm w-20 text-right" data-testid="input-pom-undercut-high" />
-                            </div>
-                          </div>
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-emerald-300">Cheapest seller</Label>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-400">ratio ≤</span>
-                              <Input type="number" min={0.1} max={10} step={0.1} value={pomUndercutLow} onChange={(e) => setPomUndercutLow(parseFloat(e.target.value) || 0.1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomUndercutLow })} className="text-sm w-20 text-right" data-testid="input-pom-undercut-low" />
-                            </div>
-                          </div>
-                        </div>
+                        )}
                       </div>
 
                     </div>
@@ -4549,67 +4559,75 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                           />
                         </div>
                         <div className="border-t border-gray-700/40">
-                          <div className="px-3 py-2 bg-gray-800/40 border-b border-gray-700/60">
+                          <button
+                            onClick={() => setPomPricingAdvancedOpen(!pomPricingAdvancedOpen)}
+                            className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-gray-800/40 border-b border-gray-700/60 hover:bg-gray-800/60 transition-colors"
+                            data-testid="button-pom-pricing-advanced-toggle"
+                          >
                             <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Advanced</span>
-                          </div>
+                            {pomPricingAdvancedOpen ? <ChevronDown className="w-3 h-3 text-gray-500" /> : <ChevronRight className="w-3 h-3 text-gray-500" />}
+                          </button>
+                          {pomPricingAdvancedOpen && (
+                            <div>
+                              <div className="px-3 pt-2 pb-1">
+                                <span className="text-[9px] font-semibold text-blue-400 uppercase tracking-wider">Demand</span>
+                              </div>
+                              <div className="divide-y divide-gray-700/30">
+                                <div className="sm-row px-3">
+                                  <Label className="text-xs text-gray-400">Velocity multiplier</Label>
+                                  <Input type="number" min={0} max={1} step={0.05} value={pomSugDemandMult} onChange={(e) => setPomSugDemandMult(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugDemandMult })} className="text-sm w-20 text-right" data-testid="input-sug-demand-mult" />
+                                </div>
+                                <div className="sm-row px-3">
+                                  <Label className="text-xs text-gray-400">Sold Avg weight</Label>
+                                  <Input type="number" min={0} max={1} step={0.05} value={pomSugSoldAvgW} onChange={(e) => setPomSugSoldAvgW(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugSoldAvgW })} className="text-sm w-20 text-right" data-testid="input-sug-sold-avg-w" />
+                                </div>
+                              </div>
 
-                          <div className="px-3 pt-2 pb-1">
-                            <span className="text-[9px] font-semibold text-blue-400 uppercase tracking-wider">Demand</span>
-                          </div>
-                          <div className="divide-y divide-gray-700/30">
-                            <div className="sm-row px-3">
-                              <Label className="text-xs text-gray-400">Velocity multiplier</Label>
-                              <Input type="number" min={0} max={1} step={0.05} value={pomSugDemandMult} onChange={(e) => setPomSugDemandMult(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugDemandMult })} className="text-sm w-20 text-right" data-testid="input-sug-demand-mult" />
-                            </div>
-                            <div className="sm-row px-3">
-                              <Label className="text-xs text-gray-400">Sold Avg weight</Label>
-                              <Input type="number" min={0} max={1} step={0.05} value={pomSugSoldAvgW} onChange={(e) => setPomSugSoldAvgW(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugSoldAvgW })} className="text-sm w-20 text-right" data-testid="input-sug-sold-avg-w" />
-                            </div>
-                          </div>
+                              <div className="px-3 pt-2 pb-1">
+                                <span className="text-[9px] font-semibold text-violet-400 uppercase tracking-wider">Rarity</span>
+                              </div>
+                              <div className="divide-y divide-gray-700/30">
+                                <div className="sm-row px-3">
+                                  <Label className="text-xs text-gray-400">Sold Max weight</Label>
+                                  <Input type="number" min={0} max={1} step={0.05} value={pomSugSoldMaxW} onChange={(e) => setPomSugSoldMaxW(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugSoldMaxW })} className="text-sm w-20 text-right" data-testid="input-sug-sold-max-w" />
+                                </div>
+                              </div>
 
-                          <div className="px-3 pt-2 pb-1">
-                            <span className="text-[9px] font-semibold text-violet-400 uppercase tracking-wider">Rarity</span>
-                          </div>
-                          <div className="divide-y divide-gray-700/30">
-                            <div className="sm-row px-3">
-                              <Label className="text-xs text-gray-400">Sold Max weight</Label>
-                              <Input type="number" min={0} max={1} step={0.05} value={pomSugSoldMaxW} onChange={(e) => setPomSugSoldMaxW(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugSoldMaxW })} className="text-sm w-20 text-right" data-testid="input-sug-sold-max-w" />
-                            </div>
-                          </div>
+                              <div className="px-3 pt-2 pb-1">
+                                <span className="text-[9px] font-semibold text-green-400 uppercase tracking-wider">Competition</span>
+                              </div>
+                              <div className="divide-y divide-gray-700/30">
+                                <div className="sm-row px-3">
+                                  <Label className="text-xs text-gray-400">Listed Min weight</Label>
+                                  <Input type="number" min={0} max={1} step={0.05} value={pomSugStockMinW} onChange={(e) => setPomSugStockMinW(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugStockMinW })} className="text-sm w-20 text-right" data-testid="input-sug-stock-min-w" />
+                                </div>
+                                <div className="sm-row px-3">
+                                  <Label className="text-xs text-gray-400">Cap (× listed min)</Label>
+                                  <Input type="number" min={1} max={2} step={0.05} value={pomSugCompCap} onChange={(e) => setPomSugCompCap(parseFloat(e.target.value) || 1)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugCompCap })} className="text-sm w-20 text-right" data-testid="input-sug-comp-cap" />
+                                </div>
+                                <div className="sm-row px-3">
+                                  <Label className="text-xs text-gray-400">Floor (× listed min)</Label>
+                                  <Input type="number" min={0.5} max={1} step={0.05} value={pomSugFloor} onChange={(e) => setPomSugFloor(parseFloat(e.target.value) || 0.5)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugFloor })} className="text-sm w-20 text-right" data-testid="input-sug-floor" />
+                                </div>
+                              </div>
 
-                          <div className="px-3 pt-2 pb-1">
-                            <span className="text-[9px] font-semibold text-green-400 uppercase tracking-wider">Competition</span>
-                          </div>
-                          <div className="divide-y divide-gray-700/30">
-                            <div className="sm-row px-3">
-                              <Label className="text-xs text-gray-400">Listed Min weight</Label>
-                              <Input type="number" min={0} max={1} step={0.05} value={pomSugStockMinW} onChange={(e) => setPomSugStockMinW(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugStockMinW })} className="text-sm w-20 text-right" data-testid="input-sug-stock-min-w" />
-                            </div>
-                            <div className="sm-row px-3">
-                              <Label className="text-xs text-gray-400">Cap (× listed min)</Label>
-                              <Input type="number" min={1} max={2} step={0.05} value={pomSugCompCap} onChange={(e) => setPomSugCompCap(parseFloat(e.target.value) || 1)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugCompCap })} className="text-sm w-20 text-right" data-testid="input-sug-comp-cap" />
-                            </div>
-                            <div className="sm-row px-3">
-                              <Label className="text-xs text-gray-400">Floor (× listed min)</Label>
-                              <Input type="number" min={0.5} max={1} step={0.05} value={pomSugFloor} onChange={(e) => setPomSugFloor(parseFloat(e.target.value) || 0.5)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugFloor })} className="text-sm w-20 text-right" data-testid="input-sug-floor" />
-                            </div>
-                          </div>
+                              <div className="px-3 pt-2 pb-1">
+                                <span className="text-[9px] font-semibold text-amber-400 uppercase tracking-wider">Store Premium</span>
+                              </div>
+                              <div className="divide-y divide-gray-700/30">
+                                <div className="sm-row px-3">
+                                  <Label className="text-xs text-gray-400">Multiplier</Label>
+                                  <Input type="number" min={1} max={2} step={0.01} value={pomSugStorePremium} onChange={(e) => setPomSugStorePremium(parseFloat(e.target.value) || 1)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugStorePremium })} className="text-sm w-20 text-right" data-testid="input-sug-store-premium" />
+                                </div>
+                              </div>
 
-                          <div className="px-3 pt-2 pb-1">
-                            <span className="text-[9px] font-semibold text-amber-400 uppercase tracking-wider">Store Premium</span>
-                          </div>
-                          <div className="divide-y divide-gray-700/30">
-                            <div className="sm-row px-3">
-                              <Label className="text-xs text-gray-400">Multiplier</Label>
-                              <Input type="number" min={1} max={2} step={0.01} value={pomSugStorePremium} onChange={(e) => setPomSugStorePremium(parseFloat(e.target.value) || 1)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugStorePremium })} className="text-sm w-20 text-right" data-testid="input-sug-store-premium" />
+                              <div className="px-3 py-1.5">
+                                <span className={`text-[10px] font-mono ${Math.abs(pomSugSoldAvgW + pomSugStockMinW + pomSugSoldMaxW - 1.0) < 0.01 ? 'text-green-400' : 'text-red-400'}`} data-testid="text-sug-blend-sum">
+                                  Blend sum: {(pomSugSoldAvgW + pomSugStockMinW + pomSugSoldMaxW).toFixed(2)} / 1.00
+                                </span>
+                              </div>
                             </div>
-                          </div>
-
-                          <div className="px-3 py-1.5">
-                            <span className={`text-[10px] font-mono ${Math.abs(pomSugSoldAvgW + pomSugStockMinW + pomSugSoldMaxW - 1.0) < 0.01 ? 'text-green-400' : 'text-red-400'}`} data-testid="text-sug-blend-sum">
-                              Blend sum: {(pomSugSoldAvgW + pomSugStockMinW + pomSugSoldMaxW).toFixed(2)} / 1.00
-                            </span>
-                          </div>
+                          )}
                         </div>
                       </div>
 
