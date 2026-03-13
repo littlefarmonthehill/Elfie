@@ -1,0 +1,29 @@
+Structure:
+It's a fixed <nav> bar pinned to the bottom of the screen. It has 5 nav tabs (Foyer, Studio, Sonderfolk, My Study, About) plus an Ambience toggle, laid out horizontally with flex justify-around. Each tab has a custom icon image above a small label.
+
+Hide/show — swipe-based:
+
+The bar tracks touch gestures using onTouchStart, onTouchMove, and onTouchEnd handlers
+It records the Y position at touch start and touch end, then calculates the swipe distance
+Swipe down (distance > 30px threshold): hides the bar by setting isHidden = true
+Swipe up (distance < -30px): shows it again
+The actual hide/show is done with a CSS transition-transform duration-300 — when hidden, it applies translate-y-full to slide the entire bar off the bottom of the screen. When visible, translate-y-0.
+It's a CSS transition, not a Framer Motion animation — keeps it simple and performant.
+When hidden — a small "pull tab" appears:
+
+A separate div renders when isHidden is true — a thin gold bar (10px wide, 1px tall) with the word "Menu" below it in tiny text
+This pull tab also has touch handlers — swiping up on it brings the nav back
+You can also just tap it to bring the nav back (onClick={() => setIsHidden(false)})
+"My Study" expands a secondary toolbar:
+
+One of the tabs ("My Study") doesn't navigate — it toggles a secondary toolbar that floats above the nav bar
+This toolbar uses Framer Motion AnimatePresence to animate in/out (slides up with opacity fade)
+It contains context-sensitive actions (Profile, Create, My Work, Settings, etc.) based on the user's role
+Tapping any other nav tab automatically closes this secondary toolbar
+Safe area handling:
+
+paddingBottom uses env(safe-area-inset-bottom) plus extra padding for tablets/desktop
+Uses a layout hook (useIsDesktop(), useIsMediumTablet()) to adjust sizing — larger icons and labels on bigger screens
+State callback:
+
+The nav reports its hidden state upward via onHiddenChange(hidden) so parent components can adjust layout (e.g., content area doesn't need bottom padding when nav is hidden)
