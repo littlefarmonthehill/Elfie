@@ -4448,6 +4448,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                             <div className="flex items-center gap-1.5">
                               <span className="text-[10px] text-gray-500">Preview:</span>
                               <span className="text-[10px] font-medium text-gray-300 truncate">{wheelExample.itemName || wheelExample.itemNo}</span>
+                              {wheelExample.itemName && <span className="text-[10px] text-gray-500 shrink-0">{wheelExample.itemNo}</span>}
                               {wheelExample.colorName && <span className="text-[10px] text-gray-500">({wheelExample.colorName})</span>}
                               <span className="text-[10px] text-gray-600">{wheelExample.newOrUsed === 'N' ? 'New' : 'Used'}</span>
                               {!pricingExample && (
