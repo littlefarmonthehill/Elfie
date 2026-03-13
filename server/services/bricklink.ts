@@ -1011,11 +1011,6 @@ export async function bricklinkCatalogRequest(endpoint: string, queryParams?: Re
   }
 }
 
-function sumPriceDetailQty(priceDetails: Array<{ quantity: string | number }> | undefined): number | null {
-  if (!priceDetails || priceDetails.length === 0) return null;
-  const total = priceDetails.reduce((sum, d) => sum + (parseInt(d.quantity.toString()) || 0), 0);
-  return total > 0 ? total : null;
-}
 
 
 
@@ -1613,7 +1608,7 @@ export async function fetchPriceOMagicData(
       stockQtyAvgPrice: skipStock ? (preservedStock.stockQtyAvgPrice ?? null) : (stockPriceData?.qty_avg_price ? stockPriceData.qty_avg_price.toString() : null),
       stockMinPrice: skipStock ? (preservedStock.stockMinPrice ?? null) : (stockPriceData?.min_price ? stockPriceData.min_price.toString() : null),
       stockMaxPrice: skipStock ? (preservedStock.stockMaxPrice ?? null) : (stockPriceData?.max_price ? stockPriceData.max_price.toString() : null),
-      stockQuantity: skipStock ? (preservedStock.stockQuantity ?? null) : (stockPriceData?.total_quantity != null ? parseInt(stockPriceData.total_quantity.toString()) : sumPriceDetailQty(stockPriceData?.price_detail)),
+      stockQuantity: skipStock ? (preservedStock.stockQuantity ?? null) : (stockPriceData?.total_quantity != null ? parseInt(stockPriceData.total_quantity.toString()) : null),
       stockTotalLots: skipStock ? (preservedStock.stockTotalLots ?? null) : (stockPriceData?.unit_quantity || null),
       
       // Sold price guide (preserved from cache when skipSold=true, fetched fresh otherwise)
@@ -1621,7 +1616,7 @@ export async function fetchPriceOMagicData(
       soldQtyAvgPrice: skipSold ? (preservedSold.soldQtyAvgPrice ?? null) : (soldPriceData?.qty_avg_price ? soldPriceData.qty_avg_price.toString() : null),
       soldMinPrice: skipSold ? (preservedSold.soldMinPrice ?? null) : (soldPriceData?.min_price ? soldPriceData.min_price.toString() : null),
       soldMaxPrice: skipSold ? (preservedSold.soldMaxPrice ?? null) : (soldPriceData?.max_price ? soldPriceData.max_price.toString() : null),
-      soldQuantity: skipSold ? (preservedSold.soldQuantity ?? null) : (soldPriceData?.total_quantity != null ? parseInt(soldPriceData.total_quantity.toString()) : sumPriceDetailQty(soldPriceData?.price_detail)),
+      soldQuantity: skipSold ? (preservedSold.soldQuantity ?? null) : (soldPriceData?.total_quantity != null ? parseInt(soldPriceData.total_quantity.toString()) : null),
       soldTotalLots: skipSold ? (preservedSold.soldTotalLots ?? null) : (soldPriceData?.unit_quantity || null),
 
       // Per-guide freshness timestamps
