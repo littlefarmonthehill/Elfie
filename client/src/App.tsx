@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -5,12 +6,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useServiceWorker } from "@/hooks/use-service-worker";
 import { useAuth } from "@/hooks/useAuth";
-import Home from "@/pages/home";
-import Signup from "@/pages/signup";
 import Landing from "@/pages/landing";
-import PendingApproval from "@/pages/pending-approval";
-import PlatformAdmin from "@/pages/platform-admin";
 import NotFound from "@/pages/not-found";
+
+const Home = lazy(() => import("@/pages/home"));
+const Signup = lazy(() => import("@/pages/signup"));
+const PendingApproval = lazy(() => import("@/pages/pending-approval"));
+const PlatformAdmin = lazy(() => import("@/pages/platform-admin"));
 
 function Router() {
   const { isAuthenticated, isApproved, isLoading, superAdmin } = useAuth();
@@ -60,6 +62,14 @@ function Router() {
   );
 }
 
+const LazyFallback = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-950 via-indigo-950 to-gray-950">
+    <div className="flex flex-col items-center gap-4">
+      <div className="h-12 w-12 animate-spin rounded-full border-4 border-purple-500 border-t-transparent" />
+    </div>
+  </div>
+);
+
 function App() {
   useServiceWorker();
 
@@ -67,7 +77,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <Router />
+        <Suspense fallback={<LazyFallback />}>
+          <Router />
+        </Suspense>
       </TooltipProvider>
     </QueryClientProvider>
   );
