@@ -1587,6 +1587,16 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
       setPomSugCompCap(settings.pomSugCompCap ?? 1.15);
       setPomSugFloor(settings.pomSugFloor ?? 0.95);
       setPomSugStorePremium(settings.pomSugStorePremium ?? 1.10);
+      setPomWeightCeiling(settings.pomWeightCeiling ?? 0.4);
+      setPomWeightVelocity(settings.pomWeightVelocity ?? 0.3);
+      setPomWeightScarcity(settings.pomWeightScarcity ?? 0.2);
+      setPomWeightUndercut(settings.pomWeightUndercut ?? 0.1);
+      setPomVelocityHigh(settings.pomVelocityHigh ?? 2.0);
+      setPomVelocityLow(settings.pomVelocityLow ?? 0.3);
+      setPomScarcityHigh(settings.pomScarcityHigh ?? 0.1);
+      setPomScarcityLow(settings.pomScarcityLow ?? 0.005);
+      setPomUndercutHigh(settings.pomUndercutHigh ?? 1.5);
+      setPomUndercutLow(settings.pomUndercutLow ?? 0.8);
 
       // Fetch models
       fetchModels();
@@ -1621,16 +1631,6 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
       setPomScarcityBonus3(platformSettings.pomScarcityBonus3 ?? 3);
       setPomUnderpricedScore(platformSettings.pomUnderpricedScore ?? 1.5);
       setPomOverpricedScore(platformSettings.pomOverpricedScore ?? 0.8);
-      setPomWeightCeiling(platformSettings.pomWeightCeiling ?? 0.4);
-      setPomWeightVelocity(platformSettings.pomWeightVelocity ?? 0.3);
-      setPomWeightScarcity(platformSettings.pomWeightScarcity ?? 0.2);
-      setPomWeightUndercut(platformSettings.pomWeightUndercut ?? 0.1);
-      setPomVelocityHigh(platformSettings.pomVelocityHigh ?? 2.0);
-      setPomVelocityLow(platformSettings.pomVelocityLow ?? 0.3);
-      setPomScarcityHigh(platformSettings.pomScarcityHigh ?? 0.1);
-      setPomScarcityLow(platformSettings.pomScarcityLow ?? 0.005);
-      setPomUndercutHigh(platformSettings.pomUndercutHigh ?? 1.5);
-      setPomUndercutLow(platformSettings.pomUndercutLow ?? 0.8);
       setPomBatchSize(platformSettings.pomBatchSize ?? 1500);
       setBlApiCallLimit(platformSettings.blApiCallLimit ?? 4900);
       setPomCostFloorPct(platformSettings.pomCostFloorPct ?? 0);
@@ -4343,7 +4343,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                             setPomWeightVelocity(cfg.wVelocity);
                             setPomWeightScarcity(cfg.wScarcity);
                             setPomWeightUndercut(cfg.wUndercut);
-                            updatePlatformSettingsMutation.mutate({
+                            updateOrgSettingsMutation.mutate({
                               pomWeightCeiling: Number(cfg.wCeiling.toFixed(3)),
                               pomWeightVelocity: Number(cfg.wVelocity.toFixed(3)),
                               pomWeightScarcity: Number(cfg.wScarcity.toFixed(3)),
@@ -4371,14 +4371,14 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                                 <Label className="text-xs text-emerald-300">High demand</Label>
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs text-gray-400">velocity ≥</span>
-                                  <Input type="number" min={0} max={100} step={0.1} value={pomVelocityHigh} onChange={(e) => setPomVelocityHigh(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomVelocityHigh })} className="text-sm w-20 text-right" data-testid="input-pom-velocity-high" />
+                                  <Input type="number" min={0} max={100} step={0.1} value={pomVelocityHigh} onChange={(e) => setPomVelocityHigh(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomVelocityHigh })} className="text-sm w-20 text-right" data-testid="input-pom-velocity-high" />
                                 </div>
                               </div>
                               <div className="sm-row px-3">
                                 <Label className="text-xs text-orange-300">Low demand</Label>
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs text-gray-400">velocity ≤</span>
-                                  <Input type="number" min={0} max={100} step={0.1} value={pomVelocityLow} onChange={(e) => setPomVelocityLow(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomVelocityLow })} className="text-sm w-20 text-right" data-testid="input-pom-velocity-low" />
+                                  <Input type="number" min={0} max={100} step={0.1} value={pomVelocityLow} onChange={(e) => setPomVelocityLow(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomVelocityLow })} className="text-sm w-20 text-right" data-testid="input-pom-velocity-low" />
                                 </div>
                               </div>
                             </div>
@@ -4391,14 +4391,14 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                                 <Label className="text-xs text-emerald-300">Very scarce</Label>
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs text-gray-400">index ≥</span>
-                                  <Input type="number" min={0} max={1} step={0.005} value={pomScarcityHigh} onChange={(e) => setPomScarcityHigh(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityHigh })} className="text-sm w-20 text-right" data-testid="input-pom-scarcity-high" />
+                                  <Input type="number" min={0} max={1} step={0.005} value={pomScarcityHigh} onChange={(e) => setPomScarcityHigh(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomScarcityHigh })} className="text-sm w-20 text-right" data-testid="input-pom-scarcity-high" />
                                 </div>
                               </div>
                               <div className="sm-row px-3">
                                 <Label className="text-xs text-orange-300">Very common</Label>
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs text-gray-400">index ≤</span>
-                                  <Input type="number" min={0} max={1} step={0.001} value={pomScarcityLow} onChange={(e) => setPomScarcityLow(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityLow })} className="text-sm w-20 text-right" data-testid="input-pom-scarcity-low" />
+                                  <Input type="number" min={0} max={1} step={0.001} value={pomScarcityLow} onChange={(e) => setPomScarcityLow(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomScarcityLow })} className="text-sm w-20 text-right" data-testid="input-pom-scarcity-low" />
                                 </div>
                               </div>
                             </div>
@@ -4411,14 +4411,14 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                                 <Label className="text-xs text-orange-300">Heavily undercut</Label>
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs text-gray-400">ratio ≥</span>
-                                  <Input type="number" min={0.1} max={10} step={0.1} value={pomUndercutHigh} onChange={(e) => setPomUndercutHigh(parseFloat(e.target.value) || 0.1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomUndercutHigh })} className="text-sm w-20 text-right" data-testid="input-pom-undercut-high" />
+                                  <Input type="number" min={0.1} max={10} step={0.1} value={pomUndercutHigh} onChange={(e) => setPomUndercutHigh(parseFloat(e.target.value) || 0.1)} onBlur={() => updateOrgSettingsMutation.mutate({ pomUndercutHigh })} className="text-sm w-20 text-right" data-testid="input-pom-undercut-high" />
                                 </div>
                               </div>
                               <div className="sm-row px-3">
                                 <Label className="text-xs text-emerald-300">Cheapest seller</Label>
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs text-gray-400">ratio ≤</span>
-                                  <Input type="number" min={0.1} max={10} step={0.1} value={pomUndercutLow} onChange={(e) => setPomUndercutLow(parseFloat(e.target.value) || 0.1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomUndercutLow })} className="text-sm w-20 text-right" data-testid="input-pom-undercut-low" />
+                                  <Input type="number" min={0.1} max={10} step={0.1} value={pomUndercutLow} onChange={(e) => setPomUndercutLow(parseFloat(e.target.value) || 0.1)} onBlur={() => updateOrgSettingsMutation.mutate({ pomUndercutLow })} className="text-sm w-20 text-right" data-testid="input-pom-undercut-low" />
                                 </div>
                               </div>
                             </div>

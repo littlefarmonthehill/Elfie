@@ -320,6 +320,38 @@ export async function runMigrations() {
         WHERE sold_fetched_at IS NULL OR stock_fetched_at IS NULL;
     `);
     console.log('[Migration] Phase-15 (per-guide freshness timestamps) complete.');
+
+    // ── Phase-16: Copy scoring weights/thresholds from platform row to org rows ──
+    // These settings were previously saved to the platform row but should be
+    // per-org. Copy them once so existing values aren't lost.
+    const platformRow = await client.query(`SELECT
+      pom_weight_ceiling, pom_weight_velocity, pom_weight_scarcity, pom_weight_undercut,
+      pom_velocity_high, pom_velocity_low, pom_scarcity_high, pom_scarcity_low,
+      pom_undercut_high, pom_undercut_low
+      FROM app_settings WHERE id = '__platform__' LIMIT 1`);
+    if (platformRow.rows.length > 0) {
+      const p = platformRow.rows[0];
+      const hasValues = p.pom_weight_ceiling != null || p.pom_velocity_high != null || p.pom_scarcity_high != null || p.pom_undercut_high != null;
+      if (hasValues) {
+        await client.query(`
+          UPDATE app_settings SET
+            pom_weight_ceiling  = COALESCE(pom_weight_ceiling,  $1),
+            pom_weight_velocity = COALESCE(pom_weight_velocity, $2),
+            pom_weight_scarcity = COALESCE(pom_weight_scarcity, $3),
+            pom_weight_undercut = COALESCE(pom_weight_undercut, $4),
+            pom_velocity_high   = COALESCE(pom_velocity_high,   $5),
+            pom_velocity_low    = COALESCE(pom_velocity_low,    $6),
+            pom_scarcity_high   = COALESCE(pom_scarcity_high,   $7),
+            pom_scarcity_low    = COALESCE(pom_scarcity_low,    $8),
+            pom_undercut_high   = COALESCE(pom_undercut_high,   $9),
+            pom_undercut_low    = COALESCE(pom_undercut_low,    $10)
+          WHERE id != '__platform__'
+        `, [p.pom_weight_ceiling, p.pom_weight_velocity, p.pom_weight_scarcity, p.pom_weight_undercut,
+            p.pom_velocity_high, p.pom_velocity_low, p.pom_scarcity_high, p.pom_scarcity_low,
+            p.pom_undercut_high, p.pom_undercut_low]);
+      }
+    }
+    console.log('[Migration] Phase-16 (scoring settings to org level) complete.');
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
