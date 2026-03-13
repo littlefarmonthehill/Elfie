@@ -7200,15 +7200,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       // Backfills stock AND sold prices so the heatmap always shows full catalog info
       let results = scan.results as any[] | null;
       if (Array.isArray(results)) {
+        const hasEmpty = (v: any) => v === undefined || v === null || v === 0;
         const needsHydration = results.filter(r =>
           r.partNo && (
-            r.stockAvgPriceN === undefined || r.stockAvgPriceU === undefined ||
-            r.stockMaxPriceN === undefined || r.stockMaxPriceN === null ||
-            r.stockMaxPriceU === undefined || r.stockMaxPriceU === null ||
-            r.marketSoldMaxNew === undefined || r.marketSoldMaxNew === null || r.marketSoldMaxNew === 0 ||
-            r.marketSoldMaxUsed === undefined || r.marketSoldMaxUsed === null || r.marketSoldMaxUsed === 0 ||
-            r.marketSoldAvgNew === undefined || r.marketSoldAvgNew === null ||
-            r.marketSoldAvgUsed === undefined || r.marketSoldAvgUsed === null
+            hasEmpty(r.stockAvgPriceN) || hasEmpty(r.stockAvgPriceU) ||
+            hasEmpty(r.stockMaxPriceN) || hasEmpty(r.stockMaxPriceU) ||
+            hasEmpty(r.marketSoldMaxNew) || hasEmpty(r.marketSoldMaxUsed) ||
+            hasEmpty(r.marketSoldAvgNew) || hasEmpty(r.marketSoldAvgUsed)
           )
         );
         if (needsHydration.length > 0) {
@@ -7245,14 +7243,15 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             const keyN = `${r.partNo.toUpperCase()}|${colorKey}|N`;
             const keyU = `${r.partNo.toUpperCase()}|${colorKey}|U`;
             const updated = { ...r };
-            if (r.stockAvgPriceN === undefined) updated.stockAvgPriceN = stockAvgMap.get(keyN) ?? null;
-            if (r.stockAvgPriceU === undefined) updated.stockAvgPriceU = stockAvgMap.get(keyU) ?? null;
-            if (r.stockMaxPriceN === undefined || r.stockMaxPriceN === null) updated.stockMaxPriceN = stockMaxMap.get(keyN) ?? null;
-            if (r.stockMaxPriceU === undefined || r.stockMaxPriceU === null) updated.stockMaxPriceU = stockMaxMap.get(keyU) ?? null;
-            if (!r.marketSoldMaxNew || r.marketSoldMaxNew === 0) updated.marketSoldMaxNew = soldMaxMap.get(keyN) ?? null;
-            if (!r.marketSoldMaxUsed || r.marketSoldMaxUsed === 0) updated.marketSoldMaxUsed = soldMaxMap.get(keyU) ?? null;
-            if (r.marketSoldAvgNew === undefined || r.marketSoldAvgNew === null) updated.marketSoldAvgNew = soldAvgMap.get(keyN) ?? null;
-            if (r.marketSoldAvgUsed === undefined || r.marketSoldAvgUsed === null) updated.marketSoldAvgUsed = soldAvgMap.get(keyU) ?? null;
+            const empty = (v: any) => v === undefined || v === null || v === 0;
+            if (empty(r.stockAvgPriceN)) updated.stockAvgPriceN = stockAvgMap.get(keyN) ?? r.stockAvgPriceN ?? null;
+            if (empty(r.stockAvgPriceU)) updated.stockAvgPriceU = stockAvgMap.get(keyU) ?? r.stockAvgPriceU ?? null;
+            if (empty(r.stockMaxPriceN)) updated.stockMaxPriceN = stockMaxMap.get(keyN) ?? r.stockMaxPriceN ?? null;
+            if (empty(r.stockMaxPriceU)) updated.stockMaxPriceU = stockMaxMap.get(keyU) ?? r.stockMaxPriceU ?? null;
+            if (empty(r.marketSoldMaxNew)) updated.marketSoldMaxNew = soldMaxMap.get(keyN) ?? r.marketSoldMaxNew ?? null;
+            if (empty(r.marketSoldMaxUsed)) updated.marketSoldMaxUsed = soldMaxMap.get(keyU) ?? r.marketSoldMaxUsed ?? null;
+            if (empty(r.marketSoldAvgNew)) updated.marketSoldAvgNew = soldAvgMap.get(keyN) ?? r.marketSoldAvgNew ?? null;
+            if (empty(r.marketSoldAvgUsed)) updated.marketSoldAvgUsed = soldAvgMap.get(keyU) ?? r.marketSoldAvgUsed ?? null;
             return updated;
           });
         }
