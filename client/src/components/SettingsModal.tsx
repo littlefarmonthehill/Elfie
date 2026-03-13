@@ -937,6 +937,22 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
     },
   });
 
+  const updateOrgSettingsMutation = useMutation({
+    mutationFn: async (data: Partial<AppSettings>) => {
+      const response = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) throw new Error('Failed to update settings');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/insights'] });
+    },
+  });
+
   const [showClearPomDialog, setShowClearPomDialog] = useState(false);
 
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly');
@@ -1488,6 +1504,13 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       setUniversalCatalogRefreshMonths(settings.universalCatalogRefreshMonths ?? 1);
       setUniversalCatalogRetryDays(settings.universalCatalogRetryDays ?? 30);
       setElfieMode((settings.elfieMode as 'search' | 'ai') ?? 'search');
+      setPomSugSoldAvgW(settings.pomSugSoldAvgW ?? 0.5);
+      setPomSugStockMinW(settings.pomSugStockMinW ?? 0.3);
+      setPomSugSoldMaxW(settings.pomSugSoldMaxW ?? 0.2);
+      setPomSugDemandMult(settings.pomSugDemandMult ?? 0.25);
+      setPomSugCompCap(settings.pomSugCompCap ?? 1.15);
+      setPomSugFloor(settings.pomSugFloor ?? 0.95);
+      setPomSugStorePremium(settings.pomSugStorePremium ?? 1.10);
 
       // Fetch models
       fetchModels();
@@ -1526,13 +1549,6 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       setPomWeightVelocity(platformSettings.pomWeightVelocity ?? 0.3);
       setPomWeightScarcity(platformSettings.pomWeightScarcity ?? 0.2);
       setPomWeightUndercut(platformSettings.pomWeightUndercut ?? 0.1);
-      setPomSugSoldAvgW(platformSettings.pomSugSoldAvgW ?? 0.5);
-      setPomSugStockMinW(platformSettings.pomSugStockMinW ?? 0.3);
-      setPomSugSoldMaxW(platformSettings.pomSugSoldMaxW ?? 0.2);
-      setPomSugDemandMult(platformSettings.pomSugDemandMult ?? 0.25);
-      setPomSugCompCap(platformSettings.pomSugCompCap ?? 1.15);
-      setPomSugFloor(platformSettings.pomSugFloor ?? 0.95);
-      setPomSugStorePremium(platformSettings.pomSugStorePremium ?? 1.10);
       setPomVelocityHigh(platformSettings.pomVelocityHigh ?? 2.0);
       setPomVelocityLow(platformSettings.pomVelocityLow ?? 0.3);
       setPomScarcityHigh(platformSettings.pomScarcityHigh ?? 0.1);
@@ -4388,15 +4404,15 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                         <div className="divide-y divide-gray-700/30">
                           <div className="sm-row px-3">
                             <Label className="text-xs text-gray-400">Sold Avg weight</Label>
-                            <Input type="number" min={0} max={1} step={0.05} value={pomSugSoldAvgW} onChange={(e) => setPomSugSoldAvgW(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugSoldAvgW })} className="text-sm w-20 text-right" data-testid="input-sug-sold-avg-w" />
+                            <Input type="number" min={0} max={1} step={0.05} value={pomSugSoldAvgW} onChange={(e) => setPomSugSoldAvgW(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugSoldAvgW })} className="text-sm w-20 text-right" data-testid="input-sug-sold-avg-w" />
                           </div>
                           <div className="sm-row px-3">
                             <Label className="text-xs text-gray-400">Listed Min weight</Label>
-                            <Input type="number" min={0} max={1} step={0.05} value={pomSugStockMinW} onChange={(e) => setPomSugStockMinW(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugStockMinW })} className="text-sm w-20 text-right" data-testid="input-sug-stock-min-w" />
+                            <Input type="number" min={0} max={1} step={0.05} value={pomSugStockMinW} onChange={(e) => setPomSugStockMinW(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugStockMinW })} className="text-sm w-20 text-right" data-testid="input-sug-stock-min-w" />
                           </div>
                           <div className="sm-row px-3">
                             <Label className="text-xs text-gray-400">Sold Max weight</Label>
-                            <Input type="number" min={0} max={1} step={0.05} value={pomSugSoldMaxW} onChange={(e) => setPomSugSoldMaxW(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugSoldMaxW })} className="text-sm w-20 text-right" data-testid="input-sug-sold-max-w" />
+                            <Input type="number" min={0} max={1} step={0.05} value={pomSugSoldMaxW} onChange={(e) => setPomSugSoldMaxW(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugSoldMaxW })} className="text-sm w-20 text-right" data-testid="input-sug-sold-max-w" />
                           </div>
                         </div>
                         <div className="px-3 py-1.5">
@@ -4408,24 +4424,36 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
 
                       <div className="sm-card-inset">
                         <div className="px-3 py-2 bg-gray-800/40 border-b border-gray-700/60">
-                          <span className="text-xs font-semibold text-purple-300 uppercase tracking-wider">Adjustments</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold text-purple-300 uppercase tracking-wider">Adjustments</span>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="sm-icon-btn" onClick={(e) => e.stopPropagation()}>
+                                  <Info className="w-3 h-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="sm-popover">
+                                These map to the dimension wheel on each tile. Demand controls velocity sensitivity, Competition sets the price floor and cap relative to market, and Store Premium adds your markup for deep stock and fast service.
+                              </PopoverContent>
+                            </Popover>
+                          </div>
                         </div>
                         <div className="divide-y divide-gray-700/30">
                           <div className="sm-row px-3">
-                            <Label className="text-xs text-gray-400">Demand velocity multiplier</Label>
-                            <Input type="number" min={0} max={1} step={0.05} value={pomSugDemandMult} onChange={(e) => setPomSugDemandMult(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugDemandMult })} className="text-sm w-20 text-right" data-testid="input-sug-demand-mult" />
+                            <Label className="text-xs text-blue-300">Demand — velocity multiplier</Label>
+                            <Input type="number" min={0} max={1} step={0.05} value={pomSugDemandMult} onChange={(e) => setPomSugDemandMult(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugDemandMult })} className="text-sm w-20 text-right" data-testid="input-sug-demand-mult" />
                           </div>
                           <div className="sm-row px-3">
-                            <Label className="text-xs text-gray-400">Competitive cap (× listed min)</Label>
-                            <Input type="number" min={1} max={2} step={0.05} value={pomSugCompCap} onChange={(e) => setPomSugCompCap(parseFloat(e.target.value) || 1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugCompCap })} className="text-sm w-20 text-right" data-testid="input-sug-comp-cap" />
+                            <Label className="text-xs text-green-300">Competition — cap (× listed min)</Label>
+                            <Input type="number" min={1} max={2} step={0.05} value={pomSugCompCap} onChange={(e) => setPomSugCompCap(parseFloat(e.target.value) || 1)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugCompCap })} className="text-sm w-20 text-right" data-testid="input-sug-comp-cap" />
                           </div>
                           <div className="sm-row px-3">
-                            <Label className="text-xs text-gray-400">Price floor (× listed min)</Label>
-                            <Input type="number" min={0.5} max={1} step={0.05} value={pomSugFloor} onChange={(e) => setPomSugFloor(parseFloat(e.target.value) || 0.5)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugFloor })} className="text-sm w-20 text-right" data-testid="input-sug-floor" />
+                            <Label className="text-xs text-green-300">Competition — floor (× listed min)</Label>
+                            <Input type="number" min={0.5} max={1} step={0.05} value={pomSugFloor} onChange={(e) => setPomSugFloor(parseFloat(e.target.value) || 0.5)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugFloor })} className="text-sm w-20 text-right" data-testid="input-sug-floor" />
                           </div>
                           <div className="sm-row px-3">
-                            <Label className="text-xs text-gray-400">Store premium multiplier</Label>
-                            <Input type="number" min={1} max={2} step={0.01} value={pomSugStorePremium} onChange={(e) => setPomSugStorePremium(parseFloat(e.target.value) || 1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugStorePremium })} className="text-sm w-20 text-right" data-testid="input-sug-store-premium" />
+                            <Label className="text-xs text-amber-300">Store Premium — multiplier</Label>
+                            <Input type="number" min={1} max={2} step={0.01} value={pomSugStorePremium} onChange={(e) => setPomSugStorePremium(parseFloat(e.target.value) || 1)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugStorePremium })} className="text-sm w-20 text-right" data-testid="input-sug-store-premium" />
                           </div>
                         </div>
                       </div>
