@@ -10297,16 +10297,16 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           ? Number((marketPeak / currentPrice).toFixed(3))
           : null;
 
-        // 2. Demand Velocity = soldTotalLots / stockTotalLots
-        const soldLots = parseInt(item.soldTotalLots || '0');
-        const stockLots = parseInt(item.stockTotalLots || '0');
-        const demandVelocity = (stockLots > 0)
-          ? Number((soldLots / stockLots).toFixed(3))
+        // 2. Demand Velocity = soldQuantity / stockQuantity
+        const soldQty = parseInt(item.soldQuantity || '0');
+        const stockQty = parseInt(item.stockQuantity || '0');
+        const demandVelocity = (stockQty > 0)
+          ? Number((soldQty / stockQty).toFixed(3))
           : null;
 
-        // 3. Market Scarcity Index = 1 / stockTotalLots
-        const marketScarcity = (stockLots > 0)
-          ? Number((1 / stockLots).toFixed(4))
+        // 3. Market Scarcity Index = 1 / stockQuantity
+        const marketScarcity = (stockQty > 0)
+          ? Number((1 / stockQty).toFixed(4))
           : null;
 
         // 4. Undercut Ratio = ourPrice / stockMinPrice
