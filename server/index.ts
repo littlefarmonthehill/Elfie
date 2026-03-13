@@ -220,41 +220,33 @@ app.use((req, res, next) => {
     }, () => {
       log(`serving on port ${port}`);
 
-      // Warm up the Python segmentation service immediately so it's ready
-      // before the first Brickanalyzer scan request arrives.
-      startSegmentService();
+      // Delay heavy background services so the server stays responsive
+      // during the critical first seconds when the Replit preview connects.
+      setTimeout(() => {
+        startSegmentService();
+        warmupClip();
+      }, 10_000);
 
-      // Pre-load CLIP ViT-B/32 so the first Brick Spotter scan doesn't
-      // pay the cold-start cost (downloads ~338MB weights once).
-      warmupClip();
-
-      // Start automatic inventory sync scheduler
-      startInventorySyncScheduler();
-
-      // Start standalone Price-o-Matic sync scheduler (independent of inventory sync)
-      startPomSyncScheduler();
-
-      // Start Catalog Detail Completion scheduler (categories, colors, item details)
-      startCatalogDetailScheduler();
-
-      // Start Inventory Catalog Scan scheduler (gap-finder — no API calls)
-      startCatalogScanScheduler();
-
-      // Start Channel Sync scheduler (Local DB → BrickOwl / other channels)
-      startChannelSyncScheduler();
-
-      // Start Order Sync scheduler (BrickLink + BrickOwl orders on a frequency interval)
-      startOrderSyncScheduler().catch(error => {
-        console.error('Failed to start order sync scheduler:', error);
-      });
-      
-      // Start Universal CLIP Catalog auto-refresh scheduler
-      startUniversalCatalogScheduler();
-
-      // Start Rebrickable set-parts sync scheduler (monthly refresh)
-      startRebrickableSetsScheduler().catch((err: any) => {
-        console.error('Failed to start Rebrickable sets scheduler:', err);
-      });
+      setTimeout(() => {
+        startInventorySyncScheduler();
+        startPomSyncScheduler();
+        startCatalogDetailScheduler();
+        startCatalogScanScheduler();
+        startChannelSyncScheduler();
+        startOrderSyncScheduler().catch(error => {
+          console.error('Failed to start order sync scheduler:', error);
+        });
+        startUniversalCatalogScheduler();
+        startRebrickableSetsScheduler().catch((err: any) => {
+          console.error('Failed to start Rebrickable sets scheduler:', err);
+        });
+        startForumSyncScheduler().catch(error => {
+          console.error('Failed to start forum sync scheduler:', error);
+        });
+        startEmbeddingWorker().catch(error => {
+          console.error('Failed to start embedding worker:', error);
+        });
+      }, 15_000);
 
       // Auto-resume Universal Catalog worker after restarts.
       // Delayed 90s so the CLIP model has time to load before the first embed request.
@@ -294,16 +286,6 @@ app.use((req, res, next) => {
         }
       }, 90_000); // 90s: CLIP model warm-up window
 
-      // Start BrickLink forum sync scheduler
-      startForumSyncScheduler().catch(error => {
-        console.error('Failed to start forum sync scheduler:', error);
-      });
-      
-      // Start background embedding worker (async — resets any orphaned 'processing' jobs first)
-      startEmbeddingWorker().catch(error => {
-        console.error('Failed to start embedding worker:', error);
-      });
-
       // Auto-resume CLIP visual catalog build if it was interrupted by a restart
       setTimeout(async () => {
         try {
@@ -337,7 +319,7 @@ app.use((req, res, next) => {
         } catch (e: any) {
           console.error('[CLIP Catalog] Auto-resume check failed (non-fatal):', e.message);
         }
-      }, 15000); // 15s delay: let segment service warm up first
+      }, 30000); // 30s delay: let segment service warm up first
 
       // Auto-resume inventory & orders vector enrichment if items remain unembedded
       setTimeout(async () => {
