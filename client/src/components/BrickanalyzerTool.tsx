@@ -335,7 +335,7 @@ function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
           { label: 'P25', sN: nData?.soldP25, sU: uData?.soldP25, hi: false },
           { label: 'P50', sN: nData?.soldP50, sU: uData?.soldP50, hi: false },
           { label: 'P75', sN: nData?.soldP75, sU: uData?.soldP75, hi: false },
-          { label: 'P85', sN: nData?.soldP85, sU: uData?.soldP85, hi: true },
+          { label: 'P85', sN: nData?.soldP85, sU: uData?.soldP85, hi: false },
           { label: 'P95', sN: nData?.soldP95, sU: uData?.soldP95, hi: false },
         ].filter(r => r.sN || r.sU);
 

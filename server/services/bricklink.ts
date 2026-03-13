@@ -1059,7 +1059,7 @@ function calculateSuggestedPrice(
   soldAvgPrice: number | null,
   premiumPercentage: number = 15
 ): number {
-  // Use 85th-percentile sold price as primary reference — fall back to stock avg if no sold data
+  // Use BL sold avg price as primary reference — fall back to stock avg if no sold data
   const basePrice = soldAvgPrice || stockAvgPrice || 0;
   
   if (basePrice === 0) {
@@ -1581,10 +1581,9 @@ export async function fetchPriceOMagicData(
       soldPriceData = data;
     }
 
-    // Parse raw market data from BrickLink API responses
+    // Parse raw market data from BrickLink API responses — use BL's official price guide values directly
     const stockAvgPrice = (stockPriceData?.avg_price && parseFloat(stockPriceData.avg_price) > 0) ? parseFloat(stockPriceData.avg_price) : null;
-    const soldP85Price = soldPriceData ? computeWeightedPercentile(soldPriceData?.price_detail, 85) : null;
-    const soldAvgPrice = soldP85Price ?? (soldPriceData?.avg_price ? parseFloat(soldPriceData.avg_price) : null);
+    const soldAvgPrice = soldPriceData?.avg_price ? parseFloat(soldPriceData.avg_price) : null;
 
     // When skipStock or skipSold is true, preserve existing data from cache so previous data isn't lost
     let preservedStock: { stockAvgPrice?: string | null; stockMinPrice?: string | null; stockMaxPrice?: string | null; stockQuantity?: number | null; stockTotalLots?: number | null } = {};

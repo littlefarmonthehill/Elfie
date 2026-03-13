@@ -783,7 +783,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                     { label: 'P25', value: priceOMagic.soldP25, note: 'lower quarter' },
                     { label: 'P50', value: priceOMagic.soldP50, note: 'median' },
                     { label: 'P75', value: priceOMagic.soldP75, note: 'upper quarter' },
-                    { label: 'P85', value: priceOMagic.soldP85, note: 'used as sold avg' },
+                    { label: 'P85', value: priceOMagic.soldP85, note: 'upper 85%' },
                     { label: 'P95', value: priceOMagic.soldP95, note: 'near premium' },
                   ].filter(r => r.value);
 
@@ -792,7 +792,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                     { label: 'P25', value: priceOMagic.stockP25, note: 'lower quarter' },
                     { label: 'P50', value: priceOMagic.stockP50, note: 'median' },
                     { label: 'P75', value: priceOMagic.stockP75, note: 'upper quarter' },
-                    { label: 'P85', value: priceOMagic.stockP85, note: 'used as stock avg' },
+                    { label: 'P85', value: priceOMagic.stockP85, note: 'upper 85%' },
                     { label: 'P95', value: priceOMagic.stockP95, note: 'near premium' },
                   ].filter(r => r.value);
 
@@ -899,20 +899,18 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                               const stockMin = stockPctRows.length > 0 ? parseFloat(stockPctRows[0].value!) : val;
                               const stockMax = stockPctRows.length > 0 ? parseFloat(stockPctRows[stockPctRows.length - 1].value!) : val;
                               const barPct = stockMax > stockMin ? Math.round(((val - stockMin) / (stockMax - stockMin)) * 100) : 50;
-                              const isHighlighted = row.label === 'P85';
                               return (
-                                <div key={row.label} className={`flex items-center gap-2 ${isHighlighted ? 'opacity-100' : 'opacity-70'}`}>
-                                  <span className={`text-[9px] font-mono w-6 shrink-0 ${isHighlighted ? 'text-blue-400 font-bold' : 'text-gray-500'}`}>{row.label}</span>
+                                <div key={row.label} className="flex items-center gap-2 opacity-70">
+                                  <span className="text-[9px] font-mono w-6 shrink-0 text-gray-500">{row.label}</span>
                                   <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
                                     <div
-                                      className={`h-full rounded-full ${isHighlighted ? 'bg-blue-400' : 'bg-gray-600'}`}
+                                      className="h-full rounded-full bg-gray-600"
                                       style={{ width: `${Math.max(barPct, 4)}%` }}
                                     />
                                   </div>
-                                  <span className={`text-[9px] font-mono w-14 text-right shrink-0 ${isHighlighted ? 'text-blue-300 font-bold' : 'text-gray-400'}`}>
+                                  <span className="text-[9px] font-mono w-14 text-right shrink-0 text-gray-400">
                                     ${val.toFixed(3)}
                                   </span>
-                                  {isHighlighted && <span className="text-[8px] text-blue-400/70 shrink-0">← avg</span>}
                                 </div>
                               );
                             })}
@@ -929,20 +927,18 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                             {soldPctRows.map(row => {
                               const val = parseFloat(row.value!);
                               const barPct = pctMax! > pctMin! ? Math.round(((val - pctMin!) / (pctMax! - pctMin!)) * 100) : 50;
-                              const isHighlighted = row.label === 'P85';
                               return (
-                                <div key={row.label} className={`flex items-center gap-2 ${isHighlighted ? 'opacity-100' : 'opacity-70'}`}>
-                                  <span className={`text-[9px] font-mono w-6 shrink-0 ${isHighlighted ? 'text-green-400 font-bold' : 'text-gray-500'}`}>{row.label}</span>
+                                <div key={row.label} className="flex items-center gap-2 opacity-70">
+                                  <span className="text-[9px] font-mono w-6 shrink-0 text-gray-500">{row.label}</span>
                                   <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
                                     <div
-                                      className={`h-full rounded-full ${isHighlighted ? 'bg-green-400' : 'bg-gray-600'}`}
+                                      className="h-full rounded-full bg-gray-600"
                                       style={{ width: `${Math.max(barPct, 4)}%` }}
                                     />
                                   </div>
-                                  <span className={`text-[9px] font-mono w-14 text-right shrink-0 ${isHighlighted ? 'text-green-300 font-bold' : 'text-gray-400'}`}>
+                                  <span className="text-[9px] font-mono w-14 text-right shrink-0 text-gray-400">
                                     ${val.toFixed(3)}
                                   </span>
-                                  {isHighlighted && <span className="text-[8px] text-green-400/70 shrink-0">← avg</span>}
                                 </div>
                               );
                             })}
