@@ -1483,8 +1483,57 @@ export async function fetchPriceOMagicData(
       )
       .limit(1);
     if (existingCache.length > 0) {
-      console.log(`[Price-o-Matic] Using ${forceRefresh ? 'recent (<5m)' : 'cached'} data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}/${newOrUsed}`);
-      return existingCache[0];
+      const fullRow = await db.execute(sql`
+        SELECT * FROM price_guide_cache
+        WHERE item_no = ${itemNo.toUpperCase()} AND item_type = ${itemType}
+          AND color_id = ${colorId ?? -1} AND new_or_used = ${newOrUsed}
+        LIMIT 1
+      `);
+      const r = fullRow.rows[0] as any;
+      if (r) {
+        const hasSoldData = r.sold_avg_price != null || r.sold_min_price != null;
+        const hasStockData = r.stock_avg_price != null || r.stock_min_price != null;
+        const missingQtyFields = (hasSoldData && r.sold_quantity == null)
+                              || (hasStockData && r.stock_quantity == null);
+        if (missingQtyFields) {
+          console.log(`[Price-o-Matic] Cached entry for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}/${newOrUsed} missing qty fields — forcing re-fetch`);
+        } else {
+          console.log(`[Price-o-Matic] Using ${forceRefresh ? 'recent (<5m)' : 'cached'} data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}/${newOrUsed}`);
+          return {
+            id: r.id,
+            itemNo: r.item_no,
+            itemType: r.item_type,
+            colorId: r.color_id,
+            newOrUsed: r.new_or_used,
+            itemName: r.item_name,
+            imageUrl: r.image_url,
+            thumbnailUrl: r.thumbnail_url,
+            categoryId: r.category_id,
+            weight: r.weight,
+            dimensionX: r.dimension_x,
+            dimensionY: r.dimension_y,
+            dimensionZ: r.dimension_z,
+            yearReleased: r.year_released,
+            stockAvgPrice: r.stock_avg_price,
+            stockQtyAvgPrice: r.stock_qty_avg_price,
+            stockMinPrice: r.stock_min_price,
+            stockMaxPrice: r.stock_max_price,
+            stockQuantity: r.stock_quantity,
+            stockTotalLots: r.stock_total_lots,
+            soldAvgPrice: r.sold_avg_price,
+            soldQtyAvgPrice: r.sold_qty_avg_price,
+            soldMinPrice: r.sold_min_price,
+            soldMaxPrice: r.sold_max_price,
+            soldQuantity: r.sold_quantity,
+            soldTotalLots: r.sold_total_lots,
+            suggestedPrice: r.suggested_price,
+            premiumPercentage: r.premium_percentage,
+            fetchedAt: r.fetched_at,
+            soldFetchedAt: r.sold_fetched_at,
+            stockFetchedAt: r.stock_fetched_at,
+          };
+        }
+      }
     }
 
     console.log(`[Price-o-Matic] Fetching fresh data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}/${newOrUsed}`);
