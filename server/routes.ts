@@ -350,7 +350,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const allOrgs = await storage.getAllOrganizations();
       const publicOrgs = allOrgs
-        .filter(o => o.isActive && o.id !== PLATFORM_ORG_ID && o.id !== '__platform__')
+        .filter(o => o.isActive && o.id !== PLATFORM_ORG_ID && o.id !== '__platform__' && o.id !== 'org_planetbrick')
         .map(o => ({ id: o.id, name: o.name }));
       res.json(publicOrgs);
     } catch (error) {
