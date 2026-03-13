@@ -392,30 +392,40 @@ type CellHL = { sN?: boolean; sU?: boolean; lN?: boolean; lU?: boolean };
 
 const HL_CELL = 'bg-violet-500/[0.18] ring-1 ring-inset ring-violet-400/40';
 
-function PricingGrid({ group, activeSort }: { group: GroupedInsight; activeSort: SortField }) {
+function PricingGrid({ group, activeSort, cfg }: { group: GroupedInsight; activeSort: SortField; cfg: SugConfig }) {
   const nLot = group.newLot;
   const uLot = group.usedLot;
 
   const hlMap: Record<string, CellHL> = {};
-  if (activeSort === 'ceiling')  { hlMap['Max'] = { sN: true, sU: true }; hlMap['Mine'] = { sN: true, sU: true }; }
+  if (activeSort === 'ceiling')  { hlMap['Max'] = { sN: true, sU: true }; hlMap['My Price'] = { sN: true, sU: true }; }
   if (activeSort === 'velocity') { hlMap['Qty'] = { sN: true, sU: true, lN: true, lU: true }; }
   if (activeSort === 'scarcity') { hlMap['Qty'] = { lN: true, lU: true }; }
-  if (activeSort === 'undercut') { hlMap['Min'] = { lN: true, lU: true }; hlMap['Mine'] = { sN: true, sU: true }; }
+  if (activeSort === 'undercut') { hlMap['Min'] = { lN: true, lU: true }; hlMap['My Price'] = { sN: true, sU: true }; }
 
-  const DataRow = ({ label, sN, sU, lN, lU, isMoney, bold, mine }: {
-    label: string; sN: any; sU: any; lN: any; lU: any; isMoney?: boolean; bold?: boolean; mine?: boolean;
+  const DataRow = ({ label, sN, sU, lN, lU, isMoney, bold, mine, suggested }: {
+    label: string; sN: any; sU: any; lN: any; lU: any; isMoney?: boolean; bold?: boolean; mine?: boolean; suggested?: boolean;
   }) => {
     const hl = hlMap[label];
+    const labelColor = suggested ? 'text-purple-400 font-semibold' : mine ? 'text-emerald-400 font-semibold' : bold ? 'text-gray-200 font-semibold' : 'text-gray-500';
+    const valColor = suggested ? 'text-purple-300 font-semibold' : mine ? 'text-emerald-300 font-semibold' : bold ? 'text-amber-300 font-semibold' : 'text-gray-200';
+    const blankCols = mine || suggested;
     return (
-      <div className={`${GR} border-b border-white/[0.04] ${bold ? 'bg-white/[0.03]' : ''}`}>
-        <div className={`px-2 py-1 text-[10px] ${mine ? 'text-emerald-400 font-semibold' : bold ? 'text-gray-200 font-semibold' : 'text-gray-500'}`}>{label}</div>
-        <div className={cell(`${mine ? 'text-emerald-300 font-semibold' : bold ? 'text-amber-300 font-semibold' : 'text-gray-200'} ${hl?.sN ? HL_CELL : ''}`)}>{isMoney ? fmt(sN) : fmtInt(sN)}</div>
-        <div className={cell(`${mine ? 'text-emerald-300 font-semibold' : bold ? 'text-amber-300 font-semibold' : 'text-gray-200'} ${hl?.sU ? HL_CELL : ''}`)}>{isMoney ? fmt(sU) : fmtInt(sU)}</div>
-        <div className={cell(`${mine ? 'text-gray-700' : bold ? 'text-sky-300 font-semibold' : 'text-gray-400'} ${hl?.lN && !mine ? HL_CELL : ''}`)}>{mine ? '' : isMoney ? fmt(lN) : fmtInt(lN)}</div>
-        <div className={cell(`${mine ? 'text-gray-700' : bold ? 'text-sky-300 font-semibold' : 'text-gray-400'} ${hl?.lU && !mine ? HL_CELL : ''}`)}>{mine ? '' : isMoney ? fmt(lU) : fmtInt(lU)}</div>
+      <div className={`${GR} border-b border-white/[0.04] ${bold ? 'bg-white/[0.03]' : ''} ${suggested ? 'bg-purple-500/[0.05]' : ''}`}>
+        <div className={`px-2 py-1 text-[10px] ${labelColor}`}>{label}</div>
+        <div className={cell(`${valColor} ${hl?.sN ? HL_CELL : ''}`)}>{isMoney ? fmt(sN) : fmtInt(sN)}</div>
+        <div className={cell(`${valColor} ${hl?.sU ? HL_CELL : ''}`)}>{isMoney ? fmt(sU) : fmtInt(sU)}</div>
+        <div className={cell(`${blankCols ? 'text-gray-700' : bold ? 'text-sky-300 font-semibold' : 'text-gray-400'} ${hl?.lN && !blankCols ? HL_CELL : ''}`)}>{blankCols ? '' : isMoney ? fmt(lN) : fmtInt(lN)}</div>
+        <div className={cell(`${blankCols ? 'text-gray-700' : bold ? 'text-sky-300 font-semibold' : 'text-gray-400'} ${hl?.lU && !blankCols ? HL_CELL : ''}`)}>{blankCols ? '' : isMoney ? fmt(lU) : fmtInt(lU)}</div>
       </div>
     );
   };
+
+  const nCalc = calcSuggested(nLot, cfg);
+  const uCalc = calcSuggested(uLot, cfg);
+  const hasSuggested = nCalc.suggested != null || uCalc.suggested != null;
+  const nHasPrem = nCalc.premium != null && (nCalc.premiumScore ?? 0) >= cfg.premThreshold;
+  const uHasPrem = uCalc.premium != null && (uCalc.premiumScore ?? 0) >= cfg.premThreshold;
+  const hasPremium = nHasPrem || uHasPrem;
 
   return (
     <div className="rounded-md overflow-hidden border border-white/[0.08] mt-1">
@@ -439,7 +449,13 @@ function PricingGrid({ group, activeSort }: { group: GroupedInsight; activeSort:
       <DataRow label="Min" sN={nLot?.soldMinPrice} sU={uLot?.soldMinPrice} lN={nLot?.stockMinPrice} lU={uLot?.stockMinPrice} isMoney />
       <DataRow bold label="Avg" sN={nLot?.soldAvgPrice} sU={uLot?.soldAvgPrice} lN={nLot?.stockAvgPrice} lU={uLot?.stockAvgPrice} isMoney />
       <DataRow label="Max" sN={nLot?.soldMaxPrice} sU={uLot?.soldMaxPrice} lN={nLot?.stockMaxPrice} lU={uLot?.stockMaxPrice} isMoney />
-      <DataRow mine bold label="Mine" sN={nLot?.currentPrice} sU={uLot?.currentPrice} lN={null} lU={null} isMoney />
+      <DataRow mine bold label="My Price" sN={nLot?.currentPrice} sU={uLot?.currentPrice} lN={null} lU={null} isMoney />
+      {hasSuggested && (
+        <DataRow suggested bold label="Suggested" sN={nCalc.suggested} sU={uCalc.suggested} lN={null} lU={null} isMoney />
+      )}
+      {hasPremium && (
+        <DataRow suggested bold label="Premium" sN={nHasPrem ? nCalc.premium : null} sU={uHasPrem ? uCalc.premium : null} lN={null} lU={null} isMoney />
+      )}
     </div>
   );
 }
@@ -546,71 +562,6 @@ function BreakdownPopover({ bd, label, children }: { bd: SugBreakdown; label: st
   );
 }
 
-function SuggestedPriceBar({ group, cfg }: { group: GroupedInsight; cfg: SugConfig }) {
-  const nCalc = calcSuggested(group.newLot, cfg);
-  const uCalc = calcSuggested(group.usedLot, cfg);
-
-  if (!nCalc.suggested && !uCalc.suggested) return null;
-
-  const priceDiff = (mine: string | undefined, suggested: number | null) => {
-    if (!mine || !suggested) return null;
-    const m = parseFloat(mine);
-    if (m <= 0 || suggested <= 0) return null;
-    return ((m - suggested) / suggested) * 100;
-  };
-
-  const renderLotPrice = (lot: PricingInsight | null, calc: ReturnType<typeof calcSuggested>, label: string) => {
-    if (!calc.suggested || !lot || !calc.breakdown) return null;
-    const sugDiff = priceDiff(lot.currentPrice, calc.suggested);
-    const hasPremium = calc.premium != null && (calc.premiumScore ?? 0) >= cfg.premThreshold;
-    const premDiff = hasPremium ? priceDiff(lot.currentPrice, calc.premium!) : null;
-
-    return (
-      <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-        <span className="text-[8px] uppercase text-gray-500 w-5 flex-shrink-0">{label}</span>
-        <BreakdownPopover bd={calc.breakdown} label={`${label} Suggested`}>
-          <button onClick={(e) => e.stopPropagation()} className="text-[11px] font-mono font-bold text-purple-300 hover:text-purple-200 underline decoration-dotted underline-offset-2 decoration-purple-500/40 transition-colors" data-testid={`button-sug-${label.toLowerCase()}`}>
-            ${calc.suggested.toFixed(2)}
-          </button>
-        </BreakdownPopover>
-        {sugDiff != null && (
-          <span className={`text-[9px] font-mono ${sugDiff < -5 ? 'text-emerald-400' : sugDiff > 5 ? 'text-red-400' : 'text-gray-500'}`}>
-            {sugDiff > 0 ? '+' : ''}{sugDiff.toFixed(0)}%
-          </span>
-        )}
-        {hasPremium && (
-          <>
-            <span className="text-gray-600 text-[9px]">/</span>
-            <BreakdownPopover bd={calc.breakdown} label={`${label} Premium`}>
-              <button onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-0.5 hover:opacity-80 transition-opacity" data-testid={`button-prem-${label.toLowerCase()}`}>
-                <span className="text-[7px] font-bold uppercase tracking-wide bg-amber-500/20 text-amber-300 rounded px-1 py-px">Prem</span>
-                <span className="text-[11px] font-mono font-bold text-amber-300 underline decoration-dotted underline-offset-2 decoration-amber-500/40">${calc.premium!.toFixed(2)}</span>
-              </button>
-            </BreakdownPopover>
-            {premDiff != null && (
-              <span className={`text-[9px] font-mono ${premDiff < -5 ? 'text-emerald-400' : premDiff > 5 ? 'text-red-400' : 'text-gray-500'}`}>
-                {premDiff > 0 ? '+' : ''}{premDiff.toFixed(0)}%
-              </span>
-            )}
-          </>
-        )}
-      </div>
-    );
-  };
-
-  return (
-    <div className="mt-1 px-2 py-1 rounded-md bg-purple-500/[0.07] border border-purple-400/15">
-      <div className="flex items-center gap-1 mb-0.5">
-        <Sparkles className="w-2.5 h-2.5 text-purple-400" />
-        <span className="text-[8px] uppercase tracking-widest font-bold text-purple-400">Suggested Price</span>
-      </div>
-      <div className="flex flex-col gap-0.5">
-        {renderLotPrice(group.newLot, nCalc, 'New')}
-        {renderLotPrice(group.usedLot, uCalc, 'Used')}
-      </div>
-    </div>
-  );
-}
 
 const SORT_TO_SCORE_LABEL: Record<SortField, string> = {
   ceiling: 'Ceil', velocity: 'Vel', scarcity: 'Scarc', undercut: 'Undr', combined: 'Score',
@@ -1109,14 +1060,15 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                       </div>
 
                       <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-mono text-emerald-400/80 bg-emerald-500/10 rounded px-1 py-0.5 flex-shrink-0">
-                          ×{totalQty}
-                        </span>
                         {group.newLot && (
-                          <span className="text-[8px] font-bold uppercase tracking-wide bg-blue-500/15 text-blue-300 rounded px-1 py-px flex-shrink-0">N</span>
+                          <span className="inline-flex items-center gap-0.5 text-[9px] font-mono bg-blue-500/10 text-blue-300 rounded px-1 py-0.5 flex-shrink-0">
+                            <span className="text-[7px] font-bold uppercase">N</span>×{group.newLot.quantity}
+                          </span>
                         )}
                         {group.usedLot && (
-                          <span className="text-[8px] font-bold uppercase tracking-wide bg-orange-500/15 text-orange-300 rounded px-1 py-px flex-shrink-0">U</span>
+                          <span className="inline-flex items-center gap-0.5 text-[9px] font-mono bg-orange-500/10 text-orange-300 rounded px-1 py-0.5 flex-shrink-0">
+                            <span className="text-[7px] font-bold uppercase">U</span>×{group.usedLot.quantity}
+                          </span>
                         )}
                         {group.colorRgb && (
                           <span
@@ -1127,8 +1079,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                         <span className="text-[10px] text-slate-400 truncate min-w-0">{group.colorName || '—'}</span>
                       </div>
 
-                      <PricingGrid group={group} activeSort={sortField} />
-                      <SuggestedPriceBar group={group} cfg={sugCfg} />
+                      <PricingGrid group={group} activeSort={sortField} cfg={sugCfg} />
                       <ScoresBar group={group} activeSort={sortField} />
                     </div>
                   </SwipeableTile>
