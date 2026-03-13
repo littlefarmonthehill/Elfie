@@ -22,9 +22,14 @@ export default function Login() {
       await apiRequest("POST", "/api/login", { email, password });
       window.location.href = "/";
     } catch (error: any) {
+      const msg = error.message || "";
+      if (msg.includes("ACCOUNT_NOT_FOUND")) {
+        window.location.href = "/signup";
+        return;
+      }
       toast({
         title: "Login Failed",
-        description: error.message || "Invalid email or password",
+        description: "Invalid email or password",
         variant: "destructive",
       });
     } finally {

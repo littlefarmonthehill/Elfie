@@ -100,7 +100,7 @@ export async function setupAuth(app: Express) {
           const normalizedEmail = email.toLowerCase();
           const user = await storage.getUserByEmail(normalizedEmail);
           if (!user) {
-            return done(null, false, { message: "Invalid email or password" });
+            return done(null, false, { message: "ACCOUNT_NOT_FOUND" });
           }
 
           if (!user.password) {

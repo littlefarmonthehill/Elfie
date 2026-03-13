@@ -403,7 +403,12 @@ function TVLoginScreen({ onBack }: { onBack: () => void }) {
       await apiRequest("POST", "/api/login", { email, password });
       window.location.href = "/";
     } catch (err: any) {
-      setError(err.message || "Invalid email or password");
+      const msg = err.message || "";
+      if (msg.includes("ACCOUNT_NOT_FOUND")) {
+        window.location.href = "/signup";
+        return;
+      }
+      setError("Invalid email or password");
       setIsLoading(false);
     }
   };
