@@ -582,27 +582,34 @@ function weightsToSugConfig(w: DimensionWeights, baseCfg: SugConfig): SugConfig 
   const nr = w.rarity / total;
   const nh = w.headroom / total;
   const nc = w.competition / total;
+
+  const blendTotal = 1.0;
+  const avgShare = 0.2 + nc * 0.4 + nd * 0.1;
+  const minShare = 0.1 + nc * 0.5;
+  const maxShare = 0.1 + nh * 0.5 + nr * 0.1;
+  const blendSum = avgShare + minShare + maxShare;
+
   return {
     ...baseCfg,
-    soldAvgW: 0.3 + nc * 0.4,
-    stockMinW: 0.2 + nc * 0.3,
-    soldMaxW: 0.1 + nh * 0.3,
-    demandMult: 0.05 + nd * 0.6,
-    compCap: 1.0 + nc * 0.3,
-    floor: 0.85 + nc * 0.15,
-    storePremium: 1.0 + (nd + nr) * 0.15,
-    premThreshold: 0.5 - (nd + nr) * 0.2,
-    premVelW: 0.3 + nd * 0.5,
-    premScarcW: 0.2 + nr * 0.5,
-    premMult: 0.2 + (nd + nr) * 0.5,
+    soldAvgW: (avgShare / blendSum) * blendTotal,
+    stockMinW: (minShare / blendSum) * blendTotal,
+    soldMaxW: (maxShare / blendSum) * blendTotal,
+    demandMult: 0.02 + nd * 0.8,
+    compCap: 1.0 + nh * 0.6 + nd * 0.2,
+    floor: 0.80 + nc * 0.18,
+    storePremium: 1.0 + nd * 0.12 + nr * 0.12 + nh * 0.06,
+    premThreshold: 0.5 - (nd + nr) * 0.25,
+    premVelW: 0.2 + nd * 0.6,
+    premScarcW: 0.1 + nr * 0.7,
+    premMult: 0.15 + (nd + nr) * 0.7,
   };
 }
 
 function sugConfigToWeights(cfg: SugConfig): DimensionWeights {
-  const demand = Math.max(0, (cfg.demandMult - 0.05) / 0.6);
-  const rarity = Math.max(0, (cfg.premScarcW - 0.2) / 0.5);
-  const headroom = Math.max(0, (cfg.soldMaxW - 0.1) / 0.3);
-  const competition = Math.max(0, (cfg.stockMinW - 0.2) / 0.3);
+  const demand = Math.max(0, (cfg.demandMult - 0.02) / 0.8);
+  const rarity = Math.max(0, (cfg.premScarcW - 0.1) / 0.7);
+  const headroom = Math.max(0, (cfg.compCap - 1.0) / 0.6);
+  const competition = Math.max(0, (cfg.floor - 0.80) / 0.18);
   const total = demand + rarity + headroom + competition || 1;
   return { demand: demand / total, rarity: rarity / total, headroom: headroom / total, competition: competition / total };
 }
