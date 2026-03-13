@@ -567,6 +567,18 @@ export const appSettings = pgTable("app_settings", {
   pomScheduleBatchSize: integer("pom_schedule_batch_size").default(1500).notNull(), // Items per scheduled auto-run
   pomFreshnessDays: integer("pom_freshness_days").default(180).notNull(),       // Skip items with price data newer than N days
   pomZeroStockSkip: boolean("pom_zero_stock_skip").default(true).notNull(),     // Skip items with 0 stock across platform
+  // Suggested Pricing weights
+  pomSugSoldAvgW: real("pom_sug_sold_avg_w").default(0.5).notNull(),
+  pomSugStockMinW: real("pom_sug_stock_min_w").default(0.3).notNull(),
+  pomSugSoldMaxW: real("pom_sug_sold_max_w").default(0.2).notNull(),
+  pomSugDemandMult: real("pom_sug_demand_mult").default(0.25).notNull(),
+  pomSugCompCap: real("pom_sug_comp_cap").default(1.15).notNull(),
+  pomSugFloor: real("pom_sug_floor").default(0.95).notNull(),
+  pomSugStorePremium: real("pom_sug_store_premium").default(1.10).notNull(),
+  pomSugPremThreshold: real("pom_sug_prem_threshold").default(0.40).notNull(),
+  pomSugPremVelW: real("pom_sug_prem_vel_w").default(0.6).notNull(),
+  pomSugPremScarcW: real("pom_sug_prem_scarc_w").default(0.4).notNull(),
+  pomSugPremMult: real("pom_sug_prem_mult").default(0.5).notNull(),
   // Catalog Detail Completion
   catalogDetailEnabled: boolean("catalog_detail_enabled").default(false).notNull(),
   catalogDetailFrequencyHours: integer("catalog_detail_frequency_hours").default(1).notNull(),

@@ -10366,6 +10366,19 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           summary: {
             total: enrichedItems.length,
           },
+          sugConfig: {
+            soldAvgW: scoringSettings?.pomSugSoldAvgW ?? 0.5,
+            stockMinW: scoringSettings?.pomSugStockMinW ?? 0.3,
+            soldMaxW: scoringSettings?.pomSugSoldMaxW ?? 0.2,
+            demandMult: scoringSettings?.pomSugDemandMult ?? 0.25,
+            compCap: scoringSettings?.pomSugCompCap ?? 1.15,
+            floor: scoringSettings?.pomSugFloor ?? 0.95,
+            storePremium: scoringSettings?.pomSugStorePremium ?? 1.10,
+            premThreshold: scoringSettings?.pomSugPremThreshold ?? 0.40,
+            premVelW: scoringSettings?.pomSugPremVelW ?? 0.6,
+            premScarcW: scoringSettings?.pomSugPremScarcW ?? 0.4,
+            premMult: scoringSettings?.pomSugPremMult ?? 0.5,
+          },
         },
       });
     } catch (error) {

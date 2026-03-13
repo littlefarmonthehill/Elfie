@@ -753,6 +753,18 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
   const [pomWeightVelocity, setPomWeightVelocity] = useState(0.3);
   const [pomWeightScarcity, setPomWeightScarcity] = useState(0.2);
   const [pomWeightUndercut, setPomWeightUndercut] = useState(0.1);
+  const [pomSugSoldAvgW, setPomSugSoldAvgW] = useState(0.5);
+  const [pomSugStockMinW, setPomSugStockMinW] = useState(0.3);
+  const [pomSugSoldMaxW, setPomSugSoldMaxW] = useState(0.2);
+  const [pomSugDemandMult, setPomSugDemandMult] = useState(0.25);
+  const [pomSugCompCap, setPomSugCompCap] = useState(1.15);
+  const [pomSugFloor, setPomSugFloor] = useState(0.95);
+  const [pomSugStorePremium, setPomSugStorePremium] = useState(1.10);
+  const [pomSugPremThreshold, setPomSugPremThreshold] = useState(0.40);
+  const [pomSugPremVelW, setPomSugPremVelW] = useState(0.6);
+  const [pomSugPremScarcW, setPomSugPremScarcW] = useState(0.4);
+  const [pomSugPremMult, setPomSugPremMult] = useState(0.5);
+  const [pomSugPricingOpen, setPomSugPricingOpen] = useState(false);
   const [pomVelocityHigh, setPomVelocityHigh] = useState(2.0);
   const [pomVelocityLow, setPomVelocityLow] = useState(0.3);
   const [pomScarcityHigh, setPomScarcityHigh] = useState(0.1);
@@ -1516,6 +1528,17 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
       setPomWeightVelocity(platformSettings.pomWeightVelocity ?? 0.3);
       setPomWeightScarcity(platformSettings.pomWeightScarcity ?? 0.2);
       setPomWeightUndercut(platformSettings.pomWeightUndercut ?? 0.1);
+      setPomSugSoldAvgW(platformSettings.pomSugSoldAvgW ?? 0.5);
+      setPomSugStockMinW(platformSettings.pomSugStockMinW ?? 0.3);
+      setPomSugSoldMaxW(platformSettings.pomSugSoldMaxW ?? 0.2);
+      setPomSugDemandMult(platformSettings.pomSugDemandMult ?? 0.25);
+      setPomSugCompCap(platformSettings.pomSugCompCap ?? 1.15);
+      setPomSugFloor(platformSettings.pomSugFloor ?? 0.95);
+      setPomSugStorePremium(platformSettings.pomSugStorePremium ?? 1.10);
+      setPomSugPremThreshold(platformSettings.pomSugPremThreshold ?? 0.40);
+      setPomSugPremVelW(platformSettings.pomSugPremVelW ?? 0.6);
+      setPomSugPremScarcW(platformSettings.pomSugPremScarcW ?? 0.4);
+      setPomSugPremMult(platformSettings.pomSugPremMult ?? 0.5);
       setPomVelocityHigh(platformSettings.pomVelocityHigh ?? 2.0);
       setPomVelocityLow(platformSettings.pomVelocityLow ?? 0.3);
       setPomScarcityHigh(platformSettings.pomScarcityHigh ?? 0.1);
@@ -4339,6 +4362,119 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                   )}
                 </div>
 
+                {/* Suggested Pricing collapsible */}
+                <div>
+                  <button
+                    onClick={() => setPomSugPricingOpen(!pomSugPricingOpen)}
+                    className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
+                    data-testid="button-pom-sug-pricing-toggle"
+                  >
+                    <span className="text-sm font-semibold text-gray-200 uppercase tracking-wider">Suggested Pricing</span>
+                    {pomSugPricingOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
+                  </button>
+                  {pomSugPricingOpen && (
+                    <div className="space-y-4">
+
+                      <div className="sm-card-inset">
+                        <div className="px-3 py-2 bg-gray-800/40 border-b border-gray-700/60">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold text-purple-300 uppercase tracking-wider">Base Market Price Blend</span>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="sm-icon-btn" onClick={(e) => e.stopPropagation()}>
+                                  <Info className="w-3 h-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="sm-popover">
+                                Controls how the base market reference price is calculated by blending three market signals. Weights should sum to 1.0.
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                        </div>
+                        <div className="divide-y divide-gray-700/30">
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-gray-400">Sold Avg weight</Label>
+                            <Input type="number" min={0} max={1} step={0.05} value={pomSugSoldAvgW} onChange={(e) => setPomSugSoldAvgW(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugSoldAvgW })} className="text-sm w-20 text-right" data-testid="input-sug-sold-avg-w" />
+                          </div>
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-gray-400">Listed Min weight</Label>
+                            <Input type="number" min={0} max={1} step={0.05} value={pomSugStockMinW} onChange={(e) => setPomSugStockMinW(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugStockMinW })} className="text-sm w-20 text-right" data-testid="input-sug-stock-min-w" />
+                          </div>
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-gray-400">Sold Max weight</Label>
+                            <Input type="number" min={0} max={1} step={0.05} value={pomSugSoldMaxW} onChange={(e) => setPomSugSoldMaxW(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugSoldMaxW })} className="text-sm w-20 text-right" data-testid="input-sug-sold-max-w" />
+                          </div>
+                        </div>
+                        <div className="px-3 py-1.5">
+                          <span className={`text-[10px] font-mono ${Math.abs(pomSugSoldAvgW + pomSugStockMinW + pomSugSoldMaxW - 1.0) < 0.01 ? 'text-green-400' : 'text-red-400'}`} data-testid="text-sug-blend-sum">
+                            Blend sum: {(pomSugSoldAvgW + pomSugStockMinW + pomSugSoldMaxW).toFixed(2)} / 1.00
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="sm-card-inset">
+                        <div className="px-3 py-2 bg-gray-800/40 border-b border-gray-700/60">
+                          <span className="text-xs font-semibold text-purple-300 uppercase tracking-wider">Adjustments</span>
+                        </div>
+                        <div className="divide-y divide-gray-700/30">
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-gray-400">Demand velocity multiplier</Label>
+                            <Input type="number" min={0} max={1} step={0.05} value={pomSugDemandMult} onChange={(e) => setPomSugDemandMult(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugDemandMult })} className="text-sm w-20 text-right" data-testid="input-sug-demand-mult" />
+                          </div>
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-gray-400">Competitive cap (× listed min)</Label>
+                            <Input type="number" min={1} max={2} step={0.05} value={pomSugCompCap} onChange={(e) => setPomSugCompCap(parseFloat(e.target.value) || 1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugCompCap })} className="text-sm w-20 text-right" data-testid="input-sug-comp-cap" />
+                          </div>
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-gray-400">Price floor (× listed min)</Label>
+                            <Input type="number" min={0.5} max={1} step={0.05} value={pomSugFloor} onChange={(e) => setPomSugFloor(parseFloat(e.target.value) || 0.5)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugFloor })} className="text-sm w-20 text-right" data-testid="input-sug-floor" />
+                          </div>
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-gray-400">Store premium multiplier</Label>
+                            <Input type="number" min={1} max={2} step={0.01} value={pomSugStorePremium} onChange={(e) => setPomSugStorePremium(parseFloat(e.target.value) || 1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugStorePremium })} className="text-sm w-20 text-right" data-testid="input-sug-store-premium" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="sm-card-inset">
+                        <div className="px-3 py-2 bg-gray-800/40 border-b border-gray-700/60">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold text-amber-300 uppercase tracking-wider">Premium Opportunity</span>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="sm-icon-btn" onClick={(e) => e.stopPropagation()}>
+                                  <Info className="w-3 h-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent side="bottom" className="sm-popover">
+                                Identifies high-demand / low-supply parts where you should intentionally price above market. The premium score blends velocity and scarcity; when it exceeds the threshold, a premium multiplier is applied.
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                        </div>
+                        <div className="divide-y divide-gray-700/30">
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-gray-400">Show threshold (score {'\u2265'})</Label>
+                            <Input type="number" min={0} max={2} step={0.05} value={pomSugPremThreshold} onChange={(e) => setPomSugPremThreshold(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugPremThreshold })} className="text-sm w-20 text-right" data-testid="input-sug-prem-threshold" />
+                          </div>
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-gray-400">Velocity weight</Label>
+                            <Input type="number" min={0} max={1} step={0.05} value={pomSugPremVelW} onChange={(e) => setPomSugPremVelW(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugPremVelW })} className="text-sm w-20 text-right" data-testid="input-sug-prem-vel-w" />
+                          </div>
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-gray-400">Scarcity weight</Label>
+                            <Input type="number" min={0} max={1} step={0.05} value={pomSugPremScarcW} onChange={(e) => setPomSugPremScarcW(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugPremScarcW })} className="text-sm w-20 text-right" data-testid="input-sug-prem-scarc-w" />
+                          </div>
+                          <div className="sm-row px-3">
+                            <Label className="text-xs text-gray-400">Premium multiplier strength</Label>
+                            <Input type="number" min={0} max={2} step={0.05} value={pomSugPremMult} onChange={(e) => setPomSugPremMult(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomSugPremMult })} className="text-sm w-20 text-right" data-testid="input-sug-prem-mult" />
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  )}
+                </div>
 
               </div>
             )}
