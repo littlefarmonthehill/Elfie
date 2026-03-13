@@ -522,8 +522,9 @@ function calcSuggested(lot: PricingInsight | null, cfg: SugConfig = DEFAULT_SUG_
   const soldAvg = parseFloat(lot.soldAvgPrice || '0');
   const soldMax = parseFloat(lot.soldMaxPrice || '0');
   const stockMin = parseFloat(lot.stockMinPrice || '0');
-  const soldQty = lot.soldQuantity ?? 0;
-  const stockQty = lot.stockQuantity ?? 0;
+  const soldQty = lot.soldQuantity ?? parseInt(lot.soldTotalLots || '0');
+  const stockQty = lot.stockQuantity ?? parseInt(lot.stockTotalLots || '0');
+  // Note: fallback uses lot counts when qty columns haven't been populated yet (pre-resync data)
   const velocity = (stockQty > 0) ? soldQty / stockQty : 0;
   const scarcity = (stockQty > 0) ? 1 / stockQty : 0;
 

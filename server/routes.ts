@@ -10297,14 +10297,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           ? Number((marketPeak / currentPrice).toFixed(3))
           : null;
 
-        // 2. Demand Velocity = soldQuantity / stockQuantity
-        const soldQty = parseInt(item.soldQuantity || '0');
-        const stockQty = parseInt(item.stockQuantity || '0');
+        // 2. Demand Velocity = soldQuantity / stockQuantity (fall back to lots if qty not yet populated)
+        const soldQty = item.soldQuantity ?? parseInt(item.soldTotalLots || '0');
+        const stockQty = item.stockQuantity ?? parseInt(item.stockTotalLots || '0');
         const demandVelocity = (stockQty > 0)
           ? Number((soldQty / stockQty).toFixed(3))
           : null;
 
-        // 3. Market Scarcity Index = 1 / stockQuantity
+        // 3. Market Scarcity Index = 1 / stockQuantity (fall back to lots if qty not yet populated)
         const marketScarcity = (stockQty > 0)
           ? Number((1 / stockQty).toFixed(4))
           : null;

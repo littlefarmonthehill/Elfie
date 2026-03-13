@@ -1011,6 +1011,12 @@ export async function bricklinkCatalogRequest(endpoint: string, queryParams?: Re
   }
 }
 
+function sumPriceDetailQty(priceDetails: Array<{ quantity: string | number }> | undefined): number | null {
+  if (!priceDetails || priceDetails.length === 0) return null;
+  const total = priceDetails.reduce((sum, d) => sum + (parseInt(d.quantity.toString()) || 0), 0);
+  return total > 0 ? total : null;
+}
+
 // Compute multiple weighted percentiles from BrickLink price_detail entries in one pass
 function computePercentiles(
   priceDetails: Array<{ quantity: string | number; unit_price: string }> | undefined,
@@ -1597,14 +1603,14 @@ export async function fetchPriceOMagicData(
       stockAvgPrice: skipStock ? (preservedStock.stockAvgPrice ?? null) : (stockAvgPrice?.toString() || null),
       stockMinPrice: skipStock ? (preservedStock.stockMinPrice ?? null) : (stockPriceData?.min_price ? stockPriceData.min_price.toString() : null),
       stockMaxPrice: skipStock ? (preservedStock.stockMaxPrice ?? null) : (stockPriceData?.max_price ? stockPriceData.max_price.toString() : null),
-      stockQuantity: skipStock ? (preservedStock.stockQuantity ?? null) : (stockPriceData?.qty_avg || null),
+      stockQuantity: skipStock ? (preservedStock.stockQuantity ?? null) : (sumPriceDetailQty(stockPriceData?.price_detail)),
       stockTotalLots: skipStock ? (preservedStock.stockTotalLots ?? null) : (stockPriceData?.unit_quantity || null),
       
       // Sold price guide
       soldAvgPrice: soldAvgPrice?.toString() || null,
       soldMinPrice: soldPriceData?.min_price ? soldPriceData.min_price.toString() : null,
       soldMaxPrice: soldPriceData?.max_price ? soldPriceData.max_price.toString() : null,
-      soldQuantity: soldPriceData?.qty_avg || null,
+      soldQuantity: sumPriceDetailQty(soldPriceData?.price_detail),
       soldTotalLots: soldPriceData?.unit_quantity || null, // Number of lots/listings
     };
 
