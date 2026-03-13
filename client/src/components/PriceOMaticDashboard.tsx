@@ -582,6 +582,7 @@ export function DimensionWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight 
   const [dragging, setDragging] = useState(false);
   const [handlePos, setHandlePos] = useState<{ x: number; y: number }>({ x: CENTER, y: CENTER });
   const [showDetail, setShowDetail] = useState(false);
+  const skipNextSyncRef = useRef(false);
 
   const updateFromPos = useCallback((x: number, y: number) => {
     const dx = x - CENTER;
@@ -612,6 +613,10 @@ export function DimensionWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight 
   }, [CENTER, RING_R]);
 
   useEffect(() => {
+    if (skipNextSyncRef.current) {
+      skipNextSyncRef.current = false;
+      return;
+    }
     const w = sugConfigToWeights(baseCfg);
     setWeights(w);
     let bestDim = DIMENSIONS[0];
@@ -759,7 +764,7 @@ export function DimensionWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight 
         size="sm"
         variant="default"
         className="w-full bg-purple-600 hover:bg-purple-500 text-xs"
-        onClick={() => onSave(liveCfg)}
+        onClick={() => { skipNextSyncRef.current = true; onSave(liveCfg); }}
         data-testid="button-apply-weights"
       >
         Apply to All Items
