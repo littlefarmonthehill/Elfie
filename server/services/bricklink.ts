@@ -1559,36 +1559,28 @@ export async function fetchPriceOMagicData(
     let preservedStock: { stockAvgPrice?: string | null; stockQtyAvgPrice?: string | null; stockMinPrice?: string | null; stockMaxPrice?: string | null; stockQuantity?: number | null; stockTotalLots?: number | null } = {};
     let preservedSold: { soldAvgPrice?: string | null; soldQtyAvgPrice?: string | null; soldMinPrice?: string | null; soldMaxPrice?: string | null; soldQuantity?: number | null; soldTotalLots?: number | null; soldFetchedAt?: Date | null } = {};
     if (skipStock || skipSold) {
-      const existingRec = await db
-        .select({
-          stockAvgPrice: priceGuideCache.stockAvgPrice,
-          stockQtyAvgPrice: priceGuideCache.stockQtyAvgPrice,
-          stockMinPrice: priceGuideCache.stockMinPrice,
-          stockMaxPrice: priceGuideCache.stockMaxPrice,
-          stockQuantity: priceGuideCache.stockQuantity,
-          stockTotalLots: priceGuideCache.stockTotalLots,
-          soldAvgPrice: priceGuideCache.soldAvgPrice,
-          soldQtyAvgPrice: priceGuideCache.soldQtyAvgPrice,
-          soldMinPrice: priceGuideCache.soldMinPrice,
-          soldMaxPrice: priceGuideCache.soldMaxPrice,
-          soldQuantity: priceGuideCache.soldQuantity,
-          soldTotalLots: priceGuideCache.soldTotalLots,
-          soldFetchedAt: priceGuideCache.soldFetchedAt,
-          stockFetchedAt: priceGuideCache.stockFetchedAt,
-        })
-        .from(priceGuideCache)
-        .where(
-          and(
-            eq(priceGuideCache.itemNo, itemNo.toUpperCase()),
-            eq(priceGuideCache.itemType, itemType),
-            eq(priceGuideCache.colorId, colorId ?? -1),
-            eq(priceGuideCache.newOrUsed, newOrUsed)
-          )
-        )
-        .limit(1);
-      if (existingRec.length > 0) {
-        preservedStock = existingRec[0];
-        preservedSold = existingRec[0];
+      const existingResult = await db.execute(sql`
+        SELECT stock_avg_price, stock_qty_avg_price, stock_min_price, stock_max_price, stock_quantity, stock_total_lots,
+               sold_avg_price, sold_qty_avg_price, sold_min_price, sold_max_price, sold_quantity, sold_total_lots,
+               sold_fetched_at, stock_fetched_at
+        FROM price_guide_cache
+        WHERE item_no = ${itemNo.toUpperCase()} AND item_type = ${itemType}
+          AND color_id = ${colorId ?? -1} AND new_or_used = ${newOrUsed}
+        LIMIT 1
+      `);
+      if (existingResult.rows.length > 0) {
+        const r = existingResult.rows[0] as any;
+        const mapped = {
+          stockAvgPrice: r.stock_avg_price, stockQtyAvgPrice: r.stock_qty_avg_price,
+          stockMinPrice: r.stock_min_price, stockMaxPrice: r.stock_max_price,
+          stockQuantity: r.stock_quantity, stockTotalLots: r.stock_total_lots,
+          soldAvgPrice: r.sold_avg_price, soldQtyAvgPrice: r.sold_qty_avg_price,
+          soldMinPrice: r.sold_min_price, soldMaxPrice: r.sold_max_price,
+          soldQuantity: r.sold_quantity, soldTotalLots: r.sold_total_lots,
+          soldFetchedAt: r.sold_fetched_at, stockFetchedAt: r.stock_fetched_at,
+        };
+        preservedStock = mapped;
+        preservedSold = mapped;
       }
     }
 
