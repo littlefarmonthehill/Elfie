@@ -352,6 +352,33 @@ export async function runMigrations() {
       }
     }
     console.log('[Migration] Phase-16 (scoring settings to org level) complete.');
+
+    // ── Phase-17: Copy scheduler settings from org rows to platform row ──────
+    // Forum sync, rebrickable set sync, and universal catalog scheduler settings
+    // were previously saved to org rows but the schedulers read from the platform row.
+    // Copy org values into platform row so existing settings aren't lost.
+    const orgRow = await client.query(`SELECT
+      forum_sync_enabled, forum_sync_frequency,
+      rebrickable_set_sync_enabled, rebrickable_set_sync_time,
+      universal_catalog_schedule_enabled, universal_catalog_refresh_months, universal_catalog_retry_days
+      FROM app_settings WHERE id != '__platform__' ORDER BY updated_at DESC LIMIT 1`);
+    if (orgRow.rows.length > 0) {
+      const o = orgRow.rows[0];
+      await client.query(`
+        UPDATE app_settings SET
+          forum_sync_enabled                = COALESCE(forum_sync_enabled,                $1),
+          forum_sync_frequency              = COALESCE(forum_sync_frequency,              $2),
+          rebrickable_set_sync_enabled      = COALESCE(rebrickable_set_sync_enabled,      $3),
+          rebrickable_set_sync_time         = COALESCE(rebrickable_set_sync_time,         $4),
+          universal_catalog_schedule_enabled = COALESCE(universal_catalog_schedule_enabled, $5),
+          universal_catalog_refresh_months   = COALESCE(universal_catalog_refresh_months,   $6),
+          universal_catalog_retry_days       = COALESCE(universal_catalog_retry_days,       $7)
+        WHERE id = '__platform__'
+      `, [o.forum_sync_enabled, o.forum_sync_frequency,
+          o.rebrickable_set_sync_enabled, o.rebrickable_set_sync_time,
+          o.universal_catalog_schedule_enabled, o.universal_catalog_refresh_months, o.universal_catalog_retry_days]);
+    }
+    console.log('[Migration] Phase-17 (scheduler settings to platform level) complete.');
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
