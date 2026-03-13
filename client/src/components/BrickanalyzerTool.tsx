@@ -2273,15 +2273,22 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                             : (r.stockAvgPriceU ?? 0);
                         }
                       }
-                      // sold — use exact field with no fallback so values match the pricing tab
                       if (heatmapCondition === 'new') {
-                        return heatmapMetric === 'max'
+                        const sold = heatmapMetric === 'max'
                           ? (r.marketSoldMaxNew ?? 0)
                           : (r.marketSoldAvgNew ?? 0);
-                      } else {
+                        if (sold > 0) return sold;
                         return heatmapMetric === 'max'
+                          ? (r.stockMaxPriceN ?? r.stockAvgPriceN ?? 0)
+                          : (r.stockAvgPriceN ?? r.stockMaxPriceN ?? 0);
+                      } else {
+                        const sold = heatmapMetric === 'max'
                           ? (r.marketSoldMaxUsed ?? 0)
                           : (r.marketSoldAvgUsed ?? 0);
+                        if (sold > 0) return sold;
+                        return heatmapMetric === 'max'
+                          ? (r.stockMaxPriceU ?? r.stockAvgPriceU ?? 0)
+                          : (r.stockAvgPriceU ?? r.stockMaxPriceU ?? 0);
                       }
                     };
                     const allPrices = bboxResults.map(r => heatVal(r)).filter(p => p > 0);

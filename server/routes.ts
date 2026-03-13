@@ -6497,8 +6497,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                 'N', undefined, undefined, false, localPomItemData, blApiCallsCounter, orgId, true
               );
               if (pgDataN) {
-                marketSoldMaxNew = pgDataN.soldMaxPrice ? Number(pgDataN.soldMaxPrice) : null;
-                if (pgDataN.soldAvgPrice != null) marketSoldAvgNew = Number(pgDataN.soldAvgPrice) || null;
+                marketSoldMaxNew = pgDataN.soldMaxPrice && Number(pgDataN.soldMaxPrice) > 0 ? Number(pgDataN.soldMaxPrice) : null;
+                marketSoldAvgNew = pgDataN.soldAvgPrice != null && Number(pgDataN.soldAvgPrice) > 0 ? Number(pgDataN.soldAvgPrice) : null;
                 if (pgDataN.stockAvgPrice != null && Number(pgDataN.stockAvgPrice) > 0 && stockAvgPriceN === null) stockAvgPriceN = Number(pgDataN.stockAvgPrice);
                 if (pgDataN.stockMaxPrice != null && Number(pgDataN.stockMaxPrice) > 0 && stockMaxPriceN === null) stockMaxPriceN = Number(pgDataN.stockMaxPrice);
                 if (!thumbnailUrl) thumbnailUrl = pgDataN.thumbnailUrl || pgDataN.imageUrl || null;
@@ -6514,8 +6514,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
                 'U', undefined, undefined, false, localPomItemData, blApiCallsCounter, orgId, true
               );
               if (pgDataU) {
-                marketSoldMaxUsed = pgDataU.soldMaxPrice ? Number(pgDataU.soldMaxPrice) : null;
-                if (pgDataU.soldAvgPrice != null) marketSoldAvgUsed = Number(pgDataU.soldAvgPrice) || null;
+                marketSoldMaxUsed = pgDataU.soldMaxPrice && Number(pgDataU.soldMaxPrice) > 0 ? Number(pgDataU.soldMaxPrice) : null;
+                marketSoldAvgUsed = pgDataU.soldAvgPrice != null && Number(pgDataU.soldAvgPrice) > 0 ? Number(pgDataU.soldAvgPrice) : null;
                 if (pgDataU.stockAvgPrice != null && Number(pgDataU.stockAvgPrice) > 0) stockAvgPriceU = Number(pgDataU.stockAvgPrice);
                 if (pgDataU.stockMaxPrice != null && Number(pgDataU.stockMaxPrice) > 0) stockMaxPriceU = Number(pgDataU.stockMaxPrice);
                 if (!thumbnailUrl) thumbnailUrl = pgDataU.thumbnailUrl || pgDataU.imageUrl || null;
@@ -6544,17 +6544,17 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             try {
               const fbN = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'N', undefined, undefined, false, localPomItemData, blApiCallsCounter, orgId, true);
               if (fbN) {
-                marketSoldMaxNew = fbN.soldMaxPrice ? Number(fbN.soldMaxPrice) : null;
-                if (fbN.soldAvgPrice != null) marketSoldAvgNew = Number(fbN.soldAvgPrice) || null;
-                if (fbN.stockAvgPrice != null && stockAvgPriceN === null) stockAvgPriceN = Number(fbN.stockAvgPrice);
+                marketSoldMaxNew = fbN.soldMaxPrice && Number(fbN.soldMaxPrice) > 0 ? Number(fbN.soldMaxPrice) : null;
+                marketSoldAvgNew = fbN.soldAvgPrice != null && Number(fbN.soldAvgPrice) > 0 ? Number(fbN.soldAvgPrice) : null;
+                if (fbN.stockAvgPrice != null && Number(fbN.stockAvgPrice) > 0 && stockAvgPriceN === null) stockAvgPriceN = Number(fbN.stockAvgPrice);
                 if (fbN.stockMaxPrice != null && Number(fbN.stockMaxPrice) > 0 && stockMaxPriceN === null) stockMaxPriceN = Number(fbN.stockMaxPrice);
                 if (!thumbnailUrl) thumbnailUrl = fbN.thumbnailUrl || fbN.imageUrl || null;
                 if (!piece.partName && fbN.itemName) piece.partName = fbN.itemName;
               }
               const fbU = await fetchPriceOMagicData(piece.partNo, blItemType as any, correctColorId, 'U', undefined, undefined, false, localPomItemData, blApiCallsCounter, orgId, true);
               if (fbU) {
-                marketSoldMaxUsed = fbU.soldMaxPrice ? Number(fbU.soldMaxPrice) : null;
-                if (fbU.soldAvgPrice != null) marketSoldAvgUsed = Number(fbU.soldAvgPrice) || null;
+                marketSoldMaxUsed = fbU.soldMaxPrice && Number(fbU.soldMaxPrice) > 0 ? Number(fbU.soldMaxPrice) : null;
+                marketSoldAvgUsed = fbU.soldAvgPrice != null && Number(fbU.soldAvgPrice) > 0 ? Number(fbU.soldAvgPrice) : null;
                 if (fbU.stockAvgPrice != null && Number(fbU.stockAvgPrice) > 0 && stockAvgPriceU === null) stockAvgPriceU = Number(fbU.stockAvgPrice);
                 if (fbU.stockMaxPrice != null && Number(fbU.stockMaxPrice) > 0 && stockMaxPriceU === null) stockMaxPriceU = Number(fbU.stockMaxPrice);
               }
@@ -7117,15 +7117,19 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const crops = brickanalyzerCropCache.get(scan.id);
       const meta  = brickanalyzerImageMeta.get(scan.id);
 
-      // Hydrate any results missing stockAvgPriceN/U or stockMaxPriceN/U from the cache
-      // (fields added after older scans were stored)
+      // Hydrate any results missing pricing fields from the price guide cache
+      // Backfills stock AND sold prices so the heatmap always shows full catalog info
       let results = scan.results as any[] | null;
       if (Array.isArray(results)) {
         const needsHydration = results.filter(r =>
           r.partNo && (
             r.stockAvgPriceN === undefined || r.stockAvgPriceU === undefined ||
             r.stockMaxPriceN === undefined || r.stockMaxPriceN === null ||
-            r.stockMaxPriceU === undefined || r.stockMaxPriceU === null
+            r.stockMaxPriceU === undefined || r.stockMaxPriceU === null ||
+            r.marketSoldMaxNew === undefined || r.marketSoldMaxNew === null || r.marketSoldMaxNew === 0 ||
+            r.marketSoldMaxUsed === undefined || r.marketSoldMaxUsed === null || r.marketSoldMaxUsed === 0 ||
+            r.marketSoldAvgNew === undefined || r.marketSoldAvgNew === null ||
+            r.marketSoldAvgUsed === undefined || r.marketSoldAvgUsed === null
           )
         );
         if (needsHydration.length > 0) {
@@ -7137,16 +7141,22 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             newOrUsed: priceGuideCache.newOrUsed,
             stockAvgPrice: priceGuideCache.stockAvgPrice,
             stockMaxPrice: priceGuideCache.stockMaxPrice,
+            soldAvgPrice: priceGuideCache.soldAvgPrice,
+            soldMaxPrice: priceGuideCache.soldMaxPrice,
           })
           .from(priceGuideCache)
           .where(sql`upper(${priceGuideCache.itemNo}) IN (${sql.join(partNos.map(p => sql`upper(${p})`), sql`, `)})`);
 
-          const avgMap = new Map<string, number | null>();
-          const maxMap = new Map<string, number | null>();
+          const stockAvgMap = new Map<string, number | null>();
+          const stockMaxMap = new Map<string, number | null>();
+          const soldAvgMap = new Map<string, number | null>();
+          const soldMaxMap = new Map<string, number | null>();
           for (const row of cacheRows) {
             const key = `${row.itemNo?.toUpperCase()}|${row.colorId ?? 'null'}|${row.newOrUsed}`;
-            avgMap.set(key, row.stockAvgPrice != null && Number(row.stockAvgPrice) > 0 ? Number(row.stockAvgPrice) : null);
-            maxMap.set(key, row.stockMaxPrice != null && Number(row.stockMaxPrice) > 0 ? Number(row.stockMaxPrice) : null);
+            stockAvgMap.set(key, row.stockAvgPrice != null && Number(row.stockAvgPrice) > 0 ? Number(row.stockAvgPrice) : null);
+            stockMaxMap.set(key, row.stockMaxPrice != null && Number(row.stockMaxPrice) > 0 ? Number(row.stockMaxPrice) : null);
+            soldAvgMap.set(key, row.soldAvgPrice != null && Number(row.soldAvgPrice) > 0 ? Number(row.soldAvgPrice) : null);
+            soldMaxMap.set(key, row.soldMaxPrice != null && Number(row.soldMaxPrice) > 0 ? Number(row.soldMaxPrice) : null);
           }
 
           results = results.map((r: any) => {
@@ -7155,10 +7165,14 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             const keyN = `${r.partNo.toUpperCase()}|${colorKey}|N`;
             const keyU = `${r.partNo.toUpperCase()}|${colorKey}|U`;
             const updated = { ...r };
-            if (r.stockAvgPriceN === undefined) updated.stockAvgPriceN = avgMap.get(keyN) ?? null;
-            if (r.stockAvgPriceU === undefined) updated.stockAvgPriceU = avgMap.get(keyU) ?? null;
-            if (r.stockMaxPriceN === undefined || r.stockMaxPriceN === null) updated.stockMaxPriceN = maxMap.get(keyN) ?? null;
-            if (r.stockMaxPriceU === undefined || r.stockMaxPriceU === null) updated.stockMaxPriceU = maxMap.get(keyU) ?? null;
+            if (r.stockAvgPriceN === undefined) updated.stockAvgPriceN = stockAvgMap.get(keyN) ?? null;
+            if (r.stockAvgPriceU === undefined) updated.stockAvgPriceU = stockAvgMap.get(keyU) ?? null;
+            if (r.stockMaxPriceN === undefined || r.stockMaxPriceN === null) updated.stockMaxPriceN = stockMaxMap.get(keyN) ?? null;
+            if (r.stockMaxPriceU === undefined || r.stockMaxPriceU === null) updated.stockMaxPriceU = stockMaxMap.get(keyU) ?? null;
+            if (!r.marketSoldMaxNew || r.marketSoldMaxNew === 0) updated.marketSoldMaxNew = soldMaxMap.get(keyN) ?? null;
+            if (!r.marketSoldMaxUsed || r.marketSoldMaxUsed === 0) updated.marketSoldMaxUsed = soldMaxMap.get(keyU) ?? null;
+            if (r.marketSoldAvgNew === undefined || r.marketSoldAvgNew === null) updated.marketSoldAvgNew = soldAvgMap.get(keyN) ?? null;
+            if (r.marketSoldAvgUsed === undefined || r.marketSoldAvgUsed === null) updated.marketSoldAvgUsed = soldAvgMap.get(keyU) ?? null;
             return updated;
           });
         }
