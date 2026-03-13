@@ -261,7 +261,6 @@ function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
   }>;
 }) {
   const [idx, setIdx] = useState(0);
-  const [showDist, setShowDist] = useState(false);
   const entry = colorEntries[Math.min(idx, colorEntries.length - 1)];
   const scoreColor = (s: number) => s >= 2.0 ? 'text-emerald-400' : s >= 1.5 ? 'text-orange-400' : s >= 1.0 ? 'text-yellow-500' : 'text-gray-400';
   const peak = Math.max(entry?.marketSoldMaxNew ?? 0, entry?.marketSoldMaxUsed ?? 0, entry?.stockAvgPriceN ?? 0) || null;
@@ -329,16 +328,6 @@ function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
           </div>
         );
 
-        const hasSoldDist = nData?.soldP10 || nData?.soldP25 || nData?.soldP85 || uData?.soldP10 || uData?.soldP85;
-        const allPcts = [
-          { label: 'P10', sN: nData?.soldP10, sU: uData?.soldP10, hi: false },
-          { label: 'P25', sN: nData?.soldP25, sU: uData?.soldP25, hi: false },
-          { label: 'P50', sN: nData?.soldP50, sU: uData?.soldP50, hi: false },
-          { label: 'P75', sN: nData?.soldP75, sU: uData?.soldP75, hi: false },
-          { label: 'P85', sN: nData?.soldP85, sU: uData?.soldP85, hi: false },
-          { label: 'P95', sN: nData?.soldP95, sU: uData?.soldP95, hi: false },
-        ].filter(r => r.sN || r.sU);
-
         const hasSuggested = nData?.suggestedPrice != null || uData?.suggestedPrice != null;
         const pct = nData?.premiumPercentage ?? uData?.premiumPercentage ?? 15;
 
@@ -370,46 +359,7 @@ function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
               <DataRow bold label="Avg Price" sN={nData?.soldAvgPrice} sU={uData?.soldAvgPrice} lN={nData?.stockAvgPrice} lU={uData?.stockAvgPrice} />
               <DataRow label="Qty Avg Price" sN={nData?.soldQuantity} sU={uData?.soldQuantity} lN={nData?.stockQuantity} lU={uData?.stockQuantity} mono />
               <DataRow label="Max Price" sN={nData?.soldMaxPrice} sU={uData?.soldMaxPrice} lN={nData?.stockMaxPrice} lU={uData?.stockMaxPrice} />
-              {/* Distribution toggle */}
-              {hasSoldDist && (
-                <button
-                  onClick={() => setShowDist(v => !v)}
-                  className="w-full flex items-center justify-between px-3 py-2 text-[10px] text-gray-600 hover:text-gray-300 bg-white/[0.02] transition-colors"
-                  data-testid="button-toggle-sold-dist"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <BarChart3 className="w-3 h-3" />
-                    {showDist ? 'Hide sold distribution' : 'Sold price distribution (P10–P95)'}
-                  </span>
-                  {showDist ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                </button>
-              )}
             </div>
-
-            {/* ── Sold distribution ────────────────────────── */}
-            {showDist && allPcts.length > 0 && (
-              <div className="rounded-xl overflow-hidden border border-white/[0.06]">
-                <div className="grid grid-cols-[1fr_66px_66px] bg-white/[0.04] border-b border-white/[0.08]">
-                  <div className="px-3 py-2 text-[9px] uppercase tracking-widest text-gray-500 font-bold">Sold Distribution</div>
-                  <div className="w-[66px] px-1.5 py-2 text-center text-[9px] uppercase font-bold text-blue-300 border-l border-white/[0.06]">New</div>
-                  <div className="w-[66px] px-1.5 py-2 text-center text-[9px] uppercase font-bold text-orange-300 border-l border-white/[0.06]">Used</div>
-                </div>
-                {allPcts.map(row => (
-                  <div key={row.label} className={`grid grid-cols-[1fr_66px_66px] border-b border-white/[0.03] ${row.hi ? 'bg-emerald-950/40' : ''}`}>
-                    <div className={`px-3 py-1.5 text-[11px] font-mono font-semibold flex items-center gap-1.5 ${row.hi ? 'text-emerald-400' : 'text-gray-500'}`}>
-                      {row.label}
-                      {row.hi && <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-1 rounded font-sans">avg</span>}
-                    </div>
-                    <div className={`w-[66px] px-1.5 py-1.5 text-center text-[11px] font-mono tabular-nums border-l border-white/[0.04] ${row.hi ? 'text-emerald-300 font-bold' : 'text-gray-400'}`}>
-                      {row.sN ? `$${Number(row.sN).toFixed(2)}` : '—'}
-                    </div>
-                    <div className={`w-[66px] px-1.5 py-1.5 text-center text-[11px] font-mono tabular-nums border-l border-white/[0.04] ${row.hi ? 'text-emerald-300 font-bold' : 'text-gray-400'}`}>
-                      {row.sU ? `$${Number(row.sU).toFixed(2)}` : '—'}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
 
             {/* ── Suggested + My Prices ────────────────────── */}
             {(hasSuggested || hasMyPrices) && (() => {

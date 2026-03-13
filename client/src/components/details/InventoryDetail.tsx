@@ -1,4 +1,4 @@
-import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes, ChevronDown, ChevronUp } from "lucide-react";
+import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes } from "lucide-react";
 import PartImage from "@/components/PartImage";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,23 +26,11 @@ interface PriceOMagicData {
   stockMaxPrice: string | null;
   stockQuantity: number | null;
   stockTotalLots: number | null;
-  stockP10: string | null;
-  stockP25: string | null;
-  stockP50: string | null;
-  stockP75: string | null;
-  stockP85: string | null;
-  stockP95: string | null;
   soldAvgPrice: string | null;
   soldMinPrice: string | null;
   soldMaxPrice: string | null;
   soldQuantity: number | null;
   soldTotalLots: number | null;
-  soldP10: string | null;
-  soldP25: string | null;
-  soldP50: string | null;
-  soldP75: string | null;
-  soldP85: string | null;
-  soldP95: string | null;
   suggestedPrice: string;
   premiumPercentage: number;
 }
@@ -118,8 +106,6 @@ interface InventoryDetailProps {
 
 export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: InventoryDetailProps) {
   const [activeTab, setActiveTab] = useState(initialTab ?? "overview");
-  const [showSoldDistribution, setShowSoldDistribution] = useState(false);
-  const [showStockDistribution, setShowStockDistribution] = useState(false);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [dateRange, setDateRange] = useState<'all' | '1year' | '2years' | '3months' | '6months'>('all');
@@ -775,30 +761,6 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                     ? 'bg-lego-green/20 text-lego-green border-lego-green/40'
                     : 'bg-lego-orange/20 text-lego-orange border-lego-orange/40';
 
-                  const hasSoldPct = priceOMagic.soldP10 || priceOMagic.soldP25 || priceOMagic.soldP50 || priceOMagic.soldP75 || priceOMagic.soldP85 || priceOMagic.soldP95;
-                  const hasStockPct = priceOMagic.stockP10 || priceOMagic.stockP25 || priceOMagic.stockP50 || priceOMagic.stockP75 || priceOMagic.stockP85 || priceOMagic.stockP95;
-
-                  const soldPctRows = [
-                    { label: 'P10', value: priceOMagic.soldP10, note: 'cheapest 10%' },
-                    { label: 'P25', value: priceOMagic.soldP25, note: 'lower quarter' },
-                    { label: 'P50', value: priceOMagic.soldP50, note: 'median' },
-                    { label: 'P75', value: priceOMagic.soldP75, note: 'upper quarter' },
-                    { label: 'P85', value: priceOMagic.soldP85, note: 'upper 85%' },
-                    { label: 'P95', value: priceOMagic.soldP95, note: 'near premium' },
-                  ].filter(r => r.value);
-
-                  const stockPctRows = [
-                    { label: 'P10', value: priceOMagic.stockP10, note: 'cheapest 10%' },
-                    { label: 'P25', value: priceOMagic.stockP25, note: 'lower quarter' },
-                    { label: 'P50', value: priceOMagic.stockP50, note: 'median' },
-                    { label: 'P75', value: priceOMagic.stockP75, note: 'upper quarter' },
-                    { label: 'P85', value: priceOMagic.stockP85, note: 'upper 85%' },
-                    { label: 'P95', value: priceOMagic.stockP95, note: 'near premium' },
-                  ].filter(r => r.value);
-
-                  const pctMin = soldPctRows.length > 0 ? parseFloat(soldPctRows[0].value!) : null;
-                  const pctMax = soldPctRows.length > 0 ? parseFloat(soldPctRows[soldPctRows.length - 1].value!) : null;
-
                   return (
                     <div className="space-y-2">
                       <div className="grid grid-cols-2 gap-2">
@@ -832,16 +794,6 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                                 </div>
                               )}
                             </div>
-                            {hasStockPct && (
-                              <button
-                                onClick={() => setShowStockDistribution(v => !v)}
-                                className="flex items-center gap-1 text-[9px] text-gray-500 hover:text-gray-300 transition-colors w-full pt-0.5"
-                                data-testid="button-toggle-stock-distribution"
-                              >
-                                {showStockDistribution ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                                {showStockDistribution ? 'Hide' : 'Show'} distribution
-                              </button>
-                            )}
                           </div>
                         )}
 
@@ -875,77 +827,9 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                                 </div>
                               )}
                             </div>
-                            {hasSoldPct && (
-                              <button
-                                onClick={() => setShowSoldDistribution(v => !v)}
-                                className="flex items-center gap-1 text-[9px] text-gray-500 hover:text-gray-300 transition-colors w-full pt-0.5"
-                                data-testid="button-toggle-sold-distribution"
-                              >
-                                {showSoldDistribution ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                                {showSoldDistribution ? 'Hide' : 'Show'} distribution
-                              </button>
-                            )}
                           </div>
                         )}
                       </div>
-
-                      {/* Stock Distribution — collapsible */}
-                      {showStockDistribution && hasStockPct && (
-                        <div className="bg-gray-900/60 border border-gray-700 rounded-lg p-2.5">
-                          <p className="text-[9px] font-bold text-gray-400 uppercase mb-2">Listing Price Distribution</p>
-                          <div className="space-y-1">
-                            {stockPctRows.map(row => {
-                              const val = parseFloat(row.value!);
-                              const stockMin = stockPctRows.length > 0 ? parseFloat(stockPctRows[0].value!) : val;
-                              const stockMax = stockPctRows.length > 0 ? parseFloat(stockPctRows[stockPctRows.length - 1].value!) : val;
-                              const barPct = stockMax > stockMin ? Math.round(((val - stockMin) / (stockMax - stockMin)) * 100) : 50;
-                              return (
-                                <div key={row.label} className="flex items-center gap-2 opacity-70">
-                                  <span className="text-[9px] font-mono w-6 shrink-0 text-gray-500">{row.label}</span>
-                                  <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full rounded-full bg-gray-600"
-                                      style={{ width: `${Math.max(barPct, 4)}%` }}
-                                    />
-                                  </div>
-                                  <span className="text-[9px] font-mono w-14 text-right shrink-0 text-gray-400">
-                                    ${val.toFixed(3)}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <p className="text-[8px] text-gray-600 mt-2">From last BrickLink sync · {stockPctRows.length} percentile points</p>
-                        </div>
-                      )}
-
-                      {/* Sold Distribution — collapsible */}
-                      {showSoldDistribution && hasSoldPct && (
-                        <div className="bg-gray-900/60 border border-gray-700 rounded-lg p-2.5">
-                          <p className="text-[9px] font-bold text-gray-400 uppercase mb-2">Sold Price Distribution (6mo)</p>
-                          <div className="space-y-1">
-                            {soldPctRows.map(row => {
-                              const val = parseFloat(row.value!);
-                              const barPct = pctMax! > pctMin! ? Math.round(((val - pctMin!) / (pctMax! - pctMin!)) * 100) : 50;
-                              return (
-                                <div key={row.label} className="flex items-center gap-2 opacity-70">
-                                  <span className="text-[9px] font-mono w-6 shrink-0 text-gray-500">{row.label}</span>
-                                  <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                                    <div
-                                      className="h-full rounded-full bg-gray-600"
-                                      style={{ width: `${Math.max(barPct, 4)}%` }}
-                                    />
-                                  </div>
-                                  <span className="text-[9px] font-mono w-14 text-right shrink-0 text-gray-400">
-                                    ${val.toFixed(3)}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <p className="text-[8px] text-gray-600 mt-2">Computed from BrickLink sold transaction lots · {soldPctRows.length} percentile points</p>
-                        </div>
-                      )}
                     </div>
                   );
                 })()}

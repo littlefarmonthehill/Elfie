@@ -1017,41 +1017,7 @@ function sumPriceDetailQty(priceDetails: Array<{ quantity: string | number }> | 
   return total > 0 ? total : null;
 }
 
-// Compute multiple weighted percentiles from BrickLink price_detail entries in one pass
-function computePercentiles(
-  priceDetails: Array<{ quantity: string | number; unit_price: string }> | undefined,
-  percentiles: number[]
-): Record<number, number | null> {
-  const result: Record<number, number | null> = {};
-  percentiles.forEach(p => { result[p] = null; });
-  if (!priceDetails || priceDetails.length === 0) return result;
-  const weighted = priceDetails
-    .map(d => ({ price: parseFloat(d.unit_price), qty: Math.max(1, parseInt(d.quantity.toString()) || 1) }))
-    .filter(d => d.price > 0)
-    .sort((a, b) => a.price - b.price);
-  if (weighted.length === 0) return result;
-  const totalQty = weighted.reduce((sum, d) => sum + d.qty, 0);
-  const last = weighted[weighted.length - 1].price;
-  for (const percentile of percentiles) {
-    const target = totalQty * (percentile / 100);
-    let cumulative = 0;
-    let found = false;
-    for (const d of weighted) {
-      cumulative += d.qty;
-      if (cumulative >= target) { result[percentile] = Number(d.price.toFixed(4)); found = true; break; }
-    }
-    if (!found) result[percentile] = Number(last.toFixed(4));
-  }
-  return result;
-}
 
-// Convenience wrapper for single-percentile callers
-function computeWeightedPercentile(
-  priceDetails: Array<{ quantity: string | number; unit_price: string }> | undefined,
-  percentile: number
-): number | null {
-  return computePercentiles(priceDetails, [percentile])[percentile] ?? null;
-}
 
 // Calculate Price-O-Matic suggested price with premium
 function calculateSuggestedPrice(
@@ -1717,10 +1683,6 @@ export async function fetchPriceOMagicData(
     // Append to price history — pure insert, never overwrites, builds time-series beyond BL's 6-month cap
     try {
       const today = new Date().toISOString().split('T')[0];
-      const PERCENTILES = [10, 25, 50, 75, 85, 95] as const;
-      const soldPct = computePercentiles(soldPriceData?.price_detail, [...PERCENTILES]);
-      const stockPct = !skipStock ? computePercentiles(stockPriceData?.price_detail, [...PERCENTILES]) : {} as Record<number, number | null>;
-      const p = (map: Record<number, number | null>, n: number) => map[n]?.toString() ?? null;
 
       await db.insert(partPriceHistory).values({
         itemNo,
@@ -1735,8 +1697,6 @@ export async function fetchPriceOMagicData(
         stockUnitQty:  (!skipStock && stockPriceData?.unit_quantity) ? parseInt(stockPriceData.unit_quantity.toString()) : null,
         stockTotalLots:(!skipStock && stockPriceData?.total_lots)    ? parseInt(stockPriceData.total_lots.toString())    : null,
         stockQtyAvg:   (!skipStock && stockPriceData?.qty_avg)       ? parseInt(stockPriceData.qty_avg.toString())       : null,
-        stockP10: p(stockPct, 10), stockP25: p(stockPct, 25), stockP50: p(stockPct, 50),
-        stockP75: p(stockPct, 75), stockP85: p(stockPct, 85), stockP95: p(stockPct, 95),
 
         soldAvgPrice: soldPriceData?.avg_price ? soldPriceData.avg_price.toString() : null,
         soldMinPrice: soldPriceData?.min_price  ? soldPriceData.min_price.toString()  : null,
@@ -1744,8 +1704,6 @@ export async function fetchPriceOMagicData(
         soldUnitQty:  soldPriceData?.unit_quantity ? parseInt(soldPriceData.unit_quantity.toString()) : null,
         soldTotalLots:soldPriceData?.total_lots   ? parseInt(soldPriceData.total_lots.toString())   : null,
         soldQtyAvg:   soldPriceData?.qty_avg      ? parseInt(soldPriceData.qty_avg.toString())      : null,
-        soldP10: p(soldPct, 10), soldP25: p(soldPct, 25), soldP50: p(soldPct, 50),
-        soldP75: p(soldPct, 75), soldP85: p(soldPct, 85), soldP95: p(soldPct, 95),
       });
     } catch (histErr) {
       console.warn(`[Price-o-Matic] History snapshot failed for ${itemType}/${itemNo} (non-fatal):`, histErr);
