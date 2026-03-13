@@ -608,13 +608,15 @@ function sugConfigToWeights(cfg: SugConfig): DimensionWeights {
 }
 
 function DimensionWheel({ lot, baseCfg, onSave }: { lot: PricingInsight; baseCfg: SugConfig; onSave: (cfg: SugConfig) => void }) {
-  const SIZE = 180;
+  const SIZE = 200;
   const R = SIZE / 2;
-  const HANDLE_R = 10;
-  const RING_R = R - 24;
+  const HANDLE_R = 14;
+  const RING_R = R - 28;
   const CENTER = R;
   const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [weights, setWeights] = useState<DimensionWeights>(() => sugConfigToWeights(baseCfg));
+  const draggingRef = useRef(false);
   const [dragging, setDragging] = useState(false);
   const [handlePos, setHandlePos] = useState<{ x: number; y: number }>({ x: CENTER, y: CENTER });
   const [showDetail, setShowDetail] = useState(false);
@@ -663,27 +665,55 @@ function DimensionWheel({ lot, baseCfg, onSave }: { lot: PricingInsight; baseCfg
     });
   }, [baseCfg, CENTER, RING_R]);
 
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const preventScroll = (e: TouchEvent) => {
+      if (draggingRef.current) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    el.addEventListener('touchmove', preventScroll, { passive: false });
+    el.addEventListener('touchstart', (e: TouchEvent) => {
+      if (draggingRef.current) { e.preventDefault(); }
+    }, { passive: false });
+    return () => {
+      el.removeEventListener('touchmove', preventScroll);
+    };
+  }, []);
+
+  const getSvgCoords = (e: React.PointerEvent) => {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+
   const onPointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    draggingRef.current = true;
     setDragging(true);
     (e.target as Element).setPointerCapture(e.pointerId);
-    const svg = svgRef.current;
-    if (!svg) return;
-    const rect = svg.getBoundingClientRect();
-    updateFromPos(e.clientX - rect.left, e.clientY - rect.top);
+    const coords = getSvgCoords(e);
+    if (coords) updateFromPos(coords.x, coords.y);
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!dragging) return;
+    if (!draggingRef.current) return;
     e.preventDefault();
-    const svg = svgRef.current;
-    if (!svg) return;
-    const rect = svg.getBoundingClientRect();
-    updateFromPos(e.clientX - rect.left, e.clientY - rect.top);
+    e.stopPropagation();
+    const coords = getSvgCoords(e);
+    if (coords) updateFromPos(coords.x, coords.y);
   };
 
-  const onPointerUp = () => setDragging(false);
+  const onPointerUp = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    draggingRef.current = false;
+    setDragging(false);
+  };
 
   const liveCfg = weightsToSugConfig(weights, baseCfg);
   const liveCalc = calcSuggested(lot, liveCfg);
@@ -698,17 +728,21 @@ function DimensionWheel({ lot, baseCfg, onSave }: { lot: PricingInsight; baseCfg
   );
 
   return (
-    <div className="flex flex-col items-center gap-2" data-testid="dimension-wheel">
+    <div ref={containerRef} className="flex flex-col items-center gap-2" style={{ touchAction: 'none' }} data-testid="dimension-wheel">
       <svg
         ref={svgRef}
         width={SIZE}
         height={SIZE}
         viewBox={`0 0 ${SIZE} ${SIZE}`}
-        className="touch-none select-none"
+        className="select-none"
+        style={{ touchAction: 'none' }}
+        onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
         data-testid="wheel-svg"
       >
+        <rect x={0} y={0} width={SIZE} height={SIZE} fill="transparent" />
         <circle cx={CENTER} cy={CENTER} r={RING_R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
         <circle cx={CENTER} cy={CENTER} r={RING_R * 0.5} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={1} strokeDasharray="3 3" />
 
@@ -737,15 +771,16 @@ function DimensionWheel({ lot, baseCfg, onSave }: { lot: PricingInsight; baseCfg
           </text>
         )}
 
+        <circle cx={handlePos.x} cy={handlePos.y} r={HANDLE_R + 8} fill="transparent" data-testid="wheel-handle-hitarea" />
         <circle
           cx={handlePos.x}
           cy={handlePos.y}
           r={HANDLE_R}
-          fill="rgba(139,92,246,0.8)"
+          fill={dragging ? 'rgba(139,92,246,1)' : 'rgba(139,92,246,0.8)'}
           stroke="white"
-          strokeWidth={2}
+          strokeWidth={2.5}
           className="cursor-grab active:cursor-grabbing"
-          onPointerDown={onPointerDown}
+          style={{ filter: dragging ? 'drop-shadow(0 0 6px rgba(139,92,246,0.6))' : 'none' }}
           data-testid="wheel-handle"
         />
       </svg>
