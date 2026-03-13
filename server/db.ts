@@ -387,7 +387,6 @@ export async function runMigrations() {
     // 4. Drop the old expression-based index if it exists
     await client.query(`UPDATE price_guide_cache SET item_no = upper(item_no) WHERE item_no != upper(item_no)`);
     await client.query(`UPDATE price_guide_cache SET color_id = -1 WHERE color_id IS NULL`);
-    await client.query(`ALTER TABLE price_guide_cache ALTER COLUMN color_id SET NOT NULL`);
     await client.query(`ALTER TABLE price_guide_cache ALTER COLUMN color_id SET DEFAULT -1`);
     await client.query(`
       DELETE FROM price_guide_cache
