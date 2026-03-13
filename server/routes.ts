@@ -5320,7 +5320,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const colorIdNum = parseInt(colorId);
 
       const [result] = await db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: sql<number>`count(distinct ${setPartRelationships.setNum})::int` })
         .from(setPartRelationships)
         .where(
           and(
@@ -5360,8 +5360,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       const rawData = await db
         .select({
           setNum: setPartRelationships.setNum,
-          setName: setPartRelationships.setName,
-          quantity: setPartRelationships.quantity,
+          setName: sql<string>`max(${setPartRelationships.setName})`,
+          quantity: sql<number>`sum(${setPartRelationships.quantity})::int`,
         })
         .from(setPartRelationships)
         .where(
@@ -5372,6 +5372,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
               : sql`${setPartRelationships.colorId} IS NULL`
           )
         )
+        .groupBy(setPartRelationships.setNum)
         .orderBy(setPartRelationships.setNum);
       
       const sortedSets = rawData.sort((a, b) => {
