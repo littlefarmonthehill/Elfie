@@ -345,6 +345,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 </html>`);
   });
 
+  // GET /api/public/organizations — list org names for employee join flow (no auth)
+  app.get('/api/public/organizations', async (_req, res) => {
+    try {
+      const allOrgs = await storage.getAllOrganizations();
+      const publicOrgs = allOrgs
+        .filter(o => o.isActive && o.id !== PLATFORM_ORG_ID && o.id !== '__platform__')
+        .map(o => ({ id: o.id, name: o.name }));
+      res.json(publicOrgs);
+    } catch (error) {
+      console.error("Error listing public orgs:", error);
+      res.status(500).json({ message: "Failed to fetch organizations" });
+    }
+  });
+
   // GET /api/auth/user — authenticated but may not be approved
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {

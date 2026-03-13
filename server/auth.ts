@@ -53,6 +53,7 @@ const emailPasswordSchema = z.object({
 const signupSchema = emailPasswordSchema.extend({
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+  joinOrgId: z.string().optional(),
 });
 
 const changePasswordSchema = z.object({
@@ -137,7 +138,7 @@ export async function setupAuth(app: Express) {
     try {
       // Validate input
       const validatedData = signupSchema.parse(req.body);
-      const { email, password, firstName, lastName } = validatedData;
+      const { email, password, firstName, lastName, joinOrgId } = validatedData;
 
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(email);
@@ -149,21 +150,33 @@ export async function setupAuth(app: Express) {
       const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
       // Auto-approve admins (Blake and Caleb get admin role and auto-approval)
-      const isApproved = APPROVED_ADMINS.includes(email);
-      const role = isApproved ? "admin" : "customer";
-      const superAdmin = isApproved; // APPROVED_ADMINS are also superAdmins
+      const isAdmin = APPROVED_ADMINS.includes(email);
+      const role = isAdmin ? "admin" : "customer";
+      const superAdmin = isAdmin;
 
-      // Org assignment: admins join PlanetBrick default org; new users get their own org
       let orgId: string;
-      let orgRole: string = 'owner';
-      if (isApproved) {
+      let orgRole: string | null = 'owner';
+      let userApproved = isAdmin;
+
+      if (isAdmin) {
         orgId = 'org_planetbrick';
+      } else if (joinOrgId) {
+        if (joinOrgId === 'platform' || joinOrgId === '__platform__' || joinOrgId === 'org_planetbrick') {
+          return res.status(400).json({ message: "Cannot join this organization" });
+        }
+        const targetOrg = await storage.getOrganization(joinOrgId);
+        if (!targetOrg || !targetOrg.isActive) {
+          return res.status(400).json({ message: "Organization not found" });
+        }
+        orgId = joinOrgId;
+        orgRole = null;
+        userApproved = true;
       } else {
         const baseSlug = toSlug(firstName || email.split('@')[0] || 'store');
         const suffix = Math.floor(1000 + Math.random() * 9000);
         const slug = `${baseSlug}${suffix}`;
         const orgName = firstName ? `${firstName}'s Store` : `${email.split('@')[0]}'s Store`;
-        const trialEndsAt = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000); // 15 days from now
+        const trialEndsAt = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000);
         const newOrg = await storage.createOrganization({ name: orgName, slug, plan: 'trial', trialEndsAt });
         orgId = newOrg.id;
       }
@@ -174,7 +187,7 @@ export async function setupAuth(app: Express) {
         password: hashedPassword,
         firstName,
         lastName,
-        isApproved,
+        isApproved: userApproved,
         role,
         orgId,
         orgRole,
