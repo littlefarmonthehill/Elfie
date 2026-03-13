@@ -537,11 +537,11 @@ function calcSuggested(lot: PricingInsight | null, cfg: SugConfig = DEFAULT_SUG_
 
   const demandAdj = 1 + (velocity * cfg.demandMult);
   let raw = base * demandAdj;
-  const cappedRaw = (stockMin > 0) ? Math.min(raw, stockMin * cfg.compCap) : raw;
-  raw = cappedRaw;
+  const capLimit = stockMin > 0 ? stockMin * cfg.compCap : raw;
+  const cappedRaw = raw <= capLimit ? raw : capLimit + (raw - capLimit) * 0.3;
 
   const floor = stockMin > 0 ? stockMin * cfg.floor : 0;
-  const suggested = Math.max(raw * cfg.storePremium, floor);
+  const suggested = Math.max(cappedRaw * cfg.storePremium, floor);
 
   const premiumScore = (velocity * cfg.premVelW) + (scarcity * cfg.premScarcW);
   let premium: number | null = null;
@@ -551,7 +551,7 @@ function calcSuggested(lot: PricingInsight | null, cfg: SugConfig = DEFAULT_SUG_
     premium = Math.max(suggested * premMult, floor);
   }
 
-  const breakdown: SugBreakdown = { soldAvg, soldMax, stockMin, soldQty, stockQty, velocity, scarcity, base, demandAdj, raw: cappedRaw, cappedRaw, floor, suggested, premiumScore, premMult, premium, cfg };
+  const breakdown: SugBreakdown = { soldAvg, soldMax, stockMin, soldQty, stockQty, velocity, scarcity, base, demandAdj, raw: base * demandAdj, cappedRaw, floor, suggested, premiumScore, premMult, premium, cfg };
 
   return {
     suggested: Number(suggested.toFixed(2)),
