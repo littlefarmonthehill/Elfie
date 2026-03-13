@@ -350,7 +350,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const allOrgs = await storage.getAllOrganizations();
       const publicOrgs = allOrgs
-        .filter(o => o.isActive && o.id !== PLATFORM_ORG_ID && o.id !== '__platform__' && o.id !== 'org_planetbrick')
+        .filter(o => o.isActive && o.id !== PLATFORM_ORG_ID && o.id !== '__platform__')
         .map(o => ({ id: o.id, name: o.name }));
       res.json(publicOrgs);
     } catch (error) {
@@ -2179,6 +2179,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating user role:", error);
       res.status(500).json({ message: "Failed to update user role" });
+    }
+  });
+
+  app.post("/api/admin/users", isApproved, async (req: any, res) => {
+    try {
+      const orgId = getOrgId(req);
+      if (!orgId) return res.status(403).json({ message: "No organization" });
+      const { email, firstName, lastName, role } = req.body;
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      const normalizedEmail = email.toLowerCase().trim();
+      const existing = await storage.getUserByEmail(normalizedEmail);
+      if (existing) {
+        return res.status(400).json({ message: "A user with this email already exists" });
+      }
+      const bcrypt = await import("bcrypt");
+      const tempPassword = Math.random().toString(36).slice(-10) + "A1!";
+      const hashedPassword = await bcrypt.hash(tempPassword, 10);
+      const user = await storage.createUser({
+        email: normalizedEmail,
+        password: hashedPassword,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        isApproved: true,
+        role: role || "employee",
+        orgId,
+        orgRole: null,
+        superAdmin: false,
+      });
+      res.json({ ...user, tempPassword });
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Failed to create user" });
     }
   });
 

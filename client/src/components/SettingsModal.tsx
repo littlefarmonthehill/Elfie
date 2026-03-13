@@ -322,6 +322,11 @@ const ROLE_META: Record<string, { label: string; description: string; color: str
 function UserManagementSection({ userCount }: { userCount?: number }) {
   const { toast } = useToast();
   const { isAdmin, user: currentUser } = useAuth();
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [newFirstName, setNewFirstName] = useState("");
+  const [newLastName, setNewLastName] = useState("");
+  const [newRole, setNewRole] = useState("employee");
 
   const { data: users, isLoading, isError } = useQuery<User[]>({
     queryKey: ['/api/admin/users'],
@@ -351,6 +356,28 @@ function UserManagementSection({ userCount }: { userCount?: number }) {
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to update role.", variant: "destructive" });
+    },
+  });
+
+  const addUserMutation = useMutation({
+    mutationFn: async (data: { email: string; firstName: string; lastName: string; role: string }) => {
+      return await apiRequest('POST', '/api/admin/users', data);
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      setShowAddForm(false);
+      setNewEmail("");
+      setNewFirstName("");
+      setNewLastName("");
+      setNewRole("employee");
+      toast({
+        title: "Team Member Added",
+        description: `${data.email} has been added. Temporary password: ${data.tempPassword}`,
+        duration: 15000,
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to add team member.", variant: "destructive" });
     },
   });
 
@@ -403,8 +430,82 @@ function UserManagementSection({ userCount }: { userCount?: number }) {
               </PopoverContent>
             </Popover>
           </div>
-          <span className="text-xs text-gray-400">{(users ?? []).length} member{(users ?? []).length !== 1 ? 's' : ''}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">{(users ?? []).length} member{(users ?? []).length !== 1 ? 's' : ''}</span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowAddForm(v => !v)}
+              className="text-xs"
+              data-testid="button-add-member"
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              Add
+            </Button>
+          </div>
         </div>
+
+        {showAddForm && (
+          <div className="bg-gray-800/60 border border-gray-700 rounded-md p-3 mb-3 space-y-2.5">
+            <p className="text-xs font-medium text-gray-300">Add a new team member</p>
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                placeholder="First name"
+                value={newFirstName}
+                onChange={e => setNewFirstName(e.target.value)}
+                className="bg-gray-900/50 border-gray-600 text-white text-xs h-8"
+                data-testid="input-add-firstName"
+              />
+              <Input
+                placeholder="Last name"
+                value={newLastName}
+                onChange={e => setNewLastName(e.target.value)}
+                className="bg-gray-900/50 border-gray-600 text-white text-xs h-8"
+                data-testid="input-add-lastName"
+              />
+            </div>
+            <Input
+              type="email"
+              placeholder="Email address"
+              value={newEmail}
+              onChange={e => setNewEmail(e.target.value)}
+              className="bg-gray-900/50 border-gray-600 text-white text-xs h-8"
+              data-testid="input-add-email"
+            />
+            <div className="flex items-center gap-2">
+              <Select value={newRole} onValueChange={setNewRole}>
+                <SelectTrigger className="h-8 text-xs w-[120px] bg-gray-900/50 border-gray-600" data-testid="select-add-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="employee">Employee</SelectItem>
+                  <SelectItem value="customer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="flex-1" />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setShowAddForm(false); setNewEmail(""); setNewFirstName(""); setNewLastName(""); }}
+                className="text-xs text-gray-500"
+                data-testid="button-cancel-add"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => addUserMutation.mutate({ email: newEmail.trim(), firstName: newFirstName.trim(), lastName: newLastName.trim(), role: newRole })}
+                disabled={!newEmail.trim() || addUserMutation.isPending}
+                className="text-xs"
+                data-testid="button-confirm-add"
+              >
+                {addUserMutation.isPending ? "Adding..." : "Add Member"}
+              </Button>
+            </div>
+            <p className="text-[10px] text-gray-500">A temporary password will be generated. Share it with the new member so they can sign in and change it.</p>
+          </div>
+        )}
 
         {adminCount === 1 && (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-md p-2.5 mb-3 flex items-start gap-2">

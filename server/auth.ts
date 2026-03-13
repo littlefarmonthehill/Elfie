@@ -161,7 +161,7 @@ export async function setupAuth(app: Express) {
       if (isAdmin) {
         orgId = 'org_planetbrick';
       } else if (joinOrgId) {
-        if (joinOrgId === 'platform' || joinOrgId === '__platform__' || joinOrgId === 'org_planetbrick') {
+        if (joinOrgId === 'platform' || joinOrgId === '__platform__') {
           return res.status(400).json({ message: "Cannot join this organization" });
         }
         const targetOrg = await storage.getOrganization(joinOrgId);
