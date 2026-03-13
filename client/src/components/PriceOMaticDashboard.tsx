@@ -392,7 +392,7 @@ type CellHL = { sN?: boolean; sU?: boolean; lN?: boolean; lU?: boolean };
 
 const HL_CELL = 'bg-violet-500/[0.18] ring-1 ring-inset ring-violet-400/40';
 
-function PricingGrid({ group, activeSort, cfg }: { group: GroupedInsight; activeSort: SortField; cfg: SugConfig }) {
+function PricingGrid({ group, activeSort, cfg, onSaveWeights }: { group: GroupedInsight; activeSort: SortField; cfg: SugConfig; onSaveWeights: (cfg: SugConfig) => void }) {
   const nLot = group.newLot;
   const uLot = group.usedLot;
 
@@ -454,8 +454,8 @@ function PricingGrid({ group, activeSort, cfg }: { group: GroupedInsight; active
         <div className={`${GR} border-b border-white/[0.04] bg-purple-500/[0.05]`}>
           <div className="px-2 py-1 text-[10px] text-purple-400 font-semibold">Suggested</div>
           <div className={cell('text-purple-300 font-semibold')}>
-            {nCalc.suggested != null && nCalc.breakdown ? (
-              <BreakdownPopover bd={nCalc.breakdown} label="New Suggested">
+            {nCalc.suggested != null && nCalc.breakdown && nLot ? (
+              <BreakdownPopover bd={nCalc.breakdown} label="New Suggested" lot={nLot} baseCfg={cfg} onSaveWeights={onSaveWeights}>
                 <button onClick={(e) => e.stopPropagation()} className="underline decoration-dotted underline-offset-2 decoration-purple-500/40 hover:text-purple-200 transition-colors" data-testid="button-sug-new">
                   {fmt(nCalc.suggested)}
                 </button>
@@ -463,8 +463,8 @@ function PricingGrid({ group, activeSort, cfg }: { group: GroupedInsight; active
             ) : '—'}
           </div>
           <div className={cell('text-purple-300 font-semibold')}>
-            {uCalc.suggested != null && uCalc.breakdown ? (
-              <BreakdownPopover bd={uCalc.breakdown} label="Used Suggested">
+            {uCalc.suggested != null && uCalc.breakdown && uLot ? (
+              <BreakdownPopover bd={uCalc.breakdown} label="Used Suggested" lot={uLot} baseCfg={cfg} onSaveWeights={onSaveWeights}>
                 <button onClick={(e) => e.stopPropagation()} className="underline decoration-dotted underline-offset-2 decoration-purple-500/40 hover:text-purple-200 transition-colors" data-testid="button-sug-used">
                   {fmt(uCalc.suggested)}
                 </button>
@@ -479,8 +479,8 @@ function PricingGrid({ group, activeSort, cfg }: { group: GroupedInsight; active
         <div className={`${GR} border-b border-white/[0.04] bg-purple-500/[0.05]`}>
           <div className="px-2 py-1 text-[10px] text-amber-400 font-semibold">Premium</div>
           <div className={cell('text-amber-300 font-semibold')}>
-            {nHasPrem && nCalc.breakdown ? (
-              <BreakdownPopover bd={nCalc.breakdown} label="New Premium">
+            {nHasPrem && nCalc.breakdown && nLot ? (
+              <BreakdownPopover bd={nCalc.breakdown} label="New Premium" lot={nLot} baseCfg={cfg} onSaveWeights={onSaveWeights}>
                 <button onClick={(e) => e.stopPropagation()} className="underline decoration-dotted underline-offset-2 decoration-amber-500/40 hover:text-amber-200 transition-colors" data-testid="button-prem-new">
                   {fmt(nCalc.premium)}
                 </button>
@@ -488,8 +488,8 @@ function PricingGrid({ group, activeSort, cfg }: { group: GroupedInsight; active
             ) : '—'}
           </div>
           <div className={cell('text-amber-300 font-semibold')}>
-            {uHasPrem && uCalc.breakdown ? (
-              <BreakdownPopover bd={uCalc.breakdown} label="Used Premium">
+            {uHasPrem && uCalc.breakdown && uLot ? (
+              <BreakdownPopover bd={uCalc.breakdown} label="Used Premium" lot={uLot} baseCfg={cfg} onSaveWeights={onSaveWeights}>
                 <button onClick={(e) => e.stopPropagation()} className="underline decoration-dotted underline-offset-2 decoration-amber-500/40 hover:text-amber-200 transition-colors" data-testid="button-prem-used">
                   {fmt(uCalc.premium)}
                 </button>
@@ -561,7 +561,133 @@ function calcSuggested(lot: PricingInsight | null, cfg: SugConfig = DEFAULT_SUG_
   };
 }
 
-function BreakdownPopover({ bd, label, children }: { bd: SugBreakdown; label: string; children: React.ReactNode }) {
+interface DimensionWeights {
+  demand: number;
+  rarity: number;
+  headroom: number;
+  competition: number;
+}
+
+const DIMENSIONS = [
+  { key: 'demand' as const, label: 'Demand', color: '#60a5fa', angle: -Math.PI / 2, desc: 'How fast it sells' },
+  { key: 'rarity' as const, label: 'Rarity', color: '#a78bfa', angle: 0, desc: 'How few available' },
+  { key: 'competition' as const, label: 'Competition', color: '#34d399', angle: Math.PI / 2, desc: 'Your price vs market' },
+  { key: 'headroom' as const, label: 'Headroom', color: '#fbbf24', angle: Math.PI, desc: 'Room above current' },
+];
+
+function weightsToSugConfig(w: DimensionWeights, baseCfg: SugConfig): SugConfig {
+  const total = w.demand + w.rarity + w.headroom + w.competition;
+  if (total <= 0) return baseCfg;
+  const nd = w.demand / total;
+  const nr = w.rarity / total;
+  const nh = w.headroom / total;
+  const nc = w.competition / total;
+  return {
+    ...baseCfg,
+    soldAvgW: 0.3 + nc * 0.4,
+    stockMinW: 0.2 + nc * 0.3,
+    soldMaxW: 0.1 + nh * 0.3,
+    demandMult: 0.05 + nd * 0.6,
+    compCap: 1.0 + nc * 0.3,
+    floor: 0.85 + nc * 0.15,
+    storePremium: 1.0 + (nd + nr) * 0.15,
+    premThreshold: 0.5 - (nd + nr) * 0.2,
+    premVelW: 0.3 + nd * 0.5,
+    premScarcW: 0.2 + nr * 0.5,
+    premMult: 0.2 + (nd + nr) * 0.5,
+  };
+}
+
+function sugConfigToWeights(cfg: SugConfig): DimensionWeights {
+  const demand = Math.max(0, (cfg.demandMult - 0.05) / 0.6);
+  const rarity = Math.max(0, (cfg.premScarcW - 0.2) / 0.5);
+  const headroom = Math.max(0, (cfg.soldMaxW - 0.1) / 0.3);
+  const competition = Math.max(0, (cfg.stockMinW - 0.2) / 0.3);
+  const total = demand + rarity + headroom + competition || 1;
+  return { demand: demand / total, rarity: rarity / total, headroom: headroom / total, competition: competition / total };
+}
+
+function DimensionWheel({ lot, baseCfg, onSave }: { lot: PricingInsight; baseCfg: SugConfig; onSave: (cfg: SugConfig) => void }) {
+  const SIZE = 180;
+  const R = SIZE / 2;
+  const HANDLE_R = 10;
+  const RING_R = R - 24;
+  const CENTER = R;
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [weights, setWeights] = useState<DimensionWeights>(() => sugConfigToWeights(baseCfg));
+  const [dragging, setDragging] = useState(false);
+  const [handlePos, setHandlePos] = useState<{ x: number; y: number }>({ x: CENTER, y: CENTER });
+  const [showDetail, setShowDetail] = useState(false);
+
+  const updateFromPos = useCallback((x: number, y: number) => {
+    const dx = x - CENTER;
+    const dy = y - CENTER;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const maxDist = RING_R;
+    const clampedDist = Math.min(dist, maxDist);
+    const angle = Math.atan2(dy, dx);
+    const cx = CENTER + Math.cos(angle) * clampedDist;
+    const cy = CENTER + Math.sin(angle) * clampedDist;
+    setHandlePos({ x: cx, y: cy });
+
+    const strength = clampedDist / maxDist;
+    const newW: DimensionWeights = { demand: 0.25, rarity: 0.25, headroom: 0.25, competition: 0.25 };
+    if (strength > 0.05) {
+      for (const dim of DIMENSIONS) {
+        const angleDiff = Math.abs(Math.atan2(Math.sin(angle - dim.angle), Math.cos(angle - dim.angle)));
+        const influence = Math.max(0, 1 - angleDiff / (Math.PI * 0.75));
+        newW[dim.key] = 0.05 + influence * strength;
+      }
+      const total = newW.demand + newW.rarity + newW.headroom + newW.competition;
+      newW.demand /= total;
+      newW.rarity /= total;
+      newW.headroom /= total;
+      newW.competition /= total;
+    }
+    setWeights(newW);
+  }, [CENTER, RING_R]);
+
+  useEffect(() => {
+    const w = sugConfigToWeights(baseCfg);
+    setWeights(w);
+    let bestDim = DIMENSIONS[0];
+    let bestVal = 0;
+    for (const d of DIMENSIONS) {
+      if (w[d.key] > bestVal) { bestVal = w[d.key]; bestDim = d; }
+    }
+    const deviation = bestVal - 0.25;
+    const dist = deviation * RING_R * 2;
+    setHandlePos({
+      x: CENTER + Math.cos(bestDim.angle) * dist,
+      y: CENTER + Math.sin(bestDim.angle) * dist,
+    });
+  }, [baseCfg, CENTER, RING_R]);
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(true);
+    (e.target as Element).setPointerCapture(e.pointerId);
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    updateFromPos(e.clientX - rect.left, e.clientY - rect.top);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragging) return;
+    e.preventDefault();
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    updateFromPos(e.clientX - rect.left, e.clientY - rect.top);
+  };
+
+  const onPointerUp = () => setDragging(false);
+
+  const liveCfg = weightsToSugConfig(weights, baseCfg);
+  const liveCalc = calcSuggested(lot, liveCfg);
+  const bd = liveCalc.breakdown;
   const f = (v: number) => `$${v.toFixed(2)}`;
   const pct = (v: number) => `${(v * 100).toFixed(0)}%`;
   const row = (lbl: string, val: string, highlight?: boolean) => (
@@ -570,38 +696,136 @@ function BreakdownPopover({ bd, label, children }: { bd: SugBreakdown; label: st
       <span className="font-mono">{val}</span>
     </div>
   );
+
+  return (
+    <div className="flex flex-col items-center gap-2" data-testid="dimension-wheel">
+      <svg
+        ref={svgRef}
+        width={SIZE}
+        height={SIZE}
+        viewBox={`0 0 ${SIZE} ${SIZE}`}
+        className="touch-none select-none"
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        data-testid="wheel-svg"
+      >
+        <circle cx={CENTER} cy={CENTER} r={RING_R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
+        <circle cx={CENTER} cy={CENTER} r={RING_R * 0.5} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={1} strokeDasharray="3 3" />
+
+        {DIMENSIONS.map((dim) => {
+          const lx = CENTER + Math.cos(dim.angle) * (RING_R + 14);
+          const ly = CENTER + Math.sin(dim.angle) * (RING_R + 14);
+          const barEnd = CENTER + Math.cos(dim.angle) * (RING_R * weights[dim.key] * 3.5);
+          const barEndY = CENTER + Math.sin(dim.angle) * (RING_R * weights[dim.key] * 3.5);
+          return (
+            <g key={dim.key}>
+              <line x1={CENTER} y1={CENTER} x2={CENTER + Math.cos(dim.angle) * RING_R} y2={CENTER + Math.sin(dim.angle) * RING_R} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
+              <line x1={CENTER} y1={CENTER} x2={barEnd} y2={barEndY} stroke={dim.color} strokeWidth={3} strokeLinecap="round" opacity={0.5} />
+              <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fill={dim.color} fontSize={8} fontWeight={600} opacity={0.9}>
+                {dim.label}
+              </text>
+            </g>
+          );
+        })}
+
+        <text x={CENTER} y={CENTER - 7} textAnchor="middle" dominantBaseline="central" fill="#e2e8f0" fontSize={16} fontWeight={700}>
+          {liveCalc.suggested != null ? `$${liveCalc.suggested.toFixed(2)}` : '—'}
+        </text>
+        {liveCalc.premium != null && (
+          <text x={CENTER} y={CENTER + 8} textAnchor="middle" dominantBaseline="central" fill="#fbbf24" fontSize={9} fontWeight={500} opacity={0.8}>
+            prem ${liveCalc.premium.toFixed(2)}
+          </text>
+        )}
+
+        <circle
+          cx={handlePos.x}
+          cy={handlePos.y}
+          r={HANDLE_R}
+          fill="rgba(139,92,246,0.8)"
+          stroke="white"
+          strokeWidth={2}
+          className="cursor-grab active:cursor-grabbing"
+          onPointerDown={onPointerDown}
+          data-testid="wheel-handle"
+        />
+      </svg>
+
+      <div className="flex gap-1 flex-wrap justify-center">
+        {DIMENSIONS.map((dim) => (
+          <span key={dim.key} className="text-[8px] px-1.5 py-0.5 rounded" style={{ backgroundColor: `${dim.color}20`, color: dim.color }}>
+            {dim.label} {(weights[dim.key] * 100).toFixed(0)}%
+          </span>
+        ))}
+      </div>
+
+      <Button
+        size="sm"
+        variant="default"
+        className="w-full bg-purple-600 hover:bg-purple-500 text-xs"
+        onClick={() => onSave(liveCfg)}
+        data-testid="button-apply-weights"
+      >
+        Apply to All Items
+      </Button>
+
+      {bd && (
+        <>
+          <button
+            onClick={() => setShowDetail(!showDetail)}
+            className="text-[9px] text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-1"
+            data-testid="button-toggle-breakdown"
+          >
+            <ChevronDown className={`w-3 h-3 transition-transform ${showDetail ? '' : '-rotate-90'}`} />
+            Calculation details
+          </button>
+          {showDetail && (
+            <div className="w-full text-[10px] leading-snug space-y-1.5">
+              <div className="space-y-0.5 border-b border-gray-700/60 pb-1.5">
+                <p className="text-[8px] uppercase tracking-wider text-gray-500 mb-0.5">Base Market Price</p>
+                {row(`Sold Avg × ${pct(bd.cfg.soldAvgW)}`, f(bd.soldAvg * bd.cfg.soldAvgW))}
+                {row(`Listed Min × ${pct(bd.cfg.stockMinW)}`, f(bd.stockMin * bd.cfg.stockMinW))}
+                {row(`Sold Max × ${pct(bd.cfg.soldMaxW)}`, f(bd.soldMax * bd.cfg.soldMaxW))}
+                {row('= Base', f(bd.base), true)}
+              </div>
+              <div className="space-y-0.5 border-b border-gray-700/60 pb-1.5">
+                <p className="text-[8px] uppercase tracking-wider text-gray-500 mb-0.5">Adjustments</p>
+                {row(`Velocity (${bd.soldQty} sold / ${bd.stockQty} listed)`, bd.velocity.toFixed(2))}
+                {row(`Demand adj`, `×${bd.demandAdj.toFixed(3)}`)}
+                {bd.stockMin > 0 && row(`Comp cap`, f(bd.stockMin * bd.cfg.compCap))}
+                {row(`Store premium`, `×${bd.cfg.storePremium.toFixed(2)}`)}
+                {bd.floor > 0 && row(`Floor`, f(bd.floor))}
+                {row('= Suggested', f(bd.suggested), true)}
+              </div>
+              {bd.premMult != null && (
+                <div className="space-y-0.5">
+                  <p className="text-[8px] uppercase tracking-wider text-amber-400/70 mb-0.5">Premium</p>
+                  {row(`Score`, bd.premiumScore.toFixed(3))}
+                  {row(`Multiplier`, `×${bd.premMult.toFixed(3)}`)}
+                  {bd.premium != null && row('= Premium', f(bd.premium), true)}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function BreakdownPopover({ bd, label, children, lot, baseCfg, onSaveWeights }: {
+  bd: SugBreakdown;
+  label: string;
+  children: React.ReactNode;
+  lot: PricingInsight;
+  baseCfg: SugConfig;
+  onSaveWeights: (cfg: SugConfig) => void;
+}) {
   return (
     <Popover>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent side="top" align="start" className="w-64 text-[10px] leading-snug bg-slate-900 border-slate-700 text-gray-300 p-2.5 z-50" onClick={(e) => e.stopPropagation()}>
-        <p className="font-bold text-purple-300 mb-1.5">{label} — Calculation</p>
-        <div className="space-y-0.5 border-b border-gray-700/60 pb-1.5 mb-1.5">
-          <p className="text-[8px] uppercase tracking-wider text-gray-500 mb-0.5">Base Market Price</p>
-          {row(`Sold Avg × ${pct(bd.cfg.soldAvgW)}`, f(bd.soldAvg * bd.cfg.soldAvgW))}
-          {row(`Listed Min × ${pct(bd.cfg.stockMinW)}`, f(bd.stockMin * bd.cfg.stockMinW))}
-          {row(`Sold Max × ${pct(bd.cfg.soldMaxW)}`, f(bd.soldMax * bd.cfg.soldMaxW))}
-          {row('= Base', f(bd.base), true)}
-        </div>
-        <div className="space-y-0.5 border-b border-gray-700/60 pb-1.5 mb-1.5">
-          <p className="text-[8px] uppercase tracking-wider text-gray-500 mb-0.5">Adjustments</p>
-          {row(`Velocity (${bd.soldQty} sold / ${bd.stockQty} listed = ${bd.velocity.toFixed(2)})`, '')}
-          {row(`Demand adj (vel × ${bd.cfg.demandMult})`, `×${bd.demandAdj.toFixed(3)}`)}
-          {row('Raw', f(bd.base * bd.demandAdj))}
-          {bd.stockMin > 0 && row(`Comp cap (min × ${bd.cfg.compCap.toFixed(2)})`, f(bd.stockMin * bd.cfg.compCap))}
-          {row(`Store premium`, `×${bd.cfg.storePremium.toFixed(2)}`)}
-          {bd.floor > 0 && row(`Floor (min × ${bd.cfg.floor.toFixed(2)})`, f(bd.floor))}
-          {row('= Suggested', f(bd.suggested), true)}
-        </div>
-        {bd.premMult != null && (
-          <div className="space-y-0.5">
-            <p className="text-[8px] uppercase tracking-wider text-amber-400/70 mb-0.5">Premium Opportunity</p>
-            {row(`Vel ${bd.velocity.toFixed(2)} (${bd.soldQty}/${bd.stockQty}) × ${bd.cfg.premVelW}`, (bd.velocity * bd.cfg.premVelW).toFixed(3))}
-            {row(`Scarc ${bd.scarcity.toFixed(4)} (1/${bd.stockQty}) × ${bd.cfg.premScarcW}`, (bd.scarcity * bd.cfg.premScarcW).toFixed(4))}
-            {row('Prem score', bd.premiumScore.toFixed(3))}
-            {row(`Multiplier (1 + score × ${bd.cfg.premMult})`, `×${bd.premMult.toFixed(3)}`)}
-            {bd.premium != null && row('= Premium', f(bd.premium), true)}
-          </div>
-        )}
+      <PopoverContent side="top" align="start" className="w-72 bg-slate-900 border-slate-700 text-gray-300 p-3 z-50" onClick={(e) => e.stopPropagation()}>
+        <p className="font-bold text-purple-300 mb-2 text-xs">{label}</p>
+        <DimensionWheel lot={lot} baseCfg={baseCfg} onSave={onSaveWeights} />
       </PopoverContent>
     </Popover>
   );
@@ -818,6 +1042,43 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
 
   const insightsData = insights?.data;
   const sugCfg: SugConfig = insightsData?.sugConfig ?? DEFAULT_SUG_CONFIG;
+
+  const saveWeightsMutation = useMutation({
+    mutationFn: async (cfg: SugConfig) => {
+      const res = await fetch('/api/platform-admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pomSugSoldAvgW: Number(cfg.soldAvgW.toFixed(3)),
+          pomSugStockMinW: Number(cfg.stockMinW.toFixed(3)),
+          pomSugSoldMaxW: Number(cfg.soldMaxW.toFixed(3)),
+          pomSugDemandMult: Number(cfg.demandMult.toFixed(3)),
+          pomSugCompCap: Number(cfg.compCap.toFixed(3)),
+          pomSugFloor: Number(cfg.floor.toFixed(3)),
+          pomSugStorePremium: Number(cfg.storePremium.toFixed(3)),
+          pomSugPremThreshold: Number(cfg.premThreshold.toFixed(3)),
+          pomSugPremVelW: Number(cfg.premVelW.toFixed(3)),
+          pomSugPremScarcW: Number(cfg.premScarcW.toFixed(3)),
+          pomSugPremMult: Number(cfg.premMult.toFixed(3)),
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to save');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/insights'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/settings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
+      toast({ title: "Weights Applied", description: "All suggested prices recalculated." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to save weights.", variant: "destructive" });
+    },
+  });
+
+  const handleSaveWeights = useCallback((cfg: SugConfig) => {
+    saveWeightsMutation.mutate(cfg);
+  }, [saveWeightsMutation]);
 
   const getGroupScoreValue = (g: GroupedInsight, field: SortField): number => {
     switch (field) {
@@ -1109,7 +1370,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
                         <span className="text-[10px] text-slate-400 truncate min-w-0">{group.colorName || '—'}</span>
                       </div>
 
-                      <PricingGrid group={group} activeSort={sortField} cfg={sugCfg} />
+                      <PricingGrid group={group} activeSort={sortField} cfg={sugCfg} onSaveWeights={handleSaveWeights} />
                       <ScoresBar group={group} activeSort={sortField} />
                     </div>
                   </SwipeableTile>
