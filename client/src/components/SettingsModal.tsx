@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
-import { DimensionWheel, type PricingInsight } from "@/components/PriceOMaticDashboard";
+import { DimensionWheel, ScoringWheel, type PricingInsight } from "@/components/PriceOMaticDashboard";
 import { APP_VERSION, APP_NAME } from "@shared/version";
 import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Activity, Flag, Power, Zap, Globe, ToggleLeft, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,7 @@ interface SettingsModalProps {
   onClose: () => void;
   initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'priceomatic';
   pricingExample?: PricingInsight;
+  scoringExample?: PricingInsight;
 }
 
 type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'systemHealth' | 'customerHealth' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | null;
@@ -593,7 +594,7 @@ function SyncStatusLine({ entry }: { entry: SyncStatusEntry }) {
   );
 }
 
-export default function SettingsModal({ open, onClose, initialSection, pricingExample }: SettingsModalProps) {
+export default function SettingsModal({ open, onClose, initialSection, pricingExample, scoringExample }: SettingsModalProps) {
   const { toast } = useToast();
   const { status: installStatus, promptInstall } = useInstallPrompt();
   const { isAdmin, superAdmin, user } = useAuth();
@@ -770,7 +771,8 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const [pomScarcityLow, setPomScarcityLow] = useState(0.005);
   const [pomUndercutHigh, setPomUndercutHigh] = useState(1.5);
   const [pomUndercutLow, setPomUndercutLow] = useState(0.8);
-  const [pomScoringOpen, setPomScoringOpen] = useState(false);
+  const [pomScoringOpen, setPomScoringOpen] = useState(!!scoringExample);
+  const scoringWheelRef = useRef<HTMLDivElement>(null);
   const [pomBatchSize, setPomBatchSize] = useState(1500);
   const [blApiCallLimit, setBlApiCallLimit] = useState(4900);
   const [pomCostFloorPct, setPomCostFloorPct] = useState(0);
@@ -819,6 +821,15 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
       }, 300);
     }
   }, [open, pricingExample]);
+
+  useEffect(() => {
+    if (open && scoringExample) {
+      setPomScoringOpen(true);
+      setTimeout(() => {
+        scoringWheelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    }
+  }, [open, scoringExample]);
 
   const { data: settings } = useQuery<AppSettings>({
     queryKey: ['/api/settings'],
@@ -1018,11 +1029,21 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const [selectedWheelExample, setSelectedWheelExample] = useState<PricingInsight | null>(null);
   const wheelSearchRef = useRef<HTMLInputElement>(null);
 
+  const [scoringSearchQuery, setScoringSearchQuery] = useState('');
+  const [scoringSearchOpen, setScoringSearchOpen] = useState(false);
+  const [selectedScoringExample, setSelectedScoringExample] = useState<PricingInsight | null>(null);
+  const [scoringExampleDismissed, setScoringExampleDismissed] = useState(false);
+  const scoringSearchRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (!open) {
       setSelectedWheelExample(null);
       setWheelSearchQuery('');
       setWheelSearchOpen(false);
+      setSelectedScoringExample(null);
+      setScoringSearchQuery('');
+      setScoringSearchOpen(false);
+      setScoringExampleDismissed(false);
     }
   }, [open]);
 
@@ -1032,6 +1053,17 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
     const items = pomInsightsForExample?.data?.items;
     if (!items || !wheelSearchQuery.trim()) return items?.slice(0, 8) ?? [];
     const q = wheelSearchQuery.toLowerCase();
+    return items
+      .filter(it => (it.itemName?.toLowerCase().includes(q) || it.itemNo.toLowerCase().includes(q) || it.colorName?.toLowerCase().includes(q)))
+      .slice(0, 8);
+  })();
+
+  const scoringWheelExample: PricingInsight | undefined = selectedScoringExample ?? (!scoringExampleDismissed ? scoringExample : undefined) ?? undefined;
+
+  const scoringSearchResults = (() => {
+    const items = pomInsightsForExample?.data?.items;
+    if (!items || !scoringSearchQuery.trim()) return items?.slice(0, 8) ?? [];
+    const q = scoringSearchQuery.toLowerCase();
     return items
       .filter(it => (it.itemName?.toLowerCase().includes(q) || it.itemNo.toLowerCase().includes(q) || it.colorName?.toLowerCase().includes(q)))
       .slice(0, 8);
@@ -4242,48 +4274,89 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                     {pomScoringOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
                   </button>
                   {pomScoringOpen && (
-                    <div className="space-y-4">
-                      {/* ── Price Ceiling Ratio ── */}
-                      <div className="sm-card-inset">
-                        <div className="px-3 py-2 bg-gray-800/40 border-b border-gray-700/60">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-semibold text-blue-300 uppercase tracking-wider">Price Ceiling Ratio</span>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="sm-icon-btn" onClick={(e) => e.stopPropagation()}>
-                                  <Info className="w-3 h-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent side="bottom" className="sm-popover">
-                                Measures historical price upside. Calculated as market highest sold price divided by your listed price. A value above 1.0 means room to raise price; below 1.0 means you may already exceed typical market highs.
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                        </div>
-                        <div className="divide-y divide-gray-700/30">
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-gray-400">Combined weight</Label>
-                            <Input type="number" min={0} max={1} step={0.05} value={pomWeightCeiling} onChange={(e) => setPomWeightCeiling(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomWeightCeiling })} className="text-sm w-20 text-right" data-testid="input-pom-weight-ceiling" />
-                          </div>
+                    <div ref={scoringWheelRef} className="space-y-4">
+                      <div className="px-3">
+                        <div className="relative">
+                          {scoringWheelExample ? (
+                            <div className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-800/60 rounded border border-gray-700/40">
+                              <span className="text-[10px] font-medium text-gray-300 truncate">{scoringWheelExample.itemName || scoringWheelExample.itemNo}</span>
+                              {scoringWheelExample.itemName && <span className="text-[10px] text-gray-500 shrink-0">{scoringWheelExample.itemNo}</span>}
+                              {scoringWheelExample.colorName && <span className="text-[10px] text-gray-500">({scoringWheelExample.colorName})</span>}
+                              <span className="text-[10px] text-gray-600">{scoringWheelExample.newOrUsed === 'N' ? 'New' : 'Used'}</span>
+                              <button className="ml-auto shrink-0 text-gray-500 hover:text-gray-300" data-testid="button-scoring-search-clear"
+                                onClick={() => { setSelectedScoringExample(null); setScoringExampleDismissed(true); setScoringSearchQuery(''); setScoringSearchOpen(true); setTimeout(() => scoringSearchRef.current?.focus(), 100); }}>
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="relative">
+                              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500" />
+                              <input
+                                ref={scoringSearchRef}
+                                type="text"
+                                placeholder="Search item to preview score..."
+                                value={scoringSearchQuery}
+                                onChange={(e) => { setScoringSearchQuery(e.target.value); setScoringSearchOpen(true); }}
+                                onFocus={() => setScoringSearchOpen(true)}
+                                onBlur={() => setTimeout(() => setScoringSearchOpen(false), 200)}
+                                className="w-full pl-7 pr-2 py-1.5 text-[11px] bg-gray-800/60 border border-gray-700/40 rounded text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-600"
+                                data-testid="input-scoring-search"
+                              />
+                              {scoringSearchOpen && scoringSearchResults.length > 0 && (
+                                <div className="absolute left-0 right-0 top-full mt-1 bg-gray-800 border border-gray-700/60 rounded shadow-lg z-50 max-h-48 overflow-y-auto">
+                                  {scoringSearchResults.map((item) => (
+                                    <button key={`${item.itemNo}-${item.colorId}-${item.newOrUsed}`} className="w-full flex items-center gap-1.5 px-3 py-1.5 text-left hover:bg-gray-700/50 transition-colors" data-testid={`button-scoring-search-result-${item.itemNo}`}
+                                      onMouseDown={(e) => { e.preventDefault(); setSelectedScoringExample(item); setScoringSearchOpen(false); setScoringSearchQuery(''); }}>
+                                      <span className="text-[10px] text-gray-300 truncate">{item.itemName || item.itemNo}</span>
+                                      <span className="text-[10px] text-gray-500 shrink-0">{item.itemNo}</span>
+                                      {item.colorName && (
+                                        <span className="text-[10px] text-gray-600 shrink-0">
+                                          {item.colorName} / {item.newOrUsed === 'N' ? 'New' : 'Used'}
+                                        </span>
+                                      )}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              {scoringSearchOpen && scoringSearchQuery.trim() && scoringSearchResults.length === 0 && (
+                                <div className="absolute left-0 right-0 top-full mt-1 bg-gray-800 border border-gray-700/60 rounded shadow-lg z-50 px-3 py-2">
+                                  <span className="text-[10px] text-gray-500">No matching items found</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
-
-                      {/* ── Demand Velocity ── */}
-                      <div className="sm-card-inset">
+                      <div className="px-3 py-4 flex justify-center">
+                        <ScoringWheel
+                          lot={scoringWheelExample}
+                          baseCfg={{
+                            wCeiling: pomWeightCeiling,
+                            wVelocity: pomWeightVelocity,
+                            wScarcity: pomWeightScarcity,
+                            wUndercut: pomWeightUndercut,
+                          }}
+                          onSave={(cfg) => {
+                            setPomWeightCeiling(cfg.wCeiling);
+                            setPomWeightVelocity(cfg.wVelocity);
+                            setPomWeightScarcity(cfg.wScarcity);
+                            setPomWeightUndercut(cfg.wUndercut);
+                            updatePlatformSettingsMutation.mutate({
+                              pomWeightCeiling: Number(cfg.wCeiling.toFixed(3)),
+                              pomWeightVelocity: Number(cfg.wVelocity.toFixed(3)),
+                              pomWeightScarcity: Number(cfg.wScarcity.toFixed(3)),
+                              pomWeightUndercut: Number(cfg.wUndercut.toFixed(3)),
+                            });
+                          }}
+                        />
+                      </div>
+                      <div className="border-t border-gray-700/40">
                         <div className="px-3 py-2 bg-gray-800/40 border-b border-gray-700/60">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-semibold text-green-300 uppercase tracking-wider">Demand Velocity</span>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="sm-icon-btn" onClick={(e) => e.stopPropagation()}>
-                                  <Info className="w-3 h-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent side="bottom" className="sm-popover">
-                                Measures how fast items sell relative to available supply. Calculated as sold lots divided by stock lots (last 6 months). Higher values indicate stronger demand relative to supply.
-                              </PopoverContent>
-                            </Popover>
-                          </div>
+                          <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Advanced</span>
+                        </div>
+
+                        <div className="px-3 pt-2 pb-1">
+                          <span className="text-[9px] font-semibold text-green-400 uppercase tracking-wider">Velocity thresholds</span>
                         </div>
                         <div className="divide-y divide-gray-700/30">
                           <div className="sm-row px-3">
@@ -4300,29 +4373,10 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                               <Input type="number" min={0} max={100} step={0.1} value={pomVelocityLow} onChange={(e) => setPomVelocityLow(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomVelocityLow })} className="text-sm w-20 text-right" data-testid="input-pom-velocity-low" />
                             </div>
                           </div>
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-gray-400">Combined weight</Label>
-                            <Input type="number" min={0} max={1} step={0.05} value={pomWeightVelocity} onChange={(e) => setPomWeightVelocity(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomWeightVelocity })} className="text-sm w-20 text-right" data-testid="input-pom-weight-velocity" />
-                          </div>
                         </div>
-                      </div>
 
-                      {/* ── Market Scarcity ── */}
-                      <div className="sm-card-inset">
-                        <div className="px-3 py-2 bg-gray-800/40 border-b border-gray-700/60">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-semibold text-purple-300 uppercase tracking-wider">Market Scarcity Index</span>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="sm-icon-btn" onClick={(e) => e.stopPropagation()}>
-                                  <Info className="w-3 h-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent side="bottom" className="sm-popover">
-                                Measures how scarce the item is on the market. Calculated as 1 divided by the number of active stock lots. Higher values mean fewer sellers and a scarcer item.
-                              </PopoverContent>
-                            </Popover>
-                          </div>
+                        <div className="px-3 pt-2 pb-1">
+                          <span className="text-[9px] font-semibold text-purple-400 uppercase tracking-wider">Scarcity thresholds</span>
                         </div>
                         <div className="divide-y divide-gray-700/30">
                           <div className="sm-row px-3">
@@ -4339,29 +4393,10 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                               <Input type="number" min={0} max={1} step={0.001} value={pomScarcityLow} onChange={(e) => setPomScarcityLow(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomScarcityLow })} className="text-sm w-20 text-right" data-testid="input-pom-scarcity-low" />
                             </div>
                           </div>
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-gray-400">Combined weight</Label>
-                            <Input type="number" min={0} max={1} step={0.05} value={pomWeightScarcity} onChange={(e) => setPomWeightScarcity(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomWeightScarcity })} className="text-sm w-20 text-right" data-testid="input-pom-weight-scarcity" />
-                          </div>
                         </div>
-                      </div>
 
-                      {/* ── Undercut Ratio ── */}
-                      <div className="sm-card-inset">
-                        <div className="px-3 py-2 bg-gray-800/40 border-b border-gray-700/60">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-semibold text-amber-300 uppercase tracking-wider">Undercut Ratio</span>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="sm-icon-btn" onClick={(e) => e.stopPropagation()}>
-                                  <Info className="w-3 h-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent side="bottom" className="sm-popover">
-                                Measures your competitive price position. Calculated as your listed price divided by the lowest market listing. Above 1.0 means you're being undercut by competitors; below 1.0 means you're the cheapest seller.
-                              </PopoverContent>
-                            </Popover>
-                          </div>
+                        <div className="px-3 pt-2 pb-1">
+                          <span className="text-[9px] font-semibold text-amber-400 uppercase tracking-wider">Undercut thresholds</span>
                         </div>
                         <div className="divide-y divide-gray-700/30">
                           <div className="sm-row px-3">
@@ -4378,36 +4413,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                               <Input type="number" min={0.1} max={10} step={0.1} value={pomUndercutLow} onChange={(e) => setPomUndercutLow(parseFloat(e.target.value) || 0.1)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomUndercutLow })} className="text-sm w-20 text-right" data-testid="input-pom-undercut-low" />
                             </div>
                           </div>
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-gray-400">Combined weight</Label>
-                            <Input type="number" min={0} max={1} step={0.05} value={pomWeightUndercut} onChange={(e) => setPomWeightUndercut(parseFloat(e.target.value) || 0)} onBlur={() => updatePlatformSettingsMutation.mutate({ pomWeightUndercut })} className="text-sm w-20 text-right" data-testid="input-pom-weight-undercut" />
-                          </div>
                         </div>
-                      </div>
-
-                      {/* ── Weight summary ── */}
-                      <div className="px-3 py-2 rounded bg-gray-800/30 border border-gray-700/40">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-gray-400">Combined Repricing Score</span>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="sm-icon-btn" onClick={(e) => e.stopPropagation()}>
-                                  <Info className="w-3 h-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent side="bottom" className="sm-popover">
-                                The weighted combination of all four scores. Items with the highest combined score are the best repricing candidates, balancing price upside, demand strength, supply scarcity, and competitive positioning. Weights should sum to 1.0 for proper normalization.
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                          <span className={`text-xs font-mono ${Math.abs(pomWeightCeiling + pomWeightVelocity + pomWeightScarcity + pomWeightUndercut - 1.0) < 0.01 ? 'text-green-400' : 'text-red-400'}`} data-testid="text-weight-sum">
-                            {(pomWeightCeiling + pomWeightVelocity + pomWeightScarcity + pomWeightUndercut).toFixed(2)} / 1.00
-                          </span>
-                        </div>
-                        {Math.abs(pomWeightCeiling + pomWeightVelocity + pomWeightScarcity + pomWeightUndercut - 1.0) >= 0.01 && (
-                          <p className="text-[10px] text-red-400/80 mt-1">Weights should sum to 1.0 for proper scoring normalization.</p>
-                        )}
                       </div>
 
                     </div>

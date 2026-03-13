@@ -54,6 +54,7 @@ export default function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'priceomatic' | null>(null);
   const [settingsPricingExample, setSettingsPricingExample] = useState<PricingInsight | undefined>(undefined);
+  const [settingsScoringExample, setSettingsScoringExample] = useState<PricingInsight | undefined>(undefined);
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
   const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
   const [chatOpen, setChatOpen] = useState(false);
@@ -384,9 +385,10 @@ export default function Home() {
   };
 
   const renderActiveDrawer = () => {
-    const openSettings = (section?: string, pricingExample?: PricingInsight) => {
+    const openSettings = (section?: string, pricingExample?: PricingInsight, scoringExample?: PricingInsight) => {
       setSettingsInitialSection(section as any);
       setSettingsPricingExample(pricingExample);
+      setSettingsScoringExample(scoringExample);
       setSettingsOpen(true);
     };
 
@@ -1090,7 +1092,7 @@ export default function Home() {
         />
       )}
 
-      <SettingsModal open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsPricingExample(undefined); }} initialSection={settingsInitialSection ?? undefined} pricingExample={settingsPricingExample} />
+      <SettingsModal open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsPricingExample(undefined); setSettingsScoringExample(undefined); }} initialSection={settingsInitialSection ?? undefined} pricingExample={settingsPricingExample} scoringExample={settingsScoringExample} />
       
       {/* Detail modal — Vaul drawer on mobile only; desktop uses inline overlay in center column */}
       {!isDesktop && (

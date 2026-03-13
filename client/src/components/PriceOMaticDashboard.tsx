@@ -137,6 +137,25 @@ export const DEFAULT_SUG_CONFIG: SugConfig = {
   demandMult: 0.25, compCap: 1.15, floor: 0.95, storePremium: 1.10,
 };
 
+export interface ScoreConfig {
+  wCeiling: number;
+  wVelocity: number;
+  wScarcity: number;
+  wUndercut: number;
+}
+
+export const DEFAULT_SCORE_CONFIG: ScoreConfig = {
+  wCeiling: 0.4, wVelocity: 0.3, wScarcity: 0.2, wUndercut: 0.1,
+};
+
+function calcScore(lot: PricingInsight, cfg: ScoreConfig): number {
+  const c = (lot.priceCeilingRatio ?? 0) * cfg.wCeiling;
+  const v = (lot.demandVelocity ?? 0) * cfg.wVelocity;
+  const s = (lot.marketScarcity ?? 0) * cfg.wScarcity;
+  const u = (lot.undercutRatio && lot.undercutRatio > 0) ? (1 / lot.undercutRatio) * cfg.wUndercut : 0;
+  return c + v + s + u;
+}
+
 interface InsightsData {
   items: PricingInsight[];
   summary: {
@@ -165,7 +184,7 @@ type SortField = 'combined' | 'ceiling' | 'velocity' | 'scarcity' | 'undercut';
 
 interface PriceOMaticDashboardProps {
   onItemClick?: (type: 'inventory' | 'order', id: number) => void;
-  onOpenSettings?: (section?: string, pricingExample?: PricingInsight) => void;
+  onOpenSettings?: (section?: string, pricingExample?: PricingInsight, scoringExample?: PricingInsight) => void;
 }
 
 type ZoneFilter = 'in_orbit' | 'future_missions' | 'deep_space';
@@ -871,11 +890,248 @@ function BreakdownPopover({ bd, label, children, onOpenSettings, lot }: {
 }
 
 
+const SCORE_DIMENSIONS = [
+  { key: 'ceiling' as const, label: 'Ceiling', color: '#60a5fa', angle: -Math.PI / 2, desc: 'Price upside potential' },
+  { key: 'velocity' as const, label: 'Velocity', color: '#34d399', angle: 0, desc: 'Sales speed vs supply' },
+  { key: 'scarcity' as const, label: 'Scarcity', color: '#a78bfa', angle: Math.PI / 2, desc: 'Market rarity' },
+  { key: 'undercut' as const, label: 'Undercut', color: '#fbbf24', angle: Math.PI, desc: 'Competitive position' },
+];
+
+type ScoreWeights = { ceiling: number; velocity: number; scarcity: number; undercut: number };
+
+function scoreWeightsToConfig(w: ScoreWeights, baseCfg: ScoreConfig): ScoreConfig {
+  const total = w.ceiling + w.velocity + w.scarcity + w.undercut;
+  if (total <= 0) return baseCfg;
+  return {
+    wCeiling: w.ceiling / total,
+    wVelocity: w.velocity / total,
+    wScarcity: w.scarcity / total,
+    wUndercut: w.undercut / total,
+  };
+}
+
+export function ScoringWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight | null; baseCfg: ScoreConfig; onSave: (cfg: ScoreConfig) => void }) {
+  const SIZE = 200;
+  const R = SIZE / 2;
+  const HANDLE_R = 14;
+  const RING_R = R - 28;
+  const CENTER = R;
+  const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [weights, setWeights] = useState<ScoreWeights>({ ceiling: 0.25, velocity: 0.25, scarcity: 0.25, undercut: 0.25 });
+  const draggingRef = useRef(false);
+  const [dragging, setDragging] = useState(false);
+  const [handlePos, setHandlePos] = useState<{ x: number; y: number }>({ x: CENTER, y: CENTER });
+  const [showDetail, setShowDetail] = useState(false);
+
+  const updateFromPos = useCallback((x: number, y: number) => {
+    const dx = x - CENTER;
+    const dy = y - CENTER;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const maxDist = RING_R;
+    const clampedDist = Math.min(dist, maxDist);
+    const angle = Math.atan2(dy, dx);
+    const cx = CENTER + Math.cos(angle) * clampedDist;
+    const cy = CENTER + Math.sin(angle) * clampedDist;
+    setHandlePos({ x: cx, y: cy });
+
+    const strength = clampedDist / maxDist;
+    const newW: ScoreWeights = { ceiling: 0.25, velocity: 0.25, scarcity: 0.25, undercut: 0.25 };
+    if (strength > 0.05) {
+      for (const dim of SCORE_DIMENSIONS) {
+        const angleDiff = Math.abs(Math.atan2(Math.sin(angle - dim.angle), Math.cos(angle - dim.angle)));
+        const influence = Math.max(0, 1 - angleDiff / (Math.PI * 0.75));
+        newW[dim.key] = 0.05 + influence * strength;
+      }
+      const total = newW.ceiling + newW.velocity + newW.scarcity + newW.undercut;
+      newW.ceiling /= total;
+      newW.velocity /= total;
+      newW.scarcity /= total;
+      newW.undercut /= total;
+    }
+    setWeights(newW);
+  }, [CENTER, RING_R]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const preventScroll = (e: TouchEvent) => {
+      if (draggingRef.current) { e.preventDefault(); e.stopPropagation(); }
+    };
+    el.addEventListener('touchmove', preventScroll, { passive: false });
+    el.addEventListener('touchstart', (e: TouchEvent) => {
+      if (draggingRef.current) { e.preventDefault(); }
+    }, { passive: false });
+    return () => { el.removeEventListener('touchmove', preventScroll); };
+  }, []);
+
+  const getSvgCoords = (e: React.PointerEvent) => {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    draggingRef.current = true; setDragging(true);
+    (e.target as Element).setPointerCapture(e.pointerId);
+    const coords = getSvgCoords(e); if (coords) updateFromPos(coords.x, coords.y);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!draggingRef.current) return;
+    e.preventDefault(); e.stopPropagation();
+    const coords = getSvgCoords(e); if (coords) updateFromPos(coords.x, coords.y);
+  };
+  const onPointerUp = (e: React.PointerEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    draggingRef.current = false; setDragging(false);
+  };
+
+  const isAtCenter = Math.abs(handlePos.x - CENTER) < 2 && Math.abs(handlePos.y - CENTER) < 2;
+  const isDefaults = Math.abs(baseCfg.wCeiling - DEFAULT_SCORE_CONFIG.wCeiling) < 0.001
+    && Math.abs(baseCfg.wVelocity - DEFAULT_SCORE_CONFIG.wVelocity) < 0.001
+    && Math.abs(baseCfg.wScarcity - DEFAULT_SCORE_CONFIG.wScarcity) < 0.001
+    && Math.abs(baseCfg.wUndercut - DEFAULT_SCORE_CONFIG.wUndercut) < 0.001;
+  const liveCfg = scoreWeightsToConfig(weights, baseCfg);
+  const liveScore = lot ? calcScore(lot, liveCfg) : null;
+
+  return (
+    <div className="flex flex-col items-center gap-2 w-full select-none" ref={containerRef} style={{ touchAction: 'none' }}>
+      <svg
+        ref={svgRef}
+        width={SIZE}
+        height={SIZE}
+        viewBox={`0 0 ${SIZE} ${SIZE}`}
+        className="overflow-visible"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        data-testid="scoring-wheel-svg"
+      >
+        <circle cx={CENTER} cy={CENTER} r={RING_R} fill="none" stroke="#334155" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.5} />
+        <circle cx={CENTER} cy={CENTER} r={RING_R * 0.5} fill="none" stroke="#334155" strokeWidth={0.8} strokeDasharray="2 4" opacity={0.3} />
+
+        {SCORE_DIMENSIONS.map((dim) => {
+          const ex = CENTER + Math.cos(dim.angle) * RING_R;
+          const ey = CENTER + Math.sin(dim.angle) * RING_R;
+          const lx = CENTER + Math.cos(dim.angle) * (RING_R + 16);
+          const ly = CENTER + Math.sin(dim.angle) * (RING_R + 16);
+          return (
+            <g key={dim.key}>
+              <line x1={CENTER} y1={CENTER} x2={ex} y2={ey} stroke={dim.color} strokeWidth={0.8} opacity={0.3} />
+              <circle cx={ex} cy={ey} r={3} fill={dim.color} opacity={0.6} />
+              <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fill={dim.color} fontSize={8} fontWeight={600} opacity={0.9}>
+                {dim.label}
+              </text>
+            </g>
+          );
+        })}
+
+        <text x={CENTER} y={CENTER - 7} textAnchor="middle" dominantBaseline="central" fill="#e2e8f0" fontSize={16} fontWeight={700}>
+          {liveScore != null ? liveScore.toFixed(2) : '—'}
+        </text>
+        {isAtCenter ? (
+          <text x={CENTER} y={CENTER + 8} textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize={8} fontWeight={500} opacity={0.7}>
+            current
+          </text>
+        ) : (
+          <text x={CENTER} y={CENTER + 8} textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize={8} fontWeight={500} opacity={0.7}>
+            score
+          </text>
+        )}
+
+        <circle cx={handlePos.x} cy={handlePos.y} r={HANDLE_R + 8} fill="transparent" data-testid="scoring-wheel-handle-hitarea" />
+        <circle
+          cx={handlePos.x} cy={handlePos.y} r={HANDLE_R}
+          fill={dragging ? '#7c3aed' : '#6d28d9'} stroke="#a78bfa" strokeWidth={2}
+          style={{ cursor: 'grab', filter: dragging ? 'drop-shadow(0 0 8px rgba(139,92,246,0.5))' : 'drop-shadow(0 0 4px rgba(139,92,246,0.3))' }}
+          data-testid="scoring-wheel-handle"
+        />
+      </svg>
+
+      <div className="flex flex-wrap justify-center gap-1.5 text-[9px]">
+        {SCORE_DIMENSIONS.map((dim) => (
+          <span key={dim.key} className="font-mono px-1 py-0.5 rounded" style={{ color: dim.color, backgroundColor: `${dim.color}15` }}>
+            {dim.label} {(liveCfg[`w${dim.key.charAt(0).toUpperCase() + dim.key.slice(1)}` as keyof ScoreConfig] * 100).toFixed(0)}%
+          </span>
+        ))}
+      </div>
+
+      <Button
+        size="sm" variant="default"
+        className="w-full bg-purple-600 hover:bg-purple-500 text-xs"
+        disabled={isAtCenter}
+        onClick={() => {
+          onSave(liveCfg);
+          setWeights({ ceiling: 0.25, velocity: 0.25, scarcity: 0.25, undercut: 0.25 });
+          setHandlePos({ x: CENTER, y: CENTER });
+        }}
+        data-testid="button-apply-scoring-weights"
+      >
+        {isAtCenter ? 'Drag to adjust' : 'Apply to All Items'}
+      </Button>
+
+      {!isDefaults && (
+        <button
+          onClick={() => {
+            onSave(DEFAULT_SCORE_CONFIG);
+            setWeights({ ceiling: 0.25, velocity: 0.25, scarcity: 0.25, undercut: 0.25 });
+            setHandlePos({ x: CENTER, y: CENTER });
+          }}
+          className="w-full flex items-center justify-center gap-1.5 text-[10px] text-gray-500 hover:text-gray-300 transition-colors py-1"
+          data-testid="button-restore-scoring-defaults"
+        >
+          <RotateCcw className="w-3 h-3" />
+          Restore industry defaults
+        </button>
+      )}
+
+      {lot && (
+        <>
+          <button
+            onClick={() => setShowDetail(!showDetail)}
+            className="text-[9px] text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-1"
+            data-testid="button-toggle-scoring-breakdown"
+          >
+            <ChevronDown className={`w-3 h-3 transition-transform ${showDetail ? '' : '-rotate-90'}`} />
+            Score breakdown
+          </button>
+          {showDetail && (
+            <div className="w-full text-[10px] leading-snug space-y-0.5 bg-gray-900/60 rounded p-2 border border-gray-700/40">
+              <div className="flex justify-between gap-2 text-gray-400">
+                <span>Ceiling ({(liveCfg.wCeiling * 100).toFixed(0)}%)</span>
+                <span className="font-mono">{((lot.priceCeilingRatio ?? 0) * liveCfg.wCeiling).toFixed(3)}</span>
+              </div>
+              <div className="flex justify-between gap-2 text-gray-400">
+                <span>Velocity ({(liveCfg.wVelocity * 100).toFixed(0)}%)</span>
+                <span className="font-mono">{((lot.demandVelocity ?? 0) * liveCfg.wVelocity).toFixed(3)}</span>
+              </div>
+              <div className="flex justify-between gap-2 text-gray-400">
+                <span>Scarcity ({(liveCfg.wScarcity * 100).toFixed(0)}%)</span>
+                <span className="font-mono">{((lot.marketScarcity ?? 0) * liveCfg.wScarcity).toFixed(3)}</span>
+              </div>
+              <div className="flex justify-between gap-2 text-gray-400">
+                <span>Undercut ({(liveCfg.wUndercut * 100).toFixed(0)}%)</span>
+                <span className="font-mono">{(lot.undercutRatio && lot.undercutRatio > 0 ? (1 / lot.undercutRatio) * liveCfg.wUndercut : 0).toFixed(3)}</span>
+              </div>
+              <div className="flex justify-between gap-2 text-purple-300 font-semibold border-t border-gray-700/40 pt-1">
+                <span>= Combined Score</span>
+                <span className="font-mono">{liveScore?.toFixed(3) ?? '—'}</span>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 const SORT_TO_SCORE_LABEL: Record<SortField, string> = {
   ceiling: 'Ceil', velocity: 'Vel', scarcity: 'Scarc', undercut: 'Undr', combined: 'Score',
 };
 
-function ScoresBar({ group, activeSort }: { group: GroupedInsight; activeSort: SortField }) {
+function ScoresBar({ group, activeSort, onTapScore }: { group: GroupedInsight; activeSort: SortField; onTapScore?: (lot: PricingInsight) => void }) {
   const items: Array<{ label: string; value: number | null; suffix?: string }> = [
     { label: 'Ceil', value: group.bestCeiling, suffix: '×' },
     { label: 'Vel', value: group.bestVelocity },
@@ -884,9 +1140,16 @@ function ScoresBar({ group, activeSort }: { group: GroupedInsight; activeSort: S
     { label: 'Score', value: group.bestCombined },
   ];
   const activeLabel = SORT_TO_SCORE_LABEL[activeSort];
+  const bestLot = group.newLot ?? group.usedLot;
 
   return (
-    <div className="flex items-center gap-0.5 mt-1.5">
+    <div
+      className={`flex items-center gap-0.5 mt-1.5 ${onTapScore && bestLot ? 'cursor-pointer' : ''}`}
+      onClick={(e) => {
+        if (onTapScore && bestLot) { e.stopPropagation(); onTapScore(bestLot); }
+      }}
+      data-testid={`scores-bar-${group.key}`}
+    >
       {items.map(({ label, value, suffix }) => {
         const isActive = label === activeLabel;
         return (
@@ -1373,7 +1636,7 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
                       </div>
 
                       <PricingGrid group={group} activeSort={sortField} cfg={sugCfg} onOpenSettings={onOpenSettings ? (lot) => onOpenSettings('priceomatic', lot) : undefined} />
-                      <ScoresBar group={group} activeSort={sortField} />
+                      <ScoresBar group={group} activeSort={sortField} onTapScore={onOpenSettings ? (lot) => onOpenSettings('priceomatic', undefined, lot) : undefined} />
                     </div>
                   </SwipeableTile>
                 );
