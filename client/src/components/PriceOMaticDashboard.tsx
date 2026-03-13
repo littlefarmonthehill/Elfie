@@ -1042,7 +1042,7 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
 
   const saveWeightsMutation = useMutation({
     mutationFn: async (cfg: SugConfig) => {
-      const res = await fetch('/api/platform-admin/settings', {
+      const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1060,7 +1060,6 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/priceomatic/insights'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/settings'] });
       queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
       toast({ title: "Weights Applied", description: "All suggested prices recalculated." });
     },

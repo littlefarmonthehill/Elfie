@@ -10280,9 +10280,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         )
         .where(and(eq(blInventory.orgId, orgId), sql`${blInventory.unitPrice} IS NOT NULL AND (${priceGuideCache.stockAvgPrice} IS NOT NULL OR ${priceGuideCache.soldAvgPrice} IS NOT NULL)`))
 
-      // Load scoring weights from org settings + platform-level sug config
+      // Load scoring weights from org settings
       const scoringSettings = await getOrgSettings(orgId);
-      const platformSettings = await getOrgSettings(PLATFORM_ORG_ID);
       const wCeiling = scoringSettings?.pomWeightCeiling ?? 0.4;
       const wVelocity = scoringSettings?.pomWeightVelocity ?? 0.3;
       const wScarcity = scoringSettings?.pomWeightScarcity ?? 0.2;
@@ -10368,13 +10367,13 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             total: enrichedItems.length,
           },
           sugConfig: {
-            soldAvgW: platformSettings?.pomSugSoldAvgW ?? 0.5,
-            stockMinW: platformSettings?.pomSugStockMinW ?? 0.3,
-            soldMaxW: platformSettings?.pomSugSoldMaxW ?? 0.2,
-            demandMult: platformSettings?.pomSugDemandMult ?? 0.25,
-            compCap: platformSettings?.pomSugCompCap ?? 1.15,
-            floor: platformSettings?.pomSugFloor ?? 0.95,
-            storePremium: platformSettings?.pomSugStorePremium ?? 1.10,
+            soldAvgW: scoringSettings?.pomSugSoldAvgW ?? 0.5,
+            stockMinW: scoringSettings?.pomSugStockMinW ?? 0.3,
+            soldMaxW: scoringSettings?.pomSugSoldMaxW ?? 0.2,
+            demandMult: scoringSettings?.pomSugDemandMult ?? 0.25,
+            compCap: scoringSettings?.pomSugCompCap ?? 1.15,
+            floor: scoringSettings?.pomSugFloor ?? 0.95,
+            storePremium: scoringSettings?.pomSugStorePremium ?? 1.10,
           },
         },
       });
