@@ -2275,6 +2275,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                     const heatVal = (r: ScanResult): number => {
                       if (heatmapSource === 'peak') {
                         return Math.max(
+                          r.ourPriceNew ?? 0, r.ourPriceUsed ?? 0,
                           r.marketSoldMaxNew ?? 0, r.marketSoldAvgNew ?? 0,
                           r.marketSoldMaxUsed ?? 0, r.marketSoldAvgUsed ?? 0,
                           r.stockMaxPriceN ?? 0, r.stockAvgPriceN ?? 0,
@@ -2435,8 +2436,18 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                   }}
                                   className="rounded-xl shadow-2xl shadow-black border border-white/20 bg-gray-950 overflow-hidden"
                                 >
+                                  {/* Close button */}
+                                  <button
+                                    data-testid={`heatmap-popup-close-${r.cropIndex ?? i}`}
+                                    onClick={(e) => { e.stopPropagation(); setHeatmapPopupCropIndex(null); }}
+                                    onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); setHeatmapPopupCropIndex(null); }}
+                                    className="absolute top-1.5 right-1.5 z-10 w-6 h-6 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"
+                                    style={{ zIndex: 210 }}
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
                                   {/* Part header */}
-                                  <div className="px-3.5 pt-3 pb-2.5 border-b border-white/10">
+                                  <div className="px-3.5 pt-3 pb-2.5 border-b border-white/10 pr-9">
                                     <div className="flex items-center gap-2 mb-1">
                                       <span className="text-white font-bold text-sm font-mono tracking-wide">{r.partNo}</span>
                                       {r.colorId != null && r.colorRgb && (
