@@ -709,8 +709,7 @@ export function DimensionWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight 
     </div>
   );
 
-  const calloutAbove = handlePos.y > CENTER;
-  const calloutOffsetY = calloutAbove ? -(HANDLE_R + 22) : (HANDLE_R + 6);
+  const calloutOffsetY = -(HANDLE_R + 22);
 
   return (
     <div ref={containerRef} className="flex flex-col items-center gap-2" style={{ touchAction: 'none' }} data-testid="dimension-wheel">
@@ -749,20 +748,9 @@ export function DimensionWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight 
           })}
 
           <circle cx={CENTER} cy={CENTER} r={24} fill="rgba(15,23,42,0.85)" />
-          {isAtCenter ? (
-            <>
-              <text x={CENTER} y={CENTER - 5} textAnchor="middle" dominantBaseline="central" fill="#e2e8f0" fontSize={11} fontWeight={600}>
-                {liveCalc.suggested != null ? `$${liveCalc.suggested.toFixed(2)}` : '—'}
-              </text>
-              <text x={CENTER} y={CENTER + 8} textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize={8} fontWeight={500} opacity={0.7}>
-                current
-              </text>
-            </>
-          ) : (
-            <text x={CENTER} y={CENTER} textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize={8} fontWeight={500} opacity={0.6}>
-              drag
-            </text>
-          )}
+          <text x={CENTER} y={CENTER} textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize={8} fontWeight={500} opacity={0.7}>
+            {isAtCenter ? 'current' : 'drag'}
+          </text>
 
           <circle cx={handlePos.x} cy={handlePos.y} r={HANDLE_R + 8} fill="transparent" data-testid="wheel-handle-hitarea" />
           <circle
@@ -777,7 +765,7 @@ export function DimensionWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight 
             data-testid="wheel-handle"
           />
         </svg>
-        {!isAtCenter && liveCalc.suggested != null && (
+        {liveCalc.suggested != null && (
           <div
             className="absolute pointer-events-none"
             style={{
@@ -1100,8 +1088,7 @@ export function ScoringWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight | 
   const liveCfg = scoreWeightsToConfig(weights, baseCfg);
   const liveScore = lot ? calcScore(lot, liveCfg) : null;
 
-  const scoreCalloutAbove = handlePos.y > CENTER;
-  const scoreCalloutOffsetY = scoreCalloutAbove ? -(HANDLE_R + 22) : (HANDLE_R + 6);
+  const scoreCalloutOffsetY = -(HANDLE_R + 22);
 
   const scoreColor = liveScore != null
     ? liveScore >= 0.7 ? { bg: 'rgba(22,101,52,0.92)', text: '#86efac', border: 'rgba(34,197,94,0.6)' }
@@ -1143,20 +1130,9 @@ export function ScoringWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight | 
           })}
 
           <circle cx={CENTER} cy={CENTER} r={24} fill="rgba(15,23,42,0.85)" />
-          {isAtCenter ? (
-            <>
-              <text x={CENTER} y={CENTER - 5} textAnchor="middle" dominantBaseline="central" fill="#e2e8f0" fontSize={14} fontWeight={700}>
-                {liveScore != null ? liveScore.toFixed(2) : '—'}
-              </text>
-              <text x={CENTER} y={CENTER + 8} textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize={8} fontWeight={500} opacity={0.7}>
-                current
-              </text>
-            </>
-          ) : (
-            <text x={CENTER} y={CENTER} textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize={8} fontWeight={500} opacity={0.6}>
-              drag
-            </text>
-          )}
+          <text x={CENTER} y={CENTER} textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize={8} fontWeight={500} opacity={0.7}>
+            {isAtCenter ? 'current' : 'drag'}
+          </text>
 
           <circle cx={handlePos.x} cy={handlePos.y} r={HANDLE_R + 8} fill="transparent" data-testid="scoring-wheel-handle-hitarea" />
           <circle
@@ -1166,7 +1142,7 @@ export function ScoringWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight | 
             data-testid="scoring-wheel-handle"
           />
         </svg>
-        {!isAtCenter && liveScore != null && (
+        {liveScore != null && (
           <div
             className="absolute pointer-events-none"
             style={{
