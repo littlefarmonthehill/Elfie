@@ -1548,10 +1548,12 @@ export async function fetchPriceOMagicData(
 
     // Parse raw market data from BrickLink API responses — use BL's official price guide values directly
     if (stockPriceData) {
-      console.log(`[POM-Debug] Stock raw for ${apiItemType}/${itemNo}/${newOrUsed}: avg=${stockPriceData.avg_price} qty_avg=${stockPriceData.qty_avg_price} min=${stockPriceData.min_price} max=${stockPriceData.max_price} total_qty=${stockPriceData.total_quantity} unit_qty=${stockPriceData.unit_quantity} details=${stockPriceData.price_detail?.length ?? 0}`);
+      const { price_detail: _sd, ...stockSummary } = stockPriceData;
+      console.log(`[POM-Debug] Stock raw for ${apiItemType}/${itemNo}/${newOrUsed}: ${JSON.stringify(stockSummary)} details=${stockPriceData.price_detail?.length ?? 0}`);
     }
     if (soldPriceData) {
-      console.log(`[POM-Debug] Sold raw for ${apiItemType}/${itemNo}/${newOrUsed}: avg=${soldPriceData.avg_price} qty_avg=${soldPriceData.qty_avg_price} min=${soldPriceData.min_price} max=${soldPriceData.max_price} total_qty=${soldPriceData.total_quantity} unit_qty=${soldPriceData.unit_quantity} details=${soldPriceData.price_detail?.length ?? 0}`);
+      const { price_detail: _dd, ...soldSummary } = soldPriceData;
+      console.log(`[POM-Debug] Sold raw for ${apiItemType}/${itemNo}/${newOrUsed}: ${JSON.stringify(soldSummary)} details=${soldPriceData.price_detail?.length ?? 0}`);
     }
     const stockAvgPrice = (stockPriceData?.avg_price && parseFloat(stockPriceData.avg_price) > 0) ? parseFloat(stockPriceData.avg_price) : null;
     const soldAvgPrice = soldPriceData?.avg_price ? parseFloat(soldPriceData.avg_price) : null;
@@ -1609,7 +1611,7 @@ export async function fetchPriceOMagicData(
       stockMinPrice: skipStock ? (preservedStock.stockMinPrice ?? null) : (stockPriceData?.min_price ? stockPriceData.min_price.toString() : null),
       stockMaxPrice: skipStock ? (preservedStock.stockMaxPrice ?? null) : (stockPriceData?.max_price ? stockPriceData.max_price.toString() : null),
       stockQuantity: skipStock ? (preservedStock.stockQuantity ?? null) : (stockPriceData?.total_quantity != null ? parseInt(stockPriceData.total_quantity.toString()) : null),
-      stockTotalLots: skipStock ? (preservedStock.stockTotalLots ?? null) : (stockPriceData?.unit_quantity || null),
+      stockTotalLots: skipStock ? (preservedStock.stockTotalLots ?? null) : (stockPriceData?.unit_quantity != null ? parseInt(stockPriceData.unit_quantity.toString()) : null),
       
       // Sold price guide (preserved from cache when skipSold=true, fetched fresh otherwise)
       soldAvgPrice: skipSold ? (preservedSold.soldAvgPrice ?? null) : (soldAvgPrice?.toString() || null),
@@ -1617,7 +1619,7 @@ export async function fetchPriceOMagicData(
       soldMinPrice: skipSold ? (preservedSold.soldMinPrice ?? null) : (soldPriceData?.min_price ? soldPriceData.min_price.toString() : null),
       soldMaxPrice: skipSold ? (preservedSold.soldMaxPrice ?? null) : (soldPriceData?.max_price ? soldPriceData.max_price.toString() : null),
       soldQuantity: skipSold ? (preservedSold.soldQuantity ?? null) : (soldPriceData?.total_quantity != null ? parseInt(soldPriceData.total_quantity.toString()) : null),
-      soldTotalLots: skipSold ? (preservedSold.soldTotalLots ?? null) : (soldPriceData?.unit_quantity || null),
+      soldTotalLots: skipSold ? (preservedSold.soldTotalLots ?? null) : (soldPriceData?.unit_quantity != null ? parseInt(soldPriceData.unit_quantity.toString()) : null),
 
       // Per-guide freshness timestamps
       soldFetchedAt: skipSold ? (preservedSold.soldFetchedAt ?? new Date()) : new Date(),
