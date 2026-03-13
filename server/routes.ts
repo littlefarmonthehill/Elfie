@@ -38,7 +38,7 @@ import { storage } from "./storage";
 import { getEffectiveLimits } from "@shared/tierConfig";
 import { seedPlanConfigsIfEmpty, getAllPlanConfigsWithCounts, updatePlanConfig, setPlanSunset, dbPlanToLimits } from "./services/planConfigService";
 import { setupAuth, isAuthenticated, isApproved, isOrgOwner, getOrgId, isSuperAdmin } from "./auth";
-import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, bricklinkCatalogRequest } from "./services/bricklink";
+import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, bricklinkCatalogRequest, calculateSuggestedPriceWithSupply } from "./services/bricklink";
 import { getPomIsRunning, setPomIsRunning } from "./services/pom-scheduler";
 import { syncLock } from "./services/sync-lock";
 import { syncShipStationOrders } from "./services/shipstation";
@@ -6295,6 +6295,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
         let stockAvgPriceU: number | null = null;
         let stockMaxPriceN: number | null = null;
         let stockMaxPriceU: number | null = null;
+        let suggestedPriceNew: number | null = null;
+        let suggestedPriceUsed: number | null = null;
 
         let localPomItemData: { name: string | null; imageUrl: string | null; thumbnailUrl: string | null; categoryId: number | null } = {
           name: piece.partName || null,
@@ -6573,6 +6575,16 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           }
         }
 
+        // Compute suggested price using same formula as POM
+        if (stockAvgPriceN !== null || marketSoldAvgNew !== null) {
+          const pgN = stockAvgPriceN; const sN = marketSoldAvgNew;
+          // stockTotalLots from pgDataN cache row — extract from the last fetch result
+          suggestedPriceNew = calculateSuggestedPriceWithSupply(pgN, sN, 0, 10, blItemType);
+        }
+        if (stockAvgPriceU !== null || marketSoldAvgUsed !== null) {
+          suggestedPriceUsed = calculateSuggestedPriceWithSupply(stockAvgPriceU, marketSoldAvgUsed, 0, 10, blItemType);
+        }
+
         const bestPrice = ourPriceNew ?? ourPriceUsed ?? marketSoldMaxNew ?? marketSoldMaxUsed ?? stockAvgPriceN;
 
         // Build color variants from BrickLink catalog — shows every known color for this part
@@ -6743,6 +6755,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           stockAvgPriceU,
           stockMaxPriceN,
           stockMaxPriceU,
+          suggestedPriceNew,
+          suggestedPriceUsed,
           colorRgb,
           thumbnailUrl,
           bestPrice,
