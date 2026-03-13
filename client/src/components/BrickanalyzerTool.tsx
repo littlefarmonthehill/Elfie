@@ -215,7 +215,7 @@ function PomPriceRow({ label, value, isMono, highlight }: { label: string; value
     <div className="flex items-center justify-between gap-2">
       <span className="text-[10px] text-gray-400">{label}</span>
       <span className={`text-[10px] font-mono ${highlight ? 'text-purple-300 font-bold' : 'text-gray-200'}`}>
-        {value == null ? '—' : isMono ? String(value) : `$${Number(value).toFixed(2)}`}
+        {value == null ? '—' : isMono ? String(value) : `$${Number(value).toFixed(4)}`}
       </span>
     </div>
   );
@@ -312,11 +312,11 @@ function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
           <Loader2 className="w-4 h-4 animate-spin" /> Loading…
         </div>
       ) : (() => {
-        const fmt = (v: any) => v != null && Number(v) > 0 ? `$${Number(v).toFixed(2)}` : '—';
+        const fmt = (v: any) => v != null && Number(v) > 0 ? `$${Number(v).toFixed(4)}` : '—';
         const fmtNum = (v: any) => v != null ? String(v) : '—';
 
-        const GR = 'grid grid-cols-[1fr_66px_66px_66px_66px]';
-        const cell = (extra = '') => `w-[66px] px-1.5 py-2 text-center text-[11px] font-mono tabular-nums border-l border-white/[0.06] ${extra}`;
+        const GR = 'grid grid-cols-[1fr_76px_76px_76px_76px]';
+        const cell = (extra = '') => `w-[76px] px-1 py-2 text-center text-[11px] font-mono tabular-nums border-l border-white/[0.06] ${extra}`;
 
         const DataRow = ({ label, sN, sU, lN, lU, mono, bold }: {
           label: string; sN: any; sU: any; lN: any; lU: any; mono?: boolean; bold?: boolean;
