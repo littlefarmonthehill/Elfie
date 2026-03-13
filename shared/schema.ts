@@ -715,7 +715,7 @@ export const priceGuideCache = pgTable("price_guide_cache", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   itemNo: text("item_no").notNull(),
   itemType: text("item_type").notNull(),
-  colorId: integer("color_id").notNull().default(-1),
+  colorId: integer("color_id").default(-1),
   newOrUsed: text("new_or_used").notNull().default('N'), // 'N' for New, 'U' for Used
   
   // Item Details from BrickLink
@@ -733,14 +733,12 @@ export const priceGuideCache = pgTable("price_guide_cache", {
   stockAvgPrice: decimal("stock_avg_price", { precision: 10, scale: 2 }),
   stockMinPrice: decimal("stock_min_price", { precision: 10, scale: 2 }),
   stockMaxPrice: decimal("stock_max_price", { precision: 10, scale: 2 }),
-  stockQuantity: integer("stock_quantity"),
   stockTotalLots: integer("stock_total_lots"),
   
   // Price Guide - Sold (historical)
   soldAvgPrice: decimal("sold_avg_price", { precision: 10, scale: 2 }),
   soldMinPrice: decimal("sold_min_price", { precision: 10, scale: 2 }),
   soldMaxPrice: decimal("sold_max_price", { precision: 10, scale: 2 }),
-  soldQuantity: integer("sold_quantity"),
   soldTotalLots: integer("sold_total_lots"),
   
   // Price-O-Matic Suggested Price (with premium)
@@ -754,9 +752,7 @@ export const priceGuideCache = pgTable("price_guide_cache", {
   nextRefresh: timestamp("next_refresh"), // When this item should be refreshed next
   volatilityTier: text("volatility_tier").default('stable'), // 'hot' | 'active' | 'stable'
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-}, (table) => [
-  uniqueIndex("price_guide_cache_natural_key").on(table.itemNo, table.itemType, table.colorId, table.newOrUsed),
-]);
+});
 
 export const insertPriceGuideCacheSchema = createInsertSchema(priceGuideCache).omit({
   id: true,
