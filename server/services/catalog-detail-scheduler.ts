@@ -280,7 +280,7 @@ export async function runCatalogDetailSync(): Promise<{
       recordsUpdated: categoriesAdded + categoriesUpdated + colorsAdded + colorsUpdated,
       errorMessage: stopReason || null,
     }).onConflictDoUpdate({
-      target: [syncMetadata.id, syncMetadata.orgId],
+      target: syncMetadata.id,
       set: {
         lastSyncTime: new Date(),
         lastSyncStatus: stopped ? 'partial' : 'success',

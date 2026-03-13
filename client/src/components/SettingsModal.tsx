@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
@@ -763,6 +763,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const [pomSugFloor, setPomSugFloor] = useState(0.95);
   const [pomSugStorePremium, setPomSugStorePremium] = useState(1.10);
   const [pomSugPricingOpen, setPomSugPricingOpen] = useState(!!pricingExample);
+  const pricingWheelRef = useRef<HTMLDivElement>(null);
   const [pomVelocityHigh, setPomVelocityHigh] = useState(2.0);
   const [pomVelocityLow, setPomVelocityLow] = useState(0.3);
   const [pomScarcityHigh, setPomScarcityHigh] = useState(0.1);
@@ -813,6 +814,9 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   useEffect(() => {
     if (open && pricingExample) {
       setPomSugPricingOpen(true);
+      setTimeout(() => {
+        pricingWheelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
     }
   }, [open, pricingExample]);
 
@@ -4399,7 +4403,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                 </div>
 
                 {/* Suggested Pricing collapsible */}
-                <div>
+                <div ref={pricingWheelRef}>
                   <button
                     onClick={() => setPomSugPricingOpen(!pomSugPricingOpen)}
                     className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
