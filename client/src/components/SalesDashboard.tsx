@@ -9,6 +9,7 @@ import { DateRangeValue } from "./DateRangeSelector";
 import PlatformPerformance from "./PlatformPerformance";
 import PlatformOrdersDrawer from "./PlatformOrdersDrawer";
 import { Button } from "@/components/ui/button";
+import { ToolDrawer } from "@/components/ui/tool-drawer";
 import {
   Popover,
   PopoverContent,
@@ -789,17 +790,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
     return (
       <>
         {activeDrawer === 'chart' && (
-          <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
-              <div className="flex items-center gap-1.5">
-                <Activity className="w-5 h-5 text-green-400 flex-shrink-0" />
-                <span className="text-sm font-semibold text-gray-200">Sales Chart</span>
-              </div>
-              <Button size="icon" variant="ghost" onClick={closeDrawer} data-testid="button-close-sales-chart">
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-3">
+          <ToolDrawer icon={Activity} iconColor="text-green-400" title="Sales Chart" onClose={closeDrawer} closeTestId="button-close-sales-chart" contentClassName="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-3">
               <div className="bg-black/20 rounded-lg p-3">
                 {!compareMode ? (
                   <>
@@ -1093,30 +1084,18 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
                   </table>
                 </div>
               </div>
-            </div>
-          </div>
+          </ToolDrawer>
         )}
 
         {activeDrawer === 'platform-perf' && (
-          <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
-              <div className="flex items-center gap-1.5">
-                <BarChart2 className="w-5 h-5 text-orange-400 flex-shrink-0" />
-                <span className="text-sm font-semibold text-gray-200">Platform Performance</span>
-              </div>
-              <Button size="icon" variant="ghost" onClick={closeDrawer} data-testid="button-close-platform-performance">
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
-              <PlatformPerformance
-                orders={filteredOrders}
-                onPlatformClick={(platform) => {
-                  setPlatformDrawer({ open: true, platform, productLine: undefined });
-                }}
-              />
-            </div>
-          </div>
+          <ToolDrawer icon={BarChart2} iconColor="text-orange-400" title="Platform Performance" onClose={closeDrawer} closeTestId="button-close-platform-performance">
+            <PlatformPerformance
+              orders={filteredOrders}
+              onPlatformClick={(platform) => {
+                setPlatformDrawer({ open: true, platform, productLine: undefined });
+              }}
+            />
+          </ToolDrawer>
         )}
 
         <PlatformOrdersDrawer

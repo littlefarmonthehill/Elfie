@@ -21,6 +21,7 @@ import DateRangeSelector, { DateRangeValue } from "@/components/DateRangeSelecto
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { ToolDrawer } from "@/components/ui/tool-drawer";
 import { ElfieCharacter } from "@/components/ElfieCharacter";
 import PriceOMaticDashboard from "@/components/PriceOMaticDashboard";
 import WarehouseManagement from "@/components/WarehouseManagement";
@@ -389,124 +390,66 @@ export default function Home() {
 
     if (activeInventoryDrawer === 'priceomatic') {
       return (
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="w-5 h-5 text-purple-400 flex-shrink-0" />
-              <span className="text-sm font-semibold text-gray-200">Price-o-Matic</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button size="sm" variant="ghost" className="text-xs text-gray-400 gap-1" onClick={() => openSettings('priceomatic')} data-testid="button-pom-settings">
-                <SlidersHorizontal className="w-3.5 h-3.5" /> Settings
-              </Button>
-              <Button size="icon" variant="ghost" onClick={closeActiveDrawer} data-testid="button-close-drawer"><X className="w-4 h-4" /></Button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
-            <PriceOMaticDashboard onItemClick={(type, id) => handleDashboardItemClick(type, id, 'pricing')} />
-          </div>
-        </div>
+        <ToolDrawer icon={Sparkles} iconColor="text-purple-400" title="Price-o-Matic" onClose={closeActiveDrawer} actions={
+          <Button size="sm" variant="ghost" className="text-xs text-gray-400 gap-1" onClick={() => openSettings('priceomatic')} data-testid="button-pom-settings">
+            <SlidersHorizontal className="w-3.5 h-3.5" /> Settings
+          </Button>
+        }>
+          <PriceOMaticDashboard onItemClick={(type, id) => handleDashboardItemClick(type, id, 'pricing')} />
+        </ToolDrawer>
       );
     }
     if (activeInventoryDrawer === 'warehouse') {
       return (
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
-            <div className="flex items-center gap-1.5">
-              <Warehouse className="w-5 h-5 text-blue-400 flex-shrink-0" />
-              <span className="text-sm font-semibold text-gray-200">Warehouse Management</span>
-            </div>
-            <Button size="icon" variant="ghost" onClick={closeActiveDrawer} data-testid="button-close-drawer"><X className="w-4 h-4" /></Button>
-          </div>
-          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
-            <WarehouseManagement onItemClick={handleDashboardItemClick} />
-          </div>
-        </div>
+        <ToolDrawer icon={Warehouse} iconColor="text-blue-400" title="Warehouse Management" onClose={closeActiveDrawer}>
+          <WarehouseManagement onItemClick={handleDashboardItemClick} />
+        </ToolDrawer>
       );
     }
     if (activeInventoryDrawer === 'platformsync') {
       return (
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
-            <div className="flex items-center gap-1.5">
-              <ListChecks className="w-5 h-5 text-green-400 flex-shrink-0" />
-              <span className="text-sm font-semibold text-gray-200">List-o-Matic</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button size="sm" variant="ghost" className="text-xs text-gray-400 gap-1" onClick={() => openSettings('automation')} data-testid="button-lom-settings">
-                <SlidersHorizontal className="w-3.5 h-3.5" /> Settings
-              </Button>
-              <Button size="icon" variant="ghost" onClick={closeActiveDrawer} data-testid="button-close-drawer"><X className="w-4 h-4" /></Button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
-            <ListomaticPriority />
-          </div>
-        </div>
+        <ToolDrawer icon={ListChecks} iconColor="text-green-400" title="List-o-Matic" onClose={closeActiveDrawer} actions={
+          <Button size="sm" variant="ghost" className="text-xs text-gray-400 gap-1" onClick={() => openSettings('automation')} data-testid="button-lom-settings">
+            <SlidersHorizontal className="w-3.5 h-3.5" /> Settings
+          </Button>
+        }>
+          <ListomaticPriority />
+        </ToolDrawer>
       );
     }
     if (activeInventoryDrawer === 'brickanalyzer') {
       return (
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
-            <div className="flex items-center gap-1.5">
-              <ScanSearch className="w-5 h-5 text-lego-yellow flex-shrink-0" />
-              <span className="text-sm font-semibold text-gray-200">Brick Spotter 3000</span>
-            </div>
-            <Button size="icon" variant="ghost" onClick={closeActiveDrawer} data-testid="button-close-drawer"><X className="w-4 h-4" /></Button>
-          </div>
-          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
-            <BrickanalyzerTool />
-          </div>
-        </div>
+        <ToolDrawer icon={ScanSearch} iconColor="text-lego-yellow" title="Brick Spotter 3000" onClose={closeActiveDrawer}>
+          <BrickanalyzerTool />
+        </ToolDrawer>
       );
     }
     if (activeOrdersDrawer === 'fulfillment') {
       return (
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
-            <div className="flex items-center gap-1.5">
-              <Truck className="w-5 h-5 text-orange-400 flex-shrink-0" />
-              <span className="text-sm font-semibold text-gray-200">Fulfillment & Shipping</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button size="sm" variant="ghost" className="text-xs text-gray-400 gap-1" onClick={() => openSettings('automation')} data-testid="button-fulfillment-settings">
-                <SlidersHorizontal className="w-3.5 h-3.5" /> Settings
-              </Button>
-              <Button size="icon" variant="ghost" onClick={closeActiveDrawer} data-testid="button-close-drawer"><X className="w-4 h-4" /></Button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
-            <FulfillmentTool />
-          </div>
-        </div>
+        <ToolDrawer icon={Truck} iconColor="text-orange-400" title="Fulfillment & Shipping" onClose={closeActiveDrawer} actions={
+          <Button size="sm" variant="ghost" className="text-xs text-gray-400 gap-1" onClick={() => openSettings('automation')} data-testid="button-fulfillment-settings">
+            <SlidersHorizontal className="w-3.5 h-3.5" /> Settings
+          </Button>
+        }>
+          <FulfillmentTool />
+        </ToolDrawer>
       );
     }
     if (activeOrdersDrawer === 'shipped') {
       return (
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
-            <div className="flex items-center gap-1.5">
-              <PackageCheck className="w-5 h-5 text-green-400 flex-shrink-0" />
-              <span className="text-sm font-semibold text-gray-200">Shipped Orders</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button size="sm" variant="ghost" className="text-xs text-gray-400 gap-1" onClick={() => openSettings('platforms')} data-testid="button-shipped-settings">
-                <SlidersHorizontal className="w-3.5 h-3.5" /> Settings
-              </Button>
-              <Button size="icon" variant="ghost" onClick={closeActiveDrawer} data-testid="button-close-drawer"><X className="w-4 h-4" /></Button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
-            <ShippedOrdersTool
-              dateRange={dateRange}
-              onItemClick={(type, id) => {
-                closeActiveDrawer();
-                handleDashboardItemClick(type, id);
-              }}
-            />
-          </div>
-        </div>
+        <ToolDrawer icon={PackageCheck} iconColor="text-green-400" title="Shipped Orders" onClose={closeActiveDrawer} actions={
+          <Button size="sm" variant="ghost" className="text-xs text-gray-400 gap-1" onClick={() => openSettings('platforms')} data-testid="button-shipped-settings">
+            <SlidersHorizontal className="w-3.5 h-3.5" /> Settings
+          </Button>
+        }>
+          <ShippedOrdersTool
+            dateRange={dateRange}
+            onItemClick={(type, id) => {
+              closeActiveDrawer();
+              handleDashboardItemClick(type, id);
+            }}
+          />
+        </ToolDrawer>
       );
     }
     if (activeMarketingDrawer) {

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { UserPlus, RefreshCcw, Trophy, Megaphone, Search, X, Info, Calendar, Mail, MapPin, Users, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ToolDrawer } from "@/components/ui/tool-drawer";
 import {
   Popover,
   PopoverContent,
@@ -226,42 +227,43 @@ function CustomerListPanel({
 
   if (!open) return null;
 
+  const searchBar = (
+    <div className="px-4 py-2 border-b border-white/5 shrink-0">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500 pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Search by username, email, city, country…"
+          value={searchQuery}
+          onChange={e => { onSearchChange(e.target.value); setPage(1); }}
+          className="w-full pl-9 pr-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded-md text-gray-200 placeholder-gray-600 focus:outline-none focus:border-gray-500"
+          data-testid={`input-search-${title.toLowerCase().replace(/\s+/g, '-')}`}
+        />
+        {searchQuery && (
+          <button
+            onClick={() => { onSearchChange(''); setPage(1); }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+      <p className={`text-[11px] mt-1.5 transition-opacity ${isStale ? 'opacity-40' : 'opacity-100'} text-gray-600`}>
+        {isLoading ? 'Loading…' : `${filtered.length} of ${customers.length} customer${customers.length !== 1 ? 's' : ''}${searchQuery ? ' match' : ''}`}
+      </p>
+    </div>
+  );
+
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
-        <div className="flex items-center gap-1.5">
-          <Icon className={`w-5 h-5 ${accentColor} flex-shrink-0`} />
-          <span className="text-sm font-semibold text-gray-200">{title}</span>
-        </div>
-        <Button size="icon" variant="ghost" onClick={() => { onClose(); setPage(1); }} data-testid={`button-close-${title.toLowerCase().replace(/\s+/g, '-')}`}>
-          <X className="w-4 h-4" />
-        </Button>
-      </div>
-      <div className="px-4 py-2 border-b border-white/5">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Search by username, email, city, country…"
-            value={searchQuery}
-            onChange={e => { onSearchChange(e.target.value); setPage(1); }}
-            className="w-full pl-9 pr-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded-md text-gray-200 placeholder-gray-600 focus:outline-none focus:border-gray-500"
-            data-testid={`input-search-${title.toLowerCase().replace(/\s+/g, '-')}`}
-          />
-          {searchQuery && (
-            <button
-              onClick={() => { onSearchChange(''); setPage(1); }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          )}
-        </div>
-        <p className={`text-[11px] mt-1.5 transition-opacity ${isStale ? 'opacity-40' : 'opacity-100'} text-gray-600`}>
-          {isLoading ? 'Loading…' : `${filtered.length} of ${customers.length} customer${customers.length !== 1 ? 's' : ''}${searchQuery ? ' match' : ''}`}
-        </p>
-      </div>
-      <div className="flex-1 overflow-y-auto min-h-0 pt-2">
+    <ToolDrawer
+      icon={Icon as any}
+      iconColor={accentColor}
+      title={title}
+      onClose={() => { onClose(); setPage(1); }}
+      closeTestId={`button-close-${title.toLowerCase().replace(/\s+/g, '-')}`}
+      subHeader={searchBar}
+      contentClassName="flex-1 overflow-y-auto min-h-0 pt-2"
+    >
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-current border-t-transparent opacity-40" style={{ color: 'inherit' }} />
@@ -300,8 +302,7 @@ function CustomerListPanel({
             )}
           </div>
         )}
-      </div>
-    </div>
+    </ToolDrawer>
   );
 }
 
@@ -362,24 +363,13 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
     return (
       <>
         {activeDrawer === 'attract' && (
-          <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-white/10 shrink-0">
-              <div className="flex items-center gap-1.5">
-                <Megaphone className="w-5 h-5 text-indigo-400 flex-shrink-0" />
-                <span className="text-sm font-semibold text-gray-200">Attract New Customers</span>
-              </div>
-              <Button size="icon" variant="ghost" onClick={() => onDrawerChange(null)} data-testid="button-close-attract">
-                <X className="w-4 h-4" />
-              </Button>
+          <ToolDrawer icon={Megaphone} iconColor="text-indigo-400" title="Attract New Customers" onClose={() => onDrawerChange(null)} closeTestId="button-close-attract" contentClassName="flex flex-col items-center justify-center flex-1 px-4 pb-8 gap-4 text-center">
+            <div className="w-16 h-16 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+              <Megaphone className="w-7 h-7 text-indigo-400" />
             </div>
-            <div className="flex flex-col items-center justify-center flex-1 px-4 pt-4 pb-8 gap-4 text-center">
-              <div className="w-16 h-16 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-                <Megaphone className="w-7 h-7 text-indigo-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-200">Coming Soon</h3>
-              <p className="text-sm text-gray-400 max-w-sm">Campaigns, store promotions, and new buyer acquisition tools are on the roadmap.</p>
-            </div>
-          </div>
+            <h3 className="text-lg font-semibold text-gray-200">Coming Soon</h3>
+            <p className="text-sm text-gray-400 max-w-sm">Campaigns, store promotions, and new buyer acquisition tools are on the roadmap.</p>
+          </ToolDrawer>
         )}
         <CustomerListPanel
           open={activeDrawer === 'engage-new'}
