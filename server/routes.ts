@@ -3959,6 +3959,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/ocr/bricklink-credentials", isApproved, async (req, res) => {
+    try {
+      const { image } = req.body;
+      if (!image || typeof image !== 'string') {
+        return res.status(400).json({ error: "Base64 image data required" });
+      }
+      const apiKey = await getPlatformOpenAIKey();
+      if (!apiKey) {
+        return res.status(400).json({ error: "OpenAI API key not configured" });
+      }
+      const OpenAI = (await import('openai')).default;
+      const client = new OpenAI({ apiKey });
+      const response = await client.chat.completions.create({
+        model: 'gpt-4o',
+        max_tokens: 500,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Extract BrickLink API credentials from this screenshot. Return ONLY a JSON object with these fields (use null if not found): {"consumerKey": "...", "consumerSecret": "...", "tokenValue": "...", "tokenSecret": "..."}. The values are long hex strings. Do not include any other text.' },
+            { type: 'image_url', image_url: { url: image.startsWith('data:') ? image : `data:image/png;base64,${image}` } }
+          ]
+        }]
+      });
+      const text = response.choices[0]?.message?.content?.trim() || '';
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        return res.json({ error: "Could not extract credentials from image" });
+      }
+      const parsed = JSON.parse(jsonMatch[0]);
+      res.json(parsed);
+    } catch (err: any) {
+      console.error("[OCR] BrickLink credential extraction failed:", err.message);
+      res.status(500).json({ error: "Failed to process screenshot" });
+    }
+  });
+
   // E.L.F.I.E. Chat Route
   app.post("/api/chat", isApproved, async (req, res) => {
     const chatStartTime = Date.now();

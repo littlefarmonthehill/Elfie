@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, ArrowRight, Building2, Link, CreditCard, Sparkles, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink } from "lucide-react";
+import { CheckCircle2, ArrowRight, Building2, Link, CreditCard, Sparkles, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2 } from "lucide-react";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
 import type { Organization } from "@shared/schema";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
@@ -39,6 +39,7 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
   const [blPasteText, setBlPasteText] = useState("");
   const [blPasteStatus, setBlPasteStatus] = useState<PasteStatus>("idle");
   const [blParsedTokens, setBlParsedTokens] = useState<{ tokenValue: string; tokenSecret: string }[]>([]);
+  const [blOcrProcessing, setBlOcrProcessing] = useState(false);
 
   // Step 3 — Payments
   const [paypalClientId, setPaypalClientId] = useState("");
@@ -225,16 +226,22 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                       Open BrickLink API page <ExternalLink className="w-2.5 h-2.5" />
                     </a>
                   </div>
-                  <p className="text-[10px] text-gray-500 leading-relaxed">Sign in to BrickLink, open the API page above, select all the text on that page, copy it, and paste it here. We'll extract your credentials automatically.</p>
+                  <p className="text-[10px] text-gray-500 leading-relaxed">Sign in to BrickLink, open the API page above, select all the text on that page, copy it, and paste it here. You can also paste a screenshot of the API page.</p>
                   <Textarea
-                    placeholder="Paste the full page content here..."
+                    placeholder={blOcrProcessing ? "Reading screenshot..." : "Paste text or screenshot here..."}
                     value={blPasteText}
+                    disabled={blOcrProcessing}
                     onChange={(e) => {
                       const val = e.target.value;
                       setBlPasteText(val);
                       if (!val.trim()) { setBlPasteStatus("idle"); return; }
                       const parsed = parseBricklinkPaste(val);
-                      if (!parsed) { setBlPasteStatus("fail"); return; }
+                      if (!parsed) {
+                        setBlPasteText("");
+                        setBlPasteStatus("fail");
+                        return;
+                      }
+                      setBlPasteText("");
                       if (parsed.consumerKey) setBlKey(parsed.consumerKey);
                       if (parsed.consumerSecret) setBlSecret(parsed.consumerSecret);
                       if (parsed.tokens.length === 1) {
@@ -246,12 +253,57 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                       }
                       setBlPasteStatus(getPasteStatus(parsed));
                     }}
+                    onPaste={async (e) => {
+                      const items = e.clipboardData?.items;
+                      if (!items) return;
+                      for (let i = 0; i < items.length; i++) {
+                        if (items[i].type.startsWith('image/')) {
+                          e.preventDefault();
+                          const file = items[i].getAsFile();
+                          if (!file) return;
+                          setBlOcrProcessing(true);
+                          setBlPasteStatus("idle");
+                          setBlPasteText("");
+                          try {
+                            const reader = new FileReader();
+                            const base64 = await new Promise<string>((resolve, reject) => {
+                              reader.onload = () => resolve(reader.result as string);
+                              reader.onerror = reject;
+                              reader.readAsDataURL(file);
+                            });
+                            const resp = await fetch('/api/ocr/bricklink-credentials', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              credentials: 'include',
+                              body: JSON.stringify({ image: base64 }),
+                            });
+                            const data = await resp.json();
+                            if (data.error || (!data.consumerKey && !data.consumerSecret && !data.tokenValue && !data.tokenSecret)) {
+                              setBlPasteStatus("fail");
+                            } else {
+                              if (data.consumerKey) setBlKey(data.consumerKey);
+                              if (data.consumerSecret) setBlSecret(data.consumerSecret);
+                              if (data.tokenValue) setBlToken(data.tokenValue);
+                              if (data.tokenSecret) setBlTokenSecret(data.tokenSecret);
+                              const hasAll = data.consumerKey && data.consumerSecret && data.tokenValue && data.tokenSecret;
+                              setBlPasteStatus(hasAll ? "success" : "partial");
+                            }
+                          } catch {
+                            setBlPasteStatus("fail");
+                          } finally {
+                            setBlOcrProcessing(false);
+                          }
+                          return;
+                        }
+                      }
+                    }}
                     className="bg-gray-800 border-gray-700 text-white text-xs min-h-[60px] max-h-[100px]"
                     data-testid="textarea-bl-paste"
                   />
-                  {blPasteStatus === "success" && <p className="text-[10px] text-green-400">All 4 credentials extracted successfully.</p>}
-                  {blPasteStatus === "partial" && <p className="text-[10px] text-yellow-400">Some credentials found but not all 4. You can fill in the missing fields manually below.</p>}
-                  {blPasteStatus === "fail" && <p className="text-[10px] text-red-400">Could not find BrickLink credentials in the pasted text. Make sure you copied the full page.</p>}
+                  {blOcrProcessing && <p className="text-[10px] text-blue-400 flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" />Reading credentials from screenshot...</p>}
+                  {blPasteStatus === "success" && !blOcrProcessing && <p className="text-[10px] text-green-400">All 4 credentials extracted successfully.</p>}
+                  {blPasteStatus === "partial" && !blOcrProcessing && <p className="text-[10px] text-yellow-400">Some credentials found but not all 4. You can fill in the missing fields manually below.</p>}
+                  {blPasteStatus === "fail" && !blOcrProcessing && <p className="text-[10px] text-red-400">Could not find BrickLink credentials in the pasted content. Make sure you copied the full page or try a clearer screenshot.</p>}
                   {blPasteStatus === "multi" && (
                     <div className="space-y-1.5">
                       <p className="text-[10px] text-yellow-400">Multiple access tokens found — select which one to use:</p>
