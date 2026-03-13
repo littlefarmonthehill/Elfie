@@ -356,10 +356,11 @@ function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
                 <div className={cell('text-[9px] uppercase font-bold text-orange-300 py-1.5')}>Used</div>
               </div>
               {/* Data rows */}
-              <DataRow label="Total Qty" sN={nData?.soldTotalLots} sU={uData?.soldTotalLots} lN={nData?.stockTotalLots} lU={uData?.stockTotalLots} mono />
+              <DataRow label="Lots" sN={nData?.soldTotalLots} sU={uData?.soldTotalLots} lN={nData?.stockTotalLots} lU={uData?.stockTotalLots} mono />
+              <DataRow label="Total Qty" sN={nData?.soldQuantity} sU={uData?.soldQuantity} lN={nData?.stockQuantity} lU={uData?.stockQuantity} mono />
               <DataRow label="Min Price" sN={nData?.soldMinPrice} sU={uData?.soldMinPrice} lN={nData?.stockMinPrice} lU={uData?.stockMinPrice} />
               <DataRow bold label="Avg Price" sN={nData?.soldAvgPrice} sU={uData?.soldAvgPrice} lN={nData?.stockAvgPrice} lU={uData?.stockAvgPrice} />
-              <DataRow label="Qty Avg Price" sN={nData?.soldQuantity} sU={uData?.soldQuantity} lN={nData?.stockQuantity} lU={uData?.stockQuantity} mono />
+              <DataRow label="Qty Avg Price" sN={nData?.soldQtyAvgPrice} sU={uData?.soldQtyAvgPrice} lN={nData?.stockQtyAvgPrice} lU={uData?.stockQtyAvgPrice} />
               <DataRow label="Max Price" sN={nData?.soldMaxPrice} sU={uData?.soldMaxPrice} lN={nData?.stockMaxPrice} lU={uData?.stockMaxPrice} />
               {/* ── My Price + Suggested — inline below price guide data ── */}
               {hasMyPrices && (() => {

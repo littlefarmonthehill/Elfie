@@ -1556,17 +1556,19 @@ export async function fetchPriceOMagicData(
     const soldAvgPrice = soldPriceData?.avg_price ? parseFloat(soldPriceData.avg_price) : null;
 
     // When skipStock or skipSold is true, preserve existing data from cache so previous data isn't lost
-    let preservedStock: { stockAvgPrice?: string | null; stockMinPrice?: string | null; stockMaxPrice?: string | null; stockQuantity?: number | null; stockTotalLots?: number | null } = {};
-    let preservedSold: { soldAvgPrice?: string | null; soldMinPrice?: string | null; soldMaxPrice?: string | null; soldQuantity?: number | null; soldTotalLots?: number | null; soldFetchedAt?: Date | null } = {};
+    let preservedStock: { stockAvgPrice?: string | null; stockQtyAvgPrice?: string | null; stockMinPrice?: string | null; stockMaxPrice?: string | null; stockQuantity?: number | null; stockTotalLots?: number | null } = {};
+    let preservedSold: { soldAvgPrice?: string | null; soldQtyAvgPrice?: string | null; soldMinPrice?: string | null; soldMaxPrice?: string | null; soldQuantity?: number | null; soldTotalLots?: number | null; soldFetchedAt?: Date | null } = {};
     if (skipStock || skipSold) {
       const existingRec = await db
         .select({
           stockAvgPrice: priceGuideCache.stockAvgPrice,
+          stockQtyAvgPrice: priceGuideCache.stockQtyAvgPrice,
           stockMinPrice: priceGuideCache.stockMinPrice,
           stockMaxPrice: priceGuideCache.stockMaxPrice,
           stockQuantity: priceGuideCache.stockQuantity,
           stockTotalLots: priceGuideCache.stockTotalLots,
           soldAvgPrice: priceGuideCache.soldAvgPrice,
+          soldQtyAvgPrice: priceGuideCache.soldQtyAvgPrice,
           soldMinPrice: priceGuideCache.soldMinPrice,
           soldMaxPrice: priceGuideCache.soldMaxPrice,
           soldQuantity: priceGuideCache.soldQuantity,
@@ -1610,6 +1612,7 @@ export async function fetchPriceOMagicData(
       
       // Stock price guide (preserved from cache when skipStock=true, fetched fresh otherwise)
       stockAvgPrice: skipStock ? (preservedStock.stockAvgPrice ?? null) : (stockAvgPrice?.toString() || null),
+      stockQtyAvgPrice: skipStock ? (preservedStock.stockQtyAvgPrice ?? null) : (stockPriceData?.qty_avg_price ? stockPriceData.qty_avg_price.toString() : null),
       stockMinPrice: skipStock ? (preservedStock.stockMinPrice ?? null) : (stockPriceData?.min_price ? stockPriceData.min_price.toString() : null),
       stockMaxPrice: skipStock ? (preservedStock.stockMaxPrice ?? null) : (stockPriceData?.max_price ? stockPriceData.max_price.toString() : null),
       stockQuantity: skipStock ? (preservedStock.stockQuantity ?? null) : (sumPriceDetailQty(stockPriceData?.price_detail)),
@@ -1617,6 +1620,7 @@ export async function fetchPriceOMagicData(
       
       // Sold price guide (preserved from cache when skipSold=true, fetched fresh otherwise)
       soldAvgPrice: skipSold ? (preservedSold.soldAvgPrice ?? null) : (soldAvgPrice?.toString() || null),
+      soldQtyAvgPrice: skipSold ? (preservedSold.soldQtyAvgPrice ?? null) : (soldPriceData?.qty_avg_price ? soldPriceData.qty_avg_price.toString() : null),
       soldMinPrice: skipSold ? (preservedSold.soldMinPrice ?? null) : (soldPriceData?.min_price ? soldPriceData.min_price.toString() : null),
       soldMaxPrice: skipSold ? (preservedSold.soldMaxPrice ?? null) : (soldPriceData?.max_price ? soldPriceData.max_price.toString() : null),
       soldQuantity: skipSold ? (preservedSold.soldQuantity ?? null) : (sumPriceDetailQty(soldPriceData?.price_detail)),
@@ -1640,8 +1644,8 @@ export async function fetchPriceOMagicData(
         id, item_no, item_type, color_id, new_or_used,
         item_name, image_url, thumbnail_url, category_id,
         weight, dimension_x, dimension_y, dimension_z, year_released,
-        stock_avg_price, stock_min_price, stock_max_price, stock_quantity, stock_total_lots,
-        sold_avg_price, sold_min_price, sold_max_price, sold_quantity, sold_total_lots,
+        stock_avg_price, stock_qty_avg_price, stock_min_price, stock_max_price, stock_quantity, stock_total_lots,
+        sold_avg_price, sold_qty_avg_price, sold_min_price, sold_max_price, sold_quantity, sold_total_lots,
         suggested_price, premium_percentage,
         fetched_at, sold_fetched_at, stock_fetched_at, updated_at
       ) VALUES (
@@ -1649,8 +1653,8 @@ export async function fetchPriceOMagicData(
         ${normalizedItemNo}, ${mergedData.itemType}, ${normalizedColorId}, ${mergedData.newOrUsed},
         ${mergedData.itemName ?? null}, ${mergedData.imageUrl ?? null}, ${mergedData.thumbnailUrl ?? null}, ${mergedData.categoryId ?? null},
         ${mergedData.weight ?? null}, ${mergedData.dimensionX ?? null}, ${mergedData.dimensionY ?? null}, ${mergedData.dimensionZ ?? null}, ${mergedData.yearReleased ?? null},
-        ${mergedData.stockAvgPrice ?? null}, ${mergedData.stockMinPrice ?? null}, ${mergedData.stockMaxPrice ?? null}, ${mergedData.stockQuantity ?? null}, ${mergedData.stockTotalLots ?? null},
-        ${mergedData.soldAvgPrice ?? null}, ${mergedData.soldMinPrice ?? null}, ${mergedData.soldMaxPrice ?? null}, ${mergedData.soldQuantity ?? null}, ${mergedData.soldTotalLots ?? null},
+        ${mergedData.stockAvgPrice ?? null}, ${mergedData.stockQtyAvgPrice ?? null}, ${mergedData.stockMinPrice ?? null}, ${mergedData.stockMaxPrice ?? null}, ${mergedData.stockQuantity ?? null}, ${mergedData.stockTotalLots ?? null},
+        ${mergedData.soldAvgPrice ?? null}, ${mergedData.soldQtyAvgPrice ?? null}, ${mergedData.soldMinPrice ?? null}, ${mergedData.soldMaxPrice ?? null}, ${mergedData.soldQuantity ?? null}, ${mergedData.soldTotalLots ?? null},
         ${(mergedData as any).suggestedPrice ?? null}, ${(mergedData as any).premiumPercentage ?? null},
         ${mergedData.soldFetchedAt ?? new Date()}, ${mergedData.soldFetchedAt ?? new Date()}, ${mergedData.stockFetchedAt ?? new Date()}, NOW()
       )
@@ -1665,11 +1669,13 @@ export async function fetchPriceOMagicData(
         dimension_z = COALESCE(EXCLUDED.dimension_z, price_guide_cache.dimension_z),
         year_released = COALESCE(EXCLUDED.year_released, price_guide_cache.year_released),
         stock_avg_price = COALESCE(EXCLUDED.stock_avg_price, price_guide_cache.stock_avg_price),
+        stock_qty_avg_price = COALESCE(EXCLUDED.stock_qty_avg_price, price_guide_cache.stock_qty_avg_price),
         stock_min_price = COALESCE(EXCLUDED.stock_min_price, price_guide_cache.stock_min_price),
         stock_max_price = COALESCE(EXCLUDED.stock_max_price, price_guide_cache.stock_max_price),
         stock_quantity = COALESCE(EXCLUDED.stock_quantity, price_guide_cache.stock_quantity),
         stock_total_lots = COALESCE(EXCLUDED.stock_total_lots, price_guide_cache.stock_total_lots),
         sold_avg_price = COALESCE(EXCLUDED.sold_avg_price, price_guide_cache.sold_avg_price),
+        sold_qty_avg_price = COALESCE(EXCLUDED.sold_qty_avg_price, price_guide_cache.sold_qty_avg_price),
         sold_min_price = COALESCE(EXCLUDED.sold_min_price, price_guide_cache.sold_min_price),
         sold_max_price = COALESCE(EXCLUDED.sold_max_price, price_guide_cache.sold_max_price),
         sold_quantity = COALESCE(EXCLUDED.sold_quantity, price_guide_cache.sold_quantity),
@@ -1700,11 +1706,13 @@ export async function fetchPriceOMagicData(
       dimensionZ: rawRow.dimension_z,
       yearReleased: rawRow.year_released,
       stockAvgPrice: rawRow.stock_avg_price,
+      stockQtyAvgPrice: rawRow.stock_qty_avg_price,
       stockMinPrice: rawRow.stock_min_price,
       stockMaxPrice: rawRow.stock_max_price,
       stockQuantity: rawRow.stock_quantity,
       stockTotalLots: rawRow.stock_total_lots,
       soldAvgPrice: rawRow.sold_avg_price,
+      soldQtyAvgPrice: rawRow.sold_qty_avg_price,
       soldMinPrice: rawRow.sold_min_price,
       soldMaxPrice: rawRow.sold_max_price,
       soldQuantity: rawRow.sold_quantity,

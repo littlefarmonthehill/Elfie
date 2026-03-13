@@ -731,6 +731,7 @@ export const priceGuideCache = pgTable("price_guide_cache", {
   
   // Price Guide - Stock (current market)
   stockAvgPrice: decimal("stock_avg_price", { precision: 10, scale: 2 }),
+  stockQtyAvgPrice: decimal("stock_qty_avg_price", { precision: 10, scale: 2 }),
   stockMinPrice: decimal("stock_min_price", { precision: 10, scale: 2 }),
   stockMaxPrice: decimal("stock_max_price", { precision: 10, scale: 2 }),
   stockQuantity: integer("stock_quantity"),
@@ -738,6 +739,7 @@ export const priceGuideCache = pgTable("price_guide_cache", {
   
   // Price Guide - Sold (historical)
   soldAvgPrice: decimal("sold_avg_price", { precision: 10, scale: 2 }),
+  soldQtyAvgPrice: decimal("sold_qty_avg_price", { precision: 10, scale: 2 }),
   soldMinPrice: decimal("sold_min_price", { precision: 10, scale: 2 }),
   soldMaxPrice: decimal("sold_max_price", { precision: 10, scale: 2 }),
   soldQuantity: integer("sold_quantity"),
