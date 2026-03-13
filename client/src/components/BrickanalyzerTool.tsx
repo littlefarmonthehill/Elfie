@@ -2184,7 +2184,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                 <button
                   data-testid="heatmap-source-peak"
                   onClick={() => setHeatmapSource('peak')}
-                  className={`rounded text-[10px] font-medium px-2.5 py-0.5 transition-colors shrink-0 ${heatmapSource === 'peak' ? 'bg-amber-600 text-white border border-amber-500' : 'text-amber-400/70 hover:text-amber-300 border border-amber-700/50 bg-transparent'}`}
+                  className={`rounded text-[10px] font-medium px-2.5 py-0.5 transition-colors shrink-0 ${heatmapSource === 'peak' ? 'bg-amber-600 text-white border border-amber-500' : 'text-gray-500 hover:text-gray-300 border border-gray-700 bg-transparent'}`}
                 >
                   Peak
                 </button>
@@ -2196,7 +2196,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       <button
                         key={c}
                         data-testid={`heatmap-cond-${c}`}
-                        onClick={() => setHeatmapCondition(c)}
+                        onClick={() => { setHeatmapCondition(c); if (heatmapSource === 'peak') setHeatmapSource('sold'); }}
                         className={`px-2 py-0.5 transition-colors ${heatmapCondition === c ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
                       >
                         {c === 'new' ? 'New' : 'Used'}
@@ -2222,7 +2222,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                       <button
                         key={m}
                         data-testid={`heatmap-metric-${m}`}
-                        onClick={() => setHeatmapMetric(m)}
+                        onClick={() => { setHeatmapMetric(m); if (heatmapSource === 'peak') setHeatmapSource('sold'); }}
                         className={`px-2 py-0.5 transition-colors ${heatmapMetric === m ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
                       >
                         {m === 'max' ? 'Max' : 'Avg'}
