@@ -715,7 +715,7 @@ export const priceGuideCache = pgTable("price_guide_cache", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   itemNo: text("item_no").notNull(),
   itemType: text("item_type").notNull(),
-  colorId: integer("color_id").default(-1),
+  colorId: integer("color_id"),
   newOrUsed: text("new_or_used").notNull().default('N'), // 'N' for New, 'U' for Used
   
   // Item Details from BrickLink
