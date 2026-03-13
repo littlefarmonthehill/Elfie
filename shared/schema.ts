@@ -749,6 +749,8 @@ export const priceGuideCache = pgTable("price_guide_cache", {
   
   // Cache management
   fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+  soldFetchedAt: timestamp("sold_fetched_at"),
+  stockFetchedAt: timestamp("stock_fetched_at"),
   nextRefresh: timestamp("next_refresh"), // When this item should be refreshed next
   volatilityTier: text("volatility_tier").default('stable'), // 'hot' | 'active' | 'stable'
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

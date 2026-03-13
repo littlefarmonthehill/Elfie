@@ -307,6 +307,19 @@ export async function runMigrations() {
       ON CONFLICT (item_no, item_type, color_id) DO NOTHING
     `);
     console.log('[Migration] Phase-14 (bl_catalog skeleton rows from bl_inventory) complete.');
+
+    // ── Phase-15: Per-guide freshness timestamps on price_guide_cache ─────────
+    // Track sold vs stock fetch times independently so the sync can skip
+    // whichever guide is still fresh and save API calls.
+    await client.query(`
+      ALTER TABLE price_guide_cache ADD COLUMN IF NOT EXISTS sold_fetched_at TIMESTAMP;
+      ALTER TABLE price_guide_cache ADD COLUMN IF NOT EXISTS stock_fetched_at TIMESTAMP;
+      UPDATE price_guide_cache
+        SET sold_fetched_at  = COALESCE(sold_fetched_at, fetched_at),
+            stock_fetched_at = COALESCE(stock_fetched_at, fetched_at)
+        WHERE sold_fetched_at IS NULL OR stock_fetched_at IS NULL;
+    `);
+    console.log('[Migration] Phase-15 (per-guide freshness timestamps) complete.');
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

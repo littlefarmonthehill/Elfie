@@ -1305,6 +1305,8 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
         categoryId: blCatalog.categoryId,
         cacheId: priceGuideCache.id,
         lastFetched: priceGuideCache.fetchedAt,
+        soldFetchedAt: priceGuideCache.soldFetchedAt,
+        stockFetchedAt: priceGuideCache.stockFetchedAt,
       })
       .from(blInventory)
       .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
@@ -1323,24 +1325,44 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
       )
       .limit(100000);
 
-    // Freshness window from scheduler settings — items not fetched within N days (or never fetched) are candidates
+    // Freshness window from scheduler settings — items not fetched within N days (or never fetched) are candidates.
+    // Per-guide freshness: check sold and stock independently. An item is a candidate if EITHER guide is stale.
     const FRESHNESS_MS = freshnessDays * 24 * 60 * 60 * 1000;
     const now = Date.now();
-    const filteredItems = inventoryItems.filter((item) => {
-      if (!item.lastFetched) return true;
-      return now - new Date(item.lastFetched).getTime() >= FRESHNESS_MS;
-    });
+    const isFresh = (ts: Date | null | undefined) => ts != null && (now - new Date(ts).getTime()) < FRESHNESS_MS;
 
-    // Cap by both the configured batch size AND the actual API calls available right now.
-    // Each item uses 2 API calls (sold + stock), so divide available calls by 2.
+    const filteredItems = inventoryItems
+      .filter((item) => {
+        if (!item.lastFetched) return true; // never fetched at all
+        const soldFresh = isFresh(item.soldFetchedAt);
+        const stockFresh = isFresh(item.stockFetchedAt);
+        return !soldFresh || !stockFresh; // candidate if either guide is stale
+      })
+      .map((item) => ({
+        ...item,
+        soldIsFresh: isFresh(item.soldFetchedAt),
+        stockIsFresh: isFresh(item.stockFetchedAt),
+      }));
+
+    // Estimate API calls needed — items with one fresh guide need only 1 call, others need 2.
     const availableApiCalls = Math.max(0, apiCallCeiling - callsLast24h);
-    const availableItems = Math.floor(availableApiCalls / 2);
-    const cappedMaxItems = Math.min(effectiveMaxItems, availableItems);
-    const itemsToProcess = filteredItems.slice(0, cappedMaxItems);
+    let estimatedCalls = 0;
+    const itemsToProcess: typeof filteredItems = [];
+    for (const item of filteredItems) {
+      if (itemsToProcess.length >= effectiveMaxItems) break;
+      const callsNeeded = (item.soldIsFresh || item.stockIsFresh) ? 1 : 2;
+      if (estimatedCalls + callsNeeded > availableApiCalls) break;
+      estimatedCalls += callsNeeded;
+      itemsToProcess.push(item);
+    }
+
+    const onlyStockCount = itemsToProcess.filter(i => i.soldIsFresh && !i.stockIsFresh).length;
+    const onlySoldCount = itemsToProcess.filter(i => i.stockIsFresh && !i.soldIsFresh).length;
+    const bothCount = itemsToProcess.filter(i => !i.soldIsFresh && !i.stockIsFresh).length;
 
     pomSyncProgress.itemsTotal = itemsToProcess.length;
 
-    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale (>${freshnessDays}d), processing ${itemsToProcess.length} (batch cap: ${effectiveMaxItems}, available API calls: ${availableApiCalls} → ${availableItems} items at 2 calls/item, zeroStockSkip: ${zeroStockSkip})`);
+    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale (>${freshnessDays}d), processing ${itemsToProcess.length} (~${estimatedCalls} API calls: ${bothCount} both, ${onlyStockCount} stock-only, ${onlySoldCount} sold-only, available: ${availableApiCalls}, zeroStockSkip: ${zeroStockSkip})`);
 
     if (itemsToProcess.length === 0) {
       const reason = filteredItems.length === 0
@@ -1354,7 +1376,7 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
     }
 
     // Process each item — oldest-fetched first.
-    // Each item makes 2 BL API calls: stock price guide + sold price guide.
+    // Smart per-guide skipping: only fetch the guide(s) that are stale.
     for (const item of itemsToProcess) {
       try {
         if (pomShutdownRequested) {
@@ -1379,17 +1401,18 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
             .where(and(eq(blApiCalls.orgId, orgId), gte(blApiCalls.timestamp, checkAgo)));
           const currentCalls = Number(usageCheck?.count) || 0;
           
-          if (currentCalls + 2 > apiCallCeiling) {
+          if (currentCalls + 1 > apiCallCeiling) {
             stopped = true;
-            stopReason = `Approaching API limit: ${currentCalls}/${apiCallCeiling} calls (need 2 per item). Stopping at configured ceiling.`;
+            stopReason = `Approaching API limit: ${currentCalls}/${apiCallCeiling} calls. Stopping at configured ceiling.`;
             console.log(`[Price-o-Matic Sync] ${stopReason}`);
             break;
           }
         }
 
-        // Fetch price data — full sync (2 API calls: sold + stock price guides)
-        // Item details are sourced from local blInventory (already synced).
-        // Both guides are fetched so suggested price can be computed.
+        // Smart skip: only fetch the stale guide(s), preserving fresh data from cache
+        const itemSkipStock = item.stockIsFresh;
+        const itemSkipSold = item.soldIsFresh;
+
         await fetchPriceOMagicData(
           item.itemNo,
           item.itemType,
@@ -1397,7 +1420,7 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
           item.newOrUsed,
           undefined,
           undefined,
-          false, // fetch both sold + stock (2 API calls per item)
+          itemSkipStock,
           {
             name: item.itemName,
             imageUrl: item.imageUrl,
@@ -1407,6 +1430,7 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
           undefined,
           orgId,
           true, // forceRefresh — POM already filtered stale items; always fetch live data
+          itemSkipSold,
         );
 
         itemsUpdated++;
@@ -1471,7 +1495,8 @@ export async function fetchPriceOMagicData(
   localItemData?: { name?: string | null; imageUrl?: string | null; thumbnailUrl?: string | null; categoryId?: number | null },
   apiCounter?: { count: number },
   orgId: string = PLATFORM_ORG_ID,
-  forceRefresh: boolean = false
+  forceRefresh: boolean = false,
+  skipSold: boolean = false
 ): Promise<any> {
   try {
     // POM uses a 6-month cache window — price data doesn't need to be fresher than that for bulk sync.
@@ -1541,25 +1566,30 @@ export async function fetchPriceOMagicData(
       stockPriceData = data;
     }
 
-    // Fetch price guide - sold (always — needed for opportunity score)
-    const soldPriceParams: Record<string, string> = { 
-      guide_type: 'sold',
-      new_or_used: newOrUsed
-    };
-    if (colorId) {
-      soldPriceParams.color_id = colorId.toString();
+    // Fetch price guide - sold (skipped when skipSold=true and fresh sold data already exists)
+    let soldPriceData: any = null;
+    if (!skipSold) {
+      const soldPriceParams: Record<string, string> = { 
+        guide_type: 'sold',
+        new_or_used: newOrUsed
+      };
+      if (colorId) {
+        soldPriceParams.color_id = colorId.toString();
+      }
+      const { data } = await bricklinkCatalogRequest(stockPriceEndpoint, soldPriceParams, orgId);
+      if (apiCounter) apiCounter.count += 1;
+      soldPriceData = data;
     }
-    const { data: soldPriceData } = await bricklinkCatalogRequest(stockPriceEndpoint, soldPriceParams, orgId);
-    if (apiCounter) apiCounter.count += 1;
 
     // Parse raw market data from BrickLink API responses
     const stockAvgPrice = (stockPriceData?.avg_price && parseFloat(stockPriceData.avg_price) > 0) ? parseFloat(stockPriceData.avg_price) : null;
-    const soldP85Price = computeWeightedPercentile(soldPriceData?.price_detail, 85);
+    const soldP85Price = soldPriceData ? computeWeightedPercentile(soldPriceData?.price_detail, 85) : null;
     const soldAvgPrice = soldP85Price ?? (soldPriceData?.avg_price ? parseFloat(soldPriceData.avg_price) : null);
 
-    // When skipStock=true, preserve existing stock data from cache so previous data isn't lost
+    // When skipStock or skipSold is true, preserve existing data from cache so previous data isn't lost
     let preservedStock: { stockAvgPrice?: string | null; stockMinPrice?: string | null; stockMaxPrice?: string | null; stockQuantity?: number | null; stockTotalLots?: number | null } = {};
-    if (skipStock) {
+    let preservedSold: { soldAvgPrice?: string | null; soldMinPrice?: string | null; soldMaxPrice?: string | null; soldQuantity?: number | null; soldTotalLots?: number | null; soldFetchedAt?: Date | null } = {};
+    if (skipStock || skipSold) {
       const existingRec = await db
         .select({
           stockAvgPrice: priceGuideCache.stockAvgPrice,
@@ -1567,6 +1597,13 @@ export async function fetchPriceOMagicData(
           stockMaxPrice: priceGuideCache.stockMaxPrice,
           stockQuantity: priceGuideCache.stockQuantity,
           stockTotalLots: priceGuideCache.stockTotalLots,
+          soldAvgPrice: priceGuideCache.soldAvgPrice,
+          soldMinPrice: priceGuideCache.soldMinPrice,
+          soldMaxPrice: priceGuideCache.soldMaxPrice,
+          soldQuantity: priceGuideCache.soldQuantity,
+          soldTotalLots: priceGuideCache.soldTotalLots,
+          soldFetchedAt: priceGuideCache.soldFetchedAt,
+          stockFetchedAt: priceGuideCache.stockFetchedAt,
         })
         .from(priceGuideCache)
         .where(
@@ -1578,7 +1615,10 @@ export async function fetchPriceOMagicData(
           )
         )
         .limit(1);
-      if (existingRec.length > 0) preservedStock = existingRec[0];
+      if (existingRec.length > 0) {
+        preservedStock = existingRec[0];
+        preservedSold = existingRec[0];
+      }
     }
 
     // Merge and store data
@@ -1606,12 +1646,16 @@ export async function fetchPriceOMagicData(
       stockQuantity: skipStock ? (preservedStock.stockQuantity ?? null) : (sumPriceDetailQty(stockPriceData?.price_detail)),
       stockTotalLots: skipStock ? (preservedStock.stockTotalLots ?? null) : (stockPriceData?.unit_quantity || null),
       
-      // Sold price guide
-      soldAvgPrice: soldAvgPrice?.toString() || null,
-      soldMinPrice: soldPriceData?.min_price ? soldPriceData.min_price.toString() : null,
-      soldMaxPrice: soldPriceData?.max_price ? soldPriceData.max_price.toString() : null,
-      soldQuantity: sumPriceDetailQty(soldPriceData?.price_detail),
-      soldTotalLots: soldPriceData?.unit_quantity || null, // Number of lots/listings
+      // Sold price guide (preserved from cache when skipSold=true, fetched fresh otherwise)
+      soldAvgPrice: skipSold ? (preservedSold.soldAvgPrice ?? null) : (soldAvgPrice?.toString() || null),
+      soldMinPrice: skipSold ? (preservedSold.soldMinPrice ?? null) : (soldPriceData?.min_price ? soldPriceData.min_price.toString() : null),
+      soldMaxPrice: skipSold ? (preservedSold.soldMaxPrice ?? null) : (soldPriceData?.max_price ? soldPriceData.max_price.toString() : null),
+      soldQuantity: skipSold ? (preservedSold.soldQuantity ?? null) : (sumPriceDetailQty(soldPriceData?.price_detail)),
+      soldTotalLots: skipSold ? (preservedSold.soldTotalLots ?? null) : (soldPriceData?.unit_quantity || null),
+
+      // Per-guide freshness timestamps
+      soldFetchedAt: skipSold ? (preservedSold.soldFetchedAt ?? new Date()) : new Date(),
+      stockFetchedAt: skipStock ? ((preservedStock as any).stockFetchedAt ?? new Date()) : new Date(),
     };
 
     // Delete old cache entry if exists
