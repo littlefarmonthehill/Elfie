@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
+import { DimensionWheel } from "@/components/PriceOMaticDashboard";
 import { APP_VERSION, APP_NAME } from "@shared/version";
 import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Activity, Flag, Power, Zap, Globe, ToggleLeft, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -4388,7 +4389,7 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                       <div className="sm-card-inset">
                         <div className="px-3 py-2 bg-gray-800/40 border-b border-gray-700/60">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-semibold text-purple-300 uppercase tracking-wider">Base Market Price Blend</span>
+                            <span className="text-xs font-semibold text-purple-300 uppercase tracking-wider">Pricing Strategy</span>
                             <Popover>
                               <PopoverTrigger asChild>
                                 <button className="sm-icon-btn" onClick={(e) => e.stopPropagation()}>
@@ -4396,64 +4397,80 @@ export default function SettingsModal({ open, onClose, initialSection }: Setting
                                 </button>
                               </PopoverTrigger>
                               <PopoverContent side="bottom" className="sm-popover">
-                                Controls how the base market reference price is calculated by blending three market signals. Weights should sum to 1.0.
+                                Drag the wheel to tune your pricing strategy across four dimensions. Demand weighs sales velocity, Rarity weighs sold-max prices, Competition anchors to market min, and Store Premium adds your markup for deep stock and fast service. The same wheel appears on each tile.
                               </PopoverContent>
                             </Popover>
                           </div>
                         </div>
-                        <div className="divide-y divide-gray-700/30">
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-gray-400">Sold Avg weight</Label>
-                            <Input type="number" min={0} max={1} step={0.05} value={pomSugSoldAvgW} onChange={(e) => setPomSugSoldAvgW(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugSoldAvgW })} className="text-sm w-20 text-right" data-testid="input-sug-sold-avg-w" />
-                          </div>
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-gray-400">Listed Min weight</Label>
-                            <Input type="number" min={0} max={1} step={0.05} value={pomSugStockMinW} onChange={(e) => setPomSugStockMinW(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugStockMinW })} className="text-sm w-20 text-right" data-testid="input-sug-stock-min-w" />
-                          </div>
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-gray-400">Sold Max weight</Label>
-                            <Input type="number" min={0} max={1} step={0.05} value={pomSugSoldMaxW} onChange={(e) => setPomSugSoldMaxW(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugSoldMaxW })} className="text-sm w-20 text-right" data-testid="input-sug-sold-max-w" />
-                          </div>
+                        <div className="px-3 py-4 flex justify-center">
+                          <DimensionWheel
+                            baseCfg={{
+                              soldAvgW: pomSugSoldAvgW,
+                              stockMinW: pomSugStockMinW,
+                              soldMaxW: pomSugSoldMaxW,
+                              demandMult: pomSugDemandMult,
+                              compCap: pomSugCompCap,
+                              floor: pomSugFloor,
+                              storePremium: pomSugStorePremium,
+                            }}
+                            onSave={(cfg) => {
+                              setPomSugSoldAvgW(cfg.soldAvgW);
+                              setPomSugStockMinW(cfg.stockMinW);
+                              setPomSugSoldMaxW(cfg.soldMaxW);
+                              setPomSugDemandMult(cfg.demandMult);
+                              setPomSugCompCap(cfg.compCap);
+                              setPomSugFloor(cfg.floor);
+                              setPomSugStorePremium(cfg.storePremium);
+                              updateOrgSettingsMutation.mutate({
+                                pomSugSoldAvgW: Number(cfg.soldAvgW.toFixed(3)),
+                                pomSugStockMinW: Number(cfg.stockMinW.toFixed(3)),
+                                pomSugSoldMaxW: Number(cfg.soldMaxW.toFixed(3)),
+                                pomSugDemandMult: Number(cfg.demandMult.toFixed(3)),
+                                pomSugCompCap: Number(cfg.compCap.toFixed(3)),
+                                pomSugFloor: Number(cfg.floor.toFixed(3)),
+                                pomSugStorePremium: Number(cfg.storePremium.toFixed(3)),
+                              });
+                            }}
+                          />
                         </div>
-                        <div className="px-3 py-1.5">
-                          <span className={`text-[10px] font-mono ${Math.abs(pomSugSoldAvgW + pomSugStockMinW + pomSugSoldMaxW - 1.0) < 0.01 ? 'text-green-400' : 'text-red-400'}`} data-testid="text-sug-blend-sum">
-                            Blend sum: {(pomSugSoldAvgW + pomSugStockMinW + pomSugSoldMaxW).toFixed(2)} / 1.00
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="sm-card-inset">
-                        <div className="px-3 py-2 bg-gray-800/40 border-b border-gray-700/60">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-semibold text-purple-300 uppercase tracking-wider">Adjustments</span>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="sm-icon-btn" onClick={(e) => e.stopPropagation()}>
-                                  <Info className="w-3 h-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent side="bottom" className="sm-popover">
-                                These map to the dimension wheel on each tile. Demand controls velocity sensitivity, Competition sets the price floor and cap relative to market, and Store Premium adds your markup for deep stock and fast service.
-                              </PopoverContent>
-                            </Popover>
+                        <div className="border-t border-gray-700/40">
+                          <div className="px-3 py-2 bg-gray-800/40 border-b border-gray-700/60">
+                            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Advanced</span>
                           </div>
-                        </div>
-                        <div className="divide-y divide-gray-700/30">
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-blue-300">Demand — velocity multiplier</Label>
-                            <Input type="number" min={0} max={1} step={0.05} value={pomSugDemandMult} onChange={(e) => setPomSugDemandMult(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugDemandMult })} className="text-sm w-20 text-right" data-testid="input-sug-demand-mult" />
+                          <div className="divide-y divide-gray-700/30">
+                            <div className="sm-row px-3">
+                              <Label className="text-xs text-gray-400">Sold Avg weight</Label>
+                              <Input type="number" min={0} max={1} step={0.05} value={pomSugSoldAvgW} onChange={(e) => setPomSugSoldAvgW(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugSoldAvgW })} className="text-sm w-20 text-right" data-testid="input-sug-sold-avg-w" />
+                            </div>
+                            <div className="sm-row px-3">
+                              <Label className="text-xs text-gray-400">Listed Min weight</Label>
+                              <Input type="number" min={0} max={1} step={0.05} value={pomSugStockMinW} onChange={(e) => setPomSugStockMinW(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugStockMinW })} className="text-sm w-20 text-right" data-testid="input-sug-stock-min-w" />
+                            </div>
+                            <div className="sm-row px-3">
+                              <Label className="text-xs text-gray-400">Sold Max weight</Label>
+                              <Input type="number" min={0} max={1} step={0.05} value={pomSugSoldMaxW} onChange={(e) => setPomSugSoldMaxW(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugSoldMaxW })} className="text-sm w-20 text-right" data-testid="input-sug-sold-max-w" />
+                            </div>
+                            <div className="sm-row px-3">
+                              <Label className="text-xs text-blue-300">Demand — velocity multiplier</Label>
+                              <Input type="number" min={0} max={1} step={0.05} value={pomSugDemandMult} onChange={(e) => setPomSugDemandMult(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugDemandMult })} className="text-sm w-20 text-right" data-testid="input-sug-demand-mult" />
+                            </div>
+                            <div className="sm-row px-3">
+                              <Label className="text-xs text-green-300">Competition — cap (× listed min)</Label>
+                              <Input type="number" min={1} max={2} step={0.05} value={pomSugCompCap} onChange={(e) => setPomSugCompCap(parseFloat(e.target.value) || 1)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugCompCap })} className="text-sm w-20 text-right" data-testid="input-sug-comp-cap" />
+                            </div>
+                            <div className="sm-row px-3">
+                              <Label className="text-xs text-green-300">Competition — floor (× listed min)</Label>
+                              <Input type="number" min={0.5} max={1} step={0.05} value={pomSugFloor} onChange={(e) => setPomSugFloor(parseFloat(e.target.value) || 0.5)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugFloor })} className="text-sm w-20 text-right" data-testid="input-sug-floor" />
+                            </div>
+                            <div className="sm-row px-3">
+                              <Label className="text-xs text-amber-300">Store Premium — multiplier</Label>
+                              <Input type="number" min={1} max={2} step={0.01} value={pomSugStorePremium} onChange={(e) => setPomSugStorePremium(parseFloat(e.target.value) || 1)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugStorePremium })} className="text-sm w-20 text-right" data-testid="input-sug-store-premium" />
+                            </div>
                           </div>
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-green-300">Competition — cap (× listed min)</Label>
-                            <Input type="number" min={1} max={2} step={0.05} value={pomSugCompCap} onChange={(e) => setPomSugCompCap(parseFloat(e.target.value) || 1)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugCompCap })} className="text-sm w-20 text-right" data-testid="input-sug-comp-cap" />
-                          </div>
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-green-300">Competition — floor (× listed min)</Label>
-                            <Input type="number" min={0.5} max={1} step={0.05} value={pomSugFloor} onChange={(e) => setPomSugFloor(parseFloat(e.target.value) || 0.5)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugFloor })} className="text-sm w-20 text-right" data-testid="input-sug-floor" />
-                          </div>
-                          <div className="sm-row px-3">
-                            <Label className="text-xs text-amber-300">Store Premium — multiplier</Label>
-                            <Input type="number" min={1} max={2} step={0.01} value={pomSugStorePremium} onChange={(e) => setPomSugStorePremium(parseFloat(e.target.value) || 1)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugStorePremium })} className="text-sm w-20 text-right" data-testid="input-sug-store-premium" />
+                          <div className="px-3 py-1.5">
+                            <span className={`text-[10px] font-mono ${Math.abs(pomSugSoldAvgW + pomSugStockMinW + pomSugSoldMaxW - 1.0) < 0.01 ? 'text-green-400' : 'text-red-400'}`} data-testid="text-sug-blend-sum">
+                              Blend sum: {(pomSugSoldAvgW + pomSugStockMinW + pomSugSoldMaxW).toFixed(2)} / 1.00
+                            </span>
                           </div>
                         </div>
                       </div>

@@ -383,7 +383,7 @@ export default function Home() {
   };
 
   const renderActiveDrawer = () => {
-    const openSettings = (section: string) => {
+    const openSettings = (section?: string) => {
       setSettingsInitialSection(section as any);
       setSettingsOpen(true);
     };
@@ -395,7 +395,7 @@ export default function Home() {
             <SlidersHorizontal className="w-3.5 h-3.5" /> Settings
           </Button>
         }>
-          <PriceOMaticDashboard onItemClick={(type, id) => handleDashboardItemClick(type, id, 'pricing')} />
+          <PriceOMaticDashboard onItemClick={(type, id) => handleDashboardItemClick(type, id, 'pricing')} onOpenSettings={openSettings} />
         </ToolDrawer>
       );
     }
