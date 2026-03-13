@@ -908,75 +908,60 @@ export default function PriceOMaticDashboard({ onItemClick }: PriceOMaticDashboa
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
-        <div className="flex items-center gap-2 px-1 pb-1">
-          <div className="flex items-stretch rounded-md border border-gray-700/60 bg-gray-900/50 overflow-hidden flex-1 text-[9px] font-semibold uppercase tracking-wider">
+        <div className="flex items-stretch rounded-md border border-gray-700/60 bg-gray-900/50 overflow-hidden text-[9px] font-semibold uppercase tracking-wider mx-1 mb-1">
             <button
               onClick={() => setOrbitFilter('in_orbit')}
-              className={`flex items-center justify-center gap-1 flex-1 px-2 py-1.5 transition-colors ${
+              className={`flex flex-col items-center justify-center gap-0.5 flex-1 px-2 py-1.5 transition-colors ${
                 orbitFilter === 'in_orbit'
                   ? 'bg-blue-500/20 text-blue-300'
                   : 'text-gray-500 hover:text-gray-300'
               }`}
               data-testid="filter-in-orbit"
             >
-              <Orbit className="w-2.5 h-2.5 flex-shrink-0" />
-              <span>Orbit</span>
-              <span className="opacity-50 font-normal">({inOrbitGroups.length})</span>
+              <div className="flex items-center gap-1 whitespace-nowrap">
+                <Orbit className="w-2.5 h-2.5 flex-shrink-0" />
+                <span>Orbit</span>
+                <span className="opacity-50 font-normal">({inOrbitGroups.length})</span>
+              </div>
+              <span className="text-[7px] font-normal normal-case tracking-normal opacity-60">In progress</span>
             </button>
             <div className="w-px self-stretch bg-gray-700/60" />
             <button
               onClick={() => setOrbitFilter('future_missions')}
-              className={`flex items-center justify-center gap-1 flex-1 px-2 py-1.5 transition-colors ${
+              className={`flex flex-col items-center justify-center gap-0.5 flex-1 px-2 py-1.5 transition-colors ${
                 orbitFilter === 'future_missions'
                   ? 'bg-amber-500/20 text-amber-300'
                   : 'text-gray-500 hover:text-gray-300'
               }`}
               data-testid="filter-future-missions"
             >
-              <Satellite className="w-2.5 h-2.5 flex-shrink-0" />
-              <span>Missions</span>
-              <span className="opacity-50 font-normal">({futureMissionsGroups.length})</span>
+              <div className="flex items-center gap-1 whitespace-nowrap">
+                <Satellite className="w-2.5 h-2.5 flex-shrink-0" />
+                <span>Missions</span>
+                <span className="opacity-50 font-normal">({futureMissionsGroups.length})</span>
+              </div>
+              <span className="text-[7px] font-normal normal-case tracking-normal opacity-60">Circle back</span>
             </button>
             <div className="w-px self-stretch bg-gray-700/60" />
             <button
               onClick={() => setOrbitFilter('deep_space')}
-              className={`flex items-center justify-center gap-1 flex-1 px-2 py-1.5 transition-colors ${
+              className={`flex flex-col items-center justify-center gap-0.5 flex-1 px-2 py-1.5 transition-colors ${
                 orbitFilter === 'deep_space'
                   ? 'bg-indigo-500/20 text-indigo-300'
                   : 'text-gray-500 hover:text-gray-300'
               }`}
               data-testid="filter-deep-space"
             >
-              <Rocket className="w-2.5 h-2.5 flex-shrink-0" />
-              <span>Deep Space</span>
-              <span className="opacity-50 font-normal">({deepSpaceGroups.length})</span>
+              <div className="flex items-center gap-1 whitespace-nowrap">
+                <Rocket className="w-2.5 h-2.5 flex-shrink-0" />
+                <span>Deep Space</span>
+                <span className="opacity-50 font-normal">({deepSpaceGroups.length})</span>
+              </div>
+              <span className="text-[7px] font-normal normal-case tracking-normal opacity-60">Done</span>
             </button>
           </div>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button className="text-gray-600 hover:text-gray-400 transition-colors flex-shrink-0" data-testid="button-swipe-info">
-                <Info className="w-3.5 h-3.5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-[10px] space-y-0.5 max-w-[180px]">
-              {orbitFilter === 'in_orbit' && <>
-                <p><span className="text-amber-300">Short swipe right</span> → Missions</p>
-                <p><span className="text-indigo-300">Long swipe right</span> → Deep Space</p>
-              </>}
-              {orbitFilter === 'future_missions' && <>
-                <p><span className="text-emerald-300">Swipe left</span> → In Orbit</p>
-                <p><span className="text-indigo-300">Swipe right</span> → Deep Space</p>
-              </>}
-              {orbitFilter === 'deep_space' && <>
-                <p><span className="text-amber-300">Short swipe left</span> → Missions</p>
-                <p><span className="text-emerald-300">Long swipe left</span> → In Orbit</p>
-              </>}
-            </TooltipContent>
-          </Tooltip>
-        </div>
-
-        <div className="flex items-center gap-0.5 px-1 pb-1">
+        <div className="flex items-center justify-center gap-0.5 px-1 pb-1">
           <Popover>
             <PopoverTrigger asChild>
               <button className="text-gray-600 hover:text-gray-400 transition-colors flex-shrink-0 mr-0.5" data-testid="button-scores-info">
