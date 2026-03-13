@@ -1831,6 +1831,31 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
             <span className="text-xs sm:text-2xl text-gray-500">Review before identifying</span>
           </div>
 
+          {/* Action buttons — placed above image so they're always visible */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={handleCancelPreview}
+              data-testid="button-preview-cancel"
+            >
+              Retake
+            </Button>
+            <Button
+              className="flex-1 bg-purple-600 gap-1.5"
+              onClick={handleConfirmScan}
+              data-testid="button-preview-confirm"
+            >
+              <ScanSearch className="w-3.5 h-3.5" />
+              Identify {previewBoxes.length} piece{previewBoxes.length !== 1 ? "s" : ""}
+            </Button>
+          </div>
+          {previewBoxes.length === 0 && (
+            <p className="text-xs text-gray-500 text-center">
+              No pieces detected. Try adjusting your settings or retaking the photo.
+            </p>
+          )}
+
           {/* Photo with overlaid bounding boxes */}
           <div
             className="relative w-full rounded-lg overflow-hidden bg-gray-900 border border-gray-700"
@@ -1870,31 +1895,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
               : <span className="text-gray-500">Zones detected — ready to identify</span>
             }
           </p>
-
-          {/* Action buttons */}
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={handleCancelPreview}
-              data-testid="button-preview-cancel"
-            >
-              Retake
-            </Button>
-            <Button
-              className="flex-1 bg-purple-600 gap-1.5"
-              onClick={handleConfirmScan}
-              data-testid="button-preview-confirm"
-            >
-              <ScanSearch className="w-3.5 h-3.5" />
-              Identify {previewBoxes.length} piece{previewBoxes.length !== 1 ? "s" : ""}
-            </Button>
-          </div>
-          {previewBoxes.length === 0 && (
-            <p className="text-xs text-gray-500 text-center">
-              No pieces detected. Try adjusting your settings or retaking the photo.
-            </p>
-          )}
         </div>
       )}
 
