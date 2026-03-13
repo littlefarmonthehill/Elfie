@@ -709,68 +709,101 @@ export function DimensionWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight 
     </div>
   );
 
+  const calloutAbove = handlePos.y > CENTER;
+  const calloutOffsetY = calloutAbove ? -(HANDLE_R + 22) : (HANDLE_R + 6);
+
   return (
     <div ref={containerRef} className="flex flex-col items-center gap-2" style={{ touchAction: 'none' }} data-testid="dimension-wheel">
-      <svg
-        ref={svgRef}
-        width={SIZE}
-        height={SIZE}
-        viewBox={`0 0 ${SIZE} ${SIZE}`}
-        className="select-none"
-        style={{ touchAction: 'none' }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        data-testid="wheel-svg"
-      >
-        <rect x={0} y={0} width={SIZE} height={SIZE} fill="transparent" />
-        <circle cx={CENTER} cy={CENTER} r={RING_R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
-        <circle cx={CENTER} cy={CENTER} r={RING_R * 0.5} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={1} strokeDasharray="3 3" />
+      <div className="relative overflow-visible" style={{ width: SIZE, height: SIZE }}>
+        <svg
+          ref={svgRef}
+          width={SIZE}
+          height={SIZE}
+          viewBox={`0 0 ${SIZE} ${SIZE}`}
+          className="select-none overflow-visible"
+          style={{ touchAction: 'none' }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          data-testid="wheel-svg"
+        >
+          <rect x={0} y={0} width={SIZE} height={SIZE} fill="transparent" />
+          <circle cx={CENTER} cy={CENTER} r={RING_R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={1} />
+          <circle cx={CENTER} cy={CENTER} r={RING_R * 0.5} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={1} strokeDasharray="3 3" />
 
-        {DIMENSIONS.map((dim) => {
-          const lx = CENTER + Math.cos(dim.angle) * (RING_R + 14);
-          const ly = CENTER + Math.sin(dim.angle) * (RING_R + 14);
-          const barEnd = CENTER + Math.cos(dim.angle) * (RING_R * weights[dim.key] * 3.5);
-          const barEndY = CENTER + Math.sin(dim.angle) * (RING_R * weights[dim.key] * 3.5);
-          return (
-            <g key={dim.key}>
-              <line x1={CENTER} y1={CENTER} x2={CENTER + Math.cos(dim.angle) * RING_R} y2={CENTER + Math.sin(dim.angle) * RING_R} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
-              <line x1={CENTER} y1={CENTER} x2={barEnd} y2={barEndY} stroke={dim.color} strokeWidth={3} strokeLinecap="round" opacity={0.5} />
-              <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fill={dim.color} fontSize={8} fontWeight={600} opacity={0.9}>
-                {dim.label}
+          {DIMENSIONS.map((dim) => {
+            const lx = CENTER + Math.cos(dim.angle) * (RING_R + 14);
+            const ly = CENTER + Math.sin(dim.angle) * (RING_R + 14);
+            const barEnd = CENTER + Math.cos(dim.angle) * (RING_R * weights[dim.key] * 3.5);
+            const barEndY = CENTER + Math.sin(dim.angle) * (RING_R * weights[dim.key] * 3.5);
+            return (
+              <g key={dim.key}>
+                <line x1={CENTER} y1={CENTER} x2={CENTER + Math.cos(dim.angle) * RING_R} y2={CENTER + Math.sin(dim.angle) * RING_R} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
+                <line x1={CENTER} y1={CENTER} x2={barEnd} y2={barEndY} stroke={dim.color} strokeWidth={3} strokeLinecap="round" opacity={0.5} />
+                <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fill={dim.color} fontSize={8} fontWeight={600} opacity={0.9}>
+                  {dim.label}
+                </text>
+              </g>
+            );
+          })}
+
+          <circle cx={CENTER} cy={CENTER} r={24} fill="rgba(15,23,42,0.85)" />
+          {isAtCenter ? (
+            <>
+              <text x={CENTER} y={CENTER - 5} textAnchor="middle" dominantBaseline="central" fill="#e2e8f0" fontSize={11} fontWeight={600}>
+                {liveCalc.suggested != null ? `$${liveCalc.suggested.toFixed(2)}` : '—'}
               </text>
-            </g>
-          );
-        })}
+              <text x={CENTER} y={CENTER + 8} textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize={8} fontWeight={500} opacity={0.7}>
+                current
+              </text>
+            </>
+          ) : (
+            <text x={CENTER} y={CENTER} textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize={8} fontWeight={500} opacity={0.6}>
+              drag
+            </text>
+          )}
 
-        <circle cx={CENTER} cy={CENTER} r={24} fill="rgba(15,23,42,0.85)" />
-        <text x={CENTER} y={CENTER - 7} textAnchor="middle" dominantBaseline="central" fill="#e2e8f0" fontSize={16} fontWeight={700}>
-          {liveCalc.suggested != null ? `$${liveCalc.suggested.toFixed(2)}` : '—'}
-        </text>
-        {isAtCenter ? (
-          <text x={CENTER} y={CENTER + 8} textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize={8} fontWeight={500} opacity={0.7}>
-            current
-          </text>
-        ) : liveCalc.breakdown && liveCalc.breakdown.storePremiumPct > 0 ? (
-          <text x={CENTER} y={CENTER + 8} textAnchor="middle" dominantBaseline="central" fill="#fbbf24" fontSize={9} fontWeight={500} opacity={0.8}>
-            +{liveCalc.breakdown.storePremiumPct.toFixed(1)}% store prem
-          </text>
-        ) : null}
-
-        <circle cx={handlePos.x} cy={handlePos.y} r={HANDLE_R + 8} fill="transparent" data-testid="wheel-handle-hitarea" />
-        <circle
-          cx={handlePos.x}
-          cy={handlePos.y}
-          r={HANDLE_R}
-          fill={dragging ? 'rgba(139,92,246,1)' : 'rgba(139,92,246,0.8)'}
-          stroke="white"
-          strokeWidth={2.5}
-          className="cursor-grab active:cursor-grabbing"
-          style={{ filter: dragging ? 'drop-shadow(0 0 6px rgba(139,92,246,0.6))' : 'none' }}
-          data-testid="wheel-handle"
-        />
-      </svg>
+          <circle cx={handlePos.x} cy={handlePos.y} r={HANDLE_R + 8} fill="transparent" data-testid="wheel-handle-hitarea" />
+          <circle
+            cx={handlePos.x}
+            cy={handlePos.y}
+            r={HANDLE_R}
+            fill={dragging ? 'rgba(139,92,246,1)' : 'rgba(139,92,246,0.8)'}
+            stroke="white"
+            strokeWidth={2.5}
+            className="cursor-grab active:cursor-grabbing"
+            style={{ filter: dragging ? 'drop-shadow(0 0 6px rgba(139,92,246,0.6))' : 'none' }}
+            data-testid="wheel-handle"
+          />
+        </svg>
+        {!isAtCenter && liveCalc.suggested != null && (
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: handlePos.x,
+              top: handlePos.y + calloutOffsetY,
+              transform: 'translateX(-50%)',
+              zIndex: 20,
+            }}
+          >
+            <div
+              className="text-[11px] font-bold px-2 py-0.5 rounded-sm leading-tight whitespace-nowrap shadow-lg"
+              style={{
+                background: 'rgba(88,28,135,0.92)',
+                color: '#d8b4fe',
+                border: '1px solid rgba(139,92,246,0.6)',
+              }}
+              data-testid="wheel-price-callout"
+            >
+              ${liveCalc.suggested.toFixed(2)}
+              {bd && bd.storePremiumPct > 0 && (
+                <span className="ml-1 text-[9px] text-amber-300 font-medium">+{bd.storePremiumPct.toFixed(0)}%</span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="flex gap-1 flex-wrap justify-center">
         {DIMENSIONS.map((dim) => (
@@ -1067,60 +1100,96 @@ export function ScoringWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight | 
   const liveCfg = scoreWeightsToConfig(weights, baseCfg);
   const liveScore = lot ? calcScore(lot, liveCfg) : null;
 
+  const scoreCalloutAbove = handlePos.y > CENTER;
+  const scoreCalloutOffsetY = scoreCalloutAbove ? -(HANDLE_R + 22) : (HANDLE_R + 6);
+
+  const scoreColor = liveScore != null
+    ? liveScore >= 0.7 ? { bg: 'rgba(22,101,52,0.92)', text: '#86efac', border: 'rgba(34,197,94,0.6)' }
+    : liveScore >= 0.4 ? { bg: 'rgba(120,80,0,0.92)', text: '#fde68a', border: 'rgba(250,204,21,0.6)' }
+    : { bg: 'rgba(127,29,29,0.92)', text: '#fca5a5', border: 'rgba(239,68,68,0.6)' }
+    : { bg: 'rgba(17,24,39,0.80)', text: '#6b7280', border: 'rgba(156,163,175,0.55)' };
+
   return (
     <div className="flex flex-col items-center gap-2 w-full select-none" ref={containerRef} style={{ touchAction: 'none' }}>
-      <svg
-        ref={svgRef}
-        width={SIZE}
-        height={SIZE}
-        viewBox={`0 0 ${SIZE} ${SIZE}`}
-        className="overflow-visible"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        data-testid="scoring-wheel-svg"
-      >
-        <circle cx={CENTER} cy={CENTER} r={RING_R} fill="none" stroke="#334155" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.5} />
-        <circle cx={CENTER} cy={CENTER} r={RING_R * 0.5} fill="none" stroke="#334155" strokeWidth={0.8} strokeDasharray="2 4" opacity={0.3} />
+      <div className="relative overflow-visible" style={{ width: SIZE, height: SIZE }}>
+        <svg
+          ref={svgRef}
+          width={SIZE}
+          height={SIZE}
+          viewBox={`0 0 ${SIZE} ${SIZE}`}
+          className="overflow-visible"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          data-testid="scoring-wheel-svg"
+        >
+          <circle cx={CENTER} cy={CENTER} r={RING_R} fill="none" stroke="#334155" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.5} />
+          <circle cx={CENTER} cy={CENTER} r={RING_R * 0.5} fill="none" stroke="#334155" strokeWidth={0.8} strokeDasharray="2 4" opacity={0.3} />
 
-        {SCORE_DIMENSIONS.map((dim) => {
-          const ex = CENTER + Math.cos(dim.angle) * RING_R;
-          const ey = CENTER + Math.sin(dim.angle) * RING_R;
-          const lx = CENTER + Math.cos(dim.angle) * (RING_R + 16);
-          const ly = CENTER + Math.sin(dim.angle) * (RING_R + 16);
-          return (
-            <g key={dim.key}>
-              <line x1={CENTER} y1={CENTER} x2={ex} y2={ey} stroke={dim.color} strokeWidth={0.8} opacity={0.3} />
-              <circle cx={ex} cy={ey} r={3} fill={dim.color} opacity={0.6} />
-              <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fill={dim.color} fontSize={8} fontWeight={600} opacity={0.9}>
-                {dim.label}
+          {SCORE_DIMENSIONS.map((dim) => {
+            const ex = CENTER + Math.cos(dim.angle) * RING_R;
+            const ey = CENTER + Math.sin(dim.angle) * RING_R;
+            const lx = CENTER + Math.cos(dim.angle) * (RING_R + 16);
+            const ly = CENTER + Math.sin(dim.angle) * (RING_R + 16);
+            return (
+              <g key={dim.key}>
+                <line x1={CENTER} y1={CENTER} x2={ex} y2={ey} stroke={dim.color} strokeWidth={0.8} opacity={0.3} />
+                <circle cx={ex} cy={ey} r={3} fill={dim.color} opacity={0.6} />
+                <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fill={dim.color} fontSize={8} fontWeight={600} opacity={0.9}>
+                  {dim.label}
+                </text>
+              </g>
+            );
+          })}
+
+          <circle cx={CENTER} cy={CENTER} r={24} fill="rgba(15,23,42,0.85)" />
+          {isAtCenter ? (
+            <>
+              <text x={CENTER} y={CENTER - 5} textAnchor="middle" dominantBaseline="central" fill="#e2e8f0" fontSize={14} fontWeight={700}>
+                {liveScore != null ? liveScore.toFixed(2) : '—'}
               </text>
-            </g>
-          );
-        })}
+              <text x={CENTER} y={CENTER + 8} textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize={8} fontWeight={500} opacity={0.7}>
+                current
+              </text>
+            </>
+          ) : (
+            <text x={CENTER} y={CENTER} textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize={8} fontWeight={500} opacity={0.6}>
+              drag
+            </text>
+          )}
 
-        <circle cx={CENTER} cy={CENTER} r={24} fill="rgba(15,23,42,0.85)" />
-        <text x={CENTER} y={CENTER - 7} textAnchor="middle" dominantBaseline="central" fill="#e2e8f0" fontSize={16} fontWeight={700}>
-          {liveScore != null ? liveScore.toFixed(2) : '—'}
-        </text>
-        {isAtCenter ? (
-          <text x={CENTER} y={CENTER + 8} textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize={8} fontWeight={500} opacity={0.7}>
-            current
-          </text>
-        ) : (
-          <text x={CENTER} y={CENTER + 8} textAnchor="middle" dominantBaseline="central" fill="#94a3b8" fontSize={8} fontWeight={500} opacity={0.7}>
-            score
-          </text>
+          <circle cx={handlePos.x} cy={handlePos.y} r={HANDLE_R + 8} fill="transparent" data-testid="scoring-wheel-handle-hitarea" />
+          <circle
+            cx={handlePos.x} cy={handlePos.y} r={HANDLE_R}
+            fill={dragging ? '#7c3aed' : '#6d28d9'} stroke="#a78bfa" strokeWidth={2}
+            style={{ cursor: 'grab', filter: dragging ? 'drop-shadow(0 0 8px rgba(139,92,246,0.5))' : 'drop-shadow(0 0 4px rgba(139,92,246,0.3))' }}
+            data-testid="scoring-wheel-handle"
+          />
+        </svg>
+        {!isAtCenter && liveScore != null && (
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: handlePos.x,
+              top: handlePos.y + scoreCalloutOffsetY,
+              transform: 'translateX(-50%)',
+              zIndex: 20,
+            }}
+          >
+            <div
+              className="text-[11px] font-bold px-2 py-0.5 rounded-sm leading-tight whitespace-nowrap shadow-lg"
+              style={{
+                background: scoreColor.bg,
+                color: scoreColor.text,
+                border: `1px solid ${scoreColor.border}`,
+              }}
+              data-testid="wheel-score-callout"
+            >
+              {liveScore.toFixed(2)}
+            </div>
+          </div>
         )}
-
-        <circle cx={handlePos.x} cy={handlePos.y} r={HANDLE_R + 8} fill="transparent" data-testid="scoring-wheel-handle-hitarea" />
-        <circle
-          cx={handlePos.x} cy={handlePos.y} r={HANDLE_R}
-          fill={dragging ? '#7c3aed' : '#6d28d9'} stroke="#a78bfa" strokeWidth={2}
-          style={{ cursor: 'grab', filter: dragging ? 'drop-shadow(0 0 8px rgba(139,92,246,0.5))' : 'drop-shadow(0 0 4px rgba(139,92,246,0.3))' }}
-          data-testid="scoring-wheel-handle"
-        />
-      </svg>
+      </div>
 
       <div className="flex flex-wrap justify-center gap-1.5 text-[9px]">
         {SCORE_DIMENSIONS.map((dim) => (
