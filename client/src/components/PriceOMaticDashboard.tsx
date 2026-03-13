@@ -451,10 +451,54 @@ function PricingGrid({ group, activeSort, cfg }: { group: GroupedInsight; active
       <DataRow label="Max" sN={nLot?.soldMaxPrice} sU={uLot?.soldMaxPrice} lN={nLot?.stockMaxPrice} lU={uLot?.stockMaxPrice} isMoney />
       <DataRow mine bold label="My Price" sN={nLot?.currentPrice} sU={uLot?.currentPrice} lN={null} lU={null} isMoney />
       {hasSuggested && (
-        <DataRow suggested bold label="Suggested" sN={nCalc.suggested} sU={uCalc.suggested} lN={null} lU={null} isMoney />
+        <div className={`${GR} border-b border-white/[0.04] bg-purple-500/[0.05]`}>
+          <div className="px-2 py-1 text-[10px] text-purple-400 font-semibold">Suggested</div>
+          <div className={cell('text-purple-300 font-semibold')}>
+            {nCalc.suggested != null && nCalc.breakdown ? (
+              <BreakdownPopover bd={nCalc.breakdown} label="New Suggested">
+                <button onClick={(e) => e.stopPropagation()} className="underline decoration-dotted underline-offset-2 decoration-purple-500/40 hover:text-purple-200 transition-colors" data-testid="button-sug-new">
+                  {fmt(nCalc.suggested)}
+                </button>
+              </BreakdownPopover>
+            ) : '—'}
+          </div>
+          <div className={cell('text-purple-300 font-semibold')}>
+            {uCalc.suggested != null && uCalc.breakdown ? (
+              <BreakdownPopover bd={uCalc.breakdown} label="Used Suggested">
+                <button onClick={(e) => e.stopPropagation()} className="underline decoration-dotted underline-offset-2 decoration-purple-500/40 hover:text-purple-200 transition-colors" data-testid="button-sug-used">
+                  {fmt(uCalc.suggested)}
+                </button>
+              </BreakdownPopover>
+            ) : '—'}
+          </div>
+          <div className={cell('text-gray-700')} />
+          <div className={cell('text-gray-700')} />
+        </div>
       )}
       {hasPremium && (
-        <DataRow suggested bold label="Premium" sN={nHasPrem ? nCalc.premium : null} sU={uHasPrem ? uCalc.premium : null} lN={null} lU={null} isMoney />
+        <div className={`${GR} border-b border-white/[0.04] bg-purple-500/[0.05]`}>
+          <div className="px-2 py-1 text-[10px] text-amber-400 font-semibold">Premium</div>
+          <div className={cell('text-amber-300 font-semibold')}>
+            {nHasPrem && nCalc.breakdown ? (
+              <BreakdownPopover bd={nCalc.breakdown} label="New Premium">
+                <button onClick={(e) => e.stopPropagation()} className="underline decoration-dotted underline-offset-2 decoration-amber-500/40 hover:text-amber-200 transition-colors" data-testid="button-prem-new">
+                  {fmt(nCalc.premium)}
+                </button>
+              </BreakdownPopover>
+            ) : '—'}
+          </div>
+          <div className={cell('text-amber-300 font-semibold')}>
+            {uHasPrem && uCalc.breakdown ? (
+              <BreakdownPopover bd={uCalc.breakdown} label="Used Premium">
+                <button onClick={(e) => e.stopPropagation()} className="underline decoration-dotted underline-offset-2 decoration-amber-500/40 hover:text-amber-200 transition-colors" data-testid="button-prem-used">
+                  {fmt(uCalc.premium)}
+                </button>
+              </BreakdownPopover>
+            ) : '—'}
+          </div>
+          <div className={cell('text-gray-700')} />
+          <div className={cell('text-gray-700')} />
+        </div>
       )}
     </div>
   );
