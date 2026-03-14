@@ -831,18 +831,27 @@ function StreamingMessage({ message, onItemClick, onBrickLinkSearch, onPromptCli
     setRevealedCount(0);
     doneRef.current = false;
     let idx = 0;
-    const timer = setInterval(() => {
+    let cancelled = false;
+
+    const revealNext = () => {
+      if (cancelled) return;
       idx = Math.min(idx + 1, lines.length);
       setRevealedCount(idx);
       if (idx >= lines.length) {
-        clearInterval(timer);
         if (!doneRef.current) {
           doneRef.current = true;
           onStreamingDone?.();
         }
+        return;
       }
-    }, 400);
-    return () => clearInterval(timer);
+      const currentLine = lines[idx - 1] || '';
+      const wordCount = currentLine.trim().split(/\s+/).filter(Boolean).length;
+      const delay = Math.max(500, wordCount * 80);
+      setTimeout(revealNext, delay);
+    };
+
+    setTimeout(revealNext, 300);
+    return () => { cancelled = true; };
   }, [message.content, message.streaming]);
 
   const revealedContent = lines.slice(0, revealedCount).join('\n');
