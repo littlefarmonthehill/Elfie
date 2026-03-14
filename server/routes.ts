@@ -4177,12 +4177,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Match 4-5 digits optionally followed by hyphen and more characters (e.g., 11013, 11013-1, 3021)
       const partNumberMatch = lastUserMessage.match(/\b(\d{4,5}(?:-[a-z0-9]+)?)\b/i);
       
-      // Extract meaningful keywords from message (skip common stop words)
-      const stopWords = ['show', 'me', 'find', 'search', 'for', 'get', 'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'from', 'with', 'have', 'has', 'do', 'does'];
+      // Only extract keywords when the message shows clear intent to search/query data.
+      // Conversational messages (hello, thanks, how are you) should NOT trigger DB lookups.
+      const inventoryIntentWords = ['part', 'parts', 'inventory', 'stock', 'brick', 'bricks', 'plate', 'plates', 'tile', 'tiles', 'slope', 'slopes', 'minifig', 'minifigure', 'color', 'category', 'technic', 'lego', 'lot', 'lots', 'quantity', 'qty', 'piece', 'pieces', 'element', 'wedge', 'hinge', 'axle', 'pin', 'beam', 'panel', 'wheel', 'window', 'door', 'baseplate', 'stud', 'clip', 'bracket', 'cone', 'cylinder', 'arch', 'fence', 'flag', 'bar', 'modified', 'round', 'jumper', 'cheese', 'ingot'];
+      const queryIntentWords = ['show', 'find', 'search', 'look', 'lookup', 'check', 'list', 'pull', 'get', 'what', 'how many', 'count', 'price', 'worth'];
+      const lowerMsg = lastUserMessage.toLowerCase();
+      const hasInventoryIntent = inventoryIntentWords.some(w => lowerMsg.includes(w));
+      const hasQueryIntent = queryIntentWords.some(w => lowerMsg.includes(w));
+      const hasDataIntent = partNumberMatch || (hasInventoryIntent && hasQueryIntent) || hasInventoryIntent;
+      
+      const stopWords = ['show', 'me', 'find', 'search', 'for', 'get', 'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'from', 'with', 'have', 'has', 'do', 'does', 'what', 'how', 'many', 'can', 'you', 'your', 'my', 'our', 'all', 'any', 'are', 'is', 'was', 'not', 'about', 'tell', 'give', 'look', 'list', 'pull', 'check', 'please', 'thanks', 'thank', 'hello', 'hey', 'hi'];
       const extractKeywords = (msg: string): string[] => {
         if (partNumberMatch) return [];
+        if (!hasDataIntent) return [];
         
-        // Remove stop words and extract meaningful keywords
         const words = msg.split(/\s+/).filter(word => 
           word.length >= 3 && !stopWords.includes(word)
         );
@@ -4192,7 +4200,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const searchKeywords = extractKeywords(lastUserMessage);
       
-      if (partNumberMatch || searchKeywords.length > 0 || lastUserMessage.includes('part') || lastUserMessage.includes('inventory')) {
+      if (hasDataIntent && (partNumberMatch || searchKeywords.length > 0 || lowerMsg.includes('part') || lowerMsg.includes('inventory'))) {
         const partNumber = partNumberMatch ? partNumberMatch[1] : null;
         
         // Build query - search across multiple fields
@@ -4323,28 +4331,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
         } else {
-          // General inventory query
-          inventoryResults = await db
-            .select({
-              id: blInventory.id,
-              itemNo: blInventory.itemNo,
-              itemType: blInventory.itemType,
-              itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
-              remarks: blInventory.remarks,
-              colorId: blInventory.colorId,
-              colorName: blColors.name,
-              colorRgb: blColors.rgb,
-              categoryName: blCategories.name,
-              quantity: blInventory.quantity,
-              newOrUsed: blInventory.newOrUsed,
-              unitPrice: blInventory.unitPrice,
-            })
-            .from(blInventory)
-            .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-            .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
-            .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
-            .where(isSuperAdminUser ? undefined : eq(blInventory.orgId, orgId))
-            .limit(50);
+          // No specific search term — skip the blind data dump.
+          // Let the AI use tools if it needs inventory data.
+          inventoryResults = [];
         }
         
         const searchTerm = partNumber || searchKeywords.join(' ') || 'general';
@@ -4680,9 +4669,11 @@ HOW YOU THINK AND COMMUNICATE
 
 **Carry the conversation forward.** Reference what was established earlier. Build on it. If you identified a problem 3 messages ago, connect the current question to it if it's relevant. Don't treat each message as isolated.
 
-**Match tone to the moment.** Quick operational questions ("do we have part 3001 in red?") get fast, direct answers. Big strategic questions get structured thinking. Don't over-format simple answers.
+**Match tone to the moment.** Quick operational questions ("do we have part 3001 in red?") get fast, direct answers. Big strategic questions get structured thinking. Don't over-format simple answers. Casual greetings and conversation get casual, friendly replies — no data dumps, no tool calls, no inventory lists. If someone says "hello" or "how's it going," just respond naturally like a colleague would.
 
 **Be honest about limitations.** If the data doesn't support a conclusion, say so. If something is outside the historical data range, flag it. Don't fabricate confidence.
+
+**Never volunteer data unprompted.** Only pull and display inventory, orders, or analytics when the user actually asks for them. A greeting is not a data request. A thank-you is not a data request. Read the intent before reaching for tools.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 THE BUSINESS YOU'RE RUNNING
@@ -4767,7 +4758,7 @@ Use these tools freely and chain them together. Pull data first, then synthesize
 - search_forum_discussions — BrickLink forum context on parts or topics
 - semantic_search — find inventory by meaning, not just keywords
 
-CRITICAL — Show all inventory results. Never truncate colors or conditions. If a part has 25 variants, show all 25. Omitting any is a business data error.
+When the user asks about a specific part, show all color/condition variants returned — don't truncate results for part-specific queries. But only display data the user actually asked for.
 
 For strategic questions, chain tools: check throughput → pull price guide → search market trends → give a recommendation. Don't stop at one tool when the question deserves more depth.
 
