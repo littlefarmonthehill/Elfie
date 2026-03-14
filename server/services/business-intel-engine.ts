@@ -93,7 +93,7 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
       EXTRACT(DAY FROM NOW() - (
         SELECT MAX(o.order_date) FROM orders o
         JOIN order_details od ON od.order_id = o.id
-        WHERE o.org_id = ${orgId} AND od.sku LIKE '%' || bi.item_no || '%'
+        WHERE o.org_id = ${orgId} AND o.is_test = false AND od.sku LIKE '%' || bi.item_no || '%'
       )) as days_since_last_sale
     FROM bl_inventory bi
     LEFT JOIN bl_catalog bc ON bi.item_no = bc.item_no AND bi.item_type = bc.item_type AND bi.color_id = bc.color_id
@@ -117,7 +117,7 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
     FROM order_details od
     JOIN orders o ON od.order_id = o.id
     LEFT JOIN bl_catalog bc ON od.sku LIKE '%' || bc.item_no || '%' AND bc.item_type = 'PART'
-    WHERE o.org_id = ${orgId} AND o.order_date >= ${windowStart}
+    WHERE o.org_id = ${orgId} AND o.is_test = false AND o.order_date >= ${windowStart}
     GROUP BY od.sku, bc.item_name
     ORDER BY total_sold DESC
     LIMIT 20
@@ -174,19 +174,19 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
 
   const topCustomersData = await db.execute(sql`
     SELECT
-      o.buyer_name,
+      o.customer_username,
       COUNT(*)::int as order_count,
-      SUM(o.total_amount::numeric)::numeric as total_spent,
+      SUM(o.order_total::numeric)::numeric as total_spent,
       MIN(o.order_date)::text as first_order_date,
       MAX(o.order_date)::text as last_order_date
     FROM orders o
-    WHERE o.org_id = ${orgId} AND o.order_date >= ${windowStart}
-    GROUP BY o.buyer_name
+    WHERE o.org_id = ${orgId} AND o.is_test = false AND o.order_date >= ${windowStart}
+    GROUP BY o.customer_username
     ORDER BY total_spent DESC
     LIMIT 20
   `);
   const topCustomersAllTime = (topCustomersData.rows || []).map((r: any) => ({
-    buyerName: String(r.buyer_name || 'Unknown'),
+    buyerName: String(r.customer_username || 'Unknown'),
     orderCount: Number(r.order_count || 0),
     totalSpent: Number(r.total_spent || 0),
     firstOrderDate: String(r.first_order_date || ''),
@@ -195,19 +195,19 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
 
   const newCustomerData = await db.execute(sql`
     SELECT
-      o.buyer_name,
+      o.customer_username,
       COUNT(*)::int as order_count,
-      SUM(o.total_amount::numeric)::numeric as total_spent,
+      SUM(o.order_total::numeric)::numeric as total_spent,
       MIN(o.order_date)::text as first_order_date
     FROM orders o
-    WHERE o.org_id = ${orgId} AND o.order_date >= ${windowStart}
-    GROUP BY o.buyer_name
+    WHERE o.org_id = ${orgId} AND o.is_test = false AND o.order_date >= ${windowStart}
+    GROUP BY o.customer_username
     HAVING MIN(o.order_date) >= ${oneYearAgo.toISOString()}
     ORDER BY total_spent DESC
     LIMIT 15
   `);
   const newCustomers = (newCustomerData.rows || []).map((r: any) => ({
-    buyerName: String(r.buyer_name || 'Unknown'),
+    buyerName: String(r.customer_username || 'Unknown'),
     orderCount: Number(r.order_count || 0),
     totalSpent: Number(r.total_spent || 0),
     firstOrderDate: String(r.first_order_date || ''),
@@ -215,18 +215,18 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
 
   const topSpenderData = await db.execute(sql`
     SELECT
-      o.buyer_name,
+      o.customer_username,
       COUNT(*)::int as order_count,
-      SUM(o.total_amount::numeric)::numeric as total_spent,
-      AVG(o.total_amount::numeric)::numeric as avg_order_value
+      SUM(o.order_total::numeric)::numeric as total_spent,
+      AVG(o.order_total::numeric)::numeric as avg_order_value
     FROM orders o
-    WHERE o.org_id = ${orgId} AND o.order_date >= ${windowStart}
-    GROUP BY o.buyer_name
+    WHERE o.org_id = ${orgId} AND o.is_test = false AND o.order_date >= ${windowStart}
+    GROUP BY o.customer_username
     ORDER BY total_spent DESC
     LIMIT 15
   `);
   const topSpenders = (topSpenderData.rows || []).map((r: any) => ({
-    buyerName: String(r.buyer_name || 'Unknown'),
+    buyerName: String(r.customer_username || 'Unknown'),
     orderCount: Number(r.order_count || 0),
     totalSpent: Number(r.total_spent || 0),
     avgOrderValue: Number(r.avg_order_value || 0),
@@ -234,12 +234,12 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
 
   const returningData = await db.execute(sql`
     SELECT
-      COUNT(DISTINCT CASE WHEN first_order < ${oneYearAgo.toISOString()} THEN buyer_name END)::int as returning,
-      COUNT(DISTINCT CASE WHEN first_order >= ${oneYearAgo.toISOString()} THEN buyer_name END)::int as new_buyers
+      COUNT(DISTINCT CASE WHEN first_order < ${oneYearAgo.toISOString()} THEN customer_username END)::int as returning,
+      COUNT(DISTINCT CASE WHEN first_order >= ${oneYearAgo.toISOString()} THEN customer_username END)::int as new_buyers
     FROM (
-      SELECT buyer_name, MIN(order_date) as first_order
-      FROM orders WHERE org_id = ${orgId} AND order_date >= ${windowStart}
-      GROUP BY buyer_name
+      SELECT customer_username, MIN(order_date) as first_order
+      FROM orders WHERE org_id = ${orgId} AND is_test = false AND order_date >= ${windowStart}
+      GROUP BY customer_username
     ) sub
   `);
   const returningVsNew = {
@@ -249,31 +249,31 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
 
   const highValueData = await db.execute(sql`
     SELECT
-      o.buyer_name,
-      o.total_amount::numeric as total_amount,
+      o.customer_username,
+      o.order_total::numeric as order_total,
       o.order_date::text as order_date,
       (SELECT COUNT(*)::int FROM order_details od WHERE od.order_id = o.id) as item_count
     FROM orders o
-    WHERE o.org_id = ${orgId} AND o.order_date >= ${windowStart}
-    ORDER BY o.total_amount::numeric DESC
+    WHERE o.org_id = ${orgId} AND o.is_test = false AND o.order_date >= ${windowStart}
+    ORDER BY o.order_total::numeric DESC
     LIMIT 15
   `);
   const highValueOrders = (highValueData.rows || []).map((r: any) => ({
-    buyerName: String(r.buyer_name || 'Unknown'),
-    totalAmount: Number(r.total_amount || 0),
+    buyerName: String(r.customer_username || 'Unknown'),
+    totalAmount: Number(r.order_total || 0),
     orderDate: String(r.order_date || ''),
     itemCount: Number(r.item_count || 0),
   }));
 
   const dormantData = await db.execute(sql`
     SELECT
-      o.buyer_name,
+      o.customer_username,
       MAX(o.order_date)::text as last_order_date,
-      SUM(o.total_amount::numeric)::numeric as total_historical_spent,
+      SUM(o.order_total::numeric)::numeric as total_historical_spent,
       COUNT(*)::int as order_count
     FROM orders o
-    WHERE o.org_id = ${orgId}
-    GROUP BY o.buyer_name
+    WHERE o.org_id = ${orgId} AND o.is_test = false
+    GROUP BY o.customer_username
     HAVING COUNT(*) >= 2
       AND MAX(o.order_date) < ${sixMonthsAgo.toISOString()}
       AND MAX(o.order_date) >= ${twoYearsAgo.toISOString()}
@@ -281,7 +281,7 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
     LIMIT 15
   `);
   const dormantBuyers = (dormantData.rows || []).map((r: any) => ({
-    buyerName: String(r.buyer_name || 'Unknown'),
+    buyerName: String(r.customer_username || 'Unknown'),
     lastOrderDate: String(r.last_order_date || ''),
     totalHistoricalSpent: Number(r.total_historical_spent || 0),
     orderCount: Number(r.order_count || 0),
@@ -289,18 +289,18 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
 
   const singleOrderData = await db.execute(sql`
     SELECT
-      o.buyer_name,
-      SUM(o.total_amount::numeric)::numeric as total_spent,
+      o.customer_username,
+      SUM(o.order_total::numeric)::numeric as total_spent,
       MAX(o.order_date)::text as order_date
     FROM orders o
-    WHERE o.org_id = ${orgId} AND o.order_date >= ${windowStart}
-    GROUP BY o.buyer_name
+    WHERE o.org_id = ${orgId} AND o.is_test = false AND o.order_date >= ${windowStart}
+    GROUP BY o.customer_username
     HAVING COUNT(*) = 1
     ORDER BY total_spent DESC
     LIMIT 10
   `);
   const singleOrderBuyers = (singleOrderData.rows || []).map((r: any) => ({
-    buyerName: String(r.buyer_name || 'Unknown'),
+    buyerName: String(r.customer_username || 'Unknown'),
     totalSpent: Number(r.total_spent || 0),
     orderDate: String(r.order_date || ''),
   }));
@@ -317,23 +317,23 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
 
   const year1Data = await db.execute(sql`
     SELECT
-      COALESCE(SUM(total_amount::numeric), 0)::numeric as revenue,
+      COALESCE(SUM(order_total::numeric), 0)::numeric as revenue,
       COUNT(*)::int as order_count,
-      COALESCE(AVG(total_amount::numeric), 0)::numeric as avg_order_value,
-      COUNT(DISTINCT buyer_name)::int as unique_buyers
+      COALESCE(AVG(order_total::numeric), 0)::numeric as avg_order_value,
+      COUNT(DISTINCT customer_username)::int as unique_buyers
     FROM orders
-    WHERE org_id = ${orgId} AND order_date >= ${y1Start} AND order_date < ${y1End}
+    WHERE org_id = ${orgId} AND is_test = false AND order_date >= ${y1Start} AND order_date < ${y1End}
   `);
   const y1Row = (year1Data.rows || [])[0] || {};
 
   const year2Data = await db.execute(sql`
     SELECT
-      COALESCE(SUM(total_amount::numeric), 0)::numeric as revenue,
+      COALESCE(SUM(order_total::numeric), 0)::numeric as revenue,
       COUNT(*)::int as order_count,
-      COALESCE(AVG(total_amount::numeric), 0)::numeric as avg_order_value,
-      COUNT(DISTINCT buyer_name)::int as unique_buyers
+      COALESCE(AVG(order_total::numeric), 0)::numeric as avg_order_value,
+      COUNT(DISTINCT customer_username)::int as unique_buyers
     FROM orders
-    WHERE org_id = ${orgId} AND order_date >= ${y2Start} AND order_date < ${y2End}
+    WHERE org_id = ${orgId} AND is_test = false AND order_date >= ${y2Start} AND order_date < ${y2End}
   `);
   const y2Row = (year2Data.rows || [])[0] || {};
 
@@ -342,12 +342,12 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
   const channelData = await db.execute(sql`
     SELECT
       COALESCE(marketplace, 'Unknown') as channel,
-      COALESCE(SUM(total_amount::numeric), 0)::numeric as revenue,
+      COALESCE(SUM(order_total::numeric), 0)::numeric as revenue,
       COUNT(*)::int as order_count,
-      COALESCE(AVG(total_amount::numeric), 0)::numeric as avg_order_value,
-      COUNT(DISTINCT buyer_name)::int as unique_buyers
+      COALESCE(AVG(order_total::numeric), 0)::numeric as avg_order_value,
+      COUNT(DISTINCT customer_username)::int as unique_buyers
     FROM orders
-    WHERE org_id = ${orgId} AND order_date >= ${windowStart}
+    WHERE org_id = ${orgId} AND is_test = false AND order_date >= ${windowStart}
     GROUP BY COALESCE(marketplace, 'Unknown')
     ORDER BY revenue DESC
   `);
@@ -364,10 +364,10 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
   const monthlyData = await db.execute(sql`
     SELECT
       TO_CHAR(order_date, 'YYYY-MM') as month,
-      COALESCE(SUM(total_amount::numeric), 0)::numeric as revenue,
+      COALESCE(SUM(order_total::numeric), 0)::numeric as revenue,
       COUNT(*)::int as order_count
     FROM orders
-    WHERE org_id = ${orgId} AND order_date >= ${windowStart}
+    WHERE org_id = ${orgId} AND is_test = false AND order_date >= ${windowStart}
     GROUP BY TO_CHAR(order_date, 'YYYY-MM')
     ORDER BY month
   `);
@@ -680,6 +680,15 @@ export async function generateOrgInsights(orgId: string): Promise<number> {
 }
 
 export async function purgeExpiredInsights(): Promise<number> {
+  const validCategories = ['pricing', 'acquisition', 'overstock', 'restock', 'revenue', 'velocity', 'channel', 'new_customer', 'top_spender', 'dormant'];
+  const staleResult = await db
+    .delete(businessInsights)
+    .where(
+      sql`${businessInsights.category} NOT IN (${sql.join(validCategories.map(c => sql`${c}`), sql`, `)})`
+    );
+  const staleCount = (staleResult as any)?.rowCount || 0;
+  if (staleCount > 0) console.log(`[BusinessIntel] Purged ${staleCount} stale insights with legacy categories`);
+
   const result = await db
     .delete(businessInsights)
     .where(
@@ -696,7 +705,7 @@ export async function purgeExpiredInsights(): Promise<number> {
     );
   const count = (result as any)?.rowCount || 0;
   if (count > 0) console.log(`[BusinessIntel] Purged ${count} expired/dismissed insights`);
-  return count;
+  return staleCount + count;
 }
 
 export async function syncBusinessIntel(): Promise<{ totalInsights: number; orgsProcessed: number }> {
