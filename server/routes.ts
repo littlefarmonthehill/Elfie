@@ -1089,36 +1089,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
-             AND COALESCE(i.color_id, -1) = p.color_id AND i.new_or_used = p.new_or_used
+             AND CASE WHEN COALESCE(i.color_id, 0) = 0 THEN p.color_id IN (0, -1) ELSE i.color_id = p.color_id END AND i.new_or_used = p.new_or_used
            WHERE p.stock_avg_price IS NOT NULL) AS has_supply,
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
-             AND COALESCE(i.color_id, -1) = p.color_id AND i.new_or_used = p.new_or_used
+             AND CASE WHEN COALESCE(i.color_id, 0) = 0 THEN p.color_id IN (0, -1) ELSE i.color_id = p.color_id END AND i.new_or_used = p.new_or_used
            WHERE p.stock_avg_price IS NOT NULL AND i.quantity > 0) AS has_supply_instock,
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
-             AND COALESCE(i.color_id, -1) = p.color_id AND i.new_or_used = p.new_or_used
+             AND CASE WHEN COALESCE(i.color_id, 0) = 0 THEN p.color_id IN (0, -1) ELSE i.color_id = p.color_id END AND i.new_or_used = p.new_or_used
            WHERE p.stock_avg_price IS NOT NULL AND p.fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays}) AS stale_supply,
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
-             AND COALESCE(i.color_id, -1) = p.color_id AND i.new_or_used = p.new_or_used
+             AND CASE WHEN COALESCE(i.color_id, 0) = 0 THEN p.color_id IN (0, -1) ELSE i.color_id = p.color_id END AND i.new_or_used = p.new_or_used
            WHERE p.stock_avg_price IS NOT NULL AND p.fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays} AND i.quantity > 0) AS stale_supply_instock,
 
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
-             AND COALESCE(i.color_id, -1) = p.color_id AND i.new_or_used = p.new_or_used
+             AND CASE WHEN COALESCE(i.color_id, 0) = 0 THEN p.color_id IN (0, -1) ELSE i.color_id = p.color_id END AND i.new_or_used = p.new_or_used
            WHERE p.sold_avg_price IS NOT NULL) AS has_sold,
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
-             AND COALESCE(i.color_id, -1) = p.color_id AND i.new_or_used = p.new_or_used
+             AND CASE WHEN COALESCE(i.color_id, 0) = 0 THEN p.color_id IN (0, -1) ELSE i.color_id = p.color_id END AND i.new_or_used = p.new_or_used
            WHERE p.sold_avg_price IS NOT NULL AND i.quantity > 0) AS has_sold_instock,
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
-             AND COALESCE(i.color_id, -1) = p.color_id AND i.new_or_used = p.new_or_used
+             AND CASE WHEN COALESCE(i.color_id, 0) = 0 THEN p.color_id IN (0, -1) ELSE i.color_id = p.color_id END AND i.new_or_used = p.new_or_used
            WHERE p.sold_avg_price IS NOT NULL AND p.fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays}) AS stale_sold,
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON i.item_no = p.item_no AND i.item_type = p.item_type
-             AND COALESCE(i.color_id, -1) = p.color_id AND i.new_or_used = p.new_or_used
+             AND CASE WHEN COALESCE(i.color_id, 0) = 0 THEN p.color_id IN (0, -1) ELSE i.color_id = p.color_id END AND i.new_or_used = p.new_or_used
            WHERE p.sold_avg_price IS NOT NULL AND p.fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays} AND i.quantity > 0) AS stale_sold_instock,
 
           (SELECT COUNT(DISTINCT i.id)
@@ -9558,7 +9558,7 @@ Format search_web URLs as markdown links.`;
           ON i.item_no = pgc.item_no
           AND i.item_type = pgc.item_type
           AND i.new_or_used = pgc.new_or_used
-          AND COALESCE(i.color_id, -1) = pgc.color_id
+          AND CASE WHEN COALESCE(i.color_id, 0) = 0 THEN pgc.color_id IN (0, -1) ELSE i.color_id = pgc.color_id END
         GROUP BY c.id, c.name, c.priority_tier
         ORDER BY c.name
       `);
