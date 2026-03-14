@@ -278,14 +278,16 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
     if (!currentThemeText) return;
     const isForumTheme = /community|forum|discussion|chatter|buzz|thread/i.test(currentThemeText);
 
-    const matchingNews = allNewsCards.filter(a => !matchedNewsIds.has(a.id) && themeMatchScore(currentThemeText, `${a.title} ${a.topic || ''}`) > 0);
-    matchingNews.forEach(a => {
-      matchedNewsIds.add(a.id);
-      themedCardsInjected = true;
-      elements.push(
-        <InlineNewsCard key={`tnews-${keyRef.value++}`} type="news" title={a.title} snippet={a.snippet} url={a.url} source={a.source} onSummarize={onSummarize} />
-      );
-    });
+    if (!isForumTheme) {
+      const matchingNews = allNewsCards.filter(a => !matchedNewsIds.has(a.id) && themeMatchScore(currentThemeText, `${a.title} ${a.topic || ''}`) > 0);
+      matchingNews.forEach(a => {
+        matchedNewsIds.add(a.id);
+        themedCardsInjected = true;
+        elements.push(
+          <InlineNewsCard key={`tnews-${keyRef.value++}`} type="news" title={a.title} snippet={a.snippet} url={a.url} source={a.source} onSummarize={onSummarize} />
+        );
+      });
+    }
 
     if (isForumTheme) {
       dedupedForums.filter(f => !matchedForumIds.has(f.id)).forEach(f => {
@@ -872,15 +874,32 @@ function StreamingMessage({ message, onItemClick, onBrickLinkSearch, onPromptCli
 
   const revealedContent = content.substring(0, revealedChars);
   const streamingDone = revealedChars >= totalChars;
-  const progress = totalChars > 0 ? revealedChars / totalChars : 1;
 
+  const allLines = content.split('\n');
   const revealedLines = revealedContent.split('\n');
-  const revealedSectionCount = revealedLines.filter(l => /^#{1,3}\s/.test(l.trim())).length;
+  const revealedLineCount = revealedLines.length;
+
+  let completedSections = 0;
+  let inSection = false;
+  for (let i = 0; i < allLines.length; i++) {
+    const trimmed = allLines[i].trim();
+    if (/^#{1,3}\s/.test(trimmed)) {
+      if (inSection && i <= revealedLineCount) {
+        completedSections++;
+      }
+      inSection = true;
+    }
+  }
+  if (inSection && revealedLineCount >= allLines.length) {
+    completedSections++;
+  }
 
   const allNews = message.marketNewsArticles || [];
   const allForums = message.forumDiscussions || [];
-  const newsToShow = streamingDone ? allNews : allNews.slice(0, revealedSectionCount > 0 ? Math.ceil(allNews.length * progress) : 0);
-  const forumsToShow = streamingDone ? allForums : allForums.slice(0, revealedSectionCount > 1 ? Math.ceil(allForums.length * progress) : 0);
+  const totalSections = allLines.filter(l => /^#{1,3}\s/.test(l.trim())).length;
+  const sectionProgress = totalSections > 0 ? completedSections / totalSections : 0;
+  const newsToShow = streamingDone ? allNews : allNews.slice(0, Math.floor(allNews.length * sectionProgress));
+  const forumsToShow = streamingDone ? allForums : allForums.slice(0, Math.floor(allForums.length * sectionProgress));
 
   return (
     <MessageContent
