@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
-import { ChevronDown, Package, ExternalLink, MapPin, TrendingUp, DollarSign } from "lucide-react";
+import { X, Package, ExternalLink, MapPin, TrendingUp, DollarSign } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,18 +63,22 @@ export default function ItemDetailDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onClose}>
-      <DrawerContent className="bg-gray-900 border-gray-700 h-[92vh] flex flex-col">
-        <DrawerHeader className="border-b border-gray-700 py-3 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <DrawerTitle className="text-sm font-black text-white uppercase tracking-wide">
-              🧱 Item Details
+      <DrawerContent className="bg-gray-950 border-gray-800 h-[92vh] flex flex-col rounded-t-2xl">
+        <DrawerHeader className="p-0 flex-shrink-0">
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="w-10 h-1 rounded-full bg-gray-600" />
+          </div>
+          <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-gray-800">
+            <Package className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+            <DrawerTitle className="text-sm font-semibold text-gray-100 flex-1">
+              Item Details
             </DrawerTitle>
             <button
               onClick={onClose}
-              className="p-1 rounded-md hover:bg-gray-800 transition-colors"
+              className="ml-2 text-gray-500 hover:text-gray-200 transition-colors"
               data-testid="button-close-item-detail"
             >
-              <ChevronDown className="h-6 w-6 text-gray-400" />
+              <X className="w-5 h-5" />
             </button>
           </div>
           <DrawerDescription className="sr-only">
@@ -82,7 +86,7 @@ export default function ItemDetailDrawer({
           </DrawerDescription>
         </DrawerHeader>
         
-        <div className="flex-1 overflow-y-auto p-4 min-h-0">
+        <div className="flex-1 overflow-y-auto px-4 pt-3 min-h-0">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center h-full">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mb-3"></div>

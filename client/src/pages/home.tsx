@@ -1107,26 +1107,29 @@ export default function Home() {
       {/* Tool drawers — Vaul drawer on mobile only; desktop uses inline overlay in center column */}
       {!isDesktop && (
         <Drawer open={!!(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer)} onOpenChange={(open) => { if (!open) closeActiveDrawer(); }}>
-          <DrawerContent className="bg-gray-900 border-gray-700 h-[92vh] flex flex-col">
-            <DrawerHeader className="border-b border-gray-700 py-2 flex-shrink-0">
-              <div className="flex items-center justify-between">
-                <DrawerTitle className="flex items-center gap-1.5 text-sm font-semibold text-gray-200">
-                  {activeInventoryDrawer === 'priceomatic' && <><Sparkles className="w-5 h-5 text-purple-400" /> Price-o-Matic</>}
-                  {activeInventoryDrawer === 'warehouse' && <><Warehouse className="w-5 h-5 text-blue-400" /> Warehouse Management</>}
-                  {activeInventoryDrawer === 'platformsync' && <><ListChecks className="w-5 h-5 text-green-400" /> List-o-Matic</>}
-                  {activeInventoryDrawer === 'brickanalyzer' && <><ScanSearch className="w-5 h-5 text-lego-yellow" /> Brick Spotter 3000</>}
-                  {activeOrdersDrawer === 'fulfillment' && <><Truck className="w-5 h-5 text-orange-400" /> Fulfillment & Shipping</>}
-                  {activeOrdersDrawer === 'shipped' && <><PackageCheck className="w-5 h-5 text-green-400" /> Shipped Orders</>}
-                  {activeMarketingDrawer && <><Mail className="w-5 h-5 text-yellow-400" /> Marketing</>}
-                  {activeSalesDrawer && <><Package className="w-5 h-5 text-green-400" /> Sales</>}
+          <DrawerContent className="bg-gray-950 border-gray-800 h-[92vh] flex flex-col rounded-t-2xl">
+            <DrawerHeader className="p-0 flex-shrink-0">
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-gray-600" />
+              </div>
+              <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-gray-800">
+                <DrawerTitle className="flex items-center gap-2 text-sm font-semibold text-gray-100 flex-1">
+                  {activeInventoryDrawer === 'priceomatic' && <><Sparkles className="w-4 h-4 text-purple-400 flex-shrink-0" /> Price-o-Matic</>}
+                  {activeInventoryDrawer === 'warehouse' && <><Warehouse className="w-4 h-4 text-blue-400 flex-shrink-0" /> Warehouse Management</>}
+                  {activeInventoryDrawer === 'platformsync' && <><ListChecks className="w-4 h-4 text-green-400 flex-shrink-0" /> List-o-Matic</>}
+                  {activeInventoryDrawer === 'brickanalyzer' && <><ScanSearch className="w-4 h-4 text-lego-yellow flex-shrink-0" /> Brick Spotter 3000</>}
+                  {activeOrdersDrawer === 'fulfillment' && <><Truck className="w-4 h-4 text-orange-400 flex-shrink-0" /> Fulfillment & Shipping</>}
+                  {activeOrdersDrawer === 'shipped' && <><PackageCheck className="w-4 h-4 text-green-400 flex-shrink-0" /> Shipped Orders</>}
+                  {activeMarketingDrawer && <><Mail className="w-4 h-4 text-yellow-400 flex-shrink-0" /> Marketing</>}
+                  {activeSalesDrawer && <><Package className="w-4 h-4 text-green-400 flex-shrink-0" /> Sales</>}
                 </DrawerTitle>
-                <button onClick={closeActiveDrawer} className="p-1 rounded-md hover:bg-gray-800 transition-colors" data-testid="button-close-tool-drawer">
-                  <X className="h-5 w-5 text-gray-400" />
+                <button onClick={closeActiveDrawer} className="ml-2 text-gray-500 hover:text-gray-200 transition-colors" data-testid="button-close-tool-drawer">
+                  <X className="w-5 h-5" />
                 </button>
               </div>
               <DrawerDescription className="sr-only">Tool drawer</DrawerDescription>
             </DrawerHeader>
-            <div className="flex-1 overflow-y-auto p-3 min-h-0">
+            <div className="flex-1 overflow-y-auto px-4 pt-3 min-h-0">
               {activeInventoryDrawer === 'priceomatic' && <PriceOMaticDashboard onItemClick={(type, id) => handleDashboardItemClick(type, id, 'pricing')} onOpenSettings={(section, pricingExample, scoringExample) => { setSettingsInitialSection(section as any); setSettingsPricingExample(pricingExample); setSettingsScoringExample(scoringExample); setSettingsOpen(true); }} />}
               {activeInventoryDrawer === 'warehouse' && <WarehouseManagement onItemClick={handleDashboardItemClick} />}
               {activeInventoryDrawer === 'platformsync' && <ListomaticPriority />}

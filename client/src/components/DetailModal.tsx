@@ -1,4 +1,4 @@
-import { ChevronDown, X, Package, ShoppingCart, TrendingUp, Megaphone } from "lucide-react";
+import { X, Package, ShoppingCart, TrendingUp, Megaphone } from "lucide-react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import InventoryDetail from "./details/InventoryDetail";
@@ -70,23 +70,27 @@ export default function DetailModal({ open, onClose, detail, onOrderSelect, onBr
     );
   }
 
+  const cfg = titleConfig[detail.type];
+  const TitleIcon = cfg.icon;
+
   return (
     <Drawer open={open} onOpenChange={onClose}>
-      <DrawerContent className="bg-gray-900 border-gray-700 h-[92vh] flex flex-col">
-        <DrawerHeader className="border-b border-gray-700 py-2 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <DrawerTitle className="text-sm font-black text-white uppercase tracking-wide">
-              {detail.type === 'inventory' ? '🧱 Inventory Detail' :
-               detail.type === 'order' ? '📦 Order Detail' :
-               detail.type === 'sales' ? '📈 Sales Detail' :
-               detail.type === 'marketing' ? '📣 Marketing Detail' : 'Details'}
+      <DrawerContent className="bg-gray-950 border-gray-800 h-[92vh] flex flex-col rounded-t-2xl">
+        <DrawerHeader className="p-0 flex-shrink-0">
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="w-10 h-1 rounded-full bg-gray-600" />
+          </div>
+          <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-gray-800">
+            <TitleIcon className={`w-4 h-4 ${cfg.color} flex-shrink-0`} />
+            <DrawerTitle className="text-sm font-semibold text-gray-100 flex-1">
+              {cfg.label}
             </DrawerTitle>
             <button
               onClick={onClose}
-              className="p-1 rounded-md hover:bg-gray-800 transition-colors"
+              className="ml-2 text-gray-500 hover:text-gray-200 transition-colors"
               data-testid="button-close-detail"
             >
-              <ChevronDown className="h-5 w-5 text-gray-400" />
+              <X className="h-5 w-5" />
             </button>
           </div>
           <DrawerDescription className="sr-only">
@@ -96,7 +100,7 @@ export default function DetailModal({ open, onClose, detail, onOrderSelect, onBr
              detail.type === 'marketing' ? 'View detailed marketing campaign information' : 'View detailed information'}
           </DrawerDescription>
         </DrawerHeader>
-        <div className="flex-1 overflow-y-auto p-3 min-h-0">
+        <div className="flex-1 overflow-y-auto px-4 pt-3 min-h-0">
           {renderDetail()}
         </div>
       </DrawerContent>

@@ -198,19 +198,24 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
 
       {/* Channel Details Drawer */}
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <DrawerContent className="h-[65vh]">
-          <DrawerHeader className="relative">
-            <DrawerTitle className="flex items-center gap-2 text-base">
-              <Globe className="w-4 h-4 text-green-400" />
-              BrickOwl — Channel Sync
-            </DrawerTitle>
-            <DrawerClose className="absolute right-4 top-4" data-testid="button-close-channel-drawer">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </DrawerClose>
+        <DrawerContent className="bg-gray-950 border-gray-800 h-[65vh] flex flex-col rounded-t-2xl">
+          <DrawerHeader className="p-0 flex-shrink-0">
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-gray-600" />
+            </div>
+            <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-gray-800">
+              <Globe className="w-4 h-4 text-green-400 flex-shrink-0" />
+              <DrawerTitle className="text-sm font-semibold text-gray-100 flex-1">
+                BrickOwl — Channel Sync
+              </DrawerTitle>
+              <DrawerClose className="ml-2 text-gray-500 hover:text-gray-200 transition-colors" data-testid="button-close-channel-drawer">
+                <X className="w-5 h-5" />
+                <span className="sr-only">Close</span>
+              </DrawerClose>
+            </div>
           </DrawerHeader>
 
-          <div className="overflow-y-auto px-4 pb-6 space-y-4">
+          <div className="flex-1 overflow-y-auto px-4 pt-3 pb-6 space-y-4 min-h-0">
 
             {/* Actions */}
             <div className="flex items-center gap-2 flex-wrap">

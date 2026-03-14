@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { X, PlayCircle, CheckCircle, AlertTriangle, Package, MapPin, CheckCircle2, XCircle } from "lucide-react";
+import { X, PlayCircle, CheckCircle, AlertTriangle, Package, MapPin, CheckCircle2, XCircle, FlaskConical } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface OrderSyncTesterProps {
@@ -35,19 +35,23 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[90vh]">
-        <DrawerHeader className="border-b">
-          <div className="flex items-center justify-between">
-            <DrawerTitle className="text-sm font-bold">Order Sync Tester</DrawerTitle>
+      <DrawerContent className="bg-gray-950 border-gray-800 max-h-[90vh] flex flex-col rounded-t-2xl">
+        <DrawerHeader className="p-0 flex-shrink-0">
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="w-10 h-1 rounded-full bg-gray-600" />
+          </div>
+          <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-gray-800">
+            <FlaskConical className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            <DrawerTitle className="text-sm font-semibold text-gray-100 flex-1">Order Sync Tester</DrawerTitle>
             <DrawerClose asChild>
-              <Button variant="ghost" size="icon" data-testid="button-close-ordersync">
-                <X className="h-4 w-4" />
-              </Button>
+              <button className="ml-2 text-gray-500 hover:text-gray-200 transition-colors" data-testid="button-close-ordersync">
+                <X className="w-5 h-5" />
+              </button>
             </DrawerClose>
           </div>
         </DrawerHeader>
 
-        <div className="overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto px-4 pt-3 min-h-0">
           <div className="max-w-6xl mx-auto space-y-4">
             {/* Configuration */}
             <Card>
