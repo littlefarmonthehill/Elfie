@@ -915,9 +915,9 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'features' | 'limits' | 'billing'>('info');
   const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'stripe' | 'openai' | 'bricklink'>('bricklink');
   const [activeSchedulerTab, setActiveSchedulerTab] = useState<'catalog' | 'embeddings' | 'market'>('catalog');
-  const [activeHealthTab, setActiveHealthTab] = useState<'overview' | 'logs' | 'database' | 'bricklink'>('overview');
   const [activeCustomerHealthTab, setActiveCustomerHealthTab] = useState<'overview' | 'bricklink'>('overview');
   const [activeAuditTab, setActiveAuditTab] = useState<'organization' | 'platform'>('organization');
+  const [activeAuditPlatformTab, setActiveAuditPlatformTab] = useState<'enrichment' | 'bricklink' | 'logs' | 'database'>('enrichment');
   const [blBreakdownSort, setBlBreakdownSort] = useState<{ col: string; dir: 'asc' | 'desc' }>({ col: 'total', dir: 'desc' });
   const [showBlSchedulePopup, setShowBlSchedulePopup] = useState(false);
   const [activePlanTab, setActivePlanTab] = useState<string>('trial');
@@ -1388,9 +1388,15 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
     modSinceAnalyze: number;
     description: string | null;
   };
+  const isAuditPlatform = activeSection === 'auditLog' && activeAuditTab === 'platform';
+  const isAuditPlatformDb = isAuditPlatform && activeAuditPlatformTab === 'database';
+  const isAuditPlatformLogs = isAuditPlatform && activeAuditPlatformTab === 'logs';
+  const isAuditPlatformBl = isAuditPlatform && activeAuditPlatformTab === 'bricklink';
+  const isAuditPlatformEnrichment = isAuditPlatform && activeAuditPlatformTab === 'enrichment';
+
   const { data: dbTables, isLoading: dbTablesLoading, refetch: refetchDbTables } = useQuery<DbTableStat[]>({
     queryKey: ['/api/platform-admin/db-tables'],
-    enabled: open && activeSection === 'systemHealth',
+    enabled: open && isAuditPlatformDb,
     staleTime: 30000,
     retry: 0,
   });
@@ -1404,8 +1410,8 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   };
   const { data: serverLogs, isLoading: serverLogsLoading, refetch: refetchServerLogs } = useQuery<ServerLogEntry[]>({
     queryKey: ['/api/platform-admin/server-logs'],
-    enabled: open && activeSection === 'systemHealth',
-    refetchInterval: activeSection === 'systemHealth' ? 20000 : false,
+    enabled: open && isAuditPlatform,
+    refetchInterval: isAuditPlatformLogs ? 20000 : false,
     staleTime: 0,
     retry: 0,
   });
@@ -1421,8 +1427,8 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
     ceiling: number;
   }>({
     queryKey: ['/api/platform-admin/bl-api-usage'],
-    enabled: open && superAdmin && activeSection === 'systemHealth' && activeHealthTab === 'bricklink',
-    refetchInterval: (activeSection === 'systemHealth' && activeHealthTab === 'bricklink') ? 15000 : false,
+    enabled: open && superAdmin && isAuditPlatformBl,
+    refetchInterval: isAuditPlatformBl ? 15000 : false,
     retry: 0,
   });
 
@@ -5933,30 +5939,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
 
             {/* ── Platform Admin: Platform Health ──────────────────────────── */}
             {activeSection === 'systemHealth' && (
-              <div className="flex flex-col min-w-0 overflow-hidden h-full">
-                {/* Tab bar */}
-                <div className="flex border-b border-gray-700/60 px-3 shrink-0">
-                  {([
-                    { id: 'overview', label: 'Overview' },
-                    { id: 'bricklink', label: 'BrickLink' },
-                    { id: 'logs', label: 'Logs', dot: serverLogs && serverLogs.some(l => l.level === 'error') ? 'bg-red-500' : serverLogs && serverLogs.some(l => l.level === 'warn') ? 'bg-yellow-500' : null },
-                    { id: 'database', label: 'Database' },
-                  ] as const).map(tab => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveHealthTab(tab.id)}
-                      className={`flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold transition-colors border-b-2 -mb-px ${activeHealthTab === tab.id ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
-                      data-testid={`tab-health-${tab.id}`}
-                    >
-                      {tab.label}
-                      {'dot' in tab && tab.dot && <span className={`h-1.5 w-1.5 rounded-full ${tab.dot}`} />}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Overview tab */}
-                {activeHealthTab === 'overview' && (
-                  <div className="p-3 space-y-4 flex-1 overflow-y-auto">
+              <div className="p-3 space-y-4 min-w-0 overflow-y-auto">
                     {systemHealthLoading ? (
                       <div className="flex items-center justify-center py-10">
                         <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
@@ -6041,12 +6024,377 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                         </button>
                       </div>
                     )}
+              </div>
+            )}
+
+
+            {/* ── Platform Admin: Customer Health ──────────────────────────── */}
+            {activeSection === 'customerHealth' && (
+              <div className="flex flex-col min-w-0 overflow-hidden">
+                <div className="flex border-b border-gray-700/60 px-2 shrink-0">
+                  {([
+                    { id: 'overview', label: 'Overview' },
+                    { id: 'bricklink', label: 'BrickLink API' },
+                  ] as const).map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveCustomerHealthTab(tab.id)}
+                      className={`flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold transition-colors border-b-2 -mb-px ${activeCustomerHealthTab === tab.id ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
+                      data-testid={`tab-customer-health-${tab.id}`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {activeCustomerHealthTab === 'overview' && (
+                  <div className="p-4 space-y-4">
+                    {systemHealthLoading ? (
+                      <div className="flex items-center justify-center py-10">
+                        <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
+                      </div>
+                    ) : systemHealth ? (
+                      <div>
+                        <p className="sm-group-label mb-2 px-1">Customer Overview</p>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { label: 'Organizations', value: systemHealth.platform.totalOrganizations, icon: Building2 },
+                            { label: 'Total Users', value: systemHealth.platform.totalUsers, icon: Users },
+                            { label: 'Active Subs', value: systemHealth.platform.activeSubscriptions, icon: CreditCard },
+                          ].map(({ label, value, icon: Icon }) => (
+                            <div key={label} className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-2.5">
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <Icon className="h-3 w-3 text-yellow-500/60" />
+                                <span className="text-[10px] text-gray-500">{label}</span>
+                              </div>
+                              <p className="text-lg font-bold text-white">{Number(value).toLocaleString()}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-3 py-10">
+                        <AlertTriangle className="h-5 w-5 text-red-400/70" />
+                        <p className="sm-description">Failed to load customer data</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* BrickLink tab */}
-                {activeHealthTab === 'bricklink' && (
-                  <div className="p-3 space-y-4 flex-1 overflow-y-auto">
+                {activeCustomerHealthTab === 'bricklink' && (
+                  <div className="p-4 space-y-4 min-w-0 overflow-hidden">
+                    <p className="sm-group-label px-1">API Usage by Customer (24h)</p>
+                    {blApiBreakdownLoading ? (
+                      <div className="flex items-center justify-center py-10">
+                        <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
+                      </div>
+                    ) : blApiBreakdown && blApiBreakdown.length > 0 ? (() => {
+                      const sortCol = blBreakdownSort.col;
+                      const sortDir = blBreakdownSort.dir;
+                      const sorted = [...blApiBreakdown].sort((a, b) => {
+                        const av = sortCol === 'orgId' ? (a.orgName || a.orgId) : (a as any)[sortCol] as number;
+                        const bv = sortCol === 'orgId' ? (b.orgName || b.orgId) : (b as any)[sortCol] as number;
+                        if (typeof av === 'string' && typeof bv === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+                        return sortDir === 'asc' ? (av as number) - (bv as number) : (bv as number) - (av as number);
+                      });
+                      const toggleSort = (col: string) => {
+                        setBlBreakdownSort(prev =>
+                          prev.col === col ? { col, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { col, dir: 'desc' }
+                        );
+                      };
+                      const columns = [
+                        { key: 'orgId', label: 'Organization', align: 'left' as const },
+                        { key: 'total', label: 'Total', align: 'right' as const },
+                        { key: 'inventory', label: 'Inv', align: 'right' as const },
+                        { key: 'orders', label: 'Ord', align: 'right' as const },
+                        { key: 'catalog', label: 'Cat', align: 'right' as const },
+                        { key: 'priceGuide', label: 'PG', align: 'right' as const },
+                        { key: 'other', label: 'Oth', align: 'right' as const },
+                        { key: 'failed', label: 'Fail', align: 'right' as const },
+                      ];
+                      return (
+                        <div className="rounded-lg border border-gray-700 overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-[10px]" data-testid="table-bl-api-breakdown">
+                              <thead>
+                                <tr className="bg-gray-800/80 border-b border-gray-700/60">
+                                  {columns.map(col => (
+                                    <th
+                                      key={col.key}
+                                      onClick={() => toggleSort(col.key)}
+                                      className={`px-1 py-1.5 font-semibold cursor-pointer select-none transition-colors hover:text-yellow-400 whitespace-nowrap ${col.align === 'right' ? 'text-right' : 'text-left'} ${sortCol === col.key ? 'text-yellow-400' : 'text-gray-500'}`}
+                                      data-testid={`sort-bl-${col.key}`}
+                                    >
+                                      <span className="inline-flex items-center gap-0.5">
+                                        {col.label}
+                                        {sortCol === col.key && (
+                                          <span className="text-[8px]">{sortDir === 'desc' ? '▼' : '▲'}</span>
+                                        )}
+                                      </span>
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-700/30">
+                                {sorted.map(row => (
+                                  <tr key={row.orgId} className="hover-elevate" data-testid={`row-bl-org-${row.orgId}`}>
+                                    <td className="px-1 py-1.5 text-gray-300 truncate max-w-[120px]">{row.orgName || row.orgId}</td>
+                                    <td className="px-1 py-1.5 text-right font-mono font-semibold text-gray-200">{row.total.toLocaleString()}</td>
+                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.inventory > 0 ? row.inventory.toLocaleString() : '—'}</td>
+                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.orders > 0 ? row.orders.toLocaleString() : '—'}</td>
+                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.catalog > 0 ? row.catalog.toLocaleString() : '—'}</td>
+                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.priceGuide > 0 ? row.priceGuide.toLocaleString() : '—'}</td>
+                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.other > 0 ? row.other.toLocaleString() : '—'}</td>
+                                    <td className={`px-1 py-1.5 text-right font-mono ${row.failed > 0 ? 'text-red-400 font-semibold' : 'text-gray-600'}`}>{row.failed > 0 ? row.failed.toLocaleString() : '—'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })() : (
+                      <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-6 text-center">
+                        <CheckCircle2 className="h-5 w-5 text-emerald-400/50 mx-auto mb-2" />
+                        <p className="sm-description">No BrickLink API calls in the last 24 hours</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Audit Log */}
+            {activeSection === 'auditLog' && (
+              <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden">
+                <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1">
+                  {([
+                    { id: 'organization' as const, label: 'Organization', Icon: Building2 },
+                    { id: 'platform' as const, label: 'Platform', Icon: Globe },
+                  ]).map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => setActiveAuditTab(t.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors flex-1 justify-center ${activeAuditTab === t.id ? 'bg-gray-700 text-gray-100' : 'text-gray-400 hover-elevate'}`}
+                      data-testid={`audit-tab-${t.id}`}
+                    >
+                      <t.Icon className="h-3.5 w-3.5" />
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+
+                {activeAuditTab === 'organization' && (
+                  <div className="space-y-2">
+                    {orgSyncError ? (
+                      <div className="rounded-lg bg-gray-800/60 border border-red-700/40 p-6 flex flex-col items-center justify-center gap-2 text-center">
+                        <AlertTriangle className="h-6 w-6 text-red-400" />
+                        <p className="text-sm text-gray-400">Failed to load organization sync data</p>
+                      </div>
+                    ) : !orgSyncStatus ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+                      </div>
+                    ) : orgSyncStatus.length === 0 ? (
+                      <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-6 flex flex-col items-center justify-center gap-2 text-center">
+                        <Building2 className="h-6 w-6 text-gray-600" />
+                        <p className="text-sm text-gray-400">No organizations found</p>
+                      </div>
+                    ) : orgSyncStatus.map(org => {
+                      const syncLabels: Record<string, string> = {
+                        bricklink_inventory: 'Inventory',
+                        bricklink_orders: 'Orders (BL)',
+                        brickowl_orders: 'Orders (BO)',
+                        channel_sync: 'Channel Sync',
+                      };
+                      const fmtTime = (t: string | null) => t ? new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
+                      const statusIcon = (s: string | null) => {
+                        if (s === 'in_progress') return <Loader2 className="h-3 w-3 text-yellow-400 animate-spin shrink-0" />;
+                        if (s === 'failed' || s === 'error') return <AlertTriangle className="h-3 w-3 text-red-400 shrink-0" />;
+                        if (s === 'partial') return <AlertTriangle className="h-3 w-3 text-orange-400 shrink-0" />;
+                        if (s === 'success') return <CheckCircle2 className="h-3 w-3 text-green-500/70 shrink-0" />;
+                        return <Clock className="h-3 w-3 text-gray-600 shrink-0" />;
+                      };
+                      return (
+                        <div key={org.orgId} className="sm-card-inset" data-testid={`audit-org-${org.orgId}`}>
+                          <div className="px-3 pt-2 pb-1 flex items-center gap-2">
+                            <Building2 className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                            <span className="text-xs font-medium text-gray-200 truncate">{org.orgName}</span>
+                          </div>
+                          {org.syncs.length === 0 && !org.brickspotter ? (
+                            <p className="px-3 pb-2 text-[11px] text-gray-500">No sync data yet</p>
+                          ) : (
+                            <>
+                              {org.syncs.map(s => (
+                                <div key={s.id} className="flex items-center gap-2 px-3 py-1">
+                                  {statusIcon(s.lastSyncStatus)}
+                                  <span className="text-[11px] text-gray-300 flex-1 min-w-0 truncate">{syncLabels[s.id] || s.id}</span>
+                                  {s.lastSyncStatus === 'success' && (s.recordsAdded || s.recordsUpdated) ? (
+                                    <span className="text-[10px] text-gray-500 font-mono shrink-0">+{s.recordsAdded ?? 0} / ~{s.recordsUpdated ?? 0}</span>
+                                  ) : null}
+                                  <span className={`text-[10px] shrink-0 font-mono ${s.lastSyncStatus === 'failed' || s.lastSyncStatus === 'error' ? 'text-red-400/80' : s.lastSyncStatus === 'in_progress' ? 'text-yellow-400' : 'text-gray-500'}`}>
+                                    {s.lastSyncStatus === 'in_progress' ? 'Running' : s.errorMessage ? (s.errorMessage.length > 30 ? s.errorMessage.slice(0, 30) + '…' : s.errorMessage) : fmtTime(s.lastSyncTime)}
+                                  </span>
+                                </div>
+                              ))}
+                              {org.brickspotter && (
+                                <div className="flex items-center gap-2 px-3 py-1">
+                                  <Eye className="h-3 w-3 text-gray-400 shrink-0" />
+                                  <span className="text-[11px] text-gray-300 flex-1 min-w-0 truncate">BrickSpotter</span>
+                                  <span className="text-[10px] text-gray-500 font-mono shrink-0">
+                                    {org.brickspotter.completed}/{org.brickspotter.totalScans} scans
+                                    {org.brickspotter.failed > 0 ? ` · ${org.brickspotter.failed} failed` : ''}
+                                  </span>
+                                </div>
+                              )}
+                            </>
+                          )}
+                          <div className="h-1" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {activeAuditTab === 'platform' && (
+                  <>
+                    <div className="flex border-b border-gray-700/60 -mx-3 px-3 shrink-0">
+                      {([
+                        { id: 'enrichment' as const, label: 'Enrichment' },
+                        { id: 'bricklink' as const, label: 'BrickLink' },
+                        { id: 'logs' as const, label: 'Logs', dot: serverLogs && serverLogs.some(l => l.level === 'error') ? 'bg-red-500' : serverLogs && serverLogs.some(l => l.level === 'warn') ? 'bg-yellow-500' : null },
+                        { id: 'database' as const, label: 'Database' },
+                      ]).map(tab => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveAuditPlatformTab(tab.id)}
+                          className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold transition-colors border-b-2 -mb-px ${activeAuditPlatformTab === tab.id ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
+                          data-testid={`audit-platform-tab-${tab.id}`}
+                        >
+                          {tab.label}
+                          {'dot' in tab && tab.dot && <span className={`h-1.5 w-1.5 rounded-full ${tab.dot}`} />}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {isAuditPlatformEnrichment && (() => {
+                  if (systemHealthError) return (
+                    <div className="rounded-lg bg-gray-800/60 border border-red-700/40 p-6 flex flex-col items-center justify-center gap-2 text-center">
+                      <AlertTriangle className="h-6 w-6 text-red-400" />
+                      <p className="text-sm text-gray-400">Failed to load platform health data</p>
+                    </div>
+                  );
+                  if (!systemHealth) return (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+                    </div>
+                  );
+                  const sj = systemHealth.syncJobs || [];
+                  const gj = (id: string) => sj.find((j: any) => j.id === id);
+                  const clip = systemHealth.clipCatalogStatus;
+                  const clipRunning = systemHealth.schedulerConfig?.clip_catalog?.workerRunning;
+                  const clipPctOv = clip && clip.total > 0 ? Math.round((clip.embedded / clip.total) * 100) : 0;
+                  const fmtTime = (t: string | null) => t ? new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
+
+                  type OverviewJob = {
+                    key: string; label: string;
+                    enabled: boolean; isRunning: boolean;
+                    status: string | null; error: string | null;
+                    lastTime: string | null;
+                    progress?: { done: number; total: number; pct: number };
+                  };
+
+                  const pomJ = gj('priceomatic_cache');
+                  const cdJ = gj('catalog_detail_completion');
+                  const csJ = gj('catalog_scan');
+                  const rbJ = gj('rebrickable_set_parts');
+                  const ucJ = gj('universal_catalog_refresh');
+                  const fmJ = gj('forum_sync');
+                  const mnJ = gj('market_news_sync');
+                  const biJ = gj('business_intel_sync');
+
+                  const pomProg = pomLiveProgress?.active ? { done: pomLiveProgress.itemsProcessed ?? 0, total: pomLiveProgress.itemsTotal ?? 0, pct: pomProgressPct } : undefined;
+                  const cdProg = syncingCd && cdLiveProgress?.phase === 'Enriching items' ? { done: cdLiveProgress.itemsProcessed ?? 0, total: cdLiveProgress.itemsTotal ?? 0, pct: cdProgressPct } : undefined;
+
+                  const groups: Array<{ label: string; jobs: OverviewJob[] }> = [
+                    { label: 'BrickLink Catalog', jobs: [
+                      { key: 'pom', label: 'Price Guides', enabled: pomScheduleEnabled, isRunning: syncingPom, status: pomJ?.lastSyncStatus || null, error: pomJ?.errorMessage || null, lastTime: pomJ?.lastSyncTime || null, progress: pomProg },
+                      { key: 'cd', label: 'Catalog Detail', enabled: catalogDetailEnabled, isRunning: syncingCd, status: cdJ?.lastSyncStatus || null, error: cdJ?.errorMessage || null, lastTime: cdJ?.lastSyncTime || null, progress: cdProg },
+                      { key: 'cs', label: 'Catalog Scan', enabled: catalogScanEnabled, isRunning: syncingCs, status: csJ?.lastSyncStatus || null, error: csJ?.errorMessage || null, lastTime: csJ?.lastSyncTime || null },
+                    ]},
+                    { label: 'Embeddings', jobs: [
+                      { key: 'rb', label: 'Rebrickable Sets', enabled: rebrickableSetSyncEnabled, isRunning: rbJ?.lastSyncStatus === 'in_progress', status: rbJ?.lastSyncStatus || null, error: rbJ?.errorMessage || null, lastTime: rbJ?.lastSyncTime || null },
+                      { key: 'uc', label: 'Universal Catalog', enabled: universalCatalogScheduleEnabled, isRunning: ucJ?.lastSyncStatus === 'in_progress', status: ucJ?.lastSyncStatus || null, error: ucJ?.errorMessage || null, lastTime: ucJ?.lastSyncTime || null },
+                      { key: 'clip', label: 'CLIP Build', enabled: true, isRunning: !!clipRunning, status: clipRunning ? 'in_progress' : (clip && clip.embedded >= clip.total ? 'success' : null), error: null, lastTime: null, progress: clip && clip.total > 0 ? { done: clip.embedded, total: clip.total, pct: clipPctOv } : undefined },
+                    ]},
+                    { label: 'Market', jobs: [
+                      { key: 'fm', label: 'Forum Sync', enabled: forumSyncEnabled, isRunning: fmJ?.lastSyncStatus === 'in_progress', status: fmJ?.lastSyncStatus || null, error: fmJ?.errorMessage || null, lastTime: fmJ?.lastSyncTime || null },
+                      { key: 'mn', label: 'Market News', enabled: marketNewsSyncEnabled, isRunning: mnJ?.lastSyncStatus === 'in_progress', status: mnJ?.lastSyncStatus || null, error: mnJ?.errorMessage || null, lastTime: mnJ?.lastSyncTime || null },
+                      { key: 'bi', label: 'Business Intel', enabled: businessIntelEnabled, isRunning: biJ?.lastSyncStatus === 'in_progress', status: biJ?.lastSyncStatus || null, error: biJ?.errorMessage || null, lastTime: biJ?.lastSyncTime || null },
+                    ]},
+                  ];
+
+                  const statusDot = (j: OverviewJob) => {
+                    if (j.isRunning) return <Loader2 className="h-3 w-3 text-yellow-400 animate-spin shrink-0" />;
+                    if (j.status === 'failed' || j.status === 'error') return <AlertTriangle className="h-3 w-3 text-red-400 shrink-0" />;
+                    if (j.status === 'partial') return <AlertTriangle className="h-3 w-3 text-orange-400 shrink-0" />;
+                    if (!j.enabled) return <Pause className="h-3 w-3 text-gray-600 shrink-0" />;
+                    if (j.status === 'success') return <CheckCircle2 className="h-3 w-3 text-green-500/70 shrink-0" />;
+                    return <Clock className="h-3 w-3 text-gray-600 shrink-0" />;
+                  };
+
+                  const statusText = (j: OverviewJob) => {
+                    if (j.isRunning && j.progress && j.progress.total > 0) return `${j.progress.pct}%`;
+                    if (j.isRunning) return 'Running';
+                    if (j.error) return j.error.length > 40 ? j.error.slice(0, 40) + '…' : j.error;
+                    if (!j.enabled) return 'Paused';
+                    if (j.status === 'success' || j.status === 'partial' || j.status === 'failed' || j.status === 'error') return fmtTime(j.lastTime);
+                    if (j.key === 'clip' && j.progress) return `${j.progress.done.toLocaleString()}/${j.progress.total.toLocaleString()}`;
+                    return 'Never';
+                  };
+
+                  return (
+                    <div className="sm-card-inset" data-testid="audit-platform-overview">
+                      {groups.map((g, gi) => (
+                        <div key={gi}>
+                          {gi > 0 && <div className="border-t border-gray-700/40" />}
+                          <div className="px-3 pt-2 pb-0.5">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{g.label}</span>
+                          </div>
+                          {g.jobs.map(j => (
+                            <div
+                              key={j.key}
+                              className="flex items-center gap-2 px-3 py-1"
+                              data-testid={`audit-platform-job-${j.key}`}
+                            >
+                              {statusDot(j)}
+                              <span className="text-[11px] text-gray-300 flex-1 min-w-0 truncate">{j.label}</span>
+                              {j.isRunning && j.progress && j.progress.total > 0 ? (
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <div className="w-12 h-1 bg-gray-700 rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full transition-all ${j.key === 'clip' ? 'bg-yellow-500' : j.key === 'pom' ? 'bg-purple-500' : 'bg-blue-500'}`} style={{ width: `${j.progress.pct}%` }} />
+                                  </div>
+                                  <span className="text-[10px] text-gray-400 font-mono w-7 text-right">{j.progress.pct}%</span>
+                                </div>
+                              ) : (
+                                <span className={`text-[10px] shrink-0 font-mono ${j.error && !j.isRunning ? 'text-red-400/80' : j.isRunning ? 'text-yellow-400' : !j.enabled ? 'text-gray-600' : 'text-gray-500'}`}>
+                                  {statusText(j)}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                          <div className="h-1" />
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+            {/* Audit Log: Platform sub-tabs (BrickLink, Logs, Database) rendered at section level */}
+            {isAuditPlatformBl && (
+                  <div className="space-y-4">
                     {!platformBlApiUsage ? (
                       <div className="flex items-center justify-center py-10">
                         <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
@@ -6169,8 +6517,8 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                   </div>
                 )}
 
-                {/* BrickLink API Schedule Popup */}
-                {showBlSchedulePopup && platformBlApiUsage && (
+            {/* BrickLink API Schedule Popup (audit platform) */}
+            {showBlSchedulePopup && platformBlApiUsage && (
                   <ResponsiveModal
                     open={showBlSchedulePopup}
                     onOpenChange={setShowBlSchedulePopup}
@@ -6229,9 +6577,9 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                   </ResponsiveModal>
                 )}
 
-                {/* Logs tab */}
-                {activeHealthTab === 'logs' && (
-                  <div className="p-3 space-y-4 w-full min-w-0 flex-1 overflow-y-auto">
+            {/* Audit Platform: Logs tab */}
+            {isAuditPlatformLogs && (
+                  <div className="space-y-4 w-full min-w-0">
                     <div className="min-w-0">
                       <div className="flex items-center justify-between mb-2 px-1">
                         <div className="flex items-center gap-2">
@@ -6320,8 +6668,8 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                   </div>
                 )}
 
-                {/* Database tab */}
-                {activeHealthTab === 'database' && (() => {
+            {/* Audit Platform: Database tab */}
+            {isAuditPlatformDb && (() => {
                   const DB_GROUPS: { label: string; tables: string[] }[] = [
                     { label: 'Platform', tables: ['organizations', 'users', 'sessions', 'plan_configs', 'app_settings', 'org_integrations'] },
                     { label: 'BrickLink', tables: ['bl_catalog', 'bl_catalog_clip_embeddings', 'bl_categories', 'bl_colors', 'bl_inventory', 'bl_api_calls', 'bl_forum_posts', 'bl_forum_embeddings'] },
@@ -6333,7 +6681,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                   ];
                   const getGroup = (name: string) => DB_GROUPS.findIndex(g => g.tables.includes(name));
                   return (
-                    <div className="p-3 space-y-4 flex-1 overflow-y-auto">
+                    <div className="space-y-4">
                       <div>
                         <div className="flex items-center justify-between mb-2 px-1">
                           <p className="sm-group-label">Database Tables</p>
@@ -6611,347 +6959,6 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                 })()}
               </div>
             )}
-
-            {/* ── Platform Admin: Customer Health ──────────────────────────── */}
-            {activeSection === 'customerHealth' && (
-              <div className="flex flex-col min-w-0 overflow-hidden">
-                <div className="flex border-b border-gray-700/60 px-2 shrink-0">
-                  {([
-                    { id: 'overview', label: 'Overview' },
-                    { id: 'bricklink', label: 'BrickLink API' },
-                  ] as const).map(tab => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveCustomerHealthTab(tab.id)}
-                      className={`flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold transition-colors border-b-2 -mb-px ${activeCustomerHealthTab === tab.id ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
-                      data-testid={`tab-customer-health-${tab.id}`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-
-                {activeCustomerHealthTab === 'overview' && (
-                  <div className="p-4 space-y-4">
-                    {systemHealthLoading ? (
-                      <div className="flex items-center justify-center py-10">
-                        <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
-                      </div>
-                    ) : systemHealth ? (
-                      <div>
-                        <p className="sm-group-label mb-2 px-1">Customer Overview</p>
-                        <div className="grid grid-cols-3 gap-2">
-                          {[
-                            { label: 'Organizations', value: systemHealth.platform.totalOrganizations, icon: Building2 },
-                            { label: 'Total Users', value: systemHealth.platform.totalUsers, icon: Users },
-                            { label: 'Active Subs', value: systemHealth.platform.activeSubscriptions, icon: CreditCard },
-                          ].map(({ label, value, icon: Icon }) => (
-                            <div key={label} className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-2.5">
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <Icon className="h-3 w-3 text-yellow-500/60" />
-                                <span className="text-[10px] text-gray-500">{label}</span>
-                              </div>
-                              <p className="text-lg font-bold text-white">{Number(value).toLocaleString()}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center gap-3 py-10">
-                        <AlertTriangle className="h-5 w-5 text-red-400/70" />
-                        <p className="sm-description">Failed to load customer data</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {activeCustomerHealthTab === 'bricklink' && (
-                  <div className="p-4 space-y-4 min-w-0 overflow-hidden">
-                    <p className="sm-group-label px-1">API Usage by Customer (24h)</p>
-                    {blApiBreakdownLoading ? (
-                      <div className="flex items-center justify-center py-10">
-                        <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
-                      </div>
-                    ) : blApiBreakdown && blApiBreakdown.length > 0 ? (() => {
-                      const sortCol = blBreakdownSort.col;
-                      const sortDir = blBreakdownSort.dir;
-                      const sorted = [...blApiBreakdown].sort((a, b) => {
-                        const av = sortCol === 'orgId' ? (a.orgName || a.orgId) : (a as any)[sortCol] as number;
-                        const bv = sortCol === 'orgId' ? (b.orgName || b.orgId) : (b as any)[sortCol] as number;
-                        if (typeof av === 'string' && typeof bv === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-                        return sortDir === 'asc' ? (av as number) - (bv as number) : (bv as number) - (av as number);
-                      });
-                      const toggleSort = (col: string) => {
-                        setBlBreakdownSort(prev =>
-                          prev.col === col ? { col, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { col, dir: 'desc' }
-                        );
-                      };
-                      const columns = [
-                        { key: 'orgId', label: 'Organization', align: 'left' as const },
-                        { key: 'total', label: 'Total', align: 'right' as const },
-                        { key: 'inventory', label: 'Inv', align: 'right' as const },
-                        { key: 'orders', label: 'Ord', align: 'right' as const },
-                        { key: 'catalog', label: 'Cat', align: 'right' as const },
-                        { key: 'priceGuide', label: 'PG', align: 'right' as const },
-                        { key: 'other', label: 'Oth', align: 'right' as const },
-                        { key: 'failed', label: 'Fail', align: 'right' as const },
-                      ];
-                      return (
-                        <div className="rounded-lg border border-gray-700 overflow-hidden">
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-[10px]" data-testid="table-bl-api-breakdown">
-                              <thead>
-                                <tr className="bg-gray-800/80 border-b border-gray-700/60">
-                                  {columns.map(col => (
-                                    <th
-                                      key={col.key}
-                                      onClick={() => toggleSort(col.key)}
-                                      className={`px-1 py-1.5 font-semibold cursor-pointer select-none transition-colors hover:text-yellow-400 whitespace-nowrap ${col.align === 'right' ? 'text-right' : 'text-left'} ${sortCol === col.key ? 'text-yellow-400' : 'text-gray-500'}`}
-                                      data-testid={`sort-bl-${col.key}`}
-                                    >
-                                      <span className="inline-flex items-center gap-0.5">
-                                        {col.label}
-                                        {sortCol === col.key && (
-                                          <span className="text-[8px]">{sortDir === 'desc' ? '▼' : '▲'}</span>
-                                        )}
-                                      </span>
-                                    </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-700/30">
-                                {sorted.map(row => (
-                                  <tr key={row.orgId} className="hover-elevate" data-testid={`row-bl-org-${row.orgId}`}>
-                                    <td className="px-1 py-1.5 text-gray-300 truncate max-w-[120px]">{row.orgName || row.orgId}</td>
-                                    <td className="px-1 py-1.5 text-right font-mono font-semibold text-gray-200">{row.total.toLocaleString()}</td>
-                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.inventory > 0 ? row.inventory.toLocaleString() : '—'}</td>
-                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.orders > 0 ? row.orders.toLocaleString() : '—'}</td>
-                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.catalog > 0 ? row.catalog.toLocaleString() : '—'}</td>
-                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.priceGuide > 0 ? row.priceGuide.toLocaleString() : '—'}</td>
-                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.other > 0 ? row.other.toLocaleString() : '—'}</td>
-                                    <td className={`px-1 py-1.5 text-right font-mono ${row.failed > 0 ? 'text-red-400 font-semibold' : 'text-gray-600'}`}>{row.failed > 0 ? row.failed.toLocaleString() : '—'}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      );
-                    })() : (
-                      <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-6 text-center">
-                        <CheckCircle2 className="h-5 w-5 text-emerald-400/50 mx-auto mb-2" />
-                        <p className="sm-description">No BrickLink API calls in the last 24 hours</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Audit Log */}
-            {activeSection === 'auditLog' && (
-              <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden">
-                <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1">
-                  {([
-                    { id: 'organization' as const, label: 'Organization', Icon: Building2 },
-                    { id: 'platform' as const, label: 'Platform', Icon: Globe },
-                  ]).map(t => (
-                    <button
-                      key={t.id}
-                      onClick={() => setActiveAuditTab(t.id)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors flex-1 justify-center ${activeAuditTab === t.id ? 'bg-gray-700 text-gray-100' : 'text-gray-400 hover-elevate'}`}
-                      data-testid={`audit-tab-${t.id}`}
-                    >
-                      <t.Icon className="h-3.5 w-3.5" />
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-
-                {activeAuditTab === 'organization' && (
-                  <div className="space-y-2">
-                    {orgSyncError ? (
-                      <div className="rounded-lg bg-gray-800/60 border border-red-700/40 p-6 flex flex-col items-center justify-center gap-2 text-center">
-                        <AlertTriangle className="h-6 w-6 text-red-400" />
-                        <p className="text-sm text-gray-400">Failed to load organization sync data</p>
-                      </div>
-                    ) : !orgSyncStatus ? (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
-                      </div>
-                    ) : orgSyncStatus.length === 0 ? (
-                      <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-6 flex flex-col items-center justify-center gap-2 text-center">
-                        <Building2 className="h-6 w-6 text-gray-600" />
-                        <p className="text-sm text-gray-400">No organizations found</p>
-                      </div>
-                    ) : orgSyncStatus.map(org => {
-                      const syncLabels: Record<string, string> = {
-                        bricklink_inventory: 'Inventory',
-                        bricklink_orders: 'Orders (BL)',
-                        brickowl_orders: 'Orders (BO)',
-                        channel_sync: 'Channel Sync',
-                      };
-                      const fmtTime = (t: string | null) => t ? new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
-                      const statusIcon = (s: string | null) => {
-                        if (s === 'in_progress') return <Loader2 className="h-3 w-3 text-yellow-400 animate-spin shrink-0" />;
-                        if (s === 'failed' || s === 'error') return <AlertTriangle className="h-3 w-3 text-red-400 shrink-0" />;
-                        if (s === 'partial') return <AlertTriangle className="h-3 w-3 text-orange-400 shrink-0" />;
-                        if (s === 'success') return <CheckCircle2 className="h-3 w-3 text-green-500/70 shrink-0" />;
-                        return <Clock className="h-3 w-3 text-gray-600 shrink-0" />;
-                      };
-                      return (
-                        <div key={org.orgId} className="sm-card-inset" data-testid={`audit-org-${org.orgId}`}>
-                          <div className="px-3 pt-2 pb-1 flex items-center gap-2">
-                            <Building2 className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                            <span className="text-xs font-medium text-gray-200 truncate">{org.orgName}</span>
-                          </div>
-                          {org.syncs.length === 0 && !org.brickspotter ? (
-                            <p className="px-3 pb-2 text-[11px] text-gray-500">No sync data yet</p>
-                          ) : (
-                            <>
-                              {org.syncs.map(s => (
-                                <div key={s.id} className="flex items-center gap-2 px-3 py-1">
-                                  {statusIcon(s.lastSyncStatus)}
-                                  <span className="text-[11px] text-gray-300 flex-1 min-w-0 truncate">{syncLabels[s.id] || s.id}</span>
-                                  {s.lastSyncStatus === 'success' && (s.recordsAdded || s.recordsUpdated) ? (
-                                    <span className="text-[10px] text-gray-500 font-mono shrink-0">+{s.recordsAdded ?? 0} / ~{s.recordsUpdated ?? 0}</span>
-                                  ) : null}
-                                  <span className={`text-[10px] shrink-0 font-mono ${s.lastSyncStatus === 'failed' || s.lastSyncStatus === 'error' ? 'text-red-400/80' : s.lastSyncStatus === 'in_progress' ? 'text-yellow-400' : 'text-gray-500'}`}>
-                                    {s.lastSyncStatus === 'in_progress' ? 'Running' : s.errorMessage ? (s.errorMessage.length > 30 ? s.errorMessage.slice(0, 30) + '…' : s.errorMessage) : fmtTime(s.lastSyncTime)}
-                                  </span>
-                                </div>
-                              ))}
-                              {org.brickspotter && (
-                                <div className="flex items-center gap-2 px-3 py-1">
-                                  <Eye className="h-3 w-3 text-gray-400 shrink-0" />
-                                  <span className="text-[11px] text-gray-300 flex-1 min-w-0 truncate">BrickSpotter</span>
-                                  <span className="text-[10px] text-gray-500 font-mono shrink-0">
-                                    {org.brickspotter.completed}/{org.brickspotter.totalScans} scans
-                                    {org.brickspotter.failed > 0 ? ` · ${org.brickspotter.failed} failed` : ''}
-                                  </span>
-                                </div>
-                              )}
-                            </>
-                          )}
-                          <div className="h-1" />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {activeAuditTab === 'platform' && (() => {
-                  if (systemHealthError) return (
-                    <div className="rounded-lg bg-gray-800/60 border border-red-700/40 p-6 flex flex-col items-center justify-center gap-2 text-center">
-                      <AlertTriangle className="h-6 w-6 text-red-400" />
-                      <p className="text-sm text-gray-400">Failed to load platform health data</p>
-                    </div>
-                  );
-                  if (!systemHealth) return (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
-                    </div>
-                  );
-                  const sj = systemHealth.syncJobs || [];
-                  const gj = (id: string) => sj.find((j: any) => j.id === id);
-                  const clip = systemHealth.clipCatalogStatus;
-                  const clipRunning = systemHealth.schedulerConfig?.clip_catalog?.workerRunning;
-                  const clipPctOv = clip && clip.total > 0 ? Math.round((clip.embedded / clip.total) * 100) : 0;
-                  const fmtTime = (t: string | null) => t ? new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
-
-                  type OverviewJob = {
-                    key: string; label: string;
-                    enabled: boolean; isRunning: boolean;
-                    status: string | null; error: string | null;
-                    lastTime: string | null;
-                    progress?: { done: number; total: number; pct: number };
-                  };
-
-                  const pomJ = gj('priceomatic_cache');
-                  const cdJ = gj('catalog_detail_completion');
-                  const csJ = gj('catalog_scan');
-                  const rbJ = gj('rebrickable_set_parts');
-                  const ucJ = gj('universal_catalog_refresh');
-                  const fmJ = gj('forum_sync');
-                  const mnJ = gj('market_news_sync');
-                  const biJ = gj('business_intel_sync');
-
-                  const pomProg = pomLiveProgress?.active ? { done: pomLiveProgress.itemsProcessed ?? 0, total: pomLiveProgress.itemsTotal ?? 0, pct: pomProgressPct } : undefined;
-                  const cdProg = syncingCd && cdLiveProgress?.phase === 'Enriching items' ? { done: cdLiveProgress.itemsProcessed ?? 0, total: cdLiveProgress.itemsTotal ?? 0, pct: cdProgressPct } : undefined;
-
-                  const groups: Array<{ label: string; jobs: OverviewJob[] }> = [
-                    { label: 'BrickLink Catalog', jobs: [
-                      { key: 'pom', label: 'Price Guides', enabled: pomScheduleEnabled, isRunning: syncingPom, status: pomJ?.lastSyncStatus || null, error: pomJ?.errorMessage || null, lastTime: pomJ?.lastSyncTime || null, progress: pomProg },
-                      { key: 'cd', label: 'Catalog Detail', enabled: catalogDetailEnabled, isRunning: syncingCd, status: cdJ?.lastSyncStatus || null, error: cdJ?.errorMessage || null, lastTime: cdJ?.lastSyncTime || null, progress: cdProg },
-                      { key: 'cs', label: 'Catalog Scan', enabled: catalogScanEnabled, isRunning: syncingCs, status: csJ?.lastSyncStatus || null, error: csJ?.errorMessage || null, lastTime: csJ?.lastSyncTime || null },
-                    ]},
-                    { label: 'Embeddings', jobs: [
-                      { key: 'rb', label: 'Rebrickable Sets', enabled: rebrickableSetSyncEnabled, isRunning: rbJ?.lastSyncStatus === 'in_progress', status: rbJ?.lastSyncStatus || null, error: rbJ?.errorMessage || null, lastTime: rbJ?.lastSyncTime || null },
-                      { key: 'uc', label: 'Universal Catalog', enabled: universalCatalogScheduleEnabled, isRunning: ucJ?.lastSyncStatus === 'in_progress', status: ucJ?.lastSyncStatus || null, error: ucJ?.errorMessage || null, lastTime: ucJ?.lastSyncTime || null },
-                      { key: 'clip', label: 'CLIP Build', enabled: true, isRunning: !!clipRunning, status: clipRunning ? 'in_progress' : (clip && clip.embedded >= clip.total ? 'success' : null), error: null, lastTime: null, progress: clip && clip.total > 0 ? { done: clip.embedded, total: clip.total, pct: clipPctOv } : undefined },
-                    ]},
-                    { label: 'Market', jobs: [
-                      { key: 'fm', label: 'Forum Sync', enabled: forumSyncEnabled, isRunning: fmJ?.lastSyncStatus === 'in_progress', status: fmJ?.lastSyncStatus || null, error: fmJ?.errorMessage || null, lastTime: fmJ?.lastSyncTime || null },
-                      { key: 'mn', label: 'Market News', enabled: marketNewsSyncEnabled, isRunning: mnJ?.lastSyncStatus === 'in_progress', status: mnJ?.lastSyncStatus || null, error: mnJ?.errorMessage || null, lastTime: mnJ?.lastSyncTime || null },
-                      { key: 'bi', label: 'Business Intel', enabled: businessIntelEnabled, isRunning: biJ?.lastSyncStatus === 'in_progress', status: biJ?.lastSyncStatus || null, error: biJ?.errorMessage || null, lastTime: biJ?.lastSyncTime || null },
-                    ]},
-                  ];
-
-                  const statusDot = (j: OverviewJob) => {
-                    if (j.isRunning) return <Loader2 className="h-3 w-3 text-yellow-400 animate-spin shrink-0" />;
-                    if (j.status === 'failed' || j.status === 'error') return <AlertTriangle className="h-3 w-3 text-red-400 shrink-0" />;
-                    if (j.status === 'partial') return <AlertTriangle className="h-3 w-3 text-orange-400 shrink-0" />;
-                    if (!j.enabled) return <Pause className="h-3 w-3 text-gray-600 shrink-0" />;
-                    if (j.status === 'success') return <CheckCircle2 className="h-3 w-3 text-green-500/70 shrink-0" />;
-                    return <Clock className="h-3 w-3 text-gray-600 shrink-0" />;
-                  };
-
-                  const statusText = (j: OverviewJob) => {
-                    if (j.isRunning && j.progress && j.progress.total > 0) return `${j.progress.pct}%`;
-                    if (j.isRunning) return 'Running';
-                    if (j.error) return j.error.length > 40 ? j.error.slice(0, 40) + '…' : j.error;
-                    if (!j.enabled) return 'Paused';
-                    if (j.status === 'success' || j.status === 'partial' || j.status === 'failed' || j.status === 'error') return fmtTime(j.lastTime);
-                    if (j.key === 'clip' && j.progress) return `${j.progress.done.toLocaleString()}/${j.progress.total.toLocaleString()}`;
-                    return 'Never';
-                  };
-
-                  return (
-                    <div className="sm-card-inset" data-testid="audit-platform-overview">
-                      {groups.map((g, gi) => (
-                        <div key={gi}>
-                          {gi > 0 && <div className="border-t border-gray-700/40" />}
-                          <div className="px-3 pt-2 pb-0.5">
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{g.label}</span>
-                          </div>
-                          {g.jobs.map(j => (
-                            <div
-                              key={j.key}
-                              className="flex items-center gap-2 px-3 py-1"
-                              data-testid={`audit-platform-job-${j.key}`}
-                            >
-                              {statusDot(j)}
-                              <span className="text-[11px] text-gray-300 flex-1 min-w-0 truncate">{j.label}</span>
-                              {j.isRunning && j.progress && j.progress.total > 0 ? (
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <div className="w-12 h-1 bg-gray-700 rounded-full overflow-hidden">
-                                    <div className={`h-full rounded-full transition-all ${j.key === 'clip' ? 'bg-yellow-500' : j.key === 'pom' ? 'bg-purple-500' : 'bg-blue-500'}`} style={{ width: `${j.progress.pct}%` }} />
-                                  </div>
-                                  <span className="text-[10px] text-gray-400 font-mono w-7 text-right">{j.progress.pct}%</span>
-                                </div>
-                              ) : (
-                                <span className={`text-[10px] shrink-0 font-mono ${j.error && !j.isRunning ? 'text-red-400/80' : j.isRunning ? 'text-yellow-400' : !j.enabled ? 'text-gray-600' : 'text-gray-500'}`}>
-                                  {statusText(j)}
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                          <div className="h-1" />
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
               </div>
             )}
 
@@ -9036,8 +9043,6 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
               </div>
             )}
 
-                </div>
-              )}
             </div>
           </div>
           

@@ -102,7 +102,18 @@ The Database tab in System Health (super admin only) includes a **Vacuum & Clean
 - **Vacuum**: `POST /api/platform-admin/db-vacuum` — runs VACUUM ANALYZE on specified tables (validated table names via regex allowlist)
 - **Cleanup**: `POST /api/platform-admin/db-cleanup` — purges stale rows from known targets with configurable age (0–3650 days, parameterized SQL)
 - **Cleanup targets**: `bl_api_calls` (14d), `embedding_jobs` (7d), `restore_jobs` (7d), `sync_issues` (30d), `price_guide_cache` (30d), `sessions` (expired), `brickanalyzer_scans` (60d), `conversations` (90d), `universal_catalog_queue` (14d)
-- **UI**: Two vacuum buttons (flagged tables / all tables) + 8 individual purge buttons with row counts, located in SettingsModal Database tab
+- **UI**: Two vacuum buttons (flagged tables / all tables) + 8 individual purge buttons with row counts, located in SettingsModal Audit Log > Platform > Database tab
+
+### Settings Modal — Platform Admin Navigation
+- **Platform Health**: Overview only (sync jobs, embedding counts, system metrics)
+- **Audit Log**: Two top-level tabs:
+  - **Organization**: Per-org sync status overview (inventory, orders, BrickSpotter summaries)
+  - **Platform**: Four sub-tabs:
+    - **Enrichment**: 9-job overview (POM, Catalog Detail, CLIP, Inventory Scan, etc.)
+    - **BrickLink**: API usage metrics, endpoint breakdown, org allocation schedule
+    - **Logs**: Server warnings/errors with live refresh
+    - **Database**: Table stats, vacuum/cleanup tools, purge actions
+- **Data Enrichment**: Sidebar + scheduling content (catalog, embeddings, market tabs) — unchanged
 
 ## Market News — Data Enrichment
 
