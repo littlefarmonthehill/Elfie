@@ -27,7 +27,7 @@ interface OrdersDashboardProps {
   activeDrawer: 'fulfillment' | 'shipped' | null;
   onDrawerChange: (drawer: 'fulfillment' | 'shipped' | null) => void;
   dateRange?: DateRangeValue;
-  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'billing') => void;
+  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing') => void;
 }
 
 export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange = 'mtd', onOpenSettings }: OrdersDashboardProps) {

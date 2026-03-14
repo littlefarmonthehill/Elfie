@@ -29,7 +29,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 
 interface ChannelSyncPanelProps {
-  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'billing') => void;
+  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing') => void;
 }
 
 export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelProps) {

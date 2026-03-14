@@ -16,7 +16,7 @@ interface GeneralDashboardProps {
   onOpenFulfillment?: () => void;
   onOpenBrickanalyzer?: () => void;
   onOpenPriceomatic?: () => void;
-  onOpenSettings?: (section: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'billing') => void;
+  onOpenSettings?: (section: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing') => void;
   onNavigate?: (tab: 'inventory' | 'orders' | 'sales' | 'marketing') => void;
   section?: 'all' | 'plan' | 'ops';
 }

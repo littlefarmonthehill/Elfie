@@ -32,13 +32,13 @@ import { TIER_CONFIG, getTierConfig, getEffectiveLimits, checkLimit, formatPrice
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
-  initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'priceomatic';
+  initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'billing' | 'about' | 'priceomatic';
   initialPlatformTab?: 'platforms' | 'scheduler';
   pricingExample?: PricingInsight;
   scoringExample?: PricingInsight;
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -914,7 +914,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [activeOrg, setActiveOrg] = useState<OrgWithUsage | null>(null);
   const [activeOrgTab, setActiveOrgTab] = useState<'features' | 'limits' | 'billing'>('features');
   const [activePlatformInnerTab, setActivePlatformInnerTab] = useState<'platforms' | 'scheduler'>('platforms');
-  const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'features' | 'limits' | 'billing'>('info');
+  const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'plan' | 'team'>('info');
   const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'stripe' | 'openai' | 'bricklink'>('bricklink');
   const [activeSchedulerTab, setActiveSchedulerTab] = useState<'catalog' | 'embeddings' | 'market'>('catalog');
   const [activeAuditTab, setActiveAuditTab] = useState<'organization' | 'platform'>('organization');
@@ -1128,7 +1128,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   };
   const { data: tenantLimitsData, isLoading: tenantLimitsLoading } = useQuery<TenantLimitsData>({
     queryKey: ['/api/admin/organizations', user?.orgId, 'limits'],
-    enabled: open && activeSection === 'general' && activeGeneralTab === 'limits' && !!user?.orgId,
+    enabled: open && activeSection === 'general' && activeGeneralTab === 'plan' && !!user?.orgId,
     staleTime: 30000,
     retry: 0,
   });
@@ -1140,7 +1140,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   };
   const { data: tenantPaymentsData, isLoading: tenantPaymentsLoading } = useQuery<{ payments: TenantPayment[] }>({
     queryKey: ['/api/billing/payments'],
-    enabled: open && activeSection === 'general' && activeGeneralTab === 'billing',
+    enabled: open && activeSection === 'billing',
     staleTime: 60000,
     retry: 0,
   });
@@ -1205,11 +1205,11 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   useEffect(() => { setActiveGeneralTab('info'); }, [activeSection]);
 
   useEffect(() => {
-    if (activeGeneralTab === 'billing' && org) {
+    if (activeSection === 'billing' && org) {
       setSubPlan(org.plan === 'core' ? 'core' : 'foundation');
       setSubInterval(org.subscriptionInterval === 'annual' ? 'annual' : 'monthly');
     }
-  }, [activeGeneralTab, org?.plan, org?.subscriptionInterval]);
+  }, [activeSection, org?.plan, org?.subscriptionInterval]);
 
   const { data: platformOrgs, isLoading: platformOrgsLoading, isError: platformOrgsError, error: platformOrgsQueryError, refetch: refetchPlatformOrgs } = useQuery<OrgWithUsage[]>({
     queryKey: ['/api/platform-admin/orgs'],
@@ -2184,9 +2184,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
   const navigationItems = [
     { id: 'general' as const, label: 'Organization', icon: Settings },
-    { id: 'billing' as const, label: 'Billing & Plan', icon: CreditCard },
+    { id: 'billing' as const, label: 'Manage Subscription', icon: CreditCard },
     { id: 'platforms' as const, label: 'Platform Services', icon: Layers },
-    ...(isAdmin ? [{ id: 'users' as const, label: 'Team & Roles', icon: Users }] : []),
     { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: TrendingUp },
     { id: 'data' as const, label: 'Store Data', icon: HardDrive },
     { id: 'about' as const, label: 'About & Credits', icon: Info },
@@ -2370,14 +2369,14 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
               {/* Tab bar */}
               <div className="flex border-b border-gray-700 bg-gray-800/40 -mx-4 px-4 sm:-mx-6 sm:px-6 mb-4">
-                {(['info', 'features', 'limits', 'billing'] as const).map(tab => (
+                {(['info', 'plan', 'team'] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => setActiveGeneralTab(tab)}
                     className={`px-4 py-2.5 text-[11px] font-semibold transition-colors border-b-2 -mb-px ${activeGeneralTab === tab ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
                     data-testid={`tab-general-${tab}`}
                   >
-                    {tab === 'billing' ? 'Manage Subscription' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
                   </button>
                 ))}
               </div>
@@ -2693,7 +2692,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
               )}
 
               {/* Features tab — read-only effective state */}
-              {activeGeneralTab === 'features' && (() => {
+              {activeGeneralTab === 'plan' && (() => {
                 const tier = getTierConfig(org?.plan ?? 'trial');
                 const fo = (org?.featureOverrides ?? {}) as Record<string, boolean>;
                 const FEATURE_ROWS: Array<{ key: string | null; tierKey: keyof typeof tier.features | null; label: string; icon: React.ElementType }> = [
@@ -2708,6 +2707,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   { key: null,               tierKey: 'paymentSync',         label: 'Payment Sync',           icon: CreditCard },
                 ];
                 return (
+                <>
                   <div className="sm-card">
                     <div className="sm-card-header">
                       <Flag className="h-3.5 w-3.5 text-yellow-500/70" />
@@ -2756,315 +2756,46 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       <p className="text-[9px] text-gray-600">OVR = feature has been individually overridden by platform admin</p>
                     </div>
                   </div>
-                );
-              })()}
 
-              {/* Limits tab — read-only usage */}
-              {activeGeneralTab === 'limits' && (() => {
-                const tier = getTierConfig(org?.plan ?? 'trial');
-                const fmtLimit = (n: number) => n === -1 ? '∞' : String(n);
-                const rows = [
-                  { label: 'Seats',               planMax: fmtLimit(tier.limits.seats),                  usage: tenantLimitsData ? String(tenantLimitsData.usage.seats.count) : '—' },
-                  { label: 'BrickSpotter Scans/mo', planMax: fmtLimit(tier.limits.brickspotterScansPerMonth), usage: tenantLimitsData ? String(tenantLimitsData.usage.brickspotterScans.scansUsed) : '—' },
-                  { label: 'Automation Rules',     planMax: fmtLimit(tier.limits.automationRules),        usage: tenantLimitsData ? String(tenantLimitsData.usage.automationRules.count) : '—' },
-                ];
-                return (
-                  <div className="sm-card">
-                    <div className="sm-card-header">
-                      <Wrench className="h-3.5 w-3.5 text-yellow-500/70" />
-                      <span className="text-xs font-semibold text-gray-200">Plan Limits</span>
-                      {tenantLimitsLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-1" />}
-                    </div>
-                    <div className="grid grid-cols-[1fr_64px_64px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
-                      <span className="app-label">Limit</span>
-                      <span className="app-col-header">Plan Max</span>
-                      <span className="app-col-header">In Use</span>
-                    </div>
-                    <div className="divide-y divide-gray-700/40">
-                      {rows.map(({ label, planMax, usage }) => (
-                        <div key={label} className="grid grid-cols-[1fr_64px_64px] gap-2 items-center px-4 py-2.5">
-                          <span className="text-[11px] text-gray-300">{label}</span>
-                          <span className="text-xs text-gray-500 text-center font-mono">{planMax}</span>
-                          <span className="text-xs text-gray-300 text-center font-mono">{usage}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Manage Subscription tab */}
-              {activeGeneralTab === 'billing' && (() => {
-                const isActive = org?.subscriptionStatus === 'active';
-                const isTrial = !org?.plan || org?.plan === 'trial';
-                const isFlagship = org?.plan === 'flagship';
-                const hasActiveSub = !!org?.stripeSubscriptionId;
-                const renewalDate = org?.subscriptionEndsAt ? new Date(org.subscriptionEndsAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : null;
-                const planLabel = (p?: string | null) => p === 'core' ? 'Core' : p === 'foundation' ? 'Foundation' : p === 'flagship' ? 'Flagship' : 'Free Trial';
-                const fndMonthly = Math.round(TIER_CONFIG.foundation.pricing.monthly / 100);
-                const fndAnnual = Math.round(TIER_CONFIG.foundation.pricing.annual / 12 / 100);
-                const coreMonthly = Math.round(TIER_CONFIG.core.pricing.monthly / 100);
-                const coreAnnual = Math.round(TIER_CONFIG.core.pricing.annual / 12 / 100);
-                const displayPrice = (plan: string) => plan === 'core' ? (subInterval === 'annual' ? coreAnnual : coreMonthly) : (subInterval === 'annual' ? fndAnnual : fndMonthly);
-                const noChange = subPlan === org?.plan && subInterval === (org?.subscriptionInterval ?? 'monthly');
-                return (
-                  <div className="space-y-4">
-
-                    {/* ── CURRENT PLAN ──────────────────────────────────────── */}
-                    <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-4 space-y-3">
-                      <div className="flex items-start justify-between gap-2 flex-wrap">
-                        <div>
-                          <p className="sm-group-label mb-1">Current Plan</p>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-base font-bold text-white">{planLabel(org?.plan)}</span>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wider border ${
-                              isActive ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                              isTrial ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                              org?.subscriptionStatus === 'past_due' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                              org?.subscriptionStatus === 'canceled' ? 'bg-gray-700 text-gray-400 border-gray-600' :
-                              'bg-gray-700 text-gray-400 border-gray-600'
-                            }`}>
-                              {org?.subscriptionStatus ?? 'trial'}
-                            </span>
-                          </div>
-                        </div>
-                        {!isTrial && !isFlagship && (
-                          <div className="text-right">
-                            <p className="app-label">Billing Interval</p>
-                            <p className="text-xs font-medium text-gray-100 capitalize mt-0.5">{org?.subscriptionInterval ?? 'monthly'}</p>
-                          </div>
-                        )}
-                      </div>
-
-                      {isTrial && trialDaysRemaining !== null && (
-                        <div className={`rounded-md px-3 py-2 flex items-center gap-2 ${trialDaysRemaining <= 3 ? 'bg-red-500/10 border border-red-500/20' : 'bg-blue-500/10 border border-blue-500/20'}`}>
-                          <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${trialDaysRemaining <= 3 ? 'text-red-400' : 'text-blue-400'}`} />
-                          <p className={`text-[11px] ${trialDaysRemaining <= 3 ? 'text-red-300' : 'text-blue-300'}`}>
-                            {trialDaysRemaining === 0 ? 'Your trial has ended.' : `${trialDaysRemaining} day${trialDaysRemaining === 1 ? '' : 's'} remaining in your free trial.`}
-                          </p>
-                        </div>
-                      )}
-
-                      {!isTrial && !isFlagship && renewalDate && (
-                        <p className="text-[11px] text-gray-400">
-                          {org?.cancelAtPeriodEnd ? (
-                            <span className="text-amber-400">Subscription ends {renewalDate} — will not renew</span>
-                          ) : (
-                            <span>Renews {renewalDate}</span>
-                          )}
-                        </p>
-                      )}
-
-                      {isFlagship && (
-                        <p className="sm-description">Flagship house account — no billing required.</p>
-                      )}
-
-                      {/* Auto-renew toggle */}
-                      {hasActiveSub && isActive && (
-                        <div className="flex items-center justify-between pt-2 border-t border-gray-700/50 gap-2 flex-wrap">
-                          <div>
-                            <p className="text-xs font-medium text-gray-100">Auto-renew</p>
-                            <p className="text-[10px] text-gray-500 mt-0.5">
-                              {org?.cancelAtPeriodEnd ? 'Off — subscription will expire at period end' : 'On — subscription renews automatically'}
-                            </p>
-                          </div>
-                          <Switch
-                            checked={!org?.cancelAtPeriodEnd}
-                            onCheckedChange={(checked) => autoRenewMutation.mutate({ autoRenew: checked })}
-                            disabled={autoRenewMutation.isPending}
-                            data-testid="switch-auto-renew"
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* ── CHANGE PLAN ──────────────────────────────────────── */}
-                    {!isFlagship && (
+                  {/* Plan Limits */}
+                  {(() => {
+                    const fmtLimit = (n: number) => n === -1 ? '∞' : String(n);
+                    const rows = [
+                      { label: 'Seats',               planMax: fmtLimit(tier.limits.seats),                  usage: tenantLimitsData ? String(tenantLimitsData.usage.seats.count) : '—' },
+                      { label: 'BrickSpotter Scans/mo', planMax: fmtLimit(tier.limits.brickspotterScansPerMonth), usage: tenantLimitsData ? String(tenantLimitsData.usage.brickspotterScans.scansUsed) : '—' },
+                      { label: 'Automation Rules',     planMax: fmtLimit(tier.limits.automationRules),        usage: tenantLimitsData ? String(tenantLimitsData.usage.automationRules.count) : '—' },
+                    ];
+                    return (
                       <div className="sm-card">
-                        <div className="px-4 py-2.5 bg-gray-800 border-b border-gray-700 flex items-center justify-between gap-2 flex-wrap">
-                          <div className="flex items-center gap-2">
-                            <Sparkles className="h-3.5 w-3.5 text-yellow-500/70" />
-                            <span className="text-xs font-semibold text-gray-200">{isTrial ? 'Choose a Plan' : 'Change Plan'}</span>
-                          </div>
-                          <div className="flex items-center gap-0.5 bg-gray-900/60 rounded-md p-0.5">
-                            <button onClick={() => setSubInterval('monthly')} className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${subInterval === 'monthly' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-100'}`} data-testid="button-sub-monthly">Monthly</button>
-                            <button onClick={() => setSubInterval('annual')} className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${subInterval === 'annual' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-100'}`} data-testid="button-sub-annual">Annual <span className="text-green-400">−17%</span></button>
-                          </div>
+                        <div className="sm-card-header">
+                          <Wrench className="h-3.5 w-3.5 text-yellow-500/70" />
+                          <span className="text-xs font-semibold text-gray-200">Plan Limits</span>
+                          {tenantLimitsLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-1" />}
                         </div>
-
-                        <div className="p-4 grid grid-cols-2 gap-3">
-                          {([
-                            { plan: 'foundation' as const, label: 'Foundation', tagline: 'Core reselling tools', popular: false },
-                            { plan: 'core' as const, label: 'Core', tagline: 'Full platform + unlimited', popular: true },
-                          ]).map(({ plan, label, tagline, popular }) => (
-                            <button
-                              key={plan}
-                              onClick={() => setSubPlan(plan)}
-                              className={`p-3 rounded-lg border transition-all text-left ${subPlan === plan ? 'border-yellow-500/50 bg-yellow-500/5 ring-1 ring-yellow-500/20' : 'border-gray-700 hover:border-gray-600 bg-gray-900/30'}`}
-                              data-testid={`button-select-plan-${plan}`}
-                            >
-                              <div className="flex items-center justify-between mb-1">
-                                <p className="text-xs font-bold text-gray-200">{label}</p>
-                                {popular && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-semibold uppercase tracking-wide">Popular</span>}
-                                {org?.plan === plan && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/20 font-semibold">Current</span>}
-                              </div>
-                              <p className="text-lg font-bold text-white">
-                                ${displayPrice(plan)}<span className="text-xs font-normal text-gray-400">/mo</span>
-                              </p>
-                              {subInterval === 'annual' && <p className="text-[10px] text-gray-500 mt-0.5">billed annually</p>}
-                              <p className="text-[10px] text-gray-500 mt-1">{tagline}</p>
-                            </button>
+                        <div className="grid grid-cols-[1fr_64px_64px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
+                          <span className="app-label">Limit</span>
+                          <span className="app-col-header">Plan Max</span>
+                          <span className="app-col-header">In Use</span>
+                        </div>
+                        <div className="divide-y divide-gray-700/40">
+                          {rows.map(({ label, planMax, usage }) => (
+                            <div key={label} className="grid grid-cols-[1fr_64px_64px] gap-2 items-center px-4 py-2.5">
+                              <span className="text-[11px] text-gray-300">{label}</span>
+                              <span className="text-xs text-gray-500 text-center font-mono">{planMax}</span>
+                              <span className="text-xs text-gray-300 text-center font-mono">{usage}</span>
+                            </div>
                           ))}
                         </div>
-
-                        <div className="px-4 pb-4 space-y-2">
-                          {isTrial ? (
-                            <Button
-                              className="w-full bg-purple-600"
-                              onClick={() => checkoutMutation.mutate({ plan: subPlan, interval: subInterval })}
-                              disabled={checkoutMutation.isPending}
-                              data-testid="button-subscribe-now"
-                            >
-                              <Sparkles className="w-3.5 h-3.5 mr-2" />
-                              {checkoutMutation.isPending ? 'Redirecting to checkout…' : `Subscribe to ${subPlan === 'core' ? 'Core' : 'Foundation'} — $${displayPrice(subPlan)}/mo`}
-                            </Button>
-                          ) : (
-                            <Button
-                              className="w-full"
-                              variant={noChange ? 'outline' : 'default'}
-                              onClick={() => changePlanMutation.mutate({ plan: subPlan, interval: subInterval })}
-                              disabled={changePlanMutation.isPending || noChange}
-                              data-testid="button-apply-plan-change"
-                            >
-                              {changePlanMutation.isPending ? 'Applying…' : noChange ? 'No changes' : `Switch to ${subPlan === 'core' ? 'Core' : 'Foundation'} ${subInterval}`}
-                            </Button>
-                          )}
-                          {subInterval === 'annual' && !isTrial && (
-                            <p className="text-[10px] text-gray-500 text-center">Prorations are applied immediately. You'll be charged the difference.</p>
-                          )}
-                        </div>
                       </div>
-                    )}
-
-                    {/* ── DANGER ZONE ──────────────────────────────────────── */}
-                    {hasActiveSub && isActive && (
-                      <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4">
-                        <p className="text-[10px] uppercase tracking-widest text-red-500/70 font-semibold mb-3">Danger Zone</p>
-                        <div className="flex items-center justify-between gap-4 flex-wrap">
-                          <div>
-                            <p className="text-xs font-medium text-gray-100">Cancel subscription</p>
-                            <p className="text-[10px] text-gray-500 mt-0.5">Cancels immediately. Access ends now.</p>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-red-500/30 text-red-400 shrink-0"
-                            onClick={() => setShowCancelSubDialog(true)}
-                            data-testid="button-cancel-subscription"
-                          >
-                            Cancel Subscription
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* ── PAYMENT HISTORY ──────────────────────────────────── */}
-                    <div className="sm-card">
-                      <div className="sm-card-header">
-                        <CreditCard className="h-3.5 w-3.5 text-yellow-500/70" />
-                        <span className="text-xs font-semibold text-gray-200">Payment History</span>
-                      </div>
-                      {tenantPaymentsLoading ? (
-                        <div className="flex items-center justify-center py-8 gap-2 text-gray-500">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span className="text-xs">Loading payments…</span>
-                        </div>
-                      ) : !org?.stripeCustomerId || !tenantPaymentsData?.payments?.length ? (
-                        <div className="px-4 py-8 text-center">
-                          <CreditCard className="h-6 w-6 text-gray-700 mx-auto mb-2" />
-                          <p className="sm-description">No payment history yet.</p>
-                        </div>
-                      ) : (
-                        <div>
-                          <div className="grid grid-cols-[1fr_72px_64px_32px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
-                            <span className="app-label">Description</span>
-                            <span className="app-label text-right">Amount</span>
-                            <span className="app-col-header">Status</span>
-                            <span className="text-[9px]"></span>
-                          </div>
-                          <div className="divide-y divide-gray-700/40 max-h-64 overflow-y-auto">
-                            {[...tenantPaymentsData.payments].sort((a, b) => b.created - a.created).map(pmt => {
-                              const fmtAmt = (amt: number, cur: string) =>
-                                new Intl.NumberFormat('en-US', { style: 'currency', currency: cur.toUpperCase() }).format(amt / 100);
-                              const statusColors: Record<string, string> = {
-                                paid: 'text-green-400 bg-green-500/10',
-                                open: 'text-yellow-400 bg-yellow-500/10',
-                                void: 'text-gray-500 bg-gray-700/50',
-                                uncollectible: 'text-red-400 bg-red-500/10',
-                                draft: 'text-gray-500 bg-gray-700/50',
-                              };
-                              const date = new Date(pmt.created * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                              return (
-                                <div key={pmt.id} className="grid grid-cols-[1fr_72px_64px_32px] gap-2 items-center px-4 py-2.5">
-                                  <div className="min-w-0">
-                                    <p className="text-[11px] text-gray-300 truncate">{pmt.description ?? 'Invoice'}</p>
-                                    <p className="text-[10px] text-gray-600">{date}</p>
-                                  </div>
-                                  <span className="text-xs text-gray-200 font-mono text-right">{fmtAmt(pmt.amount, pmt.currency)}</span>
-                                  <div className="flex justify-center">
-                                    <span className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${statusColors[pmt.status ?? ''] ?? 'text-gray-500 bg-gray-700/50'}`}>
-                                      {pmt.status ?? '—'}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-center">
-                                    {pmt.hostedUrl && (
-                                      <a href={pmt.hostedUrl} target="_blank" rel="noopener noreferrer" title="View invoice" className="text-gray-600 hover:text-yellow-400 transition-colors" data-testid={`link-tenant-invoice-${pmt.id}`}>
-                                        <ExternalLink className="h-3.5 w-3.5" />
-                                      </a>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* ── CANCEL CONFIRMATION DIALOG ───────────────────────── */}
-                    <ResponsiveModal
-                      open={showCancelSubDialog}
-                      onOpenChange={setShowCancelSubDialog}
-                      title="Cancel Subscription?"
-                      icon={CreditCard}
-                      iconColor="text-red-400"
-                      description="Cancel your subscription immediately"
-                      testId="modal-cancel-sub"
-                    >
-                      <div className="space-y-4">
-                        <p className="text-sm text-gray-400">
-                          This will cancel your subscription immediately. You will lose access to paid features right away. This action cannot be undone.
-                        </p>
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => setShowCancelSubDialog(false)} data-testid="button-cancel-dialog-dismiss">
-                            Keep Subscription
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => cancelSubMutation.mutate()}
-                            disabled={cancelSubMutation.isPending}
-                            data-testid="button-cancel-dialog-confirm"
-                          >
-                            {cancelSubMutation.isPending ? 'Cancelling…' : 'Yes, Cancel Subscription'}
-                          </Button>
-                        </div>
-                      </div>
-                    </ResponsiveModal>
-
-                  </div>
+                    );
+                  })()}
+                </>
                 );
               })()}
+
+              {activeGeneralTab === 'team' && (
+                <UserManagementSection userCount={users?.length} />
+              )}
 
               </div>
             )}
@@ -4065,62 +3796,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   </div>
                 </ResponsiveModal>
 
-              </div>
-            )}
-
-            {/* AI Settings & Intelligence */}
-            {activeSection === 'ai' && (
-              <div className="space-y-4 min-h-[400px]">
-              <div className="space-y-4">
-
-                {/* Chat Assistant */}
-                <div>
-                  <h3 className="text-sm font-medium text-gray-100 mb-3">Chat Assistant (E.L.F.I.E.)</h3>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="system-prompt" className="text-xs text-gray-200">System Prompt / Role Instructions</Label>
-                      <Textarea
-                        id="system-prompt"
-                        placeholder="Enter custom instructions for E.L.F.I.E..."
-                        value={systemPrompt}
-                        onChange={(e) => setSystemPrompt(e.target.value)}
-                        onBlur={() => {
-                          updateSettingsMutation.mutate({
-                            aiEnabled,
-                            ...(openaiApiKey ? { openaiApiKey } : {}),
-                            selectedModel: selectedModel || null,
-                            systemPrompt: systemPrompt || null,
-                          });
-                        }}
-                        className="text-xs font-mono min-h-[200px] resize-y"
-                        data-testid="textarea-system-prompt"
-                      />
-                      <p className="sm-description">
-                        Customize E.L.F.I.E.'s role and behavior. Leave empty to use default instructions.
-                      </p>
-                    </div>
-
-                    <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
-                      <p className="text-xs text-purple-300">
-                        <strong>Powered by OpenAI:</strong> E.L.F.I.E. runs on OpenAI GPT-4o — no API key required. Semantic search uses OpenAI text-embedding-3-small.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator className="bg-gray-700" />
-
-                {/* Semantic Search Test */}
-                <div>
-                  <h3 className="text-sm font-medium text-gray-100 mb-3">Semantic Search</h3>
-                  <EmbeddingsManager searchOnly />
-                </div>
-              </div>
-              </div>
-            )}
-
-                {/* ── SCHEDULER TAB CONTENT (inside platforms) — rendered separately ── */}
-                {activeSection === 'platforms' && activePlatform === null && activePlatformInnerTab === 'scheduler' && (
+                {/* ── SCHEDULER TAB CONTENT ── */}
+                {activePlatform === null && activePlatformInnerTab === 'scheduler' && (
               <div className="space-y-4">
                 <div className="space-y-4">
                   <div>
@@ -4541,6 +4218,60 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+              </div>
+            )}
+
+            {/* AI Settings & Intelligence */}
+            {activeSection === 'ai' && (
+              <div className="space-y-4 min-h-[400px]">
+              <div className="space-y-4">
+
+                {/* Chat Assistant */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-100 mb-3">Chat Assistant (E.L.F.I.E.)</h3>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="system-prompt" className="text-xs text-gray-200">System Prompt / Role Instructions</Label>
+                      <Textarea
+                        id="system-prompt"
+                        placeholder="Enter custom instructions for E.L.F.I.E..."
+                        value={systemPrompt}
+                        onChange={(e) => setSystemPrompt(e.target.value)}
+                        onBlur={() => {
+                          updateSettingsMutation.mutate({
+                            aiEnabled,
+                            ...(openaiApiKey ? { openaiApiKey } : {}),
+                            selectedModel: selectedModel || null,
+                            systemPrompt: systemPrompt || null,
+                          });
+                        }}
+                        className="text-xs font-mono min-h-[200px] resize-y"
+                        data-testid="textarea-system-prompt"
+                      />
+                      <p className="sm-description">
+                        Customize E.L.F.I.E.'s role and behavior. Leave empty to use default instructions.
+                      </p>
+                    </div>
+
+                    <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
+                      <p className="text-xs text-purple-300">
+                        <strong>Powered by OpenAI:</strong> E.L.F.I.E. runs on OpenAI GPT-4o — no API key required. Semantic search uses OpenAI text-embedding-3-small.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator className="bg-gray-700" />
+
+                {/* Semantic Search Test */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-100 mb-3">Semantic Search</h3>
+                  <EmbeddingsManager searchOnly />
+                </div>
+              </div>
               </div>
             )}
 
@@ -5261,10 +4992,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
             )}
 
             {/* Team & Roles (Admin Only) */}
-            {activeSection === 'users' && (
-              <UserManagementSection userCount={users?.length} />
-            )}
-
             {/* ── Platform Admin: Organizations ────────────────────────────── */}
             {activeSection === 'orgs' && (() => {
               const PLAN_COLORS: Record<string, string> = {
