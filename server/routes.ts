@@ -4019,16 +4019,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const openai = new OpenAI({ apiKey });
 
       const systemPrompt = type === 'forum'
-        ? 'You are a concise business analyst for a LEGO reselling business. Given a BrickLink forum discussion title and excerpt, summarize what the community is discussing and why it matters to a LEGO parts reseller. Highlight any actionable insights about pricing, demand, or market trends. Be direct and specific. No preamble.'
+        ? `You are a sharp LEGO market analyst. Analyze this BrickLink forum thread based on the topic and opening post excerpt. Focus on:
+1. What specific issue, question, or trend is being discussed
+2. The seller/buyer sentiment or concern driving the conversation
+3. Any concrete takeaways for a parts reseller (pricing moves, demand shifts, policy changes, sourcing tips)
+Be direct — no filler, no generic "the community is discussing..." phrasing. Write like you're briefing a business owner who needs to know what matters and why.`
         : 'You are a concise business analyst for a LEGO reselling business. Given a news headline and snippet, provide a 1-2 sentence overview of what happened and why it matters to a LEGO parts reseller. Be direct and specific. No preamble.';
 
       const userContent = type === 'forum'
-        ? `Forum Topic: ${title}\nExcerpt: ${snippet}${url ? `\nThread: ${url}` : ''}`
+        ? `Thread Title: ${title}\n\nOpening Post:\n${snippet}${url ? `\n\nThread URL: ${url}` : ''}`
         : `Title: ${title}\nSnippet: ${snippet}${url ? `\nSource: ${url}` : ''}`;
 
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
-        max_tokens: 150,
+        max_tokens: type === 'forum' ? 250 : 150,
         temperature: 0.3,
         messages: [
           { role: 'system', content: systemPrompt },

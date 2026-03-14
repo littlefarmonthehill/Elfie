@@ -941,7 +941,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   });
 
   const getWelcomeMessage = () => {
-    let msg = `Hello! I'm E.L.F.I.E., your ${dashboardContext} operations assistant. How can I help you optimize your LEGO business today?`;
+    let msg = `Hello! I'm E.L.F.I.E., your ${dashboardContext} operations assistant. What can I help you with today?`;
 
     const hasNews = marketIntel && marketIntel.news.count > 0;
     const hasForum = marketIntel && marketIntel.forum.count > 0;
