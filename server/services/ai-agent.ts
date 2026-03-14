@@ -65,7 +65,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
     try {
       response = await openai.chat.completions.create({
         model: agentModel,
-        max_tokens: 2048,
+        max_tokens: 4096,
         messages: conversationMessages,
         tools: AI_TOOLS.map(t => ({ type: 'function' as const, function: t.function })),
         tool_choice: 'auto',

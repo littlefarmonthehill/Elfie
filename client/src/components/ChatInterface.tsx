@@ -687,6 +687,8 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     const textToSend = message || input;
     if (!textToSend.trim() || isLoading) return;
     
+    inputRef.current?.blur();
+    
     const userMessage: ChatMessage = { role: 'user', content: textToSend };
     setInput('');
     setIsLoading(true);
@@ -1141,16 +1143,11 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
               <Button 
                 size="icon"
                 type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                }}
                 onTouchEnd={(e) => {
                   e.preventDefault();
-                  e.stopPropagation();
                   handleSend();
                 }}
-                onClick={(e) => {
-                  e.stopPropagation();
+                onClick={() => {
                   handleSend();
                 }}
                 className={`${colors.button} md:h-12 md:w-12 lg:h-14 lg:w-14 touch-manipulation`} 

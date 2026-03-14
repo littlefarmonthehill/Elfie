@@ -4172,7 +4172,7 @@ ORG-LEVEL (this store's data):
 - "Find me red castle pieces" → semantic_search (AI embedding search across org inventory)
 
 PLATFORM-LEVEL (shared catalog for all orgs):
-- "What does X look like?" / "Tell me about part X" → search_bricklink_catalog (local catalog — image, description, dimensions, weight — automatically opens the detail drawer)
+- "What does X look like?" / "Show me X" / "Picture of X" / "Tell me about part X" → search_bricklink_catalog (local catalog — image, description, dimensions, weight — the frontend displays the image inline in chat)
 - "What's market price for X?" → get_bricklink_price_guide (locally cached market pricing from Price-o-Matic syncs)
 - "What parts are in set X?" → get_set_parts (Rebrickable set-part data)
 - "What are people saying about X?" → search_forum_discussions (BrickLink forum embeddings)
@@ -4180,7 +4180,11 @@ PLATFORM-LEVEL (shared catalog for all orgs):
 
 If the user asks multiple things in one message (e.g., "do we have 3024 and who ordered it"), call the appropriate tools in parallel — one for each question.
 
-For inventory questions ("do we have X?", "what colors of X?"), search_local_inventory alone has everything you need — quantities, colors, pricing, conditions. One tool, one call, done. Only add search_bricklink_catalog when the user specifically wants catalog details like images, descriptions, or dimensions.
+For inventory questions ("do we have X?", "what colors of X?"), search_local_inventory alone has everything you need — quantities, colors, pricing, conditions. One tool, one call, done. When the user asks "what colors do we have for X?", list EVERY color — never truncate or say "and more...". The user asked for the full list, give the full list.
+
+When the user asks to SEE a part, what it LOOKS LIKE, or requests a VISUAL/IMAGE, you MUST call search_bricklink_catalog to get the image URL. The frontend will display the image inline in the chat. Include the imageUrl in your text as well: "Here's part 3024:" followed by the image details. Always call search_bricklink_catalog for visual/image/picture/photo requests.
+
+For order/sales questions ("who ordered X?", "sales history of X?"), the order cards are automatically displayed below your text response with full details. Your text should ONLY contain the summary stats using stat cards ("> Total Orders: 5" etc.) — NEVER list individual orders in the text. End with PROMPT suggestions for drilling deeper.
 
 **API usage policy — local-first:**
 All tools query local data (bl_catalog, price_guide_cache, inventory, orders). They use zero BrickLink API calls. If a tool returns "not found" or the data looks incomplete/stale, tell the user what's missing and offer to fetch fresh data from the BrickLink API — but let them know it will use their API quota. Only make live API calls when the user explicitly says yes.
