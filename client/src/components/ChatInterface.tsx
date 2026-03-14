@@ -1381,21 +1381,15 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                 </div>
               ))}
               
-              {/* Thinking indicator when loading */}
               {isLoading && (
                 <div className="flex gap-2 md:gap-3 lg:gap-4 justify-start" data-testid="thinking-indicator">
-                  <div className="flex-shrink-0 animate-bounce">
-                    <img src={elfieRobot} alt="Elfie thinking" className="h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12 object-contain" />
+                  <div className="flex-shrink-0">
+                    <img src={elfieRobot} alt="Elfie" className="h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12 object-contain" />
                   </div>
-                  <div className="max-w-[80%] rounded-lg p-3 md:p-4 lg:p-5 bg-purple-500/10 border border-purple-500/20">
-                    <div className="flex items-center gap-2 md:gap-3 text-xs md:text-sm lg:text-base text-purple-300">
-                      <span>E.L.F.I.E. is thinking</span>
-                      <div className="flex gap-1">
-                        <span className="animate-pulse">.</span>
-                        <span className="animate-pulse" style={{ animationDelay: '0.2s' }}>.</span>
-                        <span className="animate-pulse" style={{ animationDelay: '0.4s' }}>.</span>
-                      </div>
-                    </div>
+                  <div className="flex items-center gap-1.5 pt-2">
+                    <span className="h-2 w-2 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="h-2 w-2 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="h-2 w-2 rounded-full bg-purple-400 animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
                 </div>
               )}
