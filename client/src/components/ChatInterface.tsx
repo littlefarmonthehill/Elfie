@@ -147,11 +147,27 @@ function deduplicateForums(forums: Array<{
   });
 }
 
+const THEME_KEYWORD_MAP: Record<string, string[]> = {
+  retirement: ['retire', 'retiring', 'retired', 'end-of-life', 'eol', 'discontinued', 'last chance', 'leaving shelves', 'phased out'],
+  pricing: ['price', 'pricing', 'value', 'cost', 'expensive', 'cheap', 'aftermarket', 'markup', 'margin', 'discount', 'deal', 'msrp', 'sale'],
+  release: ['release', 'new set', 'new lego', 'launch', 'announced', 'reveal', 'leaked', 'upcoming', 'rumor', 'rumour', '2025', '2026'],
+  supply: ['supply', 'chain', 'shortage', 'restock', 'availability', 'production', 'factory', 'warehouse', 'shipping', 'stock'],
+  investing: ['invest', 'collectible', 'collector', 'rare', 'sealed', 'appreciation', 'portfolio', 'roi', 'long-term', 'vintage', 'modular'],
+  market: ['market', 'trend', 'economy', 'demand', 'reseller', 'resale', 'bricklink', 'ebay', 'marketplace', 'seller', 'buyer', 'trade'],
+};
+
 function themeMatchScore(theme: string, text: string): number {
   const tl = theme.toLowerCase();
   const tgt = text.toLowerCase();
-  const keywords = tl.split(/[\s&,]+/).filter(w => w.length > 3);
-  return keywords.filter(w => tgt.includes(w)).length;
+  let score = 0;
+  const headerWords = tl.split(/[\s&,]+/).filter(w => w.length > 3);
+  score += headerWords.filter(w => tgt.includes(w)).length;
+  for (const [category, keywords] of Object.entries(THEME_KEYWORD_MAP)) {
+    if (tl.includes(category) || keywords.some(k => tl.includes(k))) {
+      score += keywords.filter(k => tgt.includes(k)).length * 2;
+    }
+  }
+  return score;
 }
 
 interface ChatMessage {
@@ -274,17 +290,27 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
   let currentThemeText = '';
   let themedCardsInjected = false;
 
+  const themeHeaders: string[] = [];
+  const isInventoryImpactTheme = (t: string) => /impact.*inventor|inventor.*impact/i.test(t);
+
   const flushThemeCards = (elements: JSX.Element[], keyRef: { value: number }) => {
     if (!currentThemeText) return;
+    if (isInventoryImpactTheme(currentThemeText)) return;
     const isForumTheme = /community|forum|discussion|chatter|buzz|thread/i.test(currentThemeText);
 
     if (!isForumTheme) {
-      const matchingNews = allNewsCards.filter(a => !matchedNewsIds.has(a.id) && themeMatchScore(currentThemeText, `${a.title} ${a.topic || ''}`) > 0);
-      matchingNews.forEach(a => {
-        matchedNewsIds.add(a.id);
+      themeHeaders.push(currentThemeText);
+      const available = allNewsCards.filter(a => !matchedNewsIds.has(a.id));
+      const scored = available.map(a => ({
+        article: a,
+        score: themeMatchScore(currentThemeText, `${a.title} ${a.snippet || ''} ${a.topic || ''}`),
+      })).filter(s => s.score > 0).sort((a, b) => b.score - a.score);
+
+      scored.forEach(({ article }) => {
+        matchedNewsIds.add(article.id);
         themedCardsInjected = true;
         elements.push(
-          <InlineNewsCard key={`tnews-${keyRef.value++}`} type="news" title={a.title} snippet={a.snippet} url={a.url} source={a.source} onSummarize={onSummarize} />
+          <InlineNewsCard key={`tnews-${keyRef.value++}`} type="news" title={article.title} snippet={article.snippet} url={article.url} source={article.source} onSummarize={onSummarize} />
         );
       });
     }
@@ -294,7 +320,7 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
         matchedForumIds.add(f.id);
         themedCardsInjected = true;
         elements.push(
-          <InlineNewsCard key={`tforum-${keyRef.value++}`} type="forum" title={f.title} snippet={f.excerpt || undefined} url={f.threadUrl} username={f.username} replyCount={f.replyCount} onSummarize={onSummarize} />
+          <InlineNewsCard key={`tforum-${keyRef.value++}`} type="forum" title={f.title} snippet={f.excerpt || 'Click to view discussion thread and AI analysis'} url={f.threadUrl} username={f.username} replyCount={f.replyCount} onSummarize={onSummarize} />
         );
       });
     }
@@ -633,12 +659,15 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
         flushThemeCards(elements, keyRef);
         const headerText = trimmed.replace(/^#{1,3}\s+/, '');
         currentThemeText = headerText;
-        elements.push(
-          <div key={`header-${key++}`} className="text-xs font-semibold text-purple-300 uppercase tracking-wider mt-3 mb-1.5 border-b border-purple-500/20 pb-1">
-            {parseInlineContent(headerText)}
-          </div>
-        );
+        if (!isInventoryImpactTheme(headerText)) {
+          elements.push(
+            <div key={`header-${key++}`} className="text-xs font-semibold text-purple-300 uppercase tracking-wider mt-3 mb-1.5 border-b border-purple-500/20 pb-1">
+              {parseInlineContent(headerText)}
+            </div>
+          );
+        }
       } else if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
+        if (isInventoryImpactTheme(currentThemeText)) return;
         flushParagraph();
         const bulletText = trimmed.substring(2);
         const kvMatch = bulletText.match(/^\*{0,2}([^*]+?)\*{0,2}\s*[—–:]\s*(.+)$/);
@@ -659,6 +688,7 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
           );
         }
       } else if (/^\d+\.\s/.test(trimmed)) {
+        if (isInventoryImpactTheme(currentThemeText)) return;
         flushParagraph();
         const numMatch = trimmed.match(/^(\d+)\.\s/);
         const num = numMatch ? numMatch[1] : '';
@@ -691,7 +721,9 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
       } else if (trimmed === '') {
         flushParagraph();
       } else {
-        currentParagraph.push(line);
+        if (!isInventoryImpactTheme(currentThemeText)) {
+          currentParagraph.push(line);
+        }
       }
     });
 
@@ -700,12 +732,11 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
     flushThemeCards(elements, keyRef);
 
     const unmatchedNews = allNewsCards.filter(a => !matchedNewsIds.has(a.id));
-    const unmatchedForums = dedupedForums.filter(f => !matchedForumIds.has(f.id));
-    if (unmatchedNews.length > 0 || unmatchedForums.length > 0) {
-      if (themedCardsInjected) {
+    if (unmatchedNews.length > 0) {
+      if (!themedCardsInjected) {
         elements.push(
-          <div key={`header-other-${key++}`} className="text-xs font-semibold text-purple-300 uppercase tracking-wider mt-3 mb-1.5 border-b border-purple-500/20 pb-1">
-            Other News
+          <div key={`header-more-${key++}`} className="text-xs font-semibold text-purple-300 uppercase tracking-wider mt-3 mb-1.5 border-b border-purple-500/20 pb-1">
+            More Headlines
           </div>
         );
       }
@@ -714,9 +745,13 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
           <InlineNewsCard key={`unews-${keyRef.value++}`} type="news" title={a.title} snippet={a.snippet} url={a.url} source={a.source} onSummarize={onSummarize} />
         );
       });
+    }
+
+    const unmatchedForums = dedupedForums.filter(f => !matchedForumIds.has(f.id));
+    if (unmatchedForums.length > 0 && !themedCardsInjected) {
       unmatchedForums.forEach(f => {
         elements.push(
-          <InlineNewsCard key={`uforum-${keyRef.value++}`} type="forum" title={f.title} snippet={f.excerpt || undefined} url={f.threadUrl} username={f.username} replyCount={f.replyCount} onSummarize={onSummarize} />
+          <InlineNewsCard key={`uforum-${keyRef.value++}`} type="forum" title={f.title} snippet={f.excerpt || 'Click to view discussion thread and AI analysis'} url={f.threadUrl} username={f.username} replyCount={f.replyCount} onSummarize={onSummarize} />
         );
       });
     }

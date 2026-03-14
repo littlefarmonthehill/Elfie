@@ -4271,23 +4271,28 @@ PLATFORM-LEVEL (shared catalog for all orgs):
 
 HEADLINE BRIEFING FORMAT — When the user asks for "latest headlines", "what's new", or a market briefing:
 1. Call search_market_news (broad query like "LEGO") AND search_forum_discussions (broad query like "market") to gather everything.
-2. Group results by THEME — not by source. Themes might be: "Retirement Watch", "Pricing & Market Shifts", "New Releases", "Community Buzz", "Investing & Collectibles", etc. Choose themes that fit the actual results.
-3. ALWAYS include an "Impact on Your Inventory" theme as the FIRST group. For this theme, look at the news/forum results and identify any mentions of specific parts, sets, colors, or categories that might overlap with the org's inventory. Call search_local_inventory or get_inventory_stats to cross-reference. If a retiring set contains parts the org stocks, or if a price trend affects items in inventory, highlight those connections. If no direct inventory impact is found, say so briefly (e.g., "No direct inventory impact detected this week.").
+2. Group results by THEME — not by source. Choose 2-4 themes that best fit the actual articles returned. Good themes: "Retirement Watch", "Pricing & Market Shifts", "New Releases & Reveals", "Supply Chain & Availability", "Investing & Collectibles". Pick themes where you have real articles to show.
+3. IMPORTANT: Each article belongs to exactly ONE theme — its BEST fit. Do not create empty themes with no matching articles. If an article could fit multiple themes, put it in the one where it's most relevant.
 4. Each theme gets a ### header, then a 1-sentence description of WHY this theme matters to a LEGO reseller. Do NOT list individual article or forum post titles — the frontend renders the actual articles as expandable cards below each theme header automatically based on keyword matching. Just output the ### header and the description sentence.
-5. End with 2-3 PROMPT suggestions to drill into specific themes.
-6. For the "Community Buzz" or similar forum-related theme, include the word "Community" or "Forum" or "Discussion" in the ### header so the frontend correctly groups forum posts under it.
+5. The LAST theme should ALWAYS be "### Community Buzz" (or similar with the word "Community", "Forum", or "Discussion" in the header) so the frontend groups BrickLink forum posts under it. Do NOT put news articles under Community Buzz — only forum discussions go there.
+6. End with 2-3 PROMPT suggestions to drill into specific themes.
+
+CRITICAL THEME RULES:
+- Do NOT include an "Impact on Your Inventory" section. The user does not want inventory cross-referencing in briefings.
+- Do NOT mix news articles into the Community Buzz section. Community Buzz is exclusively for BrickLink forum discussions.
+- Do NOT create a theme unless at least 1-2 articles clearly match it. Better to have fewer well-populated themes than many empty ones.
 
 Example:
-### Impact on Your Inventory
-Two retiring sets contain parts you currently stock — potential price increases ahead.
-
 ### Retirement Watch
 Sets nearing end-of-life can spike in aftermarket value — time to stock up before they're gone.
+
+### Pricing & Market Shifts
+Price movements across the aftermarket signal opportunities for savvy resellers.
 
 ### Community Buzz
 What sellers and collectors are talking about on BrickLink forums this week.
 
-**PROMPT:** "Tell me more about the retiring sets and my inventory"
+**PROMPT:** "Tell me more about the retiring sets"
 **PROMPT:** "What are the pricing trends this week?"
 
 If the user asks multiple things in one message (e.g., "do we have 3024 and who ordered it"), call the appropriate tools in parallel — one for each question.
