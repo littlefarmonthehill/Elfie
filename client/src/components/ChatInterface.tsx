@@ -154,6 +154,8 @@ function themeMatchScore(theme: string, text: string): number {
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  messageId?: string;
+  streaming?: boolean;
   imageUrl?: string;
   items?: Array<{
     id: number;
@@ -787,6 +789,59 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
   );
 }
 
+function StreamingMessage({ message, onItemClick, onBrickLinkSearch, onPromptClick, onSummarize, onStreamingDone }: {
+  message: ChatMessage;
+  onItemClick?: (type: 'inventory' | 'order', id: string) => void;
+  onBrickLinkSearch?: (itemNo: string, itemType: string) => void;
+  onPromptClick?: (prompt: string) => void;
+  onSummarize?: (title: string, snippet: string, url: string) => Promise<string>;
+  onStreamingDone?: () => void;
+}) {
+  const lines = message.content.split('\n');
+  const [revealedCount, setRevealedCount] = useState(message.streaming ? 0 : lines.length);
+  const doneRef = useRef(false);
+
+  useEffect(() => {
+    if (!message.streaming) {
+      setRevealedCount(lines.length);
+      return;
+    }
+    setRevealedCount(0);
+    doneRef.current = false;
+    let idx = 0;
+    const timer = setInterval(() => {
+      idx = Math.min(idx + 2, lines.length);
+      setRevealedCount(idx);
+      if (idx >= lines.length) {
+        clearInterval(timer);
+        if (!doneRef.current) {
+          doneRef.current = true;
+          onStreamingDone?.();
+        }
+      }
+    }, 120);
+    return () => clearInterval(timer);
+  }, [message.content, message.streaming]);
+
+  const revealedContent = lines.slice(0, revealedCount).join('\n');
+
+  return (
+    <MessageContent
+      content={revealedContent}
+      imageUrl={message.imageUrl}
+      items={message.items}
+      orders={message.orders}
+      forumDiscussions={message.forumDiscussions}
+      marketNewsArticles={message.marketNewsArticles}
+      bricklinkSearchSuggestion={message.bricklinkSearchSuggestion}
+      onItemClick={onItemClick}
+      onBrickLinkSearch={onBrickLinkSearch}
+      onPromptClick={onPromptClick}
+      onSummarize={onSummarize}
+    />
+  );
+}
+
 interface MarketIntel {
   forum: {
     count: number;
@@ -881,7 +936,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   };
 
   useEffect(() => {
-    // Only scroll when messages change AND input is not focused
     if (!isInputFocused) {
       const timeoutId = setTimeout(() => {
         scrollToBottom();
@@ -890,7 +944,21 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     }
   }, [messages, isInputFocused]);
 
-  // Send pending prompt when chat expands
+  useEffect(() => {
+    const isStreaming = messages.some(m => m.streaming);
+    if (!isStreaming || isInputFocused || isMinimized) return;
+    const interval = setInterval(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 200);
+    return () => clearInterval(interval);
+  }, [messages, isInputFocused, isMinimized]);
+
+  useEffect(() => {
+    if (isMinimized) {
+      setMessages(prev => prev.map(m => m.streaming ? { ...m, streaming: false } : m));
+    }
+  }, [isMinimized]);
+
   useEffect(() => {
     if (!isMinimized && pendingPrompt) {
       handleSend(pendingPrompt);
@@ -946,9 +1014,12 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         return;
       }
 
+      const msgId = `msg-${Date.now()}`;
       const assistantMessage: ChatMessage = {
         role: 'assistant',
         content: data.message || "I'm sorry, I couldn't generate a response.",
+        messageId: msgId,
+        streaming: true,
         items: data.items || [],
         orders: data.orders || [],
         forumDiscussions: data.forumDiscussions || [],
@@ -1227,7 +1298,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
             <div className="space-y-4 md:space-y-5 lg:space-y-6">
               {messages.map((message, i) => (
                 <div
-                  key={i}
+                  key={message.messageId || i}
                   className={`flex gap-2 md:gap-3 lg:gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   data-testid={`message-${message.role}-${i}`}
                 >
@@ -1247,18 +1318,15 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                     {message.role === 'user' ? (
                       message.content
                     ) : (
-                      <MessageContent
-                        content={message.content}
-                        imageUrl={message.imageUrl}
-                        items={message.items}
-                        orders={message.orders}
-                        forumDiscussions={message.forumDiscussions}
-                        marketNewsArticles={message.marketNewsArticles}
-                        bricklinkSearchSuggestion={message.bricklinkSearchSuggestion}
+                      <StreamingMessage
+                        message={message}
                         onItemClick={onItemClick}
                         onBrickLinkSearch={handleBrickLinkSearch}
                         onPromptClick={handleSend}
                         onSummarize={handleSummarize}
+                        onStreamingDone={() => {
+                          setMessages(prev => prev.map(m => m.messageId === message.messageId ? { ...m, streaming: false } : m));
+                        }}
                       />
                     )}
                   </div>

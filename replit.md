@@ -116,3 +116,8 @@ Scheduled web searches that fetch LEGO market news articles (retirements, pricin
 - **AI tool**: `search_market_news` in `ai-tools.ts` — vector similarity search over `market_news_embeddings` joined to `market_news`. Registered in `elfieTools` array and `executeToolCall` switch.
 - **Trigger route**: `POST /api/platform-admin/scheduler/market_news_sync/trigger` (super admin)
 - **UI**: Settings > Platform Scheduler > Market tab — two job cards: Forum Sync (existing) and Market News (new). Market News card has enabled toggle, frequency input, and editable search query list (add/remove/edit).
+
+## Elfie Chat — Progressive Reveal & AI Overviews
+
+- **Streaming reveal**: New assistant messages appear line-by-line at a readable pace (~2 lines every 120ms) instead of dumping the full response at once. Implemented via `StreamingMessage` wrapper in `ChatInterface.tsx` that progressively reveals content through `MessageContent`. Only the latest response streams; older messages render fully. Streaming flags are cleared when the chat is minimized to prevent background interval leaks. Messages use `messageId` for stable React keys and callback targeting.
+- **AI article overviews**: Expanding an `InlineNewsCard` auto-triggers a call to `POST /api/ai/summarize` which uses `gpt-4o-mini` to generate a 1-2 sentence business-relevant overview. Results are cached in component state (no re-fetch on re-expand). Falls back to raw snippet on error.
