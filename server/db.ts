@@ -483,12 +483,50 @@ export async function runMigrations() {
     await pool.query(`ALTER TABLE plan_configs ADD COLUMN IF NOT EXISTS limit_orders INTEGER NOT NULL DEFAULT -1`);
     await pool.query(`ALTER TABLE plan_configs ADD COLUMN IF NOT EXISTS limit_elfie_queries INTEGER NOT NULL DEFAULT 0`);
     await pool.query(`ALTER TABLE plan_configs ADD COLUMN IF NOT EXISTS limit_business_intel INTEGER NOT NULL DEFAULT 0`);
-    // Backfill per-plan defaults from TIER_CONFIG
-    await pool.query(`UPDATE plan_configs SET limit_orders = 50, limit_elfie_queries = 25, limit_business_intel = 0 WHERE plan_key = 'trial' AND limit_orders = -1 AND limit_elfie_queries = 0 AND limit_business_intel = 0`);
-    await pool.query(`UPDATE plan_configs SET limit_orders = -1, limit_elfie_queries = 100, limit_business_intel = 10 WHERE plan_key = 'foundation' AND limit_elfie_queries = 0 AND limit_business_intel = 0`);
-    await pool.query(`UPDATE plan_configs SET limit_orders = -1, limit_elfie_queries = -1, limit_business_intel = -1 WHERE plan_key = 'core' AND limit_elfie_queries = 0 AND limit_business_intel = 0`);
-    await pool.query(`UPDATE plan_configs SET limit_orders = -1, limit_elfie_queries = -1, limit_business_intel = -1 WHERE plan_key = 'flagship' AND limit_elfie_queries = 0 AND limit_business_intel = 0`);
     console.log('[Migration] Phase-22 (plan_configs usage limit columns) complete.');
+
+    // Phase-23: Backfill industry-standard plan defaults
+    await pool.query(`UPDATE plan_configs SET
+      name = 'Free Trial', tagline = '14 days to explore PlanetBrick',
+      price_monthly = 0, price_annual = 0, price_annual_monthly = 0,
+      limit_seats = 1, limit_scans = 10, limit_automation_rules = 0,
+      limit_order_history_days = 14, limit_inventory_items = 500,
+      limit_orders = 25, limit_elfie_queries = 20, limit_business_intel = 0,
+      feature_brick_owl = false, feature_elfie_ai = true, feature_price_o_matic = false,
+      feature_easypost = false, feature_data_images = true, feature_data_semantic = false,
+      feature_full_enrichment = false, feature_payment_sync = false
+      WHERE plan_key = 'trial'`);
+    await pool.query(`UPDATE plan_configs SET
+      name = 'Foundation', tagline = 'For solo sellers getting started',
+      price_monthly = 1999, price_annual = 19188, price_annual_monthly = 1599,
+      limit_seats = 2, limit_scans = 50, limit_automation_rules = 3,
+      limit_order_history_days = 90, limit_inventory_items = 5000,
+      limit_orders = 150, limit_elfie_queries = 100, limit_business_intel = 5,
+      feature_brick_owl = false, feature_elfie_ai = true, feature_price_o_matic = true,
+      feature_easypost = false, feature_data_images = true, feature_data_semantic = true,
+      feature_full_enrichment = false, feature_payment_sync = true
+      WHERE plan_key = 'foundation'`);
+    await pool.query(`UPDATE plan_configs SET
+      name = 'Core', tagline = 'For growing brick businesses',
+      price_monthly = 4999, price_annual = 47988, price_annual_monthly = 3999,
+      limit_seats = 5, limit_scans = 250, limit_automation_rules = 10,
+      limit_order_history_days = 365, limit_inventory_items = 50000,
+      limit_orders = 1000, limit_elfie_queries = 500, limit_business_intel = 25,
+      feature_brick_owl = true, feature_elfie_ai = true, feature_price_o_matic = true,
+      feature_easypost = true, feature_data_images = true, feature_data_semantic = true,
+      feature_full_enrichment = true, feature_payment_sync = true
+      WHERE plan_key = 'core'`);
+    await pool.query(`UPDATE plan_configs SET
+      name = 'Flagship', tagline = 'For high-volume operations & teams',
+      price_monthly = 9999, price_annual = 95988, price_annual_monthly = 7999,
+      limit_seats = -1, limit_scans = -1, limit_automation_rules = -1,
+      limit_order_history_days = -1, limit_inventory_items = -1,
+      limit_orders = -1, limit_elfie_queries = -1, limit_business_intel = -1,
+      feature_brick_owl = true, feature_elfie_ai = true, feature_price_o_matic = true,
+      feature_easypost = true, feature_data_images = true, feature_data_semantic = true,
+      feature_full_enrichment = true, feature_payment_sync = true
+      WHERE plan_key = 'flagship'`);
+    console.log('[Migration] Phase-23 (industry-standard plan defaults) complete.');
 
     console.log('[Migration] All startup migrations finished successfully.');
 

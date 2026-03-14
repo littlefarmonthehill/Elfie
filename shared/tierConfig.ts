@@ -41,15 +41,15 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
   trial: {
     id: 'trial',
     name: 'Free Trial',
-    tagline: '15 days to explore PlanetBrick',
+    tagline: '14 days to explore PlanetBrick',
     limits: {
       seats: 1,
-      brickspotterScansPerMonth: 5,
+      brickspotterScansPerMonth: 10,
       automationRules: 0,
-      orderHistoryDays: 30,
+      orderHistoryDays: 14,
       inventoryItems: 500,
-      orders: 50,
-      elfieQueries: 25,
+      orders: 25,
+      elfieQueries: 20,
       businessIntel: 0,
     },
     features: {
@@ -57,7 +57,7 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
       elfieAiMode: true,
       priceOMatic: false,
       easypostAutomation: false,
-      dataEnrichmentImages: false,
+      dataEnrichmentImages: true,
       dataEnrichmentSemantic: false,
       fullDataEnrichment: false,
       paymentSync: false,
@@ -68,10 +68,70 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
       annualMonthly: 0,
     },
   },
+  foundation: {
+    id: 'foundation',
+    name: 'Foundation',
+    tagline: 'For solo sellers getting started',
+    limits: {
+      seats: 2,
+      brickspotterScansPerMonth: 50,
+      automationRules: 3,
+      orderHistoryDays: 90,
+      inventoryItems: 5000,
+      orders: 150,
+      elfieQueries: 100,
+      businessIntel: 5,
+    },
+    features: {
+      brickOwl: false,
+      elfieAiMode: true,
+      priceOMatic: true,
+      easypostAutomation: false,
+      dataEnrichmentImages: true,
+      dataEnrichmentSemantic: true,
+      fullDataEnrichment: false,
+      paymentSync: true,
+    },
+    pricing: {
+      monthly: 1999,       // $19.99/mo
+      annual: 19188,       // $191.88/yr
+      annualMonthly: 1599, // $15.99/mo equivalent
+    },
+  },
+  core: {
+    id: 'core',
+    name: 'Core',
+    tagline: 'For growing brick businesses',
+    limits: {
+      seats: 5,
+      brickspotterScansPerMonth: 250,
+      automationRules: 10,
+      orderHistoryDays: 365,
+      inventoryItems: 50000,
+      orders: 1000,
+      elfieQueries: 500,
+      businessIntel: 25,
+    },
+    features: {
+      brickOwl: true,
+      elfieAiMode: true,
+      priceOMatic: true,
+      easypostAutomation: true,
+      dataEnrichmentImages: true,
+      dataEnrichmentSemantic: true,
+      fullDataEnrichment: true,
+      paymentSync: true,
+    },
+    pricing: {
+      monthly: 4999,       // $49.99/mo
+      annual: 47988,       // $479.88/yr
+      annualMonthly: 3999, // $39.99/mo equivalent
+    },
+  },
   flagship: {
     id: 'flagship',
     name: 'Flagship',
-    tagline: 'House account — unlimited everything',
+    tagline: 'For high-volume operations & teams',
     limits: {
       seats: -1,
       brickspotterScansPerMonth: -1,
@@ -93,69 +153,9 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
       paymentSync: true,
     },
     pricing: {
-      monthly: 0,
-      annual: 0,
-      annualMonthly: 0,
-    },
-  },
-  foundation: {
-    id: 'foundation',
-    name: 'Foundation',
-    tagline: 'For solo sellers getting started',
-    limits: {
-      seats: 2,
-      brickspotterScansPerMonth: 25,
-      automationRules: 1,
-      orderHistoryDays: 365,
-      inventoryItems: -1,
-      orders: -1,
-      elfieQueries: 100,
-      businessIntel: 10,
-    },
-    features: {
-      brickOwl: false,
-      elfieAiMode: false,
-      priceOMatic: false,
-      easypostAutomation: false,
-      dataEnrichmentImages: false,
-      dataEnrichmentSemantic: false,
-      fullDataEnrichment: false,
-      paymentSync: true,
-    },
-    pricing: {
-      monthly: 3900,       // $39.00/mo
-      annual: 39000,       // $390.00/yr
-      annualMonthly: 3250, // $32.50/mo equivalent
-    },
-  },
-  core: {
-    id: 'core',
-    name: 'Core',
-    tagline: 'For serious operations',
-    limits: {
-      seats: 5,
-      brickspotterScansPerMonth: -1,
-      automationRules: -1,
-      orderHistoryDays: -1,
-      inventoryItems: -1,
-      orders: -1,
-      elfieQueries: -1,
-      businessIntel: -1,
-    },
-    features: {
-      brickOwl: true,
-      elfieAiMode: true,
-      priceOMatic: true,
-      easypostAutomation: true,
-      dataEnrichmentImages: true,
-      dataEnrichmentSemantic: true,
-      fullDataEnrichment: true,
-      paymentSync: true,
-    },
-    pricing: {
-      monthly: 9900,       // $99.00/mo
-      annual: 99000,       // $990.00/yr
-      annualMonthly: 8250, // $82.50/mo equivalent
+      monthly: 9999,       // $99.99/mo
+      annual: 95988,       // $959.88/yr
+      annualMonthly: 7999, // $79.99/mo equivalent
     },
   },
 };
