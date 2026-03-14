@@ -29,6 +29,7 @@ export async function searchBrickLinkCatalog(params: {
       .select()
       .from(blCatalog)
       .where(and(eq(blCatalog.itemNo, itemNo.toUpperCase()), eq(blCatalog.itemType, itemType)))
+      .orderBy(sql`(image_url IS NOT NULL AND image_url != '') DESC, color_id ASC`)
       .limit(1);
     
     const row = rows[0];
@@ -39,6 +40,15 @@ export async function searchBrickLinkCatalog(params: {
       };
     }
     
+    const typePrefix = itemType === 'SET' ? 'SL' : itemType === 'MINIFIG' ? 'ML' : 'PL';
+    const fallbackImageUrl = `https://img.bricklink.com/${typePrefix}/${itemNo}.jpg`;
+    const fallbackThumbUrl = `https://img.bricklink.com/P/0/${itemNo}.jpg`;
+
+    let imageUrl = row.imageUrl || null;
+    let thumbnailUrl = row.thumbnailUrl || null;
+    if (imageUrl && !imageUrl.startsWith('http')) imageUrl = `https:${imageUrl}`;
+    if (thumbnailUrl && !thumbnailUrl.startsWith('http')) thumbnailUrl = `https:${thumbnailUrl}`;
+
     return {
       success: true,
       data: {
@@ -46,8 +56,8 @@ export async function searchBrickLinkCatalog(params: {
         name: row.itemName,
         type: row.itemType,
         categoryId: row.categoryId,
-        thumbnailUrl: row.thumbnailUrl,
-        imageUrl: row.imageUrl,
+        thumbnailUrl: thumbnailUrl || fallbackThumbUrl,
+        imageUrl: imageUrl || fallbackImageUrl,
         weight: row.blCatalogWeight,
         dimensionX: row.blDimensionX,
         dimensionY: row.blDimensionY,
