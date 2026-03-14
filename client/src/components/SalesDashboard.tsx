@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format, subMonths, subYears, addYears, startOfMonth, parseISO, startOfDay, getYear, startOfWeek } from "date-fns";
-import { TrendingUp, Target, GitCompare, BarChart2, Info, ArrowRight, X, Activity, Radar, DollarSign, ShoppingCart, AlertTriangle, Lightbulb, TrendingDown, Eye, EyeOff } from "lucide-react";
+import { TrendingUp, Target, GitCompare, BarChart2, Info, ArrowRight, X, Activity, Radar, DollarSign, ShoppingCart, AlertTriangle, Lightbulb, TrendingDown, Eye, EyeOff, Users, Package, ChevronDown, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import MetricCard from "./MetricCard";
 import { DateRangeValue } from "./DateRangeSelector";
@@ -38,12 +38,20 @@ interface BusinessInsight {
   updatedAt: string;
 }
 
-const CATEGORY_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
-  pricing: { icon: DollarSign, color: 'text-yellow-400', bg: 'bg-yellow-900/30' },
-  acquisition: { icon: ShoppingCart, color: 'text-blue-400', bg: 'bg-blue-900/30' },
-  risk: { icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-900/30' },
-  opportunity: { icon: Lightbulb, color: 'text-green-400', bg: 'bg-green-900/30' },
-  trend: { icon: TrendingUp, color: 'text-purple-400', bg: 'bg-purple-900/30' },
+const CATEGORY_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: string; label: string }> = {
+  pricing: { icon: DollarSign, color: 'text-yellow-400', bg: 'bg-yellow-900/30', label: 'Pricing' },
+  acquisition: { icon: ShoppingCart, color: 'text-blue-400', bg: 'bg-blue-900/30', label: 'Acquisition' },
+  overstock: { icon: Package, color: 'text-orange-400', bg: 'bg-orange-900/30', label: 'Overstock' },
+  restock: { icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-900/30', label: 'Restock' },
+  revenue: { icon: TrendingUp, color: 'text-green-400', bg: 'bg-green-900/30', label: 'Revenue' },
+  velocity: { icon: Activity, color: 'text-purple-400', bg: 'bg-purple-900/30', label: 'Velocity' },
+  new_customer: { icon: Users, color: 'text-cyan-400', bg: 'bg-cyan-900/30', label: 'New Customer' },
+  top_spender: { icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-900/30', label: 'Top Spender' },
+  dormant: { icon: EyeOff, color: 'text-amber-400', bg: 'bg-amber-900/30', label: 'Dormant' },
+  opportunity: { icon: Lightbulb, color: 'text-green-400', bg: 'bg-green-900/30', label: 'Opportunity' },
+  risk: { icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-900/30', label: 'Risk' },
+  trend: { icon: TrendingUp, color: 'text-purple-400', bg: 'bg-purple-900/30', label: 'Trend' },
+  customer: { icon: Users, color: 'text-cyan-400', bg: 'bg-cyan-900/30', label: 'Customer' },
 };
 
 const URGENCY_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -52,9 +60,128 @@ const URGENCY_CONFIG: Record<string, { label: string; variant: 'default' | 'seco
   low: { label: 'Low', variant: 'outline' },
 };
 
+type OpArea = 'product' | 'sales' | 'customer';
+const OP_AREA_CONFIG: Record<OpArea, { label: string; icon: React.ElementType; color: string; borderColor: string; categories: string[] }> = {
+  product: { label: 'Product & Inventory', icon: Package, color: 'text-yellow-400', borderColor: 'border-yellow-500/30', categories: ['pricing', 'acquisition', 'overstock', 'restock', 'risk'] },
+  sales: { label: 'Orders & Sales', icon: TrendingUp, color: 'text-green-400', borderColor: 'border-green-500/30', categories: ['revenue', 'velocity', 'trend', 'opportunity'] },
+  customer: { label: 'Customer Intelligence', icon: Users, color: 'text-cyan-400', borderColor: 'border-cyan-500/30', categories: ['new_customer', 'top_spender', 'dormant', 'customer'] },
+};
+
+function getOpArea(category: string): OpArea {
+  for (const [area, cfg] of Object.entries(OP_AREA_CONFIG)) {
+    if (cfg.categories.includes(category)) return area as OpArea;
+  }
+  return 'product';
+}
+
+function InsightCard({ insight, isExpanded, onToggle, onDismiss, dismissPending }: {
+  insight: BusinessInsight; isExpanded: boolean; onToggle: () => void; onDismiss: () => void; dismissPending: boolean;
+}) {
+  const catCfg = CATEGORY_CONFIG[insight.category] || CATEGORY_CONFIG.trend;
+  const urgCfg = URGENCY_CONFIG[insight.urgency] || URGENCY_CONFIG.medium;
+  const CatIcon = catCfg.icon;
+  const details = insight.details as {
+    affectedItems?: string[]; customers?: string[]; priceGap?: number;
+    currentPrice?: number; recommendedPrice?: number; potentialRevenue?: number; source?: string;
+  } | null;
+
+  return (
+    <div
+      className={cn("rounded-lg border border-gray-700/50 transition-colors", catCfg.bg)}
+      data-testid={`insight-card-${insight.id}`}
+    >
+      <button
+        onClick={onToggle}
+        className="w-full px-3 py-2 flex items-start gap-2.5 text-left"
+        data-testid={`insight-toggle-${insight.id}`}
+      >
+        <div className={cn("mt-0.5 shrink-0", catCfg.color)}>
+          <CatIcon className="w-3.5 h-3.5" />
+        </div>
+        <div className="flex-1 min-w-0 space-y-0.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] font-medium text-gray-200 leading-tight">{insight.title}</span>
+            <Badge variant={urgCfg.variant} className="text-[9px] px-1.5 py-0 h-4 shrink-0">{urgCfg.label}</Badge>
+          </div>
+          <p className={cn("text-[11px] text-gray-400 leading-snug", !isExpanded && "line-clamp-2")}>{insight.summary}</p>
+        </div>
+        <div className="mt-0.5 shrink-0 text-gray-600">
+          {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+        </div>
+      </button>
+      {isExpanded && (
+        <div className="px-3 pb-2.5 space-y-2 border-t border-gray-700/40">
+          {details?.affectedItems && details.affectedItems.length > 0 && (
+            <div className="pt-2">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Items</p>
+              <div className="flex flex-wrap gap-1">
+                {details.affectedItems.slice(0, 12).map((item, idx) => (
+                  <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-300 border border-gray-700/40">{item}</span>
+                ))}
+                {details.affectedItems.length > 12 && (
+                  <span className="text-[10px] text-gray-500">+{details.affectedItems.length - 12} more</span>
+                )}
+              </div>
+            </div>
+          )}
+          {details?.customers && details.customers.length > 0 && (
+            <div className="pt-1">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Customers</p>
+              <div className="flex flex-wrap gap-1">
+                {details.customers.slice(0, 8).map((name, idx) => (
+                  <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800/60 text-cyan-300 border border-cyan-700/30">{name}</span>
+                ))}
+                {details.customers.length > 8 && (
+                  <span className="text-[10px] text-gray-500">+{details.customers.length - 8} more</span>
+                )}
+              </div>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1">
+            {details?.currentPrice != null && details?.recommendedPrice != null && Number.isFinite(Number(details.currentPrice)) && Number.isFinite(Number(details.recommendedPrice)) && (
+              <p className="text-[10px] text-gray-400">
+                <span className="text-gray-500">Price:</span> <span className="text-red-400/80">${Number(details.currentPrice).toFixed(2)}</span>
+                <span className="text-gray-600 mx-0.5">&rarr;</span>
+                <span className="text-green-400">${Number(details.recommendedPrice).toFixed(2)}</span>
+              </p>
+            )}
+            {details?.priceGap != null && Number.isFinite(Number(details.priceGap)) && (
+              <p className="text-[10px] text-gray-400">
+                <span className="text-gray-500">Gap:</span> <span className={Number(details.priceGap) > 0 ? 'text-green-400' : 'text-red-400'}>{Number(details.priceGap) > 0 ? '+' : ''}{Number(details.priceGap).toFixed(1)}%</span>
+              </p>
+            )}
+            {details?.potentialRevenue != null && Number.isFinite(Number(details.potentialRevenue)) && (
+              <p className="text-[10px] text-gray-400">
+                <span className="text-gray-500">Revenue Potential:</span> <span className="text-green-400">${Number(details.potentialRevenue).toFixed(2)}</span>
+              </p>
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-gray-700/30">
+            <div className="flex items-center gap-2">
+              <span className={cn("text-[9px] capitalize", catCfg.color)}>{catCfg.label}</span>
+              <span className="text-[9px] text-gray-600">{new Date(insight.createdAt).toLocaleDateString()}</span>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 text-[10px] text-gray-500"
+              onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+              disabled={dismissPending}
+              data-testid={`dismiss-insight-${insight.id}`}
+            >
+              <EyeOff className="w-3 h-3 mr-1" />
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BusinessIntelDrawer({ onClose }: { onClose: () => void }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [collapsedAreas, setCollapsedAreas] = useState<Record<string, boolean>>({});
 
   const { data: insights = [], isLoading } = useQuery<BusinessInsight[]>({
     queryKey: ['/api/business-intel'],
@@ -69,8 +196,13 @@ function BusinessIntelDrawer({ onClose }: { onClose: () => void }) {
     },
   });
 
-  const filtered = filterCategory ? insights.filter(i => i.category === filterCategory) : insights;
-  const categories = [...new Set(insights.map(i => i.category))];
+  const groupedByArea: Record<OpArea, BusinessInsight[]> = { product: [], sales: [], customer: [] };
+  for (const insight of insights) {
+    const area = getOpArea(insight.category);
+    groupedByArea[area].push(insight);
+  }
+
+  const toggleArea = (area: string) => setCollapsedAreas(prev => ({ ...prev, [area]: !prev[area] }));
 
   return (
     <ToolDrawer icon={Radar} iconColor="text-cyan-400" title="Business Intel" onClose={onClose} closeTestId="button-close-business-intel">
@@ -88,99 +220,41 @@ function BusinessIntelDrawer({ onClose }: { onClose: () => void }) {
           </p>
         </div>
       ) : (
-        <div className="space-y-2 p-2">
-          {categories.length > 1 && (
-            <div className="flex items-center gap-1.5 flex-wrap pb-1">
-              <button
-                onClick={() => setFilterCategory(null)}
-                className={cn("text-[10px] px-2 py-0.5 rounded-full border transition-colors", filterCategory === null ? "border-cyan-500/50 bg-cyan-900/40 text-cyan-300" : "border-gray-700 text-gray-500 hover-elevate")}
-                data-testid="filter-all-insights"
-              >
-                All ({insights.length})
-              </button>
-              {categories.map(cat => {
-                const cfg = CATEGORY_CONFIG[cat] || CATEGORY_CONFIG.trend;
-                return (
-                  <button
-                    key={cat}
-                    onClick={() => setFilterCategory(filterCategory === cat ? null : cat)}
-                    className={cn("text-[10px] px-2 py-0.5 rounded-full border transition-colors capitalize", filterCategory === cat ? `border-current ${cfg.color} ${cfg.bg}` : "border-gray-700 text-gray-500 hover-elevate")}
-                    data-testid={`filter-${cat}-insights`}
-                  >
-                    {cat} ({insights.filter(i => i.category === cat).length})
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          {filtered.map(insight => {
-            const catCfg = CATEGORY_CONFIG[insight.category] || CATEGORY_CONFIG.trend;
-            const urgCfg = URGENCY_CONFIG[insight.urgency] || URGENCY_CONFIG.medium;
-            const CatIcon = catCfg.icon;
-            const isExpanded = expandedId === insight.id;
-            const details = insight.details as { affectedItems?: string[]; priceGap?: number; source?: string } | null;
+        <div className="space-y-3 p-2">
+          {(Object.entries(OP_AREA_CONFIG) as [OpArea, typeof OP_AREA_CONFIG[OpArea]][]).map(([area, cfg]) => {
+            const areaInsights = groupedByArea[area];
+            if (areaInsights.length === 0) return null;
+            const AreaIcon = cfg.icon;
+            const isCollapsed = collapsedAreas[area];
+            const highCount = areaInsights.filter(i => i.urgency === 'high').length;
 
             return (
-              <div
-                key={insight.id}
-                className={cn("rounded-lg border border-gray-700/50 overflow-hidden transition-colors", catCfg.bg)}
-                data-testid={`insight-card-${insight.id}`}
-              >
+              <div key={area} className={cn("rounded-lg border", cfg.borderColor)} data-testid={`area-${area}`}>
                 <button
-                  onClick={() => setExpandedId(isExpanded ? null : insight.id)}
-                  className="w-full px-3 py-2.5 flex items-start gap-2.5 text-left"
-                  data-testid={`insight-toggle-${insight.id}`}
+                  onClick={() => toggleArea(area)}
+                  className="w-full px-3 py-2 flex items-center gap-2 text-left"
+                  data-testid={`area-toggle-${area}`}
                 >
-                  <div className={cn("mt-0.5 shrink-0", catCfg.color)}>
-                    <CatIcon className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-xs font-medium text-gray-200 leading-tight">{insight.title}</span>
-                      <Badge variant={urgCfg.variant} className="text-[9px] px-1.5 py-0 h-4 shrink-0">{urgCfg.label}</Badge>
-                    </div>
-                    <p className="text-[11px] text-gray-400 leading-snug line-clamp-2">{insight.summary}</p>
-                  </div>
+                  <AreaIcon className={cn("w-4 h-4 shrink-0", cfg.color)} />
+                  <span className={cn("text-xs font-semibold flex-1", cfg.color)}>{cfg.label}</span>
+                  <span className="text-[10px] text-gray-500">{areaInsights.length}</span>
+                  {highCount > 0 && (
+                    <Badge variant="destructive" className="text-[9px] px-1.5 py-0 h-4">{highCount} urgent</Badge>
+                  )}
+                  {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-gray-600 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-600 shrink-0" />}
                 </button>
-                {isExpanded && (
-                  <div className="px-3 pb-2.5 space-y-2 border-t border-gray-700/40">
-                    {details?.affectedItems && details.affectedItems.length > 0 && (
-                      <div className="pt-2">
-                        <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Affected Items</p>
-                        <div className="flex flex-wrap gap-1">
-                          {details.affectedItems.slice(0, 8).map((item, idx) => (
-                            <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-300 border border-gray-700/40">{item}</span>
-                          ))}
-                          {details.affectedItems.length > 8 && (
-                            <span className="text-[10px] text-gray-500">+{details.affectedItems.length - 8} more</span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    {details?.priceGap !== undefined && (
-                      <p className="text-[10px] text-gray-400 pt-1">
-                        <span className="text-gray-500">Price Gap:</span> <span className={details.priceGap > 0 ? 'text-green-400' : 'text-red-400'}>{details.priceGap > 0 ? '+' : ''}{typeof details.priceGap === 'number' ? details.priceGap.toFixed(1) : details.priceGap}%</span>
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between pt-1.5 border-t border-gray-700/30">
-                      <div className="flex items-center gap-2">
-                        {insight.sourceType && (
-                          <span className="text-[9px] text-gray-500 capitalize">{insight.sourceType.replace('_', ' ')}</span>
-                        )}
-                        <span className="text-[9px] text-gray-600">{new Date(insight.createdAt).toLocaleDateString()}</span>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 text-[10px] text-gray-500"
-                        onClick={() => dismissMutation.mutate(insight.id)}
-                        disabled={dismissMutation.isPending}
-                        data-testid={`dismiss-insight-${insight.id}`}
-                      >
-                        <EyeOff className="w-3 h-3 mr-1" />
-                        Dismiss
-                      </Button>
-                    </div>
+                {!isCollapsed && (
+                  <div className="px-2 pb-2 space-y-1.5">
+                    {areaInsights.map(insight => (
+                      <InsightCard
+                        key={insight.id}
+                        insight={insight}
+                        isExpanded={expandedId === insight.id}
+                        onToggle={() => setExpandedId(expandedId === insight.id ? null : insight.id)}
+                        onDismiss={() => dismissMutation.mutate(insight.id)}
+                        dismissPending={dismissMutation.isPending}
+                      />
+                    ))}
                   </div>
                 )}
               </div>
