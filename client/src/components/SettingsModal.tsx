@@ -33,6 +33,7 @@ interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
   initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'priceomatic';
+  initialPlatformTab?: 'platforms' | 'scheduler';
   pricingExample?: PricingInsight;
   scoringExample?: PricingInsight;
 }
@@ -698,7 +699,7 @@ function SyncStatusLine({ entry }: { entry: SyncStatusEntry }) {
   );
 }
 
-export default function SettingsModal({ open, onClose, initialSection, pricingExample, scoringExample }: SettingsModalProps) {
+export default function SettingsModal({ open, onClose, initialSection, initialPlatformTab, pricingExample, scoringExample }: SettingsModalProps) {
   const { toast } = useToast();
   const { status: installStatus, promptInstall } = useInstallPrompt();
   const { isAdmin, superAdmin, user } = useAuth();
@@ -909,9 +910,10 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const [pomHighSupplyPenalty, setPomHighSupplyPenalty] = useState(40);  // supply weight 0–100
 
 
-  const [activeSection, setActiveSection] = useState<ActiveSection>(initialSection ?? null);
+  const [activeSection, setActiveSection] = useState<ActiveSection>(initialSection === 'automation' ? 'platforms' : initialSection ?? null);
   const [activeOrg, setActiveOrg] = useState<OrgWithUsage | null>(null);
   const [activeOrgTab, setActiveOrgTab] = useState<'features' | 'limits' | 'billing'>('features');
+  const [activePlatformInnerTab, setActivePlatformInnerTab] = useState<'platforms' | 'scheduler'>('platforms');
   const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'features' | 'limits' | 'billing'>('info');
   const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'stripe' | 'openai' | 'bricklink'>('bricklink');
   const [activeSchedulerTab, setActiveSchedulerTab] = useState<'catalog' | 'embeddings' | 'market'>('catalog');
@@ -930,12 +932,19 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   // clicking a dashboard action item with a different section would have no effect.
   useEffect(() => {
     if (open && initialSection) {
-      setActiveSection(initialSection);
+      if (initialSection === 'automation') {
+        setActiveSection('platforms');
+        setActivePlatformInnerTab('scheduler');
+        setActivePlatform(null);
+      } else {
+        setActiveSection(initialSection);
+        if (initialPlatformTab) setActivePlatformInnerTab(initialPlatformTab);
+      }
       if (initialSection === 'priceomatic') {
         setPomScoringOpen(true);
       }
     }
-  }, [open, initialSection]);
+  }, [open, initialSection, initialPlatformTab]);
 
   useEffect(() => {
     if (open && pricingExample) {
@@ -974,7 +983,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   }>({
     queryKey: ['/api/bricklink/rate-limit'],
     refetchInterval: 30000,
-    enabled: open && activeSection === 'automation',
+    enabled: open && activeSection === 'platforms' && activePlatform === null && activePlatformInnerTab === 'scheduler',
   });
 
   const { data: syncStatuses } = useQuery<{
@@ -986,7 +995,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   }>({
     queryKey: ['/api/sync/statuses'],
     refetchInterval: 30000,
-    enabled: open && (activeSection === 'automation' || activeSection === 'enrichment'),
+    enabled: open && ((activeSection === 'platforms' && activePlatform === null && activePlatformInnerTab === 'scheduler') || activeSection === 'enrichment'),
   });
 
   type PlatformStats = { totalLots: number; totalParts: number; lastSyncedAt: string | null };
@@ -1002,7 +1011,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const { data: platformSyncData, isLoading: platformSyncLoading } = useQuery<PlatformSyncData>({
     queryKey: ['/api/platform-sync/status'],
     refetchInterval: 60000,
-    enabled: open && activeSection === 'automation',
+    enabled: open && activeSection === 'platforms' && activePlatform === null && activePlatformInnerTab === 'scheduler',
   });
   const brickOwlTarget = platformSyncData?.targets?.find(t => t.name === 'BrickOwl');
   const channelSyncMutation = useMutation({
@@ -2100,7 +2109,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
     queryKey: ['/api/sync/priceomatic/status'],
     refetchInterval: 3000,
     staleTime: 0,
-    enabled: open && (activeSection === 'enrichment' || activeSection === 'priceomatic' || activeSection === 'automation' || activeSection === 'platformScheduler'),
+    enabled: open && (activeSection === 'enrichment' || activeSection === 'priceomatic' || (activeSection === 'platforms' && activePlatform === null && activePlatformInnerTab === 'scheduler') || activeSection === 'platformScheduler'),
   });
   const pomLiveProgress = pomLiveStatus?.data?.liveProgress;
   const syncingPom = syncingPomTrigger || pomLiveProgress?.active === true;
@@ -2176,10 +2185,9 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const navigationItems = [
     { id: 'general' as const, label: 'Organization', icon: Settings },
     { id: 'billing' as const, label: 'Billing & Plan', icon: CreditCard },
-    { id: 'platforms' as const, label: 'Platforms', icon: Layers },
+    { id: 'platforms' as const, label: 'Platform Services', icon: Layers },
     ...(isAdmin ? [{ id: 'users' as const, label: 'Team & Roles', icon: Users }] : []),
     { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: TrendingUp },
-    { id: 'automation' as const, label: 'Scheduler', icon: Play },
     { id: 'data' as const, label: 'Store Data', icon: HardDrive },
     { id: 'about' as const, label: 'About & Credits', icon: Info },
     { id: 'legal' as const, label: 'Legal & Terms', icon: FileText },
@@ -3539,8 +3547,24 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
             {activeSection === 'platforms' && (
               <div className="min-h-[400px]">
 
-                {/* ── CHANNEL LIST (index) ───────────────────────────────────── */}
+                {/* ── Tab bar: Platforms | Scheduler ─────────────────────────── */}
                 {activePlatform === null && (
+                  <div className="flex border-b border-gray-700 mb-4">
+                    {(['platforms', 'scheduler'] as const).map(tab => (
+                      <button
+                        key={tab}
+                        onClick={() => setActivePlatformInnerTab(tab)}
+                        className={`flex-1 py-2.5 text-xs font-semibold transition-colors border-b-2 -mb-px ${activePlatformInnerTab === tab ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
+                        data-testid={`tab-platform-services-${tab}`}
+                      >
+                        {tab === 'platforms' ? 'Platforms' : 'Scheduler'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* ── CHANNEL LIST (index) ───────────────────────────────────── */}
+                {activePlatform === null && activePlatformInnerTab === 'platforms' && (
                   <nav className="p-2">
 
                     {/* Core Integrations */}
@@ -4095,9 +4119,9 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
               </div>
             )}
 
-            {/* Automation & Scheduling */}
-            {activeSection === 'automation' && (
-              <div className="space-y-4 min-h-[400px]">
+                {/* ── SCHEDULER TAB CONTENT (inside platforms) — rendered separately ── */}
+                {activeSection === 'platforms' && activePlatform === null && activePlatformInnerTab === 'scheduler' && (
+              <div className="space-y-4">
                 <div className="space-y-4">
                   <div>
                     <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
@@ -4519,7 +4543,6 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                 </div>
               </div>
             )}
-
 
             {activeSection === 'priceomatic' && (
               <div className="space-y-4 min-h-[400px]">
