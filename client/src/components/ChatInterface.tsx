@@ -845,13 +845,27 @@ function StreamingMessage({ message, onItemClick, onBrickLinkSearch, onPromptCli
         return;
       }
       const currentLine = lines[idx - 1] || '';
-      const wordCount = currentLine.trim().split(/\s+/).filter(Boolean).length;
-      const charCount = currentLine.trim().length;
-      const delay = wordCount === 0 ? 200 : Math.max(400, Math.min(charCount * 18, 2000));
+      const trimmed = currentLine.trim();
+      const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+      const isShortMessage = lines.length <= 8;
+      const isPromptLine = /\*\*PROMPT:\*\*/.test(trimmed);
+      const isHeader = /^#{1,3}\s/.test(trimmed);
+      let delay: number;
+      if (isPromptLine) {
+        delay = 150;
+      } else if (wordCount === 0) {
+        delay = 120;
+      } else if (isHeader) {
+        delay = 300;
+      } else if (isShortMessage) {
+        delay = Math.max(180, Math.min(wordCount * 30, 600));
+      } else {
+        delay = Math.max(300, Math.min(wordCount * 40, 1200));
+      }
       setTimeout(revealNext, delay);
     };
 
-    setTimeout(revealNext, 250);
+    setTimeout(revealNext, 200);
     return () => { cancelled = true; };
   }, [message.content, message.streaming]);
 
@@ -989,7 +1003,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     if (!isStreaming || isInputFocused || isMinimized) return;
     const interval = setInterval(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 200);
+    }, 800);
     return () => clearInterval(interval);
   }, [messages, isInputFocused, isMinimized]);
 
