@@ -4227,12 +4227,18 @@ PLATFORM-LEVEL (shared catalog for all orgs):
 HEADLINE BRIEFING FORMAT — When the user asks for "latest headlines", "what's new", or a market briefing:
 1. Call search_market_news (broad query like "LEGO") AND search_forum_discussions (broad query like "market") to gather everything.
 2. Group results by THEME — not by source. Themes might be: "Retirement Watch", "Pricing & Market Shifts", "New Releases", "Community Buzz", "Investing & Collectibles", etc. Choose themes that fit the actual results.
-3. Each theme gets a ### header, then a 1-sentence description of WHY this theme matters to a LEGO reseller.
-4. Under each theme, list articles/posts as simple title-only bullets: - **Title here**
-5. Do NOT include snippets, URLs, or source names in the bullet — just the title.
-6. End with 2-3 PROMPT suggestions to drill into specific themes.
+3. ALWAYS include an "Impact on Your Inventory" theme as the FIRST group. For this theme, look at the news/forum results and identify any mentions of specific parts, sets, colors, or categories that might overlap with the org's inventory. Call search_local_inventory or get_inventory_stats to cross-reference. If a retiring set contains parts the org stocks, or if a price trend affects items in inventory, highlight those connections. If no direct inventory impact is found, say so briefly.
+4. Each theme gets a ### header, then a 1-sentence description of WHY this theme matters to a LEGO reseller.
+5. Under each theme, list articles/posts as simple title-only bullets: - **Title here**
+6. Do NOT include snippets, URLs, or source names in the bullet — just the title.
+7. End with 2-3 PROMPT suggestions to drill into specific themes.
 
 Example:
+### Impact on Your Inventory
+Two retiring sets contain parts you currently stock — potential price increases ahead.
+- **You have 340 units of 3024 (Plate 1x1) found in retiring set 10294**
+- **Dark Bluish Gray plates trending up — you hold 1,200+ pieces**
+
 ### Retirement Watch
 Sets nearing end-of-life can spike in aftermarket value — time to stock up before they're gone.
 - **LEGO Icons Colosseum retiring in Q3 2026**
@@ -4243,7 +4249,7 @@ What sellers and collectors are talking about on BrickLink forums this week.
 - **Has anyone noticed 10300 prices climbing?**
 - **Best strategy for bulk part sourcing in 2026**
 
-**PROMPT:** "Tell me more about the retiring sets"
+**PROMPT:** "Tell me more about the retiring sets and my inventory"
 **PROMPT:** "What are the pricing trends this week?"
 
 If the user asks multiple things in one message (e.g., "do we have 3024 and who ordered it"), call the appropriate tools in parallel — one for each question.
@@ -4270,6 +4276,7 @@ Format search_web URLs as markdown links.`;
       
       let ordersFromAgentTools: any[] = [];
       let forumDiscussionsFromAgentTools: any[] = [];
+      let marketNewsFromAgentTools: any[] = [];
       
       try {
         const agentResult = await runAgentLoop({
@@ -4281,6 +4288,7 @@ Format search_web URLs as markdown links.`;
         bricklinkCatalogItem = agentResult.bricklinkItem;
         ordersFromAgentTools = agentResult.ordersFromTool || [];
         forumDiscussionsFromAgentTools = agentResult.forumDiscussionsFromTool || [];
+        marketNewsFromAgentTools = agentResult.marketNewsFromTool || [];
       } catch (agentError: any) {
         // Agent loop failed - return user-friendly error message instead of 500
         console.error('❌ Agent loop error:', agentError);
@@ -4334,8 +4342,9 @@ Format search_web URLs as markdown links.`;
         message: assistantMessage,
         items: [],
         orders: ordersFromAgentTools, // Orders from AI agent tools only
-        forumDiscussions: forumDiscussionsFromAgentTools, // Return forum discussions for frontend display
-        sessionId, // Return session ID for client to use
+        forumDiscussions: forumDiscussionsFromAgentTools,
+        marketNewsArticles: marketNewsFromAgentTools,
+        sessionId,
         bricklinkSearchSuggestion, // Return suggestion if item not found (frontend will render as button)
         bricklinkItem: bricklinkCatalogItem, // Return BrickLink catalog item if found (frontend will auto-open drawer)
       });

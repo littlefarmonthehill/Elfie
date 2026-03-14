@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { InventoryGroup } from "@/components/InventoryGroup";
 import { OrderGroup } from "@/components/OrderGroup";
 import { ForumDiscussionsGroup } from "@/components/ForumDiscussionsGroup";
+import { MarketNewsGroup } from "@/components/MarketNewsGroup";
 import { useToast } from "@/hooks/use-toast";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
@@ -43,6 +44,16 @@ interface ChatMessage {
     postUrl: string;
     threadUrl: string;
     hasReplies: boolean;
+    relevance: string;
+  }>;
+  marketNewsArticles?: Array<{
+    id: number;
+    title: string;
+    snippet: string;
+    url: string;
+    source: string;
+    topic: string;
+    fetchedAt: string;
     relevance: string;
   }>;
   bricklinkSearchSuggestion?: {
@@ -87,6 +98,16 @@ interface MessageContentProps {
     hasReplies: boolean;
     relevance: string;
   }>;
+  marketNewsArticles?: Array<{
+    id: number;
+    title: string;
+    snippet: string;
+    url: string;
+    source: string;
+    topic: string;
+    fetchedAt: string;
+    relevance: string;
+  }>;
   bricklinkSearchSuggestion?: {
     itemNo: string;
     itemType: string;
@@ -96,7 +117,7 @@ interface MessageContentProps {
   onPromptClick?: (prompt: string) => void;
 }
 
-function MessageContent({ content, imageUrl, items, orders, forumDiscussions, bricklinkSearchSuggestion, onItemClick, onBrickLinkSearch, onPromptClick }: MessageContentProps) {
+function MessageContent({ content, imageUrl, items, orders, forumDiscussions, marketNewsArticles, bricklinkSearchSuggestion, onItemClick, onBrickLinkSearch, onPromptClick }: MessageContentProps) {
 
   // Parse markdown bullet points and create clickable elements
   const parseContent = (text: string) => {
@@ -541,6 +562,12 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
           discussions={forumDiscussions}
         />
       )}
+
+      {marketNewsArticles && marketNewsArticles.length > 0 && (
+        <MarketNewsGroup
+          articles={marketNewsArticles}
+        />
+      )}
       
       {/* Show BrickLink search button if suggestion is present */}
       {bricklinkSearchSuggestion && onBrickLinkSearch && (
@@ -726,6 +753,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         items: data.items || [],
         orders: data.orders || [],
         forumDiscussions: data.forumDiscussions || [],
+        marketNewsArticles: data.marketNewsArticles || [],
         bricklinkSearchSuggestion: data.bricklinkSearchSuggestion || null,
         imageUrl: data.bricklinkItem?.imageUrl || data.bricklinkItem?.thumbnailUrl || undefined,
       };
@@ -1014,6 +1042,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                         items={message.items}
                         orders={message.orders}
                         forumDiscussions={message.forumDiscussions}
+                        marketNewsArticles={message.marketNewsArticles}
                         bricklinkSearchSuggestion={message.bricklinkSearchSuggestion}
                         onItemClick={onItemClick}
                         onBrickLinkSearch={handleBrickLinkSearch}

@@ -21,6 +21,7 @@ interface AgentLoopResult {
   bricklinkItem?: any;
   ordersFromTool?: any[];
   forumDiscussionsFromTool?: any[];
+  marketNewsFromTool?: any[];
 }
 
 async function getOpenAIClient(): Promise<OpenAI> {
@@ -55,6 +56,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
   let bricklinkCatalogItem: any = null;
   let ordersFromTool: any[] = [];
   let forumDiscussionsFromTool: any[] = [];
+  let marketNewsFromTool: any[] = [];
 
   while (iterations < maxIterations) {
     iterations++;
@@ -106,6 +108,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
         bricklinkItem: bricklinkCatalogItem,
         ordersFromTool: ordersFromTool.length > 0 ? ordersFromTool : undefined,
         forumDiscussionsFromTool: forumDiscussionsFromTool.length > 0 ? forumDiscussionsFromTool : undefined,
+        marketNewsFromTool: marketNewsFromTool.length > 0 ? marketNewsFromTool : undefined,
       };
     }
 
@@ -172,6 +175,11 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
           console.log(`💬 Found ${toolResult.data.length} forum discussion(s)`);
         }
 
+        if (toolName === 'search_market_news' && toolResult.success && toolResult.data?.length > 0) {
+          marketNewsFromTool.push(...toolResult.data);
+          console.log(`📰 Found ${toolResult.data.length} market news article(s)`);
+        }
+
         conversationMessages.push({
           role: 'tool',
           tool_call_id: toolCall.id,
@@ -188,6 +196,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
       bricklinkItem: bricklinkCatalogItem,
       ordersFromTool: ordersFromTool.length > 0 ? ordersFromTool : undefined,
       forumDiscussionsFromTool: forumDiscussionsFromTool.length > 0 ? forumDiscussionsFromTool : undefined,
+      marketNewsFromTool: marketNewsFromTool.length > 0 ? marketNewsFromTool : undefined,
     };
   }
 
@@ -198,5 +207,6 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
     bricklinkItem: bricklinkCatalogItem,
     ordersFromTool: ordersFromTool.length > 0 ? ordersFromTool : undefined,
     forumDiscussionsFromTool: forumDiscussionsFromTool.length > 0 ? forumDiscussionsFromTool : undefined,
+    marketNewsFromTool: marketNewsFromTool.length > 0 ? marketNewsFromTool : undefined,
   };
 }
