@@ -8,7 +8,7 @@ import { blInventory, blColors, blCategories, blCatalog, orders, orderDetails, s
 import { eq, like, or, sql, and, desc, inArray } from 'drizzle-orm';
 
 import { searchBricklinkCatalogItem, fetchPriceOMagicData } from './bricklink';
-import { generateEmbedding, createInventoryContent } from './embeddings';
+import { generateEmbedding, createInventoryContent, searchInventorySemantic } from './embeddings';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 
@@ -127,7 +127,7 @@ export async function searchLocalInventory(params: {
     minQuantity,
     minPrice,
     maxPrice,
-    limit = itemNo ? 500 : 50,
+    limit = itemNo ? 100 : 50,
   } = params;
   
   try {
@@ -196,7 +196,56 @@ export async function searchLocalInventory(params: {
       queryBuilder = queryBuilder.where(and(...conditions)) as any;
     }
     
+    queryBuilder = queryBuilder.orderBy(sql`${blInventory.quantity} DESC, ${blInventory.unitPrice} ASC`) as any;
+    
     const results = await queryBuilder.limit(limit);
+    
+    if (itemNo && results.length > 30) {
+      const colorSummary = new Map<string, { qty: number; minPrice: number; maxPrice: number; conditions: Set<string>; count: number }>();
+      for (const r of results) {
+        const key = r.colorName || 'Unknown';
+        const existing = colorSummary.get(key);
+        const price = parseFloat(r.unitPrice || '0');
+        const qty = Number(r.quantity) || 0;
+        if (existing) {
+          existing.qty += qty;
+          existing.count++;
+          existing.minPrice = Math.min(existing.minPrice, price);
+          existing.maxPrice = Math.max(existing.maxPrice, price);
+          if (r.newOrUsed) existing.conditions.add(r.newOrUsed === 'N' ? 'New' : 'Used');
+        } else {
+          colorSummary.set(key, {
+            qty,
+            minPrice: price,
+            maxPrice: price,
+            conditions: new Set(r.newOrUsed ? [r.newOrUsed === 'N' ? 'New' : 'Used'] : []),
+            count: 1,
+          });
+        }
+      }
+
+      const summary = Array.from(colorSummary.entries())
+        .sort((a, b) => b[1].qty - a[1].qty)
+        .map(([color, d]) => ({
+          color,
+          totalQuantity: d.qty,
+          lots: d.count,
+          priceRange: d.minPrice === d.maxPrice ? `$${d.minPrice.toFixed(2)}` : `$${d.minPrice.toFixed(2)}-$${d.maxPrice.toFixed(2)}`,
+          conditions: Array.from(d.conditions).join('/'),
+        }));
+
+      const totalQty = results.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
+      const itemName = results[0]?.itemName || 'Unknown';
+
+      return {
+        success: true,
+        itemName,
+        totalLots: results.length,
+        totalQuantity: totalQty,
+        uniqueColors: colorSummary.size,
+        byColor: summary,
+      };
+    }
     
     return {
       success: true,
@@ -1581,6 +1630,61 @@ export async function searchForumDiscussions(params: {
 }
 
 /**
+ * Tool: Semantic search for inventory items using embeddings
+ */
+export async function semanticSearchInventory(params: {
+  query: string;
+  limit?: number;
+}) {
+  const { query, limit = 15 } = params;
+
+  if (!query || query.trim().length === 0) {
+    return {
+      success: false,
+      message: 'Search query is required for semantic search.',
+    };
+  }
+
+  try {
+    const results = await searchInventorySemantic(query.trim(), limit);
+
+    if (!results || (results as any[]).length === 0) {
+      return {
+        success: true,
+        data: [],
+        count: 0,
+        message: `No inventory items found matching "${query}". Try different search terms.`,
+      };
+    }
+
+    const items = (results as any[]).map(row => ({
+      itemNo: row.item_no,
+      itemName: row.item_name || row.content,
+      itemType: row.item_type,
+      colorName: row.color_name,
+      categoryName: row.category_name,
+      quantity: Number(row.quantity) || 0,
+      unitPrice: row.unit_price,
+      newOrUsed: row.new_or_used === 'N' ? 'New' : 'Used',
+      similarity: parseFloat(row.similarity || '0').toFixed(3),
+    }));
+
+    return {
+      success: true,
+      data: items,
+      count: items.length,
+      message: `Found ${items.length} items matching "${query}" by meaning`,
+    };
+  } catch (error: any) {
+    console.error('Error in semantic inventory search:', error);
+    return {
+      success: false,
+      message: error.message || 'Failed to perform semantic search',
+    };
+  }
+}
+
+/**
  * Tool definitions for OpenRouter function calling
  */
 export const AI_TOOLS = [
@@ -1645,7 +1749,7 @@ export const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'search_local_inventory',
-      description: 'Search the local inventory database with advanced filtering. Use this to find items in stock. IMPORTANT: Do NOT pass a limit parameter - the server automatically returns all matching results (up to 500 for part number searches). You must always show ALL colors/conditions returned, never truncate or omit any.',
+      description: 'Search the local inventory by exact part number, color, category, or text query. Best for structured lookups. For natural language queries like "red castle pieces" or "spaceship parts", prefer semantic_search instead.',
       parameters: {
         type: 'object',
         properties: {
@@ -2039,6 +2143,27 @@ export const AI_TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'semantic_search',
+      description: 'Search inventory by meaning using AI embeddings. Use this for natural language queries like "red castle bricks", "spaceship windshields", "small transparent pieces", or any descriptive search where the user describes what they want rather than giving a part number. Returns the most semantically similar items from inventory.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'Natural language description of what to find (e.g., "large gray castle wall pieces", "transparent colored slope bricks")',
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum results to return (default: 15)',
+          },
+        },
+        required: ['query'],
+      },
+    },
+  },
 ];
 
 /**
@@ -2101,6 +2226,9 @@ export async function executeToolCall(toolName: string, params: any): Promise<an
     
     case 'search_forum_discussions':
       return await searchForumDiscussions(params);
+    
+    case 'semantic_search':
+      return await semanticSearchInventory(params);
     
     default:
       return {

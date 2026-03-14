@@ -69,6 +69,7 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
         messages: conversationMessages,
         tools: AI_TOOLS.map(t => ({ type: 'function' as const, function: t.function })),
         tool_choice: 'auto',
+        parallel_tool_calls: true,
       });
       console.log(`⏱️ OpenAI API call took ${Date.now() - iterStart}ms (iteration ${iterations})`);
       if (response.usage) {
@@ -109,9 +110,9 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
     }
 
     if (assistantMessage.tool_calls && assistantMessage.tool_calls.length > 0) {
-      console.log(`🔧 Assistant wants to call ${assistantMessage.tool_calls.length} tool(s)`);
+      console.log(`🔧 Assistant wants to call ${assistantMessage.tool_calls.length} tool(s) in parallel`);
 
-      for (const toolCall of assistantMessage.tool_calls) {
+      const toolPromises = assistantMessage.tool_calls.map(async (toolCall) => {
         const toolName = toolCall.function.name;
         let toolParams: any;
         try {
@@ -136,13 +137,19 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
 
         console.log(`⏱️ Tool ${toolName} took ${Date.now() - toolStart}ms`);
 
+        return { toolCall, toolName, toolResult };
+      });
+
+      const toolResults = await Promise.all(toolPromises);
+
+      for (const { toolCall, toolName, toolResult } of toolResults) {
         if (toolName === 'search_bricklink_catalog' && toolResult.success && toolResult.data) {
           bricklinkCatalogItem = toolResult.data;
         }
 
         if (toolName === 'search_orders_by_item' && toolResult.success && toolResult.data?.length > 0) {
           const orderSummaries = toolResult.data.reduce((acc: any[], orderDetail: any) => {
-            const existing = acc.find((o) => o.id === orderDetail.orderId);
+            const existing = acc.find((o: any) => o.id === orderDetail.orderId);
             if (!existing) {
               acc.push({
                 id: orderDetail.orderId,

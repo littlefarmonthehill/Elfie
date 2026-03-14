@@ -4140,11 +4140,14 @@ Use these tools freely and chain them together. Pull data first, then synthesize
 **Market Intelligence**
 - search_web — current LEGO market trends, AFOL community activity, competitor intel, news
 
-**Memory & Semantic Search**
-- search_forum_discussions — BrickLink forum context on parts or topics
-- semantic_search — find inventory by meaning, not just keywords
+**Semantic & Community Search**
+- semantic_search — find inventory items by meaning/description, not just part numbers. Use for natural language queries ("red castle bricks", "transparent windshields"). Powered by AI embeddings across 30k+ items.
+- search_forum_discussions — BrickLink forum community context on parts or topics
 
-For strategic questions, chain tools when it makes sense — check throughput, pull price guide, search market trends. Don't stop at one tool when the question deserves more depth.
+**Tool Selection:**
+- When the user gives a part number → search_local_inventory (exact match)
+- When the user describes what they want → semantic_search (meaning-based)
+- For strategic questions, chain tools — check throughput, pull price guide, search market trends. Don't stop at one tool when the question deserves more depth.
 
 When search_web is relevant, use it. Format URLs as markdown links.`;
 
