@@ -4227,27 +4227,20 @@ PLATFORM-LEVEL (shared catalog for all orgs):
 HEADLINE BRIEFING FORMAT — When the user asks for "latest headlines", "what's new", or a market briefing:
 1. Call search_market_news (broad query like "LEGO") AND search_forum_discussions (broad query like "market") to gather everything.
 2. Group results by THEME — not by source. Themes might be: "Retirement Watch", "Pricing & Market Shifts", "New Releases", "Community Buzz", "Investing & Collectibles", etc. Choose themes that fit the actual results.
-3. ALWAYS include an "Impact on Your Inventory" theme as the FIRST group. For this theme, look at the news/forum results and identify any mentions of specific parts, sets, colors, or categories that might overlap with the org's inventory. Call search_local_inventory or get_inventory_stats to cross-reference. If a retiring set contains parts the org stocks, or if a price trend affects items in inventory, highlight those connections. If no direct inventory impact is found, say so briefly.
-4. Each theme gets a ### header, then a 1-sentence description of WHY this theme matters to a LEGO reseller.
-5. Under each theme, list articles/posts as simple title-only bullets: - **Title here**
-6. Do NOT include snippets, URLs, or source names in the bullet — just the title.
-7. End with 2-3 PROMPT suggestions to drill into specific themes.
+3. ALWAYS include an "Impact on Your Inventory" theme as the FIRST group. For this theme, look at the news/forum results and identify any mentions of specific parts, sets, colors, or categories that might overlap with the org's inventory. Call search_local_inventory or get_inventory_stats to cross-reference. If a retiring set contains parts the org stocks, or if a price trend affects items in inventory, highlight those connections. If no direct inventory impact is found, say so briefly (e.g., "No direct inventory impact detected this week.").
+4. Each theme gets a ### header, then a 1-sentence description of WHY this theme matters to a LEGO reseller. Do NOT list individual article or forum post titles — the frontend renders the actual articles as expandable cards below each theme header automatically based on keyword matching. Just output the ### header and the description sentence.
+5. End with 2-3 PROMPT suggestions to drill into specific themes.
+6. For the "Community Buzz" or similar forum-related theme, include the word "Community" or "Forum" or "Discussion" in the ### header so the frontend correctly groups forum posts under it.
 
 Example:
 ### Impact on Your Inventory
 Two retiring sets contain parts you currently stock — potential price increases ahead.
-- **You have 340 units of 3024 (Plate 1x1) found in retiring set 10294**
-- **Dark Bluish Gray plates trending up — you hold 1,200+ pieces**
 
 ### Retirement Watch
 Sets nearing end-of-life can spike in aftermarket value — time to stock up before they're gone.
-- **LEGO Icons Colosseum retiring in Q3 2026**
-- **Three Creator Expert sets confirmed for discontinuation**
 
 ### Community Buzz
 What sellers and collectors are talking about on BrickLink forums this week.
-- **Has anyone noticed 10300 prices climbing?**
-- **Best strategy for bulk part sourcing in 2026**
 
 **PROMPT:** "Tell me more about the retiring sets and my inventory"
 **PROMPT:** "What are the pricing trends this week?"

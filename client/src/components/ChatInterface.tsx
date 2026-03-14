@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Camera, Sparkles, Brain } from "lucide-react";
+import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Camera, Sparkles, Brain, ChevronDown, ChevronRight, Globe, Clock, Newspaper, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InventoryGroup } from "@/components/InventoryGroup";
@@ -8,6 +8,112 @@ import { ForumDiscussionsGroup } from "@/components/ForumDiscussionsGroup";
 import { MarketNewsGroup } from "@/components/MarketNewsGroup";
 import { useToast } from "@/hooks/use-toast";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
+
+function InlineNewsCard({ title, snippet, url, source, type, dateStr, username, replyCount }: {
+  title: string;
+  snippet?: string;
+  url: string;
+  source?: string;
+  type: 'news' | 'forum';
+  dateStr?: string;
+  username?: string;
+  replyCount?: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const getDomain = (u: string) => {
+    try { return new URL(u).hostname.replace('www.', ''); } catch { return ''; }
+  };
+
+  return (
+    <div className="rounded-md bg-purple-900/10 border border-purple-500/10 mb-1 overflow-hidden" data-testid={`inline-card-${type}`}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-start gap-2 py-2 px-3 text-left"
+        data-testid={`button-expand-${type}-card`}
+      >
+        <div className="flex-shrink-0 mt-0.5">
+          {expanded
+            ? <ChevronDown className="h-3.5 w-3.5 text-purple-400" />
+            : <ChevronRight className="h-3.5 w-3.5 text-purple-400" />
+          }
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-medium text-gray-200 line-clamp-2">{title}</span>
+          <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500">
+            {type === 'news' && source && (
+              <span className="flex items-center gap-1"><Globe className="h-2.5 w-2.5" />{source || getDomain(url)}</span>
+            )}
+            {type === 'forum' && username && (
+              <span className="flex items-center gap-1"><MessageSquare className="h-2.5 w-2.5" />{username}</span>
+            )}
+            {replyCount !== undefined && replyCount > 0 && (
+              <span>{replyCount} {replyCount === 1 ? 'reply' : 'replies'}</span>
+            )}
+          </div>
+        </div>
+      </button>
+      {expanded && (
+        <div className="px-3 pb-2.5 pl-8 space-y-2">
+          {snippet && <p className="text-xs text-gray-400 leading-relaxed">{snippet}</p>}
+          <button
+            onClick={(e) => { e.stopPropagation(); window.open(url, '_blank', 'noopener,noreferrer'); }}
+            className="inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300"
+            data-testid={`button-open-${type}-link`}
+          >
+            <ExternalLink className="h-3 w-3" />
+            {type === 'news' ? 'Read Article' : 'View Thread'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface DedupedForum {
+  id: string;
+  threadId: string;
+  title: string;
+  excerpt: string | null;
+  username: string;
+  threadUrl: string;
+  replyCount: number;
+  relevance: string;
+}
+
+function deduplicateForums(forums: Array<{
+  id: string; threadId: string; title: string; excerpt: string | null;
+  username: string; userFeedbackRating: number; postedAt: string;
+  postUrl: string; threadUrl: string; hasReplies: boolean; relevance: string;
+}>): DedupedForum[] {
+  if (!forums || forums.length === 0) return [];
+  const byThread = new Map<string, typeof forums>();
+  forums.forEach(f => {
+    const key = f.threadId;
+    if (!byThread.has(key)) byThread.set(key, []);
+    byThread.get(key)!.push(f);
+  });
+  return Array.from(byThread.values()).map(group => {
+    const original = group.find(p => !p.title.startsWith('Re:') && !p.title.startsWith('RE:')) || group[0];
+    return {
+      id: original.id,
+      threadId: original.threadId,
+      title: original.title.replace(/^Re:\s*/i, '').trim(),
+      excerpt: original.excerpt,
+      username: original.username,
+      threadUrl: original.threadUrl,
+      replyCount: group.length - 1,
+      relevance: original.relevance,
+    };
+  });
+}
+
+function themeMatchScore(theme: string, text: string): number {
+  const tl = theme.toLowerCase();
+  const tgt = text.toLowerCase();
+  const keywords = tl.split(/[\s&,]+/).filter(w => w.length > 3);
+  return keywords.filter(w => tgt.includes(w)).length;
+}
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -119,12 +225,44 @@ interface MessageContentProps {
 
 function MessageContent({ content, imageUrl, items, orders, forumDiscussions, marketNewsArticles, bricklinkSearchSuggestion, onItemClick, onBrickLinkSearch, onPromptClick }: MessageContentProps) {
 
+  const dedupedForums = deduplicateForums(forumDiscussions || []);
+  const allNewsCards = marketNewsArticles || [];
+  const matchedNewsIds = new Set<number>();
+  const matchedForumIds = new Set<string>();
+  let currentThemeText = '';
+  let themedCardsInjected = false;
+
+  const flushThemeCards = (elements: JSX.Element[], keyRef: { value: number }) => {
+    if (!currentThemeText) return;
+    const isForumTheme = /community|forum|discussion|chatter|buzz|thread/i.test(currentThemeText);
+
+    const matchingNews = allNewsCards.filter(a => !matchedNewsIds.has(a.id) && themeMatchScore(currentThemeText, `${a.title} ${a.topic || ''}`) > 0);
+    matchingNews.forEach(a => {
+      matchedNewsIds.add(a.id);
+      themedCardsInjected = true;
+      elements.push(
+        <InlineNewsCard key={`tnews-${keyRef.value++}`} type="news" title={a.title} snippet={a.snippet} url={a.url} source={a.source} />
+      );
+    });
+
+    if (isForumTheme) {
+      dedupedForums.filter(f => !matchedForumIds.has(f.id)).forEach(f => {
+        matchedForumIds.add(f.id);
+        themedCardsInjected = true;
+        elements.push(
+          <InlineNewsCard key={`tforum-${keyRef.value++}`} type="forum" title={f.title} snippet={f.excerpt || undefined} url={f.threadUrl} username={f.username} replyCount={f.replyCount} />
+        );
+      });
+    }
+  };
+
   // Parse markdown bullet points and create clickable elements
   const parseContent = (text: string) => {
     const lines = text.split('\n');
     const elements: JSX.Element[] = [];
     let currentParagraph: string[] = [];
     let key = 0;
+    const keyRef = { value: 0 };
 
     const flushParagraph = () => {
       if (currentParagraph.length > 0) {
@@ -447,7 +585,9 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
       
       if (/^#{1,3}\s/.test(trimmed)) {
         flushParagraph();
+        flushThemeCards(elements, keyRef);
         const headerText = trimmed.replace(/^#{1,3}\s+/, '');
+        currentThemeText = headerText;
         elements.push(
           <div key={`header-${key++}`} className="text-xs font-semibold text-purple-300 uppercase tracking-wider mt-3 mb-1.5 border-b border-purple-500/20 pb-1">
             {parseInlineContent(headerText)}
@@ -512,6 +652,29 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
 
     flushStats();
     flushParagraph();
+    flushThemeCards(elements, keyRef);
+
+    const unmatchedNews = allNewsCards.filter(a => !matchedNewsIds.has(a.id));
+    const unmatchedForums = dedupedForums.filter(f => !matchedForumIds.has(f.id));
+    if (unmatchedNews.length > 0 || unmatchedForums.length > 0) {
+      if (themedCardsInjected) {
+        elements.push(
+          <div key={`header-other-${key++}`} className="text-xs font-semibold text-purple-300 uppercase tracking-wider mt-3 mb-1.5 border-b border-purple-500/20 pb-1">
+            Other News
+          </div>
+        );
+      }
+      unmatchedNews.forEach(a => {
+        elements.push(
+          <InlineNewsCard key={`unews-${keyRef.value++}`} type="news" title={a.title} snippet={a.snippet} url={a.url} source={a.source} />
+        );
+      });
+      unmatchedForums.forEach(f => {
+        elements.push(
+          <InlineNewsCard key={`uforum-${keyRef.value++}`} type="forum" title={f.title} snippet={f.excerpt || undefined} url={f.threadUrl} username={f.username} replyCount={f.replyCount} />
+        );
+      });
+    }
 
     return elements;
   };
@@ -556,14 +719,13 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
         />
       )}
       
-      {/* Show forum discussions if available */}
-      {forumDiscussions && forumDiscussions.length > 0 && (
+      {!themedCardsInjected && forumDiscussions && forumDiscussions.length > 0 && (
         <ForumDiscussionsGroup
           discussions={forumDiscussions}
         />
       )}
 
-      {marketNewsArticles && marketNewsArticles.length > 0 && (
+      {!themedCardsInjected && marketNewsArticles && marketNewsArticles.length > 0 && (
         <MarketNewsGroup
           articles={marketNewsArticles}
         />
