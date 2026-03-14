@@ -7199,8 +7199,8 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
       // Hydrate any results missing pricing fields from the price guide cache
       // Backfills stock AND sold prices so the heatmap always shows full catalog info
       let results = scan.results as any[] | null;
+      const hasEmpty = (v: any) => v === undefined || v === null || v === 0;
       if (Array.isArray(results)) {
-        const hasEmpty = (v: any) => v === undefined || v === null || v === 0;
         const needsHydration = results.filter(r =>
           r.partNo && (
             hasEmpty(r.stockAvgPriceN) || hasEmpty(r.stockAvgPriceU) ||
@@ -7254,6 +7254,37 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
             if (empty(r.marketSoldAvgUsed)) updated.marketSoldAvgUsed = soldAvgMap.get(keyU) ?? r.marketSoldAvgUsed ?? null;
             return updated;
           });
+        }
+      }
+
+      // After cache hydration, check for results STILL missing prices.
+      // Kick off background live BL API fetches so next load has data.
+      if (Array.isArray(results)) {
+        const stillMissing = results.filter((r: any) =>
+          r.partNo && (
+            hasEmpty(r.marketSoldMaxNew) && hasEmpty(r.marketSoldMaxUsed) &&
+            hasEmpty(r.marketSoldAvgNew) && hasEmpty(r.marketSoldAvgUsed) &&
+            hasEmpty(r.stockAvgPriceN) && hasEmpty(r.stockAvgPriceU) &&
+            hasEmpty(r.stockMaxPriceN) && hasEmpty(r.stockMaxPriceU)
+          )
+        );
+        if (stillMissing.length > 0) {
+          const orgId = (req as any).orgId || 'platform';
+          const counter = { count: 0 };
+          (async () => {
+            for (const r of stillMissing) {
+              try {
+                const blType = r.itemType === 'MINIFIG' ? 'MINIFIG' : 'PART';
+                const cid = blType === 'PART' ? (r.colorId ?? undefined) : undefined;
+                console.log(`[Brickanalyzer Hydrate] Background fetch for ${r.partNo} color=${r.colorId ?? 'any'} type=${blType}`);
+                await fetchPriceOMagicData(r.partNo, blType as any, cid, 'N', undefined, undefined, false, undefined, counter, orgId, true);
+                await fetchPriceOMagicData(r.partNo, blType as any, cid, 'U', undefined, undefined, false, undefined, counter, orgId, true);
+              } catch (e: any) {
+                console.warn(`[Brickanalyzer Hydrate] Failed for ${r.partNo}:`, e.message);
+              }
+            }
+            console.log(`[Brickanalyzer Hydrate] Background fetch done: ${stillMissing.length} items, ${counter.count} API calls`);
+          })().catch(() => {});
         }
       }
 
