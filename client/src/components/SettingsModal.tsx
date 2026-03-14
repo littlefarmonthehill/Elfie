@@ -2254,18 +2254,27 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
             <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">
               {activeSection === null && (
                 <nav className="p-2">
-                  {/* Company Settings accordion header */}
-                  <button
-                    onClick={() => setOpenGroup('company')}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-xs font-semibold uppercase tracking-widest text-gray-200 hover:text-white hover:bg-gray-700/30 transition-colors"
-                    data-testid="button-company-settings-toggle"
-                  >
-                    <span className="flex-1 text-left">Company Settings</span>
-                    {openGroup === 'company'
-                      ? <ChevronDown className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
-                      : <ChevronRight className="h-3.5 w-3.5 text-gray-600 flex-shrink-0" />
-                    }
-                  </button>
+                  {superAdmin && (
+                    <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1 mx-2 mb-2">
+                      <button
+                        onClick={() => setOpenGroup('company')}
+                        className={`flex items-center gap-1.5 flex-1 justify-center px-3 py-2 rounded text-xs font-semibold transition-colors ${openGroup === 'company' ? 'bg-gray-700 text-gray-100' : 'text-gray-500 hover:text-gray-300'}`}
+                        data-testid="button-company-settings-toggle"
+                      >
+                        <Building2 className="h-3.5 w-3.5 shrink-0" />
+                        Company
+                      </button>
+                      <button
+                        onClick={() => setOpenGroup('platform')}
+                        className={`flex items-center gap-1.5 flex-1 justify-center px-3 py-2 rounded text-xs font-semibold transition-colors ${openGroup === 'platform' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 'text-gray-500 hover:text-gray-300'}`}
+                        data-testid="button-platform-admin-toggle"
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                        Platform
+                      </button>
+                    </div>
+                  )}
+
                   {openGroup === 'company' && navigationItems.map((item) => (
                     <button
                       key={item.id}
@@ -2279,41 +2288,23 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                     </button>
                   ))}
 
-                  {/* Platform Admin accordion — super admin only */}
-                  {superAdmin && (
-                    <>
-                      <div className="my-1.5 mx-4 border-t border-yellow-500/20" />
-                      <button
-                        onClick={() => setOpenGroup('platform')}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-xs font-semibold uppercase tracking-widest text-yellow-500/80 hover:text-yellow-400 hover:bg-yellow-500/10 transition-colors"
-                        data-testid="button-platform-admin-toggle"
-                      >
-                        <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0" />
-                        <span className="flex-1 text-left">Platform Admin</span>
-                        {openGroup === 'platform'
-                          ? <ChevronDown className="h-3.5 w-3.5 text-yellow-600 flex-shrink-0" />
-                          : <ChevronRight className="h-3.5 w-3.5 text-yellow-700 flex-shrink-0" />
-                        }
-                      </button>
-                      {openGroup === 'platform' && platformAdminGroups.map((group) => (
-                        <div key={group.label}>
-                          <p className="px-4 pt-2 pb-1 text-[9px] uppercase tracking-widest text-yellow-500 font-semibold">{group.label}</p>
-                          {group.items.map((item) => (
-                            <button
-                              key={item.id}
-                              onClick={() => setActiveSection(item.id)}
-                              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-sm text-yellow-200 hover:text-yellow-100 hover:bg-yellow-500/10 transition-colors group"
-                              data-testid={`nav-${item.id}`}
-                            >
-                              <item.icon className="h-4 w-4 text-yellow-400 flex-shrink-0 group-hover:text-yellow-300 transition-colors" />
-                              <span className="flex-1 text-left">{item.label}</span>
-                              <ChevronRight className="h-4 w-4 text-yellow-600 flex-shrink-0" />
-                            </button>
-                          ))}
-                        </div>
+                  {openGroup === 'platform' && superAdmin && platformAdminGroups.map((group) => (
+                    <div key={group.label}>
+                      <p className="px-4 pt-2 pb-1 text-[9px] uppercase tracking-widest text-yellow-500/70 font-semibold">{group.label}</p>
+                      {group.items.map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => setActiveSection(item.id)}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-md text-sm text-yellow-200 hover:text-yellow-100 hover:bg-yellow-500/10 transition-colors group"
+                          data-testid={`nav-${item.id}`}
+                        >
+                          <item.icon className="h-4 w-4 text-yellow-400 flex-shrink-0 group-hover:text-yellow-300 transition-colors" />
+                          <span className="flex-1 text-left">{item.label}</span>
+                          <ChevronRight className="h-4 w-4 text-yellow-600 flex-shrink-0" />
+                        </button>
                       ))}
-                    </>
-                  )}
+                    </div>
+                  ))}
 
                   <div className="my-2 mx-4 border-t border-gray-700/60" />
                   <button
