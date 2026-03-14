@@ -119,9 +119,9 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
 
     const flushParagraph = () => {
       if (currentParagraph.length > 0) {
-        const paraText = currentParagraph.join('\n');
+        const paraText = currentParagraph.join(' ');
         elements.push(
-          <p key={`para-${key++}`} className="mb-2">
+          <p key={`para-${key++}`} className="mb-2 leading-relaxed">
             {parseInlineContent(paraText)}
           </p>
         );
@@ -129,18 +129,34 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
       }
     };
 
+    const parseBoldAndText = (text: string, keyPrefix: string = 'b') => {
+      const parts: (string | JSX.Element)[] = [];
+      const boldRegex = /\*\*([^*]+)\*\*/g;
+      let lastIdx = 0;
+      let bMatch;
+      while ((bMatch = boldRegex.exec(text)) !== null) {
+        if (bMatch.index > lastIdx) {
+          parts.push(text.substring(lastIdx, bMatch.index));
+        }
+        parts.push(
+          <strong key={`${keyPrefix}-${bMatch.index}`} className="text-gray-100 font-semibold">{bMatch[1]}</strong>
+        );
+        lastIdx = bMatch.index + bMatch[0].length;
+      }
+      if (lastIdx < text.length) {
+        parts.push(text.substring(lastIdx));
+      }
+      return parts.length > 0 ? parts : [text];
+    };
+
     const parseInlineContent = (text: string) => {
       const parts: (string | JSX.Element)[] = [];
       let lastIndex = 0;
 
       const promptRegex = /\*\*PROMPT:\*\*\s*["""\u201C\u201D]([^"""\u201C\u201D\n]+)["""\u201C\u201D]/g;
-      
-      // Match markdown links: [text](url) AND bare URLs: https://...
-      // Markdown format takes priority
       const markdownLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
       const bareUrlRegex = /https?:\/\/[^\s)]+/g;
       
-      // First pass: Find all prompts
       const promptMatches: Array<{ start: number; end: number; prompt: string; type: 'prompt' }> = [];
       let promptMatch;
       while ((promptMatch = promptRegex.exec(text)) !== null) {
@@ -152,11 +168,9 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
         });
       }
       
-      // Second pass: Find all markdown links
       const markdownMatches: Array<{ start: number; end: number; text: string; url: string; type: 'link' }> = [];
       let mdMatch;
       while ((mdMatch = markdownLinkRegex.exec(text)) !== null) {
-        // Skip if covered by a prompt
         const isCoveredByPrompt = promptMatches.some(
           p => mdMatch!.index >= p.start && mdMatch!.index < p.end
         );
@@ -171,7 +185,6 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
         }
       }
       
-      // Third pass: Find bare URLs that aren't inside markdown links or prompts
       const bareUrlMatches: Array<{ start: number; end: number; text: string | null; url: string; type: 'link' }> = [];
       let bareMatch: RegExpExecArray | null;
       while ((bareMatch = bareUrlRegex.exec(text)) !== null) {
@@ -192,22 +205,23 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
         }
       }
       
-      // Combine all matches
       const allMatches = [...promptMatches, ...markdownMatches, ...bareUrlMatches];
-      
-      // Sort by position
       allMatches.sort((a, b) => a.start - b.start);
       
-      // Build the result
       allMatches.forEach((match, idx) => {
-        // Add text before this match
         if (match.start > lastIndex) {
           const beforeText = text.substring(lastIndex, match.start);
-          parts.push(...parsePartNumbers(beforeText));
+          const parsed = parsePartNumbers(beforeText);
+          parsed.forEach(p => {
+            if (typeof p === 'string') {
+              parts.push(...parseBoldAndText(p, `pre-${idx}`));
+            } else {
+              parts.push(p);
+            }
+          });
         }
         
         if (match.type === 'prompt') {
-          // Render clickable prompt button
           const promptText = (match as any).prompt;
           parts.push(
             <button
@@ -225,11 +239,7 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
             </button>
           );
         } else {
-          // Render link
           const displayText = (match as any).text || getShortUrlText((match as any).url);
-          
-          // On iOS: Opens in-app Safari sheet with "Done" button (stays in app)
-          // On Desktop: Opens in new tab
           const handleLinkClick = (e: React.MouseEvent) => {
             e.preventDefault();
             e.stopPropagation();
@@ -252,9 +262,16 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
         lastIndex = match.end;
       });
 
-      // Add remaining text
       if (lastIndex < text.length) {
-        parts.push(...parsePartNumbers(text.substring(lastIndex)));
+        const remaining = text.substring(lastIndex);
+        const parsed = parsePartNumbers(remaining);
+        parsed.forEach((p, pi) => {
+          if (typeof p === 'string') {
+            parts.push(...parseBoldAndText(p, `rem-${pi}`));
+          } else {
+            parts.push(p);
+          }
+        });
       }
 
       return parts.length > 0 ? parts : text;
@@ -387,13 +404,21 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
 
     lines.forEach((line, index) => {
       const trimmed = line.trim();
-      if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
+      if (/^#{1,3}\s/.test(trimmed)) {
+        flushParagraph();
+        const headerText = trimmed.replace(/^#{1,3}\s+/, '');
+        elements.push(
+          <div key={`header-${key++}`} className="text-sm font-semibold text-purple-300 uppercase tracking-wide mt-3 mb-1.5 border-b border-purple-500/20 pb-1">
+            {parseInlineContent(headerText)}
+          </div>
+        );
+      } else if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
         flushParagraph();
         const bulletText = trimmed.substring(2);
         elements.push(
-          <div key={`bullet-${key++}`} className="flex gap-2 ml-2 mb-1.5">
-            <span className="text-purple-400 shrink-0">•</span>
-            <span>{parseInlineContent(bulletText)}</span>
+          <div key={`bullet-${key++}`} className="flex gap-2.5 py-1.5 px-2 rounded-md bg-purple-900/10 mb-1">
+            <span className="text-purple-400 shrink-0 mt-0.5">•</span>
+            <span className="flex-1">{parseInlineContent(bulletText)}</span>
           </div>
         );
       } else if (/^\d+\.\s/.test(trimmed)) {
@@ -402,9 +427,9 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
         const num = numMatch ? numMatch[1] : '';
         const bulletText = trimmed.replace(/^\d+\.\s/, '');
         elements.push(
-          <div key={`numbered-${key++}`} className="flex gap-2 ml-2 mb-1.5">
-            <span className="text-purple-400 shrink-0 min-w-[1.2em] text-right">{num}.</span>
-            <span>{parseInlineContent(bulletText)}</span>
+          <div key={`numbered-${key++}`} className="flex gap-2.5 py-1.5 px-2 rounded-md bg-purple-900/10 mb-1">
+            <span className="text-purple-400 shrink-0 min-w-[1.4em] text-right font-mono text-sm mt-0.5">{num}.</span>
+            <span className="flex-1">{parseInlineContent(bulletText)}</span>
           </div>
         );
       } else if (/\*\*PROMPT:\*\*/.test(trimmed)) {
