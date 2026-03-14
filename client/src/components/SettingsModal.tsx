@@ -2180,7 +2180,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
     ...(isAdmin ? [{ id: 'users' as const, label: 'Team & Roles', icon: Users }] : []),
     { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: TrendingUp },
     { id: 'automation' as const, label: 'Scheduler', icon: Play },
-    { id: 'data' as const, label: 'Data Maintenance', icon: HardDrive },
+    { id: 'data' as const, label: 'Store Data', icon: HardDrive },
     { id: 'about' as const, label: 'About & Credits', icon: Info },
     { id: 'legal' as const, label: 'Legal & Terms', icon: FileText },
   ];
@@ -5082,247 +5082,55 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
             {activeSection === 'data' && (
               <div className="space-y-4 min-h-[400px]">
 
-                {/* Data Export (CSV) */}
+                {/* Inventory and Order Backup */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-100 mb-2 flex items-center gap-2">
                     <Download className="h-4 w-4 text-green-400" />
-                    Data Export (CSV)
+                    Inventory and Order Backup
                   </h3>
-                  <p className="text-xs text-gray-400 mb-3">Export your business data as CSV files for analysis or record-keeping</p>
+                  <p className="text-xs text-gray-400 mb-3">Export and restore your core business data</p>
 
-                  <Accordion type="single" collapsible className="space-y-2">
-                    {/* Core Business Data */}
-                    <AccordionItem value="core" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
-                      <AccordionTrigger className="text-xs font-medium text-gray-100 py-2.5 hover:no-underline">
-                        <div className="flex items-center gap-2">
-                          <HardDrive className="h-3.5 w-3.5 text-purple-400" />
-                          Core Business Data
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pb-3 space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                            onClick={() => handleExport('inventory', 'csv')}
-                            data-testid="button-export-inventory-csv"
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Inventory CSV
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                            onClick={() => handleExport('orders', 'csv')}
-                            data-testid="button-export-orders-csv"
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Orders CSV
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                            data-testid="button-export-warehouse-csv"
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Warehouse CSV
-                          </Button>
-                        </div>
-                        <p className="text-[10px] md:text-sm text-gray-500 mt-2">
-                          Your inventory quantities, orders, and warehouse locations
-                        </p>
-                      </AccordionContent>
-                    </AccordionItem>
-
-                    {/* Platform Catalog Data */}
-                    <AccordionItem value="catalog" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
-                      <AccordionTrigger className="text-xs font-medium text-gray-100 py-2.5 hover:no-underline">
-                        <div className="flex items-center gap-2">
-                          <Database className="h-3.5 w-3.5 text-blue-400" />
-                          Platform Catalog Data
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pb-3 space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                            data-testid="button-export-catalog-csv"
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            BrickLink Catalog
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                            data-testid="button-export-sets-csv"
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Set-Part Data
-                          </Button>
-                        </div>
-                        <p className="text-[10px] md:text-sm text-gray-500 mt-2">
-                          External catalog data (can be re-fetched from BrickLink/Rebrickable)
-                        </p>
-                      </AccordionContent>
-                    </AccordionItem>
-
-                    {/* AI & Analytics */}
-                    <AccordionItem value="ai" className="bg-gray-800 border border-gray-700 rounded-lg px-3">
-                      <AccordionTrigger className="text-xs font-medium text-gray-100 py-2.5 hover:no-underline">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="h-3.5 w-3.5 text-violet-400" />
-                          AI & Analytics Data
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pb-3 space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                            data-testid="button-export-embeddings"
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            AI Embeddings
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                            data-testid="button-export-analytics"
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Analytics Cache
-                          </Button>
-                        </div>
-                        <p className="text-[10px] md:text-sm text-gray-500 mt-2">
-                          Derived data (can be regenerated, but expensive)
-                        </p>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-
-                  <p className="text-[10px] md:text-sm text-yellow-400 mt-3 flex items-start gap-1">
-                    <AlertTriangle className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                    <span>Note: CSV files are for analysis only and are NOT considered backups. Use the section below for restore capabilities.</span>
-                  </p>
-                </div>
-
-                <Separator className="bg-gray-700" />
-
-                {/* Database Backup Status */}
-                <div className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/30 rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-purple-400" />
-                      <h3 className="text-sm font-medium text-purple-300">Database Protection Status</h3>
-                    </div>
-                    <CheckCircle2 className="h-4 w-4 text-green-400" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-4">
                     <div>
-                      <p className="text-gray-400">History Retention</p>
-                      <p className="text-white font-medium">30 Days</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Last Backup</p>
-                      <p className="text-white font-medium">2 hours ago</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Backup Type</p>
-                      <p className="text-white font-medium">Automatic (Replit)</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-400">Recovery Ready</p>
-                      <p className="text-green-400 font-medium">✓ Yes</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Automatic Restore (Guided Wizard) */}
-                <div>
-                  <h3 className="text-sm font-medium text-gray-100 mb-2 flex items-center gap-2">
-                    <RotateCcw className="h-4 w-4 text-blue-400" />
-                    Automatic Restore (Guided Wizard)
-                  </h3>
-                  <p className="text-xs text-gray-400 mb-3">Full-system recovery with impact analysis and automated platform synchronization</p>
-                  
-                  <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
-                    <div className="bg-blue-500/10 border border-blue-500/30 rounded p-3 space-y-2">
-                      <p className="text-xs font-medium text-blue-300">✨ Comprehensive Guided Process</p>
-                      <p className="text-[10px] md:text-sm text-blue-200/80">
-                        Step-by-step wizard that restores your database to any point in the last 30 days, analyzes inventory/order mismatches, detects anomalies, syncs from BrickLink/BrickOwl, and verifies data integrity.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label htmlFor="restore-date" className="text-xs text-gray-400 mb-1">Restore Date</Label>
-                        <Input
-                          id="restore-date"
-                          type="date"
-                          className="text-xs h-8"
-                          value={restoreDate}
-                          onChange={(e) => setRestoreDate(e.target.value)}
-                          data-testid="input-restore-date"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="restore-time" className="text-xs text-gray-400 mb-1">Restore Time</Label>
-                        <Input
-                          id="restore-time"
-                          type="time"
-                          className="text-xs h-8"
-                          value={restoreTime}
-                          onChange={(e) => setRestoreTime(e.target.value)}
-                          data-testid="input-restore-time"
-                        />
+                      <Label className="text-xs text-gray-200 mb-2 block">Export CSV</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => handleExport('inventory', 'csv')}
+                          data-testid="button-export-inventory-csv"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Inventory CSV
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => handleExport('orders', 'csv')}
+                          data-testid="button-export-orders-csv"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Orders CSV
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          data-testid="button-export-warehouse-csv"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          Warehouse CSV
+                        </Button>
                       </div>
                     </div>
 
-                    <Button 
-                      variant="default" 
-                      size="sm" 
-                      className="w-full text-xs bg-blue-600 hover:bg-blue-700"
-                      onClick={() => {
-                        setRestoreWizardOpen(true);
-                        setRestoreStep('warning');
-                      }}
-                      data-testid="button-start-restore-wizard"
-                    >
-                      <RotateCcw className="h-3 w-3 mr-1" />
-                      Start Guided Restore
-                    </Button>
-                  </div>
-                </div>
+                    <Separator className="bg-gray-700" />
 
-                <Separator className="bg-gray-700" />
-
-                {/* Manual Restore */}
-                <div>
-                  <h3 className="text-sm font-medium text-gray-100 mb-2 flex items-center gap-2">
-                    <Download className="h-4 w-4 text-purple-400" />
-                    Manual Restore
-                  </h3>
-                  <p className="text-xs text-gray-400 mb-3">Download XML backups and manually upload to BrickLink</p>
-                  
-                  <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-3">
-                    <div className="bg-purple-500/10 border border-purple-500/30 rounded p-3 space-y-2">
-                      <p className="text-xs font-medium text-purple-300">📥 Simple Download Process</p>
-                      <p className="text-[10px] md:text-sm text-purple-200/80">
-                        Download BrickLink XML backups from our archive, then manually upload them to BrickLink yourself for complete control over the restore process.
-                      </p>
-                    </div>
-
-                    {/* List of available backups */}
                     <div className="space-y-2">
-                      <Label className="text-xs text-gray-200">Available XML Backups</Label>
+                      <Label className="text-xs text-gray-200">BrickLink XML Backups</Label>
+                      <p className="text-[10px] md:text-sm text-gray-500">Download XML backups and manually upload to BrickLink</p>
                       <div className="space-y-2 max-h-48 overflow-y-auto">
                         {backupsLoading ? (
                           <div className="text-xs text-gray-400 text-center py-4">Loading backups...</div>
@@ -5385,31 +5193,6 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                         Open BrickLink Upload Page
                       </Button>
                     </div>
-                  </div>
-                </div>
-
-                <Separator className="bg-gray-700" />
-
-                {/* Maintenance Section */}
-                <div>
-                  <h3 className="text-sm font-medium text-gray-100 mb-2 flex items-center gap-2">
-                    <Wrench className="h-4 w-4 text-orange-400" />
-                    Maintenance
-                  </h3>
-                  <p className="text-xs text-gray-400 mb-3">One-time cleanup and repair operations</p>
-                  <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start text-xs text-orange-400 border-orange-500/30 hover:bg-orange-500/10"
-                      onClick={handleCleanupOldOrders}
-                      disabled={cleanupRunning}
-                      data-testid="button-cleanup-old-orders"
-                    >
-                      <Trash2 className="h-3 w-3 mr-2" />
-                      {cleanupRunning ? 'Removing stale orders…' : 'Remove Stale Orders from Fulfillment'}
-                    </Button>
-                    <p className="text-[10px] text-gray-500 mt-2">Deletes old unpaid orders (pre-2023) that appear stuck in the fulfillment queue.</p>
                   </div>
                 </div>
 
@@ -8678,7 +8461,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                     {[
                       { name: 'Tenant Isolation', desc: 'Each store\'s inventory, orders, and settings are scoped to their organization — no data is shared across accounts' },
                       { name: 'Encrypted Credentials', desc: 'Marketplace API keys and secrets are stored encrypted at rest and never exposed in logs or responses' },
-                      { name: 'Automated Backups', desc: 'Point-in-time database backups run automatically and can be downloaded or restored at any time from Data Maintenance' },
+                      { name: 'Automated Backups', desc: 'Point-in-time database backups run automatically and can be downloaded or restored at any time from Store Data' },
                       { name: 'Your Data, Your Control', desc: 'Your inventory and order data is never sold or shared with third parties. Marketplace data flows in — not out' },
                       { name: 'Infrastructure', desc: 'Hosted on Replit\'s managed cloud with TLS encryption in transit on all connections' },
                     ].map(({ name, desc }) => (
