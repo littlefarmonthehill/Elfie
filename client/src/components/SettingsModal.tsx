@@ -7422,6 +7422,12 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                               </div>
                             </button>
                             {pomJob?.errorMessage && <p className="px-4 pb-2 text-xs text-red-400/80 truncate -mt-1">{pomJob.errorMessage}</p>}
+                            {!pomActive && pomJob?.lastSyncStatus && pomJob.lastSyncStatus !== 'never' && pomJob.lastSyncStatus !== 'in_progress' && (
+                              <div className="flex items-center gap-3 px-4 pb-2 -mt-0.5 flex-wrap" data-testid="pom-last-results">
+                                <span className="text-[10px] text-gray-500">Last run: {pomJob.recordsUpdated?.toLocaleString() ?? 0} lots updated</span>
+                                {pomJob.updatedAt && <span className="text-[10px] text-gray-600">finished {new Date(pomJob.updatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>}
+                              </div>
+                            )}
                             {syncingPom && pomLiveProgress && (
                               <div className="px-4 pb-3 space-y-1.5">
                                 <div className="flex items-center justify-between gap-2">
@@ -7497,9 +7503,6 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                                   </div>
                                   <Switch checked={pomZeroStockSkip} onCheckedChange={(checked) => { setPomZeroStockSkip(checked); updatePlatformSettingsMutation.mutate({ pomZeroStockSkip: checked }); }} data-testid="switch-pom-zerostock-sched" />
                                 </div>
-                                {(pomJob?.recordsAdded > 0 || pomJob?.recordsUpdated > 0) && (
-                                  <p className="sm-hint pt-1 border-t border-gray-700/40">+{pomJob.recordsAdded} added · {pomJob.recordsUpdated} updated</p>
-                                )}
                               </div>
                             )}
                           </div>
@@ -7532,6 +7535,12 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                               </div>
                             </button>
                             {cdJob?.errorMessage && <p className="px-4 pb-2 text-xs text-red-400/80 truncate -mt-1">{cdJob.errorMessage}</p>}
+                            {!cdActive && cdJob?.lastSyncStatus && cdJob.lastSyncStatus !== 'never' && cdJob.lastSyncStatus !== 'in_progress' && (
+                              <div className="flex items-center gap-3 px-4 pb-2 -mt-0.5 flex-wrap" data-testid="cd-last-results">
+                                <span className="text-[10px] text-gray-500">Last run: {cdJob.recordsAdded?.toLocaleString() ?? 0} items enriched · {cdJob.recordsUpdated?.toLocaleString() ?? 0} categories/colors</span>
+                                {cdJob.updatedAt && <span className="text-[10px] text-gray-600">finished {new Date(cdJob.updatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>}
+                              </div>
+                            )}
                             {syncingCd && cdLiveProgress && (
                               <div className="px-4 pb-3 space-y-1.5" data-testid="cd-progress-bar">
                                 <div className="flex items-center justify-between gap-2">
@@ -7637,6 +7646,12 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                               </div>
                             </button>
                             {csJob?.errorMessage && <p className="px-4 pb-2 text-xs text-red-400/80 truncate -mt-1">{csJob.errorMessage}</p>}
+                            {!csActive && csJob?.lastSyncStatus && csJob.lastSyncStatus !== 'never' && csJob.lastSyncStatus !== 'in_progress' && (
+                              <div className="flex items-center gap-3 px-4 pb-2 -mt-0.5 flex-wrap" data-testid="cs-last-results">
+                                <span className="text-[10px] text-gray-500">Last run: {csJob.recordsAdded?.toLocaleString() ?? 0} stubs created · {csJob.recordsUpdated?.toLocaleString() ?? 0} flagged for enrichment</span>
+                                {csJob.updatedAt && <span className="text-[10px] text-gray-600">finished {new Date(csJob.updatedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>}
+                              </div>
+                            )}
                             {syncingCs && csLiveProgress && (
                               <div className="px-4 pb-3 space-y-1.5" data-testid="cs-progress-bar">
                                 <div className="flex items-center justify-between gap-2">
