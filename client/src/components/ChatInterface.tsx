@@ -964,7 +964,9 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const [isLoading, setIsLoading] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+  const [showScrollDown, setShowScrollDown] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -989,23 +991,39 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const checkIfNearBottom = () => {
+    const el = scrollContainerRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+  };
+
   useEffect(() => {
+    const isStreaming = messages.some(m => m.streaming);
+    if (isStreaming) {
+      if (!checkIfNearBottom()) {
+        setShowScrollDown(true);
+      }
+      return;
+    }
     if (!isInputFocused) {
       const timeoutId = setTimeout(() => {
         scrollToBottom();
+        setShowScrollDown(false);
       }, 100);
       return () => clearTimeout(timeoutId);
     }
   }, [messages, isInputFocused]);
 
   useEffect(() => {
-    const isStreaming = messages.some(m => m.streaming);
-    if (!isStreaming || isInputFocused || isMinimized) return;
-    const interval = setInterval(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 800);
-    return () => clearInterval(interval);
-  }, [messages, isInputFocused, isMinimized]);
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+      setShowScrollDown(!nearBottom && messages.some(m => m.streaming));
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [messages]);
 
   useEffect(() => {
     if (isMinimized) {
@@ -1374,7 +1392,8 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         <>
           {/* Use native scrolling to avoid iOS keyboard issues */}
           <div 
-            className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto" 
+            ref={scrollContainerRef}
+            className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto relative" 
             style={{ WebkitOverflowScrolling: 'touch' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1432,6 +1451,23 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
               <div ref={messagesEndRef} />
             </div>
           </div>
+
+          {showScrollDown && (
+            <div className="flex justify-center -mt-1 mb-1 relative z-10">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  scrollToBottom();
+                  setShowScrollDown(false);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-600/80 hover:bg-purple-500/90 text-white text-xs font-medium shadow-lg backdrop-blur-sm transition-all animate-pulse"
+                data-testid="button-scroll-down"
+              >
+                <ChevronDown className="h-3.5 w-3.5" />
+                New content below
+              </button>
+            </div>
+          )}
           
           <div className={`border-t-2 ${colors.border} bg-gray-900/50 backdrop-blur-sm`}>
             <div className="flex gap-2 md:gap-3 lg:gap-4 p-3 md:p-4 lg:p-5">
