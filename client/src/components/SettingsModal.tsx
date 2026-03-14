@@ -4,7 +4,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { DimensionWheel, ScoringWheel, type PricingInsight } from "@/components/PriceOMaticDashboard";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Activity, Flag, Power, Zap, Globe, ToggleLeft, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save, ClipboardPaste } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Flag, Power, Zap, Globe, ToggleLeft, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save, ClipboardPaste } from "lucide-react";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
 import { Badge } from "@/components/ui/badge";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
@@ -37,7 +37,7 @@ interface SettingsModalProps {
   scoringExample?: PricingInsight;
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'systemHealth' | 'customerHealth' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'users' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -915,7 +915,6 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'features' | 'limits' | 'billing'>('info');
   const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'stripe' | 'openai' | 'bricklink'>('bricklink');
   const [activeSchedulerTab, setActiveSchedulerTab] = useState<'catalog' | 'embeddings' | 'market'>('catalog');
-  const [activeCustomerHealthTab, setActiveCustomerHealthTab] = useState<'overview' | 'bricklink'>('overview');
   const [activeAuditTab, setActiveAuditTab] = useState<'organization' | 'platform'>('organization');
   const [activeAuditOrgTab, setActiveAuditOrgTab] = useState<'overview' | 'bricklink'>('overview');
   const [activeAuditPlatformTab, setActiveAuditPlatformTab] = useState<'enrichment' | 'bricklink' | 'logs' | 'database'>('enrichment');
@@ -1349,19 +1348,12 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
 
   const { data: systemHealth, isLoading: systemHealthLoading, isError: systemHealthError, refetch: refetchSystemHealth } = useQuery<SystemHealthData>({
     queryKey: ['/api/platform-admin/system-health'],
-    enabled: open && (activeSection === 'systemHealth' || activeSection === 'customerHealth' || activeSection === 'platformScheduler' || activeSection === 'auditLog'),
-    refetchInterval: (activeSection === 'systemHealth' || activeSection === 'customerHealth' || activeSection === 'platformScheduler' || activeSection === 'auditLog') ? 15000 : false,
+    enabled: open && (activeSection === 'platformScheduler' || activeSection === 'auditLog'),
+    refetchInterval: (activeSection === 'platformScheduler' || activeSection === 'auditLog') ? 15000 : false,
     retry: 0,
     staleTime: 0,
   });
 
-  const { data: universalCatalogStatus } = useQuery<{
-    queueSize: number; embedded: number; pending: number; noImage: number; failed: number; workerRunning: boolean;
-  }>({
-    queryKey: ['/api/brickspotter/universal-catalog/status'],
-    enabled: open && activeSection === 'systemHealth',
-    refetchInterval: activeSection === 'systemHealth' ? 10000 : false,
-  });
 
   type OrgSyncEntry = {
     orgId: string;
@@ -1442,8 +1434,8 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   };
   const { data: blApiBreakdown, isLoading: blApiBreakdownLoading } = useQuery<BlApiBreakdownRow[]>({
     queryKey: ['/api/platform-admin/customer-health/bl-api-breakdown'],
-    enabled: open && superAdmin && ((activeSection === 'customerHealth' && activeCustomerHealthTab === 'bricklink') || isAuditOrgBl),
-    refetchInterval: (activeSection === 'customerHealth' && activeCustomerHealthTab === 'bricklink') || isAuditOrgBl ? 30000 : false,
+    enabled: open && superAdmin && isAuditOrgBl,
+    refetchInterval: isAuditOrgBl ? 30000 : false,
     retry: 0,
   });
 
@@ -2212,8 +2204,6 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
         { id: 'platformGeneral' as const, label: 'General', icon: Settings },
         { id: 'platformScheduler' as const, label: 'Data Enrichment', icon: Calendar },
         { id: 'apiKeys' as const, label: 'Platform Services', icon: Key },
-        { id: 'systemHealth' as const, label: 'Platform Health', icon: Activity },
-        { id: 'customerHealth' as const, label: 'Customer Health', icon: Users },
         { id: 'auditLog' as const, label: 'Audit Log', icon: ClipboardList },
         { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
       ],
@@ -5940,232 +5930,6 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
               </div>
             )}
 
-            {/* ── Platform Admin: Platform Health ──────────────────────────── */}
-            {activeSection === 'systemHealth' && (
-              <div className="p-3 space-y-4 min-w-0 overflow-y-auto">
-                    {systemHealthLoading ? (
-                      <div className="flex items-center justify-center py-10">
-                        <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
-                      </div>
-                    ) : systemHealth ? (
-                      <>
-                        {/* Embedding counts */}
-                        <div>
-                          <p className="sm-group-label mb-2 px-1">Embeddings</p>
-                          <div className="grid grid-cols-2 gap-2">
-                            {[
-                              { label: 'Inventory Vectors', value: systemHealth.embeddings.inventoryEmbeddings },
-                              { label: 'Order Vectors', value: systemHealth.embeddings.orderEmbeddings },
-                            ].map(({ label, value }) => (
-                              <div key={label} className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-2.5">
-                                <p className="text-[10px] text-gray-500 mb-1">{label}</p>
-                                <p className="text-base font-bold text-white">{Number(value).toLocaleString()}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Universal CLIP Catalog */}
-                        {universalCatalogStatus && (
-                          <div>
-                            <p className="sm-group-label mb-2 px-1">Universal CLIP Catalog</p>
-                            <div className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-3 space-y-3">
-                              <div className="space-y-1.5">
-                                <div className="flex items-center justify-between gap-2">
-                                  <div className="flex items-center gap-1.5">
-                                    {universalCatalogStatus.workerRunning
-                                      ? <RefreshCw className="h-3 w-3 text-purple-400 animate-spin" />
-                                      : <CheckCircle2 className="h-3 w-3 text-green-400" />}
-                                    <span className="text-xs text-gray-300">
-                                      {universalCatalogStatus.workerRunning ? 'Embedding in progress…' : 'All BrickLink parts'}
-                                    </span>
-                                  </div>
-                                  <span className="text-xs font-mono text-gray-400">
-                                    {universalCatalogStatus.queueSize > 0
-                                      ? `${Math.round(((universalCatalogStatus.embedded + universalCatalogStatus.noImage) / universalCatalogStatus.queueSize) * 100)}%`
-                                      : '—'}
-                                  </span>
-                                </div>
-                                <div className="h-1.5 w-full rounded-full bg-gray-700 overflow-hidden">
-                                  <div
-                                    className="h-1.5 rounded-full bg-purple-500 transition-all"
-                                    style={{
-                                      width: universalCatalogStatus.queueSize > 0
-                                        ? `${Math.round(((universalCatalogStatus.embedded + universalCatalogStatus.noImage) / universalCatalogStatus.queueSize) * 100)}%`
-                                        : '0%'
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-4 gap-2 text-center">
-                                {[
-                                  { label: 'Total', value: universalCatalogStatus.queueSize, color: 'text-white' },
-                                  { label: 'Embedded', value: universalCatalogStatus.embedded, color: 'text-emerald-400' },
-                                  { label: 'Pending', value: universalCatalogStatus.pending, color: 'text-yellow-400' },
-                                  { label: 'Failed', value: universalCatalogStatus.failed, color: 'text-red-400' },
-                                ].map(({ label, value, color }) => (
-                                  <div key={label}>
-                                    <p className={`text-sm font-bold ${color}`}>{Number(value).toLocaleString()}</p>
-                                    <p className="text-[9px] text-gray-600 uppercase tracking-wider">{label}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center gap-3 py-10">
-                        <AlertTriangle className="h-5 w-5 text-red-400/70" />
-                        <p className="sm-description">Failed to load platform health data</p>
-                        <button
-                          onClick={() => refetchSystemHealth()}
-                          className="text-[11px] text-yellow-500/70 hover:text-yellow-400 underline"
-                          data-testid="button-retry-system-health"
-                        >
-                          Retry
-                        </button>
-                      </div>
-                    )}
-              </div>
-            )}
-
-
-            {/* ── Platform Admin: Customer Health ──────────────────────────── */}
-            {activeSection === 'customerHealth' && (
-              <div className="flex flex-col min-w-0 overflow-hidden">
-                <div className="flex border-b border-gray-700/60 px-2 shrink-0">
-                  {([
-                    { id: 'overview', label: 'Overview' },
-                    { id: 'bricklink', label: 'BrickLink API' },
-                  ] as const).map(tab => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveCustomerHealthTab(tab.id)}
-                      className={`flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold transition-colors border-b-2 -mb-px ${activeCustomerHealthTab === tab.id ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
-                      data-testid={`tab-customer-health-${tab.id}`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-
-                {activeCustomerHealthTab === 'overview' && (
-                  <div className="p-4 space-y-4">
-                    {systemHealthLoading ? (
-                      <div className="flex items-center justify-center py-10">
-                        <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
-                      </div>
-                    ) : systemHealth ? (
-                      <div>
-                        <p className="sm-group-label mb-2 px-1">Customer Overview</p>
-                        <div className="grid grid-cols-3 gap-2">
-                          {[
-                            { label: 'Organizations', value: systemHealth.platform.totalOrganizations, icon: Building2 },
-                            { label: 'Total Users', value: systemHealth.platform.totalUsers, icon: Users },
-                            { label: 'Active Subs', value: systemHealth.platform.activeSubscriptions, icon: CreditCard },
-                          ].map(({ label, value, icon: Icon }) => (
-                            <div key={label} className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-2.5">
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <Icon className="h-3 w-3 text-yellow-500/60" />
-                                <span className="text-[10px] text-gray-500">{label}</span>
-                              </div>
-                              <p className="text-lg font-bold text-white">{Number(value).toLocaleString()}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center gap-3 py-10">
-                        <AlertTriangle className="h-5 w-5 text-red-400/70" />
-                        <p className="sm-description">Failed to load customer data</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {activeCustomerHealthTab === 'bricklink' && (
-                  <div className="p-4 space-y-4 min-w-0 overflow-hidden">
-                    <p className="sm-group-label px-1">API Usage by Customer (24h)</p>
-                    {blApiBreakdownLoading ? (
-                      <div className="flex items-center justify-center py-10">
-                        <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
-                      </div>
-                    ) : blApiBreakdown && blApiBreakdown.length > 0 ? (() => {
-                      const sortCol = blBreakdownSort.col;
-                      const sortDir = blBreakdownSort.dir;
-                      const sorted = [...blApiBreakdown].sort((a, b) => {
-                        const av = sortCol === 'orgId' ? (a.orgName || a.orgId) : (a as any)[sortCol] as number;
-                        const bv = sortCol === 'orgId' ? (b.orgName || b.orgId) : (b as any)[sortCol] as number;
-                        if (typeof av === 'string' && typeof bv === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-                        return sortDir === 'asc' ? (av as number) - (bv as number) : (bv as number) - (av as number);
-                      });
-                      const toggleSort = (col: string) => {
-                        setBlBreakdownSort(prev =>
-                          prev.col === col ? { col, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { col, dir: 'desc' }
-                        );
-                      };
-                      const columns = [
-                        { key: 'orgId', label: 'Organization', align: 'left' as const },
-                        { key: 'total', label: 'Total', align: 'right' as const },
-                        { key: 'inventory', label: 'Inv', align: 'right' as const },
-                        { key: 'orders', label: 'Ord', align: 'right' as const },
-                        { key: 'catalog', label: 'Cat', align: 'right' as const },
-                        { key: 'priceGuide', label: 'PG', align: 'right' as const },
-                        { key: 'other', label: 'Oth', align: 'right' as const },
-                        { key: 'failed', label: 'Fail', align: 'right' as const },
-                      ];
-                      return (
-                        <div className="rounded-lg border border-gray-700 overflow-hidden">
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-[10px]" data-testid="table-bl-api-breakdown">
-                              <thead>
-                                <tr className="bg-gray-800/80 border-b border-gray-700/60">
-                                  {columns.map(col => (
-                                    <th
-                                      key={col.key}
-                                      onClick={() => toggleSort(col.key)}
-                                      className={`px-1 py-1.5 font-semibold cursor-pointer select-none transition-colors hover:text-yellow-400 whitespace-nowrap ${col.align === 'right' ? 'text-right' : 'text-left'} ${sortCol === col.key ? 'text-yellow-400' : 'text-gray-500'}`}
-                                      data-testid={`sort-bl-${col.key}`}
-                                    >
-                                      <span className="inline-flex items-center gap-0.5">
-                                        {col.label}
-                                        {sortCol === col.key && (
-                                          <span className="text-[8px]">{sortDir === 'desc' ? '▼' : '▲'}</span>
-                                        )}
-                                      </span>
-                                    </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-700/30">
-                                {sorted.map(row => (
-                                  <tr key={row.orgId} className="hover-elevate" data-testid={`row-bl-org-${row.orgId}`}>
-                                    <td className="px-1 py-1.5 text-gray-300 truncate max-w-[120px]">{row.orgName || row.orgId}</td>
-                                    <td className="px-1 py-1.5 text-right font-mono font-semibold text-gray-200">{row.total.toLocaleString()}</td>
-                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.inventory > 0 ? row.inventory.toLocaleString() : '—'}</td>
-                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.orders > 0 ? row.orders.toLocaleString() : '—'}</td>
-                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.catalog > 0 ? row.catalog.toLocaleString() : '—'}</td>
-                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.priceGuide > 0 ? row.priceGuide.toLocaleString() : '—'}</td>
-                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.other > 0 ? row.other.toLocaleString() : '—'}</td>
-                                    <td className={`px-1 py-1.5 text-right font-mono ${row.failed > 0 ? 'text-red-400 font-semibold' : 'text-gray-600'}`}>{row.failed > 0 ? row.failed.toLocaleString() : '—'}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      );
-                    })() : (
-                      <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-6 text-center">
-                        <CheckCircle2 className="h-5 w-5 text-emerald-400/50 mx-auto mb-2" />
-                        <p className="sm-description">No BrickLink API calls in the last 24 hours</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Audit Log */}
             {activeSection === 'auditLog' && (
@@ -8420,7 +8184,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                 {/* ── BrickLink tab ────────────────────────────────── */}
                 {activePlatformServicesTab === 'bricklink' && (
                   <div className="space-y-4">
-                    <p className="text-[11px] text-gray-400 leading-relaxed px-1">Platform-level BrickLink OAuth credentials used for catalog enrichment, price guides (POM), and color data. Org-level credentials (configured per-org) handle inventory sync and order imports. Usage stats are in <strong className="text-gray-300">Platform Health &gt; BrickLink</strong>.</p>
+                    <p className="text-[11px] text-gray-400 leading-relaxed px-1">Platform-level BrickLink OAuth credentials used for catalog enrichment, price guides (POM), and color data. Org-level credentials (configured per-org) handle inventory sync and order imports. Usage stats are in <strong className="text-gray-300">Audit Log &gt; Platform &gt; BrickLink</strong>.</p>
                     <div className="sm-card">
                       <div className="sm-card-header">
                         <Key className="h-3.5 w-3.5 text-blue-400/80" />
