@@ -17,6 +17,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGr
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ResponsiveModal } from "@/components/ui/responsive-modal";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -700,6 +703,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const { toast } = useToast();
   const { status: installStatus, promptInstall } = useInstallPrompt();
   const { isAdmin, superAdmin, user } = useAuth();
+  const isMobile = useIsMobile();
   const [clearDataDialog, setClearDataDialog] = useState<'inventory' | 'orders' | null>(null);
   const [cleanupRunning, setCleanupRunning] = useState(false);
   const [restoreWizardOpen, setRestoreWizardOpen] = useState(false);
@@ -2177,6 +2181,62 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const platformAdminItems = platformAdminGroups.flatMap(g => g.items);
   const allNavItems = [...navigationItems, ...platformAdminItems];
 
+  const activeNavItem = allNavItems.find(i => i.id === activeSection);
+  const isPlatformAdminSection = platformAdminItems.some(i => i.id === activeSection);
+  const sectionIconColor = isPlatformAdminSection ? 'text-yellow-400' : 'text-gray-300';
+
+  const sectionTitle = activeSection === 'platforms' && activePlatform !== null
+    ? (() => {
+        const hardcoded: Record<string, string> = { bricklink: 'BrickLink', brickowl: 'BrickOwl', paypal: 'PayPal', stripe: 'Stripe', easypost: 'EasyPost' };
+        if (hardcoded[activePlatform]) return hardcoded[activePlatform];
+        const dyn = orgIntegrationsList.find(i => String(i.id) === activePlatform);
+        return dyn ? (dyn.displayName || dyn.channel) : 'Channel';
+      })()
+    : activeSection === 'orgs' && activeOrg !== null
+      ? activeOrg.name
+      : activeNavItem?.label ?? 'Settings';
+
+  const SectionContentWrapper = ({ children }: { children: React.ReactNode }) => {
+    if (!isMobile) {
+      return <div className="p-4 sm:p-6">{children}</div>;
+    }
+    const NavIcon = activeNavItem?.icon;
+    return (
+      <Drawer open={activeSection !== null} onOpenChange={(open) => {
+        if (!open) {
+          setActiveSection(null);
+          setActivePlatform(null);
+          setActiveOrg(null);
+        }
+      }}>
+        <DrawerContent className="bg-gray-950 border-gray-800 h-[92vh] flex flex-col rounded-t-2xl">
+          <DrawerHeader className="p-0 flex-shrink-0">
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-gray-600" />
+            </div>
+            <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-gray-800">
+              {NavIcon && <NavIcon className={`w-4 h-4 ${sectionIconColor} flex-shrink-0`} />}
+              <DrawerTitle className="text-sm font-semibold text-gray-100 flex-1">
+                {sectionTitle}
+              </DrawerTitle>
+              <button
+                onClick={() => { setActiveSection(null); setActivePlatform(null); setActiveOrg(null); }}
+                className="ml-2 text-gray-500 hover:text-gray-200 transition-colors"
+                data-testid="button-close-settings-drawer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <DrawerDescription className="sr-only">{sectionTitle}</DrawerDescription>
+          </DrawerHeader>
+          <div className="flex-1 overflow-y-auto px-4 pt-3 min-h-0">
+            {children}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    );
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
@@ -2190,7 +2250,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
             {/* Header */}
             <div className="flex items-center px-3 py-3 border-b border-gray-700/80 bg-gray-800/70 flex-shrink-0">
               <div className="w-8 flex-shrink-0 flex items-center">
-                {(activeSection !== null) && (
+                {(activeSection !== null && !isMobile) && (
                   <button
                     onClick={() => {
                       if (activeSection === 'platforms' && activePlatform !== null) {
@@ -2213,18 +2273,9 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
               </div>
               <div className="flex-1 p-0 text-center">
                 <DialogTitle className="text-sm font-semibold text-gray-100 tracking-wide">
-                  {activeSection === null
+                  {(activeSection === null || isMobile)
                     ? 'Settings'
-                    : activeSection === 'platforms' && activePlatform !== null
-                      ? (() => {
-                          const hardcoded: Record<string, string> = { bricklink: 'BrickLink', brickowl: 'BrickOwl', paypal: 'PayPal', stripe: 'Stripe', easypost: 'EasyPost' };
-                          if (hardcoded[activePlatform]) return hardcoded[activePlatform];
-                          const dyn = orgIntegrationsList.find(i => String(i.id) === activePlatform);
-                          return dyn ? (dyn.displayName || dyn.channel) : 'Channel';
-                        })()
-                      : activeSection === 'orgs' && activeOrg !== null
-                        ? activeOrg.name
-                        : allNavItems.find(i => i.id === activeSection)?.label ?? 'Settings'}
+                    : sectionTitle}
                 </DialogTitle>
               </div>
               <div className="w-8 flex-shrink-0" />
@@ -2232,7 +2283,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
 
             {/* Content */}
             <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">
-              {activeSection === null ? (
+              {(activeSection === null || isMobile) && (
                 <nav className="p-2">
                   {/* Company Settings accordion header */}
                   <button
@@ -2306,15 +2357,17 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                     <span className="flex-1 text-left">Sign Out</span>
                   </button>
                 </nav>
-              ) : (
-                <div className="p-4 sm:p-6">
+              )}
+
+              {activeSection !== null && (
+                <SectionContentWrapper>
 
             {/* General Settings */}
             {activeSection === 'general' && (
               <div className="min-h-[400px]">
 
               {/* Tab bar */}
-              <div className="flex border-b border-gray-700 bg-gray-800/40 -mx-6 px-6 mb-4">
+              <div className="flex border-b border-gray-700 bg-gray-800/40 -mx-4 px-4 sm:-mx-6 sm:px-6 mb-4">
                 {(['info', 'features', 'limits', 'billing'] as const).map(tab => (
                   <button
                     key={tab}
@@ -2580,15 +2633,16 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
               </div>
 
               {/* Delete Company confirmation dialog */}
-              <Dialog open={deleteOrgDialogOpen} onOpenChange={setDeleteOrgDialogOpen}>
-                <DialogContent className="max-w-md" aria-describedby="delete-org-desc">
-                  <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-red-400">
-                      <AlertTriangle className="w-4 h-4" />
-                      Delete company
-                    </DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 py-1" id="delete-org-desc">
+              <ResponsiveModal
+                open={deleteOrgDialogOpen}
+                onOpenChange={setDeleteOrgDialogOpen}
+                title="Delete company"
+                icon={AlertTriangle}
+                iconColor="text-red-400"
+                description="Permanently delete this company and all data"
+                testId="modal-delete-org"
+              >
+                  <div className="space-y-4 py-1">
                     <p className="text-sm text-gray-300">
                       This will permanently delete <span className="font-semibold text-white">{org?.name}</span> and all associated data — orders, inventory, settings, integrations, and every user in this organization.
                     </p>
@@ -2631,8 +2685,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                       </Button>
                     </div>
                   </div>
-                </DialogContent>
-              </Dialog>
+              </ResponsiveModal>
 
               </div>
               )}
@@ -2977,27 +3030,35 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                     </div>
 
                     {/* ── CANCEL CONFIRMATION DIALOG ───────────────────────── */}
-                    <AlertDialog open={showCancelSubDialog} onOpenChange={setShowCancelSubDialog}>
-                      <AlertDialogContent className="bg-gray-900 border border-gray-700">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle className="text-white">Cancel Subscription?</AlertDialogTitle>
-                          <AlertDialogDescription className="text-gray-400">
-                            This will cancel your subscription immediately. You will lose access to paid features right away. This action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel className="border-gray-600 text-gray-300" data-testid="button-cancel-dialog-dismiss">Keep Subscription</AlertDialogCancel>
-                          <AlertDialogAction
-                            className="bg-red-600 hover:bg-red-700 text-white"
+                    <ResponsiveModal
+                      open={showCancelSubDialog}
+                      onOpenChange={setShowCancelSubDialog}
+                      title="Cancel Subscription?"
+                      icon={CreditCard}
+                      iconColor="text-red-400"
+                      description="Cancel your subscription immediately"
+                      testId="modal-cancel-sub"
+                    >
+                      <div className="space-y-4">
+                        <p className="text-sm text-gray-400">
+                          This will cancel your subscription immediately. You will lose access to paid features right away. This action cannot be undone.
+                        </p>
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => setShowCancelSubDialog(false)} data-testid="button-cancel-dialog-dismiss">
+                            Keep Subscription
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
                             onClick={() => cancelSubMutation.mutate()}
                             disabled={cancelSubMutation.isPending}
                             data-testid="button-cancel-dialog-confirm"
                           >
                             {cancelSubMutation.isPending ? 'Cancelling…' : 'Yes, Cancel Subscription'}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                          </Button>
+                        </div>
+                      </div>
+                    </ResponsiveModal>
 
                   </div>
                 );
@@ -3187,28 +3248,35 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                     </div>
                   </div>
 
-                  <AlertDialog open={showClearPomDialog} onOpenChange={setShowClearPomDialog}>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Clear Price Guide Cache?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will permanently delete all stored Price-o-Matic price guide data and reset the sync history. The next sync run will start fresh and rebuild from scratch using your current formula settings.
-                          <br /><br />
-                          This cannot be undone, but no inventory data is affected — only the pricing cache.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
+                  <ResponsiveModal
+                    open={showClearPomDialog}
+                    onOpenChange={setShowClearPomDialog}
+                    title="Clear Price Guide Cache?"
+                    icon={Sparkles}
+                    iconColor="text-purple-400"
+                    description="Clear all Price-o-Matic price guide data"
+                    testId="modal-clear-pom"
+                  >
+                    <div className="space-y-4">
+                      <p className="text-sm text-gray-400">
+                        This will permanently delete all stored Price-o-Matic price guide data and reset the sync history. The next sync run will start fresh and rebuild from scratch using your current formula settings.
+                      </p>
+                      <p className="text-sm text-gray-400">
+                        This cannot be undone, but no inventory data is affected — only the pricing cache.
+                      </p>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="sm" onClick={() => setShowClearPomDialog(false)}>Cancel</Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
                           onClick={() => clearPomCacheMutation.mutate()}
-                          className="bg-red-600 hover:bg-red-700"
                           data-testid="button-confirm-clear-pom"
                         >
                           {clearPomCacheMutation.isPending ? "Clearing..." : "Yes, Clear Cache"}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                        </Button>
+                      </div>
+                    </div>
+                  </ResponsiveModal>
 
                 </div>
 
@@ -3943,31 +4011,41 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                 })()}
 
                 {/* ── DIALOGS ─────────────────────────────────────────────── */}
-                <AlertDialog open={!!deleteIntId} onOpenChange={(open) => { if (!open) setDeleteIntId(null); }}>
-                  <AlertDialogContent className="bg-gray-900 border border-gray-700">
-                    <AlertDialogHeader>
-                      <AlertDialogTitle className="text-gray-100">Remove Integration</AlertDialogTitle>
-                      <AlertDialogDescription className="text-gray-400">This will permanently remove this integration and its credentials. You can add it back at any time.</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel className="bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800" data-testid="button-cancel-delete-integration">Cancel</AlertDialogCancel>
-                      <AlertDialogAction className="bg-red-600 hover:bg-red-700 text-white" data-testid="button-confirm-delete-integration" onClick={() => { if (deleteIntId) deleteIntegrationMutation.mutate(deleteIntId); }}>Remove</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <ResponsiveModal
+                  open={!!deleteIntId}
+                  onOpenChange={(open) => { if (!open) setDeleteIntId(null); }}
+                  title="Remove Integration"
+                  icon={Trash2}
+                  iconColor="text-red-400"
+                  description="Remove this integration and its credentials"
+                  testId="modal-delete-integration"
+                >
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-400">This will permanently remove this integration and its credentials. You can add it back at any time.</p>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => setDeleteIntId(null)} data-testid="button-cancel-delete-integration">Cancel</Button>
+                      <Button variant="destructive" size="sm" data-testid="button-confirm-delete-integration" onClick={() => { if (deleteIntId) deleteIntegrationMutation.mutate(deleteIntId); }}>Remove</Button>
+                    </div>
+                  </div>
+                </ResponsiveModal>
 
-                <AlertDialog open={!!removePrimaryDialog} onOpenChange={(open) => { if (!open) setRemovePrimaryDialog(null); }}>
-                  <AlertDialogContent className="bg-gray-900 border border-gray-700">
-                    <AlertDialogHeader>
-                      <AlertDialogTitle className="text-gray-100">Remove BrickOwl</AlertDialogTitle>
-                      <AlertDialogDescription className="text-gray-400">This will clear all BrickOwl credentials. You can re-enter them at any time.</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel className="bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800" data-testid="button-cancel-remove-primary">Cancel</AlertDialogCancel>
-                      <AlertDialogAction className="bg-red-600 hover:bg-red-700 text-white" data-testid="button-confirm-remove-primary" onClick={() => { setBrickowlApiKey(''); updateSettingsMutation.mutate({ brickowlApiKey: null }); setRemovePrimaryDialog(null); }}>Remove</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <ResponsiveModal
+                  open={!!removePrimaryDialog}
+                  onOpenChange={(open) => { if (!open) setRemovePrimaryDialog(null); }}
+                  title="Remove BrickOwl"
+                  icon={Globe}
+                  iconColor="text-red-400"
+                  description="Clear all BrickOwl credentials"
+                  testId="modal-remove-brickowl"
+                >
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-400">This will clear all BrickOwl credentials. You can re-enter them at any time.</p>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => setRemovePrimaryDialog(null)} data-testid="button-cancel-remove-primary">Cancel</Button>
+                      <Button variant="destructive" size="sm" data-testid="button-confirm-remove-primary" onClick={() => { setBrickowlApiKey(''); updateSettingsMutation.mutate({ brickowlApiKey: null }); setRemovePrimaryDialog(null); }}>Remove</Button>
+                    </div>
+                  </div>
+                </ResponsiveModal>
 
               </div>
             )}
@@ -6128,14 +6206,16 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
 
                 {/* BrickLink API Schedule Popup */}
                 {showBlSchedulePopup && platformBlApiUsage && (
-                  <Dialog open={showBlSchedulePopup} onOpenChange={setShowBlSchedulePopup}>
-                    <DialogContent className="max-w-lg bg-gray-900 border-gray-700">
-                      <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 text-sm">
-                          <Calendar className="h-4 w-4 text-blue-400" />
-                          BrickLink API Availability Schedule
-                        </DialogTitle>
-                      </DialogHeader>
+                  <ResponsiveModal
+                    open={showBlSchedulePopup}
+                    onOpenChange={setShowBlSchedulePopup}
+                    title="BrickLink API Availability Schedule"
+                    icon={Calendar}
+                    iconColor="text-blue-400"
+                    description="View BrickLink API quota usage per organization"
+                    maxWidth="max-w-lg"
+                    testId="modal-bl-schedule"
+                  >
                       <div className="space-y-4 pt-2">
                         <div className="flex items-center justify-between gap-3 px-1">
                           <div>
@@ -6181,8 +6261,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
 
                         <p className="text-[10px] text-gray-600 leading-relaxed">BrickLink enforces a {platformBlApiUsage.ceiling.toLocaleString()} calls/day rolling window per credential set. Each org uses its own OAuth credentials — limits are independent. Calls made 24 hours ago free up capacity automatically as the rolling window advances.</p>
                       </div>
-                    </DialogContent>
-                  </Dialog>
+                  </ResponsiveModal>
                 )}
 
                 {/* Logs tab */}
@@ -8679,7 +8758,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
               </div>
             )}
 
-                </div>
+                </SectionContentWrapper>
               )}
             </div>
           </div>
@@ -8688,49 +8767,59 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
       </Dialog>
 
       {/* Clear Data Confirmation Dialog */}
-      <AlertDialog open={clearDataDialog !== null} onOpenChange={() => setClearDataDialog(null)}>
-        <AlertDialogContent className="bg-gray-900 border-gray-700">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base">Clear {clearDataDialog === 'inventory' ? 'Inventory' : 'Order'} Data?</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-gray-200">
-              This action cannot be undone. This will permanently delete all {clearDataDialog === 'inventory' ? 'inventory' : 'order'} data from the database.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="text-xs" data-testid="button-cancel-clear">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="text-xs bg-red-600 hover:bg-red-700"
+      <ResponsiveModal
+        open={clearDataDialog !== null}
+        onOpenChange={() => setClearDataDialog(null)}
+        title={`Clear ${clearDataDialog === 'inventory' ? 'Inventory' : 'Order'} Data?`}
+        icon={Trash2}
+        iconColor="text-red-400"
+        description={`Permanently delete all ${clearDataDialog === 'inventory' ? 'inventory' : 'order'} data`}
+        testId="modal-clear-data"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-400">
+            This action cannot be undone. This will permanently delete all {clearDataDialog === 'inventory' ? 'inventory' : 'order'} data from the database.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setClearDataDialog(null)} data-testid="button-cancel-clear">Cancel</Button>
+            <Button
+              variant="destructive"
+              size="sm"
               onClick={() => clearDataDialog && handleClearData(clearDataDialog)}
               data-testid="button-confirm-clear"
             >
               Clear Data
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </div>
+        </div>
+      </ResponsiveModal>
 
       {/* Restore Wizard Dialog */}
-      <Dialog open={restoreWizardOpen} onOpenChange={(open) => {
-        if (!open && restoreStep !== 'restoring' && restoreStep !== 'syncing' && restoreStep !== 'differential') {
-          setRestoreWizardOpen(false);
-          setRestoreStep('select');
-          setRestoreProgress(0);
-          setDifferentialAnalysis(null);
-          setVerificationResults(null);
+      <ResponsiveModal
+        open={restoreWizardOpen}
+        onOpenChange={(open) => {
+          if (!open && restoreStep !== 'restoring' && restoreStep !== 'syncing' && restoreStep !== 'differential') {
+            setRestoreWizardOpen(false);
+            setRestoreStep('select');
+            setRestoreProgress(0);
+            setDifferentialAnalysis(null);
+            setVerificationResults(null);
+          }
+        }}
+        title={
+          restoreStep === 'warning' ? 'Important: Read Before Proceeding' :
+          restoreStep === 'restoring' ? 'Restoring Database...' :
+          restoreStep === 'syncing' ? 'Syncing from Sales Platforms...' :
+          restoreStep === 'differential' ? 'Quick Recovery: Restore Current State' :
+          restoreStep === 'verification' ? 'Verifying Recovery...' :
+          restoreStep === 'complete' ? 'Recovery Complete!' : 'Restore Wizard'
         }
-      }}>
-        <DialogContent className="bg-gray-900 border-gray-700 max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-base flex items-center gap-2">
-              <RotateCcw className="h-4 w-4 text-blue-400" />
-              {restoreStep === 'warning' && 'Important: Read Before Proceeding'}
-              {restoreStep === 'restoring' && 'Restoring Database...'}
-              {restoreStep === 'syncing' && 'Syncing from Sales Platforms...'}
-              {restoreStep === 'differential' && 'Quick Recovery: Restore Current State'}
-              {restoreStep === 'verification' && 'Verifying Recovery...'}
-              {restoreStep === 'complete' && 'Recovery Complete!'}
-            </DialogTitle>
-          </DialogHeader>
+        icon={RotateCcw}
+        iconColor="text-blue-400"
+        description="Database restore wizard"
+        maxWidth="max-w-2xl"
+        testId="modal-restore-wizard"
+      >
 
           <div className="space-y-4 py-4">
             {/* Step 1: Warning & Explanation */}
@@ -9200,8 +9289,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
             )}
 
           </div>
-        </DialogContent>
-      </Dialog>
+      </ResponsiveModal>
     </>
   );
 }
