@@ -1001,10 +1001,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     const hasForum = marketIntel && marketIntel.forum.count > 0;
 
     if (hasNews || hasForum) {
-      const parts: string[] = [];
-      if (hasNews) parts.push(`${marketIntel!.news.count} market news update${marketIntel!.news.count === 1 ? '' : 's'}`);
-      if (hasForum) parts.push(`${marketIntel!.forum.count} forum discussion${marketIntel!.forum.count === 1 ? '' : 's'}`);
-      msg += `\n\nI've got ${parts.join(' and ')} from this week.`;
       msg += `\n**PROMPT:** "Show me the latest headlines"`;
     }
 
