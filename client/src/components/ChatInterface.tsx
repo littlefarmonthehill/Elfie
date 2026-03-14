@@ -327,6 +327,50 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
   };
 
   // Parse markdown bullet points and create clickable elements
+  const structuredUrlList: string[] = [];
+  const structuredUrlSet = new Set<string>();
+  const structuredTitles: string[] = [];
+  allNewsCards.forEach(a => {
+    if (a.url) {
+      const norm = a.url.replace(/\/$/, '').toLowerCase();
+      if (!structuredUrlSet.has(norm)) { structuredUrlSet.add(norm); structuredUrlList.push(norm); }
+    }
+    if (a.title) structuredTitles.push(a.title.toLowerCase());
+  });
+  dedupedForums.forEach(f => {
+    if (f.threadUrl) {
+      const norm = f.threadUrl.replace(/\/$/, '').toLowerCase();
+      if (!structuredUrlSet.has(norm)) { structuredUrlSet.add(norm); structuredUrlList.push(norm); }
+    }
+    if (f.title) structuredTitles.push(f.title.toLowerCase());
+  });
+
+  const lineHasStructuredDuplicate = (line: string): boolean => {
+    if (structuredUrlList.length === 0 && structuredTitles.length === 0) return false;
+    const lower = line.toLowerCase();
+    const urlMatches = line.match(/https?:\/\/[^\s)>\]]+/g);
+    if (urlMatches) {
+      for (let ui = 0; ui < urlMatches.length; ui++) {
+        const norm = urlMatches[ui].replace(/\)*$/, '').replace(/\/$/, '').toLowerCase();
+        if (structuredUrlSet.has(norm)) return true;
+        for (let si = 0; si < structuredUrlList.length; si++) {
+          const su = structuredUrlList[si];
+          if (norm.includes('messagethread') && su.includes('messagethread')) {
+            const normId = norm.match(/id=(\d+)/i)?.[1];
+            const suId = su.match(/id=(\d+)/i)?.[1];
+            if (normId && suId && normId === suId) return true;
+          }
+          if (norm.length > 30 && su.length > 30 && (norm.includes(su) || su.includes(norm))) return true;
+        }
+      }
+    }
+    for (let ti = 0; ti < structuredTitles.length; ti++) {
+      const title = structuredTitles[ti];
+      if (title.length > 15 && lower.includes(title)) return true;
+    }
+    return false;
+  };
+
   const parseContent = (text: string) => {
     const lines = text.split('\n');
     const elements: JSX.Element[] = [];
@@ -668,6 +712,7 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
         }
       } else if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
         if (isInventoryImpactTheme(currentThemeText)) return;
+        if (lineHasStructuredDuplicate(trimmed)) return;
         flushParagraph();
         const bulletText = trimmed.substring(2);
         const kvMatch = bulletText.match(/^\*{0,2}([^*]+?)\*{0,2}\s*[—–:]\s*(.+)$/);
@@ -689,6 +734,7 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
         }
       } else if (/^\d+\.\s/.test(trimmed)) {
         if (isInventoryImpactTheme(currentThemeText)) return;
+        if (lineHasStructuredDuplicate(trimmed)) return;
         flushParagraph();
         const numMatch = trimmed.match(/^(\d+)\.\s/);
         const num = numMatch ? numMatch[1] : '';
@@ -721,7 +767,7 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
       } else if (trimmed === '') {
         flushParagraph();
       } else {
-        if (!isInventoryImpactTheme(currentThemeText)) {
+        if (!isInventoryImpactTheme(currentThemeText) && !lineHasStructuredDuplicate(trimmed)) {
           currentParagraph.push(line);
         }
       }
