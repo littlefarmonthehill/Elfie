@@ -424,10 +424,6 @@ function buildAnalysisPrompt(ctx: OrgContext): string {
   const forumSummary = ctx.recentForumTopics.map(f => `  - ${f.title}`).join('\n');
 
   const ci = ctx.customerInsights;
-  const topCustSummary = ci.topCustomersAllTime.slice(0, 10).map(c =>
-    `  ${c.buyerName}: ${c.orderCount} orders, $${c.totalSpent.toFixed(2)} lifetime, first: ${c.firstOrderDate.substring(0, 10)}, last: ${c.lastOrderDate.substring(0, 10)}`
-  ).join('\n');
-
   const newCustSummary = ci.newCustomers.slice(0, 8).map(c =>
     `  ${c.buyerName}: ${c.orderCount} orders, $${c.totalSpent.toFixed(2)} spent, first order ${c.firstOrderDate.substring(0, 10)}`
   ).join('\n');
@@ -493,9 +489,6 @@ ${channelSummary || 'No channel data'}
 === MONTHLY REVENUE TREND ===
 ${monthlyStr || 'No monthly data'}
 
-=== TOP CUSTOMERS (by lifetime spend in 2-year window) ===
-${topCustSummary || 'No customer data'}
-
 === NEWER CUSTOMERS (first order within last year) ===
 ${newCustSummary || 'No new customers in last year'}
 Summary: ${ci.returningVsNew.newBuyers} new buyers vs ${ci.returningVsNew.returning} returning buyers
@@ -519,6 +512,12 @@ ${newsSummary || 'No recent news'}
 ${forumSummary || 'No recent forum posts'}
 
 Generate 8-12 SPECIFIC, DATA-DRIVEN insights. Each insight MUST cite exact item numbers, customer names, dollar amounts, and/or percentages from the data above. NEVER write generic advice.
+
+CRITICAL DEDUP RULES — follow these strictly:
+- NEVER generate two insights about the same topic. Each insight must cover a DIFFERENT finding.
+- If a data section is empty (e.g., no dormant buyers, no top spenders, no fast movers), generate AT MOST 1 insight mentioning that gap. Do NOT create multiple "no data" insights for the same category.
+- The categories "top_spender" and "new_customer" and "dormant" each get AT MOST 1 insight. Do not split the same observation into multiple insights with slightly different wording.
+- "revenue" and "velocity" each get AT MOST 1 insight. Do not create two revenue comparison insights with different titles.
 
 For each insight, output a JSON object with these fields:
 - category: One of the operational categories below
@@ -635,7 +634,7 @@ export async function generateOrgInsights(orgId: string): Promise<number> {
       const category = VALID_CATEGORIES.includes(insight.category) ? insight.category : 'trend';
       const urgency = VALID_URGENCIES.includes(insight.urgency) ? insight.urgency : 'medium';
 
-      const existing = await db
+      const existingTitle = await db
         .select({ id: businessInsights.id })
         .from(businessInsights)
         .where(and(
@@ -645,7 +644,18 @@ export async function generateOrgInsights(orgId: string): Promise<number> {
         ))
         .limit(1);
 
-      if (existing.length > 0) continue;
+      if (existingTitle.length > 0) continue;
+
+      const existingCat = await db
+        .select({ id: businessInsights.id })
+        .from(businessInsights)
+        .where(and(
+          eq(businessInsights.orgId, orgId),
+          eq(businessInsights.category, category),
+          eq(businessInsights.dismissed, false),
+        ));
+
+      if (existingCat.length >= 2) continue;
 
       const rawDetails = insight.details || {};
       const sanitizedDetails: Record<string, any> = {};

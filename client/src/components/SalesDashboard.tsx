@@ -197,10 +197,14 @@ function BusinessIntelDrawer({ onClose }: { onClose: () => void }) {
     },
   });
 
+  const urgencyOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
   const groupedByArea: Record<OpArea, BusinessInsight[]> = { product: [], sales: [], customer: [] };
   for (const insight of insights) {
     const area = getOpArea(insight.category);
     groupedByArea[area].push(insight);
+  }
+  for (const area of Object.keys(groupedByArea) as OpArea[]) {
+    groupedByArea[area].sort((a, b) => (urgencyOrder[a.urgency] ?? 2) - (urgencyOrder[b.urgency] ?? 2));
   }
 
   const toggleArea = (area: string) => setCollapsedAreas(prev => ({ ...prev, [area]: !prev[area] }));
