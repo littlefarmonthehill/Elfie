@@ -917,6 +917,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const [activeSchedulerTab, setActiveSchedulerTab] = useState<'catalog' | 'embeddings' | 'market'>('catalog');
   const [activeHealthTab, setActiveHealthTab] = useState<'overview' | 'logs' | 'database' | 'bricklink'>('overview');
   const [activeCustomerHealthTab, setActiveCustomerHealthTab] = useState<'overview' | 'bricklink'>('overview');
+  const [activeAuditTab, setActiveAuditTab] = useState<'organization' | 'platform'>('organization');
   const [blBreakdownSort, setBlBreakdownSort] = useState<{ col: string; dir: 'asc' | 'desc' }>({ col: 'total', dir: 'desc' });
   const [showBlSchedulePopup, setShowBlSchedulePopup] = useState(false);
   const [activePlanTab, setActivePlanTab] = useState<string>('trial');
@@ -1347,8 +1348,8 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
 
   const { data: systemHealth, isLoading: systemHealthLoading, isError: systemHealthError, refetch: refetchSystemHealth } = useQuery<SystemHealthData>({
     queryKey: ['/api/platform-admin/system-health'],
-    enabled: open && (activeSection === 'systemHealth' || activeSection === 'customerHealth' || activeSection === 'platformScheduler'),
-    refetchInterval: (activeSection === 'systemHealth' || activeSection === 'customerHealth' || activeSection === 'platformScheduler') ? 15000 : false,
+    enabled: open && (activeSection === 'systemHealth' || activeSection === 'customerHealth' || activeSection === 'platformScheduler' || activeSection === 'auditLog'),
+    refetchInterval: (activeSection === 'systemHealth' || activeSection === 'customerHealth' || activeSection === 'platformScheduler' || activeSection === 'auditLog') ? 15000 : false,
     retry: 0,
     staleTime: 0,
   });
@@ -1359,6 +1360,19 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
     queryKey: ['/api/brickspotter/universal-catalog/status'],
     enabled: open && activeSection === 'systemHealth',
     refetchInterval: activeSection === 'systemHealth' ? 10000 : false,
+  });
+
+  type OrgSyncEntry = {
+    orgId: string;
+    orgName: string;
+    syncs: Array<{ id: string; orgId: string | null; lastSyncTime: string | null; lastSyncStatus: string | null; recordsAdded: number | null; recordsUpdated: number | null; errorMessage: string | null; updatedAt: string | null }>;
+    brickspotter: { totalScans: number; completed: number; failed: number; lastScanAt: string | null } | null;
+  };
+
+  const { data: orgSyncStatus, isError: orgSyncError } = useQuery<OrgSyncEntry[]>({
+    queryKey: ['/api/platform-admin/org-sync-status'],
+    enabled: open && activeSection === 'auditLog' && activeAuditTab === 'organization',
+    refetchInterval: activeSection === 'auditLog' && activeAuditTab === 'organization' ? 30000 : false,
   });
 
   type DbTableStat = {
@@ -6736,15 +6750,208 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
 
             {/* Audit Log */}
             {activeSection === 'auditLog' && (
-              <div className="p-4 space-y-4">
-                <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-6 flex flex-col items-center justify-center gap-3 text-center">
-                  <ClipboardList className="h-8 w-8 text-gray-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-100">Audit Log</p>
-                    <p className="sm-description mt-1">Platform-wide activity log tracking all admin and tenant actions across every organization.</p>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">Coming Soon</Badge>
+              <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden">
+                <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1">
+                  {([
+                    { id: 'organization' as const, label: 'Organization', Icon: Building2 },
+                    { id: 'platform' as const, label: 'Platform', Icon: Globe },
+                  ]).map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => setActiveAuditTab(t.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors flex-1 justify-center ${activeAuditTab === t.id ? 'bg-gray-700 text-gray-100' : 'text-gray-400 hover-elevate'}`}
+                      data-testid={`audit-tab-${t.id}`}
+                    >
+                      <t.Icon className="h-3.5 w-3.5" />
+                      {t.label}
+                    </button>
+                  ))}
                 </div>
+
+                {activeAuditTab === 'organization' && (
+                  <div className="space-y-2">
+                    {orgSyncError ? (
+                      <div className="rounded-lg bg-gray-800/60 border border-red-700/40 p-6 flex flex-col items-center justify-center gap-2 text-center">
+                        <AlertTriangle className="h-6 w-6 text-red-400" />
+                        <p className="text-sm text-gray-400">Failed to load organization sync data</p>
+                      </div>
+                    ) : !orgSyncStatus ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+                      </div>
+                    ) : orgSyncStatus.length === 0 ? (
+                      <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-6 flex flex-col items-center justify-center gap-2 text-center">
+                        <Building2 className="h-6 w-6 text-gray-600" />
+                        <p className="text-sm text-gray-400">No organizations found</p>
+                      </div>
+                    ) : orgSyncStatus.map(org => {
+                      const syncLabels: Record<string, string> = {
+                        bricklink_inventory: 'Inventory',
+                        bricklink_orders: 'Orders (BL)',
+                        brickowl_orders: 'Orders (BO)',
+                        channel_sync: 'Channel Sync',
+                      };
+                      const fmtTime = (t: string | null) => t ? new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
+                      const statusIcon = (s: string | null) => {
+                        if (s === 'in_progress') return <Loader2 className="h-3 w-3 text-yellow-400 animate-spin shrink-0" />;
+                        if (s === 'failed' || s === 'error') return <AlertTriangle className="h-3 w-3 text-red-400 shrink-0" />;
+                        if (s === 'partial') return <AlertTriangle className="h-3 w-3 text-orange-400 shrink-0" />;
+                        if (s === 'success') return <CheckCircle2 className="h-3 w-3 text-green-500/70 shrink-0" />;
+                        return <Clock className="h-3 w-3 text-gray-600 shrink-0" />;
+                      };
+                      return (
+                        <div key={org.orgId} className="sm-card-inset" data-testid={`audit-org-${org.orgId}`}>
+                          <div className="px-3 pt-2 pb-1 flex items-center gap-2">
+                            <Building2 className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                            <span className="text-xs font-medium text-gray-200 truncate">{org.orgName}</span>
+                          </div>
+                          {org.syncs.length === 0 && !org.brickspotter ? (
+                            <p className="px-3 pb-2 text-[11px] text-gray-500">No sync data yet</p>
+                          ) : (
+                            <>
+                              {org.syncs.map(s => (
+                                <div key={s.id} className="flex items-center gap-2 px-3 py-1">
+                                  {statusIcon(s.lastSyncStatus)}
+                                  <span className="text-[11px] text-gray-300 flex-1 min-w-0 truncate">{syncLabels[s.id] || s.id}</span>
+                                  {s.lastSyncStatus === 'success' && (s.recordsAdded || s.recordsUpdated) ? (
+                                    <span className="text-[10px] text-gray-500 font-mono shrink-0">+{s.recordsAdded ?? 0} / ~{s.recordsUpdated ?? 0}</span>
+                                  ) : null}
+                                  <span className={`text-[10px] shrink-0 font-mono ${s.lastSyncStatus === 'failed' || s.lastSyncStatus === 'error' ? 'text-red-400/80' : s.lastSyncStatus === 'in_progress' ? 'text-yellow-400' : 'text-gray-500'}`}>
+                                    {s.lastSyncStatus === 'in_progress' ? 'Running' : s.errorMessage ? (s.errorMessage.length > 30 ? s.errorMessage.slice(0, 30) + '…' : s.errorMessage) : fmtTime(s.lastSyncTime)}
+                                  </span>
+                                </div>
+                              ))}
+                              {org.brickspotter && (
+                                <div className="flex items-center gap-2 px-3 py-1">
+                                  <Eye className="h-3 w-3 text-gray-400 shrink-0" />
+                                  <span className="text-[11px] text-gray-300 flex-1 min-w-0 truncate">BrickSpotter</span>
+                                  <span className="text-[10px] text-gray-500 font-mono shrink-0">
+                                    {org.brickspotter.completed}/{org.brickspotter.totalScans} scans
+                                    {org.brickspotter.failed > 0 ? ` · ${org.brickspotter.failed} failed` : ''}
+                                  </span>
+                                </div>
+                              )}
+                            </>
+                          )}
+                          <div className="h-1" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {activeAuditTab === 'platform' && (() => {
+                  if (systemHealthError) return (
+                    <div className="rounded-lg bg-gray-800/60 border border-red-700/40 p-6 flex flex-col items-center justify-center gap-2 text-center">
+                      <AlertTriangle className="h-6 w-6 text-red-400" />
+                      <p className="text-sm text-gray-400">Failed to load platform health data</p>
+                    </div>
+                  );
+                  if (!systemHealth) return (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+                    </div>
+                  );
+                  const sj = systemHealth.syncJobs || [];
+                  const gj = (id: string) => sj.find((j: any) => j.id === id);
+                  const clip = systemHealth.clipCatalogStatus;
+                  const clipRunning = systemHealth.schedulerConfig?.clip_catalog?.workerRunning;
+                  const clipPctOv = clip && clip.total > 0 ? Math.round((clip.embedded / clip.total) * 100) : 0;
+                  const fmtTime = (t: string | null) => t ? new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
+
+                  type OverviewJob = {
+                    key: string; label: string;
+                    enabled: boolean; isRunning: boolean;
+                    status: string | null; error: string | null;
+                    lastTime: string | null;
+                    progress?: { done: number; total: number; pct: number };
+                  };
+
+                  const pomJ = gj('priceomatic_cache');
+                  const cdJ = gj('catalog_detail_completion');
+                  const csJ = gj('catalog_scan');
+                  const rbJ = gj('rebrickable_set_parts');
+                  const ucJ = gj('universal_catalog_refresh');
+                  const fmJ = gj('forum_sync');
+                  const mnJ = gj('market_news_sync');
+                  const biJ = gj('business_intel_sync');
+
+                  const pomProg = pomLiveProgress?.active ? { done: pomLiveProgress.itemsProcessed ?? 0, total: pomLiveProgress.itemsTotal ?? 0, pct: pomProgressPct } : undefined;
+                  const cdProg = syncingCd && cdLiveProgress?.phase === 'Enriching items' ? { done: cdLiveProgress.itemsProcessed ?? 0, total: cdLiveProgress.itemsTotal ?? 0, pct: cdProgressPct } : undefined;
+
+                  const groups: Array<{ label: string; jobs: OverviewJob[] }> = [
+                    { label: 'BrickLink Catalog', jobs: [
+                      { key: 'pom', label: 'Price Guides', enabled: pomScheduleEnabled, isRunning: syncingPom, status: pomJ?.lastSyncStatus || null, error: pomJ?.errorMessage || null, lastTime: pomJ?.lastSyncTime || null, progress: pomProg },
+                      { key: 'cd', label: 'Catalog Detail', enabled: catalogDetailEnabled, isRunning: syncingCd, status: cdJ?.lastSyncStatus || null, error: cdJ?.errorMessage || null, lastTime: cdJ?.lastSyncTime || null, progress: cdProg },
+                      { key: 'cs', label: 'Catalog Scan', enabled: catalogScanEnabled, isRunning: syncingCs, status: csJ?.lastSyncStatus || null, error: csJ?.errorMessage || null, lastTime: csJ?.lastSyncTime || null },
+                    ]},
+                    { label: 'Embeddings', jobs: [
+                      { key: 'rb', label: 'Rebrickable Sets', enabled: rebrickableSetSyncEnabled, isRunning: rbJ?.lastSyncStatus === 'in_progress', status: rbJ?.lastSyncStatus || null, error: rbJ?.errorMessage || null, lastTime: rbJ?.lastSyncTime || null },
+                      { key: 'uc', label: 'Universal Catalog', enabled: universalCatalogScheduleEnabled, isRunning: ucJ?.lastSyncStatus === 'in_progress', status: ucJ?.lastSyncStatus || null, error: ucJ?.errorMessage || null, lastTime: ucJ?.lastSyncTime || null },
+                      { key: 'clip', label: 'CLIP Build', enabled: true, isRunning: !!clipRunning, status: clipRunning ? 'in_progress' : (clip && clip.embedded >= clip.total ? 'success' : null), error: null, lastTime: null, progress: clip && clip.total > 0 ? { done: clip.embedded, total: clip.total, pct: clipPctOv } : undefined },
+                    ]},
+                    { label: 'Market', jobs: [
+                      { key: 'fm', label: 'Forum Sync', enabled: forumSyncEnabled, isRunning: fmJ?.lastSyncStatus === 'in_progress', status: fmJ?.lastSyncStatus || null, error: fmJ?.errorMessage || null, lastTime: fmJ?.lastSyncTime || null },
+                      { key: 'mn', label: 'Market News', enabled: marketNewsSyncEnabled, isRunning: mnJ?.lastSyncStatus === 'in_progress', status: mnJ?.lastSyncStatus || null, error: mnJ?.errorMessage || null, lastTime: mnJ?.lastSyncTime || null },
+                      { key: 'bi', label: 'Business Intel', enabled: businessIntelEnabled, isRunning: biJ?.lastSyncStatus === 'in_progress', status: biJ?.lastSyncStatus || null, error: biJ?.errorMessage || null, lastTime: biJ?.lastSyncTime || null },
+                    ]},
+                  ];
+
+                  const statusDot = (j: OverviewJob) => {
+                    if (j.isRunning) return <Loader2 className="h-3 w-3 text-yellow-400 animate-spin shrink-0" />;
+                    if (j.status === 'failed' || j.status === 'error') return <AlertTriangle className="h-3 w-3 text-red-400 shrink-0" />;
+                    if (j.status === 'partial') return <AlertTriangle className="h-3 w-3 text-orange-400 shrink-0" />;
+                    if (!j.enabled) return <Pause className="h-3 w-3 text-gray-600 shrink-0" />;
+                    if (j.status === 'success') return <CheckCircle2 className="h-3 w-3 text-green-500/70 shrink-0" />;
+                    return <Clock className="h-3 w-3 text-gray-600 shrink-0" />;
+                  };
+
+                  const statusText = (j: OverviewJob) => {
+                    if (j.isRunning && j.progress && j.progress.total > 0) return `${j.progress.pct}%`;
+                    if (j.isRunning) return 'Running';
+                    if (j.error) return j.error.length > 40 ? j.error.slice(0, 40) + '…' : j.error;
+                    if (!j.enabled) return 'Paused';
+                    if (j.status === 'success' || j.status === 'partial' || j.status === 'failed' || j.status === 'error') return fmtTime(j.lastTime);
+                    if (j.key === 'clip' && j.progress) return `${j.progress.done.toLocaleString()}/${j.progress.total.toLocaleString()}`;
+                    return 'Never';
+                  };
+
+                  return (
+                    <div className="sm-card-inset" data-testid="audit-platform-overview">
+                      {groups.map((g, gi) => (
+                        <div key={gi}>
+                          {gi > 0 && <div className="border-t border-gray-700/40" />}
+                          <div className="px-3 pt-2 pb-0.5">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{g.label}</span>
+                          </div>
+                          {g.jobs.map(j => (
+                            <div
+                              key={j.key}
+                              className="flex items-center gap-2 px-3 py-1"
+                              data-testid={`audit-platform-job-${j.key}`}
+                            >
+                              {statusDot(j)}
+                              <span className="text-[11px] text-gray-300 flex-1 min-w-0 truncate">{j.label}</span>
+                              {j.isRunning && j.progress && j.progress.total > 0 ? (
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <div className="w-12 h-1 bg-gray-700 rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full transition-all ${j.key === 'clip' ? 'bg-yellow-500' : j.key === 'pom' ? 'bg-purple-500' : 'bg-blue-500'}`} style={{ width: `${j.progress.pct}%` }} />
+                                  </div>
+                                  <span className="text-[10px] text-gray-400 font-mono w-7 text-right">{j.progress.pct}%</span>
+                                </div>
+                              ) : (
+                                <span className={`text-[10px] shrink-0 font-mono ${j.error && !j.isRunning ? 'text-red-400/80' : j.isRunning ? 'text-yellow-400' : !j.enabled ? 'text-gray-600' : 'text-gray-500'}`}>
+                                  {statusText(j)}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                          <div className="h-1" />
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
@@ -7208,113 +7415,6 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
             {/* Platform Scheduler — Data Enrichment */}
             {activeSection === 'platformScheduler' && (
               <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden">
-                {systemHealth && (() => {
-                  const sj = systemHealth.syncJobs || [];
-                  const gj = (id: string) => sj.find((j: any) => j.id === id);
-                  const clip = systemHealth.clipCatalogStatus;
-                  const clipRunning = systemHealth.schedulerConfig?.clip_catalog?.workerRunning;
-                  const clipPctOv = clip && clip.total > 0 ? Math.round((clip.embedded / clip.total) * 100) : 0;
-                  const fmtTime = (t: string | null) => t ? new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
-
-                  type OverviewJob = {
-                    key: string; label: string; jobId?: string;
-                    enabled: boolean; isRunning: boolean;
-                    status: string | null; error: string | null;
-                    lastTime: string | null;
-                    progress?: { done: number; total: number; pct: number };
-                  };
-
-                  const pomJ = gj('priceomatic_cache');
-                  const cdJ = gj('catalog_detail_completion');
-                  const csJ = gj('catalog_scan');
-                  const rbJ = gj('rebrickable_set_parts');
-                  const ucJ = gj('universal_catalog_refresh');
-                  const fmJ = gj('forum_sync');
-                  const mnJ = gj('market_news_sync');
-                  const biJ = gj('business_intel_sync');
-
-                  const pomProg = pomLiveProgress?.active ? { done: pomLiveProgress.itemsProcessed ?? 0, total: pomLiveProgress.itemsTotal ?? 0, pct: pomProgressPct } : undefined;
-                  const cdProg = syncingCd && cdLiveProgress?.phase === 'Enriching items' ? { done: cdLiveProgress.itemsProcessed ?? 0, total: cdLiveProgress.itemsTotal ?? 0, pct: cdProgressPct } : undefined;
-
-                  const groups: Array<{ label: string; tabId: 'catalog' | 'embeddings' | 'market'; jobs: OverviewJob[] }> = [
-                    { label: 'BrickLink Catalog', tabId: 'catalog', jobs: [
-                      { key: 'pom', label: 'Price Guides', enabled: pomScheduleEnabled, isRunning: syncingPom, status: pomJ?.lastSyncStatus || null, error: pomJ?.errorMessage || null, lastTime: pomJ?.lastSyncTime || null, progress: pomProg },
-                      { key: 'cd', label: 'Catalog Detail', enabled: catalogDetailEnabled, isRunning: syncingCd, status: cdJ?.lastSyncStatus || null, error: cdJ?.errorMessage || null, lastTime: cdJ?.lastSyncTime || null, progress: cdProg },
-                      { key: 'cs', label: 'Catalog Scan', enabled: catalogScanEnabled, isRunning: syncingCs, status: csJ?.lastSyncStatus || null, error: csJ?.errorMessage || null, lastTime: csJ?.lastSyncTime || null },
-                    ]},
-                    { label: 'Embeddings', tabId: 'embeddings', jobs: [
-                      { key: 'rb', label: 'Rebrickable Sets', enabled: rebrickableSetSyncEnabled, isRunning: rbJ?.lastSyncStatus === 'in_progress', status: rbJ?.lastSyncStatus || null, error: rbJ?.errorMessage || null, lastTime: rbJ?.lastSyncTime || null },
-                      { key: 'uc', label: 'Universal Catalog', enabled: universalCatalogScheduleEnabled, isRunning: ucJ?.lastSyncStatus === 'in_progress', status: ucJ?.lastSyncStatus || null, error: ucJ?.errorMessage || null, lastTime: ucJ?.lastSyncTime || null },
-                      { key: 'clip', label: 'CLIP Build', enabled: true, isRunning: !!clipRunning, status: clipRunning ? 'in_progress' : (clip && clip.embedded >= clip.total ? 'success' : null), error: null, lastTime: null, progress: clip && clip.total > 0 ? { done: clip.embedded, total: clip.total, pct: clipPctOv } : undefined },
-                    ]},
-                    { label: 'Market', tabId: 'market', jobs: [
-                      { key: 'fm', label: 'Forum Sync', enabled: forumSyncEnabled, isRunning: fmJ?.lastSyncStatus === 'in_progress', status: fmJ?.lastSyncStatus || null, error: fmJ?.errorMessage || null, lastTime: fmJ?.lastSyncTime || null },
-                      { key: 'mn', label: 'Market News', enabled: marketNewsSyncEnabled, isRunning: mnJ?.lastSyncStatus === 'in_progress', status: mnJ?.lastSyncStatus || null, error: mnJ?.errorMessage || null, lastTime: mnJ?.lastSyncTime || null },
-                      { key: 'bi', label: 'Business Intel', enabled: businessIntelEnabled, isRunning: biJ?.lastSyncStatus === 'in_progress', status: biJ?.lastSyncStatus || null, error: biJ?.errorMessage || null, lastTime: biJ?.lastSyncTime || null },
-                    ]},
-                  ];
-
-                  const statusDot = (j: OverviewJob) => {
-                    if (j.isRunning) return <Loader2 className="h-3 w-3 text-yellow-400 animate-spin shrink-0" />;
-                    if (j.status === 'failed' || j.status === 'error') return <AlertTriangle className="h-3 w-3 text-red-400 shrink-0" />;
-                    if (j.status === 'partial') return <AlertTriangle className="h-3 w-3 text-orange-400 shrink-0" />;
-                    if (!j.enabled) return <Pause className="h-3 w-3 text-gray-600 shrink-0" />;
-                    if (j.status === 'success') return <CheckCircle2 className="h-3 w-3 text-green-500/70 shrink-0" />;
-                    return <Clock className="h-3 w-3 text-gray-600 shrink-0" />;
-                  };
-
-                  const statusText = (j: OverviewJob) => {
-                    if (j.isRunning && j.progress && j.progress.total > 0) return `${j.progress.pct}%`;
-                    if (j.isRunning) return 'Running';
-                    if (j.error) return j.error.length > 40 ? j.error.slice(0, 40) + '…' : j.error;
-                    if (!j.enabled) return 'Paused';
-                    if (j.status === 'success' || j.status === 'partial' || j.status === 'failed' || j.status === 'error') return fmtTime(j.lastTime);
-                    if (j.key === 'clip' && j.progress) return `${j.progress.done.toLocaleString()}/${j.progress.total.toLocaleString()}`;
-                    return 'Never';
-                  };
-
-                  return (
-                    <div className="sm-card-inset" data-testid="enrichment-overview">
-                      {groups.map((g, gi) => (
-                        <div key={g.tabId}>
-                          {gi > 0 && <div className="border-t border-gray-700/40" />}
-                          <button
-                            onClick={() => setActiveSchedulerTab(g.tabId)}
-                            className="w-full px-3 pt-2 pb-0.5 text-left"
-                            data-testid={`overview-group-${g.tabId}`}
-                          >
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{g.label}</span>
-                          </button>
-                          {g.jobs.map(j => (
-                            <button
-                              key={j.key}
-                              onClick={() => setActiveSchedulerTab(g.tabId)}
-                              className="w-full flex items-center gap-2 px-3 py-1 text-left hover-elevate"
-                              data-testid={`overview-job-${j.key}`}
-                            >
-                              {statusDot(j)}
-                              <span className="text-[11px] text-gray-300 flex-1 min-w-0 truncate">{j.label}</span>
-                              {j.isRunning && j.progress && j.progress.total > 0 ? (
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <div className="w-12 h-1 bg-gray-700 rounded-full overflow-hidden">
-                                    <div className={`h-full rounded-full transition-all ${j.key === 'clip' ? 'bg-yellow-500' : j.key === 'pom' ? 'bg-purple-500' : 'bg-blue-500'}`} style={{ width: `${j.progress.pct}%` }} />
-                                  </div>
-                                  <span className="text-[10px] text-gray-400 font-mono w-7 text-right">{j.progress.pct}%</span>
-                                </div>
-                              ) : (
-                                <span className={`text-[10px] shrink-0 font-mono ${j.error && !j.isRunning ? 'text-red-400/80' : j.isRunning ? 'text-yellow-400' : !j.enabled ? 'text-gray-600' : 'text-gray-500'}`}>
-                                  {statusText(j)}
-                                </span>
-                              )}
-                            </button>
-                          ))}
-                          <div className="h-1" />
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-
                 {(() => {
                   const schedTabs: Array<{ id: 'catalog' | 'embeddings' | 'market'; label: string; Icon: React.ElementType }> = [
                     { id: 'catalog', label: 'BrickLink Catalog', Icon: Package },

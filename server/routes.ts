@@ -437,7 +437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           COUNT(*) FILTER (WHERE status = 'failed')::int as failed,
           MAX(created_at)::text as last_scan_at
         FROM brickanalyzer_scans
-        WHERE org_id IS NOT NULL
+        WHERE org_id IS NOT NULL AND org_id != ${PLATFORM_ORG_ID}
         GROUP BY org_id
       `);
 

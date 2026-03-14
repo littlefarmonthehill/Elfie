@@ -210,7 +210,7 @@ function BusinessIntelDrawer({ onClose }: { onClose: () => void }) {
   const toggleArea = (area: string) => setCollapsedAreas(prev => ({ ...prev, [area]: !prev[area] }));
 
   return (
-    <ToolDrawer icon={Radar} iconColor="text-cyan-400" title="Business Intel" onClose={onClose} closeTestId="button-close-business-intel">
+    <ToolDrawer icon={Radar} iconColor="text-cyan-400" title="Business Intel" onClose={onClose} closeTestId="button-close-business-intel" contentClassName="px-4 pt-4 pb-4">
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <Radar className="w-6 h-6 text-cyan-400 animate-pulse" />
