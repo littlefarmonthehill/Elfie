@@ -846,7 +846,8 @@ function StreamingMessage({ message, onItemClick, onBrickLinkSearch, onPromptCli
       }
       const currentLine = lines[idx - 1] || '';
       const wordCount = currentLine.trim().split(/\s+/).filter(Boolean).length;
-      const delay = Math.max(500, wordCount * 80);
+      const charCount = currentLine.trim().length;
+      const delay = wordCount === 0 ? 300 : Math.max(600, Math.min(charCount * 25, 3000));
       setTimeout(revealNext, delay);
     };
 
