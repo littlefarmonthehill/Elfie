@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { Zap, ScanLine, Globe } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { usePwaInstall } from "@/hooks/use-pwa-install";
 import logoUrl from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
 
 type ChId = "home" | "ops" | "tools" | "pricing" | "live";
@@ -344,47 +345,146 @@ function PricingScreen({ tune }: { tune: (id: ChId) => void }) {
   );
 }
 
-function LiveScreen({ onSignIn }: { onSignIn: () => void }) {
+function RetroShip({ size = 80, glow = TEAL }: { size?: number; glow?: string }) {
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "clamp(24px,4vw,48px)", color: "#E8F4FF", textAlign: "center", gap: "clamp(12px,1.8vw,20px)", animation: "pb-slidein 0.3s ease-out" }}>
-      <div style={{ position: "relative", width: "60px", height: "60px", marginBottom: "4px" }}>
-        <div style={{ position: "absolute", inset: 0, border: `1px solid ${TEAL}55`, borderRadius: "50%", animation: "pb-orbit 4s linear infinite" }}>
-          <div style={{ position: "absolute", top: "-4px", left: "50%", transform: "translateX(-50%)", width: "8px", height: "8px", borderRadius: "50%", background: TEAL, boxShadow: `0 0 10px ${TEAL}` }} />
+    <svg width={size} height={size} viewBox="0 0 120 120" fill="none" style={{ filter: `drop-shadow(0 0 12px ${glow}66)` }}>
+      <defs>
+        <linearGradient id="hull" x1="60" y1="20" x2="60" y2="100" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#5B6EAA" />
+          <stop offset="50%" stopColor="#3A4477" />
+          <stop offset="100%" stopColor="#1E2344" />
+        </linearGradient>
+        <linearGradient id="wing" x1="0" y1="70" x2="120" y2="70" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#FF00CC" stopOpacity="0.9" />
+          <stop offset="50%" stopColor="#8844CC" stopOpacity="0.7" />
+          <stop offset="100%" stopColor="#FF00CC" stopOpacity="0.9" />
+        </linearGradient>
+        <radialGradient id="cockpit" cx="60" cy="38" r="14" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor={glow} stopOpacity="0.9" />
+          <stop offset="70%" stopColor={glow} stopOpacity="0.3" />
+          <stop offset="100%" stopColor="#001122" stopOpacity="0.8" />
+        </radialGradient>
+      </defs>
+      <g>
+        <ellipse cx="60" cy="98" rx="18" ry="4" fill={`${MGNT}33`} style={{ animation: "pb-saucer 2s ease-in-out infinite" }} />
+        <rect x="55" y="88" width="10" height="12" rx="2" fill="#2A3055" stroke={`${glow}44`} strokeWidth="0.5" />
+        <rect x="50" y="92" width="20" height="6" rx="1" fill="#2A3055" stroke={`${MGNT}44`} strokeWidth="0.5" />
+        <circle cx="56" cy="95" r="1.5" fill={MGNT} style={{ animation: "pb-pulse 1.5s ease-in-out infinite" }} />
+        <circle cx="64" cy="95" r="1.5" fill={glow} style={{ animation: "pb-pulse 1.5s ease-in-out 0.5s infinite" }} />
+        <path d="M40 75 L60 20 L80 75 Z" fill="url(#hull)" stroke={`${glow}55`} strokeWidth="1" strokeLinejoin="round" />
+        <path d="M45 68 L60 28 L75 68" fill="none" stroke={`${glow}22`} strokeWidth="0.5" />
+        <rect x="52" y="55" width="16" height="3" rx="1" fill="#2A3055" stroke={`${glow}33`} strokeWidth="0.5" />
+        <rect x="54" y="60" width="12" height="2" rx="0.5" fill="#2A3055" stroke={`${glow}22`} strokeWidth="0.5" />
+        <rect x="56" y="64" width="8" height="2" rx="0.5" fill="#2A3055" stroke={`${glow}22`} strokeWidth="0.5" />
+        <ellipse cx="60" cy="38" rx="8" ry="10" fill="url(#cockpit)" stroke={glow} strokeWidth="1" style={{ animation: "pb-chglow 3s ease-in-out infinite" }} />
+        <ellipse cx="60" cy="36" rx="4" ry="5" fill={`${glow}22`} />
+        <path d="M40 75 L15 85 L18 70 L40 65 Z" fill="url(#wing)" stroke={`${MGNT}66`} strokeWidth="0.8" />
+        <path d="M80 75 L105 85 L102 70 L80 65 Z" fill="url(#wing)" stroke={`${MGNT}66`} strokeWidth="0.8" />
+        <circle cx="22" cy="80" r="2" fill={MGNT} style={{ animation: "pb-pulse 1s ease-in-out infinite" }} />
+        <circle cx="98" cy="80" r="2" fill={MGNT} style={{ animation: "pb-pulse 1s ease-in-out 0.3s infinite" }} />
+        <path d="M55 75 L52 90 L58 90 Z" fill={`${glow}55`} />
+        <path d="M65 75 L62 90 L68 90 Z" fill={`${glow}55`} />
+        <line x1="55" y1="85" x2="55" y2="105" stroke={`${MGNT}44`} strokeWidth="2" strokeLinecap="round" style={{ animation: "pb-pulse 0.8s ease-in-out infinite" }} />
+        <line x1="60" y1="88" x2="60" y2="110" stroke={`${glow}33`} strokeWidth="3" strokeLinecap="round" style={{ animation: "pb-pulse 0.8s ease-in-out 0.2s infinite" }} />
+        <line x1="65" y1="85" x2="65" y2="105" stroke={`${MGNT}44`} strokeWidth="2" strokeLinecap="round" style={{ animation: "pb-pulse 0.8s ease-in-out 0.4s infinite" }} />
+        <circle cx="60" cy="22" r="2" fill={glow} style={{ animation: "pb-pulse 2s ease-in-out infinite" }} />
+      </g>
+    </svg>
+  );
+}
+
+function LiveScreen({ onSignIn, canInstall, isInstalled, isInstalling, onInstall }: {
+  onSignIn: () => void;
+  canInstall: boolean;
+  isInstalled: boolean;
+  isInstalling: boolean;
+  onInstall: () => void;
+}) {
+  return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "clamp(16px,3vw,36px)", color: "#E8F4FF", textAlign: "center", gap: "clamp(8px,1.2vw,14px)", animation: "pb-slidein 0.3s ease-out" }}>
+      <div style={{ position: "relative", marginBottom: "2px" }}>
+        <div style={{ animation: "pb-float 4s ease-in-out infinite" }}>
+          <RetroShip size={70} />
         </div>
-        <div style={{ position: "absolute", inset: "10px", border: `1px solid ${MGNT}44`, borderRadius: "50%", animation: "pb-orbit 2.5s linear infinite reverse" }}>
-          <div style={{ position: "absolute", top: "-3px", left: "50%", transform: "translateX(-50%)", width: "6px", height: "6px", borderRadius: "50%", background: MGNT, boxShadow: `0 0 8px ${MGNT}`, animation: "pb-pulse 1.2s ease-in-out infinite" }} />
+      </div>
+
+      {isInstalled ? (
+        <>
+          <div style={{ fontSize: "clamp(8px,0.75vw,10px)", fontFamily: "monospace", color: "#66FFB2", letterSpacing: "0.3em", textShadow: "0 0 12px #66FFB266" }}>DOCKED</div>
+          <h2 style={{ fontSize: "clamp(16px,2vw,28px)", fontWeight: 900, color: "#FFFFFF", lineHeight: 1.2, margin: 0 }}>
+            App installed
+          </h2>
+          <p style={{ fontSize: "clamp(10px,0.9vw,13px)", color: "rgba(210,230,255,0.75)", maxWidth: "360px", lineHeight: 1.6, margin: 0 }}>
+            PlanetBrick is on your home screen. Launch it anytime for the full experience.
+          </p>
+        </>
+      ) : (
+        <>
+          <div style={{ fontSize: "clamp(8px,0.75vw,10px)", fontFamily: "monospace", color: MGNT, letterSpacing: "0.3em", textShadow: `0 0 12px ${MGNT}` }}>LAUNCH PAD</div>
+          <h2 style={{ fontSize: "clamp(16px,2vw,28px)", fontWeight: 900, color: "#FFFFFF", lineHeight: 1.2, margin: 0 }}>
+            {canInstall ? "Add to Home Screen" : "Ready to broadcast\nyour LEGO store?"}
+          </h2>
+          <p style={{ fontSize: "clamp(10px,0.9vw,13px)", color: "rgba(210,230,255,0.75)", maxWidth: "360px", lineHeight: 1.6, margin: 0 }}>
+            {canInstall
+              ? "Install PlanetBrick for instant access — works offline, launches like a native app."
+              : "Join PlanetBrick and get access to every tool — free during your trial. No credit card. No commitment."}
+          </p>
+        </>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%", maxWidth: "260px" }}>
+        {canInstall && !isInstalled && (
+          <button
+            onClick={onInstall}
+            disabled={isInstalling}
+            data-testid="button-install-pwa"
+            style={{
+              width: "100%",
+              background: `linear-gradient(135deg, ${MGNT}DD, ${PURP})`,
+              border: `1px solid ${MGNT}66`,
+              borderRadius: "100px",
+              padding: "clamp(9px,1vw,12px) 20px", cursor: isInstalling ? "wait" : "pointer",
+              color: "#FFFFFF", fontWeight: 800, fontSize: "clamp(11px,1.1vw,14px)",
+              boxShadow: `0 0 24px ${MGNT}44, 0 0 8px ${PURP}33`,
+              letterSpacing: "0.05em",
+              opacity: isInstalling ? 0.7 : 1,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14M5 12l7 7 7-7" />
+            </svg>
+            {isInstalling ? "Installing..." : "Install App"}
+          </button>
+        )}
+
+        {!isInstalled && (
+          <>
+            <Link href="/signup">
+              <button data-testid="button-start-trial" style={{
+                width: "100%",
+                background: `linear-gradient(135deg, ${TEAL}DD, #00BBDD)`,
+                border: "none", borderRadius: "100px",
+                padding: "clamp(9px,1vw,12px) 20px", cursor: "pointer",
+                color: SCR_BG, fontWeight: 800, fontSize: "clamp(11px,1.1vw,14px)",
+                boxShadow: `0 0 24px ${TEAL}44`, letterSpacing: "0.03em",
+              }}>Start Free Trial</button>
+            </Link>
+            <button onClick={onSignIn} data-testid="button-sign-in" style={{
+              width: "100%", background: "transparent",
+              border: `1px solid ${TEAL}44`, borderRadius: "100px",
+              padding: "clamp(7px,0.8vw,10px)", cursor: "pointer",
+              color: "rgba(210,230,255,0.85)", fontSize: "clamp(10px,0.9vw,12px)",
+            }}>Sign In to Existing Account</button>
+          </>
+        )}
+      </div>
+
+      {!isInstalled && (
+        <div style={{ fontSize: "clamp(8px,0.7vw,10px)", color: "rgba(200,220,255,0.4)" }}>
+          Full inventory access · No credit card required
         </div>
-        <div style={{ position: "absolute", inset: "22px", borderRadius: "50%", background: `radial-gradient(circle, ${TEAL}22, transparent)`, border: `1px solid ${TEAL}44` }} />
-      </div>
-      <div style={{ fontSize: "clamp(9px,0.9vw,12px)", fontFamily: "monospace", color: MGNT, letterSpacing: "0.3em", textShadow: `0 0 12px ${MGNT}` }}>⬤ ON AIR</div>
-      <h2 style={{ fontSize: "clamp(20px,2.5vw,36px)", fontWeight: 900, color: "#FFFFFF", lineHeight: 1.2, margin: 0 }}>
-        Ready to broadcast<br />your LEGO store?
-      </h2>
-      <p style={{ fontSize: "clamp(12px,1.1vw,15px)", color: "rgba(210,230,255,0.85)", maxWidth: "400px", lineHeight: 1.7, margin: 0 }}>
-        Join PlanetBrick and get access to every tool — free during your trial.
-        No credit card. No commitment.
-      </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%", maxWidth: "280px" }}>
-        <Link href="/signup">
-          <button style={{
-            width: "100%",
-            background: `linear-gradient(135deg, ${TEAL}DD, #00BBDD)`,
-            border: "none", borderRadius: "100px",
-            padding: "clamp(10px,1.2vw,14px) 24px", cursor: "pointer",
-            color: SCR_BG, fontWeight: 800, fontSize: "clamp(13px,1.3vw,16px)",
-            boxShadow: `0 0 28px ${TEAL}55`, letterSpacing: "0.03em",
-          }}>Start Free Trial</button>
-        </Link>
-        <button onClick={onSignIn} style={{
-          width: "100%", background: "transparent",
-          border: `1px solid ${TEAL}44`, borderRadius: "100px",
-          padding: "clamp(8px,1vw,12px)", cursor: "pointer",
-          color: "rgba(210,230,255,0.85)", fontSize: "clamp(11px,1vw,14px)",
-        }}>Sign In to Existing Account</button>
-      </div>
-      <div style={{ fontSize: "clamp(9px,0.8vw,11px)", color: "rgba(200,220,255,0.45)" }}>
-        Full inventory access · No credit card required
-      </div>
+      )}
     </div>
   );
 }
@@ -550,6 +650,7 @@ export default function Landing() {
   const [showLogin, setShowLogin] = useState(false);
   const touchStartX = useRef(0);
   const isDragging = useRef(false);
+  const { canInstall, isInstalled, isInstalling, install } = usePwaInstall();
 
   const activeCh = CHANNELS.find(c => c.id === ch)!;
   const totalSlides = activeCh.slides;
@@ -839,7 +940,7 @@ export default function Landing() {
                       {ch === "ops"     && <OpsScreen slideIndex={slideIndex} />}
                       {ch === "tools"   && <ToolsScreen slideIndex={slideIndex} />}
                       {ch === "pricing" && <PricingScreen tune={tune} />}
-                      {ch === "live"    && <LiveScreen onSignIn={() => setShowLogin(true)} />}
+                      {ch === "live"    && <LiveScreen onSignIn={() => setShowLogin(true)} canInstall={canInstall} isInstalled={isInstalled} isInstalling={isInstalling} onInstall={install} />}
                     </>
                   )}
 
