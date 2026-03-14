@@ -109,7 +109,7 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
       if (currentParagraph.length > 0) {
         const paraText = currentParagraph.join(' ');
         elements.push(
-          <p key={`para-${key++}`} className="mb-2 leading-relaxed">
+          <p key={`para-${key++}`} className="mb-2 leading-relaxed break-words" style={{ overflowWrap: 'anywhere' }}>
             {parseInlineContent(paraText)}
           </p>
         );
@@ -238,7 +238,7 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
             <button
               key={`url-${idx}`}
               onClick={handleLinkClick}
-              className="inline-flex items-center gap-1 text-purple-400 hover:text-purple-300 underline"
+              className="inline-flex items-center gap-1 text-purple-400 hover:text-purple-300 underline break-all max-w-full"
               data-testid={`link-${displayText.toLowerCase().replace(/\s+/g, '-')}`}
             >
               {displayText}
@@ -438,16 +438,17 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
         const kvMatch = bulletText.match(/^\*{0,2}([^*]+?)\*{0,2}\s*[—–:]\s*(.+)$/);
         if (kvMatch) {
           elements.push(
-            <div key={`bullet-${key++}`} className="flex items-center justify-between gap-2 py-1.5 px-3 rounded-md bg-purple-900/10 border border-purple-500/10 mb-1">
+            <div key={`bullet-${key++}`} className="py-1.5 px-3 rounded-md bg-purple-900/10 border border-purple-500/10 mb-1">
               <span className="text-gray-200 font-medium text-sm">{parseInlineContent(kvMatch[1].trim())}</span>
-              <span className="text-purple-300 font-mono text-sm whitespace-nowrap">{parseInlineContent(kvMatch[2].trim())}</span>
+              <span className="text-gray-400 text-sm"> — </span>
+              <span className="text-gray-400 text-sm break-words">{parseInlineContent(kvMatch[2].trim())}</span>
             </div>
           );
         } else {
           elements.push(
             <div key={`bullet-${key++}`} className="flex gap-2.5 py-1.5 px-3 rounded-md bg-purple-900/10 border border-purple-500/10 mb-1">
               <span className="text-purple-400 shrink-0 mt-0.5">•</span>
-              <span className="flex-1 text-sm">{parseInlineContent(bulletText)}</span>
+              <span className="flex-1 text-sm break-words overflow-hidden">{parseInlineContent(bulletText)}</span>
             </div>
           );
         }
@@ -459,19 +460,18 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
         const kvMatch = bulletText.match(/^\*{0,2}([^*]+?)\*{0,2}\s*[—–:]\s*(.+)$/);
         if (kvMatch) {
           elements.push(
-            <div key={`numbered-${key++}`} className="flex items-center justify-between gap-2 py-1.5 px-3 rounded-md bg-purple-900/10 border border-purple-500/10 mb-1">
-              <div className="flex items-center gap-2">
-                <span className="text-purple-400 font-mono text-xs">{num}.</span>
-                <span className="text-gray-200 font-medium text-sm">{parseInlineContent(kvMatch[1].trim())}</span>
-              </div>
-              <span className="text-purple-300 font-mono text-sm whitespace-nowrap">{parseInlineContent(kvMatch[2].trim())}</span>
+            <div key={`numbered-${key++}`} className="py-1.5 px-3 rounded-md bg-purple-900/10 border border-purple-500/10 mb-1">
+              <span className="text-purple-400 font-mono text-xs">{num}.</span>
+              <span className="text-gray-200 font-medium text-sm ml-2">{parseInlineContent(kvMatch[1].trim())}</span>
+              <span className="text-gray-400 text-sm"> — </span>
+              <span className="text-gray-400 text-sm break-words">{parseInlineContent(kvMatch[2].trim())}</span>
             </div>
           );
         } else {
           elements.push(
             <div key={`numbered-${key++}`} className="flex gap-2.5 py-1.5 px-3 rounded-md bg-purple-900/10 border border-purple-500/10 mb-1">
               <span className="text-purple-400 shrink-0 min-w-[1.4em] text-right font-mono text-xs mt-0.5">{num}.</span>
-              <span className="flex-1 text-sm">{parseInlineContent(bulletText)}</span>
+              <span className="flex-1 text-sm break-words overflow-hidden">{parseInlineContent(bulletText)}</span>
             </div>
           );
         }
@@ -513,7 +513,7 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
       
       {/* Always show the AI's text response when present */}
       {content && content.trim().length > 0 && (
-        <div className="space-y-1 bg-gray-800/80 text-gray-300 border border-purple-500/20 p-3 md:p-4 lg:p-5 rounded-lg text-sm md:text-base lg:text-lg">
+        <div className="space-y-1 text-gray-300 text-sm md:text-base lg:text-lg">
           {parseContent(content)}
         </div>
       )}
@@ -603,61 +603,18 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   });
 
   const getWelcomeMessage = () => {
+    let msg = `Hello! I'm E.L.F.I.E., your ${dashboardContext} operations assistant. How can I help you optimize your LEGO business today?`;
+
     const hasNews = marketIntel && marketIntel.news.count > 0;
     const hasForum = marketIntel && marketIntel.forum.count > 0;
-    const hasAnything = hasNews || hasForum;
 
-    if (!hasAnything) {
-      return `Hello! I'm E.L.F.I.E., your ${dashboardContext} operations assistant. How can I help you optimize your LEGO business today?`;
+    if (hasNews || hasForum) {
+      const parts: string[] = [];
+      if (hasNews) parts.push(`${marketIntel!.news.count} market news update${marketIntel!.news.count === 1 ? '' : 's'}`);
+      if (hasForum) parts.push(`${marketIntel!.forum.count} forum discussion${marketIntel!.forum.count === 1 ? '' : 's'}`);
+      msg += `\n\nI've got ${parts.join(' and ')} from this week.`;
+      msg += `\n**PROMPT:** "Show me the latest headlines"`;
     }
-
-    let msg = `### Your Market Briefing`;
-
-    if (hasNews && marketIntel) {
-      const articles = marketIntel.news.articles;
-      const themes = new Map<string, typeof articles>();
-      for (const a of articles) {
-        const topic = a.query || 'General';
-        if (!themes.has(topic)) themes.set(topic, []);
-        themes.get(topic)!.push(a);
-      }
-
-      const topicLabels: Record<string, string> = {
-        'LEGO set retirement announcements': 'Retirements & EOL',
-        'LEGO reseller market news pricing trends': 'Pricing Trends',
-        'BrickLink marketplace updates sellers': 'BrickLink Marketplace',
-        'LEGO collectible investing value 2026': 'Investing & Collectibles',
-        'LEGO supply chain new releases': 'New Releases & Supply',
-      };
-
-      for (const [topic, items] of themes) {
-        const label = topicLabels[topic] || topic;
-        msg += `\n\n**${label}**`;
-        for (const item of items.slice(0, 3)) {
-          msg += `\n- **${item.title}** — ${item.snippet ? item.snippet.substring(0, 120) : item.source}`;
-        }
-      }
-    }
-
-    if (hasForum && marketIntel) {
-      const posts = marketIntel.forum.posts;
-      msg += `\n\n**Community Chatter** (${posts.length} new discussion${posts.length === 1 ? '' : 's'})`;
-      for (const p of posts.slice(0, 4)) {
-        msg += `\n- **${p.title}** — ${p.username}`;
-      }
-    }
-
-    msg += `\n\nAnything catch your eye? Tap a topic to dig in:`;
-
-    if (hasNews) {
-      msg += `\n**PROMPT:** "What LEGO sets are retiring soon?"`;
-      msg += `\n**PROMPT:** "Show me the latest pricing trends"`;
-      msg += `\n**PROMPT:** "Any news about LEGO investing or collectibles?"`;
-    }
-    if (hasForum) {
-      msg += `\n**PROMPT:** "What are people talking about on BrickLink forums?"`;
-    }
-    msg += `\n**PROMPT:** "Search market news for something else"`;
 
     return msg;
   };
@@ -1042,10 +999,10 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                     </div>
                   )}
                   <div
-                    className={`max-w-[80%] rounded-lg text-sm md:text-base lg:text-lg ${
+                    className={`max-w-[85%] rounded-lg text-sm md:text-base lg:text-lg overflow-hidden ${
                       message.role === 'user'
                         ? colors.userBg + ' text-white p-3 md:p-4 lg:p-5'
-                        : 'text-gray-300' // Assistant messages - MessageContent handles its own styling
+                        : 'text-gray-300'
                     }`}
                   >
                     {message.role === 'user' ? (
