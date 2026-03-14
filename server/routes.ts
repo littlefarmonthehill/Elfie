@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { getRecentLogs, clearLogs } from "./services/server-log-buffer";
 
 const SECRET_FIELDS = [
   'openaiApiKey',
@@ -1627,13 +1628,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // GET /api/platform-admin/server-logs — recent WARN/ERROR log entries from in-memory buffer
   app.get('/api/platform-admin/server-logs', isSuperAdmin, (_req, res) => {
-    const { getRecentLogs } = require('./services/server-log-buffer');
     res.json(getRecentLogs(40));
   });
 
   // DELETE /api/platform-admin/server-logs — clear all buffered log entries
   app.delete('/api/platform-admin/server-logs', isSuperAdmin, (_req, res) => {
-    const { clearLogs } = require('./services/server-log-buffer');
     clearLogs();
     res.json({ ok: true });
   });

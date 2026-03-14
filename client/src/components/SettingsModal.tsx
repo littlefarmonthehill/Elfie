@@ -917,6 +917,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const [activeSchedulerTab, setActiveSchedulerTab] = useState<'catalog' | 'embeddings' | 'market'>('catalog');
   const [activeCustomerHealthTab, setActiveCustomerHealthTab] = useState<'overview' | 'bricklink'>('overview');
   const [activeAuditTab, setActiveAuditTab] = useState<'organization' | 'platform'>('organization');
+  const [activeAuditOrgTab, setActiveAuditOrgTab] = useState<'overview' | 'bricklink'>('overview');
   const [activeAuditPlatformTab, setActiveAuditPlatformTab] = useState<'enrichment' | 'bricklink' | 'logs' | 'database'>('enrichment');
   const [blBreakdownSort, setBlBreakdownSort] = useState<{ col: string; dir: 'asc' | 'desc' }>({ col: 'total', dir: 'desc' });
   const [showBlSchedulePopup, setShowBlSchedulePopup] = useState(false);
@@ -1388,6 +1389,8 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
     modSinceAnalyze: number;
     description: string | null;
   };
+  const isAuditOrg = activeSection === 'auditLog' && activeAuditTab === 'organization';
+  const isAuditOrgBl = isAuditOrg && activeAuditOrgTab === 'bricklink';
   const isAuditPlatform = activeSection === 'auditLog' && activeAuditTab === 'platform';
   const isAuditPlatformDb = isAuditPlatform && activeAuditPlatformTab === 'database';
   const isAuditPlatformLogs = isAuditPlatform && activeAuditPlatformTab === 'logs';
@@ -1439,8 +1442,8 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   };
   const { data: blApiBreakdown, isLoading: blApiBreakdownLoading } = useQuery<BlApiBreakdownRow[]>({
     queryKey: ['/api/platform-admin/customer-health/bl-api-breakdown'],
-    enabled: open && superAdmin && activeSection === 'customerHealth' && activeCustomerHealthTab === 'bricklink',
-    refetchInterval: activeSection === 'customerHealth' && activeCustomerHealthTab === 'bricklink' ? 30000 : false,
+    enabled: open && superAdmin && ((activeSection === 'customerHealth' && activeCustomerHealthTab === 'bricklink') || isAuditOrgBl),
+    refetchInterval: (activeSection === 'customerHealth' && activeCustomerHealthTab === 'bricklink') || isAuditOrgBl ? 30000 : false,
     retry: 0,
   });
 
@@ -6185,6 +6188,26 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                 </div>
 
                 {activeAuditTab === 'organization' && (
+                  <>
+                    <div className="flex border-b border-gray-700/60 -mx-3 px-3 shrink-0">
+                      {([
+                        { id: 'overview' as const, label: 'Overview' },
+                        { id: 'bricklink' as const, label: 'BrickLink' },
+                      ]).map(tab => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveAuditOrgTab(tab.id)}
+                          className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold transition-colors border-b-2 -mb-px ${activeAuditOrgTab === tab.id ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
+                          data-testid={`audit-org-tab-${tab.id}`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {isAuditOrg && activeAuditOrgTab === 'overview' && (
                   <div className="space-y-2">
                     {orgSyncError ? (
                       <div className="rounded-lg bg-gray-800/60 border border-red-700/40 p-6 flex flex-col items-center justify-center gap-2 text-center">
@@ -6253,6 +6276,87 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                         </div>
                       );
                     })}
+                  </div>
+                )}
+
+                {isAuditOrgBl && (
+                  <div className="space-y-4">
+                    <p className="sm-group-label px-1">API Usage by Customer (24h)</p>
+                    {blApiBreakdownLoading ? (
+                      <div className="flex items-center justify-center py-10">
+                        <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
+                      </div>
+                    ) : blApiBreakdown && blApiBreakdown.length > 0 ? (() => {
+                      const sortCol = blBreakdownSort.col;
+                      const sortDir = blBreakdownSort.dir;
+                      const sorted = [...blApiBreakdown].sort((a, b) => {
+                        const av = sortCol === 'orgId' ? (a.orgName || a.orgId) : (a as any)[sortCol] as number;
+                        const bv = sortCol === 'orgId' ? (b.orgName || b.orgId) : (b as any)[sortCol] as number;
+                        if (typeof av === 'string' && typeof bv === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+                        return sortDir === 'asc' ? (av as number) - (bv as number) : (bv as number) - (av as number);
+                      });
+                      const toggleSort = (col: string) => {
+                        setBlBreakdownSort(prev =>
+                          prev.col === col ? { col, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { col, dir: 'desc' }
+                        );
+                      };
+                      const columns = [
+                        { key: 'orgId', label: 'Organization', align: 'left' as const },
+                        { key: 'total', label: 'Total', align: 'right' as const },
+                        { key: 'inventory', label: 'Inv', align: 'right' as const },
+                        { key: 'orders', label: 'Ord', align: 'right' as const },
+                        { key: 'catalog', label: 'Cat', align: 'right' as const },
+                        { key: 'priceGuide', label: 'PG', align: 'right' as const },
+                        { key: 'other', label: 'Oth', align: 'right' as const },
+                        { key: 'failed', label: 'Fail', align: 'right' as const },
+                      ];
+                      return (
+                        <div className="rounded-lg border border-gray-700 overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-[10px]" data-testid="table-bl-api-breakdown">
+                              <thead>
+                                <tr className="bg-gray-800/80 border-b border-gray-700/60">
+                                  {columns.map(col => (
+                                    <th
+                                      key={col.key}
+                                      onClick={() => toggleSort(col.key)}
+                                      className={`px-1 py-1.5 font-semibold cursor-pointer select-none transition-colors hover:text-yellow-400 whitespace-nowrap ${col.align === 'right' ? 'text-right' : 'text-left'} ${sortCol === col.key ? 'text-yellow-400' : 'text-gray-500'}`}
+                                      data-testid={`sort-bl-${col.key}`}
+                                    >
+                                      <span className="inline-flex items-center gap-0.5">
+                                        {col.label}
+                                        {sortCol === col.key && (
+                                          <span className="text-[8px]">{sortDir === 'desc' ? '\u25BC' : '\u25B2'}</span>
+                                        )}
+                                      </span>
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-700/30">
+                                {sorted.map(row => (
+                                  <tr key={row.orgId} className="hover-elevate" data-testid={`row-bl-org-${row.orgId}`}>
+                                    <td className="px-1 py-1.5 text-gray-300 truncate max-w-[120px]">{row.orgName || row.orgId}</td>
+                                    <td className="px-1 py-1.5 text-right font-mono font-semibold text-gray-200">{row.total.toLocaleString()}</td>
+                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.inventory > 0 ? row.inventory.toLocaleString() : '\u2014'}</td>
+                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.orders > 0 ? row.orders.toLocaleString() : '\u2014'}</td>
+                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.catalog > 0 ? row.catalog.toLocaleString() : '\u2014'}</td>
+                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.priceGuide > 0 ? row.priceGuide.toLocaleString() : '\u2014'}</td>
+                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.other > 0 ? row.other.toLocaleString() : '\u2014'}</td>
+                                    <td className={`px-1 py-1.5 text-right font-mono ${row.failed > 0 ? 'text-red-400 font-semibold' : 'text-gray-600'}`}>{row.failed > 0 ? row.failed.toLocaleString() : '\u2014'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })() : (
+                      <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-6 text-center">
+                        <CheckCircle2 className="h-5 w-5 text-emerald-400/50 mx-auto mb-2" />
+                        <p className="sm-description">No BrickLink API calls in the last 24 hours</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
