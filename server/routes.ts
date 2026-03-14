@@ -408,6 +408,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/platform-admin/org-sync-status — org-level sync data for audit log
+  app.get('/api/platform-admin/org-sync-status', isSuperAdmin, async (_req, res) => {
+    try {
+      const orgSyncIds = ['bricklink_inventory', 'bricklink_orders', 'brickowl_orders', 'channel_sync'];
+      const syncRows = await db
+        .select({
+          id: syncMetadata.id,
+          orgId: syncMetadata.orgId,
+          lastSyncTime: syncMetadata.lastSyncTime,
+          lastSyncStatus: syncMetadata.lastSyncStatus,
+          recordsAdded: syncMetadata.recordsAdded,
+          recordsUpdated: syncMetadata.recordsUpdated,
+          errorMessage: syncMetadata.errorMessage,
+          updatedAt: syncMetadata.updatedAt,
+        })
+        .from(syncMetadata)
+        .where(and(
+          inArray(syncMetadata.id, orgSyncIds),
+          sql`${syncMetadata.orgId} IS NOT NULL AND ${syncMetadata.orgId} != ${PLATFORM_ORG_ID}`,
+        ))
+        .orderBy(desc(syncMetadata.updatedAt));
+
+      const bsScans = await db.execute(sql`
+        SELECT org_id,
+          COUNT(*)::int as total_scans,
+          COUNT(*) FILTER (WHERE status = 'complete')::int as completed,
+          COUNT(*) FILTER (WHERE status = 'failed')::int as failed,
+          MAX(created_at)::text as last_scan_at
+        FROM brickanalyzer_scans
+        WHERE org_id IS NOT NULL
+        GROUP BY org_id
+      `);
+
+      const orgs = await db
+        .select({ id: organizations.id, name: organizations.name })
+        .from(organizations)
+        .where(sql`${organizations.id} != ${PLATFORM_ORG_ID}`);
+
+      const orgMap = new Map(orgs.map(o => [o.id, o.name]));
+
+      const grouped: Record<string, { orgName: string; syncs: typeof syncRows; brickspotter: any }> = {};
+      for (const row of syncRows) {
+        const oid = row.orgId || 'unknown';
+        if (!grouped[oid]) grouped[oid] = { orgName: orgMap.get(oid) || oid, syncs: [], brickspotter: null };
+        grouped[oid].syncs.push(row);
+      }
+      for (const bs of (bsScans.rows || [])) {
+        const oid = String((bs as any).org_id);
+        if (!grouped[oid]) grouped[oid] = { orgName: orgMap.get(oid) || oid, syncs: [], brickspotter: null };
+        grouped[oid].brickspotter = { totalScans: (bs as any).total_scans, completed: (bs as any).completed, failed: (bs as any).failed, lastScanAt: (bs as any).last_scan_at };
+      }
+
+      // Add orgs that exist but have no sync data yet
+      for (const [oid, name] of orgMap) {
+        if (!grouped[oid]) grouped[oid] = { orgName: name, syncs: [], brickspotter: null };
+      }
+
+      res.json(Object.entries(grouped).map(([orgId, data]) => ({ orgId, ...data })));
+    } catch (error) {
+      console.error("Error fetching org sync status:", error);
+      res.status(500).json({ message: "Failed to fetch org sync status" });
+    }
+  });
+
   // GET /api/platform-admin/stats — platform-level stats
   app.get('/api/platform-admin/stats', isSuperAdmin, async (_req, res) => {
     try {
