@@ -7234,16 +7234,16 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                     { id: 'market', label: 'Market', Icon: Globe },
                   ];
                   return (
-                    <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1 overflow-x-auto">
+                    <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1">
                       {schedTabs.map(({ id, label, Icon }) => (
                         <button
                           key={id}
                           onClick={() => setActiveSchedulerTab(id)}
                           data-testid={`tab-scheduler-${id}`}
-                          className={`flex items-center gap-1.5 flex-1 justify-center px-3 py-1.5 rounded text-xs font-medium transition-colors whitespace-nowrap ${activeSchedulerTab === id ? 'bg-gray-700 text-gray-100' : 'text-gray-500 hover:text-gray-300'}`}
+                          className={`flex items-center gap-1 flex-1 justify-center px-1.5 py-1.5 rounded text-[11px] font-medium transition-colors min-w-0 ${activeSchedulerTab === id ? 'bg-gray-700 text-gray-100' : 'text-gray-500 hover:text-gray-300'}`}
                         >
                           <Icon className="h-3 w-3 shrink-0" />
-                          {label}
+                          <span className="truncate">{label}</span>
                         </button>
                       ))}
                     </div>
