@@ -133,9 +133,7 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
       const parts: (string | JSX.Element)[] = [];
       let lastIndex = 0;
 
-      // Match **PROMPT:** "text here" patterns
-      // Pattern: **PROMPT:** "text" or **PROMPT:** 'text' or **PROMPT:** text without quotes
-      const promptRegex = /\*\*PROMPT:\*\*\s*["']?([^"'\n]+)["']?/g;
+      const promptRegex = /\*\*PROMPT:\*\*\s*["""''']*([^"""'''\n]+)["""''']*/g;
       
       // Match markdown links: [text](url) AND bare URLs: https://...
       // Markdown format takes priority
@@ -388,16 +386,31 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
     };
 
     lines.forEach((line, index) => {
-      // Check if line is a bullet point
-      if (line.trim().startsWith('- ') || line.trim().startsWith('• ')) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
         flushParagraph();
-        const bulletText = line.trim().substring(2);
+        const bulletText = trimmed.substring(2);
         elements.push(
           <li key={`bullet-${key++}`} className="ml-4 mb-1">
             {parseInlineContent(bulletText)}
           </li>
         );
-      } else if (line.trim() === '') {
+      } else if (/^\d+\.\s/.test(trimmed)) {
+        flushParagraph();
+        const bulletText = trimmed.replace(/^\d+\.\s/, '');
+        elements.push(
+          <li key={`numbered-${key++}`} className="ml-4 mb-1 list-decimal">
+            {parseInlineContent(bulletText)}
+          </li>
+        );
+      } else if (/\*\*PROMPT:\*\*/.test(trimmed)) {
+        flushParagraph();
+        elements.push(
+          <div key={`prompt-line-${key++}`} className="inline">
+            {parseInlineContent(trimmed)}
+          </div>
+        );
+      } else if (trimmed === '') {
         flushParagraph();
       } else {
         currentParagraph.push(line);
