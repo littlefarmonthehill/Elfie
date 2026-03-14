@@ -2197,8 +2197,11 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
     <>
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent
-          className="sm:max-w-[640px] bg-gray-900 border-gray-700 p-0 overflow-hidden"
-          style={{ height: 'min(640px, calc(96dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)))' }}
+          className={isMobile
+            ? "!inset-0 !translate-x-0 !translate-y-0 !max-w-none !rounded-none !border-0 bg-gray-900 p-0 overflow-hidden data-[state=open]:!slide-in-from-bottom-full data-[state=closed]:!slide-out-to-bottom-full data-[state=open]:!zoom-in-100 data-[state=closed]:!zoom-out-100 data-[state=open]:!slide-in-from-left-0 data-[state=closed]:!slide-out-to-left-0 [&>button]:!hidden"
+            : "sm:max-w-[640px] bg-gray-900 border-gray-700 p-0 overflow-hidden"
+          }
+          style={{ height: isMobile ? '100dvh' : 'min(640px, calc(96dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)))' }}
         >
           <div
             className="flex flex-col h-full min-h-0 min-w-0 w-full"
@@ -2234,7 +2237,17 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                     : sectionTitle}
                 </DialogTitle>
               </div>
-              <div className="w-8 flex-shrink-0" />
+              <div className="w-8 flex-shrink-0 flex items-center justify-end">
+                {isMobile && (
+                  <button
+                    onClick={onClose}
+                    className="text-gray-400 hover:text-gray-200 transition-colors p-1 rounded"
+                    data-testid="button-settings-close-mobile"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Content */}
