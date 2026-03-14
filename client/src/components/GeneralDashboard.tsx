@@ -593,7 +593,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
         />
 
         <OpAreaCard
-          label="Sales"
+          label="Insights"
           Icon={TrendingUp}
           color="green"
           stat={formatCurrency(totalRevenue)}

@@ -1,6 +1,19 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { Rocket, ToyBrick, Orbit, Sparkles, Gem } from "lucide-react";
+import { Rocket, ToyBrick, Orbit, Sparkles } from "lucide-react";
+
+function InsightsIcon({ className, strokeWidth = 1.5, ...props }: { className?: string; strokeWidth?: number } & React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26" />
+      <circle cx="12" cy="12" r="3.5" />
+      <line x1="12" y1="8.5" x2="12" y2="6" />
+      <line x1="12" y1="18" x2="12" y2="15.5" />
+      <line x1="8.5" y1="12" x2="6" y2="12" />
+      <line x1="18" y1="12" x2="15.5" y2="12" />
+    </svg>
+  );
+}
 
 export type DashboardType = 'dashboard' | 'inventory' | 'orders' | 'marketing' | 'sales';
 
@@ -11,12 +24,12 @@ interface DashboardNavProps {
   onHiddenChange?: (hidden: boolean) => void;
 }
 
-const dashboards: { id: DashboardType; label: string; color: string; activeClass: string; inactiveClass: string; icon: typeof Rocket }[] = [
+const dashboards: { id: DashboardType; label: string; color: string; activeClass: string; inactiveClass: string; icon: any }[] = [
   { id: 'dashboard', label: 'Ops Central', color: 'lego-red', activeClass: 'text-lego-red', inactiveClass: 'text-lego-red/75', icon: Rocket },
   { id: 'inventory', label: 'Product', color: 'lego-blue', activeClass: 'text-lego-blue', inactiveClass: 'text-lego-blue/75', icon: ToyBrick },
   { id: 'orders', label: 'Orders', color: 'lego-orange', activeClass: 'text-lego-orange', inactiveClass: 'text-lego-orange/75', icon: Orbit },
   { id: 'marketing', label: 'Marketing', color: 'lego-yellow', activeClass: 'text-lego-yellow', inactiveClass: 'text-lego-yellow/75', icon: Sparkles },
-  { id: 'sales', label: 'Sales', color: 'lego-green', activeClass: 'text-lego-green', inactiveClass: 'text-lego-green/75', icon: Gem },
+  { id: 'sales', label: 'Insights', color: 'lego-green', activeClass: 'text-lego-green', inactiveClass: 'text-lego-green/75', icon: InsightsIcon },
 ];
 
 const SWIPE_THRESHOLD = 30;

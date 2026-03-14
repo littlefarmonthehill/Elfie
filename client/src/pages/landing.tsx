@@ -88,7 +88,7 @@ const OPS_SLIDES = [
     tools: ["Channel Sync", "Price-o-Matic", "Platforms"],
   },
   {
-    label: "Sales", color: "#FFD600", rgb: "255,214,0",
+    label: "Insights", color: "#FFD600", rgb: "255,214,0",
     metrics: [
       { label: "This Week", value: "$1,247" },
       { label: "Growth",    value: "+18%"  },

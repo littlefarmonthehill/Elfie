@@ -484,7 +484,7 @@ export default function Home() {
       case 'orders':
         return 'Orders';
       case 'sales':
-        return 'Sales';
+        return 'Insights';
       case 'marketing':
         return 'Marketing';
       default:
@@ -1065,7 +1065,7 @@ export default function Home() {
                   {activeOrdersDrawer === 'fulfillment' && <><Truck className="w-4 h-4 text-orange-400 flex-shrink-0" /> Fulfillment & Shipping</>}
                   {activeOrdersDrawer === 'shipped' && <><PackageCheck className="w-4 h-4 text-green-400 flex-shrink-0" /> Shipped Orders</>}
                   {activeMarketingDrawer && <><Mail className="w-4 h-4 text-yellow-400 flex-shrink-0" /> Marketing</>}
-                  {activeSalesDrawer && <><Package className="w-4 h-4 text-green-400 flex-shrink-0" /> Sales</>}
+                  {activeSalesDrawer && <><Package className="w-4 h-4 text-green-400 flex-shrink-0" /> Insights</>}
                 </DrawerTitle>
                 <button onClick={closeActiveDrawer} className="ml-2 text-gray-500 hover:text-gray-200 transition-colors" data-testid="button-close-tool-drawer">
                   <X className="w-5 h-5" />
