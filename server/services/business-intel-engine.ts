@@ -544,10 +544,16 @@ GROUP 3 — CUSTOMER INTELLIGENCE:
 - "top_spender": High-spending customers to reward/prioritize. ALWAYS include names in details.customers.
 - "dormant": Repeat buyers who stopped ordering. ALWAYS include names in details.customers.
 
+MARKET & FORUM CROSS-REFERENCING:
+- If MARKET NEWS mentions retiring sets, price surges, or trending themes, cross-reference against the seller's inventory and generate actionable insights (e.g., "News reports Set X retiring — you have 5 in stock, consider repricing" or "Theme Y trending in forums — you stock related parts").
+- If COMMUNITY DISCUSSIONS mention demand for specific parts/sets, cross-reference with inventory to find opportunities.
+- Use sourceType "market_news" or "forum" when the insight originates from those sources. The category should still be the best-fitting operational category (pricing, acquisition, restock, etc.).
+
 Required distribution — generate 8-12 insights total:
 1. PRODUCT (2-3): Pricing, acquisition, overstock, or restock. Name SPECIFIC items with exact prices.
 2. SALES (2-3): At least 1 revenue (with YoY comparison), 1 channel performance insight. Cite specific $ amounts and % changes.
-3. CUSTOMER (3-4): At least 1 new_customer, 1 top_spender, 1 dormant. Name SPECIFIC customers with order counts and spend amounts.
+3. CUSTOMER (2-3): At least 1 new_customer, 1 top_spender, 1 dormant. Name SPECIFIC customers with order counts and spend amounts.
+4. MARKET-DRIVEN (1-2): If market news or forum discussions mention items, sets, or themes relevant to the seller's inventory, generate insights that connect those external signals to specific inventory items. Set sourceType to "market_news" or "forum".
 
 Output a JSON array. No other text.`;
 }
