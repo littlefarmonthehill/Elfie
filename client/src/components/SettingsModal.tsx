@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
@@ -19,7 +18,6 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ResponsiveModal } from "@/components/ui/responsive-modal";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -900,7 +898,6 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const [elfieMode, setElfieMode] = useState<'search' | 'ai'>('search');
 
   const [activeSection, setActiveSection] = useState<ActiveSection>(initialSection ?? null);
-  const [drawerPortalTarget, setDrawerPortalTarget] = useState<HTMLDivElement | null>(null);
   const [activeOrg, setActiveOrg] = useState<OrgWithUsage | null>(null);
   const [activeOrgTab, setActiveOrgTab] = useState<'features' | 'limits' | 'billing'>('features');
   const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'features' | 'limits' | 'billing'>('info');
@@ -2184,8 +2181,6 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const allNavItems = [...navigationItems, ...platformAdminItems];
 
   const activeNavItem = allNavItems.find(i => i.id === activeSection);
-  const isPlatformAdminSection = platformAdminItems.some(i => i.id === activeSection);
-  const sectionIconColor = isPlatformAdminSection ? 'text-yellow-400' : 'text-gray-300';
 
   const sectionTitle = activeSection === 'platforms' && activePlatform !== null
     ? (() => {
@@ -2198,24 +2193,12 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
       ? activeOrg.name
       : activeNavItem?.label ?? 'Settings';
 
-  const NavIcon = activeNavItem?.icon;
-
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent
           className="sm:max-w-[640px] bg-gray-900 border-gray-700 p-0 overflow-hidden"
           style={{ height: 'min(640px, calc(96dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)))' }}
-          onInteractOutside={(e) => {
-            if (isMobile && activeSection !== null) {
-              e.preventDefault();
-            }
-          }}
-          onPointerDownOutside={(e) => {
-            if (isMobile && activeSection !== null) {
-              e.preventDefault();
-            }
-          }}
         >
           <div
             className="flex flex-col h-full min-h-0 min-w-0 w-full"
@@ -2223,7 +2206,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
             {/* Header */}
             <div className="flex items-center px-3 py-3 border-b border-gray-700/80 bg-gray-800/70 flex-shrink-0">
               <div className="w-8 flex-shrink-0 flex items-center">
-                {(activeSection !== null && !isMobile) && (
+                {activeSection !== null && (
                   <button
                     onClick={() => {
                       if (activeSection === 'platforms' && activePlatform !== null) {
@@ -2246,7 +2229,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
               </div>
               <div className="flex-1 p-0 text-center">
                 <DialogTitle className="text-sm font-semibold text-gray-100 tracking-wide">
-                  {(activeSection === null || isMobile)
+                  {activeSection === null
                     ? 'Settings'
                     : sectionTitle}
                 </DialogTitle>
@@ -2256,7 +2239,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
 
             {/* Content */}
             <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">
-              {(activeSection === null || isMobile) && (
+              {activeSection === null && (
                 <nav className="p-2">
                   {/* Company Settings accordion header */}
                   <button
@@ -2332,9 +2315,8 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                 </nav>
               )}
 
-              {activeSection !== null && (() => {
-                const sectionContent = (
-                <div className={isMobile ? "" : "p-4 sm:p-6"}>
+              {activeSection !== null && (
+                <div className={isMobile ? "p-4" : "p-4 sm:p-6"}>
 
             {/* General Settings */}
             {activeSection === 'general' && (
@@ -8733,64 +8715,13 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
             )}
 
                 </div>
-                );
-                if (isMobile && drawerPortalTarget) {
-                  return createPortal(sectionContent, drawerPortalTarget);
-                }
-                if (isMobile) return null;
-                return sectionContent;
-              })()}
+              )}
             </div>
           </div>
           
         </DialogContent>
       </Dialog>
 
-      {isMobile && (
-        <Drawer open={activeSection !== null && open} onOpenChange={(drawerOpen) => {
-          if (!drawerOpen) {
-            setActiveSection(null);
-            setActivePlatform(null);
-            setActiveOrg(null);
-          }
-        }}>
-          <DrawerContent className="bg-gray-950 border-gray-800 h-[92vh] flex flex-col rounded-t-2xl">
-            <DrawerHeader className="p-0 flex-shrink-0">
-              <div className="flex justify-center pt-3 pb-1">
-                <div className="w-10 h-1 rounded-full bg-gray-600" />
-              </div>
-              <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-gray-800">
-                {((activeSection === 'platforms' && activePlatform !== null) || (activeSection === 'orgs' && activeOrg !== null)) ? (
-                  <button
-                    onClick={() => {
-                      if (activeSection === 'platforms') { setActivePlatform(null); setAddIntegrationType(null); }
-                      else if (activeSection === 'orgs') { setActiveOrg(null); }
-                    }}
-                    className="text-gray-400 hover:text-gray-200 transition-colors p-0.5 -ml-1 rounded"
-                    data-testid="button-drawer-back"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                ) : (
-                  NavIcon && <NavIcon className={`w-4 h-4 ${sectionIconColor} flex-shrink-0`} />
-                )}
-                <DrawerTitle className="text-sm font-semibold text-gray-100 flex-1">
-                  {sectionTitle}
-                </DrawerTitle>
-                <button
-                  onClick={() => { setActiveSection(null); setActivePlatform(null); setActiveOrg(null); }}
-                  className="ml-2 text-gray-500 hover:text-gray-200 transition-colors"
-                  data-testid="button-close-settings-drawer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <DrawerDescription className="sr-only">{sectionTitle}</DrawerDescription>
-            </DrawerHeader>
-            <div ref={setDrawerPortalTarget} className="flex-1 overflow-y-auto px-4 pt-3 min-h-0" />
-          </DrawerContent>
-        </Drawer>
-      )}
 
       {/* Clear Data Confirmation Dialog */}
       <ResponsiveModal
