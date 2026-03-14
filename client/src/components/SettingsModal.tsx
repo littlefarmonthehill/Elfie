@@ -1525,6 +1525,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     priceMonthly: number; priceAnnual: number; priceAnnualMonthly: number;
     limitSeats: number; limitScans: number; limitAutomationRules: number;
     limitOrderHistoryDays: number; limitInventoryItems: number;
+    limitOrders: number; limitElfieQueries: number; limitBusinessIntel: number;
     featureBrickOwl: boolean; featureElfieAi: boolean; featurePriceOMatic: boolean;
     featureEasypost: boolean; featureDataImages: boolean; featureDataSemantic: boolean;
     featureFullEnrichment: boolean; featurePaymentSync: boolean;
@@ -1536,16 +1537,16 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     enabled: open && activeSection === 'plansAndPricing',
   });
 
-  useEffect(() => {
-    if (!planConfigs) return;
-    const found = planConfigs.find(p => p.planKey === activePlanTab);
-    if (found) setPlanDraft({ ...found });
-  }, [activePlanTab, planConfigs]);
 
   const savePlanMutation = useMutation({
     mutationFn: async ({ planKey, fields }: { planKey: string; fields: Record<string, any> }) =>
       apiRequest('PATCH', `/api/platform-admin/plans/${planKey}`, fields),
-    onSuccess: () => {
+    onSuccess: (_data: any, variables: { planKey: string }) => {
+      setPlanDraft((prev: any) => {
+        const next = { ...prev };
+        delete next[variables.planKey];
+        return next;
+      });
       queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/plans'] });
       toast({ title: 'Plan config saved' });
     },
@@ -6391,31 +6392,54 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
             {/* Plans & Pricing */}
             {activeSection === 'plansAndPricing' && (() => {
-              const FEATURE_DEFS: { key: string; label: string }[] = [
+              const fmtCents = (n: number) => (n / 100).toFixed(2);
+              const parseCents = (s: string) => Math.round(parseFloat(s || '0') * 100);
+              const fmtLimit = (n: number) => n === -1 ? '∞' : n.toLocaleString();
+
+              type PlanDrafts = Record<string, Record<string, any>>;
+              const getDraft = (planKey: string, field: string, fallback: any) => {
+                const d = (planDraft as any as PlanDrafts)[planKey];
+                return d && d.hasOwnProperty(field) ? d[field] : fallback;
+              };
+              const setDraft = (planKey: string, field: string, value: any) => {
+                setPlanDraft((prev: any) => ({ ...prev, [planKey]: { ...(prev[planKey] || {}), [field]: value } }));
+              };
+
+              const LIMIT_ROWS: { label: string; field: string; unit?: string; type: 'number' }[] = [
+                { label: 'Inventory Items', field: 'limitInventoryItems', type: 'number' },
+                { label: 'Orders/mo', field: 'limitOrders', type: 'number' },
+                { label: 'BrickSpotter Scans/mo', field: 'limitScans', type: 'number' },
+                { label: 'E.L.F.I.E. Queries/mo', field: 'limitElfieQueries', type: 'number' },
+                { label: 'Business Intel Reports/mo', field: 'limitBusinessIntel', type: 'number' },
+                { label: 'Team Seats', field: 'limitSeats', type: 'number' },
+                { label: 'Order History (days)', field: 'limitOrderHistoryDays', type: 'number' },
+                { label: 'Automation Rules', field: 'limitAutomationRules', type: 'number' },
+              ];
+
+              const FEATURE_ROWS: { label: string; key: string }[] = [
                 { key: 'featurePaymentSync', label: 'Payment Sync' },
                 { key: 'featurePriceOMatic', label: 'Price-o-Matic' },
                 { key: 'featureBrickOwl', label: 'BrickOwl' },
-                { key: 'featureElfieAi', label: 'E.L.F.I.E.' },
+                { key: 'featureElfieAi', label: 'E.L.F.I.E. AI' },
                 { key: 'featureDataImages', label: 'Image Enrichment' },
                 { key: 'featureDataSemantic', label: 'Semantic Enrichment' },
                 { key: 'featureFullEnrichment', label: 'Full Enrichment' },
-                { key: 'featureEasypost', label: 'EasyPost Automation' },
+                { key: 'featureEasypost', label: 'EasyPost' },
               ];
-              const fmtCents = (n: number) => (n / 100).toFixed(2);
-              const parseCents = (s: string) => Math.round(parseFloat(s || '0') * 100);
-              const fmtLimitDisplay = (n: number) => n === -1 ? '∞' : n.toLocaleString();
 
-              const activePlan = planConfigs?.find(p => p.planKey === activePlanTab);
-              const isLocked = (activePlan?.orgCount ?? 0) > 0;
+              const plans = planConfigs || [];
+              const anyDirty = Object.keys(planDraft).length > 0;
 
-              const getDraft = (field: string, fallback: any) =>
-                planDraft.hasOwnProperty(field) ? planDraft[field] : fallback;
+              const inputCls = "w-full bg-gray-900/60 border border-gray-700 rounded px-1.5 py-0.5 text-[11px] text-gray-200 outline-none focus:border-gray-500 text-center";
 
               return (
                 <div className="p-4 space-y-4">
-                  <div className="flex items-center gap-2 px-1">
-                    <Tag className="h-4 w-4 text-yellow-500/70" />
-                    <p className="text-xs font-semibold text-gray-100 uppercase tracking-widest">Plans & Pricing</p>
+                  <div className="flex items-center justify-between gap-2 px-1">
+                    <div className="flex items-center gap-2">
+                      <Tag className="h-4 w-4 text-yellow-500/70" />
+                      <p className="text-xs font-semibold text-gray-100 uppercase tracking-widest">Plans & Pricing</p>
+                    </div>
+                    <p className="text-[9px] text-gray-600">-1 = unlimited</p>
                   </div>
 
                   {planConfigsLoading && (
@@ -6424,218 +6448,222 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     </div>
                   )}
 
-                  {planConfigs && (
-                    <>
-                      {/* Plan tab strip */}
-                      <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1">
-                        {planConfigs.map(plan => (
-                          <button
-                            key={plan.planKey}
-                            onClick={() => setActivePlanTab(plan.planKey)}
-                            data-testid={`tab-plan-${plan.planKey}`}
-                            className={`flex-1 px-2 py-1.5 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${activePlanTab === plan.planKey ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-100'}`}
-                          >
-                            <span>{plan.name}</span>
-                            {plan.orgCount > 0 && (
-                              <span className="inline-flex items-center justify-center rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[9px] font-semibold min-w-[16px] px-1 leading-tight" data-testid={`badge-orgcount-${plan.planKey}`}>{plan.orgCount}</span>
-                            )}
-                            {plan.isSunset && <span className="text-[9px] text-amber-500/70">●</span>}
-                          </button>
-                        ))}
-                      </div>
-
-                      {activePlan && (
-                        <div className="space-y-3">
-                          {/* Sunset banner */}
-                          {activePlan.isSunset && (
-                            <div className="rounded-md bg-amber-900/20 border border-amber-500/30 px-3 py-2.5 flex items-start gap-2">
-                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500/80 shrink-0 mt-0.5" />
-                              <p className="text-[11px] text-amber-400/80 leading-relaxed">This plan is sunset — it cannot be offered to new signups. Existing customers are unaffected.</p>
-                            </div>
-                          )}
-                          {/* Lock banner */}
-                          {isLocked && (
-                            <div className="rounded-md bg-blue-900/20 border border-blue-500/30 px-3 py-2.5 flex items-start gap-2">
-                              <Lock className="h-3.5 w-3.5 text-blue-400/80 shrink-0 mt-0.5" />
-                              <p className="text-[11px] text-blue-300/80 leading-relaxed"><span className="font-semibold">{activePlan.orgCount} org{activePlan.orgCount !== 1 ? 's' : ''}</span> on this plan — config is locked. Only the sunset toggle remains editable.</p>
-                            </div>
-                          )}
-
-                          <div className="rounded-lg border border-gray-700 bg-gray-800/40 overflow-hidden" data-testid={`card-plan-${activePlanTab}`}>
-                            {/* Header: name, tagline, sunset toggle */}
-                            <div className="px-4 py-3 border-b border-gray-700/60">
-                              <div className="flex items-start gap-3 justify-between">
-                                <div className="flex-1 min-w-0 space-y-1.5">
-                                  {isLocked ? (
-                                    <>
-                                      <p className="text-sm font-semibold text-gray-200">{activePlan.name}</p>
-                                      <p className="text-[11px] text-gray-500">{activePlan.tagline}</p>
-                                    </>
-                                  ) : (
-                                    <>
+                  {plans.length > 0 && (
+                    <div className="rounded-lg border border-gray-700 bg-gray-800/40 overflow-x-auto" data-testid="plans-comparison-grid">
+                      <table className="w-full text-[11px] border-collapse" style={{ minWidth: '520px' }}>
+                        <thead>
+                          <tr className="border-b border-gray-700/60">
+                            <th className="text-left px-3 py-2 text-gray-500 font-medium w-[140px] sticky left-0 bg-gray-800/90 z-10" />
+                            {plans.map(plan => {
+                              const locked = (plan.orgCount ?? 0) > 0;
+                              return (
+                                <th key={plan.planKey} className="px-2 py-2 text-center" data-testid={`col-plan-${plan.planKey}`}>
+                                  <div className="space-y-1">
+                                    {locked ? (
+                                      <p className="text-xs font-semibold text-gray-200">{plan.name}</p>
+                                    ) : (
                                       <input
-                                        value={getDraft('name', activePlan.name)}
-                                        onChange={e => setPlanDraft(d => ({ ...d, name: e.target.value }))}
-                                        data-testid={`input-plan-name-${activePlanTab}`}
-                                        className="w-full bg-gray-900/60 border border-gray-700 rounded px-2.5 py-1 text-sm font-semibold text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500"
-                                        placeholder="Plan name"
+                                        value={getDraft(plan.planKey, 'name', plan.name)}
+                                        onChange={e => setDraft(plan.planKey, 'name', e.target.value)}
+                                        data-testid={`input-plan-name-${plan.planKey}`}
+                                        className={`${inputCls} font-semibold`}
                                       />
-                                      <input
-                                        value={getDraft('tagline', activePlan.tagline)}
-                                        onChange={e => setPlanDraft(d => ({ ...d, tagline: e.target.value }))}
-                                        data-testid={`input-plan-tagline-${activePlanTab}`}
-                                        className="w-full bg-gray-900/60 border border-gray-700 rounded px-2.5 py-1 text-[11px] text-gray-400 placeholder-gray-600 outline-none focus:border-gray-500"
-                                        placeholder="Tagline"
-                                      />
-                                    </>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2 shrink-0 pt-0.5">
-                                  <span className="text-[10px] text-gray-500">Sunset</span>
-                                  <Switch
-                                    checked={getDraft('isSunset', activePlan.isSunset)}
-                                    onCheckedChange={checked => {
-                                      setPlanDraft(d => ({ ...d, isSunset: checked }));
-                                      sunsetPlanMutation.mutate({ planKey: activePlan.planKey, isSunset: checked });
-                                    }}
-                                    data-testid={`switch-sunset-${activePlanTab}`}
-                                    className="scale-75"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Pricing */}
-                            <div className="px-4 py-2.5 border-b border-gray-700/60">
-                              <p className="app-label mb-2">Pricing <span className="normal-case font-normal text-gray-700">(USD)</span></p>
-                              {isLocked ? (
-                                <div className="grid grid-cols-3 gap-3">
-                                  {[
-                                    { label: 'Monthly', value: `$${fmtCents(activePlan.priceMonthly)}/mo` },
-                                    { label: 'Annual Total', value: `$${fmtCents(activePlan.priceAnnual)}/yr` },
-                                    { label: 'Annual/Mo', value: `$${fmtCents(activePlan.priceAnnualMonthly)}/mo` },
-                                  ].map(({ label, value }) => (
-                                    <div key={label}>
-                                      <p className="text-[9px] text-gray-600 mb-0.5">{label}</p>
-                                      <p className="text-sm font-semibold text-gray-300">{value}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="grid grid-cols-3 gap-2">
-                                  {([
-                                    { label: 'Monthly ($/mo)', field: 'priceMonthly' },
-                                    { label: 'Annual Total ($/yr)', field: 'priceAnnual' },
-                                    { label: 'Annual/Mo ($/mo)', field: 'priceAnnualMonthly' },
-                                  ] as { label: string; field: string }[]).map(({ label, field }) => (
-                                    <div key={field}>
-                                      <p className="text-[9px] text-gray-600 mb-0.5">{label}</p>
-                                      <input
-                                        type="number"
-                                        min={0}
-                                        step={0.01}
-                                        value={fmtCents(getDraft(field, (activePlan as any)[field]))}
-                                        onChange={e => setPlanDraft(d => ({ ...d, [field]: parseCents(e.target.value) }))}
-                                        data-testid={`input-plan-${field}-${activePlanTab}`}
-                                        className="w-full bg-gray-900/60 border border-gray-700 rounded px-2.5 py-1 text-sm text-gray-200 outline-none focus:border-gray-500"
-                                      />
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Limits */}
-                            <div className="px-4 py-2.5 border-b border-gray-700/60">
-                              <p className="app-label mb-2">Limits <span className="normal-case text-gray-700 font-normal">(−1 = unlimited)</span></p>
-                              {isLocked ? (
-                                <div className="grid grid-cols-5 gap-2">
-                                  {[
-                                    { label: 'Seats', value: fmtLimitDisplay(activePlan.limitSeats) },
-                                    { label: 'Scans/mo', value: fmtLimitDisplay(activePlan.limitScans) },
-                                    { label: 'Auto Rules', value: fmtLimitDisplay(activePlan.limitAutomationRules) },
-                                    { label: 'Order Days', value: activePlan.limitOrderHistoryDays === -1 ? '∞' : `${activePlan.limitOrderHistoryDays}d` },
-                                    { label: 'Inventory', value: fmtLimitDisplay(activePlan.limitInventoryItems) },
-                                  ].map(({ label, value }) => (
-                                    <div key={label} className="text-center">
-                                      <p className="text-sm font-semibold text-gray-300">{value}</p>
-                                      <p className="text-[9px] text-gray-600 mt-0.5">{label}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="grid grid-cols-5 gap-2">
-                                  {([
-                                    { label: 'Seats', field: 'limitSeats' },
-                                    { label: 'Scans/mo', field: 'limitScans' },
-                                    { label: 'Auto Rules', field: 'limitAutomationRules' },
-                                    { label: 'Order Days', field: 'limitOrderHistoryDays' },
-                                    { label: 'Inventory', field: 'limitInventoryItems' },
-                                  ] as { label: string; field: string }[]).map(({ label, field }) => (
-                                    <div key={field}>
-                                      <p className="text-[9px] text-gray-600 mb-0.5">{label}</p>
-                                      <input
-                                        type="number"
-                                        min={-1}
-                                        value={getDraft(field, (activePlan as any)[field])}
-                                        onChange={e => setPlanDraft(d => ({ ...d, [field]: parseInt(e.target.value, 10) || 0 }))}
-                                        data-testid={`input-plan-${field}-${activePlanTab}`}
-                                        className="w-full bg-gray-900/60 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 outline-none focus:border-gray-500"
-                                      />
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Features */}
-                            <div className="px-4 py-2.5">
-                              <p className="app-label mb-2">Features</p>
-                              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                                {FEATURE_DEFS.map(({ key, label }) => {
-                                  const val = getDraft(key, (activePlan as any)[key]);
-                                  return (
-                                    <div key={key} className="flex items-center justify-between gap-2">
-                                      <span className={`text-[11px] ${val ? 'text-gray-400' : 'text-gray-600'}`}>{label}</span>
-                                      {isLocked ? (
-                                        val
-                                          ? <CheckCircle2 className="h-3 w-3 text-green-500/70 shrink-0" />
-                                          : <X className="h-3 w-3 text-gray-700 shrink-0" />
-                                      ) : (
-                                        <Switch
-                                          checked={val}
-                                          onCheckedChange={checked => setPlanDraft(d => ({ ...d, [key]: checked }))}
-                                          data-testid={`switch-feature-${key}-${activePlanTab}`}
-                                          className="scale-75 shrink-0"
-                                        />
+                                    )}
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      {plan.orgCount > 0 && (
+                                        <span className="inline-flex items-center justify-center rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[8px] font-semibold min-w-[14px] px-1 leading-tight" data-testid={`badge-orgcount-${plan.planKey}`}>{plan.orgCount}</span>
                                       )}
+                                      {locked && <Lock className="h-2.5 w-2.5 text-blue-400/60" />}
+                                      <div className="flex items-center gap-0.5">
+                                        <span className="text-[8px] text-gray-600">Sun</span>
+                                        <Switch
+                                          checked={getDraft(plan.planKey, 'isSunset', plan.isSunset)}
+                                          onCheckedChange={checked => {
+                                            setDraft(plan.planKey, 'isSunset', checked);
+                                            sunsetPlanMutation.mutate({ planKey: plan.planKey, isSunset: checked });
+                                          }}
+                                          data-testid={`switch-sunset-${plan.planKey}`}
+                                          className="scale-[0.55]"
+                                        />
+                                      </div>
                                     </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </div>
+                                  </div>
+                                </th>
+                              );
+                            })}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {/* Tagline row */}
+                          <tr className="border-b border-gray-700/30">
+                            <td className="px-3 py-1.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Tagline</td>
+                            {plans.map(plan => {
+                              const locked = (plan.orgCount ?? 0) > 0;
+                              return (
+                                <td key={plan.planKey} className="px-2 py-1.5 text-center">
+                                  {locked ? (
+                                    <span className="text-gray-500 text-[10px]">{plan.tagline}</span>
+                                  ) : (
+                                    <input
+                                      value={getDraft(plan.planKey, 'tagline', plan.tagline)}
+                                      onChange={e => setDraft(plan.planKey, 'tagline', e.target.value)}
+                                      data-testid={`input-plan-tagline-${plan.planKey}`}
+                                      className={`${inputCls} text-[10px] text-gray-400`}
+                                    />
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
 
-                          {/* Save button (hidden when locked) */}
-                          {!isLocked && (
-                            <div className="flex justify-end">
-                              <button
-                                onClick={() => {
-                                  const { planKey, orgCount, id, sortOrder, updatedAt, isSunset, ...editableFields } = planDraft;
-                                  savePlanMutation.mutate({ planKey: activePlan.planKey, fields: editableFields });
-                                }}
-                                disabled={savePlanMutation.isPending}
-                                data-testid={`button-save-plan-${activePlanTab}`}
-                                className="flex items-center gap-1.5 px-4 py-2 bg-yellow-600/20 hover:bg-yellow-600/30 border border-yellow-500/30 rounded text-xs font-medium text-yellow-400 transition-colors disabled:opacity-50"
-                              >
-                                {savePlanMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                                Save Plan Config
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </>
+                          {/* Pricing section header */}
+                          <tr className="border-b border-gray-700/30 bg-gray-900/30">
+                            <td colSpan={plans.length + 1} className="px-3 py-1 text-[9px] font-semibold text-gray-400 uppercase tracking-widest">Pricing (USD)</td>
+                          </tr>
+                          {/* Monthly */}
+                          <tr className="border-b border-gray-700/30">
+                            <td className="px-3 py-1.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Monthly</td>
+                            {plans.map(plan => {
+                              const locked = (plan.orgCount ?? 0) > 0;
+                              return (
+                                <td key={plan.planKey} className="px-2 py-1.5 text-center">
+                                  {locked ? (
+                                    <span className="text-gray-300 font-semibold">${fmtCents(plan.priceMonthly)}</span>
+                                  ) : (
+                                    <input type="number" min={0} step={0.01}
+                                      value={fmtCents(getDraft(plan.planKey, 'priceMonthly', plan.priceMonthly))}
+                                      onChange={e => setDraft(plan.planKey, 'priceMonthly', parseCents(e.target.value))}
+                                      data-testid={`input-plan-priceMonthly-${plan.planKey}`}
+                                      className={inputCls}
+                                    />
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                          {/* Annual */}
+                          <tr className="border-b border-gray-700/30">
+                            <td className="px-3 py-1.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Annual total</td>
+                            {plans.map(plan => {
+                              const locked = (plan.orgCount ?? 0) > 0;
+                              return (
+                                <td key={plan.planKey} className="px-2 py-1.5 text-center">
+                                  {locked ? (
+                                    <span className="text-gray-300 font-semibold">${fmtCents(plan.priceAnnual)}</span>
+                                  ) : (
+                                    <input type="number" min={0} step={0.01}
+                                      value={fmtCents(getDraft(plan.planKey, 'priceAnnual', plan.priceAnnual))}
+                                      onChange={e => setDraft(plan.planKey, 'priceAnnual', parseCents(e.target.value))}
+                                      data-testid={`input-plan-priceAnnual-${plan.planKey}`}
+                                      className={inputCls}
+                                    />
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                          {/* Annual/Mo */}
+                          <tr className="border-b border-gray-700/30">
+                            <td className="px-3 py-1.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Annual/mo rate</td>
+                            {plans.map(plan => {
+                              const locked = (plan.orgCount ?? 0) > 0;
+                              return (
+                                <td key={plan.planKey} className="px-2 py-1.5 text-center">
+                                  {locked ? (
+                                    <span className="text-gray-300 font-semibold">${fmtCents(plan.priceAnnualMonthly)}</span>
+                                  ) : (
+                                    <input type="number" min={0} step={0.01}
+                                      value={fmtCents(getDraft(plan.planKey, 'priceAnnualMonthly', plan.priceAnnualMonthly))}
+                                      onChange={e => setDraft(plan.planKey, 'priceAnnualMonthly', parseCents(e.target.value))}
+                                      data-testid={`input-plan-priceAnnualMonthly-${plan.planKey}`}
+                                      className={inputCls}
+                                    />
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+
+                          {/* Usage limits section header */}
+                          <tr className="border-b border-gray-700/30 bg-gray-900/30">
+                            <td colSpan={plans.length + 1} className="px-3 py-1 text-[9px] font-semibold text-gray-400 uppercase tracking-widest">Usage Limits</td>
+                          </tr>
+                          {LIMIT_ROWS.map(({ label, field }) => (
+                            <tr key={field} className="border-b border-gray-700/30">
+                              <td className="px-3 py-1.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">{label}</td>
+                              {plans.map(plan => {
+                                const locked = (plan.orgCount ?? 0) > 0;
+                                const val = getDraft(plan.planKey, field, (plan as any)[field]);
+                                return (
+                                  <td key={plan.planKey} className="px-2 py-1.5 text-center">
+                                    {locked ? (
+                                      <span className="text-gray-300 font-semibold">{fmtLimit(val)}</span>
+                                    ) : (
+                                      <input type="number" min={-1}
+                                        value={val}
+                                        onChange={e => setDraft(plan.planKey, field, parseInt(e.target.value, 10) || 0)}
+                                        data-testid={`input-plan-${field}-${plan.planKey}`}
+                                        className={inputCls}
+                                      />
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+
+                          {/* Features section header */}
+                          <tr className="border-b border-gray-700/30 bg-gray-900/30">
+                            <td colSpan={plans.length + 1} className="px-3 py-1 text-[9px] font-semibold text-gray-400 uppercase tracking-widest">Features</td>
+                          </tr>
+                          {FEATURE_ROWS.map(({ key, label }) => (
+                            <tr key={key} className="border-b border-gray-700/30">
+                              <td className="px-3 py-1.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">{label}</td>
+                              {plans.map(plan => {
+                                const locked = (plan.orgCount ?? 0) > 0;
+                                const val = getDraft(plan.planKey, key, (plan as any)[key]);
+                                return (
+                                  <td key={plan.planKey} className="px-2 py-1.5 text-center">
+                                    {locked ? (
+                                      val ? <CheckCircle2 className="h-3 w-3 text-green-500/70 mx-auto" /> : <X className="h-3 w-3 text-gray-700 mx-auto" />
+                                    ) : (
+                                      <Switch
+                                        checked={val}
+                                        onCheckedChange={checked => setDraft(plan.planKey, key, checked)}
+                                        data-testid={`switch-feature-${key}-${plan.planKey}`}
+                                        className="scale-[0.6] mx-auto"
+                                      />
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Save buttons per plan */}
+                  {plans.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 justify-end">
+                      {plans.filter(p => (p.orgCount ?? 0) === 0 && (planDraft as any)[p.planKey]).map(plan => (
+                        <button
+                          key={plan.planKey}
+                          onClick={() => {
+                            const draft = (planDraft as any)[plan.planKey] || {};
+                            const { planKey, orgCount, id, sortOrder, updatedAt, isSunset, ...editableFields } = draft;
+                            savePlanMutation.mutate({ planKey: plan.planKey, fields: editableFields });
+                          }}
+                          disabled={savePlanMutation.isPending}
+                          data-testid={`button-save-plan-${plan.planKey}`}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-600/20 hover:bg-yellow-600/30 border border-yellow-500/30 rounded text-[10px] font-medium text-yellow-400 transition-colors disabled:opacity-50"
+                        >
+                          {savePlanMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                          Save {plan.name}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
               );

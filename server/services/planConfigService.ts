@@ -39,6 +39,9 @@ export async function seedPlanConfigsIfEmpty() {
       limitAutomationRules: config.limits.automationRules,
       limitOrderHistoryDays: config.limits.orderHistoryDays,
       limitInventoryItems: config.limits.inventoryItems,
+      limitOrders: config.limits.orders,
+      limitElfieQueries: config.limits.elfieQueries,
+      limitBusinessIntel: config.limits.businessIntel,
       featureBrickOwl: config.features.brickOwl,
       featureElfieAi: config.features.elfieAiMode,
       featurePriceOMatic: config.features.priceOMatic,
@@ -133,6 +136,9 @@ export function dbPlanToLimits(plan: PlanConfig) {
     automationRules: plan.limitAutomationRules,
     orderHistoryDays: plan.limitOrderHistoryDays,
     inventoryItems: plan.limitInventoryItems,
+    orders: plan.limitOrders,
+    elfieQueries: plan.limitElfieQueries,
+    businessIntel: plan.limitBusinessIntel,
   };
 }
 

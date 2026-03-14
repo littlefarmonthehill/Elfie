@@ -479,6 +479,17 @@ export async function runMigrations() {
     await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS business_intel_frequency INTEGER NOT NULL DEFAULT 360`);
     console.log('[Migration] Phase-21 (business_insights table + settings) complete.');
 
+    // Phase-22: New usage limit columns on plan_configs
+    await pool.query(`ALTER TABLE plan_configs ADD COLUMN IF NOT EXISTS limit_orders INTEGER NOT NULL DEFAULT -1`);
+    await pool.query(`ALTER TABLE plan_configs ADD COLUMN IF NOT EXISTS limit_elfie_queries INTEGER NOT NULL DEFAULT 0`);
+    await pool.query(`ALTER TABLE plan_configs ADD COLUMN IF NOT EXISTS limit_business_intel INTEGER NOT NULL DEFAULT 0`);
+    // Backfill per-plan defaults from TIER_CONFIG
+    await pool.query(`UPDATE plan_configs SET limit_orders = 50, limit_elfie_queries = 25, limit_business_intel = 0 WHERE plan_key = 'trial' AND limit_orders = -1 AND limit_elfie_queries = 0 AND limit_business_intel = 0`);
+    await pool.query(`UPDATE plan_configs SET limit_orders = -1, limit_elfie_queries = 100, limit_business_intel = 10 WHERE plan_key = 'foundation' AND limit_elfie_queries = 0 AND limit_business_intel = 0`);
+    await pool.query(`UPDATE plan_configs SET limit_orders = -1, limit_elfie_queries = -1, limit_business_intel = -1 WHERE plan_key = 'core' AND limit_elfie_queries = 0 AND limit_business_intel = 0`);
+    await pool.query(`UPDATE plan_configs SET limit_orders = -1, limit_elfie_queries = -1, limit_business_intel = -1 WHERE plan_key = 'flagship' AND limit_elfie_queries = 0 AND limit_business_intel = 0`);
+    console.log('[Migration] Phase-22 (plan_configs usage limit columns) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

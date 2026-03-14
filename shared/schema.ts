@@ -1554,6 +1554,9 @@ export const planConfigs = pgTable("plan_configs", {
   limitAutomationRules: integer("limit_automation_rules").notNull().default(0),
   limitOrderHistoryDays: integer("limit_order_history_days").notNull().default(30),
   limitInventoryItems: integer("limit_inventory_items").notNull().default(100),
+  limitOrders: integer("limit_orders").notNull().default(-1),
+  limitElfieQueries: integer("limit_elfie_queries").notNull().default(0),
+  limitBusinessIntel: integer("limit_business_intel").notNull().default(0),
   // Features
   featureBrickOwl: boolean("feature_brick_owl").notNull().default(false),
   featureElfieAi: boolean("feature_elfie_ai").notNull().default(false),

@@ -6,6 +6,9 @@ export interface TierLimits {
   automationRules: number; // -1 = unlimited
   orderHistoryDays: number; // -1 = unlimited
   inventoryItems: number; // -1 = unlimited
+  orders: number; // -1 = unlimited
+  elfieQueries: number; // -1 = unlimited
+  businessIntel: number; // -1 = unlimited
 }
 
 export interface TierFeatures {
@@ -45,6 +48,9 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
       automationRules: 0,
       orderHistoryDays: 30,
       inventoryItems: 500,
+      orders: 50,
+      elfieQueries: 25,
+      businessIntel: 0,
     },
     features: {
       brickOwl: false,
@@ -72,6 +78,9 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
       automationRules: -1,
       orderHistoryDays: -1,
       inventoryItems: -1,
+      orders: -1,
+      elfieQueries: -1,
+      businessIntel: -1,
     },
     features: {
       brickOwl: true,
@@ -99,6 +108,9 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
       automationRules: 1,
       orderHistoryDays: 365,
       inventoryItems: -1,
+      orders: -1,
+      elfieQueries: 100,
+      businessIntel: 10,
     },
     features: {
       brickOwl: false,
@@ -126,6 +138,9 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
       automationRules: -1,
       orderHistoryDays: -1,
       inventoryItems: -1,
+      orders: -1,
+      elfieQueries: -1,
+      businessIntel: -1,
     },
     features: {
       brickOwl: true,
@@ -155,6 +170,9 @@ export interface OrgLimits {
   automationRules: number;
   orderHistoryDays: number;
   inventoryItems: number;
+  orders: number;
+  elfieQueries: number;
+  businessIntel: number;
 }
 
 export function getEffectiveLimits(org: {
@@ -170,6 +188,9 @@ export function getEffectiveLimits(org: {
     automationRules: org.automationLimitOverride ?? tier.limits.automationRules,
     orderHistoryDays: tier.limits.orderHistoryDays,
     inventoryItems: tier.limits.inventoryItems,
+    orders: tier.limits.orders,
+    elfieQueries: tier.limits.elfieQueries,
+    businessIntel: tier.limits.businessIntel,
   };
 }
 
