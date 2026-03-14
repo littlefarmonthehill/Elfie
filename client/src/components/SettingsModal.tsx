@@ -1641,8 +1641,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
 
   const vacuumMutation = useMutation({
     mutationFn: async (tables: string[]) => {
-      const res = await apiRequest('POST', '/api/platform-admin/db-vacuum', { tables });
-      return res.json();
+      return await apiRequest('POST', '/api/platform-admin/db-vacuum', { tables });
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/db-tables'] });
@@ -1657,8 +1656,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
 
   const cleanupMutation = useMutation({
     mutationFn: async ({ target, daysOld }: { target: string; daysOld: number }) => {
-      const res = await apiRequest('POST', '/api/platform-admin/db-cleanup', { target, daysOld });
-      return res.json();
+      return await apiRequest('POST', '/api/platform-admin/db-cleanup', { target, daysOld });
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/db-tables'] });
