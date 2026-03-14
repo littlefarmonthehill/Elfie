@@ -391,17 +391,21 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
         flushParagraph();
         const bulletText = trimmed.substring(2);
         elements.push(
-          <li key={`bullet-${key++}`} className="ml-4 mb-1">
-            {parseInlineContent(bulletText)}
-          </li>
+          <div key={`bullet-${key++}`} className="flex gap-2 ml-2 mb-1.5">
+            <span className="text-purple-400 shrink-0">•</span>
+            <span>{parseInlineContent(bulletText)}</span>
+          </div>
         );
       } else if (/^\d+\.\s/.test(trimmed)) {
         flushParagraph();
+        const numMatch = trimmed.match(/^(\d+)\.\s/);
+        const num = numMatch ? numMatch[1] : '';
         const bulletText = trimmed.replace(/^\d+\.\s/, '');
         elements.push(
-          <li key={`numbered-${key++}`} className="ml-4 mb-1 list-decimal">
-            {parseInlineContent(bulletText)}
-          </li>
+          <div key={`numbered-${key++}`} className="flex gap-2 ml-2 mb-1.5">
+            <span className="text-purple-400 shrink-0 min-w-[1.2em] text-right">{num}.</span>
+            <span>{parseInlineContent(bulletText)}</span>
+          </div>
         );
       } else if (/\*\*PROMPT:\*\*/.test(trimmed)) {
         flushParagraph();

@@ -4095,7 +4095,12 @@ Yes, we have 3024 (Plate 1x1) across 45 colors, about 2,500 total pieces worth $
 **PROMPT:** "Who has ordered part 3024?"
 **PROMPT:** "What's the current market price for 3024?"
 
-Keep it concise — summarize the key numbers and let the clickable prompts invite the user to drill deeper. Save detailed breakdowns (color lists, data tables, ### headers) for when the user explicitly asks for them.
+**Formatting rules:**
+- Summarize the key numbers and let the clickable prompts invite the user to drill deeper. Save detailed breakdowns for when the user explicitly asks.
+- For order questions: give a summary (total orders, total quantity sold, total revenue, date range) — the order cards are displayed separately with full details. Listing every order in the text is redundant.
+- When you do use lists, keep each item to a single clean line. Use "- " bullet style (one level only). Multi-level nesting (bullets inside numbered items) is hard to read on mobile — flatten it into a single-level list with the key info on each line.
+  Example: "- **Dark Bluish Gray** — 194 units, $0.79 each (New)" reads better than a numbered item with sub-bullets.
+- Use **bold** for key labels/values. Skip ### headers for simple answers.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 THE BUSINESS YOU'RE RUNNING
