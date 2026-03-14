@@ -161,12 +161,18 @@ function themeMatchScore(theme: string, text: string): number {
   const tgt = text.toLowerCase();
   let score = 0;
   const headerWords = tl.split(/[\s&,]+/).filter(w => w.length > 3);
-  score += headerWords.filter(w => tgt.includes(w)).length;
+  const headerWordMatches = headerWords.filter(w => tgt.includes(w)).length;
+  score += headerWordMatches * 3;
+  let categoryMatches = 0;
   for (const [category, keywords] of Object.entries(THEME_KEYWORD_MAP)) {
     if (tl.includes(category) || keywords.some(k => tl.includes(k))) {
-      score += keywords.filter(k => tgt.includes(k)).length * 2;
+      const hits = keywords.filter(k => tgt.includes(k)).length;
+      score += hits * 2;
+      if (hits > 0) categoryMatches++;
     }
   }
+  if (headerWordMatches === 0 && categoryMatches === 0) return 0;
+  if (headerWordMatches === 0 && score < 4) return 0;
   return score;
 }
 
@@ -306,7 +312,10 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
         score: themeMatchScore(currentThemeText, `${a.title} ${a.snippet || ''} ${a.topic || ''}`),
       })).filter(s => s.score > 0).sort((a, b) => b.score - a.score);
 
-      scored.forEach(({ article }) => {
+      const maxPerTheme = Math.max(3, Math.ceil(allNewsCards.length / Math.max(themeHeaders.length + 1, 2)));
+      const topScored = scored.slice(0, maxPerTheme);
+
+      topScored.forEach(({ article }) => {
         matchedNewsIds.add(article.id);
         themedCardsInjected = true;
         elements.push(
