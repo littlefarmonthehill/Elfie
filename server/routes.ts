@@ -4003,6 +4003,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/ai/summarize", isApproved, async (req, res) => {
+    try {
+      const { title, snippet, url } = req.body;
+      if (!title || !snippet) {
+        return res.status(400).json({ error: 'title and snippet are required' });
+      }
+
+      const apiKey = await getPlatformOpenAIKey();
+      if (!apiKey) {
+        return res.status(500).json({ error: 'OpenAI API key not configured' });
+      }
+
+      const OpenAI = (await import('openai')).default;
+      const openai = new OpenAI({ apiKey });
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        max_tokens: 150,
+        temperature: 0.3,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a concise business analyst for a LEGO reselling business. Given a news headline and snippet, provide a 1-2 sentence overview of what happened and why it matters to a LEGO parts reseller. Be direct and specific. No preamble.'
+          },
+          {
+            role: 'user',
+            content: `Title: ${title}\nSnippet: ${snippet}${url ? `\nSource: ${url}` : ''}`
+          }
+        ]
+      });
+
+      const overview = completion.choices[0]?.message?.content?.trim() || '';
+      res.json({ overview });
+    } catch (error: any) {
+      console.error('Summarize error:', error.message);
+      res.status(500).json({ error: 'Failed to generate overview' });
+    }
+  });
+
   // E.L.F.I.E. Chat Route
   app.post("/api/chat", isApproved, async (req, res) => {
     const chatStartTime = Date.now();

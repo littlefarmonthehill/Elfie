@@ -9,7 +9,7 @@ import { MarketNewsGroup } from "@/components/MarketNewsGroup";
 import { useToast } from "@/hooks/use-toast";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
-function InlineNewsCard({ title, snippet, url, source, type, dateStr, username, replyCount }: {
+function InlineNewsCard({ title, snippet, url, source, type, dateStr, username, replyCount, onSummarize }: {
   title: string;
   snippet?: string;
   url: string;
@@ -18,17 +18,36 @@ function InlineNewsCard({ title, snippet, url, source, type, dateStr, username, 
   dateStr?: string;
   username?: string;
   replyCount?: number;
+  onSummarize?: (title: string, snippet: string, url: string) => Promise<string>;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [aiOverview, setAiOverview] = useState<string | null>(null);
+  const [loadingOverview, setLoadingOverview] = useState(false);
 
   const getDomain = (u: string) => {
     try { return new URL(u).hostname.replace('www.', ''); } catch { return ''; }
   };
 
+  const handleExpand = async () => {
+    const willExpand = !expanded;
+    setExpanded(willExpand);
+    if (willExpand && !aiOverview && snippet && onSummarize) {
+      setLoadingOverview(true);
+      try {
+        const overview = await onSummarize(title, snippet, url);
+        setAiOverview(overview);
+      } catch {
+        setAiOverview(null);
+      } finally {
+        setLoadingOverview(false);
+      }
+    }
+  };
+
   return (
     <div className="rounded-md bg-purple-900/10 border border-purple-500/10 mb-1 overflow-hidden" data-testid={`inline-card-${type}`}>
       <button
-        onClick={() => setExpanded(!expanded)}
+        onClick={handleExpand}
         className="w-full flex items-start gap-2 py-2 px-3 text-left"
         data-testid={`button-expand-${type}-card`}
       >
@@ -55,7 +74,24 @@ function InlineNewsCard({ title, snippet, url, source, type, dateStr, username, 
       </button>
       {expanded && (
         <div className="px-3 pb-2.5 pl-8 space-y-2">
-          {snippet && <p className="text-xs text-gray-400 leading-relaxed">{snippet}</p>}
+          {loadingOverview && (
+            <div className="flex items-center gap-2 text-xs text-purple-400">
+              <Brain className="h-3 w-3 animate-pulse" />
+              <span>Generating overview...</span>
+            </div>
+          )}
+          {aiOverview && (
+            <div className="text-xs text-gray-300 leading-relaxed bg-purple-900/20 rounded px-2.5 py-2 border border-purple-500/10">
+              <div className="flex items-center gap-1.5 text-purple-400 mb-1">
+                <Brain className="h-3 w-3" />
+                <span className="font-medium text-[11px] uppercase tracking-wide">AI Overview</span>
+              </div>
+              {aiOverview}
+            </div>
+          )}
+          {!aiOverview && !loadingOverview && snippet && (
+            <p className="text-xs text-gray-400 leading-relaxed">{snippet}</p>
+          )}
           <button
             onClick={(e) => { e.stopPropagation(); window.open(url, '_blank', 'noopener,noreferrer'); }}
             className="inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300"
@@ -221,9 +257,10 @@ interface MessageContentProps {
   onItemClick?: (type: 'inventory' | 'order', id: string) => void;
   onBrickLinkSearch?: (itemNo: string, itemType: string) => void;
   onPromptClick?: (prompt: string) => void;
+  onSummarize?: (title: string, snippet: string, url: string) => Promise<string>;
 }
 
-function MessageContent({ content, imageUrl, items, orders, forumDiscussions, marketNewsArticles, bricklinkSearchSuggestion, onItemClick, onBrickLinkSearch, onPromptClick }: MessageContentProps) {
+function MessageContent({ content, imageUrl, items, orders, forumDiscussions, marketNewsArticles, bricklinkSearchSuggestion, onItemClick, onBrickLinkSearch, onPromptClick, onSummarize }: MessageContentProps) {
 
   const dedupedForums = deduplicateForums(forumDiscussions || []);
   const allNewsCards = marketNewsArticles || [];
@@ -241,7 +278,7 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
       matchedNewsIds.add(a.id);
       themedCardsInjected = true;
       elements.push(
-        <InlineNewsCard key={`tnews-${keyRef.value++}`} type="news" title={a.title} snippet={a.snippet} url={a.url} source={a.source} />
+        <InlineNewsCard key={`tnews-${keyRef.value++}`} type="news" title={a.title} snippet={a.snippet} url={a.url} source={a.source} onSummarize={onSummarize} />
       );
     });
 
@@ -250,7 +287,7 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
         matchedForumIds.add(f.id);
         themedCardsInjected = true;
         elements.push(
-          <InlineNewsCard key={`tforum-${keyRef.value++}`} type="forum" title={f.title} snippet={f.excerpt || undefined} url={f.threadUrl} username={f.username} replyCount={f.replyCount} />
+          <InlineNewsCard key={`tforum-${keyRef.value++}`} type="forum" title={f.title} snippet={f.excerpt || undefined} url={f.threadUrl} username={f.username} replyCount={f.replyCount} onSummarize={onSummarize} />
         );
       });
     }
@@ -666,12 +703,12 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
       }
       unmatchedNews.forEach(a => {
         elements.push(
-          <InlineNewsCard key={`unews-${keyRef.value++}`} type="news" title={a.title} snippet={a.snippet} url={a.url} source={a.source} />
+          <InlineNewsCard key={`unews-${keyRef.value++}`} type="news" title={a.title} snippet={a.snippet} url={a.url} source={a.source} onSummarize={onSummarize} />
         );
       });
       unmatchedForums.forEach(f => {
         elements.push(
-          <InlineNewsCard key={`uforum-${keyRef.value++}`} type="forum" title={f.title} snippet={f.excerpt || undefined} url={f.threadUrl} username={f.username} replyCount={f.replyCount} />
+          <InlineNewsCard key={`uforum-${keyRef.value++}`} type="forum" title={f.title} snippet={f.excerpt || undefined} url={f.threadUrl} username={f.username} replyCount={f.replyCount} onSummarize={onSummarize} />
         );
       });
     }
@@ -948,6 +985,18 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     }
   };
 
+  const handleSummarize = async (title: string, snippet: string, url: string): Promise<string> => {
+    const response = await fetch('/api/ai/summarize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ title, snippet, url }),
+    });
+    if (!response.ok) throw new Error('Failed to summarize');
+    const data = await response.json();
+    return data.overview || snippet;
+  };
+
   const handleBrickLinkSearch = async (itemNo: string, itemType: string) => {
     try {
       // Call BrickLink search endpoint
@@ -1209,6 +1258,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                         onItemClick={onItemClick}
                         onBrickLinkSearch={handleBrickLinkSearch}
                         onPromptClick={handleSend}
+                        onSummarize={handleSummarize}
                       />
                     )}
                   </div>
