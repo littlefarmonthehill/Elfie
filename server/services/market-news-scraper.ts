@@ -113,12 +113,22 @@ async function searchDuckDuckGo(query: string, limit: number = 5): Promise<Array
 export async function fetchMarketNews(queries: string[]): Promise<NewsArticle[]> {
   const articles: NewsArticle[] = [];
   const seenUrls = new Set<string>();
+  let braveBlocked = false;
 
-  for (const query of queries) {
-    let searchResults = await searchDuckDuckGo(query, 5);
+  for (let qi = 0; qi < queries.length; qi++) {
+    const query = queries[qi];
+    let searchResults: Array<{ title: string; snippet: string; url: string }> = [];
+
+    if (!braveBlocked) {
+      searchResults = await searchBrave(query, 5);
+      if (searchResults.length === 0) {
+        console.log(`[MarketNews] Brave returned 0 results for "${query}", switching to DuckDuckGo for remaining queries`);
+        braveBlocked = true;
+      }
+    }
 
     if (searchResults.length === 0) {
-      searchResults = await searchBrave(query, 5);
+      searchResults = await searchDuckDuckGo(query, 5);
     }
 
     for (const r of searchResults) {
@@ -134,7 +144,10 @@ export async function fetchMarketNews(queries: string[]): Promise<NewsArticle[]>
       });
     }
 
-    await new Promise(r => setTimeout(r, 1500));
+    if (qi < queries.length - 1) {
+      const delay = braveBlocked ? 2000 : 3000;
+      await new Promise(r => setTimeout(r, delay));
+    }
   }
 
   console.log(`[MarketNews] Fetched ${articles.length} articles from ${queries.length} queries`);
