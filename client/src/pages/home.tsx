@@ -940,12 +940,21 @@ export default function Home() {
               'border-lego-yellow/30 bg-gradient-to-br from-lego-yellow/15 via-gray-950/80 to-lego-yellow/5'
             }`}>
               <div className="h-full flex flex-row">
-                <div className={`flex-1 overflow-y-auto min-w-0 ${(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer) ? 'hidden md:block' : ''}`}>
+                <div className={`flex-1 overflow-y-auto min-w-0 ${(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer || detailModal.open) ? 'hidden md:block' : ''}`}>
                   {renderMobileDashboard()}
                 </div>
-                {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer) && (
+                {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer || detailModal.open) && (
                   <div className="w-full md:w-[40%] md:max-w-[520px] flex-shrink-0 border-l border-white/10 overflow-y-auto bg-gray-950/60">
-                    {renderActiveDrawer()}
+                    {detailModal.open ? (
+                      <DetailModal
+                        open={detailModal.open}
+                        onClose={() => setDetailModal({ open: false, data: null })}
+                        detail={detailModal.data}
+                        onOrderSelect={handleOrderSelect}
+                        onBrickLinkClick={setBrickLinkUrl}
+                        inline
+                      />
+                    ) : renderActiveDrawer()}
                   </div>
                 )}
               </div>
@@ -1099,16 +1108,7 @@ export default function Home() {
 
       <SettingsModal open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsPricingExample(undefined); setSettingsScoringExample(undefined); }} initialSection={settingsInitialSection ?? undefined} pricingExample={settingsPricingExample} scoringExample={settingsScoringExample} />
       
-      {/* Detail modal — Vaul drawer on mobile only; desktop uses inline overlay in center column */}
-      {!isDesktop && (
-        <DetailModal 
-          open={detailModal.open} 
-          onClose={() => setDetailModal({ open: false, data: null })} 
-          detail={detailModal.data}
-          onOrderSelect={handleOrderSelect}
-          onBrickLinkClick={setBrickLinkUrl}
-        />
-      )}
+      {/* Detail modal is rendered inline in both mobile and desktop layouts above */}
 
       {/* BrickLink in-app browser dialog */}
       <Dialog open={!!brickLinkUrl} onOpenChange={() => setBrickLinkUrl(null)}>
