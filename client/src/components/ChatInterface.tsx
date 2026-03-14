@@ -842,22 +842,28 @@ function StreamingMessage({ message, onItemClick, onBrickLinkSearch, onPromptCli
           doneRef.current = true;
           onStreamingDone?.();
         }
-        console.log('[STREAM] reveal complete, total lines:', lines.length);
         return;
       }
       const currentLine = lines[idx - 1] || '';
       const wordCount = currentLine.trim().split(/\s+/).filter(Boolean).length;
       const charCount = currentLine.trim().length;
-      const delay = wordCount === 0 ? 300 : Math.max(600, Math.min(charCount * 25, 3000));
-      console.log(`[STREAM] line ${idx}/${lines.length}, chars=${charCount}, delay=${delay}ms`);
+      const delay = wordCount === 0 ? 200 : Math.max(400, Math.min(charCount * 18, 2000));
       setTimeout(revealNext, delay);
     };
 
-    setTimeout(revealNext, 300);
+    setTimeout(revealNext, 250);
     return () => { cancelled = true; };
   }, [message.content, message.streaming]);
 
   const revealedContent = lines.slice(0, revealedCount).join('\n');
+  const streamingDone = revealedCount >= lines.length;
+
+  const revealedSectionCount = lines.slice(0, revealedCount).filter(l => /^#{1,3}\s/.test(l.trim())).length;
+
+  const allNews = message.marketNewsArticles || [];
+  const allForums = message.forumDiscussions || [];
+  const newsToShow = streamingDone ? allNews : allNews.slice(0, revealedSectionCount > 0 ? Math.ceil(allNews.length * (revealedCount / lines.length)) : 0);
+  const forumsToShow = streamingDone ? allForums : allForums.slice(0, revealedSectionCount > 1 ? Math.ceil(allForums.length * (revealedCount / lines.length)) : 0);
 
   return (
     <MessageContent
@@ -865,9 +871,9 @@ function StreamingMessage({ message, onItemClick, onBrickLinkSearch, onPromptCli
       imageUrl={message.imageUrl}
       items={message.items}
       orders={message.orders}
-      forumDiscussions={message.forumDiscussions}
-      marketNewsArticles={message.marketNewsArticles}
-      bricklinkSearchSuggestion={message.bricklinkSearchSuggestion}
+      forumDiscussions={forumsToShow}
+      marketNewsArticles={newsToShow}
+      bricklinkSearchSuggestion={streamingDone ? message.bricklinkSearchSuggestion : null}
       onItemClick={onItemClick}
       onBrickLinkSearch={onBrickLinkSearch}
       onPromptClick={onPromptClick}
