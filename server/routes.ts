@@ -4201,121 +4201,7 @@ Format search_web URLs as markdown links.`;
         });
       }
       
-      // Extract inventory items from the search for grouped display
-      const itemsFound: Array<{
-        id: number;
-        itemNo: string;
-        itemName: string | null;
-        colorId: number | null;
-        colorName: string | null;
-        colorRgb: string | null;
-        quantity: number;
-        unitPrice: string | null;
-        newOrUsed: string;
-      }> = [];
-      
-      // Extract orders for display (includes orders from AI tools like search_orders_by_item)
-      const ordersFound: Array<{
-        id: string;
-        orderNumber: string;
-        marketplace: string | null;
-        orderDate: string;
-        orderTotal: string;
-        customerUsername: string;
-        orderStatus: string;
-      }> = [...ordersFromAgentTools];
-      
-      // Extract ONLY the specific items mentioned in E.L.F.I.E.'s response
-      // This makes part numbers clickable without showing irrelevant items
-      // Parse part numbers from the assistant's message (e.g., "Part 4228", "Part 3021 in Red", "part 26047")
-      const partNumberRegex = /\b(?:part|item)\s*\*{0,2}\s*([\w-]+)\*{0,2}/gi;
-      const boldPartRegex = /\*\*(?:Part|Item)\s+([\w-]+)\*\*/gi;
-      const mentionedParts: Set<string> = new Set();
-      let partMatch;
-      
-      while ((partMatch = partNumberRegex.exec(assistantMessage)) !== null) {
-        mentionedParts.add(partMatch[1]);
-      }
-      while ((partMatch = boldPartRegex.exec(assistantMessage)) !== null) {
-        mentionedParts.add(partMatch[1]);
-      }
-      
-      // Query database for only the mentioned parts
-      if (mentionedParts.size > 0) {
-        const items = await db
-          .select({
-            id: blInventory.id,
-            itemNo: blInventory.itemNo,
-            itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
-            colorId: blInventory.colorId,
-            colorName: blColors.name,
-            colorRgb: blColors.rgb,
-            quantity: blInventory.quantity,
-            unitPrice: blInventory.unitPrice,
-            newOrUsed: blInventory.newOrUsed,
-          })
-          .from(blInventory)
-          .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
-          .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
-          .where(and(eq(blInventory.orgId, orgId), inArray(blInventory.itemNo, Array.from(mentionedParts))));
-        
-        itemsFound.push(...items);
-      }
-      
-      
-      // Extract orders for frontend display based on keywords
-      const platformKeywords = ['ebay', 'amazon', 'bricklink', 'brickowl', 'www', 'unknown'];
-      const hasPlatformQuery = platformKeywords.some(p => lastUserMessage.includes(p));
-      const hasOrderQuery = lastUserMessage.includes('order') || lastUserMessage.includes('sale') || 
-                           lastUserMessage.includes('customer') || hasPlatformQuery;
-      
-      if (hasOrderQuery) {
-        let ordersQuery = db
-          .select({
-            id: orders.id,
-            orderNumber: orders.orderNumber,
-            marketplace: orders.marketplace,
-            orderDate: orders.orderDate,
-            orderTotal: orders.orderTotal,
-            customerUsername: orders.customerUsername,
-            orderStatus: orders.orderStatus,
-          })
-          .from(orders)
-          .where(eq(orders.orgId, orgId));
-        
-        const conditions: any[] = [];
-        
-        // Check for platform/marketplace filter
-        for (const platform of platformKeywords) {
-          if (lastUserMessage.includes(platform)) {
-            const marketplaceName = platform === 'bricklink' ? 'www' : platform;
-            conditions.push(eq(orders.marketplace, marketplaceName));
-          }
-        }
-        
-        // Check for customer name
-        const customerNameMatch = lastUserMessage.match(/\b(from |by |customer |user )([a-zA-Z0-9_-]+)\b/);
-        if (customerNameMatch) {
-          const customerName = customerNameMatch[2];
-          conditions.push(like(orders.customerUsername, `%${customerName}%`));
-        }
-        
-        // Apply conditions if any (always combined with orgId filter)
-        if (conditions.length > 0) {
-          ordersQuery = ordersQuery.where(and(eq(orders.orgId, orgId), or(...conditions))) as any;
-        }
-        
-        const orderResults = await ordersQuery
-          .orderBy(desc(orders.orderDate))
-          .limit(20);
-        
-        // Convert dates to strings for frontend
-        ordersFound.push(...orderResults.map(order => ({
-          ...order,
-          orderDate: order.orderDate instanceof Date ? order.orderDate.toISOString() : String(order.orderDate),
-          customerUsername: order.customerUsername || 'Unknown',
-        })));
-      }
+      // Items and orders come from the AI agent tools — no separate hardcoded queries needed
 
       // Save conversation to database for learning
       try {
@@ -4343,8 +4229,8 @@ Format search_web URLs as markdown links.`;
 
       res.json({
         message: assistantMessage,
-        items: itemsFound,
-        orders: ordersFound, // Return orders for frontend display
+        items: [],
+        orders: ordersFromAgentTools, // Orders from AI agent tools only
         forumDiscussions: forumDiscussionsFromAgentTools, // Return forum discussions for frontend display
         sessionId, // Return session ID for client to use
         bricklinkSearchSuggestion, // Return suggestion if item not found (frontend will render as button)
