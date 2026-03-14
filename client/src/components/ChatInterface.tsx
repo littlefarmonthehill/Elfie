@@ -1083,12 +1083,21 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                 data-testid="input-chat"
               />
               <Button 
-                size="icon" 
+                size="icon"
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleSend();
+                }}
                 onClick={(e) => {
                   e.stopPropagation();
                   handleSend();
                 }}
-                className={`${colors.button} md:h-12 md:w-12 lg:h-14 lg:w-14`} 
+                className={`${colors.button} md:h-12 md:w-12 lg:h-14 lg:w-14 touch-manipulation`} 
                 data-testid="button-send"
                 disabled={isLoading}
               >
