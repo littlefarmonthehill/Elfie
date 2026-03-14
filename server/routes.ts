@@ -4144,8 +4144,8 @@ ORG-LEVEL (this store's data):
 - "Find me red castle pieces" → semantic_search (AI embedding search across org inventory)
 
 PLATFORM-LEVEL (shared catalog for all orgs):
-- "What does X look like?" / "Tell me about part X" → search_bricklink_catalog (catalog image, description, dimensions, weight — automatically opens the detail drawer)
-- "What's market price for X?" → get_bricklink_price_guide (live BrickLink market pricing)
+- "What does X look like?" / "Tell me about part X" → search_bricklink_catalog (local catalog — image, description, dimensions, weight — automatically opens the detail drawer)
+- "What's market price for X?" → get_bricklink_price_guide (locally cached market pricing from Price-o-Matic syncs)
 - "What parts are in set X?" → get_set_parts (Rebrickable set-part data)
 - "What are people saying about X?" → search_forum_discussions (BrickLink forum embeddings)
 - "What's happening in the LEGO market?" → search_web (live internet search)
@@ -4153,6 +4153,9 @@ PLATFORM-LEVEL (shared catalog for all orgs):
 If the user asks multiple things in one message (e.g., "do we have 3024 and who ordered it"), call the appropriate tools in parallel — one for each question.
 
 For inventory questions ("do we have X?", "what colors of X?"), search_local_inventory alone has everything you need — quantities, colors, pricing, conditions. One tool, one call, done. Only add search_bricklink_catalog when the user specifically wants catalog details like images, descriptions, or dimensions.
+
+**API usage policy — local-first:**
+All tools query local data (bl_catalog, price_guide_cache, inventory, orders). They use zero BrickLink API calls. If a tool returns "not found" or the data looks incomplete/stale, tell the user what's missing and offer to fetch fresh data from the BrickLink API — but let them know it will use their API quota. Only make live API calls when the user explicitly says yes.
 
 Format search_web URLs as markdown links.`;
 

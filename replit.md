@@ -31,6 +31,7 @@ PlanetBrick's core functionality revolves around BrickLink as the primary produc
     - **Embedding Architecture (Two Levels):**
       - **Platform-level embeddings** (shared across all orgs): `bl_catalog` CLIP visual embeddings, inventory text embeddings (`inventory_embeddings`), Rebrickable set-part data, BrickLink forum embeddings (`bl_forum_embeddings`). These power cross-org catalog search, visual similarity (Brickanalyzer), and forum semantic search.
       - **Org-level embeddings** (scoped per org): Org inventory embeddings and order embeddings. These are org-specific and filtered by `org_id` in queries. `searchInventorySemantic()` and `searchOrders()` in `embeddings.ts` accept optional `orgId` parameter for tenant scoping.
+    - **Elfie API Usage Policy (Local-First):** All Elfie AI tools query local data only (bl_catalog, price_guide_cache, inventory, orders). Zero BrickLink API calls by default. If data is missing or stale, Elfie informs the user and offers to fetch fresh data from BrickLink API — but only with explicit user consent since it uses their API quota.
 -   **Brickognize API:** For LEGO part image recognition within the Brickanalyzer tool.
 -   **Neon:** Serverless PostgreSQL database with the `pgvector` extension for vector embeddings.
 

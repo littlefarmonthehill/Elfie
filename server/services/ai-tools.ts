@@ -7,7 +7,6 @@ import { db } from '../db';
 import { blInventory, blColors, blCategories, blCatalog, orders, orderDetails, setPartRelationships, inventoryEmbeddings, blForumPosts, blForumEmbeddings } from '@shared/schema';
 import { eq, like, or, sql, and, desc, inArray } from 'drizzle-orm';
 
-import { searchBricklinkCatalogItem, fetchPriceOMagicData } from './bricklink';
 import { generateEmbedding, createInventoryContent, searchInventorySemantic } from './embeddings';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
@@ -17,7 +16,7 @@ const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: a
   sql<string | null>`(SELECT item_name FROM bl_catalog WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} ORDER BY (color_id = ${colorIdRef})::int DESC, color_id ASC LIMIT 1)`;
 
 /**
- * Tool: Search BrickLink catalog for items NOT in local inventory
+ * Tool: Search local catalog (bl_catalog) for item details, images, dimensions
  */
 export async function searchBrickLinkCatalog(params: {
   itemNo: string;
@@ -26,76 +25,88 @@ export async function searchBrickLinkCatalog(params: {
   const { itemNo, itemType = 'PART' } = params;
   
   try {
-    const result = await searchBricklinkCatalogItem(itemNo, itemType);
+    const rows = await db
+      .select()
+      .from(blCatalog)
+      .where(and(eq(blCatalog.itemNo, itemNo.toUpperCase()), eq(blCatalog.itemType, itemType)))
+      .limit(1);
     
-    if (!result) {
+    const row = rows[0];
+    if (!row) {
       return {
         success: false,
-        message: `Part ${itemNo} not found in BrickLink catalog`,
+        message: `Part ${itemNo} not found in local catalog`,
       };
     }
     
     return {
       success: true,
       data: {
-        itemNo: result.no,
-        name: result.name,
-        type: result.type,
-        categoryId: result.category_id,
-        thumbnailUrl: result.thumbnail_url,
-        imageUrl: result.image_url,
-        weight: result.weight,
-        dimensionX: result.dim_x,
-        dimensionY: result.dim_y,
-        dimensionZ: result.dim_z,
+        itemNo: row.itemNo,
+        name: row.itemName,
+        type: row.itemType,
+        categoryId: row.categoryId,
+        thumbnailUrl: row.thumbnailUrl,
+        imageUrl: row.imageUrl,
+        weight: row.blCatalogWeight,
+        dimensionX: row.blDimensionX,
+        dimensionY: row.blDimensionY,
+        dimensionZ: row.blDimensionZ,
+        yearReleased: row.yearReleased,
         bricklinkUrl: `https://www.bricklink.com/v2/catalog/catalogitem.page?${itemType[0]}=${itemNo}`,
       },
     };
   } catch (error: any) {
     return {
       success: false,
-      message: error.message || 'Failed to search BrickLink catalog',
+      message: error.message || 'Failed to search local catalog',
     };
   }
 }
 
 /**
- * Tool: Get price guide data for any item
+ * Tool: Get price guide data from local cache (price_guide_cache table)
  */
 export async function getBrickLinkPriceGuide(params: {
   itemNo: string;
   itemType?: 'PART' | 'SET' | 'MINIFIG';
   colorId?: number;
   newOrUsed?: 'N' | 'U';
-  premiumPercentage?: number;
 }) {
-  const { itemNo, itemType = 'PART', colorId, newOrUsed = 'N', premiumPercentage = 15 } = params;
+  const { itemNo, itemType = 'PART', colorId, newOrUsed = 'N' } = params;
   
   try {
-    const priceData = await fetchPriceOMagicData(itemNo, itemType, colorId, newOrUsed, premiumPercentage);
+    const result = await db.execute(sql`
+      SELECT * FROM price_guide_cache
+      WHERE item_no = ${itemNo.toUpperCase()} AND item_type = ${itemType}
+        AND color_id = ${colorId ?? -1} AND new_or_used = ${newOrUsed}
+      LIMIT 1
+    `);
     
-    if (!priceData) {
+    const r = result.rows[0] as any;
+    if (!r) {
       return {
         success: false,
-        message: `No price data available for ${itemNo}`,
+        message: `No cached price data for ${itemNo}. Price data is available after a Price-o-Matic sync.`,
       };
     }
     
     return {
       success: true,
       data: {
-        itemNo: priceData.itemNo,
-        itemName: priceData.itemName,
-        stockAvgPrice: priceData.stockAvgPrice,
-        stockMinPrice: priceData.stockMinPrice,
-        stockMaxPrice: priceData.stockMaxPrice,
-        stockTotalLots: priceData.stockTotalLots,
-        soldAvgPrice: priceData.soldAvgPrice,
-        soldMinPrice: priceData.soldMinPrice,
-        soldMaxPrice: priceData.soldMaxPrice,
-        soldTotalLots: priceData.soldTotalLots,
-        suggestedPrice: priceData.suggestedPrice,
-        premiumPercentage: priceData.premiumPercentage,
+        itemNo: r.item_no,
+        itemName: r.item_name,
+        stockAvgPrice: r.stock_avg_price,
+        stockMinPrice: r.stock_min_price,
+        stockMaxPrice: r.stock_max_price,
+        stockTotalLots: r.stock_total_lots,
+        stockQuantity: r.stock_quantity,
+        soldAvgPrice: r.sold_avg_price,
+        soldMinPrice: r.sold_min_price,
+        soldMaxPrice: r.sold_max_price,
+        soldTotalLots: r.sold_total_lots,
+        soldQuantity: r.sold_quantity,
+        fetchedAt: r.fetched_at,
       },
     };
   } catch (error: any) {
