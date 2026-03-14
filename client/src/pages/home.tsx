@@ -21,6 +21,7 @@ import ChatInterface from "@/components/ChatInterface";
 import DetailModal, { DetailData } from "@/components/DetailModal";
 import DateRangeSelector, { DateRangeValue } from "@/components/DateRangeSelector";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ToolDrawer } from "@/components/ui/tool-drawer";
@@ -939,24 +940,8 @@ export default function Home() {
               activeDashboard === 'sales' ? 'border-lego-green/30 bg-gradient-to-br from-lego-green/15 via-gray-950/80 to-lego-green/5' :
               'border-lego-yellow/30 bg-gradient-to-br from-lego-yellow/15 via-gray-950/80 to-lego-yellow/5'
             }`}>
-              <div className="h-full flex flex-row">
-                <div className={`flex-1 overflow-y-auto min-w-0 ${(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer || detailModal.open) ? 'hidden md:block' : ''}`}>
-                  {renderMobileDashboard()}
-                </div>
-                {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer || detailModal.open) && (
-                  <div className="w-full md:w-[40%] md:max-w-[520px] flex-shrink-0 border-l border-white/10 overflow-y-auto bg-gray-950/60">
-                    {detailModal.open ? (
-                      <DetailModal
-                        open={detailModal.open}
-                        onClose={() => setDetailModal({ open: false, data: null })}
-                        detail={detailModal.data}
-                        onOrderSelect={handleOrderSelect}
-                        onBrickLinkClick={setBrickLinkUrl}
-                        inline
-                      />
-                    ) : renderActiveDrawer()}
-                  </div>
-                )}
+              <div className="h-full overflow-y-auto">
+                {renderMobileDashboard()}
               </div>
             </div>
           </div>
@@ -1108,7 +1093,52 @@ export default function Home() {
 
       <SettingsModal open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsPricingExample(undefined); setSettingsScoringExample(undefined); }} initialSection={settingsInitialSection ?? undefined} pricingExample={settingsPricingExample} scoringExample={settingsScoringExample} />
       
-      {/* Detail modal is rendered inline in both mobile and desktop layouts above */}
+      {/* Detail modal — Vaul drawer on mobile only; desktop uses inline overlay in center column */}
+      {!isDesktop && (
+        <DetailModal 
+          open={detailModal.open} 
+          onClose={() => setDetailModal({ open: false, data: null })} 
+          detail={detailModal.data}
+          onOrderSelect={handleOrderSelect}
+          onBrickLinkClick={setBrickLinkUrl}
+        />
+      )}
+
+      {/* Tool drawers — Vaul drawer on mobile only; desktop uses inline overlay in center column */}
+      {!isDesktop && (
+        <Drawer open={!!(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer)} onOpenChange={(open) => { if (!open) closeActiveDrawer(); }}>
+          <DrawerContent className="bg-gray-900 border-gray-700 h-[92vh] flex flex-col">
+            <DrawerHeader className="border-b border-gray-700 py-2 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <DrawerTitle className="flex items-center gap-1.5 text-sm font-semibold text-gray-200">
+                  {activeInventoryDrawer === 'priceomatic' && <><Sparkles className="w-5 h-5 text-purple-400" /> Price-o-Matic</>}
+                  {activeInventoryDrawer === 'warehouse' && <><Warehouse className="w-5 h-5 text-blue-400" /> Warehouse Management</>}
+                  {activeInventoryDrawer === 'platformsync' && <><ListChecks className="w-5 h-5 text-green-400" /> List-o-Matic</>}
+                  {activeInventoryDrawer === 'brickanalyzer' && <><ScanSearch className="w-5 h-5 text-lego-yellow" /> Brick Spotter 3000</>}
+                  {activeOrdersDrawer === 'fulfillment' && <><Truck className="w-5 h-5 text-orange-400" /> Fulfillment & Shipping</>}
+                  {activeOrdersDrawer === 'shipped' && <><PackageCheck className="w-5 h-5 text-green-400" /> Shipped Orders</>}
+                  {activeMarketingDrawer && <><Mail className="w-5 h-5 text-yellow-400" /> Marketing</>}
+                  {activeSalesDrawer && <><Package className="w-5 h-5 text-green-400" /> Sales</>}
+                </DrawerTitle>
+                <button onClick={closeActiveDrawer} className="p-1 rounded-md hover:bg-gray-800 transition-colors" data-testid="button-close-tool-drawer">
+                  <X className="h-5 w-5 text-gray-400" />
+                </button>
+              </div>
+              <DrawerDescription className="sr-only">Tool drawer</DrawerDescription>
+            </DrawerHeader>
+            <div className="flex-1 overflow-y-auto p-3 min-h-0">
+              {activeInventoryDrawer === 'priceomatic' && <PriceOMaticDashboard onItemClick={(type, id) => handleDashboardItemClick(type, id, 'pricing')} onOpenSettings={(section, pricingExample, scoringExample) => { setSettingsInitialSection(section as any); setSettingsPricingExample(pricingExample); setSettingsScoringExample(scoringExample); setSettingsOpen(true); }} />}
+              {activeInventoryDrawer === 'warehouse' && <WarehouseManagement onItemClick={handleDashboardItemClick} />}
+              {activeInventoryDrawer === 'platformsync' && <ListomaticPriority />}
+              {activeInventoryDrawer === 'brickanalyzer' && <BrickanalyzerTool />}
+              {activeOrdersDrawer === 'fulfillment' && <FulfillmentTool />}
+              {activeOrdersDrawer === 'shipped' && <ShippedOrdersTool dateRange={dateRange} onItemClick={(type, id) => { closeActiveDrawer(); handleDashboardItemClick(type, id); }} />}
+              {activeMarketingDrawer && <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} renderDrawerOnly />}
+              {activeSalesDrawer && <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeSalesDrawer} onDrawerChange={setActiveSalesDrawer} renderDrawerOnly />}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      )}
 
       {/* BrickLink in-app browser dialog */}
       <Dialog open={!!brickLinkUrl} onOpenChange={() => setBrickLinkUrl(null)}>
