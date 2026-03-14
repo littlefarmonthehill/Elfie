@@ -227,7 +227,7 @@ app.use((req, res, next) => {
       // background schedulers are running.
       // Localhost pings (127.0.0.1) don't register with the autoscaler —
       // only requests arriving via the public domain are counted.
-      const externalDomain = process.env.REPLIT_DOMAINS?.split(',')[0];
+      const externalDomain = process.env.REPLIT_DOMAINS?.split(',')[0]?.trim();
       const selfPingUrl = externalDomain
         ? `https://${externalDomain}/api/health`
         : `http://127.0.0.1:${port}/api/health`;
