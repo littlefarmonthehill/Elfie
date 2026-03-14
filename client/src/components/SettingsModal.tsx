@@ -7208,6 +7208,113 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
             {/* Platform Scheduler — Data Enrichment */}
             {activeSection === 'platformScheduler' && (
               <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden">
+                {systemHealth && (() => {
+                  const sj = systemHealth.syncJobs || [];
+                  const gj = (id: string) => sj.find((j: any) => j.id === id);
+                  const clip = systemHealth.clipCatalogStatus;
+                  const clipRunning = systemHealth.schedulerConfig?.clip_catalog?.workerRunning;
+                  const clipPctOv = clip && clip.total > 0 ? Math.round((clip.embedded / clip.total) * 100) : 0;
+                  const fmtTime = (t: string | null) => t ? new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
+
+                  type OverviewJob = {
+                    key: string; label: string; jobId?: string;
+                    enabled: boolean; isRunning: boolean;
+                    status: string | null; error: string | null;
+                    lastTime: string | null;
+                    progress?: { done: number; total: number; pct: number };
+                  };
+
+                  const pomJ = gj('priceomatic_cache');
+                  const cdJ = gj('catalog_detail_completion');
+                  const csJ = gj('catalog_scan');
+                  const rbJ = gj('rebrickable_set_parts');
+                  const ucJ = gj('universal_catalog_refresh');
+                  const fmJ = gj('forum_sync');
+                  const mnJ = gj('market_news_sync');
+                  const biJ = gj('business_intel_sync');
+
+                  const pomProg = pomLiveProgress?.active ? { done: pomLiveProgress.itemsProcessed ?? 0, total: pomLiveProgress.itemsTotal ?? 0, pct: pomProgressPct } : undefined;
+                  const cdProg = syncingCd && cdLiveProgress?.phase === 'Enriching items' ? { done: cdLiveProgress.itemsProcessed ?? 0, total: cdLiveProgress.itemsTotal ?? 0, pct: cdProgressPct } : undefined;
+
+                  const groups: Array<{ label: string; tabId: 'catalog' | 'embeddings' | 'market'; jobs: OverviewJob[] }> = [
+                    { label: 'BrickLink Catalog', tabId: 'catalog', jobs: [
+                      { key: 'pom', label: 'Price Guides', enabled: pomScheduleEnabled, isRunning: syncingPom, status: pomJ?.lastSyncStatus || null, error: pomJ?.errorMessage || null, lastTime: pomJ?.lastSyncTime || null, progress: pomProg },
+                      { key: 'cd', label: 'Catalog Detail', enabled: catalogDetailEnabled, isRunning: syncingCd, status: cdJ?.lastSyncStatus || null, error: cdJ?.errorMessage || null, lastTime: cdJ?.lastSyncTime || null, progress: cdProg },
+                      { key: 'cs', label: 'Catalog Scan', enabled: catalogScanEnabled, isRunning: syncingCs, status: csJ?.lastSyncStatus || null, error: csJ?.errorMessage || null, lastTime: csJ?.lastSyncTime || null },
+                    ]},
+                    { label: 'Embeddings', tabId: 'embeddings', jobs: [
+                      { key: 'rb', label: 'Rebrickable Sets', enabled: rebrickableSetSyncEnabled, isRunning: rbJ?.lastSyncStatus === 'in_progress', status: rbJ?.lastSyncStatus || null, error: rbJ?.errorMessage || null, lastTime: rbJ?.lastSyncTime || null },
+                      { key: 'uc', label: 'Universal Catalog', enabled: universalCatalogScheduleEnabled, isRunning: ucJ?.lastSyncStatus === 'in_progress', status: ucJ?.lastSyncStatus || null, error: ucJ?.errorMessage || null, lastTime: ucJ?.lastSyncTime || null },
+                      { key: 'clip', label: 'CLIP Build', enabled: true, isRunning: !!clipRunning, status: clipRunning ? 'in_progress' : (clip && clip.embedded >= clip.total ? 'success' : null), error: null, lastTime: null, progress: clip && clip.total > 0 ? { done: clip.embedded, total: clip.total, pct: clipPctOv } : undefined },
+                    ]},
+                    { label: 'Market', tabId: 'market', jobs: [
+                      { key: 'fm', label: 'Forum Sync', enabled: forumSyncEnabled, isRunning: fmJ?.lastSyncStatus === 'in_progress', status: fmJ?.lastSyncStatus || null, error: fmJ?.errorMessage || null, lastTime: fmJ?.lastSyncTime || null },
+                      { key: 'mn', label: 'Market News', enabled: marketNewsSyncEnabled, isRunning: mnJ?.lastSyncStatus === 'in_progress', status: mnJ?.lastSyncStatus || null, error: mnJ?.errorMessage || null, lastTime: mnJ?.lastSyncTime || null },
+                      { key: 'bi', label: 'Business Intel', enabled: businessIntelEnabled, isRunning: biJ?.lastSyncStatus === 'in_progress', status: biJ?.lastSyncStatus || null, error: biJ?.errorMessage || null, lastTime: biJ?.lastSyncTime || null },
+                    ]},
+                  ];
+
+                  const statusDot = (j: OverviewJob) => {
+                    if (j.isRunning) return <Loader2 className="h-3 w-3 text-yellow-400 animate-spin shrink-0" />;
+                    if (j.status === 'failed' || j.status === 'error') return <AlertTriangle className="h-3 w-3 text-red-400 shrink-0" />;
+                    if (j.status === 'partial') return <AlertTriangle className="h-3 w-3 text-orange-400 shrink-0" />;
+                    if (!j.enabled) return <Pause className="h-3 w-3 text-gray-600 shrink-0" />;
+                    if (j.status === 'success') return <CheckCircle2 className="h-3 w-3 text-green-500/70 shrink-0" />;
+                    return <Clock className="h-3 w-3 text-gray-600 shrink-0" />;
+                  };
+
+                  const statusText = (j: OverviewJob) => {
+                    if (j.isRunning && j.progress && j.progress.total > 0) return `${j.progress.pct}%`;
+                    if (j.isRunning) return 'Running';
+                    if (j.error) return j.error.length > 40 ? j.error.slice(0, 40) + '…' : j.error;
+                    if (!j.enabled) return 'Paused';
+                    if (j.status === 'success' || j.status === 'partial' || j.status === 'failed' || j.status === 'error') return fmtTime(j.lastTime);
+                    if (j.key === 'clip' && j.progress) return `${j.progress.done.toLocaleString()}/${j.progress.total.toLocaleString()}`;
+                    return 'Never';
+                  };
+
+                  return (
+                    <div className="sm-card-inset" data-testid="enrichment-overview">
+                      {groups.map((g, gi) => (
+                        <div key={g.tabId}>
+                          {gi > 0 && <div className="border-t border-gray-700/40" />}
+                          <button
+                            onClick={() => setActiveSchedulerTab(g.tabId)}
+                            className="w-full px-3 pt-2 pb-0.5 text-left"
+                            data-testid={`overview-group-${g.tabId}`}
+                          >
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{g.label}</span>
+                          </button>
+                          {g.jobs.map(j => (
+                            <button
+                              key={j.key}
+                              onClick={() => setActiveSchedulerTab(g.tabId)}
+                              className="w-full flex items-center gap-2 px-3 py-1 text-left hover-elevate"
+                              data-testid={`overview-job-${j.key}`}
+                            >
+                              {statusDot(j)}
+                              <span className="text-[11px] text-gray-300 flex-1 min-w-0 truncate">{j.label}</span>
+                              {j.isRunning && j.progress && j.progress.total > 0 ? (
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <div className="w-12 h-1 bg-gray-700 rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full transition-all ${j.key === 'clip' ? 'bg-yellow-500' : j.key === 'pom' ? 'bg-purple-500' : 'bg-blue-500'}`} style={{ width: `${j.progress.pct}%` }} />
+                                  </div>
+                                  <span className="text-[10px] text-gray-400 font-mono w-7 text-right">{j.progress.pct}%</span>
+                                </div>
+                              ) : (
+                                <span className={`text-[10px] shrink-0 font-mono ${j.error && !j.isRunning ? 'text-red-400/80' : j.isRunning ? 'text-yellow-400' : !j.enabled ? 'text-gray-600' : 'text-gray-500'}`}>
+                                  {statusText(j)}
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                          <div className="h-1" />
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
                 {(() => {
                   const schedTabs: Array<{ id: 'catalog' | 'embeddings' | 'market'; label: string; Icon: React.ElementType }> = [
                     { id: 'catalog', label: 'BrickLink Catalog', Icon: Package },
