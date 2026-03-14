@@ -902,7 +902,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const [activeOrgTab, setActiveOrgTab] = useState<'features' | 'limits' | 'billing'>('features');
   const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'features' | 'limits' | 'billing'>('info');
   const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'stripe' | 'openai' | 'bricklink'>('bricklink');
-  const [activeSchedulerTab, setActiveSchedulerTab] = useState<'catalog' | 'sets' | 'embeddings' | 'market'>('catalog');
+  const [activeSchedulerTab, setActiveSchedulerTab] = useState<'catalog' | 'embeddings' | 'market'>('catalog');
   const [activeHealthTab, setActiveHealthTab] = useState<'overview' | 'logs' | 'database' | 'bricklink'>('overview');
   const [activeCustomerHealthTab, setActiveCustomerHealthTab] = useState<'overview' | 'bricklink'>('overview');
   const [blBreakdownSort, setBlBreakdownSort] = useState<{ col: string; dir: 'asc' | 'desc' }>({ col: 'total', dir: 'desc' });
@@ -7218,9 +7218,8 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
             {activeSection === 'platformScheduler' && (
               <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden">
                 {(() => {
-                  const schedTabs: Array<{ id: 'catalog' | 'sets' | 'embeddings' | 'market'; label: string; Icon: React.ElementType }> = [
+                  const schedTabs: Array<{ id: 'catalog' | 'embeddings' | 'market'; label: string; Icon: React.ElementType }> = [
                     { id: 'catalog', label: 'BrickLink Catalog', Icon: Package },
-                    { id: 'sets', label: 'Sets', Icon: Blocks },
                     { id: 'embeddings', label: 'Embeddings', Icon: Database },
                     { id: 'market', label: 'Market', Icon: Globe },
                   ];
@@ -7681,10 +7680,10 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                         </div>
                       )}
 
-                      {/* ── Sets (Rebrickable) Tab ──────────────────── */}
-                      {activeSchedulerTab === 'sets' && (
+                      {/* ── Embeddings Tab ──────────────────────────── */}
+                      {activeSchedulerTab === 'embeddings' && (
                         <div className="space-y-3">
-                          <p className="sm-hint px-1">Set-part relationships from Rebrickable. Maps which parts belong to which LEGO sets.</p>
+                          <p className="sm-hint px-1">Visual (CLIP) and text embeddings for search, AI, and catalog enrichment.</p>
 
                           <div className="sm-card">
                             <button onClick={() => toggleJob('rb')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-rb-sched">
@@ -7726,13 +7725,6 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                               </div>
                             )}
                           </div>
-                        </div>
-                      )}
-
-                      {/* ── Embeddings Tab ──────────────────────────── */}
-                      {activeSchedulerTab === 'embeddings' && (
-                        <div className="space-y-3">
-                          <p className="sm-hint px-1">Visual (CLIP) and text embeddings for search, AI, and catalog enrichment.</p>
 
                           <div className="sm-card">
                             <button onClick={() => toggleJob('uc')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-uc-sched">
