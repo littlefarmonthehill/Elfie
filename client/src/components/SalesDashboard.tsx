@@ -1173,7 +1173,22 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
             </div>
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Tools</h3>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => onDrawerChange?.('business-intel')}
+              data-testid="tool-business-intel"
+              className={cn("col-span-2 group flex flex-col gap-1.5 rounded-lg border border-cyan-500/50 bg-gradient-to-br from-cyan-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              style={{ '--tool-glow-color': 'rgba(6,182,212,0.35)' } as React.CSSProperties}
+            >
+              <div className="flex items-center gap-2">
+                <div className="rounded-lg bg-cyan-900/70 p-1.5 ring-1 ring-cyan-500/45 shadow-[0_0_10px_rgba(6,182,212,0.22)]">
+                  <Radar className={cn("w-3.5 h-3.5 text-cyan-200", "md:w-5 md:h-5")} />
+                </div>
+                <span className={cn("text-xs font-bold text-cyan-100 leading-tight flex-1", "md:text-sm")}>Business Intel</span>
+                <ArrowRight className="w-3 h-3 text-cyan-500/60 group-hover:text-cyan-400 transition-colors" />
+              </div>
+              <p className="text-[10px] md:text-xs text-cyan-300/60 leading-snug">Market-driven insights for your business</p>
+            </button>
             <button
               onClick={() => onDrawerChange?.('chart')}
               data-testid="tool-sales-chart"
@@ -1230,21 +1245,6 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
                 <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-orange-400/70 group-hover:text-orange-200 transition-colors" />
               </div>
               )}
-            </button>
-            <button
-              onClick={() => onDrawerChange?.('business-intel')}
-              data-testid="tool-business-intel"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-500/50 bg-gradient-to-br from-cyan-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
-              style={{ '--tool-glow-color': 'rgba(6,182,212,0.35)' } as React.CSSProperties}
-            >
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-cyan-900/70 p-1.5 ring-1 ring-cyan-500/45 shadow-[0_0_10px_rgba(6,182,212,0.22)]">
-                  <Radar className={cn("w-3.5 h-3.5 text-cyan-200", "md:w-5 md:h-5")} />
-                </div>
-                <span className={cn("text-xs font-bold text-cyan-100 leading-tight flex-1", "md:text-sm")}>Business Intel</span>
-                <ArrowRight className="w-3 h-3 text-cyan-500/60 group-hover:text-cyan-400 transition-colors" />
-              </div>
-              <p className="text-[10px] md:text-xs text-cyan-300/60 leading-snug">Market-driven insights for your business</p>
             </button>
           </div>
         </div>
