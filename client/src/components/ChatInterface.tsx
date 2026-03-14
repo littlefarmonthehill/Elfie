@@ -133,7 +133,7 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
       const parts: (string | JSX.Element)[] = [];
       let lastIndex = 0;
 
-      const promptRegex = /\*\*PROMPT:\*\*\s*["""''']*([^"""'''\n]+)["""''']*/g;
+      const promptRegex = /\*\*PROMPT:\*\*\s*["""\u201C\u201D]([^"""\u201C\u201D\n]+)["""\u201C\u201D]/g;
       
       // Match markdown links: [text](url) AND bare URLs: https://...
       // Markdown format takes priority
