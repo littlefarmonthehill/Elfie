@@ -453,16 +453,14 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
 
   return (
     <div className="w-full space-y-2">
-      {/* Show identified LEGO part image from Brickognize */}
       {imageUrl && (
-        <div className="flex justify-center">
+        <div className="flex justify-center p-3 rounded-lg bg-gray-900/50 border border-purple-500/20">
           <img 
             src={imageUrl} 
-            alt="Identified LEGO part" 
-            className="max-w-[200px] max-h-[200px] object-contain rounded-lg border border-purple-500/30 bg-gray-900/50"
-            data-testid="img-brickognize-result"
+            alt="LEGO part" 
+            className="max-w-[200px] max-h-[200px] object-contain"
+            data-testid="img-chat-part"
             onError={(e) => {
-              // Hide image if it fails to load
               e.currentTarget.style.display = 'none';
             }}
           />
@@ -683,22 +681,10 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         orders: data.orders || [],
         forumDiscussions: data.forumDiscussions || [],
         bricklinkSearchSuggestion: data.bricklinkSearchSuggestion || null,
+        imageUrl: data.bricklinkItem?.imageUrl || data.bricklinkItem?.thumbnailUrl || undefined,
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-      
-      // Legacy: If BrickLink catalog item is returned, open the detail modal immediately
-      if (data.bricklinkItem && onItemClick) {
-        // Store BrickLink catalog item in sessionStorage so the modal can access it
-        const catalogItemKey = `bricklink-item-${data.bricklinkItem.itemNo}`;
-        sessionStorage.setItem(catalogItemKey, JSON.stringify(data.bricklinkItem));
-        
-        // Use a special ID format to indicate it's from BrickLink catalog
-        const catalogItemId = `bricklink-${data.bricklinkItem.itemNo}`;
-        
-        // Trigger modal with the catalog item data
-        onItemClick('inventory', catalogItemId);
-      }
     } catch (error) {
       console.error('Chat error:', error);
       const errorMessage: ChatMessage = {
