@@ -4005,7 +4005,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/ai/summarize", isApproved, async (req, res) => {
     try {
-      const { title, snippet, url } = req.body;
+      const { title, snippet, url, type } = req.body;
       if (!title || !snippet) {
         return res.status(400).json({ error: 'title and snippet are required' });
       }
@@ -4018,19 +4018,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const OpenAI = (await import('openai')).default;
       const openai = new OpenAI({ apiKey });
 
+      const systemPrompt = type === 'forum'
+        ? 'You are a concise business analyst for a LEGO reselling business. Given a BrickLink forum discussion title and excerpt, summarize what the community is discussing and why it matters to a LEGO parts reseller. Highlight any actionable insights about pricing, demand, or market trends. Be direct and specific. No preamble.'
+        : 'You are a concise business analyst for a LEGO reselling business. Given a news headline and snippet, provide a 1-2 sentence overview of what happened and why it matters to a LEGO parts reseller. Be direct and specific. No preamble.';
+
+      const userContent = type === 'forum'
+        ? `Forum Topic: ${title}\nExcerpt: ${snippet}${url ? `\nThread: ${url}` : ''}`
+        : `Title: ${title}\nSnippet: ${snippet}${url ? `\nSource: ${url}` : ''}`;
+
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         max_tokens: 150,
         temperature: 0.3,
         messages: [
-          {
-            role: 'system',
-            content: 'You are a concise business analyst for a LEGO reselling business. Given a news headline and snippet, provide a 1-2 sentence overview of what happened and why it matters to a LEGO parts reseller. Be direct and specific. No preamble.'
-          },
-          {
-            role: 'user',
-            content: `Title: ${title}\nSnippet: ${snippet}${url ? `\nSource: ${url}` : ''}`
-          }
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userContent }
         ]
       });
 

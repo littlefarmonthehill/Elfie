@@ -18,7 +18,7 @@ function InlineNewsCard({ title, snippet, url, source, type, dateStr, username, 
   dateStr?: string;
   username?: string;
   replyCount?: number;
-  onSummarize?: (title: string, snippet: string, url: string) => Promise<string>;
+  onSummarize?: (title: string, snippet: string, url: string, type: string) => Promise<string>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [aiOverview, setAiOverview] = useState<string | null>(null);
@@ -34,7 +34,7 @@ function InlineNewsCard({ title, snippet, url, source, type, dateStr, username, 
     if (willExpand && !aiOverview && snippet && onSummarize) {
       setLoadingOverview(true);
       try {
-        const overview = await onSummarize(title, snippet, url);
+        const overview = await onSummarize(title, snippet, url, type);
         setAiOverview(overview);
       } catch {
         setAiOverview(null);
@@ -43,6 +43,8 @@ function InlineNewsCard({ title, snippet, url, source, type, dateStr, username, 
       }
     }
   };
+
+  const displaySource = type === 'forum' ? 'BrickLink Forum' : (source || getDomain(url) || 'Web');
 
   return (
     <div className="rounded-md bg-purple-900/10 border border-purple-500/10 mb-1 overflow-hidden" data-testid={`inline-card-${type}`}>
@@ -60,11 +62,12 @@ function InlineNewsCard({ title, snippet, url, source, type, dateStr, username, 
         <div className="flex-1 min-w-0">
           <span className="text-sm font-medium text-gray-200 line-clamp-2">{title}</span>
           <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500">
-            {type === 'news' && source && (
-              <span className="flex items-center gap-1"><Globe className="h-2.5 w-2.5" />{source || getDomain(url)}</span>
-            )}
+            <span className="flex items-center gap-1">
+              {type === 'forum' ? <MessageSquare className="h-2.5 w-2.5" /> : <Globe className="h-2.5 w-2.5" />}
+              {displaySource}
+            </span>
             {type === 'forum' && username && (
-              <span className="flex items-center gap-1"><MessageSquare className="h-2.5 w-2.5" />{username}</span>
+              <span>by {username}</span>
             )}
             {replyCount !== undefined && replyCount > 0 && (
               <span>{replyCount} {replyCount === 1 ? 'reply' : 'replies'}</span>
@@ -77,7 +80,7 @@ function InlineNewsCard({ title, snippet, url, source, type, dateStr, username, 
           {loadingOverview && (
             <div className="flex items-center gap-2 text-xs text-purple-400">
               <Brain className="h-3 w-3 animate-pulse" />
-              <span>Generating overview...</span>
+              <span>{type === 'forum' ? 'Analyzing discussion...' : 'Generating overview...'}</span>
             </div>
           )}
           {aiOverview && (
@@ -259,7 +262,7 @@ interface MessageContentProps {
   onItemClick?: (type: 'inventory' | 'order', id: string) => void;
   onBrickLinkSearch?: (itemNo: string, itemType: string) => void;
   onPromptClick?: (prompt: string) => void;
-  onSummarize?: (title: string, snippet: string, url: string) => Promise<string>;
+  onSummarize?: (title: string, snippet: string, url: string, type: string) => Promise<string>;
 }
 
 function MessageContent({ content, imageUrl, items, orders, forumDiscussions, marketNewsArticles, bricklinkSearchSuggestion, onItemClick, onBrickLinkSearch, onPromptClick, onSummarize }: MessageContentProps) {
@@ -794,7 +797,7 @@ function StreamingMessage({ message, onItemClick, onBrickLinkSearch, onPromptCli
   onItemClick?: (type: 'inventory' | 'order', id: string) => void;
   onBrickLinkSearch?: (itemNo: string, itemType: string) => void;
   onPromptClick?: (prompt: string) => void;
-  onSummarize?: (title: string, snippet: string, url: string) => Promise<string>;
+  onSummarize?: (title: string, snippet: string, url: string, type: string) => Promise<string>;
   onStreamingDone?: () => void;
 }) {
   const lines = message.content.split('\n');
@@ -976,16 +979,54 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     setInput('');
     setIsLoading(true);
     
-    // Build conversation history with the new user message
     const conversationHistory = [...messages, userMessage];
     setMessages(conversationHistory);
+
+    const isHeadlineRequest = /latest headlines|what'?s new|market briefing|show me.*news/i.test(textToSend);
+    const previewId = `preview-${Date.now()}`;
+
+    if (isHeadlineRequest && marketIntel) {
+      const newsArticles = (marketIntel.news.articles || []).map((a, idx) => ({
+        id: idx,
+        title: a.title,
+        snippet: a.snippet,
+        url: a.url,
+        source: a.source,
+        topic: a.query,
+        fetchedAt: a.fetchedAt,
+        relevance: '',
+      }));
+      const forumPosts = (marketIntel.forum.posts || []).map((f, idx) => ({
+        id: `fp-${idx}`,
+        threadId: `ft-${idx}-${f.title.substring(0, 20)}`,
+        title: f.title,
+        excerpt: f.excerpt,
+        username: f.username,
+        userFeedbackRating: 0,
+        postedAt: f.postedAt,
+        postUrl: f.threadUrl,
+        threadUrl: f.threadUrl,
+        hasReplies: false,
+        relevance: '',
+      }));
+
+      const previewMsg: ChatMessage = {
+        role: 'assistant',
+        messageId: previewId,
+        content: `Here's what I found this week — Elfie is analyzing the details now...\n\n### Market News\nLatest articles from around the web.\n\n### Community Discussions\nWhat the BrickLink community is talking about.`,
+        marketNewsArticles: newsArticles,
+        forumDiscussions: forumPosts,
+        streaming: true,
+      };
+      setMessages(prev => [...prev, previewMsg]);
+    }
     
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Session-Id': sessionId, // Send session ID for conversation continuity
+          'X-Session-Id': sessionId,
         },
         body: JSON.stringify({
           messages: conversationHistory.map(m => ({
@@ -998,18 +1039,19 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
 
       const data = await response.json();
 
-      // Update session ID if server provides a new one
       if (data.sessionId && data.sessionId !== sessionId) {
         setSessionId(data.sessionId);
       }
       
       if (data.error) {
-        // Use the specific error message from the server if provided
         const errorMessage: ChatMessage = {
           role: 'assistant',
           content: data.message || "I'm having trouble connecting right now. Please try again in a moment.",
         };
-        setMessages(prev => [...prev, errorMessage]);
+        setMessages(prev => {
+          const filtered = prev.filter(m => m.messageId !== previewId);
+          return [...filtered, errorMessage];
+        });
         setIsLoading(false);
         return;
       }
@@ -1028,14 +1070,20 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         imageUrl: data.bricklinkItem?.imageUrl || data.bricklinkItem?.thumbnailUrl || undefined,
       };
 
-      setMessages(prev => [...prev, assistantMessage]);
+      setMessages(prev => {
+        const filtered = prev.filter(m => m.messageId !== previewId);
+        return [...filtered, assistantMessage];
+      });
     } catch (error) {
       console.error('Chat error:', error);
       const errorMessage: ChatMessage = {
         role: 'assistant',
         content: "I'm having trouble connecting right now. Please try again in a moment.",
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => {
+        const filtered = prev.filter(m => m.messageId !== previewId);
+        return [...filtered, errorMessage];
+      });
     } finally {
       setIsLoading(false);
     }
@@ -1056,12 +1104,12 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     }
   };
 
-  const handleSummarize = async (title: string, snippet: string, url: string): Promise<string> => {
+  const handleSummarize = async (title: string, snippet: string, url: string, type: string = 'news'): Promise<string> => {
     const response = await fetch('/api/ai/summarize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ title, snippet, url }),
+      body: JSON.stringify({ title, snippet, url, type }),
     });
     if (!response.ok) throw new Error('Failed to summarize');
     const data = await response.json();
