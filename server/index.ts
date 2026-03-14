@@ -221,6 +221,17 @@ app.use((req, res, next) => {
     }, () => {
       log(`serving on port ${port}`);
 
+      // Self-ping keeps the autoscale container alive by generating an
+      // inbound HTTP request every 4 minutes so the platform doesn't
+      // scale the instance to zero while background schedulers are running.
+      const selfPingUrl = `http://127.0.0.1:${port}/api/health`;
+      setInterval(async () => {
+        try {
+          const resp = await fetch(selfPingUrl);
+          if (!resp.ok) console.log(`[SelfPing] ${resp.status}`);
+        } catch (_) {}
+      }, 4 * 60 * 1000);
+
       // Warm up the Python segmentation service immediately so it's ready
       // before the first Brickanalyzer scan request arrives.
       startSegmentService();

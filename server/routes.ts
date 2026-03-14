@@ -155,6 +155,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware setup - Email/Password Authentication
   await setupAuth(app);
 
+  app.get('/api/health', (_req, res) => { res.json({ ok: true }); });
+
   // ── Public static documents ────────────────────────────────────────────────
   app.get('/dbs-service-agreement.html', (_req, res) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
