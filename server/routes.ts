@@ -6327,6 +6327,7 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
 
       // For each identified part: inventory lookup + POM price + image
       const enriched = await Promise.all(filteredIdentified.map(async (piece: any) => {
+        try {
         let ourPriceNew: number | null = null;
         let ourQtyNew = 0;
         let ourPriceUsed: number | null = null;
@@ -6822,6 +6823,32 @@ When search_web is relevant, use it. Format all URLs as markdown links.`;
           bboxW: (piece as any).bboxW ?? null,
           bboxH: (piece as any).bboxH ?? null,
         };
+        } catch (enrichErr: any) {
+          console.error(`[Brickanalyzer] Enrichment failed for piece ${piece.partNo || '(unknown)'}:`, enrichErr.message);
+          return {
+            partNo: piece.partNo || '',
+            partName: piece.partName || 'Unknown Part',
+            itemType: piece.itemType || 'PART',
+            colorName: piece.colorName || '',
+            colorId: null,
+            confidence: piece.confidence || 'low',
+            note: piece.note || '',
+            ourPriceNew: null, ourQtyNew: 0, ourPriceUsed: null, ourQtyUsed: 0,
+            inventoryId: null,
+            marketSoldMaxNew: null, marketSoldMaxUsed: null,
+            marketSoldAvgNew: null, marketSoldAvgUsed: null,
+            stockAvgPriceN: null, stockAvgPriceU: null,
+            stockMaxPriceN: null, stockMaxPriceU: null,
+            suggestedPriceNew: null, suggestedPriceUsed: null,
+            colorRgb: null, thumbnailUrl: null, bestPrice: null,
+            categoryId: null, inventoryLots: [],
+            cropIndex: piece.cropIndex ?? null,
+            bboxX: (piece as any).bboxX ?? null,
+            bboxY: (piece as any).bboxY ?? null,
+            bboxW: (piece as any).bboxW ?? null,
+            bboxH: (piece as any).bboxH ?? null,
+          };
+        }
       }));
 
       const pricedCount = enriched.filter((p: any) =>
