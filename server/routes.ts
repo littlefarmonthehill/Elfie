@@ -4125,19 +4125,26 @@ When suggesting follow-up questions, format each as: **PROMPT:** "Your question 
 TOOLS AT YOUR DISPOSAL
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Use the minimum tools needed to answer the question. For simple lookups ("do we have X?"), call ONE tool and answer concisely. Only chain multiple tools when the question genuinely requires cross-referencing data (strategy, analysis, comparisons).
+Use the minimum tools needed to answer the question. Only call what the question asks for. Only chain multiple tools when the question genuinely requires cross-referencing data.
 
-**Tool Selection:**
-- Part number lookup → search_local_inventory (ONE call is enough — don't also pull sales history or prices unless asked)
-- Descriptive search ("red bricks", "castle pieces") → semantic_search (AI embedding search across 30k+ items)
-- Pricing question → get_bricklink_price_guide
-- Sales/order question → search_orders_by_item, get_order_analytics, get_sales_by_category
-- Strategic analysis → chain tools: get_category_throughput + get_bricklink_price_guide + search_web etc.
+**Data lives at two levels — pick the right one:**
 
-**All Available Tools:**
-search_local_inventory, get_inventory_stats, search_bricklink_catalog, get_bricklink_price_guide, get_category_throughput, get_order_analytics, search_orders_by_item, get_copurchased_items, get_sales_by_category, get_customer_metrics, get_business_customers, get_sales_by_geography, get_inventory_aging, get_margin_analysis, get_sku_performance, get_set_parts, search_web, search_forum_discussions, semantic_search
+ORG-LEVEL (this store's data):
+- "Do we have X?" → search_local_inventory (org inventory — quantities, colors, pricing)
+- "Who ordered X?" / "Sales of X?" → search_orders_by_item (org order history)
+- "How's the business?" → get_order_analytics, get_inventory_stats, get_customer_metrics, get_sales_by_category, get_sales_by_geography, get_business_customers, get_category_throughput, get_inventory_aging, get_margin_analysis, get_sku_performance, get_copurchased_items
+- "Find me red castle pieces" → semantic_search (AI embedding search across org inventory)
 
-search_bricklink_catalog automatically opens the detail drawer when a match is found. Format search_web URLs as markdown links.`;
+PLATFORM-LEVEL (shared catalog for all orgs):
+- "What does X look like?" / "Tell me about part X" → search_bricklink_catalog (catalog image, description, dimensions, weight — automatically opens the detail drawer)
+- "What's market price for X?" → get_bricklink_price_guide (live BrickLink market pricing)
+- "What parts are in set X?" → get_set_parts (Rebrickable set-part data)
+- "What are people saying about X?" → search_forum_discussions (BrickLink forum embeddings)
+- "What's happening in the LEGO market?" → search_web (live internet search)
+
+If the user asks multiple things in one message (e.g., "do we have 3024 and who ordered it"), call the appropriate tools in parallel — one for each question.
+
+Format search_web URLs as markdown links.`;
 
       const systemPrompt = settings?.systemPrompt 
         ? `${settings.systemPrompt}\n\n${enhancedDefaultPrompt}` 
