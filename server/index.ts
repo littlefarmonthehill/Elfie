@@ -224,24 +224,32 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
 
       // Self-ping keeps the autoscale container alive by generating an
-      // EXTERNAL HTTP request every 4 minutes so the platform counts it
-      // as real traffic and doesn't scale the instance to zero while
-      // background schedulers are running.
+      // EXTERNAL HTTP request so the platform counts it as real traffic
+      // and doesn't scale the instance to zero while background
+      // schedulers (POM, catalog detail, etc.) are running.
       // Localhost pings (127.0.0.1) don't register with the autoscaler —
       // only requests arriving via the public domain are counted.
+      // Adaptive interval: 15s when any sync is active, 45s when idle.
       const externalDomain = process.env.REPLIT_DOMAINS?.split(',')[0]?.trim();
       const selfPingUrl = externalDomain
         ? `https://${externalDomain}/api/health`
         : `http://127.0.0.1:${port}/api/health`;
       console.log(`[SelfPing] URL: ${selfPingUrl}`);
+      let _lastPingAt = 0;
       setInterval(async () => {
         try {
+          const { syncLock } = await import('./services/sync-lock');
+          const activeSyncs = syncLock.getActive();
+          const intervalMs = activeSyncs.length > 0 ? 15_000 : 45_000;
+          const now = Date.now();
+          if (now - _lastPingAt < intervalMs) return;
+          _lastPingAt = now;
           const resp = await fetch(selfPingUrl, { signal: AbortSignal.timeout(10_000) });
           if (!resp.ok) console.log(`[SelfPing] ${resp.status}`);
         } catch (e: any) {
           console.log(`[SelfPing] failed: ${e.message}`);
         }
-      }, 3 * 60 * 1000);
+      }, 15_000);
 
       // Warm up the Python segmentation service immediately so it's ready
       // before the first Brickanalyzer scan request arrives.
