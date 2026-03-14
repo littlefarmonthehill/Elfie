@@ -845,6 +845,16 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const [forumSyncEnabled, setForumSyncEnabled] = useState(true);
   const [forumSyncFrequency, setForumSyncFrequency] = useState(60);
   const [forumSyncFrequencyStr, setForumSyncFrequencyStr] = useState("60");
+  const [marketNewsSyncEnabled, setMarketNewsSyncEnabled] = useState(false);
+  const [marketNewsSyncFrequency, setMarketNewsSyncFrequency] = useState(360);
+  const [marketNewsSyncFrequencyStr, setMarketNewsSyncFrequencyStr] = useState("360");
+  const [marketNewsQueries, setMarketNewsQueries] = useState<string[]>([
+    'LEGO set retirement announcements',
+    'LEGO reseller market news pricing trends',
+    'BrickLink marketplace updates sellers',
+    'LEGO collectible investing value 2026',
+    'LEGO supply chain new releases',
+  ]);
   const [universalCatalogScheduleEnabled, setUniversalCatalogScheduleEnabled] = useState(false);
   const [universalCatalogRefreshMonths, setUniversalCatalogRefreshMonths] = useState(1);
   const [universalCatalogRetryDays, setUniversalCatalogRetryDays] = useState(30);
@@ -1724,6 +1734,12 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
       setForumSyncEnabled(platformSettings.forumSyncEnabled !== false);
       setForumSyncFrequency(platformSettings.forumSyncFrequency || 60);
       setForumSyncFrequencyStr(String(platformSettings.forumSyncFrequency || 60));
+      setMarketNewsSyncEnabled(platformSettings.marketNewsSyncEnabled || false);
+      setMarketNewsSyncFrequency(platformSettings.marketNewsSyncFrequency || 360);
+      setMarketNewsSyncFrequencyStr(String(platformSettings.marketNewsSyncFrequency || 360));
+      if (platformSettings.marketNewsQueries && Array.isArray(platformSettings.marketNewsQueries) && platformSettings.marketNewsQueries.length > 0) {
+        setMarketNewsQueries(platformSettings.marketNewsQueries);
+      }
       setUniversalCatalogScheduleEnabled(platformSettings.universalCatalogScheduleEnabled || false);
       setUniversalCatalogRefreshMonths(platformSettings.universalCatalogRefreshMonths ?? 1);
       setUniversalCatalogRetryDays(platformSettings.universalCatalogRetryDays ?? 30);
@@ -7248,12 +7264,14 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                   const ucJob = getJob('universal_catalog_refresh');
                   const rbJob = getJob('rebrickable_set_parts');
                   const fmJob = getJob('forum_sync');
+                  const mnJob = getJob('market_news_sync');
                   const pomActive = pomJob?.lastSyncStatus === 'in_progress';
                   const cdActive = cdJob?.lastSyncStatus === 'in_progress';
                   const csActive = csJob?.lastSyncStatus === 'in_progress';
                   const ucActive = ucJob?.lastSyncStatus === 'in_progress';
                   const rbActive = rbJob?.lastSyncStatus === 'in_progress';
                   const fmActive = fmJob?.lastSyncStatus === 'in_progress';
+                  const mnActive = mnJob?.lastSyncStatus === 'in_progress';
                   const clipActive = config.clip_catalog?.workerRunning;
                   const clipPct = clipStatus && clipStatus.total > 0 ? Math.round((clipStatus.embedded / clipStatus.total) * 100) : 0;
 
@@ -7873,7 +7891,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                       {/* ── Market Tab ──────────────────────────────── */}
                       {activeSchedulerTab === 'market' && (
                         <div className="space-y-3">
-                          <p className="sm-hint px-1">BrickLink forum discussions for market sentiment and AI context.</p>
+                          <p className="sm-hint px-1">Community forums and web news for market sentiment and AI context. Both sources are embedded for semantic search by E.L.F.I.E.</p>
 
                           <div className="sm-card">
                             <button onClick={() => toggleJob('fm')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-fm-sched">
@@ -7882,7 +7900,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Forum Sync</p>
                                   <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>
-                                    <p className="mb-1.5">Scrapes BrickLink forum discussions for market sentiment and trending topics. Posts are embedded for AI context, enabling market-aware responses in conversations. Purges stale posts with no replies older than 6 months.</p>
+                                    <p className="mb-1.5">Scrapes BrickLink forum discussions for market sentiment and trending topics. Posts are embedded for AI context, enabling market-aware responses. Purges stale posts older than 6 months.</p>
                                     <div className="space-y-1 border-t pt-1.5 text-[11px]">
                                       <p><span className="text-gray-500 dark:text-gray-400">Frequency:</span> <span className="font-medium">Every {forumSyncFrequency} min</span></p>
                                     </div>
@@ -7917,6 +7935,68 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                                 </div>
                                 {(fmJob?.recordsAdded > 0 || fmJob?.recordsUpdated > 0) && (
                                   <p className="sm-hint pt-1 border-t border-gray-700/40">+{fmJob.recordsAdded} added · {fmJob.recordsUpdated} updated</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="sm-card">
+                            <button onClick={() => toggleJob('mn')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-mn-sched">
+                              {statusInfo(mnJob?.lastSyncStatus || null, marketNewsSyncEnabled).icon}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="sm-label">Market News</p>
+                                  <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>
+                                    <p className="mb-1.5">Searches the web for LEGO market news — retirements, pricing trends, collectible values, and reseller insights. Articles are embedded for AI context so E.L.F.I.E. can answer market questions. Purges articles older than 6 months.</p>
+                                    <div className="space-y-1 border-t pt-1.5 text-[11px]">
+                                      <p><span className="text-gray-500 dark:text-gray-400">Frequency:</span> <span className="font-medium">Every {marketNewsSyncFrequency} min</span></p>
+                                      <p><span className="text-gray-500 dark:text-gray-400">Queries:</span> <span className="font-medium">{marketNewsQueries.length} configured</span></p>
+                                    </div>
+                                  </PopoverContent></Popover>
+                                  <span className={`sm-hint font-medium ${statusInfo(mnJob?.lastSyncStatus || null, marketNewsSyncEnabled).color}`}>{statusInfo(mnJob?.lastSyncStatus || null, marketNewsSyncEnabled).label}</span>
+                                </div>
+                                <p className="sm-hint">{marketNewsSyncEnabled ? `Every ${marketNewsSyncFrequency} min` : 'Schedule disabled'} · Last: {formatLastRun(mnJob?.lastSyncTime || null)}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Button size="icon" variant="ghost" disabled={mnActive} onClick={(e) => { e.stopPropagation(); handleTrigger('market_news_sync'); }} title="Run now" data-testid="button-trigger-mn-sched">
+                                  {mnActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                                </Button>
+                                {isExpanded('mn') ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-600" />}
+                              </div>
+                            </button>
+                            {mnJob?.errorMessage && <p className="px-4 pb-2 text-xs text-red-400/80 truncate -mt-1">{mnJob.errorMessage}</p>}
+                            {isExpanded('mn') && (
+                              <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
+                                <div className="sm-row pt-3">
+                                  <span className="sm-label">Enabled</span>
+                                  <Switch checked={marketNewsSyncEnabled} onCheckedChange={(checked) => { setMarketNewsSyncEnabled(checked); updatePlatformSettingsMutation.mutate({ marketNewsSyncEnabled: checked }); }} data-testid="switch-mn-scheduler-sched" />
+                                </div>
+                                <div className="sm-row">
+                                  <div>
+                                    <span className="sm-label">Frequency</span>
+                                    <p className="sm-hint">Minutes between runs</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Input type="number" min={30} max={1440} value={marketNewsSyncFrequencyStr} onChange={(e) => setMarketNewsSyncFrequencyStr(e.target.value)} onBlur={() => { const val = parseInt(marketNewsSyncFrequencyStr) || 360; setMarketNewsSyncFrequency(val); setMarketNewsSyncFrequencyStr(String(val)); updatePlatformSettingsMutation.mutate({ marketNewsSyncFrequency: val }); }} className="w-20 text-xs text-right" data-testid="input-mn-frequency-sched" />
+                                    <span className="sm-hint">min</span>
+                                  </div>
+                                </div>
+                                <div className="space-y-2 pt-1 border-t border-gray-700/40">
+                                  <div className="flex items-center justify-between">
+                                    <span className="sm-label">Search Queries</span>
+                                    <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => { setMarketNewsQueries([...marketNewsQueries, '']); }} data-testid="button-add-mn-query">+ Add</Button>
+                                  </div>
+                                  {marketNewsQueries.map((q, i) => (
+                                    <div key={i} className="flex items-center gap-1.5">
+                                      <Input value={q} onChange={(e) => { const updated = [...marketNewsQueries]; updated[i] = e.target.value; setMarketNewsQueries(updated); }} onBlur={() => { const cleaned = marketNewsQueries.filter(s => s.trim()); setMarketNewsQueries(cleaned); updatePlatformSettingsMutation.mutate({ marketNewsQueries: cleaned }); }} className="flex-1 text-xs" placeholder="Search query..." data-testid={`input-mn-query-${i}`} />
+                                      <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => { const updated = marketNewsQueries.filter((_, idx) => idx !== i); setMarketNewsQueries(updated); updatePlatformSettingsMutation.mutate({ marketNewsQueries: updated }); }} data-testid={`button-remove-mn-query-${i}`}>
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                                {(mnJob?.recordsAdded > 0 || mnJob?.recordsUpdated > 0) && (
+                                  <p className="sm-hint pt-1 border-t border-gray-700/40">+{mnJob.recordsAdded} added · {mnJob.recordsUpdated} updated</p>
                                 )}
                               </div>
                             )}

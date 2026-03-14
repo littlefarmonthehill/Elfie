@@ -507,6 +507,9 @@ export const appSettings = pgTable("app_settings", {
   ordersSyncEndTime: text("orders_sync_end_time").default('20:00'),            // Active window end   (HH:MM, org timezone)
   forumSyncEnabled: boolean("forum_sync_enabled").default(true).notNull(),
   forumSyncFrequency: integer("forum_sync_frequency").default(60).notNull(), // minutes
+  marketNewsSyncEnabled: boolean("market_news_sync_enabled").default(false).notNull(),
+  marketNewsSyncFrequency: integer("market_news_sync_frequency").default(360).notNull(), // minutes (6 hours default)
+  marketNewsQueries: text("market_news_queries").array().default(sql`ARRAY['LEGO set retirement announcements', 'LEGO reseller market news pricing trends', 'BrickLink marketplace updates sellers', 'LEGO collectible investing value 2026', 'LEGO supply chain new releases']`),
   // Rebrickable Configuration
   rebrickableImageSyncEnabled: boolean("rebrickable_image_sync_enabled").default(true).notNull(),
   rebrickableSetSyncEnabled: boolean("rebrickable_set_sync_enabled").default(false).notNull(),
@@ -1383,6 +1386,53 @@ export const insertBlForumEmbeddingSchema = createInsertSchema(blForumEmbeddings
 
 export type InsertBlForumEmbedding = z.infer<typeof insertBlForumEmbeddingSchema>;
 export type BlForumEmbedding = typeof blForumEmbeddings.$inferSelect;
+
+export const marketNews = pgTable("market_news", {
+  id: serial("id").primaryKey(),
+  query: text("query").notNull(),
+  title: text("title").notNull(),
+  snippet: text("snippet"),
+  url: text("url").notNull(),
+  source: text("source"),
+  publishedAt: timestamp("published_at"),
+  fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  urlIdx: index("market_news_url_idx").on(table.url),
+  fetchedAtIdx: index("market_news_fetched_idx").on(table.fetchedAt),
+  queryIdx: index("market_news_query_idx").on(table.query),
+}));
+
+export const insertMarketNewsSchema = createInsertSchema(marketNews).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMarketNews = z.infer<typeof insertMarketNewsSchema>;
+export type MarketNews = typeof marketNews.$inferSelect;
+
+export const marketNewsEmbeddings = pgTable("market_news_embeddings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  articleId: integer("article_id").notNull(),
+  embedding: vector("embedding", { dimensions: 1536 }),
+  content: text("content").notNull(),
+  embeddingModel: text("embedding_model").default('text-embedding-3-small').notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  articleIdIdx: index("market_news_embeddings_article_idx").on(table.articleId),
+}));
+
+export const insertMarketNewsEmbeddingSchema = createInsertSchema(marketNewsEmbeddings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMarketNewsEmbedding = z.infer<typeof insertMarketNewsEmbeddingSchema>;
+export type MarketNewsEmbedding = typeof marketNewsEmbeddings.$inferSelect;
 
 // App Feedback — user-submitted requests tracked for Replit backlog
 export const appFeedback = pgTable("app_feedback", {

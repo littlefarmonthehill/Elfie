@@ -12,6 +12,7 @@ import { startChannelSyncScheduler } from "./services/channel-sync-scheduler";
 import { startOrderSyncScheduler } from "./services/order-sync-scheduler";
 import { startEmbeddingWorker } from "./services/embedding-worker";
 import { startForumSyncScheduler } from "./services/bl-forum-scheduler";
+import { startMarketNewsSyncScheduler } from "./services/market-news-scheduler";
 import { startUniversalCatalogScheduler } from "./services/universal-catalog-scheduler";
 import { startRebrickableSetsScheduler } from "./services/rebrickable-sets-scheduler";
 import { startService as startSegmentService, warmupClip } from "./services/segmentClient";
@@ -318,6 +319,11 @@ app.use((req, res, next) => {
       // Start BrickLink forum sync scheduler
       startForumSyncScheduler().catch(error => {
         console.error('Failed to start forum sync scheduler:', error);
+      });
+
+      // Start market news sync scheduler
+      startMarketNewsSyncScheduler().catch(error => {
+        console.error('Failed to start market news sync scheduler:', error);
       });
       
       // Start background embedding worker (async — resets any orphaned 'processing' jobs first)

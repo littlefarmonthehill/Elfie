@@ -1042,7 +1042,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [invTotalCount] = await db.select({ count: count() }).from(blInventory);
       const [ordTotalCount] = await db.select({ count: count() }).from(orders);
 
-      const platformSyncIds = ['priceomatic_cache', 'universal_catalog_refresh', 'rebrickable_set_parts', 'forum_sync', 'catalog_detail_completion', 'catalog_scan'];
+      const platformSyncIds = ['priceomatic_cache', 'universal_catalog_refresh', 'rebrickable_set_parts', 'forum_sync', 'catalog_detail_completion', 'catalog_scan', 'market_news_sync'];
       const syncJobs = await db
         .select({
           id: syncMetadata.id,
@@ -1280,6 +1280,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const result = await triggerManualForumSync();
           if (!result.success) return res.status(409).json({ message: result.error || 'Forum sync failed' });
           return res.json({ message: 'Forum sync triggered' });
+        }
+        case 'market_news_sync': {
+          const { triggerManualMarketNewsSync } = await import('./services/market-news-scheduler.js');
+          const mnResult = await triggerManualMarketNewsSync();
+          if (!mnResult.success) return res.status(409).json({ message: mnResult.error || 'Market news sync failed' });
+          return res.json({ message: 'Market news sync triggered' });
         }
         case 'clip_catalog': {
           const { getActiveBuild, buildCatalogEmbeddings } = await import('./services/clip-search.js');
@@ -4214,7 +4220,8 @@ PLATFORM-LEVEL (shared catalog for all orgs):
 - "What's market price for X?" → get_bricklink_price_guide (locally cached market pricing from Price-o-Matic syncs)
 - "What parts are in set X?" → get_set_parts (Rebrickable set-part data)
 - "What are people saying about X?" → search_forum_discussions (BrickLink forum embeddings)
-- "What's happening in the LEGO market?" → search_web (live internet search)
+- "Any news about LEGO retirements?" → search_market_news (periodically-fetched web news articles about LEGO market trends, retirements, pricing, collectible values)
+- "What's happening in the LEGO market?" → search_market_news first (cached news), then search_web if you need more real-time info
 
 If the user asks multiple things in one message (e.g., "do we have 3024 and who ordered it"), call the appropriate tools in parallel — one for each question.
 

@@ -103,3 +103,16 @@ The Database tab in System Health (super admin only) includes a **Vacuum & Clean
 - **Cleanup**: `POST /api/platform-admin/db-cleanup` — purges stale rows from known targets with configurable age (0–3650 days, parameterized SQL)
 - **Cleanup targets**: `bl_api_calls` (14d), `embedding_jobs` (7d), `restore_jobs` (7d), `sync_issues` (30d), `price_guide_cache` (30d), `sessions` (expired), `brickanalyzer_scans` (60d), `conversations` (90d), `universal_catalog_queue` (14d)
 - **UI**: Two vacuum buttons (flagged tables / all tables) + 8 individual purge buttons with row counts, located in SettingsModal Database tab
+
+## Market News — Data Enrichment
+
+Scheduled web searches that fetch LEGO market news articles (retirements, pricing trends, collectible values, reseller insights) and embed them for AI semantic search alongside BrickLink forum posts.
+
+- **Tables**: `market_news` (id, query, title, snippet, url, source, publishedAt, fetchedAt) + `market_news_embeddings` (articleId FK, 1536-dim vector, content)
+- **Settings columns**: `market_news_sync_enabled` (bool, default false), `market_news_sync_frequency` (int, default 360 min), `market_news_queries` (text array, 5 default queries)
+- **Migration**: Phase-20 in `server/db.ts`
+- **Service**: `server/services/market-news-scraper.ts` — uses DuckDuckGo HTML search (same as Elfie's `search_web` tool). Functions: `fetchMarketNews`, `saveMarketNews` (upsert by URL), `generateMarketNewsEmbeddings`, `purgeStaleMarketNews` (6-month retention), `syncMarketNews` (orchestrator).
+- **Scheduler**: `server/services/market-news-scheduler.ts` — follows forum scheduler pattern. Reads `marketNewsSyncEnabled`/`marketNewsSyncFrequency`/`marketNewsQueries` from platform `app_settings`. Uses `syncMetadata` id='market_news_sync'. Checks every 5 min, runs if frequency elapsed.
+- **AI tool**: `search_market_news` in `ai-tools.ts` — vector similarity search over `market_news_embeddings` joined to `market_news`. Registered in `elfieTools` array and `executeToolCall` switch.
+- **Trigger route**: `POST /api/platform-admin/scheduler/market_news_sync/trigger` (super admin)
+- **UI**: Settings > Platform Scheduler > Market tab — two job cards: Forum Sync (existing) and Market News (new). Market News card has enabled toggle, frequency input, and editable search query list (add/remove/edit).

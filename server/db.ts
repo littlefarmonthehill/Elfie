@@ -418,6 +418,42 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-19 (quantity + qty_avg_price columns) complete.');
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS market_news (
+        id SERIAL PRIMARY KEY,
+        query TEXT NOT NULL,
+        title TEXT NOT NULL,
+        snippet TEXT,
+        url TEXT NOT NULL,
+        source TEXT,
+        published_at TIMESTAMPTZ,
+        fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS market_news_url_idx ON market_news (url)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS market_news_fetched_idx ON market_news (fetched_at)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS market_news_query_idx ON market_news (query)`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS market_news_embeddings (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        article_id INTEGER NOT NULL,
+        embedding vector(1536),
+        content TEXT NOT NULL,
+        embedding_model TEXT NOT NULL DEFAULT 'text-embedding-3-small',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS market_news_embeddings_article_idx ON market_news_embeddings (article_id)`);
+
+    await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS market_news_sync_enabled BOOLEAN NOT NULL DEFAULT false`);
+    await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS market_news_sync_frequency INTEGER NOT NULL DEFAULT 360`);
+    await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS market_news_queries TEXT[] DEFAULT ARRAY['LEGO set retirement announcements', 'LEGO reseller market news pricing trends', 'BrickLink marketplace updates sellers', 'LEGO collectible investing value 2026', 'LEGO supply chain new releases']`);
+    console.log('[Migration] Phase-20 (market_news tables + settings) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

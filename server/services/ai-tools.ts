@@ -1196,8 +1196,77 @@ export async function getSetParts(params: {
   }
 }
 
+async function searchBrave(query: string, limit: number = 5): Promise<Array<{ title: string; snippet: string; url: string }>> {
+  const results: Array<{ title: string; snippet: string; url: string }> = [];
+  try {
+    const response = await axios.get('https://search.brave.com/search', {
+      params: { q: query },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+      },
+      timeout: 15000,
+    });
+    const $ = cheerio.load(response.data);
+    $('.snippet[data-type="web"]').each((index, element) => {
+      if (index >= limit) return false;
+      const $elem = $(element);
+      const url = $elem.find('a[href^="http"]').first().attr('href') || '';
+      const title = $elem.find('.search-snippet-title').first().text().trim();
+      const desc = $elem.find('.content').first().text().trim();
+      if (title && url && !url.includes('brave.com') && !url.includes('search.brave')) {
+        results.push({ title, snippet: desc || 'No description available', url });
+      }
+    });
+  } catch (err: any) {
+    console.error(`[WebSearch] Brave error:`, err.message);
+  }
+  return results;
+}
+
+async function searchDDG(query: string, limit: number = 5): Promise<Array<{ title: string; snippet: string; url: string }>> {
+  const results: Array<{ title: string; snippet: string; url: string }> = [];
+  try {
+    const response = await axios.get('https://html.duckduckgo.com/html/', {
+      params: { q: query },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      timeout: 15000,
+    });
+    const $ = cheerio.load(response.data);
+    $('.result').each((index, element) => {
+      if (index >= limit) return false;
+      const $elem = $(element);
+      const titleLink = $elem.find('.result__a');
+      const title = titleLink.text().trim();
+      let rawUrl = titleLink.attr('href') || '';
+      let url = '';
+      if (rawUrl.includes('uddg=')) {
+        try {
+          const urlParams = new URLSearchParams(rawUrl.split('?')[1] || '');
+          const uddg = urlParams.get('uddg');
+          if (uddg) url = decodeURIComponent(uddg);
+        } catch { /* skip */ }
+      } else {
+        url = rawUrl;
+      }
+      if (url && !url.startsWith('http')) url = 'https://' + url.replace(/^\/+/, '');
+      let snippet = $elem.find('.result__snippet').text().trim();
+      if (!snippet) snippet = $elem.find('.result__snippet span').text().trim();
+      if (!snippet) snippet = $elem.find('.result__extras').text().trim();
+      if (title && url && url.startsWith('http') && !url.includes('duckduckgo.com')) {
+        results.push({ title, snippet: snippet || 'No description available', url });
+      }
+    });
+  } catch (err: any) {
+    console.error(`[WebSearch] DuckDuckGo error:`, err.message);
+  }
+  return results;
+}
+
 /**
- * Tool: Search the web for information
+ * Tool: Search the web for information (Brave primary, DuckDuckGo fallback)
  */
 export async function searchWeb(params: {
   query: string;
@@ -1205,72 +1274,13 @@ export async function searchWeb(params: {
   const { query } = params;
   
   try {
-    // Use DuckDuckGo's HTML search (no API key required)
-    const response = await axios.get('https://html.duckduckgo.com/html/', {
-      params: { q: query },
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      },
-      timeout: 15000, // 15 second timeout
-    });
-    
-    // Use cheerio to parse HTML
-    const $ = cheerio.load(response.data);
-    const results: Array<{
-      title: string;
-      snippet: string;
-      url: string;
-    }> = [];
-    
-    // Extract search result items
-    $('.result').each((index, element) => {
-      if (index >= 5) return false; // Limit to 5 results
-      
-      const $elem = $(element);
-      
-      // Extract title and URL from the result title link
-      const titleLink = $elem.find('.result__a');
-      const title = titleLink.text().trim();
-      let rawUrl = titleLink.attr('href') || '';
-      
-      // DuckDuckGo wraps URLs in redirect format: /l/?uddg=<encoded_url>&...
-      // Need to extract the uddg parameter which contains the actual destination URL
-      let url = '';
-      if (rawUrl.includes('uddg=')) {
-        try {
-          // Parse the uddg parameter from the redirect URL
-          const urlParams = new URLSearchParams(rawUrl.split('?')[1] || '');
-          const uddg = urlParams.get('uddg');
-          if (uddg) {
-            url = decodeURIComponent(uddg);
-          }
-        } catch (error) {
-          console.error('Failed to parse DuckDuckGo redirect URL:', rawUrl);
-        }
-      } else {
-        // Direct URL (rare but possible)
-        url = rawUrl;
-      }
-      
-      // Ensure URL has protocol
-      if (url && !url.startsWith('http')) {
-        url = 'https://' + url.replace(/^\/+/, '');
-      }
-      
-      // Extract snippet (try multiple selectors for robustness)
-      let snippet = $elem.find('.result__snippet').text().trim();
-      if (!snippet) {
-        snippet = $elem.find('.result__snippet span').text().trim();
-      }
-      if (!snippet) {
-        snippet = $elem.find('.result__extras').text().trim();
-      }
-      
-      // Only add if we have valid data (title, URL, and not a duckduckgo.com link)
-      if (title && url && url.startsWith('http') && !url.includes('duckduckgo.com')) {
-        results.push({ title, snippet: snippet || 'No description available', url });
-      }
-    });
+    let results: Array<{ title: string; snippet: string; url: string }> = [];
+
+    results = await searchBrave(query, 5);
+
+    if (results.length === 0) {
+      results = await searchDDG(query, 5);
+    }
     
     if (results.length === 0) {
       return {
@@ -1288,7 +1298,7 @@ export async function searchWeb(params: {
       },
     };
   } catch (error: any) {
-    console.error('❌ Web search error:', error);
+    console.error('Web search error:', error);
     return {
       success: false,
       message: `Failed to search the web: ${error.message || 'Unknown error'}`,
@@ -1646,6 +1656,69 @@ export async function searchForumDiscussions(params: {
     return {
       success: false,
       message: error.message || 'Failed to search forum discussions',
+      data: [],
+      count: 0,
+    };
+  }
+}
+
+export async function searchMarketNews(params: {
+  query: string;
+  limit?: number;
+}) {
+  const { query, limit = 10 } = params;
+
+  try {
+    const queryEmbedding = await generateEmbedding(query);
+    const embeddingVector = JSON.stringify(queryEmbedding);
+
+    const results = await db.execute(sql`
+      SELECT
+        mn.id,
+        mn.title,
+        mn.snippet,
+        mn.url,
+        mn.source,
+        mn.query as search_query,
+        mn.fetched_at,
+        1 - (mne.embedding <=> ${embeddingVector}::vector) as relevance
+      FROM market_news_embeddings mne
+      JOIN market_news mn ON mne.article_id = mn.id
+      ORDER BY mne.embedding <=> ${embeddingVector}::vector
+      LIMIT ${Math.min(limit, 20)}
+    `);
+
+    if (results.rows.length === 0) {
+      return {
+        success: true,
+        message: 'No market news found matching your query. The market news database may be empty — enable Market News sync in Settings > Platform Scheduler > Market.',
+        data: [],
+        count: 0,
+      };
+    }
+
+    const articles = (results.rows as any[]).map(row => ({
+      id: row.id,
+      title: row.title,
+      snippet: row.snippet,
+      url: row.url,
+      source: row.source,
+      topic: row.search_query,
+      fetchedAt: row.fetched_at,
+      relevance: parseFloat(row.relevance || '0').toFixed(3),
+    }));
+
+    return {
+      success: true,
+      data: articles,
+      count: articles.length,
+      message: `Found ${articles.length} relevant market news article${articles.length !== 1 ? 's' : ''}`,
+    };
+  } catch (error: any) {
+    console.error('Error searching market news:', error);
+    return {
+      success: false,
+      message: error.message || 'Failed to search market news',
       data: [],
       count: 0,
     };
@@ -2169,6 +2242,27 @@ export const AI_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'search_market_news',
+      description: 'Search market news articles for LEGO industry updates, retirement announcements, pricing trends, collectible value changes, supply chain news, and reseller market insights. This searches a periodically-updated database of web news articles relevant to the LEGO reselling business. Use alongside search_forum_discussions for a complete market picture — forums give community/seller chatter, market news gives industry-level developments.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'The search query (e.g., "LEGO retirement 2026", "BrickLink pricing changes", "LEGO collectible value trends")',
+          },
+          limit: {
+            type: 'number',
+            description: 'Maximum number of news articles to return (default: 10, max: 20)',
+          },
+        },
+        required: ['query'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'semantic_search',
       description: 'Search inventory by meaning using AI embeddings. Use this for natural language queries like "red castle bricks", "spaceship windshields", "small transparent pieces", or any descriptive search where the user describes what they want rather than giving a part number. Returns the most semantically similar items from inventory.',
       parameters: {
@@ -2249,6 +2343,9 @@ export async function executeToolCall(toolName: string, params: any): Promise<an
     
     case 'search_forum_discussions':
       return await searchForumDiscussions(params);
+    
+    case 'search_market_news':
+      return await searchMarketNews(params);
     
     case 'semantic_search':
       return await semanticSearchInventory(params);
