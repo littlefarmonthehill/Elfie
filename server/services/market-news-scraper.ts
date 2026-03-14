@@ -115,10 +115,10 @@ export async function fetchMarketNews(queries: string[]): Promise<NewsArticle[]>
   const seenUrls = new Set<string>();
 
   for (const query of queries) {
-    let searchResults = await searchBrave(query, 5);
+    let searchResults = await searchDuckDuckGo(query, 5);
 
     if (searchResults.length === 0) {
-      searchResults = await searchDuckDuckGo(query, 5);
+      searchResults = await searchBrave(query, 5);
     }
 
     for (const r of searchResults) {
