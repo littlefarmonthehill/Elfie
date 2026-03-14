@@ -2201,7 +2201,10 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
             ? "!inset-0 !translate-x-0 !translate-y-0 !max-w-none !rounded-none !border-0 bg-gray-900 p-0 overflow-hidden data-[state=open]:!slide-in-from-bottom-full data-[state=closed]:!slide-out-to-bottom-full data-[state=open]:!zoom-in-100 data-[state=closed]:!zoom-out-100 data-[state=open]:!slide-in-from-left-0 data-[state=closed]:!slide-out-to-left-0 [&>button]:!hidden"
             : "sm:max-w-[640px] bg-gray-900 border-gray-700 p-0 overflow-hidden"
           }
-          style={{ height: isMobile ? '100dvh' : 'min(640px, calc(96dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)))' }}
+          style={isMobile
+            ? { height: '100dvh', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }
+            : { height: 'min(640px, calc(96dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)))' }
+          }
         >
           <div
             className="flex flex-col h-full min-h-0 min-w-0 w-full"
