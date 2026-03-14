@@ -45,6 +45,7 @@ const CATEGORY_CONFIG: Record<string, { icon: React.ElementType; color: string; 
   restock: { icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-900/30', label: 'Restock' },
   revenue: { icon: TrendingUp, color: 'text-green-400', bg: 'bg-green-900/30', label: 'Revenue' },
   velocity: { icon: Activity, color: 'text-purple-400', bg: 'bg-purple-900/30', label: 'Velocity' },
+  channel: { icon: BarChart2, color: 'text-indigo-400', bg: 'bg-indigo-900/30', label: 'Channel' },
   new_customer: { icon: Users, color: 'text-cyan-400', bg: 'bg-cyan-900/30', label: 'New Customer' },
   top_spender: { icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-900/30', label: 'Top Spender' },
   dormant: { icon: EyeOff, color: 'text-amber-400', bg: 'bg-amber-900/30', label: 'Dormant' },
@@ -63,7 +64,7 @@ const URGENCY_CONFIG: Record<string, { label: string; variant: 'default' | 'seco
 type OpArea = 'product' | 'sales' | 'customer';
 const OP_AREA_CONFIG: Record<OpArea, { label: string; icon: React.ElementType; color: string; borderColor: string; categories: string[] }> = {
   product: { label: 'Product & Inventory', icon: Package, color: 'text-yellow-400', borderColor: 'border-yellow-500/30', categories: ['pricing', 'acquisition', 'overstock', 'restock', 'risk'] },
-  sales: { label: 'Orders & Sales', icon: TrendingUp, color: 'text-green-400', borderColor: 'border-green-500/30', categories: ['revenue', 'velocity', 'trend', 'opportunity'] },
+  sales: { label: 'Orders & Sales', icon: TrendingUp, color: 'text-green-400', borderColor: 'border-green-500/30', categories: ['revenue', 'velocity', 'channel', 'trend', 'opportunity'] },
   customer: { label: 'Customer Intelligence', icon: Users, color: 'text-cyan-400', borderColor: 'border-cyan-500/30', categories: ['new_customer', 'top_spender', 'dormant', 'customer'] },
 };
 

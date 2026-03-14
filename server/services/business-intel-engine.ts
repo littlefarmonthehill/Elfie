@@ -13,37 +13,31 @@ interface OrgContext {
   recentNews: Array<{ title: string; snippet: string | null; source: string | null }>;
   recentForumTopics: Array<{ title: string; excerpt: string | null }>;
   customerInsights: {
-    newCustomers30d: Array<{ buyerName: string; orderCount: number; totalSpent: number; firstOrderDate: string }>;
-    topSpenders30d: Array<{ buyerName: string; orderCount: number; totalSpent: number; avgOrderValue: number }>;
+    topCustomersAllTime: Array<{ buyerName: string; orderCount: number; totalSpent: number; firstOrderDate: string; lastOrderDate: string }>;
+    newCustomers: Array<{ buyerName: string; orderCount: number; totalSpent: number; firstOrderDate: string }>;
+    topSpenders: Array<{ buyerName: string; orderCount: number; totalSpent: number; avgOrderValue: number }>;
     returningVsNew: { returning: number; newBuyers: number };
-    recentHighValueOrders: Array<{ buyerName: string; totalAmount: number; orderDate: string; itemCount: number }>;
+    highValueOrders: Array<{ buyerName: string; totalAmount: number; orderDate: string; itemCount: number }>;
     dormantBuyers: Array<{ buyerName: string; lastOrderDate: string; totalHistoricalSpent: number; orderCount: number }>;
+    singleOrderBuyers: Array<{ buyerName: string; totalSpent: number; orderDate: string }>;
   };
+  salesPerformance: {
+    year1: { revenue: number; orderCount: number; avgOrderValue: number; uniqueBuyers: number; label: string };
+    year2: { revenue: number; orderCount: number; avgOrderValue: number; uniqueBuyers: number; label: string };
+    channelBreakdown: Array<{ channel: string; revenue: number; orderCount: number; avgOrderValue: number; uniqueBuyers: number }>;
+    monthlyTrend: Array<{ month: string; revenue: number; orderCount: number }>;
+  };
+  windowStart: string;
+  windowEnd: string;
 }
 
 async function getOrgContext(orgId: string): Promise<OrgContext> {
-  const latestOrderResult = await db.execute(sql`
-    SELECT MAX(order_date)::text as latest, MIN(order_date)::text as earliest
-    FROM orders WHERE org_id = ${orgId}
-  `);
-  const latestOrderDate = (latestOrderResult.rows || [])[0]?.latest
-    ? new Date(String((latestOrderResult.rows || [])[0].latest))
-    : new Date();
-  const earliestOrderDate = (latestOrderResult.rows || [])[0]?.earliest
-    ? new Date(String((latestOrderResult.rows || [])[0].earliest))
-    : new Date();
-
-  const refDate = latestOrderDate.getTime() > Date.now() - 60 * 24 * 60 * 60 * 1000
-    ? new Date()
-    : latestOrderDate;
-
-  const recentWindow = new Date(refDate.getTime() - 90 * 24 * 60 * 60 * 1000);
-  const dormantStart = new Date(refDate.getTime() - 365 * 24 * 60 * 60 * 1000);
-  const newCutoff = new Date(refDate.getTime() - 90 * 24 * 60 * 60 * 1000);
-
-  const windowLabel = refDate.getTime() < Date.now() - 60 * 24 * 60 * 60 * 1000
-    ? `(data as of ${refDate.toISOString().substring(0, 10)}, store inactive since then)`
-    : '(last 90 days)';
+  const now = new Date();
+  const twoYearsAgo = new Date(now.getTime() - 2 * 365 * 24 * 60 * 60 * 1000);
+  const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+  const sixMonthsAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+  const windowStart = twoYearsAgo.toISOString();
+  const windowEnd = now.toISOString();
 
   const inventoryItems = await db
     .select({
@@ -64,8 +58,6 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
     .where(eq(blInventory.orgId, orgId))
     .orderBy(desc(blInventory.quantity))
     .limit(150);
-
-  const orgItemNos = inventoryItems.map(i => i.itemNo);
 
   const pricingData = await db.execute(sql`
     SELECT
@@ -125,7 +117,7 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
     FROM order_details od
     JOIN orders o ON od.order_id = o.id
     LEFT JOIN bl_catalog bc ON od.sku LIKE '%' || bc.item_no || '%' AND bc.item_type = 'PART'
-    WHERE o.org_id = ${orgId} AND o.order_date >= ${recentWindow.toISOString()}
+    WHERE o.org_id = ${orgId} AND o.order_date >= ${windowStart}
     GROUP BY od.sku, bc.item_name
     ORDER BY total_sold DESC
     LIMIT 20
@@ -178,7 +170,29 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
     .orderBy(desc(blForumPosts.postedAt))
     .limit(15);
 
-  // ── Customer Intelligence ──
+  // ── Customer Intelligence (rolling 2 years) ──
+
+  const topCustomersData = await db.execute(sql`
+    SELECT
+      o.buyer_name,
+      COUNT(*)::int as order_count,
+      SUM(o.total_amount::numeric)::numeric as total_spent,
+      MIN(o.order_date)::text as first_order_date,
+      MAX(o.order_date)::text as last_order_date
+    FROM orders o
+    WHERE o.org_id = ${orgId} AND o.order_date >= ${windowStart}
+    GROUP BY o.buyer_name
+    ORDER BY total_spent DESC
+    LIMIT 20
+  `);
+  const topCustomersAllTime = (topCustomersData.rows || []).map((r: any) => ({
+    buyerName: String(r.buyer_name || 'Unknown'),
+    orderCount: Number(r.order_count || 0),
+    totalSpent: Number(r.total_spent || 0),
+    firstOrderDate: String(r.first_order_date || ''),
+    lastOrderDate: String(r.last_order_date || ''),
+  }));
+
   const newCustomerData = await db.execute(sql`
     SELECT
       o.buyer_name,
@@ -186,13 +200,13 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
       SUM(o.total_amount::numeric)::numeric as total_spent,
       MIN(o.order_date)::text as first_order_date
     FROM orders o
-    WHERE o.org_id = ${orgId}
+    WHERE o.org_id = ${orgId} AND o.order_date >= ${windowStart}
     GROUP BY o.buyer_name
-    HAVING MIN(o.order_date) >= ${thirtyDaysAgo.toISOString()}
+    HAVING MIN(o.order_date) >= ${oneYearAgo.toISOString()}
     ORDER BY total_spent DESC
     LIMIT 15
   `);
-  const newCustomers30d = (newCustomerData.rows || []).map((r: any) => ({
+  const newCustomers = (newCustomerData.rows || []).map((r: any) => ({
     buyerName: String(r.buyer_name || 'Unknown'),
     orderCount: Number(r.order_count || 0),
     totalSpent: Number(r.total_spent || 0),
@@ -206,12 +220,12 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
       SUM(o.total_amount::numeric)::numeric as total_spent,
       AVG(o.total_amount::numeric)::numeric as avg_order_value
     FROM orders o
-    WHERE o.org_id = ${orgId} AND o.order_date >= ${thirtyDaysAgo.toISOString()}
+    WHERE o.org_id = ${orgId} AND o.order_date >= ${windowStart}
     GROUP BY o.buyer_name
     ORDER BY total_spent DESC
-    LIMIT 10
+    LIMIT 15
   `);
-  const topSpenders30d = (topSpenderData.rows || []).map((r: any) => ({
+  const topSpenders = (topSpenderData.rows || []).map((r: any) => ({
     buyerName: String(r.buyer_name || 'Unknown'),
     orderCount: Number(r.order_count || 0),
     totalSpent: Number(r.total_spent || 0),
@@ -220,11 +234,11 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
 
   const returningData = await db.execute(sql`
     SELECT
-      COUNT(DISTINCT CASE WHEN first_order < ${thirtyDaysAgo.toISOString()} THEN buyer_name END)::int as returning,
-      COUNT(DISTINCT CASE WHEN first_order >= ${thirtyDaysAgo.toISOString()} THEN buyer_name END)::int as new_buyers
+      COUNT(DISTINCT CASE WHEN first_order < ${oneYearAgo.toISOString()} THEN buyer_name END)::int as returning,
+      COUNT(DISTINCT CASE WHEN first_order >= ${oneYearAgo.toISOString()} THEN buyer_name END)::int as new_buyers
     FROM (
       SELECT buyer_name, MIN(order_date) as first_order
-      FROM orders WHERE org_id = ${orgId} AND order_date >= ${thirtyDaysAgo.toISOString()}
+      FROM orders WHERE org_id = ${orgId} AND order_date >= ${windowStart}
       GROUP BY buyer_name
     ) sub
   `);
@@ -240,11 +254,11 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
       o.order_date::text as order_date,
       (SELECT COUNT(*)::int FROM order_details od WHERE od.order_id = o.id) as item_count
     FROM orders o
-    WHERE o.org_id = ${orgId} AND o.order_date >= ${thirtyDaysAgo.toISOString()}
+    WHERE o.org_id = ${orgId} AND o.order_date >= ${windowStart}
     ORDER BY o.total_amount::numeric DESC
-    LIMIT 10
+    LIMIT 15
   `);
-  const recentHighValueOrders = (highValueData.rows || []).map((r: any) => ({
+  const highValueOrders = (highValueData.rows || []).map((r: any) => ({
     buyerName: String(r.buyer_name || 'Unknown'),
     totalAmount: Number(r.total_amount || 0),
     orderDate: String(r.order_date || ''),
@@ -260,11 +274,11 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
     FROM orders o
     WHERE o.org_id = ${orgId}
     GROUP BY o.buyer_name
-    HAVING MAX(o.order_date) < ${sixtyDaysAgo.toISOString()}
-      AND MAX(o.order_date) >= ${ninetyDaysAgo.toISOString()}
-      AND COUNT(*) >= 2
+    HAVING COUNT(*) >= 2
+      AND MAX(o.order_date) < ${sixMonthsAgo.toISOString()}
+      AND MAX(o.order_date) >= ${twoYearsAgo.toISOString()}
     ORDER BY total_historical_spent DESC
-    LIMIT 10
+    LIMIT 15
   `);
   const dormantBuyers = (dormantData.rows || []).map((r: any) => ({
     buyerName: String(r.buyer_name || 'Unknown'),
@@ -273,10 +287,111 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
     orderCount: Number(r.order_count || 0),
   }));
 
+  const singleOrderData = await db.execute(sql`
+    SELECT
+      o.buyer_name,
+      SUM(o.total_amount::numeric)::numeric as total_spent,
+      MAX(o.order_date)::text as order_date
+    FROM orders o
+    WHERE o.org_id = ${orgId} AND o.order_date >= ${windowStart}
+    GROUP BY o.buyer_name
+    HAVING COUNT(*) = 1
+    ORDER BY total_spent DESC
+    LIMIT 10
+  `);
+  const singleOrderBuyers = (singleOrderData.rows || []).map((r: any) => ({
+    buyerName: String(r.buyer_name || 'Unknown'),
+    totalSpent: Number(r.total_spent || 0),
+    orderDate: String(r.order_date || ''),
+  }));
+
+  // ── Sales Performance & Year-over-Year ──
+
+  const y1Start = twoYearsAgo.toISOString();
+  const y1End = oneYearAgo.toISOString();
+  const y2Start = oneYearAgo.toISOString();
+  const y2End = now.toISOString();
+
+  const y1Label = `${twoYearsAgo.getFullYear()}-${oneYearAgo.getFullYear()}`;
+  const y2Label = `${oneYearAgo.getFullYear()}-${now.getFullYear()}`;
+
+  const year1Data = await db.execute(sql`
+    SELECT
+      COALESCE(SUM(total_amount::numeric), 0)::numeric as revenue,
+      COUNT(*)::int as order_count,
+      COALESCE(AVG(total_amount::numeric), 0)::numeric as avg_order_value,
+      COUNT(DISTINCT buyer_name)::int as unique_buyers
+    FROM orders
+    WHERE org_id = ${orgId} AND order_date >= ${y1Start} AND order_date < ${y1End}
+  `);
+  const y1Row = (year1Data.rows || [])[0] || {};
+
+  const year2Data = await db.execute(sql`
+    SELECT
+      COALESCE(SUM(total_amount::numeric), 0)::numeric as revenue,
+      COUNT(*)::int as order_count,
+      COALESCE(AVG(total_amount::numeric), 0)::numeric as avg_order_value,
+      COUNT(DISTINCT buyer_name)::int as unique_buyers
+    FROM orders
+    WHERE org_id = ${orgId} AND order_date >= ${y2Start} AND order_date < ${y2End}
+  `);
+  const y2Row = (year2Data.rows || [])[0] || {};
+
+  // ── Channel Breakdown (full 2 years) ──
+
+  const channelData = await db.execute(sql`
+    SELECT
+      COALESCE(marketplace, 'Unknown') as channel,
+      COALESCE(SUM(total_amount::numeric), 0)::numeric as revenue,
+      COUNT(*)::int as order_count,
+      COALESCE(AVG(total_amount::numeric), 0)::numeric as avg_order_value,
+      COUNT(DISTINCT buyer_name)::int as unique_buyers
+    FROM orders
+    WHERE org_id = ${orgId} AND order_date >= ${windowStart}
+    GROUP BY COALESCE(marketplace, 'Unknown')
+    ORDER BY revenue DESC
+  `);
+  const channelBreakdown = (channelData.rows || []).map((r: any) => ({
+    channel: String(r.channel),
+    revenue: Number(r.revenue || 0),
+    orderCount: Number(r.order_count || 0),
+    avgOrderValue: Number(r.avg_order_value || 0),
+    uniqueBuyers: Number(r.unique_buyers || 0),
+  }));
+
+  // ── Monthly Trend (last 2 years) ──
+
+  const monthlyData = await db.execute(sql`
+    SELECT
+      TO_CHAR(order_date, 'YYYY-MM') as month,
+      COALESCE(SUM(total_amount::numeric), 0)::numeric as revenue,
+      COUNT(*)::int as order_count
+    FROM orders
+    WHERE org_id = ${orgId} AND order_date >= ${windowStart}
+    GROUP BY TO_CHAR(order_date, 'YYYY-MM')
+    ORDER BY month
+  `);
+  const monthlyTrend = (monthlyData.rows || []).map((r: any) => ({
+    month: String(r.month),
+    revenue: Number(r.revenue || 0),
+    orderCount: Number(r.order_count || 0),
+  }));
+
   return {
     orgId, inventoryItems, pricingGaps, slowMovers, fastMovers,
     acquisitionTargets, recentNews, recentForumTopics,
-    customerInsights: { newCustomers30d, topSpenders30d, returningVsNew, recentHighValueOrders, dormantBuyers },
+    customerInsights: {
+      topCustomersAllTime, newCustomers, topSpenders, returningVsNew,
+      highValueOrders, dormantBuyers, singleOrderBuyers,
+    },
+    salesPerformance: {
+      year1: { revenue: Number(y1Row.revenue || 0), orderCount: Number(y1Row.order_count || 0), avgOrderValue: Number(y1Row.avg_order_value || 0), uniqueBuyers: Number(y1Row.unique_buyers || 0), label: y1Label },
+      year2: { revenue: Number(y2Row.revenue || 0), orderCount: Number(y2Row.order_count || 0), avgOrderValue: Number(y2Row.avg_order_value || 0), uniqueBuyers: Number(y2Row.unique_buyers || 0), label: y2Label },
+      channelBreakdown,
+      monthlyTrend,
+    },
+    windowStart: twoYearsAgo.toISOString().substring(0, 10),
+    windowEnd: now.toISOString().substring(0, 10),
   };
 }
 
@@ -309,23 +424,45 @@ function buildAnalysisPrompt(ctx: OrgContext): string {
   const forumSummary = ctx.recentForumTopics.map(f => `  - ${f.title}`).join('\n');
 
   const ci = ctx.customerInsights;
-  const newCustSummary = ci.newCustomers30d.slice(0, 8).map(c =>
+  const topCustSummary = ci.topCustomersAllTime.slice(0, 10).map(c =>
+    `  ${c.buyerName}: ${c.orderCount} orders, $${c.totalSpent.toFixed(2)} lifetime, first: ${c.firstOrderDate.substring(0, 10)}, last: ${c.lastOrderDate.substring(0, 10)}`
+  ).join('\n');
+
+  const newCustSummary = ci.newCustomers.slice(0, 8).map(c =>
     `  ${c.buyerName}: ${c.orderCount} orders, $${c.totalSpent.toFixed(2)} spent, first order ${c.firstOrderDate.substring(0, 10)}`
   ).join('\n');
 
-  const topSpenderSummary = ci.topSpenders30d.slice(0, 8).map(c =>
+  const topSpenderSummary = ci.topSpenders.slice(0, 8).map(c =>
     `  ${c.buyerName}: ${c.orderCount} orders, $${c.totalSpent.toFixed(2)} total, avg $${c.avgOrderValue.toFixed(2)}/order`
   ).join('\n');
 
-  const highValueSummary = ci.recentHighValueOrders.slice(0, 5).map(c =>
+  const highValueSummary = ci.highValueOrders.slice(0, 8).map(c =>
     `  ${c.buyerName}: $${c.totalAmount.toFixed(2)} order (${c.itemCount} items) on ${c.orderDate.substring(0, 10)}`
   ).join('\n');
 
-  const dormantSummary = ci.dormantBuyers.slice(0, 5).map(c =>
+  const dormantSummary = ci.dormantBuyers.slice(0, 8).map(c =>
     `  ${c.buyerName}: ${c.orderCount} past orders, $${c.totalHistoricalSpent.toFixed(2)} lifetime, last order ${c.lastOrderDate.substring(0, 10)}`
   ).join('\n');
 
-  return `You are a LEGO reseller business intelligence analyst. You must generate HIGHLY SPECIFIC insights using the EXACT data below. Every insight MUST reference specific item numbers, customer names, dollar amounts, and percentages from this data. NO generic advice.
+  const singleBuyerSummary = ci.singleOrderBuyers.slice(0, 5).map(c =>
+    `  ${c.buyerName}: $${c.totalSpent.toFixed(2)} single order on ${c.orderDate.substring(0, 10)}`
+  ).join('\n');
+
+  const sp = ctx.salesPerformance;
+  const revenueChange = sp.year1.revenue > 0
+    ? ((sp.year2.revenue - sp.year1.revenue) / sp.year1.revenue * 100).toFixed(1)
+    : 'N/A';
+  const orderChange = sp.year1.orderCount > 0
+    ? ((sp.year2.orderCount - sp.year1.orderCount) / sp.year1.orderCount * 100).toFixed(1)
+    : 'N/A';
+
+  const channelSummary = sp.channelBreakdown.map(ch =>
+    `  ${ch.channel}: $${ch.revenue.toFixed(2)} revenue, ${ch.orderCount} orders, avg $${ch.avgOrderValue.toFixed(2)}/order, ${ch.uniqueBuyers} buyers`
+  ).join('\n');
+
+  const monthlyStr = sp.monthlyTrend.map(m => `  ${m.month}: $${m.revenue.toFixed(2)} (${m.orderCount} orders)`).join('\n');
+
+  return `You are a LEGO reseller business intelligence analyst. Analyze the FULL ROLLING 2-YEAR window (${ctx.windowStart} to ${ctx.windowEnd}). Generate HIGHLY SPECIFIC insights using the EXACT data below. Every insight MUST reference specific item numbers, customer names, dollar amounts, and percentages from this data. NO generic advice.
 
 === YOUR CURRENT INVENTORY (${ctx.inventoryItems.length} items) ===
 ${invSummary || 'Empty inventory'}
@@ -339,24 +476,41 @@ ${pricingUnderpriced || 'None detected'}
 === SLOW-MOVING INVENTORY (items not selling) ===
 ${slowSummary || 'No slow movers detected'}
 
-=== FAST-MOVING ITEMS (best sellers last 30 days) ===
-${fastSummary || 'No recent sales'}
+=== FAST-MOVING ITEMS (best sellers in 2-year window) ===
+${fastSummary || 'No sales data'}
 
 === HIGH-VALUE ITEMS YOU DO NOT STOCK (proven demand, you have zero inventory) ===
 ${acqSummary || 'No acquisition targets found'}
 
-=== CUSTOMER DATA — NEW CUSTOMERS (first order in last 30 days) ===
-${newCustSummary || 'No new customers'}
-Summary: ${ci.returningVsNew.newBuyers} new buyers vs ${ci.returningVsNew.returning} returning buyers in last 30 days
+=== YEAR-OVER-YEAR SALES COMPARISON ===
+Year 1 (${sp.year1.label}): $${sp.year1.revenue.toFixed(2)} revenue, ${sp.year1.orderCount} orders, avg $${sp.year1.avgOrderValue.toFixed(2)}/order, ${sp.year1.uniqueBuyers} unique buyers
+Year 2 (${sp.year2.label}): $${sp.year2.revenue.toFixed(2)} revenue, ${sp.year2.orderCount} orders, avg $${sp.year2.avgOrderValue.toFixed(2)}/order, ${sp.year2.uniqueBuyers} unique buyers
+Revenue change: ${revenueChange}% | Order count change: ${orderChange}%
 
-=== CUSTOMER DATA — TOP SPENDERS (last 30 days) ===
-${topSpenderSummary || 'No orders in last 30 days'}
+=== SALES CHANNEL PERFORMANCE (2-year totals) ===
+${channelSummary || 'No channel data'}
 
-=== CUSTOMER DATA — HIGH-VALUE ORDERS (last 30 days) ===
+=== MONTHLY REVENUE TREND ===
+${monthlyStr || 'No monthly data'}
+
+=== TOP CUSTOMERS (by lifetime spend in 2-year window) ===
+${topCustSummary || 'No customer data'}
+
+=== NEWER CUSTOMERS (first order within last year) ===
+${newCustSummary || 'No new customers in last year'}
+Summary: ${ci.returningVsNew.newBuyers} new buyers vs ${ci.returningVsNew.returning} returning buyers
+
+=== TOP SPENDERS (by total spend) ===
+${topSpenderSummary || 'No spender data'}
+
+=== HIGHEST VALUE INDIVIDUAL ORDERS ===
 ${highValueSummary || 'None'}
 
-=== CUSTOMER DATA — DORMANT BUYERS (repeat buyers who stopped ordering 60-90 days ago) ===
+=== DORMANT REPEAT BUYERS (2+ orders but none in last 6 months) ===
 ${dormantSummary || 'No dormant repeat buyers'}
+
+=== ONE-TIME HIGH-VALUE BUYERS (single order, never returned) ===
+${singleBuyerSummary || 'None'}
 
 === MARKET NEWS ===
 ${newsSummary || 'No recent news'}
@@ -364,36 +518,37 @@ ${newsSummary || 'No recent news'}
 === COMMUNITY DISCUSSIONS ===
 ${forumSummary || 'No recent forum posts'}
 
-Generate 5-10 SPECIFIC, DATA-DRIVEN insights. Each insight MUST cite exact item numbers, customer names, dollar amounts, and/or percentages from the data above. NEVER write generic advice like "consider stocking retiring sets" — instead write "Stock item 10497 (Galaxy Explorer) — sold avg $${ctx.acquisitionTargets[0]?.soldAvg?.toFixed(2) || '45.00'}, ${ctx.acquisitionTargets[0]?.soldCount || 12} lots sold, you currently have zero inventory."
+Generate 8-12 SPECIFIC, DATA-DRIVEN insights. Each insight MUST cite exact item numbers, customer names, dollar amounts, and/or percentages from the data above. NEVER write generic advice.
 
 For each insight, output a JSON object with these fields:
 - category: One of the operational categories below
 - urgency: "high" | "medium" | "low"
-- title: Short headline with the item number or customer name (max 100 chars)
-- summary: 2-3 sentences with SPECIFIC numbers, item IDs, customer names, and recommended action. Be precise about dollar amounts and percentages.
-- details: { affectedItems: ["itemNo1", "itemNo2"], customers: ["name1", "name2"], priceGap: number, currentPrice: number, recommendedPrice: number, potentialRevenue: number, source: "inventory"|"pricing"|"sales"|"customers"|"market_news"|"forum" }
-- sourceType: "inventory" | "pricing" | "sales" | "customers" | "market_news" | "forum"
+- title: Short headline with the item number, customer name, or channel name (max 100 chars)
+- summary: 2-3 sentences with SPECIFIC numbers, names, and recommended action. Be precise about dollar amounts and percentages.
+- details: { affectedItems: ["itemNo1"], customers: ["name1", "name2"], priceGap: number, currentPrice: number, recommendedPrice: number, potentialRevenue: number, source: "inventory"|"pricing"|"sales"|"customers"|"market_news"|"forum"|"channels" }
+- sourceType: "inventory" | "pricing" | "sales" | "customers" | "market_news" | "forum" | "channels"
 
 === OPERATIONAL AREA CATEGORIES ===
-GROUP 1 — PRODUCT & INVENTORY (use these categories):
-- "pricing": Items that are over/underpriced vs market. Include currentPrice, recommendedPrice, priceGap in details.
-- "acquisition": High-value items you should stock but don't. Include potentialRevenue in details.
-- "overstock": Items with high qty and low/no sales — consider discounting or bundling.
-- "restock": Fast movers running low on stock — reorder soon.
+GROUP 1 — PRODUCT & INVENTORY:
+- "pricing": Items over/underpriced vs market. Include currentPrice, recommendedPrice, priceGap.
+- "acquisition": High-value items you should stock but don't. Include potentialRevenue.
+- "overstock": Items with high qty and low/no sales.
+- "restock": Fast movers running low on stock.
 
-GROUP 2 — ORDERS & SALES (use these categories):
-- "revenue": Revenue trends, high-value order patterns, margin analysis.
-- "velocity": Sales velocity changes — items selling faster/slower than before.
+GROUP 2 — ORDERS & SALES:
+- "revenue": Revenue trends, YoY comparison, margin analysis. Compare Year 1 vs Year 2 and cite specific $ changes and % shifts.
+- "velocity": Sales velocity changes — items or months selling faster/slower.
+- "channel": Sales channel performance analysis — which channels drive the most revenue, best AOV, most buyers. Compare channel performance.
 
-GROUP 3 — CUSTOMER INTELLIGENCE (use these categories):
-- "new_customer": New customers (first order in last 30 days) worth nurturing. ALWAYS include customer names in details.customers array.
-- "top_spender": High-spending customers to reward or prioritize. ALWAYS include customer names in details.customers array.
-- "dormant": Repeat buyers who stopped ordering — re-engage them. ALWAYS include customer names in details.customers array.
+GROUP 3 — CUSTOMER INTELLIGENCE:
+- "new_customer": Newer customers worth nurturing. ALWAYS include names in details.customers.
+- "top_spender": High-spending customers to reward/prioritize. ALWAYS include names in details.customers.
+- "dormant": Repeat buyers who stopped ordering. ALWAYS include names in details.customers.
 
-Required distribution — generate 7-10 insights total:
-1. PRODUCT (3-4): At least 1 pricing, 1 acquisition, and 1 overstock or restock insight. Name SPECIFIC items with exact prices.
-2. SALES (1-2): Revenue or velocity insight with specific dollar amounts and trends.
-3. CUSTOMER (3-4): At least 1 new_customer, 1 top_spender, and 1 dormant insight. Name SPECIFIC customers with their order counts and spend amounts. These are the most important — include every customer name from the data in the details.customers array.
+Required distribution — generate 8-12 insights total:
+1. PRODUCT (2-3): Pricing, acquisition, overstock, or restock. Name SPECIFIC items with exact prices.
+2. SALES (2-3): At least 1 revenue (with YoY comparison), 1 channel performance insight. Cite specific $ amounts and % changes.
+3. CUSTOMER (3-4): At least 1 new_customer, 1 top_spender, 1 dormant. Name SPECIFIC customers with order counts and spend amounts.
 
 Output a JSON array. No other text.`;
 }
@@ -401,7 +556,7 @@ Output a JSON array. No other text.`;
 export async function generateOrgInsights(orgId: string): Promise<number> {
   const ctx = await getOrgContext(orgId);
 
-  if (ctx.inventoryItems.length === 0 && ctx.customerInsights.topSpenders30d.length === 0) {
+  if (ctx.inventoryItems.length === 0 && ctx.salesPerformance.year1.orderCount === 0 && ctx.salesPerformance.year2.orderCount === 0) {
     console.log(`[BusinessIntel] Org ${orgId} has no inventory/sales data, skipping`);
     return 0;
   }
@@ -436,7 +591,7 @@ export async function generateOrgInsights(orgId: string): Promise<number> {
     return 0;
   }
 
-  const VALID_CATEGORIES = ['pricing', 'acquisition', 'overstock', 'restock', 'revenue', 'velocity', 'new_customer', 'top_spender', 'dormant', 'risk', 'opportunity', 'trend', 'customer'];
+  const VALID_CATEGORIES = ['pricing', 'acquisition', 'overstock', 'restock', 'revenue', 'velocity', 'channel', 'new_customer', 'top_spender', 'dormant', 'risk', 'opportunity', 'trend', 'customer'];
   const VALID_URGENCIES = ['high', 'medium', 'low'];
 
   let parsedInsights: any[] = [];
