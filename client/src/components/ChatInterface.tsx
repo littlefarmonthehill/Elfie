@@ -6,6 +6,7 @@ import { InventoryGroup } from "@/components/InventoryGroup";
 import { OrderGroup } from "@/components/OrderGroup";
 import { ForumDiscussionsGroup } from "@/components/ForumDiscussionsGroup";
 import { useToast } from "@/hooks/use-toast";
+import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -93,50 +94,6 @@ interface MessageContentProps {
   onItemClick?: (type: 'inventory' | 'order', id: string) => void;
   onBrickLinkSearch?: (itemNo: string, itemType: string) => void;
   onPromptClick?: (prompt: string) => void;
-}
-
-function ElfieAvatar({ className = "h-8 w-8" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-      <defs>
-        <linearGradient id="av-slate" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#78909C" />
-          <stop offset="100%" stopColor="#546E7A" />
-        </linearGradient>
-        <linearGradient id="av-beige" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#E8C4A0" />
-          <stop offset="100%" stopColor="#D4A574" />
-        </linearGradient>
-      </defs>
-      <rect x="48" y="4" width="4" height="6" rx="1" fill="#37474F" />
-      <rect x="47" y="3" width="6" height="3" rx="1" fill="#546E7A" />
-      <ellipse cx="50" cy="12" rx="14" ry="3" fill="#546E7A" />
-      <rect x="36" y="12" width="28" height="22" fill="url(#av-slate)" />
-      <ellipse cx="50" cy="34" rx="14" ry="3" fill="#37474F" />
-      <rect x="39" y="17" width="22" height="14" rx="1" fill="url(#av-beige)" />
-      <circle cx="44" cy="23" r="3.5" fill="#37474F" />
-      <circle cx="44" cy="23" r="2.2" fill="#E8A84D" />
-      <circle cx="56" cy="23" r="3.5" fill="#37474F" />
-      <circle cx="56" cy="23" r="2.2" fill="#E8A84D" />
-      <path d="M 43 27 Q 50 30 57 27" stroke="#37474F" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-      <ellipse cx="50" cy="42" rx="22" ry="6" fill="#546E7A" />
-      <rect x="28" y="42" width="44" height="28" fill="url(#av-slate)" />
-      <ellipse cx="50" cy="70" rx="22" ry="6" fill="#37474F" />
-      <ellipse cx="50" cy="56" rx="12" ry="8" fill="url(#av-beige)" />
-      <circle cx="50" cy="56" r="4" fill="#37474F" opacity="0.3" />
-      <rect x="22" y="48" width="6" height="16" rx="2" fill="#546E7A" stroke="#37474F" strokeWidth="1" />
-      <circle cx="25" cy="65" r="3" fill="#78909C" stroke="#37474F" strokeWidth="1" />
-      <rect x="72" y="48" width="6" height="16" rx="2" fill="#546E7A" stroke="#37474F" strokeWidth="1" />
-      <circle cx="75" cy="65" r="3" fill="#78909C" stroke="#37474F" strokeWidth="1" />
-      <rect x="30" y="74" width="40" height="6" rx="2" fill="#8B3A3A" stroke="#37474F" strokeWidth="1" />
-      <ellipse cx="38" cy="86" rx="9" ry="10" fill="#37474F" stroke="#546E7A" strokeWidth="2" />
-      <ellipse cx="38" cy="86" rx="6" ry="7" fill="#546E7A" />
-      <ellipse cx="38" cy="86" rx="3" ry="4" fill="#E8C4A0" />
-      <ellipse cx="62" cy="86" rx="9" ry="10" fill="#37474F" stroke="#546E7A" strokeWidth="2" />
-      <ellipse cx="62" cy="86" rx="6" ry="7" fill="#546E7A" />
-      <ellipse cx="62" cy="86" rx="3" ry="4" fill="#E8C4A0" />
-    </svg>
-  );
 }
 
 function MessageContent({ content, imageUrl, items, orders, forumDiscussions, bricklinkSearchSuggestion, onItemClick, onBrickLinkSearch, onPromptClick }: MessageContentProps) {
@@ -977,7 +934,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       >
         <div className="flex items-center gap-2 md:gap-3 lg:gap-4">
           <div className="flex items-center gap-2 md:gap-3 px-2 md:px-3 py-1 md:py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30">
-            <ElfieAvatar className="h-6 w-6 md:h-8 md:w-8 lg:h-10 lg:w-10" />
+            <img src={elfieRobot} alt="Elfie Robot" className="h-6 w-6 md:h-8 md:w-8 lg:h-10 lg:w-10 object-contain" />
             <span className="text-sm md:text-lg lg:text-xl font-bold text-purple-300">E.L.F.I.E.</span>
           </div>
           <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border bg-purple-500/20 border-purple-500/30 text-purple-300"
@@ -1026,7 +983,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                   {/* Show Elfie avatar for assistant messages */}
                   {message.role === 'assistant' && (
                     <div className="flex-shrink-0">
-                      <ElfieAvatar className="h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12" />
+                      <img src={elfieRobot} alt="Elfie" className="h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12 object-contain" />
                     </div>
                   )}
                   <div
@@ -1059,7 +1016,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
               {isLoading && (
                 <div className="flex gap-2 md:gap-3 lg:gap-4 justify-start" data-testid="thinking-indicator">
                   <div className="flex-shrink-0 animate-bounce">
-                    <ElfieAvatar className="h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12" />
+                    <img src={elfieRobot} alt="Elfie thinking" className="h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12 object-contain" />
                   </div>
                   <div className="max-w-[80%] rounded-lg p-3 md:p-4 lg:p-5 bg-purple-500/10 border border-purple-500/20">
                     <div className="flex items-center gap-2 md:gap-3 text-xs md:text-sm lg:text-base text-purple-300">

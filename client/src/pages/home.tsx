@@ -25,7 +25,6 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } f
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ToolDrawer } from "@/components/ui/tool-drawer";
-import { ElfieCharacter } from "@/components/ElfieCharacter";
 import PriceOMaticDashboard, { type PricingInsight } from "@/components/PriceOMaticDashboard";
 import WarehouseManagement from "@/components/WarehouseManagement";
 import ListomaticPriority from "@/components/ListomaticPriority";
@@ -62,9 +61,6 @@ export default function Home() {
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
   const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
   const [chatOpen, setChatOpen] = useState(false);
-  const [showElfie, setShowElfie] = useState(false);
-  const [elfieClosing, setElfieClosing] = useState(false);
-  const [elfieResting, setElfieResting] = useState(false);
   const [navHidden, setNavHidden] = useState(false);
   useEffect(() => {
     const check = () => {
@@ -825,12 +821,6 @@ export default function Home() {
   };
 
   const handleElfieClick = async () => {
-    // Start Elfie animation - fly down, pull drawer, then zigzag to upper-right
-    setShowElfie(true);
-    setElfieClosing(false);
-    setElfieResting(false);
-    
-    // Open drawer immediately
     setChatOpen(true);
     
     // Fetch recent forum news (last 7 days, limit 5 posts)
@@ -864,21 +854,8 @@ export default function Home() {
   };
 
   const handleChatClose = () => {
-    // Close drawer first
     setChatOpen(false);
-    setElfieResting(false);
-    
-    // Clear forum news to avoid stale alerts on next open
     setForumNews(null);
-    
-    // Elfie is already visible, just trigger closing animation
-    setElfieClosing(true);
-    
-    // Hide Elfie after retreat completes
-    setTimeout(() => {
-      setShowElfie(false);
-      setElfieClosing(false);
-    }, 500);
   };
 
   return (
@@ -912,20 +889,6 @@ export default function Home() {
         />
       </div>
       
-      {/* Elfie Character Animation */}
-      {showElfie && (
-        <ElfieCharacter 
-          isClosing={elfieClosing}
-          isResting={elfieResting}
-
-          onAnimationComplete={() => {
-            if (!elfieClosing) {
-              // Opening animation complete, keep Elfie in resting state
-              setElfieResting(true);
-            }
-          }}
-        />
-      )}
       
       {/* Dashboard area */}
       <div className="flex-1 overflow-hidden bg-[#04080F]">
