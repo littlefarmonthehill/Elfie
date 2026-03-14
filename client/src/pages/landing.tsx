@@ -393,11 +393,22 @@ function RetroShip({ size = 80, glow = TEAL }: { size?: number; glow?: string })
   );
 }
 
-function LiveScreen({ onSignIn, canInstall, isInstalled, isInstalling, onInstall }: {
+function IosShareIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 19V5M5 12l7-7 7 7" />
+      <rect x="4" y="16" width="16" height="5" rx="1" fill="none" />
+    </svg>
+  );
+}
+
+function LiveScreen({ onSignIn, canPromptInstall, showInstallOption, isInstalled, isInstalling, isIos, onInstall }: {
   onSignIn: () => void;
-  canInstall: boolean;
+  canPromptInstall: boolean;
+  showInstallOption: boolean;
   isInstalled: boolean;
   isInstalling: boolean;
+  isIos: boolean;
   onInstall: () => void;
 }) {
   return (
@@ -422,18 +433,16 @@ function LiveScreen({ onSignIn, canInstall, isInstalled, isInstalling, onInstall
         <>
           <div style={{ fontSize: "clamp(8px,0.75vw,10px)", fontFamily: "monospace", color: MGNT, letterSpacing: "0.3em", textShadow: `0 0 12px ${MGNT}` }}>LAUNCH PAD</div>
           <h2 style={{ fontSize: "clamp(16px,2vw,28px)", fontWeight: 900, color: "#FFFFFF", lineHeight: 1.2, margin: 0 }}>
-            {canInstall ? "Add to Home Screen" : "Ready to broadcast\nyour LEGO store?"}
+            Add to Home Screen
           </h2>
           <p style={{ fontSize: "clamp(10px,0.9vw,13px)", color: "rgba(210,230,255,0.75)", maxWidth: "360px", lineHeight: 1.6, margin: 0 }}>
-            {canInstall
-              ? "Install PlanetBrick for instant access — works offline, launches like a native app."
-              : "Join PlanetBrick and get access to every tool — free during your trial. No credit card. No commitment."}
+            Install PlanetBrick for instant access — works offline, launches like a native app.
           </p>
         </>
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%", maxWidth: "260px" }}>
-        {canInstall && !isInstalled && (
+        {showInstallOption && canPromptInstall && (
           <button
             onClick={onInstall}
             disabled={isInstalling}
@@ -456,6 +465,33 @@ function LiveScreen({ onSignIn, canInstall, isInstalled, isInstalling, onInstall
             </svg>
             {isInstalling ? "Installing..." : "Install App"}
           </button>
+        )}
+
+        {showInstallOption && !canPromptInstall && isIos && (
+          <div
+            data-testid="ios-install-hint"
+            style={{
+              width: "100%",
+              background: `linear-gradient(135deg, ${MGNT}22, ${PURP}22)`,
+              border: `1px solid ${MGNT}44`,
+              borderRadius: "12px",
+              padding: "clamp(10px,1.2vw,14px) 16px",
+              display: "flex", alignItems: "center", gap: "10px",
+              textAlign: "left",
+            }}
+          >
+            <div style={{ flexShrink: 0, width: "32px", height: "32px", borderRadius: "8px", background: `${MGNT}33`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <IosShareIcon />
+            </div>
+            <div>
+              <div style={{ color: "#FFFFFF", fontWeight: 700, fontSize: "clamp(10px,1vw,13px)", marginBottom: "2px" }}>
+                Tap Share then "Add to Home Screen"
+              </div>
+              <div style={{ color: "rgba(210,230,255,0.6)", fontSize: "clamp(9px,0.85vw,11px)" }}>
+                Use Safari's share button below to install
+              </div>
+            </div>
+          </div>
         )}
 
         {!isInstalled && (
@@ -650,7 +686,7 @@ export default function Landing() {
   const [showLogin, setShowLogin] = useState(false);
   const touchStartX = useRef(0);
   const isDragging = useRef(false);
-  const { canInstall, isInstalled, isInstalling, install } = usePwaInstall();
+  const { canPromptInstall, showInstallOption, isInstalled, isInstalling, isIos, install } = usePwaInstall();
 
   const activeCh = CHANNELS.find(c => c.id === ch)!;
   const totalSlides = activeCh.slides;
@@ -940,7 +976,7 @@ export default function Landing() {
                       {ch === "ops"     && <OpsScreen slideIndex={slideIndex} />}
                       {ch === "tools"   && <ToolsScreen slideIndex={slideIndex} />}
                       {ch === "pricing" && <PricingScreen tune={tune} />}
-                      {ch === "live"    && <LiveScreen onSignIn={() => setShowLogin(true)} canInstall={canInstall} isInstalled={isInstalled} isInstalling={isInstalling} onInstall={install} />}
+                      {ch === "live"    && <LiveScreen onSignIn={() => setShowLogin(true)} canPromptInstall={canPromptInstall} showInstallOption={showInstallOption} isInstalled={isInstalled} isInstalling={isInstalling} isIos={isIos} onInstall={install} />}
                     </>
                   )}
 
