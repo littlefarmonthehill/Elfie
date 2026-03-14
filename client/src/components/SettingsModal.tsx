@@ -895,7 +895,6 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const [pomHighSupplyThreshold, setPomHighSupplyThreshold] = useState(10000); // BL stock qty = "full supply"
   const [pomHighSupplyPenalty, setPomHighSupplyPenalty] = useState(40);  // supply weight 0–100
 
-  const [elfieMode, setElfieMode] = useState<'search' | 'ai'>('search');
 
   const [activeSection, setActiveSection] = useState<ActiveSection>(initialSection ?? null);
   const [activeOrg, setActiveOrg] = useState<OrgWithUsage | null>(null);
@@ -1681,7 +1680,6 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
       setOrdersSyncStartTime(settings.ordersSyncStartTime ?? '08:00');
       setOrdersSyncEndTime(settings.ordersSyncEndTime ?? '20:00');
       
-      setElfieMode((settings.elfieMode as 'search' | 'ai') ?? 'search');
       setPomSugSoldAvgW(settings.pomSugSoldAvgW ?? 0.5);
       setPomSugStockMinW(settings.pomSugStockMinW ?? 0.3);
       setPomSugSoldMaxW(settings.pomSugSoldMaxW ?? 0.2);
@@ -4018,38 +4016,6 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
               <div className="space-y-4 min-h-[400px]">
               <div className="space-y-4">
 
-                {/* E.L.F.I.E. Mode — shown first */}
-                <div className="space-y-2">
-                  <h3 className="text-sm font-medium text-gray-100">E.L.F.I.E. Mode</h3>
-                  <div className="sm-card p-3 space-y-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => { setElfieMode('search'); setAiEnabled(true); updateSettingsMutation.mutate({ elfieMode: 'search', aiEnabled: true }); }}
-                        className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-md border text-xs transition-colors ${elfieMode === 'search' ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' : 'bg-gray-700/40 border-gray-600 text-gray-400 hover:text-gray-300 hover:bg-gray-700/60'}`}
-                        data-testid="button-elfie-mode-search"
-                      >
-                        <span className="font-semibold">Search Mode</span>
-                        <span className="text-[10px] text-center opacity-70">Inventory · Orders · Customers — no AI credits</span>
-                      </button>
-                      <button
-                        onClick={() => { setElfieMode('ai'); setAiEnabled(true); updateSettingsMutation.mutate({ elfieMode: 'ai', aiEnabled: true }); }}
-                        className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-md border text-xs transition-colors ${elfieMode === 'ai' ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' : 'bg-gray-700/40 border-gray-600 text-gray-400 hover:text-gray-300 hover:bg-gray-700/60'}`}
-                        data-testid="button-elfie-mode-ai"
-                      >
-                        <span className="font-semibold">AI Mode</span>
-                        <span className="text-[10px] text-center opacity-70">Data enrichment &amp; intelligence</span>
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-gray-500">
-                      {elfieMode === 'search'
-                        ? 'Direct database search — no AI involved. Find inventory, orders, and customers by keyword, part number, or name. Zero credits used.'
-                        : 'E.L.F.I.E. uses full AI capabilities including price insights, demand analysis, and intelligent recommendations. Uses Anthropic credits.'}
-                    </p>
-                  </div>
-                </div>
-
-                <Separator className="bg-gray-700" />
-
                 {/* Chat Assistant */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-100 mb-3">Chat Assistant (E.L.F.I.E.)</h3>
@@ -4079,7 +4045,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
 
                     <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
                       <p className="text-xs text-purple-300">
-                        <strong>Powered by Claude:</strong> E.L.F.I.E. runs on Anthropic Claude Sonnet — no API key required. Semantic search uses OpenAI text-embedding-3-small.
+                        <strong>Powered by OpenAI:</strong> E.L.F.I.E. runs on OpenAI GPT-4o — no API key required. Semantic search uses OpenAI text-embedding-3-small.
                       </p>
                     </div>
                   </div>
@@ -8566,8 +8532,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                   <p className="sm-group-label mb-2 px-1">AI & Intelligence</p>
                   <div className="sm-card-divided">
                     {[
-                      { name: 'Anthropic Claude', desc: 'AI analysis, summaries, and natural language features', url: 'https://www.anthropic.com' },
-                      { name: 'OpenAI', desc: 'Embeddings powering semantic inventory and order search', url: 'https://openai.com' },
+                      { name: 'OpenAI', desc: 'AI chat, analysis, summaries, and semantic search embeddings', url: 'https://openai.com' },
                       { name: 'CLIP (ViT-B/32)', desc: 'Vision-language model for universal catalog image matching', url: 'https://openai.com/research/clip' },
                       { name: 'Brickognize', desc: 'AI-powered LEGO piece identification from photos', url: 'https://www.brickognize.com' },
                       { name: 'remove.bg', desc: 'ML-based background removal for clean part images', url: 'https://www.remove.bg' },
