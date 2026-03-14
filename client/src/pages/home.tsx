@@ -65,7 +65,6 @@ export default function Home() {
   const [showElfie, setShowElfie] = useState(false);
   const [elfieClosing, setElfieClosing] = useState(false);
   const [elfieResting, setElfieResting] = useState(false);
-  const [elfieThinking, setElfieThinking] = useState(false);
   const [navHidden, setNavHidden] = useState(false);
   useEffect(() => {
     const check = () => {
@@ -918,7 +917,7 @@ export default function Home() {
         <ElfieCharacter 
           isClosing={elfieClosing}
           isResting={elfieResting}
-          isThinking={elfieThinking}
+
           onAnimationComplete={() => {
             if (!elfieClosing) {
               // Opening animation complete, keep Elfie in resting state
@@ -1069,7 +1068,6 @@ export default function Home() {
               onItemClick={handleItemClick}
               isMinimized={false}
               onToggleMinimize={handleChatClose}
-              onThinkingChange={setElfieThinking}
               forumNews={forumNews}
             />
           </div>

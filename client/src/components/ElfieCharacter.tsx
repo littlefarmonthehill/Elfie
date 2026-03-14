@@ -4,10 +4,9 @@ interface ElfieCharacterProps {
   onAnimationComplete?: () => void;
   isClosing?: boolean;
   isResting?: boolean;
-  isThinking?: boolean;
 }
 
-export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResting = false, isThinking = false }: ElfieCharacterProps) {
+export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResting = false }: ElfieCharacterProps) {
   // Animation variants for Elfie's entrance - flies DOWN in zigzag pattern
   const elfieVariants = {
     hidden: {

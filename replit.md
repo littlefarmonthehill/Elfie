@@ -48,6 +48,9 @@ All 19 tables with `orgId` columns now have indexes. This is critical for multi-
 
 ### Dead Code Removed
 - `client/src/components/examples/` (9 files, ~40KB) — confirmed zero imports anywhere in the codebase.
+- ChatInterface.tsx: removed unused lucide imports (ChevronUp, ChevronDown, X, Image, Bot), unused Dialog imports, unused useQuery/AppSettings imports, dead `groupedItems` computed variable, dead `elfieMode` state, dead `onBrickLinkClick` prop chain.
+- ElfieCharacter.tsx: removed dead `isThinking` prop (and its entire chain: `elfieThinking` state in home.tsx, `onThinkingChange` prop in ChatInterface).
+- ai-tools.ts: fixed misleading `search_bricklink_catalog` tool description — was "NOT in local inventory", now correctly says "local BrickLink catalog (bl_catalog table)".
 
 ### Debug Logging Cleaned
 Removed ~30 debug `console.log` calls with emojis from routes.ts, ChatInterface.tsx, home.tsx, and SettingsModal.tsx. Retained legitimate `console.error` calls and operational diagnostics for the Brickanalyzer CV pipeline, CLIP embedding system, and Platform Sync.

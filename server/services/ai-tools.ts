@@ -1705,7 +1705,7 @@ export const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'search_bricklink_catalog',
-      description: 'Search the BrickLink catalog for items NOT in local inventory. Use this when a user asks about a part/set/minifig that is not found in the local database.',
+      description: 'Search the local BrickLink catalog (bl_catalog table) for item details including images, descriptions, dimensions, and weight. Use this when a user asks to SEE a part, wants visual details, or asks about part specifications.',
       parameters: {
         type: 'object',
         properties: {
