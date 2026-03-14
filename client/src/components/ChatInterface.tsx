@@ -819,65 +819,68 @@ function StreamingMessage({ message, onItemClick, onBrickLinkSearch, onPromptCli
   onSummarize?: (title: string, snippet: string, url: string, type: string) => Promise<string>;
   onStreamingDone?: () => void;
 }) {
-  const lines = message.content.split('\n');
-  const [revealedCount, setRevealedCount] = useState(message.streaming ? 0 : lines.length);
+  const content = message.content;
+  const totalChars = content.length;
+  const [revealedChars, setRevealedChars] = useState(message.streaming ? 0 : totalChars);
   const doneRef = useRef(false);
 
   useEffect(() => {
     if (!message.streaming) {
-      setRevealedCount(lines.length);
+      setRevealedChars(totalChars);
       return;
     }
-    setRevealedCount(0);
+    setRevealedChars(0);
     doneRef.current = false;
-    let idx = 0;
+    let charIdx = 0;
     let cancelled = false;
 
-    const revealNext = () => {
+    const CHARS_PER_TICK = 3;
+    const TICK_MS = 25;
+    const NEWLINE_PAUSE = 80;
+    const HEADER_PAUSE = 200;
+
+    const tick = () => {
       if (cancelled) return;
-      idx = Math.min(idx + 1, lines.length);
-      setRevealedCount(idx);
-      if (idx >= lines.length) {
+      const nextIdx = Math.min(charIdx + CHARS_PER_TICK, totalChars);
+      const chunk = content.substring(charIdx, nextIdx);
+      charIdx = nextIdx;
+      setRevealedChars(charIdx);
+
+      if (charIdx >= totalChars) {
         if (!doneRef.current) {
           doneRef.current = true;
           onStreamingDone?.();
         }
         return;
       }
-      const currentLine = lines[idx - 1] || '';
-      const trimmed = currentLine.trim();
-      const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
-      const isShortMessage = lines.length <= 8;
-      const isPromptLine = /\*\*PROMPT:\*\*/.test(trimmed);
-      const isHeader = /^#{1,3}\s/.test(trimmed);
-      let delay: number;
-      if (isPromptLine) {
-        delay = 150;
-      } else if (wordCount === 0) {
-        delay = 120;
-      } else if (isHeader) {
-        delay = 300;
-      } else if (isShortMessage) {
-        delay = Math.max(180, Math.min(wordCount * 30, 600));
-      } else {
-        delay = Math.max(300, Math.min(wordCount * 40, 1200));
+
+      let delay = TICK_MS;
+      if (chunk.includes('\n')) {
+        const nextLine = content.substring(charIdx, content.indexOf('\n', charIdx)).trim();
+        if (/^#{1,3}\s/.test(nextLine)) {
+          delay = HEADER_PAUSE;
+        } else {
+          delay = NEWLINE_PAUSE;
+        }
       }
-      setTimeout(revealNext, delay);
+      setTimeout(tick, delay);
     };
 
-    setTimeout(revealNext, 200);
+    setTimeout(tick, 150);
     return () => { cancelled = true; };
-  }, [message.content, message.streaming]);
+  }, [content, message.streaming]);
 
-  const revealedContent = lines.slice(0, revealedCount).join('\n');
-  const streamingDone = revealedCount >= lines.length;
+  const revealedContent = content.substring(0, revealedChars);
+  const streamingDone = revealedChars >= totalChars;
+  const progress = totalChars > 0 ? revealedChars / totalChars : 1;
 
-  const revealedSectionCount = lines.slice(0, revealedCount).filter(l => /^#{1,3}\s/.test(l.trim())).length;
+  const revealedLines = revealedContent.split('\n');
+  const revealedSectionCount = revealedLines.filter(l => /^#{1,3}\s/.test(l.trim())).length;
 
   const allNews = message.marketNewsArticles || [];
   const allForums = message.forumDiscussions || [];
-  const newsToShow = streamingDone ? allNews : allNews.slice(0, revealedSectionCount > 0 ? Math.ceil(allNews.length * (revealedCount / lines.length)) : 0);
-  const forumsToShow = streamingDone ? allForums : allForums.slice(0, revealedSectionCount > 1 ? Math.ceil(allForums.length * (revealedCount / lines.length)) : 0);
+  const newsToShow = streamingDone ? allNews : allNews.slice(0, revealedSectionCount > 0 ? Math.ceil(allNews.length * progress) : 0);
+  const forumsToShow = streamingDone ? allForums : allForums.slice(0, revealedSectionCount > 1 ? Math.ceil(allForums.length * progress) : 0);
 
   return (
     <MessageContent
