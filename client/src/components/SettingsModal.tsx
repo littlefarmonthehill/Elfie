@@ -2202,9 +2202,9 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
       label: 'Platform',
       items: [
         { id: 'platformGeneral' as const, label: 'General', icon: Settings },
-        { id: 'platformScheduler' as const, label: 'Data Enrichment', icon: Calendar },
         { id: 'apiKeys' as const, label: 'Platform Services', icon: Key },
-        { id: 'auditLog' as const, label: 'Audit Log', icon: ClipboardList },
+        { id: 'platformScheduler' as const, label: 'Data Enrichment', icon: Calendar },
+        { id: 'auditLog' as const, label: 'Platform Health', icon: ClipboardList },
         { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
       ],
     },
@@ -8184,7 +8184,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                 {/* ── BrickLink tab ────────────────────────────────── */}
                 {activePlatformServicesTab === 'bricklink' && (
                   <div className="space-y-4">
-                    <p className="text-[11px] text-gray-400 leading-relaxed px-1">Platform-level BrickLink OAuth credentials used for catalog enrichment, price guides (POM), and color data. Org-level credentials (configured per-org) handle inventory sync and order imports. Usage stats are in <strong className="text-gray-300">Audit Log &gt; Platform &gt; BrickLink</strong>.</p>
+                    <p className="text-[11px] text-gray-400 leading-relaxed px-1">Platform-level BrickLink OAuth credentials used for catalog enrichment, price guides (POM), and color data. Org-level credentials (configured per-org) handle inventory sync and order imports. Usage stats are in <strong className="text-gray-300">Platform Health &gt; Platform &gt; BrickLink</strong>.</p>
                     <div className="sm-card">
                       <div className="sm-card-header">
                         <Key className="h-3.5 w-3.5 text-blue-400/80" />
