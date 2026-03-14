@@ -224,17 +224,19 @@ export async function searchLocalInventory(params: {
         }
       }
 
-      const summary = Array.from(colorSummary.entries())
-        .sort((a, b) => b[1].qty - a[1].qty)
-        .map(([color, d]) => ({
-          color,
-          totalQuantity: d.qty,
-          lots: d.count,
-          priceRange: d.minPrice === d.maxPrice ? `$${d.minPrice.toFixed(2)}` : `$${d.minPrice.toFixed(2)}-$${d.maxPrice.toFixed(2)}`,
-          conditions: Array.from(d.conditions).join('/'),
-        }));
+      const sorted = Array.from(colorSummary.entries())
+        .sort((a, b) => b[1].qty - a[1].qty);
+
+      const top = sorted.slice(0, 10).map(([color, d]) => ({
+        color,
+        totalQuantity: d.qty,
+        lots: d.count,
+        priceRange: d.minPrice === d.maxPrice ? `$${d.minPrice.toFixed(2)}` : `$${d.minPrice.toFixed(2)}-$${d.maxPrice.toFixed(2)}`,
+        conditions: Array.from(d.conditions).join('/'),
+      }));
 
       const totalQty = results.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
+      const totalValue = results.reduce((s, r) => s + (Number(r.quantity) || 0) * parseFloat(r.unitPrice || '0'), 0);
       const itemName = results[0]?.itemName || 'Unknown';
 
       return {
@@ -242,8 +244,10 @@ export async function searchLocalInventory(params: {
         itemName,
         totalLots: results.length,
         totalQuantity: totalQty,
+        totalValue: `$${totalValue.toFixed(2)}`,
         uniqueColors: colorSummary.size,
-        byColor: summary,
+        topColorsByQuantity: top,
+        note: sorted.length > 10 ? `Showing top 10 of ${sorted.length} colors. ${sorted.length - 10} more colors available.` : undefined,
       };
     }
     
