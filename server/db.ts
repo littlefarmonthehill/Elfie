@@ -454,6 +454,31 @@ export async function runMigrations() {
     await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS market_news_queries TEXT[] DEFAULT ARRAY['LEGO set retirement announcements', 'LEGO reseller market news pricing trends', 'BrickLink marketplace updates sellers', 'LEGO collectible investing value 2026', 'LEGO supply chain new releases']`);
     console.log('[Migration] Phase-20 (market_news tables + settings) complete.');
 
+    // Phase-21: Business Insights table + settings
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS business_insights (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        org_id VARCHAR NOT NULL,
+        category TEXT NOT NULL,
+        urgency TEXT NOT NULL DEFAULT 'medium',
+        title TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        details JSONB,
+        source_type TEXT,
+        source_ref TEXT,
+        dismissed BOOLEAN NOT NULL DEFAULT false,
+        expires_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS business_insights_org_id_idx ON business_insights (org_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS business_insights_category_idx ON business_insights (category)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS business_insights_created_at_idx ON business_insights (created_at)`);
+    await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS business_intel_enabled BOOLEAN NOT NULL DEFAULT false`);
+    await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS business_intel_frequency INTEGER NOT NULL DEFAULT 360`);
+    console.log('[Migration] Phase-21 (business_insights table + settings) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

@@ -117,6 +117,23 @@ Scheduled web searches that fetch LEGO market news articles (retirements, pricin
 - **Trigger route**: `POST /api/platform-admin/scheduler/market_news_sync/trigger` (super admin)
 - **UI**: Settings > Platform Scheduler > Market tab — two job cards: Forum Sync (existing) and Market News (new). Market News card has enabled toggle, frequency input, and editable search query list (add/remove/edit).
 
+## Business Intelligence Engine
+
+Scheduled background job that cross-references each org's inventory, sales, and pricing data against shared market news and forum data to generate org-specific actionable insights using AI analysis.
+
+- **Table**: `business_insights` (id UUID, org_id, category, urgency, title, summary, details JSONB, source_type, source_ref, dismissed, expires_at, created_at, updated_at). Indexes on org_id, category, created_at.
+- **Settings columns**: `business_intel_enabled` (bool, default false), `business_intel_frequency` (int, default 360 min) — on platform `app_settings` row.
+- **Migration**: Phase-21 in `server/db.ts`
+- **Service**: `server/services/business-intel-engine.ts` — `generateOrgInsights(orgId)` pulls top inventory (100 items), 30-day sales velocity (50 items), pricing gaps (50 items vs price_guide_cache), recent market news (20), forum topics (20). Builds analysis prompt and calls `gpt-4o-mini` (temperature 0.3). Parses JSON-per-line response into insight records. Deduplicates by title+orgId. Insights expire after 7 days. `purgeExpiredInsights()` also removes dismissed insights older than 3 days. `syncBusinessIntel()` orchestrates across all orgs.
+- **Scheduler**: `server/services/business-intel-scheduler.ts` — follows standard pattern. Uses `syncMetadata` id='business_intel_sync'. Checks every 5 min, runs if frequency elapsed.
+- **Insight categories**: `pricing` (price gaps), `acquisition` (items to stock), `risk` (declining items), `opportunity` (high-velocity/trending), `trend` (patterns)
+- **Urgency levels**: `high`, `medium`, `low`
+- **API routes**: `GET /api/business-intel` (org-scoped, returns non-dismissed insights), `POST /api/business-intel/:id/dismiss` (org-scoped)
+- **Trigger route**: `POST /api/platform-admin/scheduler/business_intel_sync/trigger` (super admin)
+- **Toggle route**: `POST /api/platform-admin/scheduler/business_intel_sync/toggle` (super admin) — maps to `businessIntelEnabled` column
+- **UI (Settings)**: Platform Scheduler > Market tab — Business Intel job card below Market News. Enabled toggle, frequency input.
+- **UI (Dashboard)**: Sales Dashboard > Business Intel drawer (cyan Radar button). Shows insight cards grouped by category with filter chips. Each card shows category icon, urgency badge, title, summary. Expandable detail shows affected items and price gap. Dismiss button per insight.
+
 ## Elfie Chat — Progressive Reveal & AI Overviews
 
 - **Streaming reveal**: Character-level reveal at 3 chars/25ms, 80ms pause at newlines, 200ms pause before `###` headers. `StreamingMessage` wrapper progressively reveals content through `MessageContent`. Only the latest response streams; older messages render fully. Streaming flags are cleared when the chat is minimized to prevent background interval leaks. Messages use `messageId` for stable React keys and callback targeting.

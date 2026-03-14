@@ -46,7 +46,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, PLATFORM_ORG_ID } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, PLATFORM_ORG_ID } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -1042,7 +1042,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [invTotalCount] = await db.select({ count: count() }).from(blInventory);
       const [ordTotalCount] = await db.select({ count: count() }).from(orders);
 
-      const platformSyncIds = ['priceomatic_cache', 'universal_catalog_refresh', 'rebrickable_set_parts', 'forum_sync', 'catalog_detail_completion', 'catalog_scan', 'market_news_sync'];
+      const platformSyncIds = ['priceomatic_cache', 'universal_catalog_refresh', 'rebrickable_set_parts', 'forum_sync', 'catalog_detail_completion', 'catalog_scan', 'market_news_sync', 'business_intel_sync'];
       const syncJobs = await db
         .select({
           id: syncMetadata.id,
@@ -1287,6 +1287,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!mnResult.success) return res.status(409).json({ message: mnResult.error || 'Market news sync failed' });
           return res.json({ message: 'Market news sync triggered' });
         }
+        case 'business_intel_sync': {
+          const { triggerManualBusinessIntelSync } = await import('./services/business-intel-scheduler.js');
+          const biResult = await triggerManualBusinessIntelSync();
+          if (!biResult.success) return res.status(409).json({ message: biResult.error || 'Business intel sync failed' });
+          return res.json({ message: 'Business intel sync triggered' });
+        }
         case 'clip_catalog': {
           const { getActiveBuild, buildCatalogEmbeddings } = await import('./services/clip-search.js');
           if (getActiveBuild()?.running) return res.status(409).json({ message: 'CLIP Catalog build is already running' });
@@ -1336,6 +1342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         universal_catalog_refresh: 'universalCatalogScheduleEnabled',
         rebrickable_set_parts: 'rebrickableSetSyncEnabled',
         forum_sync: 'forumSyncEnabled',
+        business_intel_sync: 'businessIntelEnabled',
       };
 
       const column = settingMap[jobId];
@@ -1362,6 +1369,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: `${jobId} ${enabled ? 'enabled' : 'paused'}` });
     } catch (error: any) {
       console.error('Error toggling scheduler:', error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // GET /api/business-intel — returns insights for requesting org
+  app.get('/api/business-intel', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = req.user?.orgId;
+      if (!orgId) return res.status(400).json({ message: 'No orgId' });
+      const insights = await db
+        .select()
+        .from(businessInsights)
+        .where(and(
+          eq(businessInsights.orgId, orgId),
+          eq(businessInsights.dismissed, false),
+          or(
+            isNull(businessInsights.expiresAt),
+            sql`${businessInsights.expiresAt} > NOW()`,
+          ),
+        ))
+        .orderBy(desc(businessInsights.createdAt))
+        .limit(50);
+      res.json(insights);
+    } catch (error: any) {
+      console.error('Error fetching business insights:', error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // POST /api/business-intel/:id/dismiss — dismiss an insight
+  app.post('/api/business-intel/:id/dismiss', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = req.user?.orgId;
+      if (!orgId) return res.status(400).json({ message: 'No orgId' });
+      const { id } = req.params;
+      await db.update(businessInsights)
+        .set({ dismissed: true, updatedAt: new Date() })
+        .where(and(
+          eq(businessInsights.id, id),
+          eq(businessInsights.orgId, orgId),
+        ));
+      res.json({ message: 'Insight dismissed' });
+    } catch (error: any) {
+      console.error('Error dismissing insight:', error);
       res.status(500).json({ message: error.message });
     }
   });

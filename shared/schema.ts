@@ -510,6 +510,8 @@ export const appSettings = pgTable("app_settings", {
   marketNewsSyncEnabled: boolean("market_news_sync_enabled").default(false).notNull(),
   marketNewsSyncFrequency: integer("market_news_sync_frequency").default(360).notNull(), // minutes (6 hours default)
   marketNewsQueries: text("market_news_queries").array().default(sql`ARRAY['LEGO set retirement announcements', 'LEGO reseller market news pricing trends', 'BrickLink marketplace updates sellers', 'LEGO collectible investing value 2026', 'LEGO supply chain new releases']`),
+  businessIntelEnabled: boolean("business_intel_enabled").default(false).notNull(),
+  businessIntelFrequency: integer("business_intel_frequency").default(360).notNull(), // minutes (6 hours default)
   // Rebrickable Configuration
   rebrickableImageSyncEnabled: boolean("rebrickable_image_sync_enabled").default(true).notNull(),
   rebrickableSetSyncEnabled: boolean("rebrickable_set_sync_enabled").default(false).notNull(),
@@ -1433,6 +1435,36 @@ export const insertMarketNewsEmbeddingSchema = createInsertSchema(marketNewsEmbe
 
 export type InsertMarketNewsEmbedding = z.infer<typeof insertMarketNewsEmbeddingSchema>;
 export type MarketNewsEmbedding = typeof marketNewsEmbeddings.$inferSelect;
+
+// Business Insights — org-specific actionable intelligence from market data cross-referenced with inventory/sales
+export const businessInsights = pgTable("business_insights", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull(),
+  category: text("category").notNull(), // 'pricing' | 'acquisition' | 'risk' | 'opportunity' | 'trend'
+  urgency: text("urgency").notNull().default('medium'), // 'high' | 'medium' | 'low'
+  title: text("title").notNull(),
+  summary: text("summary").notNull(),
+  details: jsonb("details"), // structured data: affected items, numbers, sources
+  sourceType: text("source_type"), // 'market_news' | 'forum' | 'sales' | 'inventory' | 'pricing'
+  sourceRef: text("source_ref"), // reference ID or URL
+  dismissed: boolean("dismissed").default(false).notNull(),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  orgIdIdx: index("business_insights_org_id_idx").on(table.orgId),
+  categoryIdx: index("business_insights_category_idx").on(table.category),
+  createdAtIdx: index("business_insights_created_at_idx").on(table.createdAt),
+}));
+
+export const insertBusinessInsightSchema = createInsertSchema(businessInsights).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertBusinessInsight = z.infer<typeof insertBusinessInsightSchema>;
+export type BusinessInsight = typeof businessInsights.$inferSelect;
 
 // App Feedback — user-submitted requests tracked for Replit backlog
 export const appFeedback = pgTable("app_feedback", {

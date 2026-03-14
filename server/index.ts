@@ -13,6 +13,7 @@ import { startOrderSyncScheduler } from "./services/order-sync-scheduler";
 import { startEmbeddingWorker } from "./services/embedding-worker";
 import { startForumSyncScheduler } from "./services/bl-forum-scheduler";
 import { startMarketNewsSyncScheduler } from "./services/market-news-scheduler";
+import { startBusinessIntelScheduler } from "./services/business-intel-scheduler";
 import { startUniversalCatalogScheduler } from "./services/universal-catalog-scheduler";
 import { startRebrickableSetsScheduler } from "./services/rebrickable-sets-scheduler";
 import { startService as startSegmentService, warmupClip } from "./services/segmentClient";
@@ -184,7 +185,7 @@ app.use((req, res, next) => {
       const { db: dbInstance } = await import('./db');
       const { syncMetadata: syncMeta } = await import('@shared/schema');
       const { sql: drizzleSql } = await import('drizzle-orm');
-      const staleIds = ['bricklink_inventory', 'priceomatic_cache', 'catalog_detail_completion', 'catalog_scan', 'channel_sync', 'bricklink_orders', 'brickowl_orders', 'forum_sync', 'rebrickable_set_parts'];
+      const staleIds = ['bricklink_inventory', 'priceomatic_cache', 'catalog_detail_completion', 'catalog_scan', 'channel_sync', 'bricklink_orders', 'brickowl_orders', 'forum_sync', 'rebrickable_set_parts', 'market_news_sync', 'business_intel_sync'];
       for (const id of staleIds) {
         await dbInstance.update(syncMeta)
           .set({
@@ -324,6 +325,11 @@ app.use((req, res, next) => {
       // Start market news sync scheduler
       startMarketNewsSyncScheduler().catch(error => {
         console.error('Failed to start market news sync scheduler:', error);
+      });
+
+      // Start business intelligence scheduler
+      startBusinessIntelScheduler().catch(error => {
+        console.error('Failed to start business intel scheduler:', error);
       });
       
       // Start background embedding worker (async — resets any orphaned 'processing' jobs first)

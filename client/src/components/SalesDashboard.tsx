@@ -1,9 +1,11 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format, subMonths, subYears, addYears, startOfMonth, parseISO, startOfDay, getYear, startOfWeek } from "date-fns";
-import { TrendingUp, Target, GitCompare, BarChart2, Info, ArrowRight, X, Activity, Radar } from "lucide-react";
+import { TrendingUp, Target, GitCompare, BarChart2, Info, ArrowRight, X, Activity, Radar, DollarSign, ShoppingCart, AlertTriangle, Lightbulb, TrendingDown, Eye, EyeOff } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import MetricCard from "./MetricCard";
 import { DateRangeValue } from "./DateRangeSelector";
 import PlatformPerformance from "./PlatformPerformance";
@@ -19,6 +21,176 @@ import {
 type TimePeriod = 'mtd' | 'ytd' | '1y' | '5y';
 
 export type SalesDrawer = 'chart' | 'platform-perf' | 'business-intel' | null;
+
+interface BusinessInsight {
+  id: string;
+  orgId: string;
+  category: string;
+  urgency: string;
+  title: string;
+  summary: string;
+  details: any;
+  sourceType: string | null;
+  sourceRef: string | null;
+  dismissed: boolean;
+  expiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const CATEGORY_CONFIG: Record<string, { icon: React.ElementType; color: string; bg: string }> = {
+  pricing: { icon: DollarSign, color: 'text-yellow-400', bg: 'bg-yellow-900/30' },
+  acquisition: { icon: ShoppingCart, color: 'text-blue-400', bg: 'bg-blue-900/30' },
+  risk: { icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-900/30' },
+  opportunity: { icon: Lightbulb, color: 'text-green-400', bg: 'bg-green-900/30' },
+  trend: { icon: TrendingUp, color: 'text-purple-400', bg: 'bg-purple-900/30' },
+};
+
+const URGENCY_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+  high: { label: 'High', variant: 'destructive' },
+  medium: { label: 'Med', variant: 'secondary' },
+  low: { label: 'Low', variant: 'outline' },
+};
+
+function BusinessIntelDrawer({ onClose }: { onClose: () => void }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [filterCategory, setFilterCategory] = useState<string | null>(null);
+
+  const { data: insights = [], isLoading } = useQuery<BusinessInsight[]>({
+    queryKey: ['/api/business-intel'],
+  });
+
+  const dismissMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest('POST', `/api/business-intel/${id}/dismiss`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/business-intel'] });
+    },
+  });
+
+  const filtered = filterCategory ? insights.filter(i => i.category === filterCategory) : insights;
+  const categories = [...new Set(insights.map(i => i.category))];
+
+  return (
+    <ToolDrawer icon={Radar} iconColor="text-cyan-400" title="Business Intel" onClose={onClose} closeTestId="button-close-business-intel">
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Radar className="w-6 h-6 text-cyan-400 animate-pulse" />
+        </div>
+      ) : insights.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 px-6 text-center space-y-3">
+          <div className="rounded-full bg-cyan-900/40 p-3 ring-1 ring-cyan-500/30">
+            <Radar className="w-6 h-6 text-cyan-400" />
+          </div>
+          <p className="text-xs text-gray-400 max-w-sm leading-relaxed">
+            No insights yet. Enable the Business Intel scheduler in Platform Settings to start generating automated analysis.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2 p-2">
+          {categories.length > 1 && (
+            <div className="flex items-center gap-1.5 flex-wrap pb-1">
+              <button
+                onClick={() => setFilterCategory(null)}
+                className={cn("text-[10px] px-2 py-0.5 rounded-full border transition-colors", filterCategory === null ? "border-cyan-500/50 bg-cyan-900/40 text-cyan-300" : "border-gray-700 text-gray-500 hover-elevate")}
+                data-testid="filter-all-insights"
+              >
+                All ({insights.length})
+              </button>
+              {categories.map(cat => {
+                const cfg = CATEGORY_CONFIG[cat] || CATEGORY_CONFIG.trend;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setFilterCategory(filterCategory === cat ? null : cat)}
+                    className={cn("text-[10px] px-2 py-0.5 rounded-full border transition-colors capitalize", filterCategory === cat ? `border-current ${cfg.color} ${cfg.bg}` : "border-gray-700 text-gray-500 hover-elevate")}
+                    data-testid={`filter-${cat}-insights`}
+                  >
+                    {cat} ({insights.filter(i => i.category === cat).length})
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {filtered.map(insight => {
+            const catCfg = CATEGORY_CONFIG[insight.category] || CATEGORY_CONFIG.trend;
+            const urgCfg = URGENCY_CONFIG[insight.urgency] || URGENCY_CONFIG.medium;
+            const CatIcon = catCfg.icon;
+            const isExpanded = expandedId === insight.id;
+            const details = insight.details as { affectedItems?: string[]; priceGap?: number; source?: string } | null;
+
+            return (
+              <div
+                key={insight.id}
+                className={cn("rounded-lg border border-gray-700/50 overflow-hidden transition-colors", catCfg.bg)}
+                data-testid={`insight-card-${insight.id}`}
+              >
+                <button
+                  onClick={() => setExpandedId(isExpanded ? null : insight.id)}
+                  className="w-full px-3 py-2.5 flex items-start gap-2.5 text-left"
+                  data-testid={`insight-toggle-${insight.id}`}
+                >
+                  <div className={cn("mt-0.5 shrink-0", catCfg.color)}>
+                    <CatIcon className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-medium text-gray-200 leading-tight">{insight.title}</span>
+                      <Badge variant={urgCfg.variant} className="text-[9px] px-1.5 py-0 h-4 shrink-0">{urgCfg.label}</Badge>
+                    </div>
+                    <p className="text-[11px] text-gray-400 leading-snug line-clamp-2">{insight.summary}</p>
+                  </div>
+                </button>
+                {isExpanded && (
+                  <div className="px-3 pb-2.5 space-y-2 border-t border-gray-700/40">
+                    {details?.affectedItems && details.affectedItems.length > 0 && (
+                      <div className="pt-2">
+                        <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Affected Items</p>
+                        <div className="flex flex-wrap gap-1">
+                          {details.affectedItems.slice(0, 8).map((item, idx) => (
+                            <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-300 border border-gray-700/40">{item}</span>
+                          ))}
+                          {details.affectedItems.length > 8 && (
+                            <span className="text-[10px] text-gray-500">+{details.affectedItems.length - 8} more</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {details?.priceGap !== undefined && (
+                      <p className="text-[10px] text-gray-400 pt-1">
+                        <span className="text-gray-500">Price Gap:</span> <span className={details.priceGap > 0 ? 'text-green-400' : 'text-red-400'}>{details.priceGap > 0 ? '+' : ''}{typeof details.priceGap === 'number' ? details.priceGap.toFixed(1) : details.priceGap}%</span>
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between pt-1.5 border-t border-gray-700/30">
+                      <div className="flex items-center gap-2">
+                        {insight.sourceType && (
+                          <span className="text-[9px] text-gray-500 capitalize">{insight.sourceType.replace('_', ' ')}</span>
+                        )}
+                        <span className="text-[9px] text-gray-600">{new Date(insight.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 text-[10px] text-gray-500"
+                        onClick={() => dismissMutation.mutate(insight.id)}
+                        disabled={dismissMutation.isPending}
+                        data-testid={`dismiss-insight-${insight.id}`}
+                      >
+                        <EyeOff className="w-3 h-3 mr-1" />
+                        Dismiss
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </ToolDrawer>
+  );
+}
 
 interface SalesDashboardProps {
   period: TimePeriod;
@@ -1099,18 +1271,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
         )}
 
         {activeDrawer === 'business-intel' && (
-          <ToolDrawer icon={Radar} iconColor="text-cyan-400" title="Business Intel" onClose={closeDrawer} closeTestId="button-close-business-intel">
-            <div className="flex flex-col items-center justify-center py-12 px-6 text-center space-y-4">
-              <div className="rounded-full bg-cyan-900/40 p-4 ring-1 ring-cyan-500/30">
-                <Radar className="w-8 h-8 text-cyan-400 animate-pulse" />
-              </div>
-              <h4 className="text-sm font-semibold text-cyan-200">Business Intelligence Engine</h4>
-              <p className="text-xs text-gray-400 max-w-sm leading-relaxed">
-                Automated insights from market news, forum discussions, sales trends, and inventory data — cross-referenced to surface actionable opportunities for your business.
-              </p>
-              <div className="text-[10px] text-cyan-500/60 uppercase tracking-widest font-mono">Coming Soon</div>
-            </div>
-          </ToolDrawer>
+          <BusinessIntelDrawer onClose={closeDrawer} />
         )}
 
         <PlatformOrdersDrawer

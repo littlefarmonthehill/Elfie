@@ -848,6 +848,9 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
   const [marketNewsSyncEnabled, setMarketNewsSyncEnabled] = useState(false);
   const [marketNewsSyncFrequency, setMarketNewsSyncFrequency] = useState(360);
   const [marketNewsSyncFrequencyStr, setMarketNewsSyncFrequencyStr] = useState("360");
+  const [businessIntelEnabled, setBusinessIntelEnabled] = useState(false);
+  const [businessIntelFrequency, setBusinessIntelFrequency] = useState(360);
+  const [businessIntelFrequencyStr, setBusinessIntelFrequencyStr] = useState("360");
   const [marketNewsQueries, setMarketNewsQueries] = useState<string[]>([
     'LEGO set retirement announcements',
     'LEGO reseller market news pricing trends',
@@ -1737,6 +1740,9 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
       setMarketNewsSyncEnabled(platformSettings.marketNewsSyncEnabled || false);
       setMarketNewsSyncFrequency(platformSettings.marketNewsSyncFrequency || 360);
       setMarketNewsSyncFrequencyStr(String(platformSettings.marketNewsSyncFrequency || 360));
+      setBusinessIntelEnabled(platformSettings.businessIntelEnabled || false);
+      setBusinessIntelFrequency(platformSettings.businessIntelFrequency || 360);
+      setBusinessIntelFrequencyStr(String(platformSettings.businessIntelFrequency || 360));
       if (platformSettings.marketNewsQueries && Array.isArray(platformSettings.marketNewsQueries) && platformSettings.marketNewsQueries.length > 0) {
         setMarketNewsQueries(platformSettings.marketNewsQueries);
       }
@@ -7265,6 +7271,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                   const rbJob = getJob('rebrickable_set_parts');
                   const fmJob = getJob('forum_sync');
                   const mnJob = getJob('market_news_sync');
+                  const biJob = getJob('business_intel_sync');
                   const pomActive = pomJob?.lastSyncStatus === 'in_progress';
                   const cdActive = cdJob?.lastSyncStatus === 'in_progress';
                   const csActive = csJob?.lastSyncStatus === 'in_progress';
@@ -7272,6 +7279,7 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                   const rbActive = rbJob?.lastSyncStatus === 'in_progress';
                   const fmActive = fmJob?.lastSyncStatus === 'in_progress';
                   const mnActive = mnJob?.lastSyncStatus === 'in_progress';
+                  const biActive = biJob?.lastSyncStatus === 'in_progress';
                   const clipActive = config.clip_catalog?.workerRunning;
                   const clipPct = clipStatus && clipStatus.total > 0 ? Math.round((clipStatus.embedded / clipStatus.total) * 100) : 0;
 
@@ -7997,6 +8005,54 @@ export default function SettingsModal({ open, onClose, initialSection, pricingEx
                                 </div>
                                 {(mnJob?.recordsAdded > 0 || mnJob?.recordsUpdated > 0) && (
                                   <p className="sm-hint pt-1 border-t border-gray-700/40">+{mnJob.recordsAdded} added · {mnJob.recordsUpdated} updated</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="sm-card">
+                            <button onClick={() => toggleJob('bi')} className="w-full px-4 py-3 flex items-center gap-3 text-left" data-testid="job-header-bi-sched">
+                              {statusInfo(biJob?.lastSyncStatus || null, businessIntelEnabled).icon}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="sm-label">Business Intel</p>
+                                  <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>
+                                    <p className="mb-1.5">Cross-references each org's inventory, sales, and pricing against market news and forum data to generate actionable business insights. Insights expire after 7 days and dismissed insights are purged after 3 days.</p>
+                                    <div className="space-y-1 border-t pt-1.5 text-[11px]">
+                                      <p><span className="text-gray-500 dark:text-gray-400">Frequency:</span> <span className="font-medium">Every {businessIntelFrequency} min</span></p>
+                                      <p><span className="text-gray-500 dark:text-gray-400">Model:</span> <span className="font-medium">gpt-4o-mini</span></p>
+                                    </div>
+                                  </PopoverContent></Popover>
+                                  <span className={`sm-hint font-medium ${statusInfo(biJob?.lastSyncStatus || null, businessIntelEnabled).color}`}>{statusInfo(biJob?.lastSyncStatus || null, businessIntelEnabled).label}</span>
+                                </div>
+                                <p className="sm-hint">{businessIntelEnabled ? `Every ${businessIntelFrequency} min` : 'Schedule disabled'} · Last: {formatLastRun(biJob?.lastSyncTime || null)}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Button size="icon" variant="ghost" disabled={biActive} onClick={(e) => { e.stopPropagation(); handleTrigger('business_intel_sync'); }} title="Run now" data-testid="button-trigger-bi-sched">
+                                  {biActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                                </Button>
+                                {isExpanded('bi') ? <ChevronDown className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-600" />}
+                              </div>
+                            </button>
+                            {biJob?.errorMessage && <p className="px-4 pb-2 text-xs text-red-400/80 truncate -mt-1">{biJob.errorMessage}</p>}
+                            {isExpanded('bi') && (
+                              <div className="px-4 pb-3 space-y-3 border-t border-gray-700/40">
+                                <div className="sm-row pt-3">
+                                  <span className="sm-label">Enabled</span>
+                                  <Switch checked={businessIntelEnabled} onCheckedChange={(checked) => { setBusinessIntelEnabled(checked); updatePlatformSettingsMutation.mutate({ businessIntelEnabled: checked }); }} data-testid="switch-bi-scheduler-sched" />
+                                </div>
+                                <div className="sm-row">
+                                  <div>
+                                    <span className="sm-label">Frequency</span>
+                                    <p className="sm-hint">Minutes between runs</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Input type="number" min={60} max={1440} value={businessIntelFrequencyStr} onChange={(e) => setBusinessIntelFrequencyStr(e.target.value)} onBlur={() => { const val = parseInt(businessIntelFrequencyStr) || 360; setBusinessIntelFrequency(val); setBusinessIntelFrequencyStr(String(val)); updatePlatformSettingsMutation.mutate({ businessIntelFrequency: val }); }} className="w-20 text-xs text-right" data-testid="input-bi-frequency-sched" />
+                                    <span className="sm-hint">min</span>
+                                  </div>
+                                </div>
+                                {(biJob?.recordsAdded > 0 || biJob?.recordsUpdated > 0) && (
+                                  <p className="sm-hint pt-1 border-t border-gray-700/40">+{biJob.recordsAdded} insights · {biJob.recordsUpdated} orgs processed</p>
                                 )}
                               </div>
                             )}
