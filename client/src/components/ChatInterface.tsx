@@ -592,6 +592,7 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
     };
 
     let statBuffer: Array<{ label: string; value: string }> = [];
+    const deferredPrompts: string[] = [];
     
     const flushStats = () => {
       if (statBuffer.length > 0) {
@@ -680,11 +681,11 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
         }
       } else if (/\*\*PROMPT:\*\*/.test(trimmed)) {
         flushParagraph();
-        elements.push(
-          <div key={`prompt-line-${key++}`} className="inline">
-            {parseInlineContent(trimmed)}
-          </div>
-        );
+        const promptRegex = /\*\*PROMPT:\*\*\s*["""\u201C\u201D]([^"""\u201C\u201D\n]+)["""\u201C\u201D]/g;
+        let pm;
+        while ((pm = promptRegex.exec(trimmed)) !== null) {
+          deferredPrompts.push(pm[1].trim());
+        }
       } else if (trimmed === '') {
         flushParagraph();
       } else {
@@ -716,6 +717,24 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
           <InlineNewsCard key={`uforum-${keyRef.value++}`} type="forum" title={f.title} snippet={f.excerpt || undefined} url={f.threadUrl} username={f.username} replyCount={f.replyCount} onSummarize={onSummarize} />
         );
       });
+    }
+
+    if (deferredPrompts.length > 0) {
+      elements.push(
+        <div key={`deferred-prompts-${key++}`} className="flex flex-wrap gap-2 mt-3">
+          {deferredPrompts.map((promptText, pi) => (
+            <button
+              key={`dp-${pi}`}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onPromptClick?.(promptText); }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-500/40 text-cyan-300 hover:from-cyan-500/30 hover:to-purple-500/30 hover:border-cyan-400 transition-all text-sm font-medium"
+              data-testid={`prompt-${promptText.toLowerCase().replace(/\s+/g, '-').substring(0, 30)}`}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {promptText}
+            </button>
+          ))}
+        </div>
+      );
     }
 
     return elements;
@@ -813,7 +832,7 @@ function StreamingMessage({ message, onItemClick, onBrickLinkSearch, onPromptCli
     doneRef.current = false;
     let idx = 0;
     const timer = setInterval(() => {
-      idx = Math.min(idx + 2, lines.length);
+      idx = Math.min(idx + 1, lines.length);
       setRevealedCount(idx);
       if (idx >= lines.length) {
         clearInterval(timer);
@@ -822,7 +841,7 @@ function StreamingMessage({ message, onItemClick, onBrickLinkSearch, onPromptCli
           onStreamingDone?.();
         }
       }
-    }, 120);
+    }, 400);
     return () => clearInterval(timer);
   }, [message.content, message.streaming]);
 
