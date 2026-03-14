@@ -22,9 +22,28 @@ interface OrgContext {
 }
 
 async function getOrgContext(orgId: string): Promise<OrgContext> {
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
-  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const latestOrderResult = await db.execute(sql`
+    SELECT MAX(order_date)::text as latest, MIN(order_date)::text as earliest
+    FROM orders WHERE org_id = ${orgId}
+  `);
+  const latestOrderDate = (latestOrderResult.rows || [])[0]?.latest
+    ? new Date(String((latestOrderResult.rows || [])[0].latest))
+    : new Date();
+  const earliestOrderDate = (latestOrderResult.rows || [])[0]?.earliest
+    ? new Date(String((latestOrderResult.rows || [])[0].earliest))
+    : new Date();
+
+  const refDate = latestOrderDate.getTime() > Date.now() - 60 * 24 * 60 * 60 * 1000
+    ? new Date()
+    : latestOrderDate;
+
+  const recentWindow = new Date(refDate.getTime() - 90 * 24 * 60 * 60 * 1000);
+  const dormantStart = new Date(refDate.getTime() - 365 * 24 * 60 * 60 * 1000);
+  const newCutoff = new Date(refDate.getTime() - 90 * 24 * 60 * 60 * 1000);
+
+  const windowLabel = refDate.getTime() < Date.now() - 60 * 24 * 60 * 60 * 1000
+    ? `(data as of ${refDate.toISOString().substring(0, 10)}, store inactive since then)`
+    : '(last 90 days)';
 
   const inventoryItems = await db
     .select({
@@ -106,7 +125,7 @@ async function getOrgContext(orgId: string): Promise<OrgContext> {
     FROM order_details od
     JOIN orders o ON od.order_id = o.id
     LEFT JOIN bl_catalog bc ON od.sku LIKE '%' || bc.item_no || '%' AND bc.item_type = 'PART'
-    WHERE o.org_id = ${orgId} AND o.order_date >= ${thirtyDaysAgo.toISOString()}
+    WHERE o.org_id = ${orgId} AND o.order_date >= ${recentWindow.toISOString()}
     GROUP BY od.sku, bc.item_name
     ORDER BY total_sold DESC
     LIMIT 20
