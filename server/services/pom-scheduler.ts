@@ -12,7 +12,6 @@ const MAX_RETRIES = 5;
 const RETRY_BASE_MS = 5 * 60 * 1000;
 
 const retry = { count: 0, nextAt: 0 };
-let resumeChecked = false;
 
 export function getPomIsRunning() {
   return syncLock.getActive().includes('Price-o-Matic');
@@ -33,9 +32,10 @@ export async function startPomSyncScheduler() {
   setInterval(async () => { await checkAndRunPomSync(); }, 60 * 1000);
 }
 
-async function checkInterruptedResume() {
-  if (resumeChecked) return;
-  resumeChecked = true;
+async function checkInterruptedResume(attempt = 1) {
+  const MAX_RESUME_ATTEMPTS = 10;
+  const RESUME_RETRY_MS = 30_000;
+
   try {
     const [meta] = await db.select().from(syncMetadata)
       .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, 'priceomatic_cache')))
@@ -44,17 +44,17 @@ async function checkInterruptedResume() {
     if (!meta) { console.log('[POM] Auto-resume: no sync metadata found'); return; }
 
     const msg = meta.errorMessage ?? '';
-    const isShutdownInterrupt = msg.includes('interrupted') || msg.includes('shutdown');
+    const isShutdownInterrupt = msg.includes('interrupted') || msg.includes('shutdown') || msg.includes('restart');
     const isError = meta.lastSyncStatus === 'error' && isShutdownInterrupt;
     const isPartialShutdown = meta.lastSyncStatus === 'partial' && isShutdownInterrupt;
 
     if (!isError && !isPartialShutdown) {
-      console.log(`[POM] Auto-resume: no interrupted sync (status=${meta.lastSyncStatus}, msg=${msg || 'none'})`);
+      if (attempt === 1) console.log(`[POM] Auto-resume: no interrupted sync (status=${meta.lastSyncStatus}, msg=${msg || 'none'})`);
       return;
     }
 
-    console.log(`[POM] Detected interrupted sync (status=${meta.lastSyncStatus}, msg=${msg}) — auto-resuming in 30s...`);
-    await new Promise(r => setTimeout(r, 30_000));
+    console.log(`[POM] Detected interrupted sync (status=${meta.lastSyncStatus}, msg=${msg}) — auto-resuming (attempt ${attempt}/${MAX_RESUME_ATTEMPTS})...`);
+    await new Promise(r => setTimeout(r, attempt === 1 ? 30_000 : 15_000));
 
     if (getPomIsRunning()) {
       console.log('[POM] Auto-resume skipped — sync already running');
@@ -62,7 +62,12 @@ async function checkInterruptedResume() {
     }
     if (syncLock.isRunning()) {
       const blocker = syncLock.getActive().join(', ');
-      console.log(`[POM] Auto-resume blocked by: ${blocker} — scheduler will retry`);
+      if (attempt < MAX_RESUME_ATTEMPTS) {
+        console.log(`[POM] Auto-resume blocked by: ${blocker} — retrying in ${RESUME_RETRY_MS / 1000}s (attempt ${attempt}/${MAX_RESUME_ATTEMPTS})`);
+        setTimeout(() => checkInterruptedResume(attempt + 1), RESUME_RETRY_MS);
+      } else {
+        console.log(`[POM] Auto-resume gave up after ${MAX_RESUME_ATTEMPTS} attempts (blocked by: ${blocker}) — regular scheduler will handle it`);
+      }
       return;
     }
 
@@ -95,23 +100,32 @@ async function checkAndRunPomSync() {
     const tz = settings.timezone || 'America/Chicago';
     const now = new Date();
 
-    const localTimeStr = now.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
-    const [hStr, mStr] = localTimeStr.replace(/\u202f/g, '').split(':');
-    const currentTotalMinutes = parseInt(hStr) * 60 + parseInt(mStr);
-    const scheduledTime = settings.pomSyncTime || '14:00';
-    const [schedH, schedM] = scheduledTime.split(':');
-    const scheduledTotalMinutes = parseInt(schedH) * 60 + parseInt(schedM);
-    if (currentTotalMinutes < scheduledTotalMinutes) return;
-
     const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, 'priceomatic_cache'))).limit(1);
     const lastRunTs = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
 
+    const msg = meta?.errorMessage ?? '';
+    const isInterruptRecovery = meta?.lastSyncStatus === 'error' && (msg.includes('interrupted') || msg.includes('shutdown') || msg.includes('restart'));
+    const scheduledTime = settings.pomSyncTime || '14:00';
+
+    if (!isInterruptRecovery) {
+      const localTimeStr = now.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
+      const [hStr, mStr] = localTimeStr.replace(/\u202f/g, '').split(':');
+      const currentTotalMinutes = parseInt(hStr) * 60 + parseInt(mStr);
+      const [schedH, schedM] = scheduledTime.split(':');
+      const scheduledTotalMinutes = parseInt(schedH) * 60 + parseInt(schedM);
+      if (currentTotalMinutes < scheduledTotalMinutes) return;
+    }
+
     if (meta?.lastSyncStatus === 'error') {
-      if (retry.count >= MAX_RETRIES) {
-        return;
+      if (isInterruptRecovery) {
+        console.log(`[POM] Recovering from interrupted sync — bypassing schedule time gate...`);
+      } else {
+        if (retry.count >= MAX_RETRIES) {
+          return;
+        }
+        if (Date.now() < retry.nextAt) return;
+        console.log(`[POM] Retrying after failure (attempt ${retry.count + 1}/${MAX_RETRIES})...`);
       }
-      if (Date.now() < retry.nextAt) return;
-      console.log(`[POM] Retrying after failure (attempt ${retry.count + 1}/${MAX_RETRIES})...`);
     } else {
       const todayStr = now.toLocaleDateString('en-US', { timeZone: tz });
       const lastRunStr = lastRunTs ? new Date(lastRunTs).toLocaleDateString('en-US', { timeZone: tz }) : '';
