@@ -224,16 +224,15 @@ export async function searchLocalInventory(params: {
         }
       }
 
-      const sorted = Array.from(colorSummary.entries())
-        .sort((a, b) => b[1].qty - a[1].qty);
-
-      const top = sorted.slice(0, 10).map(([color, d]) => ({
-        color,
-        totalQuantity: d.qty,
-        lots: d.count,
-        priceRange: d.minPrice === d.maxPrice ? `$${d.minPrice.toFixed(2)}` : `$${d.minPrice.toFixed(2)}-$${d.maxPrice.toFixed(2)}`,
-        conditions: Array.from(d.conditions).join('/'),
-      }));
+      const byColor = Array.from(colorSummary.entries())
+        .sort((a, b) => b[1].qty - a[1].qty)
+        .map(([color, d]) => ({
+          color,
+          totalQuantity: d.qty,
+          lots: d.count,
+          priceRange: d.minPrice === d.maxPrice ? `$${d.minPrice.toFixed(2)}` : `$${d.minPrice.toFixed(2)}-$${d.maxPrice.toFixed(2)}`,
+          conditions: Array.from(d.conditions).join('/'),
+        }));
 
       const totalQty = results.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
       const totalValue = results.reduce((s, r) => s + (Number(r.quantity) || 0) * parseFloat(r.unitPrice || '0'), 0);
@@ -246,8 +245,7 @@ export async function searchLocalInventory(params: {
         totalQuantity: totalQty,
         totalValue: `$${totalValue.toFixed(2)}`,
         uniqueColors: colorSummary.size,
-        topColorsByQuantity: top,
-        note: sorted.length > 10 ? `Showing top 10 of ${sorted.length} colors. ${sorted.length - 10} more colors available.` : undefined,
+        byColor,
       };
     }
     

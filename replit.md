@@ -28,6 +28,9 @@ PlanetBrick's core functionality revolves around BrickLink as the primary produc
 -   **Stripe API:** For processing payments, managing subscriptions, and pulling refund data.
 -   **PayPal Webhooks & Capture Polling:** For processing payment refunds and reversals, and syncing capture details.
 -   **OpenAI API:** Powers E.L.F.I.E. (GPT-4o-mini completions + tool calling) and embeddings (`text-embedding-3-small`). Platform-wide key stored in `app_settings` under `id='platform'` (separate from any customer org). Elfie agent runs as a platform cost (orgId=null). Usage tracked locally in `ai_usage_log` table (not via OpenAI billing API). Per-org cost attribution via `org_id` column — tracks which org triggered each embedding call. Admin dashboard shows per-org breakdown at `/api/platform-admin/platform-services/openai-billing/by-org`. Replit Anthropic AI integration is installed but no longer used by the app.
+    - **Embedding Architecture (Two Levels):**
+      - **Platform-level embeddings** (shared across all orgs): `bl_catalog` CLIP visual embeddings, inventory text embeddings (`inventory_embeddings`), Rebrickable set-part data, BrickLink forum embeddings (`bl_forum_embeddings`). These power cross-org catalog search, visual similarity (Brickanalyzer), and forum semantic search.
+      - **Org-level embeddings** (scoped per org): Org inventory embeddings and order embeddings. These are org-specific and filtered by `org_id` in queries. `searchInventorySemantic()` and `searchOrders()` in `embeddings.ts` accept optional `orgId` parameter for tenant scoping.
 -   **Brickognize API:** For LEGO part image recognition within the Brickanalyzer tool.
 -   **Neon:** Serverless PostgreSQL database with the `pgvector` extension for vector embeddings.
 
