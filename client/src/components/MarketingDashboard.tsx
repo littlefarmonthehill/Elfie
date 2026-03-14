@@ -10,7 +10,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import MetricCard from "./MetricCard";
-import { DateRangeValue } from "./DateRangeSelector";
+import DateRangeSelector, { DateRangeValue } from "./DateRangeSelector";
 
 interface CustomerStats {
   most_recent_order_id: string;
@@ -45,7 +45,6 @@ interface MarketingDashboardProps {
   activeDrawer: MarketingDrawer;
   onDrawerChange: (drawer: MarketingDrawer) => void;
   renderDrawerOnly?: boolean;
-  dateRangeSlot?: React.ReactNode;
 }
 
 function parseShipTo(raw: string | null | undefined): { name: string; city: string; state: string; country: string } {
@@ -189,6 +188,7 @@ function CustomerListPanel({
   onCustomerClick,
   emptyMessage,
   isLoading,
+  dateRangeSlot,
 }: {
   open: boolean;
   onClose: () => void;
@@ -204,6 +204,7 @@ function CustomerListPanel({
   onCustomerClick: (c: CustomerData) => void;
   emptyMessage: string;
   isLoading?: boolean;
+  dateRangeSlot?: React.ReactNode;
 }) {
   const [page, setPage] = useState(1);
   const deferredSearch = useDeferredValue(searchQuery);
@@ -228,7 +229,12 @@ function CustomerListPanel({
   if (!open) return null;
 
   const searchBar = (
-    <div className="px-4 py-2 border-b border-white/5 shrink-0">
+    <div className="px-4 py-2 border-b border-white/5 shrink-0 space-y-2">
+      {dateRangeSlot && (
+        <div className="flex justify-center" data-testid={`date-range-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+          {dateRangeSlot}
+        </div>
+      )}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500 pointer-events-none" />
         <input
@@ -306,10 +312,21 @@ function CustomerListPanel({
   );
 }
 
-export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, activeDrawer, onDrawerChange, renderDrawerOnly, dateRangeSlot }: MarketingDashboardProps) {
+export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd', onItemClick, activeDrawer, onDrawerChange, renderDrawerOnly }: MarketingDashboardProps) {
   const [newSearch, setNewSearch] = useState('');
   const [repeatSearch, setRepeatSearch] = useState('');
   const [topSearch, setTopSearch] = useState('');
+
+  const [newDateRange, setNewDateRange] = useState<DateRangeValue>('mtd');
+  const [repeatDateRange, setRepeatDateRange] = useState<DateRangeValue>('mtd');
+  const [topDateRange, setTopDateRange] = useState<DateRangeValue>('mtd');
+
+  const dateRange = renderDrawerOnly
+    ? (activeDrawer === 'engage-new' ? newDateRange
+      : activeDrawer === 'engage-repeat' ? repeatDateRange
+      : activeDrawer === 'engage-top' ? topDateRange
+      : parentDateRange)
+    : parentDateRange;
 
   const { data: rawStats = [], isLoading } = useQuery<CustomerStats[]>({
     queryKey: ['/api/orders/customer-stats', dateRange],
@@ -388,6 +405,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
           onCustomerClick={handleCustomerClick}
           emptyMessage="No new customers in this date range."
           isLoading={isLoading}
+          dateRangeSlot={<DateRangeSelector value={newDateRange} onChange={setNewDateRange} compact scaled />}
         />
         <CustomerListPanel
           open={activeDrawer === 'engage-repeat'}
@@ -403,6 +421,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
           onCustomerClick={handleCustomerClick}
           emptyMessage="No repeat customers in this date range."
           isLoading={isLoading}
+          dateRangeSlot={<DateRangeSelector value={repeatDateRange} onChange={setRepeatDateRange} compact scaled />}
         />
         <CustomerListPanel
           open={activeDrawer === 'engage-top'}
@@ -419,6 +438,7 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
           onCustomerClick={handleCustomerClick}
           emptyMessage="No customer data in this date range."
           isLoading={isLoading}
+          dateRangeSlot={<DateRangeSelector value={topDateRange} onChange={setTopDateRange} compact scaled />}
         />
       </>
     );
@@ -449,7 +469,6 @@ export default function MarketingDashboard({ dateRange = 'mtd', onItemClick, act
               <Users className={cn("w-3 h-3 text-yellow-200", "md:w-4 md:h-4")} />
             </div>
             <h3 className={cn("text-xs font-semibold text-yellow-200 uppercase tracking-wide shrink-0", "md:text-sm lg:text-base")}>Customers</h3>
-            {dateRangeSlot && <div className="ml-auto">{dateRangeSlot}</div>}
           </div>
           <div className={cn("grid grid-cols-3 gap-1.5", "mb-2")} data-testid="section-customer-counts">
             <MetricCard label="Total" value={String(totalCustomers)} color="yellow" data-testid="metric-total-customers" />

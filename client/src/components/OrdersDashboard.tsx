@@ -28,10 +28,9 @@ interface OrdersDashboardProps {
   onDrawerChange: (drawer: 'fulfillment' | 'shipped' | null) => void;
   dateRange?: DateRangeValue;
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'billing') => void;
-  dateRangeSlot?: React.ReactNode;
 }
 
-export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange = 'mtd', onOpenSettings, dateRangeSlot }: OrdersDashboardProps) {
+export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange = 'mtd', onOpenSettings }: OrdersDashboardProps) {
   const { data: stats, isLoading: statsLoading } = useQuery<OrderStats>({
     queryKey: ['/api/orders/stats', dateRange],
     queryFn: async () => {
@@ -103,7 +102,6 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
               <ShoppingCart className={cn("w-3 h-3 text-orange-200", "md:w-4 md:h-4")} />
             </div>
             <h3 className={cn("text-xs font-semibold text-orange-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Orders</h3>
-            {dateRangeSlot && <div className="ml-auto max-w-full overflow-x-auto">{dateRangeSlot}</div>}
           </div>
           <div className={cn("grid grid-cols-3 gap-1.5", "mb-1.5")} data-testid="section-orders-counts">
             <MetricCard label="Total" value={stats ? formatNumber(stats.totalOrders) : '—'} color="orange" data-testid="metric-total-orders" />

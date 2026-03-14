@@ -19,7 +19,7 @@ import GeneralDashboard from "@/components/GeneralDashboard";
 import OrdersDashboard from "@/components/OrdersDashboard";
 import ChatInterface from "@/components/ChatInterface";
 import DetailModal, { DetailData } from "@/components/DetailModal";
-import DateRangeSelector, { DateRangeValue } from "@/components/DateRangeSelector";
+import { DateRangeValue } from "@/components/DateRangeSelector";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -346,20 +346,16 @@ export default function Home() {
     }
   };
 
-  const dateRangeNode = (
-    <DateRangeSelector value={dateRange} onChange={setDateRange} compact scaled />
-  );
-
   const renderDynamicDashboard = () => {
     switch (activeDashboard) {
       case 'inventory':
         return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }} />;
       case 'orders':
-        return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }} dateRangeSlot={dateRangeNode} />;
+        return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }} />;
       case 'sales':
-        return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} dateRangeSlot={dateRangeNode} activeDrawer={activeSalesDrawer} onDrawerChange={setActiveSalesDrawer} />;
+        return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeSalesDrawer} onDrawerChange={setActiveSalesDrawer} />;
       case 'marketing':
-        return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} dateRangeSlot={dateRangeNode} />;
+        return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} />;
       default:
         return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }} />;
     }
@@ -442,7 +438,6 @@ export default function Home() {
           </Button>
         }>
           <ShippedOrdersTool
-            dateRange={dateRange}
             onItemClick={(type, id) => {
               closeActiveDrawer();
               handleDashboardItemClick(type, id);
@@ -1079,7 +1074,7 @@ export default function Home() {
               {activeInventoryDrawer === 'platformsync' && <ListomaticPriority />}
               {activeInventoryDrawer === 'brickanalyzer' && <BrickanalyzerTool />}
               {activeOrdersDrawer === 'fulfillment' && <FulfillmentTool />}
-              {activeOrdersDrawer === 'shipped' && <ShippedOrdersTool dateRange={dateRange} onItemClick={(type, id) => { closeActiveDrawer(); handleDashboardItemClick(type, id); }} />}
+              {activeOrdersDrawer === 'shipped' && <ShippedOrdersTool onItemClick={(type, id) => { closeActiveDrawer(); handleDashboardItemClick(type, id); }} />}
               {activeMarketingDrawer && <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} renderDrawerOnly />}
               {activeSalesDrawer && <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeSalesDrawer} onDrawerChange={setActiveSalesDrawer} renderDrawerOnly />}
             </div>

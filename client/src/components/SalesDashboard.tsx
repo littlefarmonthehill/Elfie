@@ -7,7 +7,7 @@ import { format, subMonths, subYears, addYears, startOfMonth, parseISO, startOfD
 import { TrendingUp, Target, GitCompare, BarChart2, Info, ArrowRight, X, Activity, Radar, DollarSign, ShoppingCart, AlertTriangle, Lightbulb, TrendingDown, Eye, EyeOff, Users, Package, ChevronDown, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import MetricCard from "./MetricCard";
-import { DateRangeValue } from "./DateRangeSelector";
+import DateRangeSelector, { DateRangeValue } from "./DateRangeSelector";
 import PlatformPerformance from "./PlatformPerformance";
 import PlatformOrdersDrawer from "./PlatformOrdersDrawer";
 import { Button } from "@/components/ui/button";
@@ -275,7 +275,6 @@ interface SalesDashboardProps {
   period: TimePeriod;
   dateRange?: DateRangeValue;
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
-  dateRangeSlot?: React.ReactNode;
   activeDrawer?: SalesDrawer;
   onDrawerChange?: (drawer: SalesDrawer) => void;
   renderDrawerOnly?: boolean;
@@ -291,7 +290,16 @@ interface Order {
   customerUsername: string;
 }
 
-export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick, dateRangeSlot, activeDrawer, onDrawerChange, renderDrawerOnly }: SalesDashboardProps) {
+export default function SalesDashboard({ period, dateRange: parentDateRange = 'mtd', onItemClick, activeDrawer, onDrawerChange, renderDrawerOnly }: SalesDashboardProps) {
+  const [chartDateRange, setChartDateRange] = useState<DateRangeValue>('mtd');
+  const [perfDateRange, setPerfDateRange] = useState<DateRangeValue>('mtd');
+
+  const dateRange = renderDrawerOnly
+    ? (activeDrawer === 'chart' ? chartDateRange
+      : activeDrawer === 'platform-perf' ? perfDateRange
+      : parentDateRange)
+    : parentDateRange;
+
   const [platformDrawer, setPlatformDrawer] = useState<{ open: boolean; platform: string; productLine?: string }>({
     open: false,
     platform: '',
@@ -1042,6 +1050,9 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
       <>
         {activeDrawer === 'chart' && (
           <ToolDrawer icon={Activity} iconColor="text-green-400" title="Sales Chart" onClose={closeDrawer} closeTestId="button-close-sales-chart" contentClassName="flex-1 overflow-y-auto px-4 pt-4 pb-4 space-y-3">
+              <div className="flex justify-center" data-testid="chart-date-range">
+                <DateRangeSelector value={chartDateRange} onChange={setChartDateRange} compact scaled />
+              </div>
               <div className="bg-black/20 rounded-lg p-3">
                 {!compareMode ? (
                   <>
@@ -1340,6 +1351,9 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
 
         {activeDrawer === 'platform-perf' && (
           <ToolDrawer icon={BarChart2} iconColor="text-orange-400" title="Platform Performance" onClose={closeDrawer} closeTestId="button-close-platform-performance">
+            <div className="flex justify-center mb-3" data-testid="platform-perf-date-range">
+              <DateRangeSelector value={perfDateRange} onChange={setPerfDateRange} compact scaled />
+            </div>
             <PlatformPerformance
               orders={filteredOrders}
               onPlatformClick={(platform) => {
@@ -1386,8 +1400,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
           <div className="p-1.5 rounded-md bg-green-900/60 ring-1 ring-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.25)]">
             <TrendingUp className={cn("w-3 h-3 text-green-200", "md:w-4 md:h-4")} />
           </div>
-          <h3 className={cn("text-xs font-semibold text-green-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Sales</h3>
-            {dateRangeSlot && <div className="ml-auto max-w-full overflow-x-auto">{dateRangeSlot}</div>}
+          <h3 className={cn("text-xs font-semibold text-green-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Insights</h3>
         </div>
         <div className={cn("grid grid-cols-3 gap-1.5", "mb-2")} data-testid="section-sales-metrics">
           <MetricCard label="Orders" value={filteredOrders.length} color="green" data-testid="metric-sales-orders" />

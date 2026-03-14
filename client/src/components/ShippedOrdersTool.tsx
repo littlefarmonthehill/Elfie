@@ -15,6 +15,7 @@ import { Search, Package, Loader2, Printer, Tag, FileText, ChevronDown, RotateCc
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { printPackingSlips } from "./PackingSlip";
+import DateRangeSelector, { DateRangeValue } from "./DateRangeSelector";
 
 type ShippedOrder = {
   id: string;
@@ -35,13 +36,13 @@ type ShippedOrder = {
 };
 
 interface ShippedOrdersToolProps {
-  dateRange?: string;
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
 }
 
-export default function ShippedOrdersTool({ dateRange, onItemClick }: ShippedOrdersToolProps) {
+export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProps) {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
   const [eodPending, setEodPending] = useState<string | null>(null); // orderId being fetched
 
   const returnToQueueMutation = useMutation({
@@ -172,6 +173,10 @@ export default function ShippedOrdersTool({ dateRange, onItemClick }: ShippedOrd
   return (
     <>
       <div className="space-y-4">
+        <div className="flex justify-center" data-testid="shipped-date-range">
+          <DateRangeSelector value={dateRange} onChange={setDateRange} compact scaled />
+        </div>
+
         {/* Search Bar */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
