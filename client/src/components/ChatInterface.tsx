@@ -842,12 +842,14 @@ function StreamingMessage({ message, onItemClick, onBrickLinkSearch, onPromptCli
           doneRef.current = true;
           onStreamingDone?.();
         }
+        console.log('[STREAM] reveal complete, total lines:', lines.length);
         return;
       }
       const currentLine = lines[idx - 1] || '';
       const wordCount = currentLine.trim().split(/\s+/).filter(Boolean).length;
       const charCount = currentLine.trim().length;
       const delay = wordCount === 0 ? 300 : Math.max(600, Math.min(charCount * 25, 3000));
+      console.log(`[STREAM] line ${idx}/${lines.length}, chars=${charCount}, delay=${delay}ms`);
       setTimeout(revealNext, delay);
     };
 
