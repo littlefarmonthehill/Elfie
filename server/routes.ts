@@ -46,7 +46,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, PLATFORM_ORG_ID } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, PLATFORM_ORG_ID } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -11595,6 +11595,53 @@ Format search_web URLs as markdown links.`;
     } catch (error: any) {
       console.error("Error fetching recent forum posts:", error);
       res.status(500).json({ error: error.message || "Failed to fetch recent forum posts" });
+    }
+  });
+
+  // GET /api/market-intel/recent - Combined forum posts + market news for Elfie greeting
+  app.get("/api/market-intel/recent", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const daysAgo = parseInt(req.query.days as string) || 7;
+
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysAgo);
+
+      const recentPosts = await db
+        .select({
+          title: blForumPosts.title,
+          excerpt: blForumPosts.excerpt,
+          username: blForumPosts.username,
+          postedAt: blForumPosts.postedAt,
+          threadUrl: blForumPosts.threadUrl,
+        })
+        .from(blForumPosts)
+        .where(and(eq(blForumPosts.orgId, orgId), sql`${blForumPosts.postedAt} >= ${cutoffDate}`))
+        .orderBy(sql`${blForumPosts.postedAt} DESC`)
+        .limit(10);
+
+      const recentArticles = await db
+        .select({
+          title: marketNews.title,
+          snippet: marketNews.snippet,
+          url: marketNews.url,
+          source: marketNews.source,
+          query: marketNews.query,
+          fetchedAt: marketNews.fetchedAt,
+        })
+        .from(marketNews)
+        .where(sql`${marketNews.fetchedAt} >= ${cutoffDate}`)
+        .orderBy(sql`${marketNews.fetchedAt} DESC`)
+        .limit(15);
+
+      res.json({
+        success: true,
+        forum: { count: recentPosts.length, posts: recentPosts },
+        news: { count: recentArticles.length, articles: recentArticles },
+      });
+    } catch (error: any) {
+      console.error("Error fetching market intel:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch market intel" });
     }
   });
 

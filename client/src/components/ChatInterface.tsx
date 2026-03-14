@@ -561,14 +561,15 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
   );
 }
 
-interface ForumNews {
-  count: number;
-  posts: Array<{
-    title: string;
-    username: string;
-    postedAt: string;
-    threadUrl: string;
-  }>;
+interface MarketIntel {
+  forum: {
+    count: number;
+    posts: Array<{ title: string; excerpt: string; username: string; postedAt: string; threadUrl: string }>;
+  };
+  news: {
+    count: number;
+    articles: Array<{ title: string; snippet: string; url: string; source: string; query: string; fetchedAt: string }>;
+  };
 }
 
 interface ChatInterfaceProps {
@@ -579,10 +580,10 @@ interface ChatInterfaceProps {
   onItemClick?: (type: 'inventory' | 'order' | 'sales' | 'marketing', id: string) => void;
   isMinimized?: boolean;
   onToggleMinimize?: () => void;
-  forumNews?: ForumNews | null;
+  marketIntel?: MarketIntel | null;
 }
 
-export default function ChatInterface({ dashboardContext, themeColor, prompts, onPromptAction, onItemClick, isMinimized = true, onToggleMinimize, forumNews }: ChatInterfaceProps) {
+export default function ChatInterface({ dashboardContext, themeColor, prompts, onPromptAction, onItemClick, isMinimized = true, onToggleMinimize, marketIntel }: ChatInterfaceProps) {
   // Chat has its own distinct purple/violet color scheme
   const colors = {
     gradient: 'from-purple-500/20 via-violet-500/15 to-purple-600/10',
@@ -601,16 +602,64 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     return stored || `session-${Date.now()}`;
   });
 
-  // Create welcome message with forum news if available
   const getWelcomeMessage = () => {
-    let message = `Hello! I'm E.L.F.I.E., your ${dashboardContext} operations assistant. How can I help you optimize your LEGO business today?`;
-    
-    if (forumNews && forumNews.count > 0) {
-      const topPost = forumNews.posts[0];
-      message += `\n\n**LEGO News Update:** There ${forumNews.count === 1 ? 'is' : 'are'} ${forumNews.count} new discussion${forumNews.count === 1 ? '' : 's'} on the BrickLink forum in the past week! The latest: "${topPost.title}" by ${topPost.username}. Ask me to search forum discussions for more details!`;
+    const hasNews = marketIntel && marketIntel.news.count > 0;
+    const hasForum = marketIntel && marketIntel.forum.count > 0;
+    const hasAnything = hasNews || hasForum;
+
+    if (!hasAnything) {
+      return `Hello! I'm E.L.F.I.E., your ${dashboardContext} operations assistant. How can I help you optimize your LEGO business today?`;
     }
-    
-    return message;
+
+    let msg = `### Your Market Briefing`;
+
+    if (hasNews && marketIntel) {
+      const articles = marketIntel.news.articles;
+      const themes = new Map<string, typeof articles>();
+      for (const a of articles) {
+        const topic = a.query || 'General';
+        if (!themes.has(topic)) themes.set(topic, []);
+        themes.get(topic)!.push(a);
+      }
+
+      const topicLabels: Record<string, string> = {
+        'LEGO set retirement announcements': 'Retirements & EOL',
+        'LEGO reseller market news pricing trends': 'Pricing Trends',
+        'BrickLink marketplace updates sellers': 'BrickLink Marketplace',
+        'LEGO collectible investing value 2026': 'Investing & Collectibles',
+        'LEGO supply chain new releases': 'New Releases & Supply',
+      };
+
+      for (const [topic, items] of themes) {
+        const label = topicLabels[topic] || topic;
+        msg += `\n\n**${label}**`;
+        for (const item of items.slice(0, 3)) {
+          msg += `\n- **${item.title}** — ${item.snippet ? item.snippet.substring(0, 120) : item.source}`;
+        }
+      }
+    }
+
+    if (hasForum && marketIntel) {
+      const posts = marketIntel.forum.posts;
+      msg += `\n\n**Community Chatter** (${posts.length} new discussion${posts.length === 1 ? '' : 's'})`;
+      for (const p of posts.slice(0, 4)) {
+        msg += `\n- **${p.title}** — ${p.username}`;
+      }
+    }
+
+    msg += `\n\nAnything catch your eye? Tap a topic to dig in:`;
+
+    if (hasNews) {
+      msg += `\n**PROMPT:** "What LEGO sets are retiring soon?"`;
+      msg += `\n**PROMPT:** "Show me the latest pricing trends"`;
+      msg += `\n**PROMPT:** "Any news about LEGO investing or collectibles?"`;
+    }
+    if (hasForum) {
+      msg += `\n**PROMPT:** "What are people talking about on BrickLink forums?"`;
+    }
+    msg += `\n**PROMPT:** "Search market news for something else"`;
+
+    return msg;
   };
 
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -627,6 +676,12 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (marketIntel && messages.length === 1 && messages[0].role === 'assistant') {
+      setMessages([{ role: 'assistant', content: getWelcomeMessage() }]);
+    }
+  }, [marketIntel]);
 
   // Persist session ID
   useEffect(() => {

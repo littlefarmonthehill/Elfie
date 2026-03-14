@@ -74,14 +74,9 @@ export default function Home() {
     return () => window.removeEventListener('resize', check);
   }, [activeDashboard]);
 
-  const [forumNews, setForumNews] = useState<{
-    count: number;
-    posts: Array<{
-      title: string;
-      username: string;
-      postedAt: string;
-      threadUrl: string;
-    }>;
+  const [marketIntel, setMarketIntel] = useState<{
+    forum: { count: number; posts: Array<{ title: string; excerpt: string; username: string; postedAt: string; threadUrl: string }> };
+    news: { count: number; articles: Array<{ title: string; snippet: string; url: string; source: string; query: string; fetchedAt: string }> };
   } | null>(null);
   const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'platformsync' | 'brickanalyzer' | null>(null);
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'shipped' | null>(null);
@@ -823,39 +818,27 @@ export default function Home() {
   const handleElfieClick = async () => {
     setChatOpen(true);
     
-    // Fetch recent forum news (last 7 days, limit 5 posts)
     try {
-      const response = await fetch('/api/forum/recent?days=7&limit=5');
+      const response = await fetch('/api/market-intel/recent?days=7');
       if (response.ok) {
         const data = await response.json();
-        if (data.success && data.count > 0) {
-          setForumNews({
-            count: data.count,
-            posts: data.posts.map((post: any) => ({
-              title: post.title,
-              username: post.username,
-              postedAt: post.postedAt,
-              threadUrl: post.threadUrl,
-            })),
-          });
+        if (data.success && (data.forum.count > 0 || data.news.count > 0)) {
+          setMarketIntel({ forum: data.forum, news: data.news });
         } else {
-          // Clear forum news if no recent posts
-          setForumNews(null);
+          setMarketIntel(null);
         }
       } else {
-        // Clear forum news on failed fetch
-        setForumNews(null);
+        setMarketIntel(null);
       }
     } catch (error) {
-      console.error('Error fetching forum news:', error);
-      // Clear forum news on error
-      setForumNews(null);
+      console.error('Error fetching market intel:', error);
+      setMarketIntel(null);
     }
   };
 
   const handleChatClose = () => {
     setChatOpen(false);
-    setForumNews(null);
+    setMarketIntel(null);
   };
 
   return (
@@ -1031,7 +1014,7 @@ export default function Home() {
               onItemClick={handleItemClick}
               isMinimized={false}
               onToggleMinimize={handleChatClose}
-              forumNews={forumNews}
+              marketIntel={marketIntel}
             />
           </div>
         </SheetContent>
