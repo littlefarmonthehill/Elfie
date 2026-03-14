@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { format, subMonths, subYears, addYears, startOfMonth, parseISO, startOfDay, getYear, startOfWeek } from "date-fns";
-import { TrendingUp, Target, GitCompare, BarChart2, Info, ArrowRight, X, Activity } from "lucide-react";
+import { TrendingUp, Target, GitCompare, BarChart2, Info, ArrowRight, X, Activity, Radar } from "lucide-react";
 import MetricCard from "./MetricCard";
 import { DateRangeValue } from "./DateRangeSelector";
 import PlatformPerformance from "./PlatformPerformance";
@@ -18,7 +18,7 @@ import {
 
 type TimePeriod = 'mtd' | 'ytd' | '1y' | '5y';
 
-export type SalesDrawer = 'chart' | 'platform-perf' | null;
+export type SalesDrawer = 'chart' | 'platform-perf' | 'business-intel' | null;
 
 interface SalesDashboardProps {
   period: TimePeriod;
@@ -1098,6 +1098,21 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
           </ToolDrawer>
         )}
 
+        {activeDrawer === 'business-intel' && (
+          <ToolDrawer icon={Radar} iconColor="text-cyan-400" title="Business Intel" onClose={closeDrawer} closeTestId="button-close-business-intel">
+            <div className="flex flex-col items-center justify-center py-12 px-6 text-center space-y-4">
+              <div className="rounded-full bg-cyan-900/40 p-4 ring-1 ring-cyan-500/30">
+                <Radar className="w-8 h-8 text-cyan-400 animate-pulse" />
+              </div>
+              <h4 className="text-sm font-semibold text-cyan-200">Business Intelligence Engine</h4>
+              <p className="text-xs text-gray-400 max-w-sm leading-relaxed">
+                Automated insights from market news, forum discussions, sales trends, and inventory data — cross-referenced to surface actionable opportunities for your business.
+              </p>
+              <div className="text-[10px] text-cyan-500/60 uppercase tracking-widest font-mono">Coming Soon</div>
+            </div>
+          </ToolDrawer>
+        )}
+
         <PlatformOrdersDrawer
           open={platformDrawer.open}
           onClose={() => setPlatformDrawer({ open: false, platform: '', productLine: undefined })}
@@ -1158,7 +1173,7 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
             </div>
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Tools</h3>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => onDrawerChange?.('chart')}
               data-testid="tool-sales-chart"
@@ -1215,6 +1230,21 @@ export default function SalesDashboard({ period, dateRange = 'mtd', onItemClick,
                 <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-orange-400/70 group-hover:text-orange-200 transition-colors" />
               </div>
               )}
+            </button>
+            <button
+              onClick={() => onDrawerChange?.('business-intel')}
+              data-testid="tool-business-intel"
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-500/50 bg-gradient-to-br from-cyan-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              style={{ '--tool-glow-color': 'rgba(6,182,212,0.35)' } as React.CSSProperties}
+            >
+              <div className="flex items-center gap-2">
+                <div className="rounded-lg bg-cyan-900/70 p-1.5 ring-1 ring-cyan-500/45 shadow-[0_0_10px_rgba(6,182,212,0.22)]">
+                  <Radar className={cn("w-3.5 h-3.5 text-cyan-200", "md:w-5 md:h-5")} />
+                </div>
+                <span className={cn("text-xs font-bold text-cyan-100 leading-tight flex-1", "md:text-sm")}>Business Intel</span>
+                <ArrowRight className="w-3 h-3 text-cyan-500/60 group-hover:text-cyan-400 transition-colors" />
+              </div>
+              <p className="text-[10px] md:text-xs text-cyan-300/60 leading-snug">Market-driven insights for your business</p>
             </button>
           </div>
         </div>
