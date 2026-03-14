@@ -222,15 +222,24 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
 
       // Self-ping keeps the autoscale container alive by generating an
-      // inbound HTTP request every 4 minutes so the platform doesn't
-      // scale the instance to zero while background schedulers are running.
-      const selfPingUrl = `http://127.0.0.1:${port}/api/health`;
+      // EXTERNAL HTTP request every 4 minutes so the platform counts it
+      // as real traffic and doesn't scale the instance to zero while
+      // background schedulers are running.
+      // Localhost pings (127.0.0.1) don't register with the autoscaler —
+      // only requests arriving via the public domain are counted.
+      const externalDomain = process.env.REPLIT_DOMAINS?.split(',')[0];
+      const selfPingUrl = externalDomain
+        ? `https://${externalDomain}/api/health`
+        : `http://127.0.0.1:${port}/api/health`;
+      console.log(`[SelfPing] URL: ${selfPingUrl}`);
       setInterval(async () => {
         try {
-          const resp = await fetch(selfPingUrl);
+          const resp = await fetch(selfPingUrl, { signal: AbortSignal.timeout(10_000) });
           if (!resp.ok) console.log(`[SelfPing] ${resp.status}`);
-        } catch (_) {}
-      }, 4 * 60 * 1000);
+        } catch (e: any) {
+          console.log(`[SelfPing] failed: ${e.message}`);
+        }
+      }, 3 * 60 * 1000);
 
       // Warm up the Python segmentation service immediately so it's ready
       // before the first Brickanalyzer scan request arrives.
