@@ -1034,10 +1034,11 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     setMessages(conversationHistory);
 
     const isHeadlineRequest = /latest headlines|what'?s new|market briefing|show me.*news/i.test(textToSend);
-    const previewId = `preview-${Date.now()}`;
 
+    let cachedNewsArticles: any[] | null = null;
+    let cachedForumPosts: any[] | null = null;
     if (isHeadlineRequest && marketIntel) {
-      const newsArticles = (marketIntel.news.articles || []).map((a, idx) => ({
+      cachedNewsArticles = (marketIntel.news.articles || []).map((a, idx) => ({
         id: idx,
         title: a.title,
         snippet: a.snippet,
@@ -1047,7 +1048,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         fetchedAt: a.fetchedAt,
         relevance: '',
       }));
-      const forumPosts = (marketIntel.forum.posts || []).map((f, idx) => ({
+      cachedForumPosts = (marketIntel.forum.posts || []).map((f, idx) => ({
         id: `fp-${idx}`,
         threadId: `ft-${idx}-${f.title.substring(0, 20)}`,
         title: f.title,
@@ -1060,16 +1061,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         hasReplies: false,
         relevance: '',
       }));
-
-      const previewMsg: ChatMessage = {
-        role: 'assistant',
-        messageId: previewId,
-        content: `Here's what I found this week — Elfie is analyzing the details now...\n\n### Market News\nLatest articles from around the web.\n\n### Community Discussions\nWhat the BrickLink community is talking about.`,
-        marketNewsArticles: newsArticles,
-        forumDiscussions: forumPosts,
-        streaming: true,
-      };
-      setMessages(prev => [...prev, previewMsg]);
     }
     
     try {
@@ -1099,15 +1090,14 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
           role: 'assistant',
           content: data.message || "I'm having trouble connecting right now. Please try again in a moment.",
         };
-        setMessages(prev => {
-          const filtered = prev.filter(m => m.messageId !== previewId);
-          return [...filtered, errorMessage];
-        });
+        setMessages(prev => [...prev, errorMessage]);
         setIsLoading(false);
         return;
       }
 
       const msgId = `msg-${Date.now()}`;
+      const responseNews = data.marketNewsArticles || [];
+      const responseForums = data.forumDiscussions || [];
       const assistantMessage: ChatMessage = {
         role: 'assistant',
         content: data.message || "I'm sorry, I couldn't generate a response.",
@@ -1115,26 +1105,20 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         streaming: true,
         items: data.items || [],
         orders: data.orders || [],
-        forumDiscussions: data.forumDiscussions || [],
-        marketNewsArticles: data.marketNewsArticles || [],
+        forumDiscussions: responseForums.length > 0 ? responseForums : (cachedForumPosts || []),
+        marketNewsArticles: responseNews.length > 0 ? responseNews : (cachedNewsArticles || []),
         bricklinkSearchSuggestion: data.bricklinkSearchSuggestion || null,
         imageUrl: data.bricklinkItem?.imageUrl || data.bricklinkItem?.thumbnailUrl || undefined,
       };
 
-      setMessages(prev => {
-        const filtered = prev.filter(m => m.messageId !== previewId);
-        return [...filtered, assistantMessage];
-      });
+      setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Chat error:', error);
       const errorMessage: ChatMessage = {
         role: 'assistant',
         content: "I'm having trouble connecting right now. Please try again in a moment.",
       };
-      setMessages(prev => {
-        const filtered = prev.filter(m => m.messageId !== previewId);
-        return [...filtered, errorMessage];
-      });
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
