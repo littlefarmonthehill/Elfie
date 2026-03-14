@@ -402,36 +402,91 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
       return parts.length > 0 ? parts : [text];
     };
 
+    let statBuffer: Array<{ label: string; value: string }> = [];
+    
+    const flushStats = () => {
+      if (statBuffer.length > 0) {
+        const cols = statBuffer.length <= 2 ? statBuffer.length : statBuffer.length <= 4 ? 2 : 3;
+        elements.push(
+          <div key={`stats-${key++}`} className={`grid grid-cols-${cols} gap-2 mb-2`}
+               style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+            {statBuffer.map((stat, si) => (
+              <div key={`stat-${si}`} className="rounded-lg bg-purple-900/20 border border-purple-500/15 p-2.5 text-center">
+                <div className="text-lg font-bold text-white font-mono">{stat.value}</div>
+                <div className="text-[10px] uppercase tracking-wider text-gray-400 mt-0.5">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        );
+        statBuffer = [];
+      }
+    };
+
     lines.forEach((line, index) => {
       const trimmed = line.trim();
+      
+      const statMatch = trimmed.match(/^>\s*\*{0,2}([^*|:]+?)\*{0,2}\s*[:|]\s*(.+)$/);
+      if (statMatch) {
+        flushParagraph();
+        statBuffer.push({ label: statMatch[1].trim(), value: statMatch[2].trim() });
+        return;
+      }
+      
+      if (statBuffer.length > 0) {
+        flushStats();
+      }
+      
       if (/^#{1,3}\s/.test(trimmed)) {
         flushParagraph();
         const headerText = trimmed.replace(/^#{1,3}\s+/, '');
         elements.push(
-          <div key={`header-${key++}`} className="text-sm font-semibold text-purple-300 uppercase tracking-wide mt-3 mb-1.5 border-b border-purple-500/20 pb-1">
+          <div key={`header-${key++}`} className="text-xs font-semibold text-purple-300 uppercase tracking-wider mt-3 mb-1.5 border-b border-purple-500/20 pb-1">
             {parseInlineContent(headerText)}
           </div>
         );
       } else if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
         flushParagraph();
         const bulletText = trimmed.substring(2);
-        elements.push(
-          <div key={`bullet-${key++}`} className="flex gap-2.5 py-1.5 px-2 rounded-md bg-purple-900/10 mb-1">
-            <span className="text-purple-400 shrink-0 mt-0.5">•</span>
-            <span className="flex-1">{parseInlineContent(bulletText)}</span>
-          </div>
-        );
+        const kvMatch = bulletText.match(/^\*{0,2}([^*]+?)\*{0,2}\s*[—–:]\s*(.+)$/);
+        if (kvMatch) {
+          elements.push(
+            <div key={`bullet-${key++}`} className="flex items-center justify-between gap-2 py-1.5 px-3 rounded-md bg-purple-900/10 border border-purple-500/10 mb-1">
+              <span className="text-gray-200 font-medium text-sm">{parseInlineContent(kvMatch[1].trim())}</span>
+              <span className="text-purple-300 font-mono text-sm whitespace-nowrap">{parseInlineContent(kvMatch[2].trim())}</span>
+            </div>
+          );
+        } else {
+          elements.push(
+            <div key={`bullet-${key++}`} className="flex gap-2.5 py-1.5 px-3 rounded-md bg-purple-900/10 border border-purple-500/10 mb-1">
+              <span className="text-purple-400 shrink-0 mt-0.5">•</span>
+              <span className="flex-1 text-sm">{parseInlineContent(bulletText)}</span>
+            </div>
+          );
+        }
       } else if (/^\d+\.\s/.test(trimmed)) {
         flushParagraph();
         const numMatch = trimmed.match(/^(\d+)\.\s/);
         const num = numMatch ? numMatch[1] : '';
         const bulletText = trimmed.replace(/^\d+\.\s/, '');
-        elements.push(
-          <div key={`numbered-${key++}`} className="flex gap-2.5 py-1.5 px-2 rounded-md bg-purple-900/10 mb-1">
-            <span className="text-purple-400 shrink-0 min-w-[1.4em] text-right font-mono text-sm mt-0.5">{num}.</span>
-            <span className="flex-1">{parseInlineContent(bulletText)}</span>
-          </div>
-        );
+        const kvMatch = bulletText.match(/^\*{0,2}([^*]+?)\*{0,2}\s*[—–:]\s*(.+)$/);
+        if (kvMatch) {
+          elements.push(
+            <div key={`numbered-${key++}`} className="flex items-center justify-between gap-2 py-1.5 px-3 rounded-md bg-purple-900/10 border border-purple-500/10 mb-1">
+              <div className="flex items-center gap-2">
+                <span className="text-purple-400 font-mono text-xs">{num}.</span>
+                <span className="text-gray-200 font-medium text-sm">{parseInlineContent(kvMatch[1].trim())}</span>
+              </div>
+              <span className="text-purple-300 font-mono text-sm whitespace-nowrap">{parseInlineContent(kvMatch[2].trim())}</span>
+            </div>
+          );
+        } else {
+          elements.push(
+            <div key={`numbered-${key++}`} className="flex gap-2.5 py-1.5 px-3 rounded-md bg-purple-900/10 border border-purple-500/10 mb-1">
+              <span className="text-purple-400 shrink-0 min-w-[1.4em] text-right font-mono text-xs mt-0.5">{num}.</span>
+              <span className="flex-1 text-sm">{parseInlineContent(bulletText)}</span>
+            </div>
+          );
+        }
       } else if (/\*\*PROMPT:\*\*/.test(trimmed)) {
         flushParagraph();
         elements.push(
@@ -446,6 +501,7 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, br
       }
     });
 
+    flushStats();
     flushParagraph();
 
     return elements;
