@@ -1671,7 +1671,7 @@ export const productBacklogItems = pgTable("product_backlog_items", {
   description: text("description").default(''),
   priority: varchar("priority", { length: 20 }).notNull().default('medium'),
   effort: varchar("effort", { length: 10 }).notNull().default('M'),
-  status: varchar("status", { length: 20 }).notNull().default('open'),
+  status: varchar("status", { length: 20 }).notNull().default('new'),
   roadmapItemId: integer("roadmap_item_id"),
   capabilityId: integer("capability_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

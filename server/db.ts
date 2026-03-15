@@ -638,6 +638,11 @@ export async function runMigrations() {
     await pool.query(`ALTER TABLE product_backlog_items ADD COLUMN IF NOT EXISTS capability_id INTEGER`);
     console.log('[Migration] Phase-31 (capability status + backlog capability link) complete.');
 
+    // Phase-32: Backlog status rename open→new + add parking-lot
+    await pool.query(`UPDATE product_backlog_items SET status = 'new' WHERE status = 'open'`);
+    await pool.query(`ALTER TABLE product_backlog_items ALTER COLUMN status SET DEFAULT 'new'`);
+    console.log('[Migration] Phase-32 (backlog status open→new + parking-lot) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
