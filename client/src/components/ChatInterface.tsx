@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Sparkles, Brain, ChevronDown, ChevronRight, Globe, Clock, Newspaper, MessageSquare, Headphones, UserPlus, Scan, DollarSign, ListChecks, PackageCheck, BarChart3, TrendingUp } from "lucide-react";
+import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Sparkles, Brain, ChevronDown, ChevronRight, Globe, Clock, Newspaper, MessageSquare, Headphones, UserPlus, Scan, DollarSign, ListChecks, PackageCheck, BarChart3, TrendingUp, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InventoryGroup } from "@/components/InventoryGroup";
@@ -1076,6 +1076,8 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [supportTicket, setSupportTicket] = useState<{ id: string; status: string } | null>(null);
   const [escalating, setEscalating] = useState(false);
+  const [featureRequestMode, setFeatureRequestMode] = useState(false);
+  const [pendingFeature, setPendingFeature] = useState<string | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const lastPollRef = useRef<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -1197,6 +1199,90 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     }
   };
 
+  const handleEnterFeatureMode = () => {
+    setFeatureRequestMode(true);
+    setPendingFeature(null);
+    setMessages(prev => [
+      ...prev,
+      { role: 'system', content: 'Feature Request Mode' },
+      { role: 'assistant', content: "I'd love to hear your idea! Describe the feature you'd like to see in E.L.F.I.E. and I'll help shape it into a clear request." },
+    ]);
+  };
+
+  const handleExitFeatureMode = () => {
+    setFeatureRequestMode(false);
+    setPendingFeature(null);
+    setMessages(prev => [
+      ...prev,
+      { role: 'system', content: 'Returned to normal chat' },
+    ]);
+  };
+
+  const handleFeatureRephrase = async (description: string) => {
+    setIsLoading(true);
+    setPendingFeature(null);
+    const userMsg: ChatMessage = { role: 'user', content: description };
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    if (inputRef.current) (inputRef.current as HTMLTextAreaElement).style.height = '40px';
+
+    try {
+      const res = await fetch('/api/feature-request/rephrase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ description }),
+      });
+      if (!res.ok) throw new Error('Failed to rephrase');
+      const data = await res.json();
+      setPendingFeature(data.rephrased);
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: `Here's how I'd word your request:\n\n**"${data.rephrased}"**\n\nDoes this capture what you want? Type **yes** to submit, or describe it differently and I'll try again.` },
+      ]);
+    } catch {
+      setPendingFeature(description);
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: `I couldn't rephrase that automatically, but I have your request:\n\n**"${description}"**\n\nType **yes** to submit it as-is, or try describing it differently.` },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFeatureConfirm = async () => {
+    if (!pendingFeature) return;
+    setIsLoading(true);
+    setMessages(prev => [...prev, { role: 'user', content: 'Yes, submit it!' }]);
+
+    try {
+      const res = await fetch('/api/feature-request/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ feature: pendingFeature }),
+      });
+      if (!res.ok) throw new Error('Failed to submit');
+      const data = await res.json();
+      const l2Label = data.l2Name || 'General';
+      setPendingFeature(null);
+      setFeatureRequestMode(false);
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: `Your feature request has been added to the backlog under **${l2Label}** with a **New** status. The product team will review it soon.\n\nThank you for helping make E.L.F.I.E. better! You can continue chatting normally now.` },
+      ]);
+      toast({ title: 'Feature request submitted', description: `Added to ${l2Label} backlog` });
+    } catch {
+      setMessages(prev => [
+        ...prev,
+        { role: 'assistant', content: "Something went wrong submitting your request. Please try again." },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const scrollToBottom = () => {
     // Never scroll if input is focused (critical for iOS keyboard)
     if (isInputFocused) {
@@ -1255,6 +1341,23 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const handleSend = async (message?: string) => {
     const textToSend = message || input;
     if (!textToSend.trim() || isLoading) return;
+
+    if (featureRequestMode) {
+      inputRef.current?.blur();
+      const trimmed = textToSend.trim().toLowerCase();
+      const isConfirm = pendingFeature && /^(y(es|ep|eah|up)?|sure|ok(ay)?|submit|looks?\s*good|perfect|that('?s| is)\s*(good|right|correct|it|perfect))[\s!.]*$/i.test(trimmed);
+      const isCancel = /^(cancel|exit|no|nah|nevermind|never\s*mind|quit|stop)[\s!.]*$/i.test(trimmed);
+      if (isConfirm) {
+        setInput('');
+        handleFeatureConfirm();
+      } else if (isCancel) {
+        setInput('');
+        handleExitFeatureMode();
+      } else {
+        handleFeatureRephrase(textToSend);
+      }
+      return;
+    }
     
     inputRef.current?.blur();
     if (inputRef.current) (inputRef.current as HTMLTextAreaElement).style.height = '40px';
@@ -1587,29 +1690,62 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
           )}
           
           <div className={`border-t-2 ${colors.border} bg-gray-900/50 backdrop-blur-sm`}>
-            <div className="flex gap-2 md:gap-3 lg:gap-4 p-3 md:p-4 lg:p-5">
-              {!supportTicket && (
-                <Button 
-                  size="icon" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleEscalate();
-                  }}
-                  variant="ghost"
-                  className="text-green-400 hover:text-green-300 hover:bg-green-500/20 md:h-12 md:w-12 lg:h-14 lg:w-14"
-                  data-testid="button-escalate"
-                  disabled={isLoading || escalating || messages.length < 3}
-                  title="Talk to a person"
-                >
-                  {escalating ? <RefreshCcw className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 animate-spin" /> : <UserPlus className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" />}
-                </Button>
-              )}
-              {supportTicket && supportTicket.status !== 'resolved' && (
-                <div className="flex items-center gap-1 px-2">
-                  <Headphones className="h-3.5 w-3.5 text-green-400" />
-                  <span className="text-[10px] text-green-400 whitespace-nowrap">{supportTicket.status === 'active' ? 'Agent joined' : 'Waiting...'}</span>
+            {featureRequestMode && (
+              <div className="flex items-center gap-2 px-3 md:px-4 pt-2 pb-0">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[10px] md:text-xs font-medium">
+                  <Lightbulb className="h-3 w-3" />
+                  <span>Feature Request Mode</span>
                 </div>
-              )}
+                <button
+                  onClick={handleExitFeatureMode}
+                  className="text-[10px] text-gray-500 hover:text-gray-300 underline"
+                  data-testid="button-exit-feature-mode"
+                >
+                  exit
+                </button>
+              </div>
+            )}
+            <div className="flex gap-2 md:gap-3 lg:gap-4 p-3 md:p-4 lg:p-5">
+              <div className="flex flex-col gap-1 flex-shrink-0">
+                {!supportTicket && !featureRequestMode && (
+                  <Button 
+                    size="icon" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEscalate();
+                    }}
+                    variant="ghost"
+                    className="text-green-400 hover:text-green-300 hover:bg-green-500/20"
+                    data-testid="button-escalate"
+                    disabled={isLoading || escalating || messages.length < 3}
+                    title="Talk to a person"
+                  >
+                    {escalating ? <RefreshCcw className="h-4 w-4 animate-spin" /> : <Headphones className="h-4 w-4" />}
+                  </Button>
+                )}
+                {!featureRequestMode && (
+                  <Button 
+                    size="icon" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEnterFeatureMode();
+                    }}
+                    variant="ghost"
+                    className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/20"
+                    data-testid="button-feature-request"
+                    disabled={isLoading}
+                    title="Request a feature"
+                  >
+                    <Lightbulb className="h-4 w-4" />
+                  </Button>
+                )}
+                {supportTicket && supportTicket.status !== 'resolved' && (
+                  <div className="flex items-center gap-1 px-1">
+                    <Headphones className="h-3.5 w-3.5 text-green-400" />
+                    <span className="text-[10px] text-green-400 whitespace-nowrap">{supportTicket.status === 'active' ? 'Agent joined' : 'Waiting...'}</span>
+                  </div>
+                )}
+              </div>
               <textarea
                 ref={inputRef as any}
                 value={input}
@@ -1630,7 +1766,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                 }}
                 onBlur={() => setIsInputFocused(false)}
                 onClick={(e) => e.stopPropagation()}
-                placeholder="Ask E.L.F.I.E. for help..."
+                placeholder={featureRequestMode ? (pendingFeature ? 'Type "yes" to submit or describe differently...' : 'Describe the feature you want...') : 'Ask E.L.F.I.E. for help...'}
                 rows={1}
                 className="flex-1 text-sm md:text-base lg:text-lg bg-gray-800/80 border border-purple-500/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-500/50 rounded-md px-3 py-2 resize-none overflow-y-auto text-gray-100 placeholder:text-gray-500 leading-normal"
                 style={{ height: '40px', maxHeight: '120px' }}

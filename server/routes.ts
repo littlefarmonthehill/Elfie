@@ -2412,7 +2412,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const { title, description, level, parentId, sortOrder, status } = req.body;
-      const validStatuses = ['built', 'now', 'next', 'later'];
+      const validStatuses = ['built', 'new', 'now', 'next', 'later'];
       const updates: any = {};
       if (title !== undefined) updates.title = title;
       if (description !== undefined) updates.description = description;
@@ -2446,6 +2446,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.delete(productCapabilities).where(eq(productCapabilities.id, id));
       res.json({ ok: true });
     } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  // ─── Feature Request (any authenticated user) ────────────────────────────────
+
+  app.post('/api/feature-request/rephrase', isAuthenticated, async (req: any, res) => {
+    try {
+      const { description } = req.body;
+      if (!description || typeof description !== 'string' || description.trim().length < 5) {
+        return res.status(400).json({ message: 'Please describe the feature you want.' });
+      }
+      const apiKey = await getPlatformOpenAIKey();
+      if (!apiKey) return res.status(503).json({ message: 'AI service not configured.' });
+      const openai = new OpenAI({ apiKey });
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are a product manager for E.L.F.I.E., a LEGO/BrickLink inventory management SaaS. Rephrase the user\'s feature request into a clear, concise, well-written product feature description (1-2 sentences max). Keep the user\'s intent but make it professional. Return ONLY the rephrased feature text, nothing else.' },
+          { role: 'user', content: description },
+        ],
+        max_tokens: 200,
+        temperature: 0.3,
+      });
+      const rephrased = completion.choices[0]?.message?.content?.trim() || description;
+      res.json({ rephrased });
+    } catch (error: any) {
+      console.error('[FeatureRequest] rephrase error:', error.message);
+      res.status(500).json({ message: 'Could not rephrase feature request.' });
+    }
+  });
+
+  app.post('/api/feature-request/submit', isAuthenticated, async (req: any, res) => {
+    try {
+      const { feature } = req.body;
+      if (!feature || typeof feature !== 'string' || feature.trim().length < 5) {
+        return res.status(400).json({ message: 'Feature description is required.' });
+      }
+      const allCaps = await db.select().from(productCapabilities).orderBy(asc(productCapabilities.level), asc(productCapabilities.sortOrder));
+      const l2Caps = allCaps.filter(c => c.level === 2);
+      let assignedParentId: number | null = null;
+      let assignedL2Name = 'General';
+      if (l2Caps.length > 0) {
+        const apiKey = await getPlatformOpenAIKey();
+        if (apiKey) {
+          const openai = new OpenAI({ apiKey });
+          const l2List = l2Caps.map(c => `ID:${c.id} "${c.title}"`).join(', ');
+          const completion = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: `You are classifying a feature request into a product capability category. The available L2 categories are: ${l2List}. Return ONLY the numeric ID of the best-matching category. If none fit well, return 0.` },
+              { role: 'user', content: feature },
+            ],
+            max_tokens: 10,
+            temperature: 0,
+          });
+          const idStr = completion.choices[0]?.message?.content?.trim() || '0';
+          const idMatch = idStr.match(/\d+/);
+          const parsedId = idMatch ? parseInt(idMatch[0], 10) : 0;
+          const matched = l2Caps.find(c => c.id === parsedId);
+          if (matched) {
+            assignedParentId = matched.id;
+            assignedL2Name = matched.title;
+          }
+        }
+      }
+      if (!assignedParentId && l2Caps.length > 0) {
+        assignedParentId = l2Caps[0].id;
+        assignedL2Name = l2Caps[0].title;
+      }
+      const maxSort = allCaps.filter(c => c.level === 3 && c.parentId === assignedParentId).reduce((mx, c) => Math.max(mx, c.sortOrder), 0);
+      const [newCap] = await db.insert(productCapabilities).values({
+        title: feature.trim(),
+        description: '',
+        level: 3,
+        parentId: assignedParentId,
+        sortOrder: maxSort + 1,
+        status: 'new',
+      }).returning();
+      res.json({ capability: newCap, l2Name: assignedL2Name });
+    } catch (error: any) {
+      console.error('[FeatureRequest] submit error:', error.message);
+      res.status(500).json({ message: 'Could not save feature request.' });
+    }
   });
 
   // ─── Billing routes ──────────────────────────────────────────────────────────
