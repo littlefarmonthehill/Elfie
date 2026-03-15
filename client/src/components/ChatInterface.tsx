@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Sparkles, Brain, ChevronDown, ChevronRight, Globe, Clock, Newspaper, MessageSquare, Headphones, Lightbulb } from "lucide-react";
+import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Sparkles, Brain, ChevronDown, ChevronRight, Globe, Clock, Newspaper, MessageSquare, Headphones, Lightbulb, Plus, History, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InventoryGroup } from "@/components/InventoryGroup";
 import { OrderGroup } from "@/components/OrderGroup";
@@ -1043,10 +1043,26 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     promptBg: 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30',
   };
 
-  // Initialize or retrieve session ID for conversation continuity
+  const INACTIVITY_HOURS = 24;
+
+  const checkAutoExpiry = (storedId: string): string => {
+    const lastActivity = localStorage.getItem('elfie-last-activity');
+    if (lastActivity) {
+      const hoursSince = (Date.now() - parseInt(lastActivity)) / (1000 * 60 * 60);
+      if (hoursSince >= INACTIVITY_HOURS) {
+        const newId = `session-${Date.now()}`;
+        localStorage.setItem('elfie-session-id', newId);
+        localStorage.setItem('elfie-last-activity', String(Date.now()));
+        return newId;
+      }
+    }
+    return storedId;
+  };
+
   const [sessionId, setSessionId] = useState<string>(() => {
     const stored = localStorage.getItem('elfie-session-id');
-    return stored || `session-${Date.now()}`;
+    const id = stored || `session-${Date.now()}`;
+    return checkAutoExpiry(id);
   });
 
   const getWelcomeMessage = () => {
@@ -1054,10 +1070,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   };
 
   const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: 'assistant',
-      content: getWelcomeMessage()
-    }
+    { role: 'assistant', content: getWelcomeMessage() }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -1069,11 +1082,66 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const [featureRequestMode, setFeatureRequestMode] = useState(false);
   const [pendingFeature, setPendingFeature] = useState<string | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [showThreadList, setShowThreadList] = useState(false);
+  const [threads, setThreads] = useState<{ id: string; sessionId: string; title: string; updatedAt: string }[]>([]);
+  const [threadsLoading, setThreadsLoading] = useState(false);
   const lastPollRef = useRef<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  const loadThreads = async () => {
+    setThreadsLoading(true);
+    try {
+      const res = await fetch('/api/conversations/threads', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setThreads(data);
+      }
+    } catch {}
+    setThreadsLoading(false);
+  };
+
+  const handleNewChat = () => {
+    const newId = `session-${Date.now()}`;
+    setSessionId(newId);
+    localStorage.setItem('elfie-session-id', newId);
+    localStorage.setItem('elfie-last-activity', String(Date.now()));
+    setMessages([{ role: 'assistant', content: getWelcomeMessage() }]);
+    setSupportTicket(null);
+    setFeatureRequestMode(false);
+    setPendingFeature(null);
+    setHistoryLoaded(true);
+    setShowThreadList(false);
+    lastPollRef.current = 0;
+  };
+
+  const handleSwitchThread = async (threadSessionId: string) => {
+    setSessionId(threadSessionId);
+    localStorage.setItem('elfie-session-id', threadSessionId);
+    localStorage.setItem('elfie-last-activity', String(Date.now()));
+    setHistoryLoaded(false);
+    setShowThreadList(false);
+    setSupportTicket(null);
+    setFeatureRequestMode(false);
+    setPendingFeature(null);
+    lastPollRef.current = 0;
+  };
+
+  const handleDeleteThread = async (threadSessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await fetch(`/api/conversations/threads/${encodeURIComponent(threadSessionId)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      setThreads(prev => prev.filter(t => t.sessionId !== threadSessionId));
+      if (threadSessionId === sessionId) {
+        handleNewChat();
+      }
+    } catch {}
+  };
 
   // Load conversation history + active ticket on mount
   useEffect(() => {
@@ -1114,9 +1182,10 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     }
   }, [marketIntel]);
 
-  // Persist session ID
+  // Persist session ID and update last activity
   useEffect(() => {
     localStorage.setItem('elfie-session-id', sessionId);
+    localStorage.setItem('elfie-last-activity', String(Date.now()));
   }, [sessionId]);
 
   // Poll for new support/system messages when ticket is active
@@ -1331,6 +1400,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const handleSend = async (message?: string) => {
     const textToSend = message || input;
     if (!textToSend.trim() || isLoading) return;
+    localStorage.setItem('elfie-last-activity', String(Date.now()));
 
     if (featureRequestMode) {
       inputRef.current?.blur();
@@ -1397,7 +1467,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
           'X-Session-Id': sessionId,
         },
         body: JSON.stringify({
-          messages: conversationHistory.map(m => ({
+          messages: conversationHistory.slice(-20).map(m => ({
             role: m.role,
             content: m.content,
           })),
@@ -1525,7 +1595,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   return (
     <>
     <div 
-      className={`flex flex-col ${isMinimized ? 'min-h-16' : 'h-full'} border-t-4 ${colors.border} bg-gradient-to-br ${colors.gradient} to-transparent ${colors.glow}`}
+      className={`flex flex-col relative ${isMinimized ? 'min-h-16' : 'h-full'} border-t-4 ${colors.border} bg-gradient-to-br ${colors.gradient} to-transparent ${colors.glow}`}
     >
       <div 
         className={`flex items-center justify-between gap-2 md:gap-3 lg:gap-4 p-3 md:p-4 lg:p-5 border-b-2 ${colors.border} ${colors.headerBg} backdrop-blur-sm`}
@@ -1536,24 +1606,57 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
             <span className="text-sm md:text-lg lg:text-xl font-bold text-purple-300">E.L.F.I.E.</span>
           </div>
         </div>
-        {onToggleMinimize && (
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleMinimize();
-            }}
-            className="h-7 w-7 md:h-10 md:w-10 lg:h-12 lg:w-12 hover:bg-purple-500/20"
-            data-testid="button-toggle-chat"
-          >
-            {isMinimized ? (
-              <Maximize2 className={`h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 ${colors.icon}`} />
-            ) : (
-              <Minimize2 className={`h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 ${colors.icon}`} />
-            )}
-          </Button>
-        )}
+        <div className="flex items-center gap-1">
+          {!isMinimized && (
+            <>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNewChat();
+                }}
+                className="h-7 w-7 md:h-8 md:w-8 hover:bg-purple-500/20"
+                data-testid="button-new-chat"
+                title="New conversation"
+              >
+                <Plus className={`h-4 w-4 ${colors.icon}`} />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowThreadList(!showThreadList);
+                  if (!showThreadList) loadThreads();
+                }}
+                className="h-7 w-7 md:h-8 md:w-8 hover:bg-purple-500/20"
+                data-testid="button-thread-list"
+                title="Conversation history"
+              >
+                <History className={`h-4 w-4 ${colors.icon}`} />
+              </Button>
+            </>
+          )}
+          {onToggleMinimize && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleMinimize();
+              }}
+              className="h-7 w-7 md:h-10 md:w-10 lg:h-12 lg:w-12 hover:bg-purple-500/20"
+              data-testid="button-toggle-chat"
+            >
+              {isMinimized ? (
+                <Maximize2 className={`h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 ${colors.icon}`} />
+              ) : (
+                <Minimize2 className={`h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 ${colors.icon}`} />
+              )}
+            </Button>
+          )}
+        </div>
       </div>
 
       {!isMinimized && (
@@ -1588,6 +1691,68 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
               <span>Agent Request</span>
             </button>
           )}
+        </div>
+      )}
+
+      {!isMinimized && showThreadList && (
+        <div className="absolute inset-0 top-[auto] z-20 bg-gray-900/95 backdrop-blur-sm flex flex-col" style={{ height: 'calc(100% - 60px)', top: '60px' }}>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-purple-500/20">
+            <span className="text-sm font-medium text-purple-300">Conversation History</span>
+            <Button size="icon" variant="ghost" onClick={() => setShowThreadList(false)} className="h-6 w-6 hover:bg-purple-500/20" data-testid="button-close-threads">
+              <X className="h-4 w-4 text-gray-400" />
+            </Button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-2">
+            {threadsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCcw className="h-5 w-5 animate-spin text-purple-400" />
+              </div>
+            ) : threads.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 text-sm">No past conversations</div>
+            ) : (
+              <div className="space-y-1">
+                {threads.map((thread) => (
+                  <div
+                    key={thread.sessionId}
+                    onClick={() => handleSwitchThread(thread.sessionId)}
+                    className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-md cursor-pointer transition-colors group ${
+                      thread.sessionId === sessionId
+                        ? 'bg-purple-500/20 border border-purple-500/30'
+                        : 'hover:bg-gray-800/60'
+                    }`}
+                    data-testid={`thread-${thread.sessionId}`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm text-gray-200 truncate">{thread.title || 'New conversation'}</div>
+                      <div className="text-[10px] text-gray-500 mt-0.5">
+                        {new Date(thread.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        {' '}
+                        {new Date(thread.updatedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => handleDeleteThread(thread.sessionId, e)}
+                      className="invisible group-hover:visible p-1 rounded hover:bg-red-500/20 text-gray-500 hover:text-red-400 flex-shrink-0"
+                      data-testid={`button-delete-thread-${thread.sessionId}`}
+                      title="Delete conversation"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="p-3 border-t border-purple-500/20">
+            <button
+              onClick={handleNewChat}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium transition-colors"
+              data-testid="button-new-chat-from-list"
+            >
+              <Plus className="h-4 w-4" />
+              <span>New Conversation</span>
+            </button>
+          </div>
         </div>
       )}
 

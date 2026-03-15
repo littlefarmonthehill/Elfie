@@ -627,6 +627,21 @@ export const insertAppSettingsSchema = createInsertSchema(appSettings).omit({
 export type InsertAppSettings = z.infer<typeof insertAppSettingsSchema>;
 export type AppSettings = typeof appSettings.$inferSelect;
 
+// Conversation Threads — chat session metadata
+export const conversationThreads = pgTable("conversation_threads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: text("session_id").notNull().unique(),
+  orgId: varchar("org_id").notNull(),
+  title: text("title").default('New conversation'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  orgIdIdx: index("conversation_threads_org_idx").on(table.orgId),
+  updatedAtIdx: index("conversation_threads_updated_idx").on(table.updatedAt),
+}));
+
+export type ConversationThread = typeof conversationThreads.$inferSelect;
+
 // Conversation History for E.L.F.I.E. learning
 export const conversations = pgTable("conversations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

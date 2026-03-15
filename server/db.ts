@@ -783,6 +783,21 @@ export async function runMigrations() {
       console.log('[Migration] Phase-33 (capability tree already populated, batch scan feature ensured) complete.');
     }
 
+    // Phase-34: Conversation threads table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS conversation_threads (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        session_id TEXT NOT NULL UNIQUE,
+        org_id VARCHAR NOT NULL,
+        title TEXT DEFAULT 'New conversation',
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS conversation_threads_org_idx ON conversation_threads (org_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS conversation_threads_updated_idx ON conversation_threads (updated_at)`);
+    console.log('[Migration] Phase-34 (conversation threads table) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

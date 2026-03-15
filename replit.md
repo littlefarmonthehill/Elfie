@@ -168,10 +168,21 @@ Internal product management tools for the platform admin (superAdmin only). Loca
 - **API routes**: All under `/api/platform-admin/product/*` — `GET/PUT /vision`, `POST /vision/generate`, `GET/POST /okrs`, `PATCH/DELETE /okrs/:id`, `POST /key-results`, `PATCH/DELETE /key-results/:id`, `GET/POST /capabilities`, `PATCH/DELETE /capabilities/:id`, `GET/POST /roadmap`, `PATCH/DELETE /roadmap/:id`, `GET/POST /backlog`, `PATCH/DELETE /backlog/:id`.
 - **Traceability chain**: Vision → OKRs → Capabilities → Roadmap → Backlog. Each level can reference its parent for end-to-end alignment. Backlog items link to L2 capabilities; features have status badges showing build state or roadmap lane.
 
+## Elfie Chat — Conversation History
+
+ChatGPT-style conversation management with thread persistence and auto-expiry.
+
+- **Table**: `conversation_threads` (id, session_id UNIQUE, org_id, title, created_at, updated_at). Migration Phase-34.
+- **Thread lifecycle**: Threads are auto-created when first message is saved in `/api/chat`. Title auto-generated via GPT-4o-mini from first user messages (3-6 word summary). Falls back to first 40 chars if AI unavailable.
+- **Auto-expiry**: If 24+ hours have passed since last activity (tracked in `localStorage` as `elfie-last-activity`), a new session is auto-started on next visit.
+- **UI**: Header has "+" (new chat) and clock (history) buttons. History opens an overlay panel listing past threads sorted by most recent, with date/time stamps. Current thread is highlighted. Delete button (trash icon) appears on hover per thread. "New Conversation" button at bottom.
+- **Context window**: Last 20 messages sent to AI per request (`.slice(-20)`), preventing unbounded token usage in long conversations.
+- **API routes**: `GET /api/conversations/threads` (list, limit 50), `POST /api/conversations/threads` (create/ensure), `PATCH /api/conversations/threads/:sessionId/title`, `DELETE /api/conversations/threads/:sessionId` (deletes thread + messages), `POST /api/conversations/threads/:sessionId/generate-title` (AI title generation).
+
 ## Elfie Chat — Feature Requests & Toolbar
 
-- **Feature Request Mode**: Users click "Request a Feature" in the chat toolbar to enter feature request mode. They describe a feature; Elfie AI rephrases it for clarity via `POST /api/feature-request/rephrase`. The user confirms (typing "yes", "confirm", etc.) and it's saved as a level-3 capability with `status='new'` via `POST /api/feature-request/submit`, auto-classified into the best-matching L2 capability.
-- **Chat toolbar** (below input): Three pills — "Latest News" (quick prompt), "Request a Feature" (enters feature request mode), "Talk to a Person" (escalation). These are the only toolbar items; conversation-driven suggestions come from Elfie.
+- **Feature Request Mode**: Users click "Feature Request" in the chat toolbar to enter feature request mode. They describe a feature; Elfie AI rephrases it for clarity via `POST /api/feature-request/rephrase`. The user confirms (typing "yes", "confirm", etc.) and it's saved as a level-3 capability with `status='new'` via `POST /api/feature-request/submit`, auto-classified into the best-matching L2 capability.
+- **Chat toolbar** (below title): Three pills — "Latest News" (quick prompt), "Feature Request" (enters feature request mode), "Agent Request" (escalation). These are the only toolbar items; conversation-driven suggestions come from Elfie.
 - **Support ticket status**: Shown inline above the input area when a ticket is active/escalated.
 
 ## Elfie Chat — Progressive Reveal & AI Overviews

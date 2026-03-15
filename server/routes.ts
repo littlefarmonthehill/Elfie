@@ -47,7 +47,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, planConfigs, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, planConfigs, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -2015,6 +2015,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ticket: ticket || null,
         hasUnseenSupport: (unseenSupport[0]?.count || 0) > 0,
       });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Conversation Threads — ChatGPT-style conversation management
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // GET /api/conversations/threads — list conversation threads for current org
+  app.get('/api/conversations/threads', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const threads = await db.select().from(conversationThreads)
+        .where(eq(conversationThreads.orgId, orgId))
+        .orderBy(desc(conversationThreads.updatedAt))
+        .limit(50);
+      res.json(threads);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // POST /api/conversations/threads — create or ensure a thread exists for a sessionId
+  app.post('/api/conversations/threads', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { sessionId } = req.body;
+      if (!sessionId) return res.status(400).json({ message: "sessionId required" });
+      const [existing] = await db.select().from(conversationThreads)
+        .where(eq(conversationThreads.sessionId, sessionId))
+        .limit(1);
+      if (existing) return res.json(existing);
+      const [thread] = await db.insert(conversationThreads).values({
+        sessionId,
+        orgId,
+        title: 'New conversation',
+      }).returning();
+      res.json(thread);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // PATCH /api/conversations/threads/:sessionId/title — auto-generate or manually set title
+  app.patch('/api/conversations/threads/:sessionId/title', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { sessionId } = req.params;
+      const { title } = req.body;
+      if (!title) return res.status(400).json({ message: "title required" });
+      await db.update(conversationThreads)
+        .set({ title, updatedAt: new Date() })
+        .where(and(eq(conversationThreads.sessionId, sessionId), eq(conversationThreads.orgId, orgId)));
+      res.json({ ok: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // DELETE /api/conversations/threads/:sessionId — delete a thread and its messages
+  app.delete('/api/conversations/threads/:sessionId', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { sessionId } = req.params;
+      await db.delete(conversations)
+        .where(and(eq(conversations.sessionId, sessionId), eq(conversations.orgId, orgId)));
+      await db.delete(conversationThreads)
+        .where(and(eq(conversationThreads.sessionId, sessionId), eq(conversationThreads.orgId, orgId)));
+      res.json({ ok: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // POST /api/conversations/threads/:sessionId/generate-title — AI-generate title from first user message
+  app.post('/api/conversations/threads/:sessionId/generate-title', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { sessionId } = req.params;
+      const firstMessages = await db.select({ content: conversations.content, role: conversations.role })
+        .from(conversations)
+        .where(and(eq(conversations.sessionId, sessionId), eq(conversations.orgId, orgId), eq(conversations.role, 'user')))
+        .orderBy(asc(conversations.createdAt))
+        .limit(2);
+      if (firstMessages.length === 0) return res.json({ title: 'New conversation' });
+      const snippet = firstMessages.map(m => m.content).join(' ').slice(0, 200);
+      try {
+        const openai = (await import('openai')).default;
+        const platformSettings = await db.select().from(appSettings).where(eq(appSettings.orgId, PLATFORM_ORG_ID)).limit(1);
+        const apiKey = platformSettings[0]?.openaiApiKey;
+        if (apiKey) {
+          const client = new openai({ apiKey });
+          const completion = await client.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: 'Generate a very short title (3-6 words) for this conversation. No quotes. No punctuation at end.' },
+              { role: 'user', content: snippet },
+            ],
+            max_tokens: 20,
+            temperature: 0.5,
+          });
+          const title = completion.choices[0]?.message?.content?.trim() || snippet.slice(0, 40);
+          await db.update(conversationThreads)
+            .set({ title, updatedAt: new Date() })
+            .where(and(eq(conversationThreads.sessionId, sessionId), eq(conversationThreads.orgId, orgId)));
+          return res.json({ title });
+        }
+      } catch {}
+      const fallbackTitle = snippet.slice(0, 40) + (snippet.length > 40 ? '...' : '');
+      await db.update(conversationThreads)
+        .set({ title: fallbackTitle, updatedAt: new Date() })
+        .where(and(eq(conversationThreads.sessionId, sessionId), eq(conversationThreads.orgId, orgId)));
+      res.json({ title: fallbackTitle });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -5321,8 +5435,8 @@ Format search_web URLs as markdown links.`;
       // Items and orders come from the AI agent tools — no separate hardcoded queries needed
 
       // Save conversation to database for learning
+      let isFirstExchange = false;
       try {
-        // Save user message (use raw content, not lowercase)
         await db.insert(conversations).values({
           sessionId,
           role: 'user',
@@ -5331,7 +5445,6 @@ Format search_web URLs as markdown links.`;
           orgId,
         });
 
-        // Save assistant response
         await db.insert(conversations).values({
           sessionId,
           role: 'assistant',
@@ -5339,9 +5452,27 @@ Format search_web URLs as markdown links.`;
           context,
           orgId,
         });
+
+        const [existingThread] = await db.select().from(conversationThreads)
+          .where(eq(conversationThreads.sessionId, sessionId)).limit(1);
+        if (!existingThread) {
+          await db.insert(conversationThreads).values({ sessionId, orgId, title: 'New conversation' });
+          isFirstExchange = true;
+        } else {
+          await db.update(conversationThreads)
+            .set({ updatedAt: new Date() })
+            .where(eq(conversationThreads.sessionId, sessionId));
+          if (existingThread.title === 'New conversation') isFirstExchange = true;
+        }
       } catch (saveError) {
         console.error('Error saving conversation:', saveError);
-        // Don't fail the request if saving fails
+      }
+
+      if (isFirstExchange) {
+        fetch(`http://localhost:${process.env.PORT || 5000}/api/conversations/threads/${sessionId}/generate-title`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', cookie: req.headers.cookie || '' },
+        }).catch(() => {});
       }
 
       res.json({
