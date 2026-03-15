@@ -1555,7 +1555,42 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
           </Button>
         )}
       </div>
-      
+
+      {!isMinimized && (
+        <div className={`flex gap-2 px-3 md:px-4 py-2 overflow-x-auto scrollbar-hide border-b border-purple-500/20`}>
+          <button
+            onClick={() => handlePromptClick('Show me the latest headlines')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all ${colors.promptBg}`}
+            data-testid="prompt-latest-news"
+          >
+            <Newspaper className="h-3 w-3" />
+            <span>Latest News</span>
+          </button>
+          {!featureRequestMode && (
+            <button
+              onClick={handleEnterFeatureMode}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30"
+              data-testid="button-feature-request"
+              disabled={isLoading}
+            >
+              <Lightbulb className="h-3 w-3" />
+              <span>Feature Request</span>
+            </button>
+          )}
+          {!supportTicket && !featureRequestMode && (
+            <button
+              onClick={handleEscalate}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all bg-green-500/20 hover:bg-green-500/30 text-green-300 border border-green-500/30"
+              data-testid="button-escalate"
+              disabled={isLoading || escalating || messages.length < 3}
+            >
+              {escalating ? <RefreshCcw className="h-3 w-3 animate-spin" /> : <Headphones className="h-3 w-3" />}
+              <span>Agent Request</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {!isMinimized && (
         <>
           <div 
@@ -1725,38 +1760,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                 )}
               </Button>
             </div>
-          </div>
-          <div className={`flex gap-2 px-3 md:px-4 py-2 overflow-x-auto scrollbar-hide border-t border-purple-500/20`}>
-            <button
-              onClick={() => handlePromptClick('Show me the latest headlines')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all ${colors.promptBg}`}
-              data-testid="prompt-latest-news"
-            >
-              <Newspaper className="h-3 w-3" />
-              <span>Latest News</span>
-            </button>
-            {!featureRequestMode && (
-              <button
-                onClick={handleEnterFeatureMode}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30"
-                data-testid="button-feature-request"
-                disabled={isLoading}
-              >
-                <Lightbulb className="h-3 w-3" />
-                <span>Request a Feature</span>
-              </button>
-            )}
-            {!supportTicket && !featureRequestMode && (
-              <button
-                onClick={handleEscalate}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all bg-green-500/20 hover:bg-green-500/30 text-green-300 border border-green-500/30"
-                data-testid="button-escalate"
-                disabled={isLoading || escalating || messages.length < 3}
-              >
-                {escalating ? <RefreshCcw className="h-3 w-3 animate-spin" /> : <Headphones className="h-3 w-3" />}
-                <span>Talk to a Person</span>
-              </button>
-            )}
           </div>
         </>
       )}
