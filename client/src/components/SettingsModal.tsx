@@ -6458,37 +6458,30 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             <th className="text-left px-1.5 py-1 text-gray-500 font-medium w-[90px] sticky left-0 bg-gray-800/90 z-10" />
                             {plans.map(plan => (
                               <th key={plan.planKey} className="px-0.5 py-1 text-center align-middle" data-testid={`col-plan-${plan.planKey}`}>
-                                <div className="flex flex-col items-center gap-px">
-                                  <div className="flex items-center justify-center gap-0.5">
-                                    {editingPlanName === plan.planKey ? (
-                                      <input
-                                        autoFocus
-                                        value={getDraft(plan.planKey, 'name', plan.name)}
-                                        onChange={e => setDraft(plan.planKey, 'name', e.target.value)}
-                                        onBlur={() => setEditingPlanName(null)}
-                                        onKeyDown={e => { if (e.key === 'Enter') setEditingPlanName(null); }}
-                                        data-testid={`input-plan-name-${plan.planKey}`}
-                                        style={inputStyle}
-                                        className={`${inputCls} font-semibold max-w-[55px]`}
-                                      />
-                                    ) : (
-                                      <>
-                                        <span className="text-[8px] font-semibold text-gray-200 leading-tight">{getDraft(plan.planKey, 'name', plan.name)}</span>
-                                        <button
-                                          onClick={() => setEditingPlanName(plan.planKey)}
-                                          data-testid={`button-edit-name-${plan.planKey}`}
-                                          className="text-gray-600 hover:text-gray-300 transition-colors shrink-0"
-                                        >
-                                          <Pencil className="h-[7px] w-[7px]" />
-                                        </button>
-                                      </>
-                                    )}
-                                  </div>
-                                  {(plan.orgCount > 0 || (plan.orgCount ?? 0) > 0) && (
-                                    <div className="flex items-center justify-center gap-0.5">
-                                      <span className="inline-flex items-center justify-center rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[6px] font-semibold min-w-[10px] px-0.5 leading-tight" data-testid={`badge-orgcount-${plan.planKey}`}>{plan.orgCount}</span>
-                                      <Lock className="h-[7px] w-[7px] text-blue-400/60" />
-                                    </div>
+                                <div className="flex items-center justify-center gap-0.5">
+                                  {(plan.orgCount ?? 0) > 0 && <Lock className="h-[7px] w-[7px] text-blue-400/60 shrink-0" />}
+                                  {editingPlanName === plan.planKey ? (
+                                    <input
+                                      autoFocus
+                                      value={getDraft(plan.planKey, 'name', plan.name)}
+                                      onChange={e => setDraft(plan.planKey, 'name', e.target.value)}
+                                      onBlur={() => setEditingPlanName(null)}
+                                      onKeyDown={e => { if (e.key === 'Enter') setEditingPlanName(null); }}
+                                      data-testid={`input-plan-name-${plan.planKey}`}
+                                      style={inputStyle}
+                                      className={`${inputCls} font-semibold max-w-[55px]`}
+                                    />
+                                  ) : (
+                                    <>
+                                      <span className="text-[8px] font-semibold text-gray-200 leading-tight">{getDraft(plan.planKey, 'name', plan.name)}</span>
+                                      <button
+                                        onClick={() => setEditingPlanName(plan.planKey)}
+                                        data-testid={`button-edit-name-${plan.planKey}`}
+                                        className="text-gray-600 hover:text-gray-300 transition-colors shrink-0"
+                                      >
+                                        <Pencil className="h-[7px] w-[7px]" />
+                                      </button>
+                                    </>
                                   )}
                                 </div>
                               </th>
@@ -6523,9 +6516,18 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               );
                             })}
                           </tr>
+                          {/* Orgs row */}
+                          <tr className="border-b border-gray-700/30">
+                            <td className="px-1.5 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Orgs</td>
+                            {plans.map(plan => (
+                              <td key={plan.planKey} className="px-0.5 py-0.5 text-center">
+                                <span className="inline-flex items-center justify-center rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[7px] font-semibold min-w-[12px] px-1 leading-tight" data-testid={`badge-orgcount-${plan.planKey}`}>{plan.orgCount ?? 0}</span>
+                              </td>
+                            ))}
+                          </tr>
                           {/* Sunset row */}
                           <tr className="border-b border-gray-700/30">
-                            <td className="px-1.5 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10 w-[90px]">Sunset</td>
+                            <td className="px-1.5 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Sunset</td>
                             {plans.map(plan => (
                               <td key={plan.planKey} className="px-0.5 py-0.5 text-center">
                                 <Switch
