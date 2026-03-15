@@ -1151,6 +1151,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     if (!textToSend.trim() || isLoading) return;
     
     inputRef.current?.blur();
+    if (inputRef.current) (inputRef.current as HTMLTextAreaElement).style.height = 'auto';
     
     const userMessage: ChatMessage = { role: 'user', content: textToSend };
     setInput('');
@@ -1601,11 +1602,20 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
               >
                 <Camera className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" />
               </Button>
-              <Input
-                ref={inputRef}
+              <textarea
+                ref={inputRef as any}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  e.target.style.height = 'auto';
+                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
                 onFocus={(e) => {
                   e.stopPropagation();
                   setIsInputFocused(true);
@@ -1613,7 +1623,9 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                 onBlur={() => setIsInputFocused(false)}
                 onClick={(e) => e.stopPropagation()}
                 placeholder="Ask E.L.F.I.E. for help..."
-                className="text-sm md:text-base lg:text-lg bg-gray-800/80 border-purple-500/30 focus-visible:ring-purple-500/50"
+                rows={2}
+                className="flex-1 text-sm md:text-base lg:text-lg bg-gray-800/80 border border-purple-500/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-500/50 rounded-md px-3 py-2 resize-none overflow-y-auto text-gray-100 placeholder:text-gray-500"
+                style={{ minHeight: '44px', maxHeight: '120px' }}
                 data-testid="input-chat"
               />
               <Button 
