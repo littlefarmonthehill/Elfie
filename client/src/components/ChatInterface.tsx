@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Sparkles, Brain, ChevronDown, ChevronRight, Globe, Clock, Newspaper, MessageSquare, Headphones, UserPlus, Scan, DollarSign, ListChecks, PackageCheck, BarChart3, TrendingUp, Lightbulb } from "lucide-react";
+import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Sparkles, Brain, ChevronDown, ChevronRight, Globe, Clock, Newspaper, MessageSquare, Headphones, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { InventoryGroup } from "@/components/InventoryGroup";
 import { OrderGroup } from "@/components/OrderGroup";
 import { ForumDiscussionsGroup } from "@/components/ForumDiscussionsGroup";
@@ -1051,16 +1050,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   });
 
   const getWelcomeMessage = () => {
-    let msg = `Hello! I'm E.L.F.I.E., your ${dashboardContext} operations assistant. What can I help you with today?`;
-
-    const hasNews = marketIntel && marketIntel.news.count > 0;
-    const hasForum = marketIntel && marketIntel.forum.count > 0;
-
-    if (hasNews || hasForum) {
-      msg += `\n**PROMPT:** "Show me the latest headlines"`;
-    }
-
-    return msg;
+    return `Hello! I'm E.L.F.I.E., your ${dashboardContext} operations assistant. What can I help you with today?`;
   };
 
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -1119,7 +1109,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   }, [sessionId, historyLoaded]);
 
   useEffect(() => {
-    if (marketIntel && messages.length === 1 && messages[0].role === 'assistant') {
+    if (marketIntel && messages.length === 1 && messages[0].role === 'assistant' && !historyLoaded) {
       setMessages([{ role: 'assistant', content: getWelcomeMessage() }]);
     }
   }, [marketIntel]);
@@ -1532,15 +1522,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     }
   };
 
-  const toolChestItems = [
-    { name: 'Brick Spotter 3000', icon: Scan },
-    { name: 'Price-O-Matic', icon: DollarSign },
-    { name: 'List-O-Matic', icon: ListChecks },
-    { name: 'Order Fulfillment', icon: PackageCheck },
-    { name: 'Business Insights', icon: BarChart3 },
-    { name: 'Sales Performance', icon: TrendingUp },
-  ];
-
   return (
     <>
     <div 
@@ -1575,21 +1556,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         )}
       </div>
       
-      {!isMinimized && (
-        <div className="flex gap-2 px-3 md:px-4 py-2 overflow-x-auto scrollbar-hide border-b border-purple-500/20 bg-gray-900/30" data-testid="tool-chest">
-          {toolChestItems.map((tool) => (
-            <div
-              key={tool.name}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-600 text-white text-[10px] md:text-xs font-medium whitespace-nowrap flex-shrink-0"
-              data-testid={`tool-pill-${tool.name.toLowerCase().replace(/\s/g, '-')}`}
-            >
-              <tool.icon className="h-3 w-3 md:h-3.5 md:w-3.5" />
-              <span>{tool.name}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
       {!isMinimized && (
         <>
           <div 
@@ -1705,47 +1671,13 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                 </button>
               </div>
             )}
-            <div className="flex gap-2 md:gap-3 lg:gap-4 p-3 md:p-4 lg:p-5">
-              <div className="flex flex-col gap-1 flex-shrink-0">
-                {!supportTicket && !featureRequestMode && (
-                  <Button 
-                    size="icon" 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEscalate();
-                    }}
-                    variant="ghost"
-                    className="text-green-400 hover:text-green-300 hover:bg-green-500/20"
-                    data-testid="button-escalate"
-                    disabled={isLoading || escalating || messages.length < 3}
-                    title="Talk to a person"
-                  >
-                    {escalating ? <RefreshCcw className="h-4 w-4 animate-spin" /> : <Headphones className="h-4 w-4" />}
-                  </Button>
-                )}
-                {!featureRequestMode && (
-                  <Button 
-                    size="icon" 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEnterFeatureMode();
-                    }}
-                    variant="ghost"
-                    className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/20"
-                    data-testid="button-feature-request"
-                    disabled={isLoading}
-                    title="Request a feature"
-                  >
-                    <Lightbulb className="h-4 w-4" />
-                  </Button>
-                )}
-                {supportTicket && supportTicket.status !== 'resolved' && (
-                  <div className="flex items-center gap-1 px-1">
-                    <Headphones className="h-3.5 w-3.5 text-green-400" />
-                    <span className="text-[10px] text-green-400 whitespace-nowrap">{supportTicket.status === 'active' ? 'Agent joined' : 'Waiting...'}</span>
-                  </div>
-                )}
+            {supportTicket && supportTicket.status !== 'resolved' && (
+              <div className="flex items-center gap-1.5 px-3 md:px-4 pt-2 pb-0">
+                <Headphones className="h-3.5 w-3.5 text-green-400" />
+                <span className="text-xs text-green-400">{supportTicket.status === 'active' ? 'Support agent joined' : 'Waiting for agent...'}</span>
               </div>
+            )}
+            <div className="flex gap-2 md:gap-3 lg:gap-4 p-3 md:p-4 lg:p-5">
               <textarea
                 ref={inputRef as any}
                 value={input}
@@ -1794,23 +1726,39 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
               </Button>
             </div>
           </div>
-        </>
-      )}
-
-      {/* Always show prompts */}
-      {prompts.length > 0 && (
-        <div className={`flex gap-2 md:gap-3 lg:gap-4 flex-wrap p-3 md:p-4 lg:p-5 ${!isMinimized ? 'border-t border-purple-500/20' : ''}`}>
-          {prompts.map((prompt) => (
+          <div className={`flex gap-2 px-3 md:px-4 py-2 overflow-x-auto scrollbar-hide border-t border-purple-500/20`}>
             <button
-              key={prompt}
-              onClick={() => handlePromptClick(prompt)}
-              className={`px-3 md:px-4 lg:px-5 py-1.5 md:py-2 lg:py-2.5 rounded-full text-xs md:text-sm lg:text-base font-medium transition-all ${colors.promptBg}`}
-              data-testid={`prompt-${prompt.toLowerCase().replace(/\s/g, '-')}`}
+              onClick={() => handlePromptClick('Show me the latest headlines')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all ${colors.promptBg}`}
+              data-testid="prompt-latest-news"
             >
-              {prompt}
+              <Newspaper className="h-3 w-3" />
+              <span>Latest News</span>
             </button>
-          ))}
-        </div>
+            {!featureRequestMode && (
+              <button
+                onClick={handleEnterFeatureMode}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30"
+                data-testid="button-feature-request"
+                disabled={isLoading}
+              >
+                <Lightbulb className="h-3 w-3" />
+                <span>Request a Feature</span>
+              </button>
+            )}
+            {!supportTicket && !featureRequestMode && (
+              <button
+                onClick={handleEscalate}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all bg-green-500/20 hover:bg-green-500/30 text-green-300 border border-green-500/30"
+                data-testid="button-escalate"
+                disabled={isLoading || escalating || messages.length < 3}
+              >
+                {escalating ? <RefreshCcw className="h-3 w-3 animate-spin" /> : <Headphones className="h-3 w-3" />}
+                <span>Talk to a Person</span>
+              </button>
+            )}
+          </div>
+        </>
       )}
 
     </div>

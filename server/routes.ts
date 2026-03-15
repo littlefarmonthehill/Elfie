@@ -5062,31 +5062,9 @@ ${transcript}`
       // Generate or retrieve session ID for conversation continuity
       const sessionId = req.headers['x-session-id'] as string || `session-${Date.now()}`;
       
-      // Retrieve recent conversation history (last 10 messages) for context
-      const recentHistory = await db
-        .select()
-        .from(conversations)
-        .where(and(eq(conversations.orgId, orgId), eq(conversations.sessionId, sessionId)))
-        .orderBy(desc(conversations.createdAt))
-        .limit(10);
-      
-      const conversationHistory = recentHistory.reverse().map(conv => ({
-        role: conv.role,
-        content: conv.content
-      }));
-
       const lastUserMessageRaw = messages[messages.length - 1]?.content || '';
       const lastUserMessage = lastUserMessageRaw.toLowerCase();
       let bricklinkSearchSuggestion: { itemNo: string, itemType: string } | null = null;
-
-      // Build conversation history context
-      let historyContext = '';
-      if (conversationHistory.length > 0) {
-        historyContext = '\n\nRECENT CONVERSATION HISTORY:\n';
-        conversationHistory.forEach(msg => {
-          historyContext += `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content.substring(0, 200)}${msg.content.length > 200 ? '...' : ''}\n`;
-        });
-      }
 
       // Use custom system prompt if provided, otherwise use default
       const currentDate = new Date().toLocaleDateString('en-US', { 
@@ -5100,7 +5078,6 @@ ${transcript}`
 
 Today's date: ${currentDate}
 Current context: ${context}
-${historyContext}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 WHO YOU ARE

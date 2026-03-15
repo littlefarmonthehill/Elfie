@@ -48,7 +48,7 @@ All 19 tables with `orgId` columns now have indexes. This is critical for multi-
 
 ### Dead Code Removed
 - `client/src/components/examples/` (9 files, ~40KB) — confirmed zero imports anywhere in the codebase.
-- ChatInterface.tsx: removed unused lucide imports (ChevronUp, ChevronDown, X, Image, Bot), unused Dialog imports, unused useQuery/AppSettings imports, dead `groupedItems` computed variable, dead `elfieMode` state, dead `onBrickLinkClick` prop chain.
+- ChatInterface.tsx: removed unused lucide imports (ChevronUp, X, Image, Bot, UserPlus, Scan, DollarSign, ListChecks, PackageCheck, BarChart3, TrendingUp), unused Dialog/Input imports, unused useQuery/AppSettings imports, dead `groupedItems` computed variable, dead `elfieMode` state, dead `onBrickLinkClick` prop chain, dead `toolChestItems` array and render strip, dead `prompts` render section (toolbar replaced with 3 fixed pills). Dead `historyContext`/`recentHistory`/`conversationHistory` removed from `/api/chat` route (frontend sends full messages array; DB history injection caused duplication).
 - ElfieCharacter.tsx: removed dead `isThinking` prop (and its entire chain: `elfieThinking` state in home.tsx, `onThinkingChange` prop in ChatInterface).
 - ai-tools.ts: fixed misleading `search_bricklink_catalog` tool description — was "NOT in local inventory", now correctly says "local BrickLink catalog (bl_catalog table)".
 
@@ -167,6 +167,12 @@ Internal product management tools for the platform admin (superAdmin only). Loca
 - **Backlog**: Individual work items with priority (high/medium/low), effort (S/M/L), status (open/in-progress/done). Each item can link to an L2 capability via `capability_id` and optionally to a roadmap item. L2 capability picker shown in add form and inline on each item row. Sorted by priority order. Filterable by status.
 - **API routes**: All under `/api/platform-admin/product/*` — `GET/PUT /vision`, `POST /vision/generate`, `GET/POST /okrs`, `PATCH/DELETE /okrs/:id`, `POST /key-results`, `PATCH/DELETE /key-results/:id`, `GET/POST /capabilities`, `PATCH/DELETE /capabilities/:id`, `GET/POST /roadmap`, `PATCH/DELETE /roadmap/:id`, `GET/POST /backlog`, `PATCH/DELETE /backlog/:id`.
 - **Traceability chain**: Vision → OKRs → Capabilities → Roadmap → Backlog. Each level can reference its parent for end-to-end alignment. Backlog items link to L2 capabilities; features have status badges showing build state or roadmap lane.
+
+## Elfie Chat — Feature Requests & Toolbar
+
+- **Feature Request Mode**: Users click "Request a Feature" in the chat toolbar to enter feature request mode. They describe a feature; Elfie AI rephrases it for clarity via `POST /api/feature-request/rephrase`. The user confirms (typing "yes", "confirm", etc.) and it's saved as a level-3 capability with `status='new'` via `POST /api/feature-request/submit`, auto-classified into the best-matching L2 capability.
+- **Chat toolbar** (below input): Three pills — "Latest News" (quick prompt), "Request a Feature" (enters feature request mode), "Talk to a Person" (escalation). These are the only toolbar items; conversation-driven suggestions come from Elfie.
+- **Support ticket status**: Shown inline above the input area when a ticket is active/escalated.
 
 ## Elfie Chat — Progressive Reveal & AI Overviews
 
