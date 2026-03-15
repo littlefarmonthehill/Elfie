@@ -802,6 +802,7 @@ function ProductCapabilitiesPanel() {
   const [newFeature, setNewFeature] = useState<Record<number, string>>({});
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [movingId, setMovingId] = useState<number | null>(null);
 
   const l1s = (caps || []).filter((c: any) => c.level === 1);
   const l2s = (caps || []).filter((c: any) => c.level === 2);
@@ -815,11 +816,12 @@ function ProductCapabilitiesPanel() {
     } catch (e: any) { toast({ title: 'Failed to add', description: e.message, variant: 'destructive' }); }
   };
 
-  const updateCap = async (id: number, title: string) => {
+  const updateCap = async (id: number, updates: Record<string, any>) => {
     try {
-      await apiRequest('PATCH', `/api/platform-admin/product/capabilities/${id}`, { title });
+      await apiRequest('PATCH', `/api/platform-admin/product/capabilities/${id}`, updates);
       queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] });
       setEditingId(null);
+      setMovingId(null);
     } catch (e: any) { toast({ title: 'Failed to update', description: e.message, variant: 'destructive' }); }
   };
 
@@ -836,7 +838,7 @@ function ProductCapabilitiesPanel() {
     <div className="space-y-4">
       <div>
         <p className="text-sm font-medium text-gray-100">Capability Map</p>
-        <p className="sm-description mt-1">Organize your product into L1 Capabilities, L2 sub-capabilities, and Features.</p>
+        <p className="sm-description mt-1">Organize your product into L1 Capabilities, L2 sub-capabilities, and Features. Click a name to rename, or use the move icon to reparent.</p>
       </div>
       <div className="flex items-center gap-2">
         <input className="flex-1 bg-black/30 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-400/50" placeholder="New L1 Capability..." value={newL1} onChange={e => setNewL1(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { addCap(newL1, 1, null); setNewL1(''); } }} data-testid="input-new-l1" />
@@ -851,7 +853,7 @@ function ProductCapabilitiesPanel() {
               <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-700">
                 <Layers className="w-4 h-4 text-blue-400 shrink-0" />
                 {editingId === l1.id ? (
-                  <input className="flex-1 bg-black/30 border border-blue-500/30 rounded px-2 py-0.5 text-sm text-gray-200 focus:outline-none" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => updateCap(l1.id, editTitle)} onKeyDown={e => { if (e.key === 'Enter') updateCap(l1.id, editTitle); if (e.key === 'Escape') setEditingId(null); }} autoFocus data-testid={`input-edit-cap-${l1.id}`} />
+                  <input className="flex-1 bg-black/30 border border-blue-500/30 rounded px-2 py-0.5 text-sm text-gray-200 focus:outline-none" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => updateCap(l1.id, { title: editTitle })} onKeyDown={e => { if (e.key === 'Enter') updateCap(l1.id, { title: editTitle }); if (e.key === 'Escape') setEditingId(null); }} autoFocus data-testid={`input-edit-cap-${l1.id}`} />
                 ) : (
                   <span className="flex-1 text-sm font-medium text-gray-200 cursor-pointer" onClick={() => { setEditingId(l1.id); setEditTitle(l1.title); }} data-testid={`text-l1-${l1.id}`}>{l1.title}</span>
                 )}
@@ -865,23 +867,47 @@ function ProductCapabilitiesPanel() {
                       <div className="flex items-center gap-2 px-2 py-1.5">
                         <ChevronRight className="w-3 h-3 text-violet-400 shrink-0" />
                         {editingId === l2.id ? (
-                          <input className="flex-1 bg-black/30 border border-violet-500/30 rounded px-2 py-0.5 text-xs text-gray-200 focus:outline-none" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => updateCap(l2.id, editTitle)} onKeyDown={e => { if (e.key === 'Enter') updateCap(l2.id, editTitle); if (e.key === 'Escape') setEditingId(null); }} autoFocus data-testid={`input-edit-cap-${l2.id}`} />
+                          <input className="flex-1 bg-black/30 border border-violet-500/30 rounded px-2 py-0.5 text-xs text-gray-200 focus:outline-none" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => updateCap(l2.id, { title: editTitle })} onKeyDown={e => { if (e.key === 'Enter') updateCap(l2.id, { title: editTitle }); if (e.key === 'Escape') setEditingId(null); }} autoFocus data-testid={`input-edit-cap-${l2.id}`} />
                         ) : (
                           <span className="flex-1 text-xs font-medium text-gray-300 cursor-pointer" onClick={() => { setEditingId(l2.id); setEditTitle(l2.title); }} data-testid={`text-l2-${l2.id}`}>{l2.title}</span>
                         )}
+                        <Button size="icon" variant="ghost" onClick={() => setMovingId(movingId === l2.id ? null : l2.id)} data-testid={`button-move-l2-${l2.id}`}><Share2 className="w-3 h-3 text-gray-500" /></Button>
                         <Button size="icon" variant="ghost" onClick={() => deleteCap(l2.id)} data-testid={`button-delete-l2-${l2.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
                       </div>
+                      {movingId === l2.id && (
+                        <div className="mx-2 mb-1.5 p-2 bg-violet-500/10 border border-violet-500/30 rounded-md">
+                          <p className="text-[10px] text-violet-300 mb-1">Move to L1:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {l1s.filter((other: any) => other.id !== l1.id).map((other: any) => (
+                              <Button key={other.id} size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={() => updateCap(l2.id, { parentId: other.id })} data-testid={`button-move-l2-${l2.id}-to-${other.id}`}>{other.title}</Button>
+                            ))}
+                            {l1s.filter((other: any) => other.id !== l1.id).length === 0 && <span className="text-[10px] text-gray-500 italic">No other L1s available</span>}
+                          </div>
+                        </div>
+                      )}
                       {childFeatures.length > 0 && (
                         <div className="ml-6 px-2 pb-1.5 space-y-1">
                           {childFeatures.map((f: any) => (
                             <div key={f.id} className="flex items-center gap-2 group">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
                               {editingId === f.id ? (
-                                <input className="flex-1 bg-black/30 border border-emerald-500/30 rounded px-2 py-0.5 text-xs text-gray-300 focus:outline-none" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => updateCap(f.id, editTitle)} onKeyDown={e => { if (e.key === 'Enter') updateCap(f.id, editTitle); if (e.key === 'Escape') setEditingId(null); }} autoFocus data-testid={`input-edit-cap-${f.id}`} />
+                                <input className="flex-1 bg-black/30 border border-emerald-500/30 rounded px-2 py-0.5 text-xs text-gray-300 focus:outline-none" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => updateCap(f.id, { title: editTitle })} onKeyDown={e => { if (e.key === 'Enter') updateCap(f.id, { title: editTitle }); if (e.key === 'Escape') setEditingId(null); }} autoFocus data-testid={`input-edit-cap-${f.id}`} />
                               ) : (
                                 <span className="flex-1 text-xs text-gray-400 cursor-pointer" onClick={() => { setEditingId(f.id); setEditTitle(f.title); }} data-testid={`text-feature-${f.id}`}>{f.title}</span>
                               )}
+                              <Button size="icon" variant="ghost" className="invisible group-hover:visible" onClick={() => setMovingId(movingId === f.id ? null : f.id)} data-testid={`button-move-feature-${f.id}`}><Share2 className="w-3 h-3 text-gray-500" /></Button>
                               <Button size="icon" variant="ghost" className="invisible group-hover:visible" onClick={() => deleteCap(f.id)} data-testid={`button-delete-feature-${f.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
+                            </div>
+                          ))}
+                          {features.filter((f: any) => movingId === f.id && f.parentId === l2.id).map((f: any) => (
+                            <div key={`move-${f.id}`} className="ml-3 p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-md">
+                              <p className="text-[10px] text-emerald-300 mb-1">Move "{f.title}" to L2:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {l2s.filter((other: any) => other.id !== l2.id).map((other: any) => {
+                                  const parentL1 = l1s.find((p: any) => p.id === other.parentId);
+                                  return <Button key={other.id} size="sm" variant="outline" className="text-[10px] h-6 px-2" onClick={() => updateCap(f.id, { parentId: other.id })} data-testid={`button-move-feature-${f.id}-to-${other.id}`}>{parentL1 ? `${parentL1.title} / ` : ''}{other.title}</Button>;
+                                })}
+                              </div>
                             </div>
                           ))}
                         </div>
