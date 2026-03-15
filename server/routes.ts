@@ -1968,20 +1968,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orgId = reqOrgId(req);
       const sessionId = req.query.sessionId as string;
       if (!sessionId) return res.status(400).json({ message: "sessionId required" });
-      const msgs = await db.select({
+      const [ticket] = await db.select().from(supportTickets)
+        .where(and(eq(supportTickets.orgId, orgId), eq(supportTickets.sessionId, sessionId), ne(supportTickets.status, 'resolved')))
+        .orderBy(desc(supportTickets.createdAt))
+        .limit(1);
+      const selectFields = {
         id: conversations.id,
         role: conversations.role,
         content: conversations.content,
         context: conversations.context,
         createdAt: conversations.createdAt,
-      }).from(conversations)
-        .where(and(eq(conversations.orgId, orgId), eq(conversations.sessionId, sessionId)))
-        .orderBy(asc(conversations.createdAt))
-        .limit(100);
-      const [ticket] = await db.select().from(supportTickets)
-        .where(and(eq(supportTickets.orgId, orgId), eq(supportTickets.sessionId, sessionId), ne(supportTickets.status, 'resolved')))
-        .orderBy(desc(supportTickets.createdAt))
-        .limit(1);
+      };
+      let msgs: any[];
+      if (ticket) {
+        const recentBefore = await db.select(selectFields).from(conversations)
+          .where(and(
+            eq(conversations.orgId, orgId),
+            eq(conversations.sessionId, sessionId),
+            lte(conversations.createdAt, ticket.createdAt),
+          ))
+          .orderBy(desc(conversations.createdAt))
+          .limit(20);
+        const afterEscalation = await db.select(selectFields).from(conversations)
+          .where(and(
+            eq(conversations.orgId, orgId),
+            eq(conversations.sessionId, sessionId),
+            gt(conversations.createdAt, ticket.createdAt),
+          ))
+          .orderBy(asc(conversations.createdAt));
+        msgs = [...recentBefore.reverse(), ...afterEscalation];
+      } else {
+        msgs = await db.select(selectFields).from(conversations)
+          .where(and(eq(conversations.orgId, orgId), eq(conversations.sessionId, sessionId)))
+          .orderBy(desc(conversations.createdAt))
+          .limit(30);
+        msgs = msgs.reverse();
+      }
       const unseenSupport = ticket ? await db.select({ count: count() }).from(conversations)
         .where(and(
           eq(conversations.orgId, orgId),
