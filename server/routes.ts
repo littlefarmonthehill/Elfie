@@ -8351,25 +8351,19 @@ Format search_web URLs as markdown links.`;
 
       if (!item) return res.status(404).json({ error: "Item not found" });
 
-      const priceGuide = await db
-        .select({
-          avgPrice: priceGuideCache.avgPrice,
-          minPrice: priceGuideCache.minPrice,
-          maxPrice: priceGuideCache.maxPrice,
-          qty: priceGuideCache.qty,
-          totalLots: priceGuideCache.totalLots,
-          guideType: priceGuideCache.guideType,
-        })
-        .from(priceGuideCache)
-        .where(and(
-          eq(priceGuideCache.itemNo, item.itemNo),
-          eq(priceGuideCache.itemType, item.itemType),
-          eq(priceGuideCache.newOrUsed, item.newOrUsed || 'N'),
-        ))
-        .limit(4);
+      const pgResult = await db.execute(sql`
+        SELECT stock_avg_price, stock_min_price, stock_max_price, stock_total_lots,
+               sold_avg_price, sold_min_price, sold_max_price, sold_total_lots
+        FROM price_guide_cache
+        WHERE item_no = ${item.itemNo.toUpperCase()}
+          AND item_type = ${item.itemType}
+          AND new_or_used = ${item.newOrUsed || 'N'}
+        LIMIT 1
+      `);
+      const pgRow = pgResult.rows[0] as any;
 
-      const stockGuide = priceGuide.find(g => g.guideType === 'stock');
-      const soldGuide = priceGuide.find(g => g.guideType === 'sold');
+      const stockGuide = pgRow ? { avgPrice: pgRow.stock_avg_price, minPrice: pgRow.stock_min_price, maxPrice: pgRow.stock_max_price, totalLots: pgRow.stock_total_lots } : null;
+      const soldGuide = pgRow ? { avgPrice: pgRow.sold_avg_price, minPrice: pgRow.sold_min_price, maxPrice: pgRow.sold_max_price, totalLots: pgRow.sold_total_lots } : null;
 
       const salesData = await db
         .select({
