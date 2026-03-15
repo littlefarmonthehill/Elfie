@@ -9627,13 +9627,14 @@ Format search_web URLs as markdown links.`;
         .limit(1);
 
       if (!item) return res.status(404).json({ error: "Item not found" });
+      if (!item.itemNo) return res.status(400).json({ error: "Item has no part number" });
 
       const pgResult = await db.execute(sql`
         SELECT stock_avg_price, stock_min_price, stock_max_price, stock_total_lots,
                sold_avg_price, sold_min_price, sold_max_price, sold_total_lots
         FROM price_guide_cache
         WHERE item_no = ${item.itemNo.toUpperCase()}
-          AND item_type = ${item.itemType}
+          AND item_type = ${item.itemType || 'PART'}
           AND new_or_used = ${item.newOrUsed || 'N'}
         LIMIT 1
       `);

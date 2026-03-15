@@ -118,7 +118,7 @@ const PROD_FROM_ADDRESS = {
   name: "E.L.F.I.E.", company: "E.L.F.I.E.",
   street1: "PO Box 202", city: "Lanesboro",
   state: "MN", zip: "55949", country: "US",
-  phone: "5072670202", email: "shipping@planetbrick.com",
+  phone: "5072670202", email: "shipping@elfie.app",
 };
 
 export default function InlineShippingCard({

@@ -1,4 +1,4 @@
-# PlanetBrick Design Guidelines
+# E.L.F.I.E. Design Guidelines
 
 ## Design Approach
 **Reference-Based Approach**: Drawing inspiration from data-dense productivity tools like Linear and Notion, combined with playful LEGO brand aesthetics. This is a utility-focused application where efficiency and information density are paramount.
@@ -58,7 +58,7 @@
 ### D. Component Library
 
 **Header**
-- Left: PlanetBrick logo/text (text-base font-bold with subtle LEGO color accent)
+- Left: E.L.F.I.E. logo/text (text-base font-bold with subtle LEGO color accent)
 - Right: Gear icon button for settings modal
 - Background: Solid jet black with subtle bottom border (border-gray-800)
 
