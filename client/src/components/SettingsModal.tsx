@@ -770,9 +770,16 @@ function SupportQueuePanel() {
     return date.toLocaleDateString();
   };
 
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (ticketConvo?.messages) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [ticketConvo?.messages?.length]);
+
   if (selectedTicketId && ticketConvo) {
     return (
-      <div className="flex flex-col h-full min-h-[500px]">
+      <div className="flex flex-col">
         <div className="flex items-center gap-2 mb-3 flex-wrap">
           <Button size="sm" variant="ghost" onClick={() => setSelectedTicketId(null)} className="text-xs" data-testid="button-back-queue">
             <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Back
@@ -790,7 +797,7 @@ function SupportQueuePanel() {
             </Button>
           )}
         </div>
-        <div className="flex-1 overflow-y-auto space-y-2 bg-gray-800/30 rounded-lg p-3 border border-gray-700/50 mb-3">
+        <div className="overflow-y-auto space-y-2 bg-gray-800/30 rounded-lg p-3 border border-gray-700/50 mb-3 max-h-[400px]">
           {ticketConvo.messages.map((msg) => (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : msg.role === 'system' ? 'justify-center' : 'justify-start'}`}>
               {msg.role === 'system' ? (
@@ -811,21 +818,34 @@ function SupportQueuePanel() {
               )}
             </div>
           ))}
+          <div ref={messagesEndRef} />
         </div>
-        {ticketConvo.ticket.status !== 'resolved' && (
-          <div className="flex gap-2">
-            <textarea
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleReply(); } }}
-              placeholder="Type your reply..."
-              rows={1}
-              className="flex-1 text-xs bg-gray-800/80 border border-gray-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-green-500/50 rounded-md px-3 py-2 resize-none text-gray-100 placeholder:text-gray-500"
-              data-testid="textarea-support-reply"
-            />
-            <Button size="sm" onClick={handleReply} disabled={!replyText.trim() || replying} className="bg-green-600 hover:bg-green-700" data-testid="button-send-reply">
-              {replying ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-            </Button>
+        {ticketConvo.ticket.status !== 'resolved' ? (
+          <div className="sticky bottom-0 bg-gray-900/95 backdrop-blur-sm rounded-lg border border-green-500/30 p-3">
+            <p className="text-[10px] text-green-400 font-medium mb-2">
+              <MessageCircle className="h-3 w-3 inline mr-1" />
+              Reply to {ticketConvo.ticket.orgName}'s support request
+            </p>
+            <div className="flex gap-2">
+              <textarea
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleReply(); } }}
+                placeholder="Type your reply to the customer..."
+                rows={2}
+                className="flex-1 text-xs bg-gray-800/80 border border-gray-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-green-500/50 rounded-md px-3 py-2 resize-none text-gray-100 placeholder:text-gray-500"
+                data-testid="textarea-support-reply"
+              />
+              <Button onClick={handleReply} disabled={!replyText.trim() || replying} className="bg-green-600 self-end" data-testid="button-send-reply">
+                {replying ? <RefreshCw className="h-4 w-4 animate-spin" /> : <><Send className="h-4 w-4 mr-1.5" /> Send</>}
+              </Button>
+            </div>
+            <p className="text-[9px] text-gray-600 mt-1.5">Press Enter to send, Shift+Enter for new line</p>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-gray-700/50 bg-gray-800/30 p-3 text-center">
+            <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto mb-1" />
+            <p className="text-[10px] text-gray-500">This ticket has been resolved</p>
           </div>
         )}
       </div>
