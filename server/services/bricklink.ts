@@ -1270,6 +1270,26 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
         lastFetched: priceGuideCache.fetchedAt,
         soldFetchedAt: priceGuideCache.soldFetchedAt,
         stockFetchedAt: priceGuideCache.stockFetchedAt,
+        missingStockFields: sql<number>`(
+          CASE WHEN ${priceGuideCache.id} IS NULL THEN 6 ELSE
+            (CASE WHEN stock_avg_price IS NULL THEN 1 ELSE 0 END) +
+            (CASE WHEN stock_min_price IS NULL THEN 1 ELSE 0 END) +
+            (CASE WHEN stock_max_price IS NULL THEN 1 ELSE 0 END) +
+            (CASE WHEN stock_qty_avg_price IS NULL THEN 1 ELSE 0 END) +
+            (CASE WHEN stock_quantity IS NULL THEN 1 ELSE 0 END) +
+            (CASE WHEN stock_fetched_at IS NULL THEN 1 ELSE 0 END)
+          END
+        )`.as('missing_stock_fields'),
+        missingSoldFields: sql<number>`(
+          CASE WHEN ${priceGuideCache.id} IS NULL THEN 6 ELSE
+            (CASE WHEN sold_avg_price IS NULL THEN 1 ELSE 0 END) +
+            (CASE WHEN sold_min_price IS NULL THEN 1 ELSE 0 END) +
+            (CASE WHEN sold_max_price IS NULL THEN 1 ELSE 0 END) +
+            (CASE WHEN sold_qty_avg_price IS NULL THEN 1 ELSE 0 END) +
+            (CASE WHEN sold_quantity IS NULL THEN 1 ELSE 0 END) +
+            (CASE WHEN sold_fetched_at IS NULL THEN 1 ELSE 0 END)
+          END
+        )`.as('missing_sold_fields'),
       })
       .from(blInventory)
       .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
@@ -1322,12 +1342,27 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
         const missingQty = item.cacheId && !cacheIdsWithQty.has(item.cacheId);
         const rawSoldFresh = missingQty ? false : isFresh(item.soldFetchedAt);
         const rawStockFresh = missingQty ? false : isFresh(item.stockFetchedAt);
+        const missingStock = Number(item.missingStockFields) || 0;
+        const missingSold = Number(item.missingSoldFields) || 0;
+        let relevantMissing: number;
+        if (guideFocus === 'stock') relevantMissing = missingStock;
+        else if (guideFocus === 'sold') relevantMissing = missingSold;
+        else relevantMissing = missingStock + missingSold;
         return {
           ...item,
           // When guide focus is set, mark the non-focused guide as "fresh" so we skip it
           soldIsFresh: guideFocus === 'stock' ? true : rawSoldFresh,
           stockIsFresh: guideFocus === 'sold' ? true : rawStockFresh,
+          relevantMissing,
         };
+      })
+      .sort((a, b) => {
+        // 1) Most missing fields first
+        if (b.relevantMissing !== a.relevantMissing) return b.relevantMissing - a.relevantMissing;
+        // 2) Stale before fresh (oldest fetched_at first)
+        const aTs = a.lastFetched ? new Date(a.lastFetched).getTime() : 0;
+        const bTs = b.lastFetched ? new Date(b.lastFetched).getTime() : 0;
+        return aTs - bTs;
       });
 
     // Estimate API calls needed — items with one fresh guide need only 1 call, others need 2.
@@ -1693,8 +1728,8 @@ export async function fetchPriceOMagicData(
       soldTotalLots: skipSold ? (preservedSold.soldTotalLots ?? null) : (soldPriceData?.unit_quantity != null ? parseInt(soldPriceData.unit_quantity.toString()) : null),
 
       // Per-guide freshness timestamps
-      soldFetchedAt: skipSold ? (preservedSold.soldFetchedAt ?? new Date()) : new Date(),
-      stockFetchedAt: skipStock ? ((preservedStock as any).stockFetchedAt ?? new Date()) : new Date(),
+      soldFetchedAt: skipSold ? (preservedSold.soldFetchedAt ?? null) : new Date(),
+      stockFetchedAt: skipStock ? ((preservedStock as any).stockFetchedAt ?? null) : new Date(),
     };
 
     // Normalize for unique constraint: uppercase item_no, -1 for null color_id
@@ -1722,7 +1757,7 @@ export async function fetchPriceOMagicData(
         ${mergedData.stockAvgPrice ?? null}, ${mergedData.stockQtyAvgPrice ?? null}, ${mergedData.stockMinPrice ?? null}, ${mergedData.stockMaxPrice ?? null}, ${mergedData.stockQuantity ?? null}, ${mergedData.stockTotalLots ?? null},
         ${mergedData.soldAvgPrice ?? null}, ${mergedData.soldQtyAvgPrice ?? null}, ${mergedData.soldMinPrice ?? null}, ${mergedData.soldMaxPrice ?? null}, ${mergedData.soldQuantity ?? null}, ${mergedData.soldTotalLots ?? null},
         ${(mergedData as any).suggestedPrice ?? null}, ${(mergedData as any).premiumPercentage ?? null},
-        ${mergedData.soldFetchedAt ?? new Date()}, ${mergedData.soldFetchedAt ?? new Date()}, ${mergedData.stockFetchedAt ?? new Date()}, NOW()
+        NOW(), ${mergedData.soldFetchedAt}, ${mergedData.stockFetchedAt}, NOW()
       )
       ON CONFLICT (item_no, item_type, color_id, new_or_used) DO UPDATE SET
         item_name = COALESCE(EXCLUDED.item_name, price_guide_cache.item_name),

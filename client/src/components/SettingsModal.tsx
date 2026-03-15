@@ -6998,29 +6998,28 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                   const denom = scope || 1;
                                   const missing = Math.max(0, denom - has);
                                   const fresh = has - stale;
-                                  const pct = Math.round((has / denom) * 100);
-                                  const freshPct = has > 0 ? Math.round((fresh / has) * 100) : 0;
+                                  const freshPct = Math.round((fresh / denom) * 100);
+                                  const stalePct = Math.round((stale / denom) * 100);
+                                  const missingPct = Math.round((missing / denom) * 100);
                                   return (
                                     <div key={label} className="px-4 py-2.5 flex items-center gap-3">
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between gap-2 mb-1">
                                           <span className="sm-label">{label}</span>
-                                          <span className="sm-hint font-mono">{has.toLocaleString()}/{denom.toLocaleString()} lots ({pct}%){filtered ? ' *' : ''}</span>
+                                          <span className="sm-hint font-mono">{denom.toLocaleString()} lots{filtered ? ' *' : ''}</span>
                                         </div>
-                                        <div className="flex h-1.5 rounded-full overflow-hidden bg-gray-700">
-                                          <div className={`${barClass} transition-all`} style={{ width: `${Math.round((fresh / denom) * 100)}%` }} />
-                                          <div className={`${barStaleClass} transition-all`} style={{ width: `${Math.round((stale / denom) * 100)}%` }} />
+                                        <div className="flex h-1.5 rounded-full overflow-hidden bg-gray-700/50">
+                                          <div className={`${barClass} transition-all`} style={{ width: `${freshPct}%` }} />
+                                          <div className={`${barStaleClass} transition-all`} style={{ width: `${stalePct}%` }} />
                                         </div>
-                                        <div className="flex items-center justify-between gap-2 mt-1">
-                                          <span className="sm-hint">
-                                            {missing > 0 && <span className="text-yellow-500/80">{missing.toLocaleString()} missing</span>}
-                                            {missing > 0 && stale > 0 && <span> · </span>}
-                                            {stale > 0 && <span className="text-orange-400/80">{stale.toLocaleString()} stale (&gt;{freshLabel})</span>}
-                                            {missing === 0 && stale === 0 && <span className="text-green-400/70">All fresh</span>}
+                                        <div className="flex items-center justify-between gap-2 mt-1 flex-wrap">
+                                          <span className="sm-hint flex items-center gap-1.5 flex-wrap">
+                                            <span className="text-green-400/70">{fresh.toLocaleString()} fresh ({freshPct}%)</span>
+                                            {stale > 0 && <><span className="text-gray-600">·</span><span className="text-orange-400/80">{stale.toLocaleString()} stale</span></>}
+                                            {missing > 0 && <><span className="text-gray-600">·</span><span className="text-yellow-500/80">{missing.toLocaleString()} missing</span></>}
                                           </span>
                                           <span className="sm-hint">
-                                            {has > 0 && <span>{freshPct}% fresh</span>}
-                                            {filtered && <span className="text-gray-600 ml-1">· in-stock only</span>}
+                                            {filtered && <span className="text-gray-600">in-stock only</span>}
                                           </span>
                                         </div>
                                       </div>
