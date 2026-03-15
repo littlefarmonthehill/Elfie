@@ -236,7 +236,9 @@ app.use((req, res, next) => {
         : `http://127.0.0.1:${port}/api/health`;
       console.log(`[SelfPing] URL: ${selfPingUrl}`);
       let _lastPingAt = 0;
+      let _pingInFlight = false;
       setInterval(async () => {
+        if (_pingInFlight) return;
         try {
           const { syncLock } = await import('./services/sync-lock');
           const activeSyncs = syncLock.getActive();
@@ -244,10 +246,17 @@ app.use((req, res, next) => {
           const now = Date.now();
           if (now - _lastPingAt < intervalMs) return;
           _lastPingAt = now;
-          const resp = await fetch(selfPingUrl, { signal: AbortSignal.timeout(10_000) });
+          _pingInFlight = true;
+          const resp = await fetch(selfPingUrl, { signal: AbortSignal.timeout(25_000) });
           if (!resp.ok) console.log(`[SelfPing] ${resp.status}`);
         } catch (e: any) {
-          console.log(`[SelfPing] failed: ${e.message}`);
+          if (e.name === 'TimeoutError' || /timeout/i.test(e.message ?? '')) {
+            console.log(`[SelfPing] slow (>25s) — server busy`);
+          } else {
+            console.log(`[SelfPing] failed: ${e.message}`);
+          }
+        } finally {
+          _pingInFlight = false;
         }
       }, 15_000);
 

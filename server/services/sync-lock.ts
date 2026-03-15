@@ -13,15 +13,20 @@
 
 class SyncLockManager {
   private activeSyncs = new Set<string>();
+  private blockedOnce = new Set<string>();
 
   /**
    * Try to acquire the global lock for `name`.
-   * Returns false (and logs the blocker) if any other sync is already running.
+   * Returns false (and logs the blocker once) if any other sync is already running.
    */
   acquire(name: string): boolean {
     if (this.activeSyncs.size > 0) {
       const running = [...this.activeSyncs].join(', ');
-      console.log(`⚠️  ${name} blocked — already running: ${running}`);
+      const key = `${name}:${running}`;
+      if (!this.blockedOnce.has(key)) {
+        this.blockedOnce.add(key);
+        console.log(`⚠️  ${name} blocked — already running: ${running}`);
+      }
       return false;
     }
     this.activeSyncs.add(name);
@@ -32,6 +37,7 @@ class SyncLockManager {
   /** Release the lock held by `name`. */
   release(name: string): void {
     this.activeSyncs.delete(name);
+    this.blockedOnce.clear();
     console.log(`🔓 ${name} released sync lock`);
   }
 
