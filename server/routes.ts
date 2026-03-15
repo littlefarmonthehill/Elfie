@@ -48,7 +48,7 @@ import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBacku
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
 import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, PLATFORM_ORG_ID } from "@shared/schema";
-import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, asc } from "drizzle-orm";
+import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
 import FormData from "form-data";
@@ -4303,6 +4303,125 @@ PlanetBrick syncs inventory across BrickLink and BrickOwl. Changes made on eithe
     res.json({ prompt });
   });
 
+  app.post("/api/elfie-analyze-conversations", isApproved, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.body;
+      const orgId = (req as any).orgId;
+      if (!startDate || !endDate) {
+        return res.status(400).json({ error: 'startDate and endDate required' });
+      }
+
+      const settings = await getOrgSettings(orgId);
+      const currentCustomPrompt = settings?.systemPrompt || '';
+
+      const convos = await db
+        .select({
+          role: conversations.role,
+          content: conversations.content,
+          createdAt: conversations.createdAt,
+          sessionId: conversations.sessionId,
+        })
+        .from(conversations)
+        .where(and(
+          eq(conversations.orgId, orgId),
+          gte(conversations.createdAt, new Date(startDate)),
+          lte(conversations.createdAt, new Date(endDate)),
+        ))
+        .orderBy(conversations.createdAt)
+        .limit(500);
+
+      if (convos.length === 0) {
+        return res.json({ prompt: '', summary: 'No conversations found in this date range.' });
+      }
+
+      const sessionGroups = new Map<string, typeof convos>();
+      for (const c of convos) {
+        const arr = sessionGroups.get(c.sessionId) || [];
+        arr.push(c);
+        sessionGroups.set(c.sessionId, arr);
+      }
+
+      let transcript = '';
+      for (const [sid, msgs] of sessionGroups) {
+        transcript += `\n--- Session ${sid} ---\n`;
+        for (const m of msgs) {
+          const content = m.content.length > 500 ? m.content.substring(0, 500) + '...' : m.content;
+          transcript += `${m.role.toUpperCase()}: ${content}\n`;
+        }
+      }
+
+      const { getOpenAIClient } = await import('./services/ai-agent');
+      const openai = getOpenAIClient();
+
+      const defaultPromptBlock = `You are E.L.F.I.E. (Expert LEGO Fulfillment & Inventory Engine) — the business brain behind PlanetBrick, a LEGO-exclusive parts reseller serving AFOLs (Adult Fans of LEGO). You have direct database access to everything: inventory, orders, pricing, customers, sales history.
+
+You are a trusted business partner who understands the economics of reselling, the AFOL market, and what it takes to run a profitable parts operation. You are calm, direct, and honest. You have opinions formed from data.
+
+PlanetBrick is LEGO-exclusive parts only. The customers are adult builders: MOC creators, custom project builders, collectors who care deeply about specific colors, rare pieces, and bulk availability. Color precision matters. Breadth of inventory signals credibility. Pricing needs to reflect market reality.`;
+
+      const analysis = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a prompt engineering expert. You're analyzing an AI assistant called E.L.F.I.E. that helps run a LEGO parts reselling business on PlanetBrick.
+
+You have THREE inputs:
+1. The HARDCODED DEFAULT PROMPT — the built-in personality and behavior instructions E.L.F.I.E. uses by default
+2. The CURRENT CUSTOM PROMPT — any custom overrides the user has already set (may be empty)
+3. REAL CONVERSATIONS — actual chat sessions between the user and E.L.F.I.E.
+
+Your job: Produce a NEW custom prompt that makes E.L.F.I.E. smarter. The custom prompt REPLACES the default personality/behavior (tool instructions are appended automatically). So your output must be a COMPLETE system prompt — not just additions.
+
+Guidelines:
+- KEEP everything from the default that works well
+- IMPROVE areas where conversations show E.L.F.I.E. struggled, failed, or gave unhelpful responses
+- INCORPORATE any custom instructions the user already added (don't lose their tweaks)
+- ADD new instructions based on conversation patterns: repeated questions, common workflows, user preferences
+- FIX specific failure patterns you see (errors, "I can't do that" when it should be able to, repetitive/unhelpful responses)
+- MATCH the user's communication style preferences
+
+Output TWO sections:
+
+## Analysis Summary
+A brief summary of what you found (3-5 bullet points of key insights from the conversations).
+
+## Custom Prompt
+The complete custom system prompt. This replaces the default, so it must include personality, communication style, business context, and any behavioral rules. Write it as direct instructions to E.L.F.I.E. Keep it focused and actionable. Do NOT include tool-calling instructions (those are auto-appended).`
+          },
+          {
+            role: 'user',
+            content: `=== HARDCODED DEFAULT PROMPT ===
+${defaultPromptBlock}
+
+=== CURRENT CUSTOM PROMPT ===
+${currentCustomPrompt || '(none — using defaults)'}
+
+=== CONVERSATIONS (${convos.length} messages, ${sessionGroups.size} sessions, ${startDate} to ${endDate}) ===
+${transcript}`
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 3000,
+      });
+
+      const result = analysis.choices[0]?.message?.content || '';
+
+      const summaryMatch = result.match(/## Analysis Summary\s*([\s\S]*?)(?=## Custom Prompt|$)/);
+      const promptMatch = result.match(/## Custom Prompt\s*([\s\S]*?)$/);
+
+      res.json({
+        summary: summaryMatch?.[1]?.trim() || 'Analysis complete.',
+        prompt: promptMatch?.[1]?.trim() || result,
+        messageCount: convos.length,
+        sessionCount: sessionGroups.size,
+      });
+    } catch (error: any) {
+      console.error('Elfie conversation analysis error:', error.message);
+      res.status(500).json({ error: 'Failed to analyze conversations' });
+    }
+  });
+
   // E.L.F.I.E. Chat Route
   app.post("/api/chat", isApproved, async (req, res) => {
     const chatStartTime = Date.now();
@@ -4563,8 +4682,9 @@ All tools query local data (bl_catalog, price_guide_cache, inventory, orders). T
 
 Format search_web URLs as markdown links.`;
 
+      const toolInstructions = enhancedDefaultPrompt.substring(enhancedDefaultPrompt.indexOf('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nTOOLS AT YOUR DISPOSAL'));
       const systemPrompt = settings?.systemPrompt 
-        ? `${settings.systemPrompt}\n\n${enhancedDefaultPrompt}` 
+        ? `${settings.systemPrompt}\n\n${toolInstructions}` 
         : enhancedDefaultPrompt;
 
       // Use agent loop with function calling (with error recovery)

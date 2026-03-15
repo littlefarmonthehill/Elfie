@@ -744,6 +744,14 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [selectedModel, setSelectedModel] = useState("gpt-4o-mini");
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [showDefaultPrompt, setShowDefaultPrompt] = useState(false);
+  const [defaultPromptText, setDefaultPromptText] = useState("");
+  const [elfieAnalyzing, setElfieAnalyzing] = useState(false);
+  const [elfieAnalysisResult, setElfieAnalysisResult] = useState<{ summary: string; prompt: string; messageCount: number; sessionCount: number } | null>(null);
+  const [elfieAnalysisStart, setElfieAnalysisStart] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10);
+  });
+  const [elfieAnalysisEnd, setElfieAnalysisEnd] = useState(() => new Date().toISOString().slice(0, 10));
   const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string }>>([]);
   const [loadingModels, setLoadingModels] = useState(false);
 
@@ -4237,57 +4245,59 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 <div>
                   <h3 className="text-sm font-medium text-gray-100 mb-3">Chat Assistant (E.L.F.I.E.)</h3>
                   <div className="space-y-4">
+
+                    <div>
+                      <button
+                        onClick={async () => {
+                          if (!showDefaultPrompt && !defaultPromptText) {
+                            try {
+                              const res = await fetch('/api/elfie-default-prompt', { credentials: 'include' });
+                              const data = await res.json();
+                              if (data.prompt) setDefaultPromptText(data.prompt);
+                            } catch {}
+                          }
+                          setShowDefaultPrompt(!showDefaultPrompt);
+                        }}
+                        className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-200 transition-colors w-full"
+                        data-testid="button-toggle-default-prompt"
+                      >
+                        <ChevronRight className={`h-3.5 w-3.5 transition-transform ${showDefaultPrompt ? 'rotate-90' : ''}`} />
+                        <span className="font-medium">Built-in Default Prompt</span>
+                        <span className="text-[10px] text-gray-600 ml-1">(read-only)</span>
+                      </button>
+                      {showDefaultPrompt && (
+                        <div className="mt-2 rounded-lg bg-gray-800/40 border border-gray-700/50 p-3 max-h-[300px] overflow-y-auto">
+                          <pre className="text-[10px] font-mono text-gray-500 whitespace-pre-wrap leading-relaxed">{defaultPromptText || 'Loading...'}</pre>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="space-y-2">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <Label htmlFor="system-prompt" className="text-xs text-gray-200">System Prompt / Role Instructions</Label>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {systemPrompt && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              data-testid="button-clear-elfie-prompt"
-                              onClick={() => {
-                                setSystemPrompt('');
-                                updateSettingsMutation.mutate({
-                                  aiEnabled,
-                                  ...(openaiApiKey ? { openaiApiKey } : {}),
-                                  selectedModel: selectedModel || null,
-                                  systemPrompt: null,
-                                });
-                              }}
-                              className="text-[10px] text-gray-500"
-                            >
-                              Clear
-                            </Button>
-                          )}
+                        <Label htmlFor="system-prompt" className="text-xs text-gray-200">Custom Prompt</Label>
+                        {systemPrompt && (
                           <Button
                             size="sm"
-                            variant="outline"
-                            data-testid="button-load-default-elfie-prompt"
-                            onClick={async () => {
-                              try {
-                                const res = await fetch('/api/elfie-default-prompt');
-                                const data = await res.json();
-                                if (data.prompt) {
-                                  setSystemPrompt(data.prompt);
-                                  updateSettingsMutation.mutate({
-                                    aiEnabled,
-                                    ...(openaiApiKey ? { openaiApiKey } : {}),
-                                    selectedModel: selectedModel || null,
-                                    systemPrompt: data.prompt,
-                                  });
-                                }
-                              } catch {}
+                            variant="ghost"
+                            data-testid="button-clear-elfie-prompt"
+                            onClick={() => {
+                              setSystemPrompt('');
+                              updateSettingsMutation.mutate({
+                                aiEnabled,
+                                ...(openaiApiKey ? { openaiApiKey } : {}),
+                                selectedModel: selectedModel || null,
+                                systemPrompt: null,
+                              });
                             }}
-                            className="text-[10px]"
+                            className="text-[10px] text-gray-500"
                           >
-                            Load Default Prompt
+                            Clear
                           </Button>
-                        </div>
+                        )}
                       </div>
                       <Textarea
                         id="system-prompt"
-                        placeholder="Enter custom instructions for E.L.F.I.E..."
+                        placeholder="Add custom instructions for E.L.F.I.E. — this replaces the default personality & behavior. Tool instructions are always appended automatically."
                         value={systemPrompt}
                         onChange={(e) => setSystemPrompt(e.target.value)}
                         onBlur={() => {
@@ -4298,14 +4308,135 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             systemPrompt: systemPrompt || null,
                           });
                         }}
-                        className="text-xs font-mono min-h-[200px] resize-y"
+                        className="text-xs font-mono min-h-[160px] resize-y"
                         data-testid="textarea-system-prompt"
                       />
                       <p className="sm-description">
                         {systemPrompt
-                          ? 'Your custom prompt replaces the default personality & behavior sections. Tool instructions are always appended automatically.'
-                          : 'No custom prompt set — using built-in defaults. Click "Load Default Prompt" to view and edit.'}
+                          ? 'Your custom prompt replaces the default personality & behavior. Tool instructions are always appended automatically.'
+                          : 'No custom prompt — using built-in defaults. Use "Analyze Conversations" below to generate one.'}
                       </p>
+                    </div>
+
+                    <Separator className="bg-gray-700" />
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div>
+                          <p className="text-xs font-medium text-gray-200">Conversation-Based Prompt Tuning</p>
+                          <p className="text-[10px] text-gray-500 mt-0.5">Analyze past Elfie conversations to generate a smarter custom prompt</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-[10px] text-gray-500">From</Label>
+                          <input
+                            type="date"
+                            value={elfieAnalysisStart}
+                            onChange={(e) => setElfieAnalysisStart(e.target.value)}
+                            className="text-[10px] bg-gray-800 border border-gray-700 rounded px-2 py-1 text-gray-300 font-mono"
+                            data-testid="input-analysis-start-date"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-[10px] text-gray-500">To</Label>
+                          <input
+                            type="date"
+                            value={elfieAnalysisEnd}
+                            onChange={(e) => setElfieAnalysisEnd(e.target.value)}
+                            className="text-[10px] bg-gray-800 border border-gray-700 rounded px-2 py-1 text-gray-300 font-mono"
+                            data-testid="input-analysis-end-date"
+                          />
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          data-testid="button-analyze-conversations"
+                          disabled={elfieAnalyzing}
+                          onClick={async () => {
+                            setElfieAnalyzing(true);
+                            setElfieAnalysisResult(null);
+                            try {
+                              const res = await fetch('/api/elfie-analyze-conversations', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'include',
+                                body: JSON.stringify({ startDate: elfieAnalysisStart, endDate: elfieAnalysisEnd }),
+                              });
+                              const data = await res.json();
+                              if (data.error) throw new Error(data.error);
+                              setElfieAnalysisResult(data);
+                            } catch (err: any) {
+                              setElfieAnalysisResult({ summary: `Error: ${err.message}`, prompt: '', messageCount: 0, sessionCount: 0 });
+                            } finally {
+                              setElfieAnalyzing(false);
+                            }
+                          }}
+                          className="text-[10px]"
+                        >
+                          {elfieAnalyzing ? 'Analyzing...' : 'Analyze Conversations'}
+                        </Button>
+                      </div>
+
+                      {elfieAnalyzing && (
+                        <div className="rounded-lg bg-blue-500/10 border border-blue-500/30 p-3">
+                          <p className="text-[11px] text-blue-300">Analyzing conversations with AI... This may take 15-30 seconds.</p>
+                        </div>
+                      )}
+
+                      {elfieAnalysisResult && elfieAnalysisResult.prompt && (
+                        <div className="space-y-2">
+                          <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-3 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-[11px] font-medium text-gray-200">Analysis Results</p>
+                              <span className="text-[10px] text-gray-500">{elfieAnalysisResult.messageCount} messages across {elfieAnalysisResult.sessionCount} sessions</span>
+                            </div>
+                            <div className="text-[11px] text-gray-400 whitespace-pre-wrap leading-relaxed">{elfieAnalysisResult.summary}</div>
+                          </div>
+
+                          <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-3 space-y-2">
+                            <p className="text-[11px] font-medium text-gray-200">Suggested Custom Prompt</p>
+                            <div className="max-h-[250px] overflow-y-auto">
+                              <pre className="text-[10px] font-mono text-gray-400 whitespace-pre-wrap leading-relaxed">{elfieAnalysisResult.prompt}</pre>
+                            </div>
+                            <div className="flex items-center gap-2 pt-1 flex-wrap">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                data-testid="button-accept-analysis-prompt"
+                                onClick={() => {
+                                  setSystemPrompt(elfieAnalysisResult!.prompt);
+                                  updateSettingsMutation.mutate({
+                                    aiEnabled,
+                                    ...(openaiApiKey ? { openaiApiKey } : {}),
+                                    selectedModel: selectedModel || null,
+                                    systemPrompt: elfieAnalysisResult!.prompt,
+                                  });
+                                  setElfieAnalysisResult(null);
+                                }}
+                                className="text-[10px]"
+                              >
+                                Apply as Custom Prompt
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                data-testid="button-dismiss-analysis"
+                                onClick={() => setElfieAnalysisResult(null)}
+                                className="text-[10px] text-gray-500"
+                              >
+                                Dismiss
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {elfieAnalysisResult && !elfieAnalysisResult.prompt && (
+                        <div className="rounded-lg bg-orange-500/10 border border-orange-500/30 p-3">
+                          <p className="text-[11px] text-orange-300">{elfieAnalysisResult.summary}</p>
+                        </div>
+                      )}
                     </div>
 
                     <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
