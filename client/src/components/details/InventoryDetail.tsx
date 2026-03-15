@@ -1,4 +1,4 @@
-import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes, Search } from "lucide-react";
+import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes, Search, Loader2, RefreshCw, Newspaper, MessageCircle, TrendingDown, Target, ShieldAlert } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import PartImage from "@/components/PartImage";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,25 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+
+interface ItemInsight {
+  category: string;
+  urgency: string;
+  title: string;
+  summary: string;
+  source: string;
+}
+
+interface ItemInsightsResponse {
+  insights: ItemInsight[];
+  meta: {
+    newsCount: number;
+    forumCount: number;
+    salesCount: number;
+    hasPriceGuide: boolean;
+  };
+}
 
 interface PriceOMagicData {
   itemNo: string;
@@ -104,6 +123,152 @@ interface InventoryDetailProps {
   initialTab?: string;
 }
 
+
+const INSIGHT_ICONS: Record<string, any> = {
+  pricing: DollarSign,
+  movement: TrendingDown,
+  market: Newspaper,
+  category_trend: TrendingUp,
+  opportunity: Target,
+  risk: ShieldAlert,
+};
+
+const INSIGHT_COLORS: Record<string, { icon: string; border: string; bg: string }> = {
+  pricing: { icon: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'from-emerald-500/15 via-emerald-500/5 to-transparent' },
+  movement: { icon: 'text-amber-400', border: 'border-amber-500/30', bg: 'from-amber-500/15 via-amber-500/5 to-transparent' },
+  market: { icon: 'text-blue-400', border: 'border-blue-500/30', bg: 'from-blue-500/15 via-blue-500/5 to-transparent' },
+  category_trend: { icon: 'text-purple-400', border: 'border-purple-500/30', bg: 'from-purple-500/15 via-purple-500/5 to-transparent' },
+  opportunity: { icon: 'text-cyan-400', border: 'border-cyan-500/30', bg: 'from-cyan-500/15 via-cyan-500/5 to-transparent' },
+  risk: { icon: 'text-red-400', border: 'border-red-500/30', bg: 'from-red-500/15 via-red-500/5 to-transparent' },
+};
+
+const URGENCY_BADGE: Record<string, { cls: string; label: string }> = {
+  high: { cls: 'bg-red-500/20 text-red-400 border-red-500/30', label: 'High' },
+  medium: { cls: 'bg-amber-500/20 text-amber-400 border-amber-500/30', label: 'Med' },
+  low: { cls: 'bg-gray-500/20 text-gray-400 border-gray-500/30', label: 'Low' },
+};
+
+const SOURCE_ICONS: Record<string, { icon: any; label: string }> = {
+  sales: { icon: ShoppingCart, label: 'Sales' },
+  market_data: { icon: BarChart3, label: 'Market' },
+  news: { icon: Newspaper, label: 'News' },
+  forum: { icon: MessageCircle, label: 'Forum' },
+  inventory: { icon: Package, label: 'Inventory' },
+};
+
+function ItemBusinessInsights({ itemId }: { itemId: number }) {
+  const { data: insightsData, isLoading, isError, refetch, isFetching } = useQuery<ItemInsightsResponse>({
+    queryKey: ['/api/inventory', itemId, 'item-insights'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', `/api/inventory/${itemId}/item-insights`);
+      return res as unknown as ItemInsightsResponse;
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="bg-gradient-to-r from-lego-orange/20 via-lego-orange/10 to-transparent border border-lego-orange/30 rounded-lg p-4">
+        <div className="flex items-center gap-1.5 mb-3">
+          <Sparkles className="h-3.5 w-3.5 text-lego-orange" />
+          <p className="text-[10px] md:text-sm font-bold text-lego-orange">BUSINESS INSIGHTS</p>
+        </div>
+        <div className="flex items-center justify-center gap-2 py-4">
+          <Loader2 className="h-4 w-4 text-lego-orange animate-spin" />
+          <span className="text-xs text-gray-400">Analyzing item data, market trends, and community signals...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError || !insightsData) {
+    return (
+      <div className="bg-gradient-to-r from-lego-orange/20 via-lego-orange/10 to-transparent border border-lego-orange/30 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5 text-lego-orange" />
+            <p className="text-[10px] md:text-sm font-bold text-lego-orange">BUSINESS INSIGHTS</p>
+          </div>
+          <Button size="icon" variant="ghost" onClick={() => refetch()} data-testid="button-retry-insights">
+            <RefreshCw className="h-3 w-3 text-gray-400" />
+          </Button>
+        </div>
+        <p className="text-xs text-gray-500 text-center py-2">Unable to generate insights. Click refresh to retry.</p>
+      </div>
+    );
+  }
+
+  const { insights, meta } = insightsData;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="h-3.5 w-3.5 text-lego-orange" />
+          <p className="text-[10px] md:text-sm font-bold text-lego-orange">BUSINESS INSIGHTS</p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 text-[8px] text-gray-600">
+            {meta.newsCount > 0 && <span className="flex items-center gap-0.5"><Newspaper className="h-2.5 w-2.5" />{meta.newsCount}</span>}
+            {meta.forumCount > 0 && <span className="flex items-center gap-0.5"><MessageCircle className="h-2.5 w-2.5" />{meta.forumCount}</span>}
+            {meta.salesCount > 0 && <span className="flex items-center gap-0.5"><ShoppingCart className="h-2.5 w-2.5" />{meta.salesCount}</span>}
+          </div>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            data-testid="button-refresh-insights"
+          >
+            <RefreshCw className={`h-3 w-3 text-gray-400 ${isFetching ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+      </div>
+
+      {insights.length === 0 ? (
+        <div className="app-card-muted p-3 text-center">
+          <p className="text-xs text-gray-500">No insights generated for this item yet.</p>
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {insights.map((insight, idx) => {
+            const colors = INSIGHT_COLORS[insight.category] || INSIGHT_COLORS.market;
+            const IconComp = INSIGHT_ICONS[insight.category] || Sparkles;
+            const urgency = URGENCY_BADGE[insight.urgency] || URGENCY_BADGE.medium;
+            const sourceInfo = SOURCE_ICONS[insight.source] || SOURCE_ICONS.inventory;
+            const SourceIcon = sourceInfo.icon;
+
+            return (
+              <div
+                key={idx}
+                className={`bg-gradient-to-r ${colors.bg} border ${colors.border} rounded-lg p-2.5`}
+                data-testid={`insight-card-${idx}`}
+              >
+                <div className="flex items-start gap-2">
+                  <IconComp className={`h-3.5 w-3.5 ${colors.icon} mt-0.5 shrink-0`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                      <span className="text-[10px] md:text-xs font-semibold text-gray-200 leading-tight">{insight.title}</span>
+                      <span className={`inline-flex items-center rounded-full border text-[7px] px-1 py-px font-semibold leading-tight ${urgency.cls}`}>
+                        {urgency.label}
+                      </span>
+                    </div>
+                    <p className="text-[9px] md:text-xs text-gray-400 leading-relaxed">{insight.summary}</p>
+                    <div className="flex items-center gap-0.5 mt-1">
+                      <SourceIcon className="h-2 w-2 text-gray-600" />
+                      <span className="text-[7px] text-gray-600">{sourceInfo.label}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: InventoryDetailProps) {
   const [activeTab, setActiveTab] = useState(initialTab ?? "overview");
@@ -1046,39 +1211,8 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                   </div>
                 )}
 
-                {/* Strategy Recommendations */}
-                <div className="bg-gradient-to-r from-lego-orange/20 via-lego-orange/10 to-transparent border border-lego-orange/30 rounded-lg p-2.5">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Sparkles className="h-3.5 w-3.5 text-lego-orange" />
-                    <p className="text-[10px] md:text-sm font-bold text-lego-orange">MOVEMENT STRATEGIES</p>
-                  </div>
-                  <div className="space-y-1.5 text-xs text-gray-300">
-                    {analytics.daysSinceLastSold !== null && analytics.daysSinceLastSold > 90 && (
-                      <p className="flex items-start gap-1.5">
-                        <span className="text-yellow-400 mt-0.5">•</span>
-                        <span>Consider price reduction - item hasn't sold in {analytics.daysSinceLastSold} days</span>
-                      </p>
-                    )}
-                    {parseFloat(analytics.salesVelocity) > 5 && (
-                      <p className="flex items-start gap-1.5">
-                        <span className="text-green-400 mt-0.5">•</span>
-                        <span>High velocity item ({analytics.salesVelocity}/mo) - consider restocking</span>
-                      </p>
-                    )}
-                    {analytics.topCustomers.length > 0 && analytics.topCustomers[0].orders > 1 && (
-                      <p className="flex items-start gap-1.5">
-                        <span className="text-blue-400 mt-0.5">•</span>
-                        <span>Repeat buyers detected - reach out to {analytics.topCustomers[0].name} for bulk offers</span>
-                      </p>
-                    )}
-                    {analytics.bestSellingMonth !== 'N/A' && (
-                      <p className="flex items-start gap-1.5">
-                        <span className="text-purple-400 mt-0.5">•</span>
-                        <span>Best sales in {analytics.bestSellingMonth} - plan promotions accordingly</span>
-                      </p>
-                    )}
-                  </div>
-                </div>
+                {/* Business Insights */}
+                <ItemBusinessInsights itemId={data.id} />
               </>
             ) : (
               <div className="app-card-muted p-4 text-center">
