@@ -8951,6 +8951,27 @@ Format search_web URLs as markdown links.`;
         repricingScore = Number((cC + vC + sC + uC).toFixed(2));
       }
 
+      const computeSuggested = (row: typeof nRow) => {
+        if (!row) return null;
+        if (row.suggestedPrice && parseFloat(row.suggestedPrice) > 0) return row.suggestedPrice;
+        const soldAvg = parseFloat(row.soldAvgPrice || '0');
+        const soldMax = parseFloat(row.soldMaxPrice || '0');
+        const stkMin = parseFloat(row.stockMinPrice || '0');
+        const sQty = row.soldQuantity ?? (row.soldTotalLots ? parseInt(String(row.soldTotalLots)) : 0);
+        const lQty = row.stockQuantity ?? (row.stockTotalLots ? parseInt(String(row.stockTotalLots)) : 0);
+        if (soldAvg <= 0 && stkMin <= 0) return null;
+        const base = (soldAvg > 0 ? soldAvg * 0.5 : 0) + (stkMin > 0 ? stkMin * 0.3 : 0) + (soldMax > 0 ? soldMax * 0.2 : 0);
+        if (base <= 0) return null;
+        const vel = lQty > 0 ? sQty / lQty : 0;
+        const demandAdj = 1 + vel * 0.25;
+        const raw = base * demandAdj;
+        const capLimit = stkMin > 0 ? stkMin * 1.15 : raw;
+        const cappedRaw = raw <= capLimit ? raw : capLimit + (raw - capLimit) * 0.3;
+        const floor = stkMin > 0 ? stkMin * 0.95 : 0;
+        const suggested = Math.max(cappedRaw * 1.10, floor);
+        return suggested.toFixed(2);
+      };
+
       res.json({
         N: nRow ? {
           soldQty: nRow.soldQuantity ?? nRow.soldTotalLots ?? null,
@@ -8961,7 +8982,7 @@ Format search_web URLs as markdown links.`;
           listedMin: nRow.stockMinPrice,
           listedAvg: nRow.stockAvgPrice,
           listedMax: nRow.stockMaxPrice,
-          suggestedPrice: nRow.suggestedPrice,
+          suggestedPrice: computeSuggested(nRow),
         } : null,
         U: uRow ? {
           soldQty: uRow.soldQuantity ?? uRow.soldTotalLots ?? null,
@@ -8972,7 +8993,7 @@ Format search_web URLs as markdown links.`;
           listedMin: uRow.stockMinPrice,
           listedAvg: uRow.stockAvgPrice,
           listedMax: uRow.stockMaxPrice,
-          suggestedPrice: uRow.suggestedPrice,
+          suggestedPrice: computeSuggested(uRow),
         } : null,
         scoring: {
           ceiling: priceCeilingRatio,
