@@ -66,6 +66,9 @@ export default function Header({ onSettingsClick, onElfieClick, supportNotificat
     }
     if (current > prev) {
       playAlert();
+      if ('vibrate' in navigator) {
+        try { navigator.vibrate([200, 100, 200]); } catch {}
+      }
       if (notifPermission === 'granted' && document.hidden) {
         try {
           new Notification('PlanetBrick Support', {
