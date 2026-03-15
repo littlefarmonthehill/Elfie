@@ -3011,7 +3011,9 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(250,204,21,0.45)', border: '1.5px solid rgb(250,204,21)' }} /> Low</span>
                   <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(107,114,128,0.35)', border: '1.5px solid rgb(107,114,128)' }} /> No price</span>
                   <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(45,212,191,0.15)', border: '1.5px dashed rgba(45,212,191,0.75)' }} /> Unknown (tap)</span>
-                  <span className="flex items-center gap-1"><span className="inline-block w-3.5 h-3.5 rounded-full flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.92)', border: '1.5px solid rgba(196,167,255,0.80)' }}><img src={elfieRobot} alt="" style={{ width: 10, height: 10, objectFit: 'contain' }} /></span> E.L.F.I.E.</span>
+                  {results.some(r => r.detectionSource === 'elfie') && (
+                    <span className="flex items-center gap-1"><span className="inline-block w-3.5 h-3.5 rounded-full flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.92)', border: '1.5px solid rgba(196,167,255,0.80)' }}><img src={elfieRobot} alt="" style={{ width: 10, height: 10, objectFit: 'contain' }} /></span> E.L.F.I.E.</span>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 ml-auto">
                   <ZoomIn className="w-3 h-3" />
