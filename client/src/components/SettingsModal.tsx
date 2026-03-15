@@ -794,6 +794,34 @@ function ProductVisionPanel() {
   );
 }
 
+function InlineDropdown({ value, options, onChange, className, testId }: { value: string; options: { value: string; label: string }[]; onChange: (val: string) => void; className?: string; testId?: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+  const selected = options.find(o => o.value === value);
+  return (
+    <div ref={ref} className="relative inline-block" data-testid={testId}>
+      <button onClick={() => setOpen(!open)} className={`text-[10px] px-1.5 py-0.5 rounded border truncate max-w-[110px] text-left ${className || 'text-gray-500 border-gray-700'}`}>
+        {selected?.label || value} <ChevronDown className="inline w-2 h-2 ml-0.5 opacity-50" />
+      </button>
+      {open && (
+        <div className="absolute z-50 mt-0.5 left-0 bg-gray-800 border border-gray-600 rounded-md shadow-lg py-0.5 max-h-[180px] overflow-y-auto min-w-[140px]" style={{ maxWidth: '220px' }}>
+          {options.map(o => (
+            <button key={o.value} onClick={() => { onChange(o.value); setOpen(false); }} className={`block w-full text-left px-2 py-1 text-[10px] truncate ${o.value === value ? 'bg-blue-500/20 text-blue-300' : 'text-gray-300 hover:bg-gray-700'}`} data-testid={testId ? `${testId}-option-${o.value}` : undefined}>
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CapStatusBadge({ status, onClick }: { status: string; onClick: () => void }) {
   const styles: Record<string, string> = {
     built: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
@@ -923,9 +951,7 @@ function ProductCapabilitiesPanel() {
                         )}
                         <span className={`px-1.5 py-0.5 text-[9px] font-medium rounded border shrink-0 ${derivedStatus === 'built' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : derivedStatus === 'now' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' : derivedStatus === 'next' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-gray-500/20 text-gray-400 border-gray-500/30'}`} data-testid={`badge-l2-status-${l2.id}`}>{derivedStatus === 'built' ? 'Built' : derivedStatus === 'now' ? 'Now' : derivedStatus === 'next' ? 'Next' : 'Later'}</span>
                         <span className="text-[9px] text-gray-500">{allChildFeatures.filter((f: any) => (f.status || 'built') === 'built').length}/{allChildFeatures.length}</span>
-                        <select value={l2.parentId} onChange={e => { const newParent = parseInt(e.target.value); if (newParent !== l2.parentId) updateCap(l2.id, { parentId: newParent }); }} className="bg-transparent border border-gray-700 rounded text-[10px] text-gray-500 px-1 py-0.5 focus:outline-none max-w-[90px]" data-testid={`select-cap-l2-l1-${l2.id}`}>
-                          {l1s.map((other: any) => <option key={other.id} value={other.id}>{other.title}</option>)}
-                        </select>
+                        <InlineDropdown value={String(l2.parentId)} options={l1s.map((other: any) => ({ value: String(other.id), label: other.title }))} onChange={val => { const newParent = parseInt(val); if (newParent !== l2.parentId) updateCap(l2.id, { parentId: newParent }); }} testId={`select-cap-l2-l1-${l2.id}`} />
                         <Button size="icon" variant="ghost" onClick={() => deleteCap(l2.id)} data-testid={`button-delete-l2-${l2.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
                       </div>
                       {childFeatures.length > 0 && (
@@ -938,9 +964,7 @@ function ProductCapabilitiesPanel() {
                               ) : (
                                 <span className={`flex-1 text-xs cursor-pointer ${(f.status || 'built') === 'built' ? 'text-gray-300' : 'text-gray-400'}`} onClick={() => { setEditingId(f.id); setEditTitle(f.title); }} data-testid={`text-feature-${f.id}`}>{f.title}</span>
                               )}
-                              <select value={f.parentId} onChange={e => { const newParent = parseInt(e.target.value); if (newParent !== f.parentId) updateCap(f.id, { parentId: newParent }); }} className="bg-transparent border border-gray-700 rounded text-[10px] text-gray-500 px-1 py-0.5 focus:outline-none max-w-[100px]" data-testid={`select-cap-feature-l2-${f.id}`}>
-                                {l2s.map((other: any) => { const pL1 = l1s.find((p: any) => p.id === other.parentId); return <option key={other.id} value={other.id}>{pL1 ? `${pL1.title} / ` : ''}{other.title}</option>; })}
-                              </select>
+                              <InlineDropdown value={String(f.parentId)} options={l2s.map((other: any) => { const pL1 = l1s.find((p: any) => p.id === other.parentId); return { value: String(other.id), label: `${pL1 ? pL1.title + ' / ' : ''}${other.title}` }; })} onChange={val => { const newParent = parseInt(val); if (newParent !== f.parentId) updateCap(f.id, { parentId: newParent }); }} testId={`select-cap-feature-l2-${f.id}`} />
                               <Button size="icon" variant="ghost" className="invisible group-hover:visible" onClick={() => deleteCap(f.id)} data-testid={`button-delete-feature-${f.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
                             </div>
                           ))}
@@ -1230,9 +1254,7 @@ function ProductRoadmapPanel() {
                             <span className="flex-1 text-xs font-medium text-gray-300">{l2.title}</span>
                             <CapStatusBadge status={derivedStatus} />
                             <span className="text-[10px] text-gray-500">{builtCount}/{allChildFeatures.length}</span>
-                            <select value={l2.parentId} onChange={async e => { const newParent = parseInt(e.target.value); if (newParent !== l2.parentId) { try { await apiRequest('PATCH', `/api/platform-admin/product/capabilities/${l2.id}`, { parentId: newParent }); queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] }); } catch {} } }} className="bg-transparent border border-gray-700 rounded text-[10px] text-gray-500 px-1 py-0.5 focus:outline-none max-w-[90px]" data-testid={`select-l2-l1-${l2.id}`}>
-                              {l1s.map((other: any) => <option key={other.id} value={other.id}>{other.title}</option>)}
-                            </select>
+                            <InlineDropdown value={String(l2.parentId)} options={l1s.map((other: any) => ({ value: String(other.id), label: other.title }))} onChange={async val => { const newParent = parseInt(val); if (newParent !== l2.parentId) { try { await apiRequest('PATCH', `/api/platform-admin/product/capabilities/${l2.id}`, { parentId: newParent }); queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] }); } catch {} } }} testId={`select-l2-l1-${l2.id}`} />
                           </div>
                           {!isL2Collapsed && visibleFeatures.length > 0 && (
                             <div className="ml-5 space-y-0.5 pb-1">
@@ -1244,9 +1266,7 @@ function ProductRoadmapPanel() {
                                     moveCapStatus(f.id, next);
                                   }} />
                                   <span className={`flex-1 text-xs ${(f.status || 'built') === 'built' ? 'text-gray-400' : 'text-gray-200'}`}>{f.title}</span>
-                                  <select value={f.parentId} onChange={async e => { const newParent = parseInt(e.target.value); if (newParent !== f.parentId) { try { await apiRequest('PATCH', `/api/platform-admin/product/capabilities/${f.id}`, { parentId: newParent }); queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] }); } catch {} } }} className="bg-transparent border border-gray-700 rounded text-[10px] text-gray-500 px-1 py-0.5 focus:outline-none max-w-[100px]" data-testid={`select-feature-l2-${f.id}`}>
-                                    {l2s.map((other: any) => { const pL1 = l1s.find((p: any) => p.id === other.parentId); return <option key={other.id} value={other.id}>{pL1 ? `${pL1.title} / ` : ''}{other.title}</option>; })}
-                                  </select>
+                                  <InlineDropdown value={String(f.parentId)} options={l2s.map((other: any) => { const pL1 = l1s.find((p: any) => p.id === other.parentId); return { value: String(other.id), label: `${pL1 ? pL1.title + ' / ' : ''}${other.title}` }; })} onChange={async val => { const newParent = parseInt(val); if (newParent !== f.parentId) { try { await apiRequest('PATCH', `/api/platform-admin/product/capabilities/${f.id}`, { parentId: newParent }); queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] }); } catch {} } }} testId={`select-feature-l2-${f.id}`} />
                                 </div>
                               ))}
                             </div>
@@ -1267,177 +1287,103 @@ function ProductRoadmapPanel() {
 
 function ProductBacklogPanel() {
   const { toast } = useToast();
-  const { data: items, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/backlog'] });
-  const { data: roadmapItems } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/roadmap'] });
-  const { data: caps } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/capabilities'] });
-  const [showAdd, setShowAdd] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newDesc, setNewDesc] = useState('');
-  const [newPriority, setNewPriority] = useState('medium');
-  const [newEffort, setNewEffort] = useState('M');
-  const [newRoadmapId, setNewRoadmapId] = useState<number | null>(null);
-  const [newCapabilityId, setNewCapabilityId] = useState<number | null>(null);
-  const [filter, setFilter] = useState<'all' | 'new' | 'next' | 'now' | 'later' | 'done'>('all');
+  const { data: caps, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/capabilities'] });
+  const [filter, setFilter] = useState<'all' | 'now' | 'next' | 'later'>('all');
 
   const l1s = (caps || []).filter((c: any) => c.level === 1);
   const l2s = (caps || []).filter((c: any) => c.level === 2);
+  const features = (caps || []).filter((c: any) => c.level === 3);
+  const notBuilt = features.filter((f: any) => (f.status || 'built') !== 'built');
 
-  const addItem = async () => {
-    if (!newTitle.trim()) return;
+  const moveCapStatus = async (id: number, status: string) => {
     try {
-      await apiRequest('POST', '/api/platform-admin/product/backlog', { title: newTitle, description: newDesc, priority: newPriority, effort: newEffort, roadmapItemId: newRoadmapId, capabilityId: newCapabilityId });
-      setNewTitle(''); setNewDesc(''); setNewPriority('medium'); setNewEffort('M'); setNewRoadmapId(null); setNewCapabilityId(null); setShowAdd(false);
-      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/backlog'] });
-    } catch (e: any) { toast({ title: 'Failed to add backlog item', description: e.message, variant: 'destructive' }); }
+      await apiRequest('PATCH', `/api/platform-admin/product/capabilities/${id}`, { status });
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] });
+    } catch (e: any) { toast({ title: 'Failed to update status', description: e.message, variant: 'destructive' }); }
   };
 
-  const updateItem = async (id: number, updates: Record<string, any>) => {
+  const moveCapParent = async (id: number, parentId: number) => {
     try {
-      await apiRequest('PATCH', `/api/platform-admin/product/backlog/${id}`, updates);
-      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/backlog'] });
-    } catch (e: any) { toast({ title: 'Failed to update', description: e.message, variant: 'destructive' }); }
-  };
-
-  const deleteItem = async (id: number) => {
-    try {
-      await apiRequest('DELETE', `/api/platform-admin/product/backlog/${id}`);
-      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/backlog'] });
-    } catch (e: any) { toast({ title: 'Failed to delete item', description: e.message, variant: 'destructive' }); }
+      await apiRequest('PATCH', `/api/platform-admin/product/capabilities/${id}`, { parentId });
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] });
+    } catch (e: any) { toast({ title: 'Failed to move feature', description: e.message, variant: 'destructive' }); }
   };
 
   if (isLoading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-500" /></div>;
 
-  const priorityOrder = { high: 0, medium: 1, low: 2 } as Record<string, number>;
   const statusGroups = [
-    { id: 'new', label: 'New', color: 'violet' },
-    { id: 'next', label: 'Next', color: 'amber' },
     { id: 'now', label: 'Now', color: 'blue' },
+    { id: 'next', label: 'Next', color: 'amber' },
     { id: 'later', label: 'Later', color: 'gray' },
-    { id: 'done', label: 'Done', color: 'emerald' },
   ];
   const visibleGroups = filter === 'all' ? statusGroups : statusGroups.filter(g => g.id === filter);
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div>
-          <p className="text-sm font-medium text-gray-100">Backlog</p>
-          <p className="sm-description mt-1">Work items linked to L2 capabilities. Statuses align with roadmap: New / Next / Now / Later / Done.</p>
-        </div>
-        <Button size="sm" variant="outline" onClick={() => setShowAdd(true)} data-testid="button-add-backlog">
-          <Plus className="w-3.5 h-3.5 mr-1" /> Add Item
-        </Button>
+      <div>
+        <p className="text-sm font-medium text-gray-100">Backlog</p>
+        <p className="sm-description mt-1">Features not yet built, grouped by status. Tap status to change, tap L2 to reassign. Features marked "Built" move out of backlog.</p>
       </div>
 
       <div className="flex items-center gap-1.5 flex-wrap">
-        {(['all', 'new', 'next', 'now', 'later', 'done'] as const).map(f => {
-          const colors: Record<string, string> = { all: 'bg-blue-500/20 text-blue-300 border-blue-500/30', 'new': 'bg-violet-500/20 text-violet-300 border-violet-500/30', next: 'bg-amber-500/20 text-amber-300 border-amber-500/30', now: 'bg-blue-500/20 text-blue-300 border-blue-500/30', later: 'bg-gray-500/20 text-gray-400 border-gray-500/30', done: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' };
-          const labels: Record<string, string> = { all: 'All', 'new': 'New', next: 'Next', now: 'Now', later: 'Later', done: 'Done' };
-          const count = f === 'all' ? (items || []).length : (items || []).filter((i: any) => i.status === f).length;
+        {(['all', 'now', 'next', 'later'] as const).map(f => {
+          const colors: Record<string, string> = { all: 'bg-blue-500/20 text-blue-300 border-blue-500/30', now: 'bg-blue-500/20 text-blue-300 border-blue-500/30', next: 'bg-amber-500/20 text-amber-300 border-amber-500/30', later: 'bg-gray-500/20 text-gray-400 border-gray-500/30' };
+          const count = f === 'all' ? notBuilt.length : notBuilt.filter((c: any) => (c.status || 'built') === f).length;
           return (
-            <button key={f} onClick={() => setFilter(f)} className={`text-[10px] px-2.5 py-1 rounded-full transition-colors border ${filter === f ? colors[f] : 'text-gray-500 border-transparent'}`} data-testid={`button-filter-${f}`}>
-              {labels[f]}
+            <button key={f} onClick={() => setFilter(f)} className={`text-[10px] px-2.5 py-1 rounded-full transition-colors border ${filter === f ? colors[f] : 'text-gray-500 border-transparent'}`} data-testid={`button-backlog-filter-${f}`}>
+              {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
               <span className="ml-1 text-gray-600">({count})</span>
             </button>
           );
         })}
       </div>
 
-      {showAdd && (
-        <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 space-y-2">
-          <input type="text" className="w-full bg-black/30 border border-gray-600 rounded-md p-2 text-sm text-gray-200 focus:outline-none focus:border-blue-500" placeholder="Task title..." value={newTitle} onChange={e => setNewTitle(e.target.value)} data-testid="input-backlog-title" />
-          <textarea className="w-full bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 min-h-[40px] resize-y focus:outline-none focus:border-blue-500" placeholder="Description (optional)..." value={newDesc} onChange={e => setNewDesc(e.target.value)} data-testid="input-backlog-desc" />
-          <div className="flex items-center gap-2 flex-wrap">
-            <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newPriority} onChange={e => setNewPriority(e.target.value)} data-testid="select-backlog-priority">
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-            </select>
-            <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newEffort} onChange={e => setNewEffort(e.target.value)} data-testid="select-backlog-effort">
-              <option value="S">S</option>
-              <option value="M">M</option>
-              <option value="L">L</option>
-            </select>
-            <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newCapabilityId ?? ''} onChange={e => setNewCapabilityId(e.target.value ? parseInt(e.target.value) : null)} data-testid="select-backlog-capability">
-              <option value="">No L2 capability</option>
-              {l2s.map((l2: any) => {
-                const parentL1 = l1s.find((p: any) => p.id === l2.parentId);
-                return <option key={l2.id} value={l2.id}>{parentL1 ? `${parentL1.title} / ` : ''}{l2.title}</option>;
-              })}
-            </select>
-            {(roadmapItems || []).length > 0 && (
-              <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newRoadmapId ?? ''} onChange={e => setNewRoadmapId(e.target.value ? parseInt(e.target.value) : null)} data-testid="select-backlog-roadmap">
-                <option value="">No roadmap link</option>
-                {(roadmapItems || []).map((r: any) => <option key={r.id} value={r.id}>{r.title}</option>)}
-              </select>
-            )}
-            <Button size="sm" onClick={addItem} data-testid="button-save-backlog"><Save className="w-3 h-3 mr-1" /> Save</Button>
-            <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Button>
-          </div>
+      {notBuilt.length === 0 ? (
+        <div className="text-center py-8">
+          <ListTodo className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+          <p className="text-xs text-gray-500">All features are built. Change a feature's status in the Roadmap or Capabilities panel to add it here.</p>
         </div>
-      )}
-
-      {visibleGroups.map(group => {
-        const groupItems = [...(items || []).filter((i: any) => i.status === group.id)].sort((a: any, b: any) => (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1));
-        const borderColor = group.color === 'emerald' ? 'border-emerald-500/30' : group.color === 'blue' ? 'border-blue-500/30' : group.color === 'amber' ? 'border-amber-500/30' : group.color === 'violet' ? 'border-violet-500/30' : 'border-gray-700';
-        const labelColor = group.color === 'emerald' ? 'text-emerald-400' : group.color === 'blue' ? 'text-blue-400' : group.color === 'amber' ? 'text-amber-400' : group.color === 'violet' ? 'text-violet-400' : 'text-gray-400';
-        return (
-          <div key={group.id}>
-            <div className="flex items-center gap-2 mb-2">
-              <span className={`text-xs font-medium ${labelColor}`}>{group.label}</span>
-              <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">{groupItems.length}</Badge>
-            </div>
-            {groupItems.length === 0 ? (
-              <div className={`border ${borderColor} border-dashed rounded-lg p-4 text-center`}>
-                <p className="text-[10px] text-gray-600">No items</p>
+      ) : (
+        visibleGroups.map(group => {
+          const groupFeatures = notBuilt.filter((f: any) => (f.status || 'built') === group.id);
+          const borderColor = group.color === 'blue' ? 'border-blue-500/30' : group.color === 'amber' ? 'border-amber-500/30' : 'border-gray-700';
+          const labelColor = group.color === 'blue' ? 'text-blue-400' : group.color === 'amber' ? 'text-amber-400' : 'text-gray-400';
+          return (
+            <div key={group.id}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`text-xs font-medium ${labelColor}`}>{group.label}</span>
+                <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">{groupFeatures.length}</Badge>
               </div>
-            ) : (
-              <div className="space-y-1.5 rounded-lg p-1">
-                {groupItems.map((item: any) => {
-                  const linkedRoadmap = (roadmapItems || []).find((r: any) => r.id === item.roadmapItemId);
-                  const linkedCap = l2s.find((c: any) => c.id === item.capabilityId);
-                  const linkedCapParent = linkedCap ? l1s.find((p: any) => p.id === linkedCap.parentId) : null;
-                  const priorityColor = item.priority === 'high' ? 'text-red-400 border-red-500/30' : item.priority === 'medium' ? 'text-amber-400 border-amber-500/30' : 'text-gray-400 border-gray-600';
-                  const statusColorMap: Record<string, string> = { 'new': 'text-violet-400 border-violet-500/30', next: 'text-amber-400 border-amber-500/30', now: 'text-blue-400 border-blue-500/30', later: 'text-gray-400 border-gray-600', done: 'text-emerald-400 border-emerald-500/30' };
-                  return (
-                    <div key={item.id} className={`border ${borderColor} rounded-lg p-3 bg-gray-900/30 ${item.status === 'done' ? 'opacity-50' : ''}`} data-testid={`backlog-item-${item.id}`}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <select value={item.status} onChange={e => updateItem(item.id, { status: e.target.value })} className={`bg-transparent border rounded text-[9px] font-medium px-1.5 py-0.5 focus:outline-none ${statusColorMap[item.status] || 'text-gray-400 border-gray-600'}`} data-testid={`select-status-${item.id}`}>
-                              {statusGroups.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-                            </select>
-                            <Badge variant="outline" className={`text-[9px] ${priorityColor}`}>{item.priority}</Badge>
-                            <Badge variant="outline" className="text-[9px] text-gray-500 border-gray-600">{item.effort}</Badge>
-                            <p className="text-xs font-medium text-gray-200">{item.title}</p>
-                          </div>
-                          {item.description && <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-1">{item.description}</p>}
-                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                            {linkedCap && <Badge variant="outline" className="text-[9px] text-blue-400/60 border-blue-500/20">{linkedCapParent ? `${linkedCapParent.title} / ` : ''}{linkedCap.title}</Badge>}
-                            {linkedRoadmap && <Badge variant="outline" className="text-[9px] text-violet-400/60 border-violet-500/20">{linkedRoadmap.title}</Badge>}
-                          </div>
+              {groupFeatures.length === 0 ? (
+                <div className={`border ${borderColor} border-dashed rounded-lg p-4 text-center`}>
+                  <p className="text-[10px] text-gray-600">No {group.label.toLowerCase()} features</p>
+                </div>
+              ) : (
+                <div className="space-y-1.5 rounded-lg p-1">
+                  {groupFeatures.map((f: any) => {
+                    const parentL2 = l2s.find((l2: any) => l2.id === f.parentId);
+                    const parentL1 = parentL2 ? l1s.find((l1: any) => l1.id === parentL2.parentId) : null;
+                    return (
+                      <div key={f.id} className={`border ${borderColor} rounded-lg p-3 bg-gray-900/30`} data-testid={`backlog-feature-${f.id}`}>
+                        <div className="flex items-center gap-2">
+                          <CapStatusBadge status={f.status || 'built'} onClick={() => {
+                            const cycle = ['now', 'next', 'later', 'built'];
+                            const next = cycle[(cycle.indexOf(f.status || 'built') + 1) % cycle.length];
+                            moveCapStatus(f.id, next);
+                          }} />
+                          <span className="flex-1 text-xs text-gray-200 min-w-0">{f.title}</span>
+                          <InlineDropdown value={String(f.parentId)} options={l2s.map((other: any) => { const pL1 = l1s.find((p: any) => p.id === other.parentId); return { value: String(other.id), label: `${pL1 ? pL1.title + ' / ' : ''}${other.title}` }; })} onChange={val => { const newParent = parseInt(val); if (newParent !== f.parentId) moveCapParent(f.id, newParent); }} testId={`select-backlog-l2-${f.id}`} />
                         </div>
-                        <div className="flex items-center gap-1">
-                          <select value={item.capabilityId ?? ''} onChange={e => updateItem(item.id, { capabilityId: e.target.value ? parseInt(e.target.value) : null })} className="bg-transparent border border-gray-700 rounded text-[10px] text-gray-500 px-1 py-0.5 focus:outline-none max-w-[120px]" data-testid={`select-capability-${item.id}`}>
-                            <option value="">L2</option>
-                            {l2s.map((l2: any) => { const p = l1s.find((p: any) => p.id === l2.parentId); return <option key={l2.id} value={l2.id}>{p ? `${p.title} / ` : ''}{l2.title}</option>; })}
-                          </select>
-                          <select value={item.priority} onChange={e => updateItem(item.id, { priority: e.target.value })} className="bg-transparent border border-gray-700 rounded text-[10px] text-gray-500 px-1 py-0.5 focus:outline-none" data-testid={`select-priority-${item.id}`}>
-                            <option value="high">High</option>
-                            <option value="medium">Med</option>
-                            <option value="low">Low</option>
-                          </select>
-                          <Button size="icon" variant="ghost" onClick={() => deleteItem(item.id)} className="h-5 w-5 text-red-400/60" data-testid={`button-delete-backlog-${item.id}`}><X className="w-2.5 h-2.5" /></Button>
-                        </div>
+                        {parentL2 && <p className="text-[10px] text-gray-500 mt-0.5 ml-7">{parentL1 ? `${parentL1.title} / ` : ''}{parentL2.title}</p>}
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }
