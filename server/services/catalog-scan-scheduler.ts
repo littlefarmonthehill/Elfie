@@ -152,7 +152,7 @@ export async function runCatalogScan(): Promise<CatalogScanResult> {
       .select({ count: sql<number>`count(DISTINCT (${blInventory.itemNo}, ${blInventory.itemType}, ${blInventory.colorId}, ${blInventory.newOrUsed}))` })
       .from(blInventory)
       .leftJoin(priceGuideCache, and(
-        eq(blInventory.itemNo, priceGuideCache.itemNo),
+        sql`UPPER(${blInventory.itemNo}) = ${priceGuideCache.itemNo}`,
         eq(blInventory.itemType, priceGuideCache.itemType),
         sql`CASE WHEN COALESCE(${blInventory.colorId}, 0) = 0 THEN ${priceGuideCache.colorId} IN (0, -1) ELSE ${blInventory.colorId} = ${priceGuideCache.colorId} END`,
         sql`${blInventory.newOrUsed} = ${priceGuideCache.newOrUsed}`,
@@ -164,7 +164,7 @@ export async function runCatalogScan(): Promise<CatalogScanResult> {
       .select({ count: sql<number>`count(DISTINCT (${blInventory.itemNo}, ${blInventory.itemType}, ${blInventory.colorId}, ${blInventory.newOrUsed}))` })
       .from(blInventory)
       .innerJoin(priceGuideCache, and(
-        eq(blInventory.itemNo, priceGuideCache.itemNo),
+        sql`UPPER(${blInventory.itemNo}) = ${priceGuideCache.itemNo}`,
         eq(blInventory.itemType, priceGuideCache.itemType),
         sql`CASE WHEN COALESCE(${blInventory.colorId}, 0) = 0 THEN ${priceGuideCache.colorId} IN (0, -1) ELSE ${blInventory.colorId} = ${priceGuideCache.colorId} END`,
         sql`${blInventory.newOrUsed} = ${priceGuideCache.newOrUsed}`,

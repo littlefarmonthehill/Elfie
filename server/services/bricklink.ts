@@ -1276,7 +1276,7 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
       .leftJoin(
         priceGuideCache,
         and(
-          eq(blInventory.itemNo, priceGuideCache.itemNo),
+          sql`UPPER(${blInventory.itemNo}) = ${priceGuideCache.itemNo}`,
           eq(blInventory.itemType, priceGuideCache.itemType),
           sql`CASE WHEN COALESCE(${blInventory.colorId}, 0) = 0 THEN ${priceGuideCache.colorId} IN (0, -1) ELSE ${blInventory.colorId} = ${priceGuideCache.colorId} END`,
           sql`${blInventory.newOrUsed} = ${priceGuideCache.newOrUsed}`
