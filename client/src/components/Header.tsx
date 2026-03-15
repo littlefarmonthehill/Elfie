@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Settings, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
@@ -16,6 +17,69 @@ export default function Header({ onSettingsClick, onElfieClick, supportNotificat
   const { data: org } = useQuery<any>({
     queryKey: ['/api/org'],
   });
+
+  const { data: supportQueueCount } = useQuery<{ count: number }>({
+    queryKey: ['/api/platform-admin/support-queue/count'],
+    enabled: !!superAdmin,
+    refetchInterval: 15000,
+  });
+
+  const prevCountRef = useRef<number>(-1);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>('default');
+
+  useEffect(() => {
+    if (!superAdmin) return;
+    if ('Notification' in window) {
+      setNotifPermission(Notification.permission);
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().then(setNotifPermission);
+      }
+    }
+  }, [superAdmin]);
+
+  const playAlert = useCallback(() => {
+    try {
+      if (!audioRef.current) {
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = 880;
+        gain.gain.value = 0.15;
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+        osc.stop(ctx.currentTime + 0.4);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (!superAdmin || !supportQueueCount) return;
+    const current = supportQueueCount.count || 0;
+    const prev = prevCountRef.current;
+    if (prev === -1) {
+      prevCountRef.current = current;
+      return;
+    }
+    if (current > prev) {
+      playAlert();
+      if (notifPermission === 'granted' && document.hidden) {
+        try {
+          new Notification('PlanetBrick Support', {
+            body: `${current} open support ticket${current !== 1 ? 's' : ''} waiting`,
+            icon: elfieRobot,
+            tag: 'support-queue',
+          });
+        } catch {}
+      }
+    }
+    prevCountRef.current = current;
+  }, [supportQueueCount?.count, superAdmin, notifPermission, playAlert]);
+
+  const openTicketCount = supportQueueCount?.count || 0;
 
   return (
     <header className="border-b border-gray-800 bg-gradient-to-r from-blue-950 to-black relative">
@@ -78,16 +142,23 @@ export default function Header({ onSettingsClick, onElfieClick, supportNotificat
 
         {/* Settings - Right */}
         <div className="flex items-center gap-2">
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={onSettingsClick}
-            data-testid="button-settings"
-            className="md:h-12 md:w-12 lg:h-14 lg:w-14"
-            title="Settings"
-          >
-            <Settings className="h-4 w-4 md:h-6 md:w-6 lg:h-7 lg:w-7" />
-          </Button>
+          <div className="relative">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onSettingsClick}
+              data-testid="button-settings"
+              className="md:h-12 md:w-12 lg:h-14 lg:w-14"
+              title="Settings"
+            >
+              <Settings className="h-4 w-4 md:h-6 md:w-6 lg:h-7 lg:w-7" />
+            </Button>
+            {superAdmin && openTicketCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-red-500 border-2 border-black text-[10px] font-bold text-white px-1 z-10" data-testid="badge-support-count">
+                {openTicketCount > 9 ? '9+' : openTicketCount}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </header>
