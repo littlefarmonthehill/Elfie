@@ -1028,9 +1028,10 @@ interface ChatInterfaceProps {
   isMinimized?: boolean;
   onToggleMinimize?: () => void;
   marketIntel?: MarketIntel | null;
+  onSupportNotification?: (hasNew: boolean) => void;
 }
 
-export default function ChatInterface({ dashboardContext, themeColor, prompts, onPromptAction, onItemClick, isMinimized = true, onToggleMinimize, marketIntel }: ChatInterfaceProps) {
+export default function ChatInterface({ dashboardContext, themeColor, prompts, onPromptAction, onItemClick, isMinimized = true, onToggleMinimize, marketIntel, onSupportNotification }: ChatInterfaceProps) {
   // Chat has its own distinct purple/violet color scheme
   const colors = {
     gradient: 'from-purple-500/20 via-violet-500/15 to-purple-600/10',
@@ -1075,12 +1076,46 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [supportTicket, setSupportTicket] = useState<{ id: string; status: string } | null>(null);
   const [escalating, setEscalating] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const lastPollRef = useRef<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Load conversation history + active ticket on mount
+  useEffect(() => {
+    if (historyLoaded) return;
+    const loadSession = async () => {
+      try {
+        const res = await fetch(`/api/support/session?sessionId=${encodeURIComponent(sessionId)}`, { credentials: 'include' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.messages && data.messages.length > 0) {
+          const restored: ChatMessage[] = [
+            { role: 'assistant', content: getWelcomeMessage() },
+            ...data.messages
+              .filter((m: any) => m.role === 'user' || m.role === 'assistant' || m.role === 'support' || m.role === 'system')
+              .map((m: any) => ({ role: m.role as ChatMessage['role'], content: m.content })),
+          ];
+          setMessages(restored);
+          if (data.messages.length > 0) {
+            const latest = data.messages[data.messages.length - 1];
+            lastPollRef.current = new Date(latest.createdAt).getTime();
+          }
+        }
+        if (data.ticket) {
+          setSupportTicket({ id: data.ticket.id, status: data.ticket.status });
+        }
+        if (data.hasUnseenSupport && onSupportNotification) {
+          onSupportNotification(true);
+        }
+      } catch {}
+      setHistoryLoaded(true);
+    };
+    loadSession();
+  }, [sessionId, historyLoaded]);
 
   useEffect(() => {
     if (marketIntel && messages.length === 1 && messages[0].role === 'assistant') {
@@ -1115,6 +1150,10 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
               content: m.content,
             })),
           ]);
+          const hasSupportReply = newMsgs.some((m: any) => m.role === 'support');
+          if (hasSupportReply && isMinimized && onSupportNotification) {
+            onSupportNotification(true);
+          }
         }
       } catch {}
     };

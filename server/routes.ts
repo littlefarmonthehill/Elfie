@@ -1962,6 +1962,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/support/session — load chat history + active ticket for a session on mount
+  app.get('/api/support/session', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const sessionId = req.query.sessionId as string;
+      if (!sessionId) return res.status(400).json({ message: "sessionId required" });
+      const msgs = await db.select({
+        id: conversations.id,
+        role: conversations.role,
+        content: conversations.content,
+        context: conversations.context,
+        createdAt: conversations.createdAt,
+      }).from(conversations)
+        .where(and(eq(conversations.orgId, orgId), eq(conversations.sessionId, sessionId)))
+        .orderBy(asc(conversations.createdAt))
+        .limit(100);
+      const [ticket] = await db.select().from(supportTickets)
+        .where(and(eq(supportTickets.orgId, orgId), eq(supportTickets.sessionId, sessionId), ne(supportTickets.status, 'resolved')))
+        .orderBy(desc(supportTickets.createdAt))
+        .limit(1);
+      const unseenSupport = ticket ? await db.select({ count: count() }).from(conversations)
+        .where(and(
+          eq(conversations.orgId, orgId),
+          eq(conversations.sessionId, sessionId),
+          eq(conversations.role, 'support'),
+        )) : [{ count: 0 }];
+      res.json({
+        messages: msgs,
+        ticket: ticket || null,
+        hasUnseenSupport: (unseenSupport[0]?.count || 0) > 0,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // GET /api/support/ticket-status — get current ticket status for a session
   app.get('/api/support/ticket-status', isAuthenticated, async (req: any, res) => {
     try {

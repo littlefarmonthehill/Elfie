@@ -61,6 +61,7 @@ export default function Home() {
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
   const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
   const [chatOpen, setChatOpen] = useState(false);
+  const [supportNotification, setSupportNotification] = useState(false);
   const [navHidden, setNavHidden] = useState(false);
   useEffect(() => {
     const check = () => {
@@ -810,8 +811,38 @@ export default function Home() {
     }
   };
 
+  // Background polling for support messages when chat is closed
+  useEffect(() => {
+    if (chatOpen) {
+      setSupportNotification(false);
+      return;
+    }
+    const storedSessionId = localStorage.getItem('elfie-session-id');
+    if (!storedSessionId) return;
+    const checkSupport = async () => {
+      try {
+        const res = await fetch(`/api/support/ticket-status?sessionId=${encodeURIComponent(storedSessionId)}`, { credentials: 'include' });
+        if (!res.ok) return;
+        const ticket = await res.json();
+        if (ticket && (ticket.status === 'active' || ticket.status === 'escalated')) {
+          const msgsRes = await fetch(`/api/support/messages?sessionId=${encodeURIComponent(storedSessionId)}&since=0`, { credentials: 'include' });
+          if (msgsRes.ok) {
+            const msgs = await msgsRes.json();
+            if (msgs.some((m: any) => m.role === 'support')) {
+              setSupportNotification(true);
+            }
+          }
+        }
+      } catch {}
+    };
+    checkSupport();
+    const interval = setInterval(checkSupport, 15000);
+    return () => clearInterval(interval);
+  }, [chatOpen]);
+
   const handleElfieClick = async () => {
     setChatOpen(true);
+    setSupportNotification(false);
     
     try {
       const response = await fetch('/api/market-intel/recent?days=7');
@@ -864,6 +895,7 @@ export default function Home() {
         <Header 
           onSettingsClick={() => setSettingsOpen(true)} 
           onElfieClick={handleElfieClick}
+          supportNotification={supportNotification}
         />
       </div>
       
@@ -1010,6 +1042,7 @@ export default function Home() {
               isMinimized={false}
               onToggleMinimize={handleChatClose}
               marketIntel={marketIntel}
+              onSupportNotification={setSupportNotification}
             />
           </div>
         </SheetContent>
