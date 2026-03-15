@@ -822,16 +822,17 @@ function InlineDropdown({ value, options, onChange, className, testId }: { value
   );
 }
 
-function CapStatusBadge({ status, onClick }: { status: string; onClick: () => void }) {
+function CapStatusBadge({ status, onClick }: { status: string; onClick?: () => void }) {
   const styles: Record<string, string> = {
     built: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+    'new': 'bg-violet-500/20 text-violet-300 border-violet-500/30',
     now: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
     next: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
     later: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
   };
-  const labels: Record<string, string> = { built: 'Built', now: 'Now', next: 'Next', later: 'Later' };
+  const labels: Record<string, string> = { built: 'Built', 'new': 'New', now: 'Now', next: 'Next', later: 'Later' };
   return (
-    <button onClick={onClick} className={`px-1.5 py-0.5 text-[9px] font-medium rounded border shrink-0 cursor-pointer ${styles[status] || styles.later}`} data-testid={`badge-status-${status}`}>
+    <button onClick={onClick} className={`px-1.5 py-0.5 text-[9px] font-medium rounded border shrink-0 ${onClick ? 'cursor-pointer' : 'cursor-default'} ${styles[status] || styles.later}`} data-testid={`badge-status-${status}`}>
       {labels[status] || status}
     </button>
   );
@@ -1004,7 +1005,7 @@ function ProductOkrsPanel() {
 function ProductRoadmapPanel() {
   const { toast } = useToast();
   const { data: caps, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/capabilities'] });
-  const [statusFilter, setStatusFilter] = useState<'all' | 'built' | 'now' | 'next' | 'later'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'built' | 'new' | 'now' | 'next' | 'later'>('all');
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
   const [newL1, setNewL1] = useState('');
   const [newL2, setNewL2] = useState<Record<number, string>>({});
@@ -1055,6 +1056,7 @@ function ProductRoadmapPanel() {
     if (children.length === 0) return l2.status || 'built';
     const statuses = children.map((f: any) => f.status || 'built');
     if (statuses.every((s: string) => s === 'built')) return 'built';
+    if (statuses.includes('new')) return 'new';
     if (statuses.includes('now')) return 'now';
     if (statuses.includes('next')) return 'next';
     return 'later';
@@ -1066,7 +1068,7 @@ function ProductRoadmapPanel() {
     return features.some((f: any) => childL2Ids.includes(f.parentId) && (f.status || 'built') === statusFilter);
   });
 
-  const statusColors: Record<string, string> = { built: 'bg-emerald-500', now: 'bg-blue-500', next: 'bg-amber-500', later: 'bg-gray-500' };
+  const statusColors: Record<string, string> = { built: 'bg-emerald-500', 'new': 'bg-violet-500', now: 'bg-blue-500', next: 'bg-amber-500', later: 'bg-gray-500' };
 
   return (
     <div className="space-y-4">
@@ -1076,8 +1078,8 @@ function ProductRoadmapPanel() {
       </div>
 
       <div className="flex items-center gap-1.5 flex-wrap">
-        {(['all', 'built', 'now', 'next', 'later'] as const).map(f => {
-          const colors: Record<string, string> = { all: 'bg-blue-500/20 text-blue-300 border-blue-500/30', built: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30', now: 'bg-blue-500/20 text-blue-300 border-blue-500/30', next: 'bg-amber-500/20 text-amber-300 border-amber-500/30', later: 'bg-gray-500/20 text-gray-400 border-gray-500/30' };
+        {(['all', 'built', 'new', 'now', 'next', 'later'] as const).map(f => {
+          const colors: Record<string, string> = { all: 'bg-blue-500/20 text-blue-300 border-blue-500/30', built: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30', 'new': 'bg-violet-500/20 text-violet-300 border-violet-500/30', now: 'bg-blue-500/20 text-blue-300 border-blue-500/30', next: 'bg-amber-500/20 text-amber-300 border-amber-500/30', later: 'bg-gray-500/20 text-gray-400 border-gray-500/30' };
           const count = f === 'all' ? features.length : features.filter((c: any) => (c.status || 'built') === f).length;
           return (
             <button key={f} onClick={() => setStatusFilter(f)} className={`text-[10px] px-2.5 py-1 rounded-full transition-colors border ${statusFilter === f ? colors[f] : 'text-gray-500 border-transparent'}`} data-testid={`button-roadmap-filter-${f}`}>
@@ -1122,7 +1124,7 @@ function ProductRoadmapPanel() {
                   )}
                   <span className="text-[10px] text-gray-500">{l1BuiltCount}/{l1FeatureCount}</span>
                   <div className="flex gap-0.5">
-                    {['built', 'now', 'next', 'later'].map(s => {
+                    {['built', 'new', 'now', 'next', 'later'].map(s => {
                       const c = features.filter((f: any) => allL2Ids.includes(f.parentId) && (f.status || 'built') === s).length;
                       return c > 0 ? <span key={s} className={`w-1.5 h-1.5 rounded-full ${statusColors[s]}`} title={`${c} ${s}`} /> : null;
                     })}
@@ -1158,7 +1160,7 @@ function ProductRoadmapPanel() {
                               {visibleFeatures.map((f: any) => (
                                 <div key={f.id} className="flex items-center gap-2 py-1 group" data-testid={`roadmap-feature-${f.id}`}>
                                   <CapStatusBadge status={f.status || 'built'} onClick={() => {
-                                    const cycle = ['built', 'now', 'next', 'later'];
+                                    const cycle = ['built', 'new', 'now', 'next', 'later'];
                                     const next = cycle[(cycle.indexOf(f.status || 'built') + 1) % cycle.length];
                                     moveCapStatus(f.id, next);
                                   }} />
@@ -1200,7 +1202,7 @@ function ProductRoadmapPanel() {
 function ProductBacklogPanel() {
   const { toast } = useToast();
   const { data: caps, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/capabilities'] });
-  const [filter, setFilter] = useState<'all' | 'now' | 'next' | 'later'>('all');
+  const [filter, setFilter] = useState<'all' | 'new' | 'now' | 'next' | 'later'>('all');
 
   const l1s = (caps || []).filter((c: any) => c.level === 1);
   const l2s = (caps || []).filter((c: any) => c.level === 2);
@@ -1224,6 +1226,7 @@ function ProductBacklogPanel() {
   if (isLoading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-500" /></div>;
 
   const statusGroups = [
+    { id: 'new', label: 'New', color: 'violet' },
     { id: 'now', label: 'Now', color: 'blue' },
     { id: 'next', label: 'Next', color: 'amber' },
     { id: 'later', label: 'Later', color: 'gray' },
@@ -1238,8 +1241,8 @@ function ProductBacklogPanel() {
       </div>
 
       <div className="flex items-center gap-1.5 flex-wrap">
-        {(['all', 'now', 'next', 'later'] as const).map(f => {
-          const colors: Record<string, string> = { all: 'bg-blue-500/20 text-blue-300 border-blue-500/30', now: 'bg-blue-500/20 text-blue-300 border-blue-500/30', next: 'bg-amber-500/20 text-amber-300 border-amber-500/30', later: 'bg-gray-500/20 text-gray-400 border-gray-500/30' };
+        {(['all', 'new', 'now', 'next', 'later'] as const).map(f => {
+          const colors: Record<string, string> = { all: 'bg-blue-500/20 text-blue-300 border-blue-500/30', 'new': 'bg-violet-500/20 text-violet-300 border-violet-500/30', now: 'bg-blue-500/20 text-blue-300 border-blue-500/30', next: 'bg-amber-500/20 text-amber-300 border-amber-500/30', later: 'bg-gray-500/20 text-gray-400 border-gray-500/30' };
           const count = f === 'all' ? notBuilt.length : notBuilt.filter((c: any) => (c.status || 'built') === f).length;
           return (
             <button key={f} onClick={() => setFilter(f)} className={`text-[10px] px-2.5 py-1 rounded-full transition-colors border ${filter === f ? colors[f] : 'text-gray-500 border-transparent'}`} data-testid={`button-backlog-filter-${f}`}>
@@ -1258,8 +1261,8 @@ function ProductBacklogPanel() {
       ) : (
         visibleGroups.map(group => {
           const groupFeatures = notBuilt.filter((f: any) => (f.status || 'built') === group.id);
-          const borderColor = group.color === 'blue' ? 'border-blue-500/30' : group.color === 'amber' ? 'border-amber-500/30' : 'border-gray-700';
-          const labelColor = group.color === 'blue' ? 'text-blue-400' : group.color === 'amber' ? 'text-amber-400' : 'text-gray-400';
+          const borderColor = group.color === 'violet' ? 'border-violet-500/30' : group.color === 'blue' ? 'border-blue-500/30' : group.color === 'amber' ? 'border-amber-500/30' : 'border-gray-700';
+          const labelColor = group.color === 'violet' ? 'text-violet-400' : group.color === 'blue' ? 'text-blue-400' : group.color === 'amber' ? 'text-amber-400' : 'text-gray-400';
           return (
             <div key={group.id}>
               <div className="flex items-center gap-2 mb-2">
@@ -1279,7 +1282,7 @@ function ProductBacklogPanel() {
                       <div key={f.id} className={`border ${borderColor} rounded-lg p-3 bg-gray-900/30`} data-testid={`backlog-feature-${f.id}`}>
                         <div className="flex items-center gap-2">
                           <CapStatusBadge status={f.status || 'built'} onClick={() => {
-                            const cycle = ['now', 'next', 'later', 'built'];
+                            const cycle = ['new', 'now', 'next', 'later', 'built'];
                             const next = cycle[(cycle.indexOf(f.status || 'built') + 1) % cycle.length];
                             moveCapStatus(f.id, next);
                           }} />
