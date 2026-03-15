@@ -8862,6 +8862,134 @@ Format search_web URLs as markdown links.`;
     }
   });
 
+  app.get("/api/inventory/price-guide-full/:itemNo/:itemType", isApproved, async (req: any, res) => {
+    try {
+      const { itemNo, itemType } = req.params;
+      const colorId = req.query.color_id ? parseInt(req.query.color_id as string) : null;
+      const myCondition = (req.query.new_or_used as string) || 'N';
+      const orgId = reqOrgId(req);
+
+      if (!itemNo || !itemType) {
+        return res.status(400).json({ error: "Item number and type are required" });
+      }
+
+      const colorCondition = colorId != null && colorId > 0
+        ? eq(priceGuideCache.colorId, colorId)
+        : sql`${priceGuideCache.colorId} IN (0, -1)`;
+
+      const rows = await db
+        .select({
+          newOrUsed: priceGuideCache.newOrUsed,
+          stockAvgPrice: priceGuideCache.stockAvgPrice,
+          stockMinPrice: priceGuideCache.stockMinPrice,
+          stockMaxPrice: priceGuideCache.stockMaxPrice,
+          stockTotalLots: priceGuideCache.stockTotalLots,
+          stockQuantity: sql<number>`${priceGuideCache}.stock_quantity`,
+          soldAvgPrice: priceGuideCache.soldAvgPrice,
+          soldMinPrice: priceGuideCache.soldMinPrice,
+          soldMaxPrice: priceGuideCache.soldMaxPrice,
+          soldTotalLots: priceGuideCache.soldTotalLots,
+          soldQuantity: sql<number>`${priceGuideCache}.sold_quantity`,
+          suggestedPrice: priceGuideCache.suggestedPrice,
+          premiumPercentage: priceGuideCache.premiumPercentage,
+          fetchedAt: priceGuideCache.fetchedAt,
+        })
+        .from(priceGuideCache)
+        .where(and(
+          sql`UPPER(${priceGuideCache.itemNo}) = UPPER(${itemNo})`,
+          eq(priceGuideCache.itemType, itemType),
+          colorCondition,
+        ));
+
+      const nRow = rows.find(r => r.newOrUsed === 'N') || null;
+      const uRow = rows.find(r => r.newOrUsed === 'U') || null;
+
+      const settings = await getOrgSettings(orgId);
+      const wCeiling = settings?.pomWeightCeiling ?? 0.4;
+      const wVelocity = settings?.pomWeightVelocity ?? 0.3;
+      const wScarcity = settings?.pomWeightScarcity ?? 0.2;
+      const wUndercut = settings?.pomWeightUndercut ?? 0.1;
+
+      const myRow = myCondition === 'U' ? uRow : nRow;
+      const soldQty = myRow?.soldQuantity ?? myRow?.soldTotalLots ?? 0;
+      const stockQty = myRow?.stockQuantity ?? myRow?.stockTotalLots ?? 0;
+      const stockMin = parseFloat(myRow?.stockMinPrice || '0');
+
+      const currentPriceStr = req.query.current_price as string;
+      const currentPrice = currentPriceStr ? parseFloat(currentPriceStr) : 0;
+
+      const marketPeakRows = await db
+        .select({ peakSold: sql<string>`MAX(${priceGuideCache.soldMaxPrice})` })
+        .from(priceGuideCache)
+        .where(and(
+          sql`UPPER(${priceGuideCache.itemNo}) = UPPER(${itemNo})`,
+          eq(priceGuideCache.itemType, itemType),
+          colorCondition,
+        ));
+      const marketPeak = marketPeakRows[0]?.peakSold ? parseFloat(marketPeakRows[0].peakSold) : null;
+
+      const priceCeilingRatio = (marketPeak !== null && currentPrice > 0)
+        ? Number((marketPeak / currentPrice).toFixed(3))
+        : null;
+      const demandVelocity = (stockQty > 0)
+        ? Number((soldQty / stockQty).toFixed(3))
+        : null;
+      const marketScarcityVal = (stockQty > 0)
+        ? Number((1 / stockQty).toFixed(6))
+        : null;
+      const undercutRatio = (stockMin > 0 && currentPrice > 0)
+        ? Number((currentPrice / stockMin).toFixed(3))
+        : null;
+
+      let repricingScore: number | null = null;
+      const hasAny = priceCeilingRatio !== null || demandVelocity !== null || marketScarcityVal !== null || undercutRatio !== null;
+      if (hasAny) {
+        const cC = (priceCeilingRatio ?? 0) * wCeiling;
+        const vC = (demandVelocity ?? 0) * wVelocity;
+        const sC = (marketScarcityVal ?? 0) * wScarcity;
+        const uC = (undercutRatio && undercutRatio > 0) ? (1 / undercutRatio) * wUndercut : 0;
+        repricingScore = Number((cC + vC + sC + uC).toFixed(2));
+      }
+
+      res.json({
+        N: nRow ? {
+          soldQty: nRow.soldQuantity ?? nRow.soldTotalLots ?? null,
+          soldMin: nRow.soldMinPrice,
+          soldAvg: nRow.soldAvgPrice,
+          soldMax: nRow.soldMaxPrice,
+          listedQty: nRow.stockQuantity ?? nRow.stockTotalLots ?? null,
+          listedMin: nRow.stockMinPrice,
+          listedAvg: nRow.stockAvgPrice,
+          listedMax: nRow.stockMaxPrice,
+          suggestedPrice: nRow.suggestedPrice,
+        } : null,
+        U: uRow ? {
+          soldQty: uRow.soldQuantity ?? uRow.soldTotalLots ?? null,
+          soldMin: uRow.soldMinPrice,
+          soldAvg: uRow.soldAvgPrice,
+          soldMax: uRow.soldMaxPrice,
+          listedQty: uRow.stockQuantity ?? uRow.stockTotalLots ?? null,
+          listedMin: uRow.stockMinPrice,
+          listedAvg: uRow.stockAvgPrice,
+          listedMax: uRow.stockMaxPrice,
+          suggestedPrice: uRow.suggestedPrice,
+        } : null,
+        scoring: {
+          ceiling: priceCeilingRatio,
+          velocity: demandVelocity,
+          scarcity: marketScarcityVal,
+          undercut: undercutRatio,
+          score: repricingScore,
+          weights: { wCeiling, wVelocity, wScarcity, wUndercut },
+        },
+        fetchedAt: myRow?.fetchedAt ?? null,
+      });
+    } catch (error) {
+      console.error("[POM Full Guide] Error:", error);
+      res.status(500).json({ error: "Failed to fetch full price guide" });
+    }
+  });
+
   // On-demand pricing — fetches stock guide + computes suggested price for a specific lot
   // Called when user explicitly clicks "Get pricing" in filter results or spot lookup
   app.post("/api/priceomatic/fetch-pricing", isApproved, async (req, res) => {

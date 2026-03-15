@@ -55,6 +55,32 @@ interface PriceOMagicData {
   premiumPercentage: number;
 }
 
+interface PomConditionData {
+  soldQty: number | null;
+  soldMin: string | null;
+  soldAvg: string | null;
+  soldMax: string | null;
+  listedQty: number | null;
+  listedMin: string | null;
+  listedAvg: string | null;
+  listedMax: string | null;
+  suggestedPrice: string | null;
+}
+
+interface PomFullGuide {
+  N: PomConditionData | null;
+  U: PomConditionData | null;
+  scoring: {
+    ceiling: number | null;
+    velocity: number | null;
+    scarcity: number | null;
+    undercut: number | null;
+    score: number | null;
+    weights: { wCeiling: number; wVelocity: number; wScarcity: number; wUndercut: number };
+  };
+  fetchedAt: string | null;
+}
+
 interface AnalyticsData {
   totalUnitsSold: number;
   totalRevenue: string;
@@ -279,6 +305,21 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
   // Fetch current POM formula settings for live price computation
   const { data: pomSettings } = useQuery<any>({
     queryKey: ['/api/settings'],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const fullGuideParams = new URLSearchParams();
+  if (data.colorId) fullGuideParams.append('color_id', String(data.colorId));
+  if (data.newOrUsed) fullGuideParams.append('new_or_used', data.newOrUsed);
+  if (data.unitPrice) fullGuideParams.append('current_price', data.unitPrice);
+  const { data: pomFullGuide, isLoading: loadingFullGuide } = useQuery<PomFullGuide>({
+    queryKey: ['/api/inventory/price-guide-full', data.itemNo, data.itemType, data.colorId, data.newOrUsed, data.unitPrice],
+    queryFn: async () => {
+      const res = await fetch(`/api/inventory/price-guide-full/${data.itemNo}/${data.itemType}?${fullGuideParams.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch full guide');
+      return res.json();
+    },
+    enabled: !data.loading && !!data.itemNo && !!data.itemType,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -720,330 +761,285 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
 
           {/* Pricing Tab */}
           <TabsContent value="pricing" className="mt-0 space-y-2.5">
-            {/* Loading skeleton for Price-o-Matic */}
-            {data.loadingPriceOMagic && (
-              <div className="bg-gradient-to-br from-purple-500/20 to-purple-500/5 border-2 border-purple-500/50 rounded-lg p-3" data-testid="price-o-magic-loading">
+            {/* POM Price Guide Table */}
+            {(loadingFullGuide || data.loadingPriceOMagic) && (
+              <div className="app-card p-3" data-testid="price-o-magic-loading">
                 <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="h-4 w-4 text-purple-400 animate-pulse" />
-                  <div className="h-4 bg-purple-800 rounded w-24 animate-pulse"></div>
+                  <Sparkles className="h-4 w-4 text-blue-400 animate-pulse" />
+                  <div className="h-4 bg-gray-700 rounded w-28 animate-pulse" />
                 </div>
-                <div className="h-24 bg-purple-900/20 rounded animate-pulse"></div>
+                <div className="h-48 bg-gray-800/30 rounded animate-pulse" />
               </div>
             )}
-            
-            {/* Price-o-Matic Section */}
-            {!data.loadingPriceOMagic && priceOMagic && suggestedPrice !== null && (
-              <div className="bg-gradient-to-br from-purple-500/20 to-purple-500/5 border-2 border-purple-500/50 rounded-lg p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="h-4 w-4 text-purple-400" />
-                  <h4 className="text-xs font-black text-purple-400">PRICE-O-MAGIC</h4>
-                  <Badge className="bg-purple-500/30 text-purple-300 border-purple-400/40 text-[9px] md:text-xs h-4 px-2 font-bold ml-auto">
-                    +{liveTotalPremiumPct}% PREMIUM
-                  </Badge>
-                </div>
-                
-                {/* Suggested Price - Clickable for breakdown */}
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <button 
-                      className="w-full bg-gradient-to-br from-purple-600/20 to-transparent border border-purple-500/30 rounded-lg p-2.5 mb-2 text-center hover-elevate active-elevate-2 transition-all group"
-                      data-testid="button-price-breakdown"
-                    >
-                      <div className="flex items-center justify-center gap-1.5 mb-1">
-                        <p className="text-[10px] md:text-sm text-purple-300 font-bold">SUGGESTED PRICE</p>
-                        <Info className="h-3 w-3 text-purple-400 opacity-60 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                      <p className="text-3xl font-black font-mono text-purple-400">
-                        ${suggestedPrice.toFixed(3)}
-                      </p>
-                      {currentPrice > 0 && suggestedPrice > currentPrice && (
-                        <p className="text-[10px] md:text-sm text-purple-300/70 mt-1">
-                          +${(suggestedPrice - currentPrice).toFixed(3)} vs current
-                        </p>
+
+            {!loadingFullGuide && !data.loadingPriceOMagic && pomFullGuide && (pomFullGuide.N || pomFullGuide.U) && (() => {
+              const g = pomFullGuide;
+              const nD = g.N;
+              const uD = g.U;
+              const myCondition = data.newOrUsed || 'N';
+              const fmtP = (v: string | null | undefined) => v ? `$${parseFloat(v).toFixed(2)}` : '\u2013';
+              const fmtQ = (v: number | null | undefined) => v != null ? v.toLocaleString() : '\u2013';
+
+              const mySugN = nD?.suggestedPrice ? parseFloat(nD.suggestedPrice) : null;
+              const mySugU = uD?.suggestedPrice ? parseFloat(uD.suggestedPrice) : null;
+
+              return (
+                <div className="app-card overflow-hidden" data-testid="pom-price-guide">
+                  <table className="w-full text-[10px] md:text-xs font-mono">
+                    <thead>
+                      <tr className="border-b border-gray-700">
+                        <th className="text-left py-1.5 px-2 text-gray-500 font-semibold w-[22%]" />
+                        <th colSpan={2} className="text-center py-1 px-1 text-gray-300 font-bold border-b border-gray-600">SOLD 6MO</th>
+                        <th colSpan={2} className="text-center py-1 px-1 text-gray-300 font-bold border-b border-gray-600">LISTED</th>
+                      </tr>
+                      <tr className="border-b border-gray-700/50">
+                        <th className="text-left py-1 px-2 text-gray-500 font-semibold" />
+                        <th className="text-center py-1 px-1 text-blue-400 font-bold">NEW</th>
+                        <th className="text-center py-1 px-1 text-blue-400 font-bold">USED</th>
+                        <th className="text-center py-1 px-1 text-blue-400 font-bold">NEW</th>
+                        <th className="text-center py-1 px-1 text-blue-400 font-bold">USED</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b border-gray-800/50">
+                        <td className="py-1.5 px-2 text-gray-400 font-sans font-medium">Qty</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{fmtQ(nD?.soldQty)}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{fmtQ(uD?.soldQty)}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{fmtQ(nD?.listedQty)}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{fmtQ(uD?.listedQty)}</td>
+                      </tr>
+                      <tr className="border-b border-gray-800/50">
+                        <td className="py-1.5 px-2 text-gray-400 font-sans font-medium">Min</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{fmtP(nD?.soldMin)}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{fmtP(uD?.soldMin)}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{fmtP(nD?.listedMin)}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{fmtP(uD?.listedMin)}</td>
+                      </tr>
+                      <tr className="border-b border-gray-800/50">
+                        <td className="py-1.5 px-2 text-white font-sans font-bold">Avg</td>
+                        <td className="text-center py-1.5 px-1 text-yellow-400 font-bold">{fmtP(nD?.soldAvg)}</td>
+                        <td className="text-center py-1.5 px-1 text-yellow-400 font-bold">{fmtP(uD?.soldAvg)}</td>
+                        <td className="text-center py-1.5 px-1 text-yellow-400 font-bold">{fmtP(nD?.listedAvg)}</td>
+                        <td className="text-center py-1.5 px-1 text-yellow-400 font-bold">{fmtP(uD?.listedAvg)}</td>
+                      </tr>
+                      <tr className="border-b border-gray-800/50">
+                        <td className="py-1.5 px-2 text-gray-400 font-sans font-medium">Max</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{fmtP(nD?.soldMax)}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{fmtP(uD?.soldMax)}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{fmtP(nD?.listedMax)}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{fmtP(uD?.listedMax)}</td>
+                      </tr>
+                      {currentPrice > 0 && (
+                        <tr className="border-b border-gray-800/50">
+                          <td className="py-1.5 px-2 text-green-400 font-sans font-bold">My Price</td>
+                          <td className="text-center py-1.5 px-1 text-green-400 font-bold">{myCondition === 'N' ? `$${currentPrice.toFixed(2)}` : ''}</td>
+                          <td className="text-center py-1.5 px-1 text-green-400 font-bold">{myCondition === 'U' ? `$${currentPrice.toFixed(2)}` : ''}</td>
+                          <td className="text-center py-1.5 px-1" />
+                          <td className="text-center py-1.5 px-1" />
+                        </tr>
                       )}
-                      <p className="text-[9px] md:text-xs text-purple-400/60 mt-1 group-hover:text-purple-400/80 transition-colors">
-                        Tap to see calculation
-                      </p>
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto bg-gray-900 border-purple-500/50" data-testid="dialog-price-breakdown">
-                    <DialogHeader>
-                      <DialogTitle className="flex items-center gap-2 text-purple-400">
-                        <Sparkles className="h-5 w-5" />
-                        Price-o-Matic Calculation
-                      </DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-3 mt-4">
-                      {(() => {
-                        if (!liveSuggestedPrice || !priceOMagic) return null;
-                        const s = pomSettings;
-                        const isMinifig = data.itemType === 'MINIFIG' || data.itemType === 'M';
-                        const basePrice = soldAvgPrice || stockAvgPrice || 0;
-                        const basePremiumPct = isMinifig ? (s?.pomMinifigPremium ?? 5) : (s?.pomBasePremium ?? 10);
+                      <tr>
+                        <td className="py-1.5 px-2 font-sans font-bold">
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <button className="text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-0.5" data-testid="button-suggested-price">
+                                Suggested
+                                <Info className="h-2.5 w-2.5 opacity-60" />
+                              </button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto bg-gray-900 border-gray-600" data-testid="dialog-price-breakdown">
+                              <DialogHeader>
+                                <DialogTitle className="flex items-center gap-2 text-emerald-400">
+                                  <Sparkles className="h-5 w-5" />
+                                  Suggested Price Calculation
+                                </DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-3 mt-4">
+                                {(() => {
+                                  if (!liveSuggestedPrice || !priceOMagic) return null;
+                                  const s = pomSettings;
+                                  const isMinifig = data.itemType === 'MINIFIG' || data.itemType === 'M';
+                                  const bPrice = soldAvgPrice || stockAvgPrice || 0;
+                                  const basePremiumPct = isMinifig ? (s?.pomMinifigPremium ?? 5) : (s?.pomBasePremium ?? 10);
+                                  const lots = priceOMagic.stockTotalLots ?? 0;
+                                  const t1 = s?.pomScarcityThreshold1 ?? 50;
+                                  const t2 = s?.pomScarcityThreshold2 ?? 200;
+                                  const t3 = s?.pomScarcityThreshold3 ?? 500;
+                                  let scarcityBonus = 0;
+                                  let scarcityLabel = '';
+                                  if (lots < t1) { scarcityBonus = s?.pomScarcityBonus1 ?? 15; scarcityLabel = `< ${t1} listings`; }
+                                  else if (lots < t2) { scarcityBonus = s?.pomScarcityBonus2 ?? 8; scarcityLabel = `< ${t2} listings`; }
+                                  else if (lots < t3) { scarcityBonus = s?.pomScarcityBonus3 ?? 3; scarcityLabel = `< ${t3} listings`; }
+                                  let trendingAdj = 0;
+                                  if (s?.pomTrendingEnabled) {
+                                    const maxAdj = s?.pomTrendingDays ?? 30;
+                                    const demandDenom = s?.pomTrendingThreshold ?? 5;
+                                    const supplyDenom = s?.pomHighSupplyThreshold ?? 5000;
+                                    const demandRatio = demandDenom > 0 ? Math.min((priceOMagic.soldQuantity ?? 0) / demandDenom, 1.0) : 0;
+                                    const supplyRatio = supplyDenom > 0 ? Math.min((priceOMagic.stockQuantity ?? 0) / supplyDenom, 1.0) : 0;
+                                    trendingAdj = maxAdj * ((demandRatio * ((s?.pomTrendingBonus ?? 5) / 100)) - (supplyRatio * ((s?.pomHighSupplyPenalty ?? 5) / 100)));
+                                  }
+                                  const totalPremium = basePremiumPct + scarcityBonus + trendingAdj;
+                                  const mktPrice = bPrice * (1 + totalPremium / 100);
+                                  const costFloorPct = s?.pomCostFloorPct ?? 0;
+                                  const floorMin = parseFloat(String(s?.pomMinPrice ?? '0.02'));
+                                  let floorApplied: 'cost' | 'min' | 'none' = 'none';
+                                  let fPrice = mktPrice;
+                                  if (costFloorPct > 0 && myCost && myCost > 0) {
+                                    const costFloor = myCost * (1 + costFloorPct / 100);
+                                    if (costFloor > fPrice) { fPrice = costFloor; floorApplied = 'cost'; }
+                                  }
+                                  if (floorMin > 0 && floorMin > fPrice) { floorApplied = floorApplied === 'none' ? 'min' : floorApplied; fPrice = floorMin; }
 
-                        // Scarcity
-                        const lots = priceOMagic.stockTotalLots ?? 0;
-                        const t1 = s?.pomScarcityThreshold1 ?? 50;
-                        const t2 = s?.pomScarcityThreshold2 ?? 200;
-                        const t3 = s?.pomScarcityThreshold3 ?? 500;
-                        let scarcityBonus = 0;
-                        let scarcityLabel = '';
-                        if (lots < t1) { scarcityBonus = s?.pomScarcityBonus1 ?? 15; scarcityLabel = `< ${t1} listings`; }
-                        else if (lots < t2) { scarcityBonus = s?.pomScarcityBonus2 ?? 8; scarcityLabel = `< ${t2} listings`; }
-                        else if (lots < t3) { scarcityBonus = s?.pomScarcityBonus3 ?? 3; scarcityLabel = `< ${t3} listings`; }
+                                  return (
+                                    <>
+                                      <div className="app-card p-3">
+                                        <p className="text-xs font-bold text-gray-400 mb-2">STEP 1 — MARKET BASE PRICE</p>
+                                        <p className="text-2xl font-mono font-black text-white mb-2">${bPrice.toFixed(3)}</p>
+                                        <div className="space-y-1 text-xs">
+                                          {soldAvgPrice !== null && (
+                                            <div className="flex justify-between gap-1"><span className="text-green-400 font-semibold">6-mo Sold Avg (primary)</span><span className="font-mono text-green-400">${soldAvgPrice.toFixed(3)}</span></div>
+                                          )}
+                                          {stockAvgPrice !== null && (
+                                            <div className="flex justify-between gap-1"><span className={soldAvgPrice ? 'text-gray-500' : 'text-blue-400 font-semibold'}>{soldAvgPrice ? 'Stock Avg (fallback)' : 'Stock Avg (primary)'}</span><span className={`font-mono ${soldAvgPrice ? 'text-gray-500' : 'text-blue-400'}`}>${stockAvgPrice.toFixed(3)}</span></div>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="app-card p-3 space-y-2">
+                                        <p className="text-xs font-bold text-gray-400 mb-1">STEP 2 — PREMIUM ADJUSTMENTS</p>
+                                        <div className="flex justify-between items-start gap-1">
+                                          <div><span className="text-xs text-gray-300">{isMinifig ? 'Minifig' : 'Base'} Premium</span></div>
+                                          <span className="text-sm font-mono font-bold text-emerald-400 shrink-0">+{basePremiumPct}%</span>
+                                        </div>
+                                        {scarcityBonus > 0 && (
+                                          <div className="flex justify-between items-start border-t border-gray-700 pt-2 gap-1">
+                                            <div><span className="text-xs text-gray-300">Scarcity Bonus</span><p className="text-[10px] text-gray-500">{lots} listings ({scarcityLabel})</p></div>
+                                            <span className="text-sm font-mono font-bold text-orange-400 shrink-0">+{scarcityBonus}%</span>
+                                          </div>
+                                        )}
+                                        {s?.pomTrendingEnabled && trendingAdj !== 0 && (
+                                          <div className="flex justify-between items-start border-t border-gray-700 pt-2 gap-1">
+                                            <span className="text-xs text-gray-300">Market Dynamics</span>
+                                            <span className={`text-sm font-mono font-bold shrink-0 ${trendingAdj >= 0 ? 'text-blue-400' : 'text-red-400'}`}>{trendingAdj >= 0 ? '+' : ''}{trendingAdj.toFixed(1)}%</span>
+                                          </div>
+                                        )}
+                                        <div className="flex justify-between items-center border-t border-gray-700 pt-2 gap-1">
+                                          <span className="text-xs font-bold text-gray-300">Total Premium</span>
+                                          <span className="text-sm font-mono font-bold text-white">+{totalPremium.toFixed(1)}%</span>
+                                        </div>
+                                      </div>
+                                      {(costFloorPct > 0 || floorMin > 0) && (
+                                        <div className="app-card p-3 space-y-2">
+                                          <p className="text-xs font-bold text-gray-400 mb-1">STEP 3 — PRICE FLOORS</p>
+                                          {costFloorPct > 0 && myCost && myCost > 0 && (
+                                            <div className="flex justify-between items-start gap-1">
+                                              <div><span className={`text-xs ${floorApplied === 'cost' ? 'text-yellow-400 font-bold' : 'text-gray-500'}`}>Cost Floor{floorApplied === 'cost' ? ' (applied)' : ''}</span><p className="text-[10px] text-gray-500">${myCost.toFixed(3)} x {100 + costFloorPct}%</p></div>
+                                              <span className={`text-sm font-mono shrink-0 ${floorApplied === 'cost' ? 'text-yellow-400' : 'text-gray-600'}`}>${(myCost * (1 + costFloorPct / 100)).toFixed(3)}</span>
+                                            </div>
+                                          )}
+                                          {floorMin > 0 && (
+                                            <div className="flex justify-between items-center gap-1">
+                                              <span className={`text-xs ${floorApplied === 'min' ? 'text-yellow-400 font-bold' : 'text-gray-500'}`}>Min Price{floorApplied === 'min' ? ' (applied)' : ''}</span>
+                                              <span className={`text-sm font-mono shrink-0 ${floorApplied === 'min' ? 'text-yellow-400' : 'text-gray-600'}`}>${floorMin.toFixed(3)}</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                      <div className="bg-emerald-500/10 border border-emerald-500/40 rounded-lg p-3">
+                                        <p className="text-xs text-gray-400 mb-1">SUGGESTED PRICE</p>
+                                        <p className="text-3xl font-mono font-black text-emerald-400">${suggestedPrice?.toFixed(3) ?? fPrice.toFixed(3)}</p>
+                                        <p className="text-[10px] text-gray-500 mt-1 font-mono">{bPrice.toFixed(3)} x (1 + {totalPremium.toFixed(1)}%) = ${mktPrice.toFixed(3)}{floorApplied !== 'none' ? ` → floor → $${(suggestedPrice ?? fPrice).toFixed(3)}` : ''}</p>
+                                      </div>
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </td>
+                        <td className="text-center py-1.5 px-1 text-emerald-400 font-bold">{mySugN != null ? `$${mySugN.toFixed(2)}` : ''}</td>
+                        <td className="text-center py-1.5 px-1 text-emerald-400 font-bold">{mySugU != null ? `$${mySugU.toFixed(2)}` : ''}</td>
+                        <td className="text-center py-1.5 px-1" />
+                        <td className="text-center py-1.5 px-1" />
+                      </tr>
+                    </tbody>
+                  </table>
 
-                        // Market dynamics
-                        let trendingAdj = 0;
-                        const trendingEnabled = s?.pomTrendingEnabled ?? false;
-                        if (trendingEnabled) {
-                          const maxAdj = s?.pomTrendingDays ?? 30;
-                          const demandDenom = s?.pomTrendingThreshold ?? 5;
-                          const supplyDenom = s?.pomHighSupplyThreshold ?? 5000;
-                          const demandRatio = demandDenom > 0 ? Math.min((priceOMagic.soldQuantity ?? 0) / demandDenom, 1.0) : 0;
-                          const supplyRatio = supplyDenom > 0 ? Math.min((priceOMagic.stockQuantity ?? 0) / supplyDenom, 1.0) : 0;
-                          const demandContrib = demandRatio * ((s?.pomTrendingBonus ?? 5) / 100);
-                          const supplyContrib = supplyRatio * ((s?.pomHighSupplyPenalty ?? 5) / 100);
-                          trendingAdj = maxAdj * (demandContrib - supplyContrib);
-                        }
-
-                        const totalPremium = basePremiumPct + scarcityBonus + trendingAdj;
-                        const marketPrice = basePrice * (1 + totalPremium / 100);
-
-                        // Floors
-                        const costFloorPct = s?.pomCostFloorPct ?? 0;
-                        const minPrice = parseFloat(String(s?.pomMinPrice ?? '0.02'));
-                        let floorApplied: 'cost' | 'min' | 'none' = 'none';
-                        let finalPrice = marketPrice;
-                        if (costFloorPct > 0 && myCost && myCost > 0) {
-                          const costFloor = myCost * (1 + costFloorPct / 100);
-                          if (costFloor > finalPrice) { finalPrice = costFloor; floorApplied = 'cost'; }
-                        }
-                        if (minPrice > 0 && minPrice > finalPrice) { floorApplied = floorApplied === 'none' ? 'min' : floorApplied; finalPrice = minPrice; }
-
-                        return (
-                          <>
-                            {/* Step 1: Market Base */}
-                            <div className="app-card p-3">
-                              <p className="text-xs font-bold text-gray-400 mb-2">STEP 1 — MARKET BASE PRICE</p>
-                              <p className="text-2xl font-mono font-black text-white mb-2">
-                                ${basePrice.toFixed(3)}
+                  {/* Score Bar */}
+                  {g.scoring && (
+                    <div className="border-t border-gray-700 px-2 py-2 flex items-center justify-between gap-2 flex-wrap">
+                      {[
+                        { label: 'CEIL', value: g.scoring.ceiling, suffix: 'x', color: 'text-cyan-400' },
+                        { label: 'VEL', value: g.scoring.velocity, suffix: '', color: 'text-gray-300' },
+                        { label: 'SCARC', value: g.scoring.scarcity, suffix: '', color: 'text-gray-300' },
+                        { label: 'UNDR', value: g.scoring.undercut, suffix: 'x', color: 'text-cyan-400' },
+                      ].map(m => (
+                        <div key={m.label} className="text-center min-w-0">
+                          <p className="text-[8px] md:text-[9px] text-gray-500 font-sans font-semibold tracking-wider">{m.label}</p>
+                          <p className={`text-[11px] md:text-xs font-bold font-mono ${m.color}`}>
+                            {m.value != null ? `${m.value.toFixed(2)}${m.suffix}` : '\u2013'}
+                          </p>
+                        </div>
+                      ))}
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <button
+                            className="bg-indigo-500/20 border border-indigo-500/40 rounded-md px-2.5 py-1 hover-elevate active-elevate-2 transition-all group"
+                            data-testid="button-pom-score"
+                          >
+                            <p className="text-[8px] md:text-[9px] text-gray-400 font-sans font-semibold tracking-wider">SCORE</p>
+                            <p className="text-sm md:text-base font-black font-mono text-indigo-300">
+                              {g.scoring.score != null ? g.scoring.score.toFixed(2) : '\u2013'}
+                            </p>
+                          </button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-sm bg-gray-900 border-gray-600" data-testid="dialog-pom-score">
+                          <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2 text-indigo-400">
+                              <Target className="h-5 w-5" />
+                              POM Repricing Score
+                            </DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-3 mt-3">
+                            <p className="text-xs text-gray-400">A weighted composite of four market signals. Higher score = stronger repricing opportunity.</p>
+                            {[
+                              { label: 'Price Ceiling Ratio', abbr: 'CEIL', value: g.scoring.ceiling, weight: g.scoring.weights.wCeiling, desc: 'Peak sold price / your current price' },
+                              { label: 'Demand Velocity', abbr: 'VEL', value: g.scoring.velocity, weight: g.scoring.weights.wVelocity, desc: 'Sold qty / listed qty (demand vs supply)' },
+                              { label: 'Market Scarcity', abbr: 'SCARC', value: g.scoring.scarcity, weight: g.scoring.weights.wScarcity, desc: '1 / total listed qty (rarer = higher)' },
+                              { label: 'Undercut Ratio', abbr: 'UNDR', value: g.scoring.undercut, weight: g.scoring.weights.wUndercut, desc: 'Your price / market min (uses 1/ratio in score)' },
+                            ].map(item => (
+                              <div key={item.abbr} className="app-card p-2.5 space-y-1">
+                                <div className="flex justify-between items-center gap-1">
+                                  <span className="text-xs font-bold text-gray-300">{item.label}</span>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <span className="text-[9px] text-gray-500">w={item.weight}</span>
+                                    <span className="text-sm font-mono font-bold text-white">{item.value != null ? item.value.toFixed(3) : '\u2013'}</span>
+                                  </div>
+                                </div>
+                                <p className="text-[10px] text-gray-500">{item.desc}</p>
+                              </div>
+                            ))}
+                            <div className="bg-indigo-500/10 border border-indigo-500/40 rounded-lg p-3 text-center">
+                              <p className="text-[10px] text-gray-400 mb-1">COMPOSITE SCORE</p>
+                              <p className="text-3xl font-black font-mono text-indigo-300">{g.scoring.score != null ? g.scoring.score.toFixed(2) : '\u2013'}</p>
+                              <p className="text-[9px] text-gray-500 mt-1 font-mono">
+                                ({(g.scoring.ceiling ?? 0).toFixed(2)} x {g.scoring.weights.wCeiling}) + ({(g.scoring.velocity ?? 0).toFixed(2)} x {g.scoring.weights.wVelocity}) + ({(g.scoring.scarcity ?? 0).toFixed(4)} x {g.scoring.weights.wScarcity}) + ({g.scoring.undercut ? `1/${g.scoring.undercut.toFixed(2)}` : '\u2013'} x {g.scoring.weights.wUndercut})
                               </p>
-                              <div className="space-y-1 text-xs">
-                                {soldAvgPrice !== null && (
-                                  <div className="flex justify-between">
-                                    <span className="text-green-400 font-semibold">✓ 6-mo Sold Avg (primary):</span>
-                                    <span className="font-mono text-green-400">${soldAvgPrice.toFixed(3)}</span>
-                                  </div>
-                                )}
-                                {stockAvgPrice !== null && (
-                                  <div className="flex justify-between">
-                                    <span className={`${soldAvgPrice ? 'text-gray-500' : 'text-blue-400 font-semibold'}`}>
-                                      {soldAvgPrice ? 'Stock Avg (fallback):' : '✓ Stock Avg (primary):'}
-                                    </span>
-                                    <span className={`font-mono ${soldAvgPrice ? 'text-gray-500' : 'text-blue-400'}`}>${stockAvgPrice.toFixed(3)}</span>
-                                  </div>
-                                )}
-                                {priceOMagic.stockMinPrice && priceOMagic.stockMaxPrice && (
-                                  <div className="flex justify-between text-gray-500">
-                                    <span>Market range:</span>
-                                    <span className="font-mono">${parseFloat(priceOMagic.stockMinPrice).toFixed(2)} – ${parseFloat(priceOMagic.stockMaxPrice).toFixed(2)}</span>
-                                  </div>
-                                )}
-                                <p className="text-[10px] text-gray-500 pt-1">Sold avg used when available — reflects actual demand. Stock avg used as fallback.</p>
-                              </div>
-                            </div>
-
-                            {/* Step 2: Premiums */}
-                            <div className="app-card p-3 space-y-2">
-                              <p className="text-xs font-bold text-gray-400 mb-1">STEP 2 — PREMIUM ADJUSTMENTS</p>
-
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <span className="text-xs text-gray-300">{isMinifig ? 'Minifig' : 'Base'} Premium</span>
-                                  <p className="text-[10px] text-gray-500">{isMinifig ? 'Minifig-specific rate from settings' : 'Base rate from settings'}</p>
-                                </div>
-                                <div className="text-right shrink-0 ml-2">
-                                  <span className="text-sm font-mono font-bold text-purple-400">+{basePremiumPct}%</span>
-                                  <span className="text-xs text-gray-500 ml-2">+${(basePrice * basePremiumPct / 100).toFixed(3)}</span>
-                                </div>
-                              </div>
-
-                              {scarcityBonus > 0 && (
-                                <div className="flex justify-between items-start border-t border-gray-700 pt-2">
-                                  <div>
-                                    <span className="text-xs text-gray-300">Scarcity Bonus</span>
-                                    <p className="text-[10px] text-gray-500">{lots} listings worldwide ({scarcityLabel})</p>
-                                  </div>
-                                  <div className="text-right shrink-0 ml-2">
-                                    <span className="text-sm font-mono font-bold text-orange-400">+{scarcityBonus}%</span>
-                                    <span className="text-xs text-gray-500 ml-2">+${(basePrice * scarcityBonus / 100).toFixed(3)}</span>
-                                  </div>
-                                </div>
-                              )}
-                              {scarcityBonus === 0 && priceOMagic.stockTotalLots !== null && (
-                                <div className="flex justify-between items-center border-t border-gray-700 pt-2">
-                                  <div>
-                                    <span className="text-xs text-gray-500">Scarcity Bonus</span>
-                                    <p className="text-[10px] text-gray-500">{lots} listings (≥ {t3} — normal supply)</p>
-                                  </div>
-                                  <span className="text-xs font-mono text-gray-600">+0%</span>
-                                </div>
-                              )}
-
-                              {trendingEnabled && trendingAdj !== 0 && (
-                                <div className="flex justify-between items-start border-t border-gray-700 pt-2">
-                                  <div>
-                                    <span className="text-xs text-gray-300">Market Dynamics</span>
-                                    <p className="text-[10px] text-gray-500">Demand vs. supply signal</p>
-                                  </div>
-                                  <div className="text-right shrink-0 ml-2">
-                                    <span className={`text-sm font-mono font-bold ${trendingAdj >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
-                                      {trendingAdj >= 0 ? '+' : ''}{trendingAdj.toFixed(1)}%
-                                    </span>
-                                    <span className="text-xs text-gray-500 ml-2">{trendingAdj >= 0 ? '+' : ''}${(basePrice * trendingAdj / 100).toFixed(3)}</span>
-                                  </div>
-                                </div>
-                              )}
-
-                              <div className="flex justify-between items-center border-t border-gray-700 pt-2">
-                                <span className="text-xs font-bold text-gray-300">Total Premium</span>
-                                <span className="text-sm font-mono font-bold text-white">+{totalPremium.toFixed(1)}% → ${marketPrice.toFixed(3)}</span>
-                              </div>
-                            </div>
-
-                            {/* Step 3: Floors */}
-                            {(costFloorPct > 0 || minPrice > 0) && (
-                              <div className="app-card p-3 space-y-2">
-                                <p className="text-xs font-bold text-gray-400 mb-1">STEP 3 — PRICE FLOORS</p>
-                                {costFloorPct > 0 && myCost && myCost > 0 && (
-                                  <div className="flex justify-between items-start">
-                                    <div>
-                                      <span className={`text-xs ${floorApplied === 'cost' ? 'text-yellow-400 font-bold' : 'text-gray-500'}`}>
-                                        Cost Floor {floorApplied === 'cost' ? '← applied' : ''}
-                                      </span>
-                                      <p className="text-[10px] text-gray-500">My cost ${myCost.toFixed(3)} × {100 + costFloorPct}%</p>
-                                    </div>
-                                    <span className={`text-sm font-mono ${floorApplied === 'cost' ? 'text-yellow-400' : 'text-gray-600'}`}>
-                                      ${(myCost * (1 + costFloorPct / 100)).toFixed(3)}
-                                    </span>
-                                  </div>
-                                )}
-                                {minPrice > 0 && (
-                                  <div className="flex justify-between items-center">
-                                    <span className={`text-xs ${floorApplied === 'min' ? 'text-yellow-400 font-bold' : 'text-gray-500'}`}>
-                                      Min Price {floorApplied === 'min' ? '← applied' : ''}
-                                    </span>
-                                    <span className={`text-sm font-mono ${floorApplied === 'min' ? 'text-yellow-400' : 'text-gray-600'}`}>${minPrice.toFixed(3)}</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Final */}
-                            <div className="bg-purple-500/10 border border-purple-500/50 rounded-lg p-3">
-                              <p className="text-xs text-gray-400 mb-1">SUGGESTED PRICE</p>
-                              <p className="text-3xl font-mono font-black text-purple-400 mb-1">
-                                ${suggestedPrice.toFixed(3)}
-                              </p>
-                              {priceOMagic.stockMinPrice && priceOMagic.stockMaxPrice && (
-                                <p className="text-[10px] text-gray-500 mb-2">
-                                  Market range: ${parseFloat(priceOMagic.stockMinPrice).toFixed(2)} – ${parseFloat(priceOMagic.stockMaxPrice).toFixed(2)}
-                                </p>
-                              )}
-                              <div className="pt-2 border-t border-purple-500/30 space-y-0.5">
-                                <p className="text-[10px] text-purple-300 font-mono">
-                                  {basePrice.toFixed(3)} × (1 + {totalPremium.toFixed(1)}%) = ${marketPrice.toFixed(3)}{floorApplied !== 'none' ? ` → floor applied → $${suggestedPrice.toFixed(3)}` : ''}
-                                </p>
-                                <p className="text-[10px] text-gray-500">From last sync — matches the POM list and spot lookup exactly.</p>
-                              </div>
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </DialogContent>
-                </Dialog>
-
-                {/* Market Data */}
-                {(() => {
-                  const condition = data.newOrUsed || priceOMagic.newOrUsed || 'N';
-                  const condLabel = condition === 'N' ? 'NEW' : 'USED';
-                  const condBadgeCls = condition === 'N'
-                    ? 'bg-lego-green/20 text-lego-green border-lego-green/40'
-                    : 'bg-lego-orange/20 text-lego-orange border-lego-orange/40';
-
-                  return (
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        {/* Current Listings */}
-                        {stockAvgPrice !== null && (
-                          <div className="app-card p-2 space-y-1.5">
-                            <div className="flex items-center justify-between gap-1 flex-wrap">
-                              <div className="flex items-center gap-1">
-                                <ShoppingCart className="h-3.5 w-3.5 text-blue-400 shrink-0" />
-                                <p className="text-[10px] md:text-xs font-bold text-blue-400 uppercase">Current Listings</p>
-                              </div>
-                              <Badge className={`text-[8px] h-4 px-1.5 font-bold ${condBadgeCls}`}>{condLabel}</Badge>
-                            </div>
-                            <p className="text-sm font-mono font-bold text-white">${stockAvgPrice.toFixed(3)}</p>
-                            {priceOMagic.stockMinPrice && priceOMagic.stockMaxPrice && (
-                              <p className="text-[9px] md:text-xs text-gray-400 font-mono">
-                                ${parseFloat(priceOMagic.stockMinPrice).toFixed(2)} – ${parseFloat(priceOMagic.stockMaxPrice).toFixed(2)}
-                              </p>
-                            )}
-                            <div className="border-t border-gray-700 pt-1 space-y-0.5">
-                              {priceOMagic.stockTotalLots != null && (
-                                <div className="flex justify-between text-[9px]">
-                                  <span className="text-gray-500">Total units</span>
-                                  <span className="text-gray-300 font-mono">{priceOMagic.stockTotalLots.toLocaleString()}</span>
-                                </div>
-                              )}
-                              {priceOMagic.stockQuantity != null && (
-                                <div className="flex justify-between text-[9px]">
-                                  <span className="text-gray-500">Avg qty/lot</span>
-                                  <span className="text-gray-300 font-mono">{priceOMagic.stockQuantity}</span>
-                                </div>
-                              )}
                             </div>
                           </div>
-                        )}
-
-                        {/* Sold Data */}
-                        {soldAvgPrice !== null && (
-                          <div className="app-card p-2 space-y-1.5">
-                            <div className="flex items-center justify-between gap-1 flex-wrap">
-                              <div className="flex items-center gap-1">
-                                <BarChart3 className="h-3.5 w-3.5 text-green-400 shrink-0" />
-                                <p className="text-[10px] md:text-xs font-bold text-green-400 uppercase">Sold (6mo)</p>
-                              </div>
-                              <Badge className={`text-[8px] h-4 px-1.5 font-bold ${condBadgeCls}`}>{condLabel}</Badge>
-                            </div>
-                            <p className="text-sm font-mono font-bold text-white">${soldAvgPrice.toFixed(3)}</p>
-                            {priceOMagic.soldMinPrice && priceOMagic.soldMaxPrice && (
-                              <p className="text-[9px] md:text-xs text-gray-400 font-mono">
-                                ${parseFloat(priceOMagic.soldMinPrice).toFixed(2)} – ${parseFloat(priceOMagic.soldMaxPrice).toFixed(2)}
-                              </p>
-                            )}
-                            <div className="border-t border-gray-700 pt-1 space-y-0.5">
-                              {priceOMagic.soldTotalLots != null && (
-                                <div className="flex justify-between text-[9px]">
-                                  <span className="text-gray-500">Units sold</span>
-                                  <span className="text-gray-300 font-mono">{priceOMagic.soldTotalLots.toLocaleString()}</span>
-                                </div>
-                              )}
-                              {priceOMagic.soldQuantity != null && (
-                                <div className="flex justify-between text-[9px]">
-                                  <span className="text-gray-500">Avg qty/lot</span>
-                                  <span className="text-gray-300 font-mono">{priceOMagic.soldQuantity}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                        </DialogContent>
+                      </Dialog>
                     </div>
-                  );
-                })()}
+                  )}
+                </div>
+              );
+            })()}
+
+            {!loadingFullGuide && !data.loadingPriceOMagic && (!pomFullGuide || (!pomFullGuide.N && !pomFullGuide.U)) && (
+              <div className="app-card-muted p-3 text-center">
+                <BarChart3 className="h-5 w-5 text-gray-500 mx-auto mb-1.5" />
+                <p className="text-xs text-gray-400">No price guide data available</p>
+                <p className="text-[10px] text-gray-500 mt-0.5">Run a POM sync to populate pricing data for this item</p>
               </div>
             )}
 
