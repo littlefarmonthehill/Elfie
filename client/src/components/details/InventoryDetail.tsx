@@ -1,4 +1,4 @@
-import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes, Search, Loader2, RefreshCw, Newspaper, MessageCircle, TrendingDown, Target, ShieldAlert } from "lucide-react";
+import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Tag, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes, Search, Loader2, RefreshCw, Newspaper, MessageCircle, TrendingDown, Target, ShieldAlert, Settings2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import PartImage from "@/components/PartImage";
 import { Badge } from "@/components/ui/badge";
@@ -146,6 +146,7 @@ interface InventoryDetailProps {
     priceOMagic?: PriceOMagicData | null;
   };
   onBrickLinkClick?: (url: string) => void;
+  onOpenSettings?: (section?: string) => void;
   initialTab?: string;
 }
 
@@ -292,7 +293,7 @@ function ItemBusinessInsightsDialog({ itemId, itemName, open, onOpenChange }: { 
   );
 }
 
-export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: InventoryDetailProps) {
+export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings, initialTab }: InventoryDetailProps) {
   const [activeTab, setActiveTab] = useState(initialTab ?? "overview");
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
@@ -517,13 +518,6 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <h3 className="text-sm font-black text-lego-blue font-mono" data-testid="text-item-number">{data.itemNo}</h3>
-              <Badge className={`text-[9px] md:text-xs h-4 px-2 font-bold ${
-                data.newOrUsed === 'N' 
-                  ? 'bg-lego-green/20 text-lego-green border-lego-green/40' 
-                  : 'bg-lego-orange/20 text-lego-orange border-lego-orange/40'
-              }`}>
-                {conditionText}
-              </Badge>
               {data.bindId && (
                 <Badge className="bg-purple-500/20 text-purple-400 border-purple-400/40 text-[9px] md:text-xs h-4 px-2 font-bold">
                   BIND #{data.bindId}
@@ -832,24 +826,24 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                       {currentPrice > 0 && (
                         <tr className="border-b border-gray-800/50">
                           <td className="py-1.5 px-2 text-green-400 font-sans font-bold">My Price</td>
+                          <td className="text-center py-1.5 px-1" />
+                          <td className="text-center py-1.5 px-1" />
                           <td className="text-center py-1.5 px-1 text-green-400 font-bold">{myCondition === 'N' ? `$${currentPrice.toFixed(2)}` : ''}</td>
                           <td className="text-center py-1.5 px-1 text-green-400 font-bold">{myCondition === 'U' ? `$${currentPrice.toFixed(2)}` : ''}</td>
-                          <td className="text-center py-1.5 px-1" />
-                          <td className="text-center py-1.5 px-1" />
                         </tr>
                       )}
                       <tr>
                         <td className="py-1.5 px-2 font-sans font-bold">
                           <Dialog>
                             <DialogTrigger asChild>
-                              <button className="text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-0.5" data-testid="button-suggested-price">
+                              <button className="text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-0.5" data-testid="button-suggested-price">
                                 Suggested
                                 <Info className="h-2.5 w-2.5 opacity-60" />
                               </button>
                             </DialogTrigger>
                             <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto bg-gray-900 border-gray-600" data-testid="dialog-price-breakdown">
                               <DialogHeader>
-                                <DialogTitle className="flex items-center gap-2 text-emerald-400">
+                                <DialogTitle className="flex items-center gap-2 text-purple-400">
                                   <Sparkles className="h-5 w-5" />
                                   Suggested Price Calculation
                                 </DialogTitle>
@@ -945,9 +939,9 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                                           )}
                                         </div>
                                       )}
-                                      <div className="bg-emerald-500/10 border border-emerald-500/40 rounded-lg p-3">
+                                      <div className="bg-purple-500/10 border border-purple-500/40 rounded-lg p-3">
                                         <p className="text-xs text-gray-400 mb-1">SUGGESTED PRICE</p>
-                                        <p className="text-3xl font-mono font-black text-emerald-400">${suggestedPrice?.toFixed(3) ?? fPrice.toFixed(3)}</p>
+                                        <p className="text-3xl font-mono font-black text-purple-400">${suggestedPrice?.toFixed(3) ?? fPrice.toFixed(3)}</p>
                                         <p className="text-[10px] text-gray-500 mt-1 font-mono">{bPrice.toFixed(3)} x (1 + {totalPremium.toFixed(1)}%) = ${mktPrice.toFixed(3)}{floorApplied !== 'none' ? ` → floor → $${(suggestedPrice ?? fPrice).toFixed(3)}` : ''}</p>
                                       </div>
                                     </>
@@ -957,10 +951,10 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                             </DialogContent>
                           </Dialog>
                         </td>
-                        <td className="text-center py-1.5 px-1 text-emerald-400 font-bold">{mySugN != null ? `$${mySugN.toFixed(2)}` : ''}</td>
-                        <td className="text-center py-1.5 px-1 text-emerald-400 font-bold">{mySugU != null ? `$${mySugU.toFixed(2)}` : ''}</td>
                         <td className="text-center py-1.5 px-1" />
                         <td className="text-center py-1.5 px-1" />
+                        <td className="text-center py-1.5 px-1 text-purple-400 font-bold">{mySugN != null ? `$${mySugN.toFixed(2)}` : '\u2013'}</td>
+                        <td className="text-center py-1.5 px-1 text-purple-400 font-bold">{mySugU != null ? `$${mySugU.toFixed(2)}` : '\u2013'}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1026,6 +1020,16 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                                 ({(g.scoring.ceiling ?? 0).toFixed(2)} x {g.scoring.weights.wCeiling}) + ({(g.scoring.velocity ?? 0).toFixed(2)} x {g.scoring.weights.wVelocity}) + ({(g.scoring.scarcity ?? 0).toFixed(4)} x {g.scoring.weights.wScarcity}) + ({g.scoring.undercut ? `1/${g.scoring.undercut.toFixed(2)}` : '\u2013'} x {g.scoring.weights.wUndercut})
                               </p>
                             </div>
+                            {onOpenSettings && (
+                              <button
+                                onClick={() => onOpenSettings('priceomatic')}
+                                className="flex items-center gap-1 text-[10px] text-purple-400 hover:text-purple-300 transition-colors pt-1.5 border-t border-gray-700/40 w-full"
+                                data-testid="button-tune-scoring-settings"
+                              >
+                                <Settings2 className="w-3 h-3" />
+                                Tune scoring weights
+                              </button>
+                            )}
                           </div>
                         </DialogContent>
                       </Dialog>
@@ -1035,7 +1039,83 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
               );
             })()}
 
-            {!loadingFullGuide && !data.loadingPriceOMagic && (!pomFullGuide || (!pomFullGuide.N && !pomFullGuide.U)) && (
+            {!loadingFullGuide && !data.loadingPriceOMagic && (!pomFullGuide || (!pomFullGuide.N && !pomFullGuide.U)) && priceOMagic && (() => {
+              const pm = priceOMagic;
+              const cond = data.newOrUsed || 'N';
+              const fmtP = (v: string | null | undefined) => v ? `$${parseFloat(v).toFixed(2)}` : '\u2013';
+              const fmtQ = (v: number | null | undefined) => v != null ? v.toLocaleString() : '\u2013';
+              const sugP = pm.suggestedPrice ? parseFloat(pm.suggestedPrice) : null;
+              return (
+                <div className="app-card overflow-hidden" data-testid="pom-price-guide-fallback">
+                  <table className="w-full text-[10px] md:text-xs font-mono">
+                    <thead>
+                      <tr className="border-b border-gray-700">
+                        <th className="text-left py-1.5 px-2 text-gray-500 font-semibold w-[22%]" />
+                        <th colSpan={2} className="text-center py-1 px-1 text-gray-300 font-bold border-b border-gray-600">SOLD 6MO</th>
+                        <th colSpan={2} className="text-center py-1 px-1 text-gray-300 font-bold border-b border-gray-600">LISTED</th>
+                      </tr>
+                      <tr className="border-b border-gray-700/50">
+                        <th className="text-left py-1 px-2 text-gray-500 font-semibold" />
+                        <th className="text-center py-1 px-1 text-blue-400 font-bold">NEW</th>
+                        <th className="text-center py-1 px-1 text-blue-400 font-bold">USED</th>
+                        <th className="text-center py-1 px-1 text-blue-400 font-bold">NEW</th>
+                        <th className="text-center py-1 px-1 text-blue-400 font-bold">USED</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b border-gray-800/50">
+                        <td className="py-1.5 px-2 text-gray-400 font-sans font-medium">Qty</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{cond === 'N' ? fmtQ(pm.soldQuantity ?? parseInt(pm.soldTotalLots?.toString() || '0')) : '\u2013'}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{cond === 'U' ? fmtQ(pm.soldQuantity ?? parseInt(pm.soldTotalLots?.toString() || '0')) : '\u2013'}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{cond === 'N' ? fmtQ(pm.stockQuantity ?? pm.stockTotalLots) : '\u2013'}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{cond === 'U' ? fmtQ(pm.stockQuantity ?? pm.stockTotalLots) : '\u2013'}</td>
+                      </tr>
+                      <tr className="border-b border-gray-800/50">
+                        <td className="py-1.5 px-2 text-gray-400 font-sans font-medium">Min</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{cond === 'N' ? fmtP(pm.soldMinPrice) : '\u2013'}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{cond === 'U' ? fmtP(pm.soldMinPrice) : '\u2013'}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{cond === 'N' ? fmtP(pm.stockMinPrice) : '\u2013'}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{cond === 'U' ? fmtP(pm.stockMinPrice) : '\u2013'}</td>
+                      </tr>
+                      <tr className="border-b border-gray-800/50">
+                        <td className="py-1.5 px-2 text-white font-sans font-bold">Avg</td>
+                        <td className="text-center py-1.5 px-1 text-yellow-400 font-bold">{cond === 'N' ? fmtP(pm.soldAvgPrice) : '\u2013'}</td>
+                        <td className="text-center py-1.5 px-1 text-yellow-400 font-bold">{cond === 'U' ? fmtP(pm.soldAvgPrice) : '\u2013'}</td>
+                        <td className="text-center py-1.5 px-1 text-yellow-400 font-bold">{cond === 'N' ? fmtP(pm.stockAvgPrice) : '\u2013'}</td>
+                        <td className="text-center py-1.5 px-1 text-yellow-400 font-bold">{cond === 'U' ? fmtP(pm.stockAvgPrice) : '\u2013'}</td>
+                      </tr>
+                      <tr className="border-b border-gray-800/50">
+                        <td className="py-1.5 px-2 text-gray-400 font-sans font-medium">Max</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{cond === 'N' ? fmtP(pm.soldMaxPrice) : '\u2013'}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{cond === 'U' ? fmtP(pm.soldMaxPrice) : '\u2013'}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{cond === 'N' ? fmtP(pm.stockMaxPrice) : '\u2013'}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{cond === 'U' ? fmtP(pm.stockMaxPrice) : '\u2013'}</td>
+                      </tr>
+                      {currentPrice > 0 && (
+                        <tr className="border-b border-gray-800/50">
+                          <td className="py-1.5 px-2 text-green-400 font-sans font-bold">My Price</td>
+                          <td className="text-center py-1.5 px-1" />
+                          <td className="text-center py-1.5 px-1" />
+                          <td className="text-center py-1.5 px-1 text-green-400 font-bold">{cond === 'N' ? `$${currentPrice.toFixed(2)}` : ''}</td>
+                          <td className="text-center py-1.5 px-1 text-green-400 font-bold">{cond === 'U' ? `$${currentPrice.toFixed(2)}` : ''}</td>
+                        </tr>
+                      )}
+                      {sugP != null && (
+                        <tr>
+                          <td className="py-1.5 px-2 text-purple-400 font-sans font-bold">Suggested</td>
+                          <td className="text-center py-1.5 px-1" />
+                          <td className="text-center py-1.5 px-1" />
+                          <td className="text-center py-1.5 px-1 text-purple-400 font-bold">{cond === 'N' ? `$${sugP.toFixed(2)}` : ''}</td>
+                          <td className="text-center py-1.5 px-1 text-purple-400 font-bold">{cond === 'U' ? `$${sugP.toFixed(2)}` : ''}</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
+
+            {!loadingFullGuide && !data.loadingPriceOMagic && (!pomFullGuide || (!pomFullGuide.N && !pomFullGuide.U)) && !priceOMagic && (
               <div className="app-card-muted p-3 text-center">
                 <BarChart3 className="h-5 w-5 text-gray-500 mx-auto mb-1.5" />
                 <p className="text-xs text-gray-400">No price guide data available</p>

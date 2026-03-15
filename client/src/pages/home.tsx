@@ -376,14 +376,14 @@ export default function Home() {
     setActiveSalesDrawer(null);
   };
 
-  const renderActiveDrawer = () => {
-    const openSettings = (section?: string, pricingExample?: PricingInsight, scoringExample?: PricingInsight) => {
-      setSettingsInitialSection(section as any);
-      setSettingsPricingExample(pricingExample);
-      setSettingsScoringExample(scoringExample);
-      setSettingsOpen(true);
-    };
+  const openSettings = (section?: string, pricingExample?: PricingInsight, scoringExample?: PricingInsight) => {
+    setSettingsInitialSection(section as any);
+    setSettingsPricingExample(pricingExample);
+    setSettingsScoringExample(scoringExample);
+    setSettingsOpen(true);
+  };
 
+  const renderActiveDrawer = () => {
     if (activeInventoryDrawer === 'priceomatic') {
       return (
         <ToolDrawer icon={Sparkles} iconColor="text-purple-400" title="Price-o-Matic" onClose={closeActiveDrawer} actions={
@@ -962,6 +962,7 @@ export default function Home() {
                         detail={detailModal.data}
                         onOrderSelect={handleOrderSelect}
                         onBrickLinkClick={setBrickLinkUrl}
+                        onOpenSettings={(section) => { setDetailModal({ open: false, data: null }); openSettings(section); }}
                         inline
                       />
                     ) : renderActiveDrawer()}
@@ -1073,6 +1074,7 @@ export default function Home() {
           detail={detailModal.data}
           onOrderSelect={handleOrderSelect}
           onBrickLinkClick={setBrickLinkUrl}
+          onOpenSettings={(section) => { setDetailModal({ open: false, data: null }); openSettings(section); }}
         />
       )}
 

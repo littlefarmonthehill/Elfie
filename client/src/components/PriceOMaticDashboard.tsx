@@ -430,10 +430,10 @@ function PricingGrid({ group, activeSort, cfg, onOpenSettings }: { group: Groupe
   const uLot = group.usedLot;
 
   const hlMap: Record<string, CellHL> = {};
-  if (activeSort === 'ceiling')  { hlMap['Max'] = { sN: true, sU: true }; hlMap['My Price'] = { sN: true, sU: true }; }
+  if (activeSort === 'ceiling')  { hlMap['Max'] = { sN: true, sU: true }; hlMap['My Price'] = { lN: true, lU: true }; }
   if (activeSort === 'velocity') { hlMap['Qty'] = { sN: true, sU: true, lN: true, lU: true }; }
   if (activeSort === 'scarcity') { hlMap['Qty'] = { lN: true, lU: true }; }
-  if (activeSort === 'undercut') { hlMap['Min'] = { lN: true, lU: true }; hlMap['My Price'] = { sN: true, sU: true }; }
+  if (activeSort === 'undercut') { hlMap['Min'] = { lN: true, lU: true }; hlMap['My Price'] = { lN: true, lU: true }; }
 
   const DataRow = ({ label, sN, sU, lN, lU, isMoney, bold, mine, suggested }: {
     label: string; sN: any; sU: any; lN: any; lU: any; isMoney?: boolean; bold?: boolean; mine?: boolean; suggested?: boolean;
@@ -441,14 +441,15 @@ function PricingGrid({ group, activeSort, cfg, onOpenSettings }: { group: Groupe
     const hl = hlMap[label];
     const labelColor = suggested ? 'text-purple-400 font-semibold' : mine ? 'text-emerald-400 font-semibold' : bold ? 'text-gray-200 font-semibold' : 'text-gray-500';
     const valColor = suggested ? 'text-purple-300 font-semibold' : mine ? 'text-emerald-300 font-semibold' : bold ? 'text-amber-300 font-semibold' : 'text-gray-200';
-    const blankCols = mine || suggested;
+    const blankSold = mine || suggested;
+    const blankListed = false;
     return (
       <div className={`${GR} border-b border-white/[0.04] ${bold ? 'bg-white/[0.03]' : ''} ${suggested ? 'bg-purple-500/[0.05]' : ''}`}>
         <div className={`px-2 py-1 text-[10px] ${labelColor}`}>{label}</div>
-        <div className={cell(`${valColor} ${hl?.sN ? HL_CELL : ''}`)}>{isMoney ? fmt(sN) : fmtInt(sN)}</div>
-        <div className={cell(`${valColor} ${hl?.sU ? HL_CELL : ''}`)}>{isMoney ? fmt(sU) : fmtInt(sU)}</div>
-        <div className={cell(`${blankCols ? 'text-gray-700' : bold ? 'text-sky-300 font-semibold' : 'text-gray-400'} ${hl?.lN && !blankCols ? HL_CELL : ''}`)}>{blankCols ? '' : isMoney ? fmt(lN) : fmtInt(lN)}</div>
-        <div className={cell(`${blankCols ? 'text-gray-700' : bold ? 'text-sky-300 font-semibold' : 'text-gray-400'} ${hl?.lU && !blankCols ? HL_CELL : ''}`)}>{blankCols ? '' : isMoney ? fmt(lU) : fmtInt(lU)}</div>
+        <div className={cell(`${blankSold ? 'text-gray-700' : valColor} ${hl?.sN && !blankSold ? HL_CELL : ''}`)}>{blankSold ? '' : isMoney ? fmt(sN) : fmtInt(sN)}</div>
+        <div className={cell(`${blankSold ? 'text-gray-700' : valColor} ${hl?.sU && !blankSold ? HL_CELL : ''}`)}>{blankSold ? '' : isMoney ? fmt(sU) : fmtInt(sU)}</div>
+        <div className={cell(`${blankListed ? 'text-gray-700' : mine ? valColor : suggested ? valColor : bold ? 'text-sky-300 font-semibold' : 'text-gray-400'} ${hl?.lN && !blankListed ? HL_CELL : ''}`)}>{blankListed ? '' : isMoney ? fmt(lN) : fmtInt(lN)}</div>
+        <div className={cell(`${blankListed ? 'text-gray-700' : mine ? valColor : suggested ? valColor : bold ? 'text-sky-300 font-semibold' : 'text-gray-400'} ${hl?.lU && !blankListed ? HL_CELL : ''}`)}>{blankListed ? '' : isMoney ? fmt(lU) : fmtInt(lU)}</div>
       </div>
     );
   };
@@ -479,10 +480,12 @@ function PricingGrid({ group, activeSort, cfg, onOpenSettings }: { group: Groupe
       <DataRow label="Min" sN={nLot?.soldMinPrice} sU={uLot?.soldMinPrice} lN={nLot?.stockMinPrice} lU={uLot?.stockMinPrice} isMoney />
       <DataRow bold label="Avg" sN={nLot?.soldAvgPrice} sU={uLot?.soldAvgPrice} lN={nLot?.stockAvgPrice} lU={uLot?.stockAvgPrice} isMoney />
       <DataRow label="Max" sN={nLot?.soldMaxPrice} sU={uLot?.soldMaxPrice} lN={nLot?.stockMaxPrice} lU={uLot?.stockMaxPrice} isMoney />
-      <DataRow mine bold label="My Price" sN={nLot?.currentPrice} sU={uLot?.currentPrice} lN={null} lU={null} isMoney />
+      <DataRow mine bold label="My Price" sN={null} sU={null} lN={nLot?.currentPrice} lU={uLot?.currentPrice} isMoney />
       {hasSuggested && (
         <div className={`${GR} border-b border-white/[0.04] bg-purple-500/[0.05]`}>
           <div className="px-2 py-1 text-[10px] text-purple-400 font-semibold">Suggested</div>
+          <div className={cell('text-gray-700')} />
+          <div className={cell('text-gray-700')} />
           <div className={cell('text-purple-300 font-semibold')}>
             {nCalc.suggested != null && nCalc.breakdown ? (
               <BreakdownPopover bd={nCalc.breakdown} label="New Suggested" onOpenSettings={onOpenSettings} lot={nLot}>
@@ -490,7 +493,7 @@ function PricingGrid({ group, activeSort, cfg, onOpenSettings }: { group: Groupe
                   {fmt(nCalc.suggested)}
                 </button>
               </BreakdownPopover>
-            ) : '—'}
+            ) : '\u2014'}
           </div>
           <div className={cell('text-purple-300 font-semibold')}>
             {uCalc.suggested != null && uCalc.breakdown ? (
@@ -499,10 +502,8 @@ function PricingGrid({ group, activeSort, cfg, onOpenSettings }: { group: Groupe
                   {fmt(uCalc.suggested)}
                 </button>
               </BreakdownPopover>
-            ) : '—'}
+            ) : '\u2014'}
           </div>
-          <div className={cell('text-gray-700')} />
-          <div className={cell('text-gray-700')} />
         </div>
       )}
     </div>
