@@ -2056,10 +2056,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, req.params.ticketId)).limit(1);
       if (!ticket) return res.status(404).json({ message: "Ticket not found" });
-      const msgs = await db.select().from(conversations)
-        .where(and(eq(conversations.orgId, ticket.orgId), eq(conversations.sessionId, ticket.sessionId)))
+      const [org] = await db.select({ name: organizations.name }).from(organizations).where(eq(organizations.id, ticket.orgId)).limit(1);
+      const ticketWithOrg = { ...ticket, orgName: org?.name || ticket.orgId };
+      const recentBefore = await db.select().from(conversations)
+        .where(and(
+          eq(conversations.orgId, ticket.orgId),
+          eq(conversations.sessionId, ticket.sessionId),
+          lte(conversations.createdAt, ticket.createdAt),
+        ))
+        .orderBy(desc(conversations.createdAt))
+        .limit(20);
+      const afterEscalation = await db.select().from(conversations)
+        .where(and(
+          eq(conversations.orgId, ticket.orgId),
+          eq(conversations.sessionId, ticket.sessionId),
+          gt(conversations.createdAt, ticket.createdAt),
+        ))
         .orderBy(asc(conversations.createdAt));
-      res.json({ ticket, messages: msgs });
+      const msgs = [...recentBefore.reverse(), ...afterEscalation];
+      res.json({ ticket: ticketWithOrg, messages: msgs });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
