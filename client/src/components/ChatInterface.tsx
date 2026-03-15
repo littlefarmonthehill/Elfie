@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Camera, Sparkles, Brain, ChevronDown, ChevronRight, Globe, Clock, Newspaper, MessageSquare, Headphones, UserPlus } from "lucide-react";
+import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Sparkles, Brain, ChevronDown, ChevronRight, Globe, Clock, Newspaper, MessageSquare, Headphones, UserPlus, Scan, DollarSign, ListChecks, PackageCheck, BarChart3, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InventoryGroup } from "@/components/InventoryGroup";
@@ -1081,7 +1081,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   // Load conversation history + active ticket on mount
@@ -1143,15 +1142,22 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         const newMsgs = await msgsRes.json();
         if (newMsgs.length > 0) {
           lastPollRef.current = Math.max(...newMsgs.map((m: any) => new Date(m.createdAt).getTime()));
-          setMessages(prev => [
-            ...prev,
-            ...newMsgs.map((m: any) => ({
-              role: m.role as 'support' | 'system',
-              content: m.content,
-            })),
-          ]);
-          const hasSupportReply = newMsgs.some((m: any) => m.role === 'support');
-          if (hasSupportReply && isMinimized && onSupportNotification) {
+          let appendedSupport = false;
+          setMessages(prev => {
+            const seenKeys = new Set(prev.map(m => `${m.role}:${m.content}:${(m as any).createdAt || ''}`));
+            const dedupedMsgs: ChatMessage[] = [];
+            for (const m of newMsgs) {
+              const key = `${m.role}:${m.content}:${m.createdAt || ''}`;
+              if (!seenKeys.has(key)) {
+                seenKeys.add(key);
+                dedupedMsgs.push({ role: m.role as 'support' | 'system', content: m.content });
+                if (m.role === 'support') appendedSupport = true;
+              }
+            }
+            if (dedupedMsgs.length === 0) return prev;
+            return [...prev, ...dedupedMsgs];
+          });
+          if (appendedSupport && isMinimized && onSupportNotification) {
             onSupportNotification(true);
           }
         }
@@ -1423,138 +1429,14 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     }
   };
 
-  const handleImageUpload = async (file: File) => {
-    if (!file) return;
-    
-    setIsLoading(true);
-    
-    try {
-      // Create FormData and append the image
-      const formData = new FormData();
-      formData.append('image', file);
-      formData.append('itemType', 'parts'); // Default to parts
-      
-      // Call Brickognize API
-      const response = await fetch('/api/brickognize/identify', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to identify LEGO item');
-      }
-      
-      const data = await response.json();
-      
-      // Format results for chat and check inventory
-      if (data.items && data.items.length > 0) {
-        const topResult = data.items[0]; // Get the best match
-        const topResultId = topResult.id;
-        const confidence = Math.round(topResult.score * 100);
-        
-        // Check if this part exists in inventory
-        try {
-          const inventoryResponse = await fetch(`/api/inventory?search=${topResultId}`);
-          const inventoryData = await inventoryResponse.json();
-          
-          if (inventoryData && inventoryData.length > 0) {
-            // Part found in inventory - show it immediately
-            const totalColors = new Set(inventoryData.map((item: any) => item.colorId)).size;
-            let resultMessage = `I identified this as **${topResult.name}** (Part ${topResult.id}) with ${confidence}% confidence.\n\nFound in your inventory: ${inventoryData.length} variant${inventoryData.length > 1 ? 's' : ''} across ${totalColors} color${totalColors > 1 ? 's' : ''}.`;
-            
-            const assistantMessage: ChatMessage = {
-              role: 'assistant',
-              content: resultMessage,
-              imageUrl: topResult.img_url, // Include image from Brickognize
-              items: inventoryData, // Include all items for display
-            };
-            
-            setMessages(prev => [...prev, assistantMessage]);
-            
-            toast({
-              title: "Part Identified!",
-              description: `Found ${topResult.name} in your inventory!`,
-            });
-          } else {
-            // Part not in inventory - show BrickLink link with proper URL pattern
-            const topResults = data.items.slice(0, 5);
-            let resultMessage = `I identified this as **${topResult.name}** (Part ${topResult.id}) with ${confidence}% confidence.\n\nThis part is not currently in your inventory.\n\n`;
-            
-            if (topResults.length > 1) {
-              resultMessage += `Other possible matches:\n`;
-              topResults.slice(1).forEach((item: any, index: number) => {
-                const itemConfidence = Math.round(item.score * 100);
-                resultMessage += `${index + 2}. ${item.name} (${item.id}) - ${itemConfidence}% match\n`;
-              });
-              resultMessage += `\n`;
-            }
-            
-            resultMessage += `Click below to view Part ${topResult.id} on BrickLink:`;
-            
-            // Construct proper BrickLink URL
-            const bricklinkUrl = `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${topResult.id}`;
-            resultMessage += `\n[View on BrickLink](${bricklinkUrl})`;
-            
-            const assistantMessage: ChatMessage = {
-              role: 'assistant',
-              content: resultMessage,
-              imageUrl: topResult.img_url, // Include image from Brickognize
-            };
-            
-            setMessages(prev => [...prev, assistantMessage]);
-            
-            toast({
-              title: "Part Identified!",
-              description: `Found ${topResult.name} - not in your inventory`,
-            });
-          }
-        } catch (inventoryError) {
-          console.error('Error checking inventory:', inventoryError);
-          // Fall back to showing results without inventory check
-          const topResults = data.items.slice(0, 5);
-          let resultMessage = `I found ${data.items.length} possible matches for your image:\n\n`;
-          
-          topResults.forEach((item: any, index: number) => {
-            const itemConfidence = Math.round(item.score * 100);
-            resultMessage += `${index + 1}. ${item.name} (${item.id}) - ${itemConfidence}% match\n`;
-          });
-          
-          const assistantMessage: ChatMessage = {
-            role: 'assistant',
-            content: resultMessage,
-            imageUrl: topResults[0]?.img_url, // Include image from top result
-          };
-          
-          setMessages(prev => [...prev, assistantMessage]);
-        }
-      } else {
-        const assistantMessage: ChatMessage = {
-          role: 'assistant',
-          content: "I couldn't identify any LEGO parts in that image. Try taking a clearer photo with good lighting.",
-        };
-        setMessages(prev => [...prev, assistantMessage]);
-      }
-    } catch (error) {
-      console.error('Image upload error:', error);
-      toast({
-        title: "Image Recognition Failed",
-        description: "E.L.F.I.E. couldn't identify that piece. Try a clearer photo!",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleImageUpload(file);
-    }
-    // Reset input so same file can be selected again
-    e.target.value = '';
-  };
-
+  const toolChestItems = [
+    { name: 'Brick Spotter 3000', icon: Scan },
+    { name: 'Price-O-Matic', icon: DollarSign },
+    { name: 'List-O-Matic', icon: ListChecks },
+    { name: 'Order Fulfillment', icon: PackageCheck },
+    { name: 'Business Insights', icon: BarChart3 },
+    { name: 'Sales Performance', icon: TrendingUp },
+  ];
 
   return (
     <>
@@ -1564,16 +1446,10 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       <div 
         className={`flex items-center justify-between gap-2 md:gap-3 lg:gap-4 p-3 md:p-4 lg:p-5 border-b-2 ${colors.border} ${colors.headerBg} backdrop-blur-sm`}
       >
-        <div className="flex items-center gap-2 md:gap-3 lg:gap-4">
-          <div className="flex items-center gap-2 md:gap-3 px-2 md:px-3 py-1 md:py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30">
+        <div className="flex items-center gap-2 md:gap-3 lg:gap-4 min-w-0 flex-1">
+          <div className="flex items-center gap-2 md:gap-3 px-2 md:px-3 py-1 md:py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30 flex-shrink-0">
             <img src={elfieRobot} alt="Elfie Robot" className="h-6 w-6 md:h-8 md:w-8 lg:h-10 lg:w-10 object-contain" />
             <span className="text-sm md:text-lg lg:text-xl font-bold text-purple-300">E.L.F.I.E.</span>
-          </div>
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border bg-purple-500/20 border-purple-500/30 text-purple-300"
-            data-testid="badge-elfie-mode"
-          >
-            <Brain className="w-3 h-3" />
-            <span>AI Mode</span>
           </div>
         </div>
         {onToggleMinimize && (
@@ -1596,10 +1472,23 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         )}
       </div>
       
-      {/* Show messages and input only when expanded */}
+      {!isMinimized && (
+        <div className="flex gap-2 px-3 md:px-4 py-2 overflow-x-auto scrollbar-hide border-b border-purple-500/20 bg-gray-900/30" data-testid="tool-chest">
+          {toolChestItems.map((tool) => (
+            <div
+              key={tool.name}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-600 text-white text-[10px] md:text-xs font-medium whitespace-nowrap flex-shrink-0"
+              data-testid={`tool-pill-${tool.name.toLowerCase().replace(/\s/g, '-')}`}
+            >
+              <tool.icon className="h-3 w-3 md:h-3.5 md:w-3.5" />
+              <span>{tool.name}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {!isMinimized && (
         <>
-          {/* Use native scrolling to avoid iOS keyboard issues */}
           <div 
             ref={scrollContainerRef}
             className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto relative" 
@@ -1699,28 +1588,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
           
           <div className={`border-t-2 ${colors.border} bg-gray-900/50 backdrop-blur-sm`}>
             <div className="flex gap-2 md:gap-3 lg:gap-4 p-3 md:p-4 lg:p-5">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileSelect}
-                className="hidden"
-                data-testid="input-file"
-              />
-              <Button 
-                size="icon" 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  fileInputRef.current?.click();
-                }}
-                variant="ghost"
-                className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/20 md:h-12 md:w-12 lg:h-14 lg:w-14"
-                data-testid="button-camera"
-                disabled={isLoading}
-                title="Take photo or upload image"
-              >
-                <Camera className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" />
-              </Button>
               {!supportTicket && (
                 <Button 
                   size="icon" 
