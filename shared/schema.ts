@@ -1544,6 +1544,7 @@ export const planConfigs = pgTable("plan_configs", {
   planKey: varchar("plan_key", { length: 50 }).notNull().unique(), // 'trial' | 'foundation' | 'core' | 'flagship'
   name: varchar("name", { length: 100 }).notNull(),
   tagline: text("tagline"),
+  trialDurationDays: integer("trial_duration_days").notNull().default(0),
   // Pricing (in cents; 0 = free)
   priceMonthly: integer("price_monthly").notNull().default(0),
   priceAnnual: integer("price_annual").notNull().default(0),

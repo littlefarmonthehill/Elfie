@@ -1522,6 +1522,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
   type PlanConfigWithCount = {
     id: number; planKey: string; name: string; tagline: string;
+    trialDurationDays: number;
     priceMonthly: number; priceAnnual: number; priceAnnualMonthly: number;
     limitSeats: number; limitScans: number; limitAutomationRules: number;
     limitOrderHistoryDays: number; limitInventoryItems: number;
@@ -6458,32 +6459,37 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             {plans.map(plan => {
                               const locked = (plan.orgCount ?? 0) > 0;
                               return (
-                                <th key={plan.planKey} className="px-1 py-1 text-center" data-testid={`col-plan-${plan.planKey}`}>
-                                  <div className="flex items-center justify-center gap-1">
-                                    {locked ? (
-                                      <span className="text-[9px] font-semibold text-gray-200">{plan.name}</span>
-                                    ) : (
-                                      <input
-                                        value={getDraft(plan.planKey, 'name', plan.name)}
-                                        onChange={e => setDraft(plan.planKey, 'name', e.target.value)}
-                                        data-testid={`input-plan-name-${plan.planKey}`}
-                                        style={inputStyle}
-                                        className={`${inputCls} font-semibold max-w-[70px]`}
+                                <th key={plan.planKey} className="px-1 py-1 text-center align-middle" data-testid={`col-plan-${plan.planKey}`}>
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    <div className="flex items-center justify-center gap-1">
+                                      {locked ? (
+                                        <span className="text-[9px] font-semibold text-gray-200">{plan.name}</span>
+                                      ) : (
+                                        <input
+                                          value={getDraft(plan.planKey, 'name', plan.name)}
+                                          onChange={e => setDraft(plan.planKey, 'name', e.target.value)}
+                                          data-testid={`input-plan-name-${plan.planKey}`}
+                                          style={inputStyle}
+                                          className={`${inputCls} font-semibold max-w-[70px]`}
+                                        />
+                                      )}
+                                      {plan.orgCount > 0 && (
+                                        <span className="inline-flex items-center justify-center rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[7px] font-semibold min-w-[12px] px-0.5 leading-tight" data-testid={`badge-orgcount-${plan.planKey}`}>{plan.orgCount}</span>
+                                      )}
+                                      {locked && <Lock className="h-2 w-2 text-blue-400/60" />}
+                                    </div>
+                                    <div className="flex items-center gap-0.5">
+                                      <span className="text-[7px] text-gray-600">Sunset</span>
+                                      <Switch
+                                        checked={getDraft(plan.planKey, 'isSunset', plan.isSunset)}
+                                        onCheckedChange={checked => {
+                                          setDraft(plan.planKey, 'isSunset', checked);
+                                          sunsetPlanMutation.mutate({ planKey: plan.planKey, isSunset: checked });
+                                        }}
+                                        data-testid={`switch-sunset-${plan.planKey}`}
+                                        className="scale-[0.4]"
                                       />
-                                    )}
-                                    {plan.orgCount > 0 && (
-                                      <span className="inline-flex items-center justify-center rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[7px] font-semibold min-w-[12px] px-0.5 leading-tight" data-testid={`badge-orgcount-${plan.planKey}`}>{plan.orgCount}</span>
-                                    )}
-                                    {locked && <Lock className="h-2 w-2 text-blue-400/60" />}
-                                    <Switch
-                                      checked={getDraft(plan.planKey, 'isSunset', plan.isSunset)}
-                                      onCheckedChange={checked => {
-                                        setDraft(plan.planKey, 'isSunset', checked);
-                                        sunsetPlanMutation.mutate({ planKey: plan.planKey, isSunset: checked });
-                                      }}
-                                      data-testid={`switch-sunset-${plan.planKey}`}
-                                      className="scale-[0.4]"
-                                    />
+                                    </div>
                                   </div>
                                 </th>
                               );
@@ -6491,23 +6497,28 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           </tr>
                         </thead>
                         <tbody>
-                          {/* Tagline row */}
+                          {/* Trial duration row */}
                           <tr className="border-b border-gray-700/30">
-                            <td className="px-2 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Tagline</td>
+                            <td className="px-2 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Trial days</td>
                             {plans.map(plan => {
                               const locked = (plan.orgCount ?? 0) > 0;
+                              const isTrial = plan.planKey === 'trial';
                               return (
                                 <td key={plan.planKey} className="px-1 py-0.5 text-center">
-                                  {locked ? (
-                                    <span className="text-gray-500 text-[8px]">{plan.tagline}</span>
+                                  {isTrial ? (
+                                    locked ? (
+                                      <span className="text-[9px] text-gray-300 font-semibold">{plan.trialDurationDays}</span>
+                                    ) : (
+                                      <input type="number" min={1}
+                                        value={getDraft(plan.planKey, 'trialDurationDays', plan.trialDurationDays)}
+                                        onChange={e => setDraft(plan.planKey, 'trialDurationDays', parseInt(e.target.value, 10) || 0)}
+                                        data-testid={`input-plan-trialDays-${plan.planKey}`}
+                                        style={inputStyle}
+                                        className={inputCls}
+                                      />
+                                    )
                                   ) : (
-                                    <input
-                                      value={getDraft(plan.planKey, 'tagline', plan.tagline)}
-                                      onChange={e => setDraft(plan.planKey, 'tagline', e.target.value)}
-                                      data-testid={`input-plan-tagline-${plan.planKey}`}
-                                      style={inputStyle}
-                                      className={`${inputCls} text-[8px] text-gray-400`}
-                                    />
+                                    <span className="text-[8px] text-gray-700">—</span>
                                   )}
                                 </td>
                               );

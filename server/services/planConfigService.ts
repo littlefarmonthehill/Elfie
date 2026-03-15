@@ -31,6 +31,7 @@ export async function seedPlanConfigsIfEmpty() {
       planKey,
       name: config.name,
       tagline: config.tagline,
+      trialDurationDays: config.trialDurationDays ?? 0,
       priceMonthly: config.pricing.monthly,
       priceAnnual: config.pricing.annual,
       priceAnnualMonthly: config.pricing.annualMonthly,

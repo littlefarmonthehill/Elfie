@@ -528,6 +528,11 @@ export async function runMigrations() {
       WHERE plan_key = 'flagship'`);
     console.log('[Migration] Phase-23 (industry-standard plan defaults) complete.');
 
+    // Phase-24: trial_duration_days column
+    await pool.query(`ALTER TABLE plan_configs ADD COLUMN IF NOT EXISTS trial_duration_days INTEGER NOT NULL DEFAULT 0`);
+    await pool.query(`UPDATE plan_configs SET trial_duration_days = 14 WHERE plan_key = 'trial' AND trial_duration_days = 0`);
+    console.log('[Migration] Phase-24 (trial_duration_days column) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

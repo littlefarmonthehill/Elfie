@@ -32,6 +32,7 @@ export interface TierConfig {
   id: PlanType;
   name: string;
   tagline: string;
+  trialDurationDays?: number;
   limits: TierLimits;
   features: TierFeatures;
   pricing: TierPricing;
@@ -42,6 +43,7 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
     id: 'trial',
     name: 'Free Trial',
     tagline: '14 days to explore PlanetBrick',
+    trialDurationDays: 14,
     limits: {
       seats: 1,
       brickspotterScansPerMonth: 10,
