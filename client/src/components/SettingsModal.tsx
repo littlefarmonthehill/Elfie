@@ -1150,43 +1150,13 @@ function ProductOkrsPanel() {
 
 function ProductRoadmapPanel() {
   const { toast } = useToast();
-  const { data: items, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/roadmap'] });
-  const { data: okrs } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/okrs'] });
-  const { data: caps } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/capabilities'] });
-  const [showAdd, setShowAdd] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newDesc, setNewDesc] = useState('');
-  const [newLane, setNewLane] = useState('later');
-  const [newOkrId, setNewOkrId] = useState<number | null>(null);
-  const [laneFilter, setLaneFilter] = useState<'all' | 'built' | 'now' | 'next' | 'later'>('all');
-  const [dragOverLane, setDragOverLane] = useState<string | null>(null);
-
-  const lanes = [
-    { id: 'built', label: 'Built', color: 'emerald' },
-    { id: 'now', label: 'Now', color: 'blue' },
-    { id: 'next', label: 'Next', color: 'amber' },
-    { id: 'later', label: 'Later', color: 'gray' },
-  ];
+  const { data: caps, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/capabilities'] });
+  const [statusFilter, setStatusFilter] = useState<'all' | 'built' | 'now' | 'next' | 'later'>('all');
+  const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
 
   const l1s = (caps || []).filter((c: any) => c.level === 1);
   const l2s = (caps || []).filter((c: any) => c.level === 2);
   const features = (caps || []).filter((c: any) => c.level === 3);
-
-  const addItem = async () => {
-    if (!newTitle.trim()) return;
-    try {
-      await apiRequest('POST', '/api/platform-admin/product/roadmap', { title: newTitle, description: newDesc, lane: newLane, okrId: newOkrId });
-      setNewTitle(''); setNewDesc(''); setNewLane('later'); setNewOkrId(null); setShowAdd(false);
-      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/roadmap'] });
-    } catch (e: any) { toast({ title: 'Failed to add roadmap item', description: e.message, variant: 'destructive' }); }
-  };
-
-  const moveLane = async (id: number, lane: string) => {
-    try {
-      await apiRequest('PATCH', `/api/platform-admin/product/roadmap/${id}`, { lane });
-      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/roadmap'] });
-    } catch (e: any) { toast({ title: 'Failed to move item', description: e.message, variant: 'destructive' }); }
-  };
 
   const moveCapStatus = async (id: number, status: string) => {
     try {
@@ -1195,57 +1165,41 @@ function ProductRoadmapPanel() {
     } catch (e: any) { toast({ title: 'Failed to update status', description: e.message, variant: 'destructive' }); }
   };
 
-  const deleteItem = async (id: number) => {
-    try {
-      await apiRequest('DELETE', `/api/platform-admin/product/roadmap/${id}`);
-      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/roadmap'] });
-    } catch (e: any) { toast({ title: 'Failed to delete item', description: e.message, variant: 'destructive' }); }
-  };
-
-  const handleDragStart = (e: React.DragEvent, type: 'cap' | 'rm', id: number) => {
-    e.dataTransfer.setData('text/plain', JSON.stringify({ type, id }));
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDrop = (e: React.DragEvent, targetLane: string) => {
-    e.preventDefault();
-    setDragOverLane(null);
-    try {
-      const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-      if (data.type === 'cap') {
-        const feat = features.find((f: any) => f.id === data.id);
-        if (feat && (feat.status || 'built') !== targetLane) moveCapStatus(data.id, targetLane);
-      } else if (data.type === 'rm') {
-        const mappedLane = targetLane === 'built' ? 'done' : targetLane;
-        const item = (items || []).find((i: any) => i.id === data.id);
-        if (item && item.lane !== mappedLane) moveLane(data.id, mappedLane);
-      }
-    } catch {}
-  };
+  const toggleCollapse = (id: number) => setCollapsed(prev => ({ ...prev, [id]: !prev[id] }));
 
   if (isLoading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-500" /></div>;
 
-  const activeOkrs = (okrs || []).filter((o: any) => o.status === 'active');
-  const visibleLanes = laneFilter === 'all' ? lanes : lanes.filter(l => l.id === laneFilter);
+  const getL2DerivedStatus = (l2: any) => {
+    const children = features.filter((f: any) => f.parentId === l2.id);
+    if (children.length === 0) return l2.status || 'built';
+    const statuses = children.map((f: any) => f.status || 'built');
+    if (statuses.every((s: string) => s === 'built')) return 'built';
+    if (statuses.includes('now')) return 'now';
+    if (statuses.includes('next')) return 'next';
+    return 'later';
+  };
+
+  const filteredL1s = l1s.filter((l1: any) => {
+    if (statusFilter === 'all') return true;
+    const childL2Ids = l2s.filter((c: any) => c.parentId === l1.id).map((c: any) => c.id);
+    return features.some((f: any) => childL2Ids.includes(f.parentId) && (f.status || 'built') === statusFilter);
+  });
+
+  const statusColors: Record<string, string> = { built: 'bg-emerald-500', now: 'bg-blue-500', next: 'bg-amber-500', later: 'bg-gray-500' };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div>
-          <p className="text-sm font-medium text-gray-100">Roadmap</p>
-          <p className="sm-description mt-1">Capability features by delivery horizon. Drag and drop between lanes to change status.</p>
-        </div>
-        <Button size="sm" variant="outline" onClick={() => setShowAdd(true)} data-testid="button-add-roadmap">
-          <Plus className="w-3.5 h-3.5 mr-1" /> Add Item
-        </Button>
+      <div>
+        <p className="text-sm font-medium text-gray-100">Roadmap</p>
+        <p className="sm-description mt-1">Capability tree by delivery horizon. Filter by status to see what's built, in progress, or planned.</p>
       </div>
 
       <div className="flex items-center gap-1.5 flex-wrap">
         {(['all', 'built', 'now', 'next', 'later'] as const).map(f => {
           const colors: Record<string, string> = { all: 'bg-blue-500/20 text-blue-300 border-blue-500/30', built: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30', now: 'bg-blue-500/20 text-blue-300 border-blue-500/30', next: 'bg-amber-500/20 text-amber-300 border-amber-500/30', later: 'bg-gray-500/20 text-gray-400 border-gray-500/30' };
-          const count = f === 'all' ? features.length + (items || []).length : features.filter((c: any) => (c.status || 'built') === f).length + (items || []).filter((i: any) => i.lane === f || (f === 'built' && i.lane === 'done')).length;
+          const count = f === 'all' ? features.length : features.filter((c: any) => (c.status || 'built') === f).length;
           return (
-            <button key={f} onClick={() => setLaneFilter(f)} className={`text-[10px] px-2.5 py-1 rounded-full transition-colors border ${laneFilter === f ? colors[f] : 'text-gray-500 border-transparent'}`} data-testid={`button-roadmap-filter-${f}`}>
+            <button key={f} onClick={() => setStatusFilter(f)} className={`text-[10px] px-2.5 py-1 rounded-full transition-colors border ${statusFilter === f ? colors[f] : 'text-gray-500 border-transparent'}`} data-testid={`button-roadmap-filter-${f}`}>
               {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
               <span className="ml-1 text-gray-600">({count})</span>
             </button>
@@ -1253,91 +1207,72 @@ function ProductRoadmapPanel() {
         })}
       </div>
 
-      {showAdd && (
-        <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 space-y-2">
-          <input type="text" className="w-full bg-black/30 border border-gray-600 rounded-md p-2 text-sm text-gray-200 focus:outline-none focus:border-blue-500" placeholder="Capability title..." value={newTitle} onChange={e => setNewTitle(e.target.value)} data-testid="input-roadmap-title" />
-          <textarea className="w-full bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 min-h-[50px] resize-y focus:outline-none focus:border-blue-500" placeholder="Description (optional)..." value={newDesc} onChange={e => setNewDesc(e.target.value)} data-testid="input-roadmap-desc" />
-          <div className="flex items-center gap-2 flex-wrap">
-            <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newLane} onChange={e => setNewLane(e.target.value)} data-testid="select-roadmap-lane">
-              {lanes.map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
-            </select>
-            {activeOkrs.length > 0 && (
-              <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newOkrId ?? ''} onChange={e => setNewOkrId(e.target.value ? parseInt(e.target.value) : null)} data-testid="select-roadmap-okr">
-                <option value="">No linked OKR</option>
-                {activeOkrs.map((o: any) => <option key={o.id} value={o.id}>{o.title}</option>)}
-              </select>
-            )}
-            <Button size="sm" onClick={addItem} data-testid="button-save-roadmap"><Save className="w-3 h-3 mr-1" /> Save</Button>
-            <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Button>
-          </div>
+      {filteredL1s.length === 0 ? (
+        <div className="text-center py-8">
+          <Layers className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+          <p className="text-xs text-gray-500">{statusFilter === 'all' ? 'No capabilities yet.' : `No ${statusFilter} features found.`}</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filteredL1s.map((l1: any) => {
+            const childL2s = l2s.filter((c: any) => c.parentId === l1.id && (statusFilter === 'all' || features.some((f: any) => f.parentId === c.id && (f.status || 'built') === statusFilter)));
+            const allL2Ids = l2s.filter((c: any) => c.parentId === l1.id).map((c: any) => c.id);
+            const l1FeatureCount = features.filter((f: any) => allL2Ids.includes(f.parentId)).length;
+            const l1BuiltCount = features.filter((f: any) => allL2Ids.includes(f.parentId) && (f.status || 'built') === 'built').length;
+            const isL1Collapsed = collapsed[l1.id];
+            return (
+              <div key={l1.id} className="border border-gray-700 rounded-md bg-gray-800/50" data-testid={`roadmap-l1-${l1.id}`}>
+                <button onClick={() => toggleCollapse(l1.id)} className="w-full flex items-center gap-2 px-3 py-2.5 text-left" data-testid={`button-toggle-l1-${l1.id}`}>
+                  <ChevronRight className={`w-3.5 h-3.5 text-gray-400 transition-transform shrink-0 ${isL1Collapsed ? '' : 'rotate-90'}`} />
+                  <span className="flex-1 text-sm font-medium text-gray-200">{l1.title}</span>
+                  <span className="text-[10px] text-gray-500">{l1BuiltCount}/{l1FeatureCount}</span>
+                  <div className="flex gap-0.5">
+                    {['built', 'now', 'next', 'later'].map(s => {
+                      const c = features.filter((f: any) => allL2Ids.includes(f.parentId) && (f.status || 'built') === s).length;
+                      return c > 0 ? <span key={s} className={`w-1.5 h-1.5 rounded-full ${statusColors[s]}`} title={`${c} ${s}`} /> : null;
+                    })}
+                  </div>
+                </button>
+                {!isL1Collapsed && (
+                  <div className="px-3 pb-2 space-y-1.5">
+                    {childL2s.map((l2: any) => {
+                      const derivedStatus = getL2DerivedStatus(l2);
+                      const allChildFeatures = features.filter((f: any) => f.parentId === l2.id);
+                      const visibleFeatures = statusFilter === 'all' ? allChildFeatures : allChildFeatures.filter((f: any) => (f.status || 'built') === statusFilter);
+                      const isL2Collapsed = collapsed[l2.id];
+                      const builtCount = allChildFeatures.filter((f: any) => (f.status || 'built') === 'built').length;
+                      return (
+                        <div key={l2.id} className="ml-3" data-testid={`roadmap-l2-${l2.id}`}>
+                          <button onClick={() => toggleCollapse(l2.id)} className="w-full flex items-center gap-2 py-1.5 text-left" data-testid={`button-toggle-l2-${l2.id}`}>
+                            <ChevronRight className={`w-3 h-3 text-violet-400 transition-transform shrink-0 ${isL2Collapsed ? '' : 'rotate-90'}`} />
+                            <span className="flex-1 text-xs font-medium text-gray-300">{l2.title}</span>
+                            <CapStatusBadge status={derivedStatus} />
+                            <span className="text-[10px] text-gray-500">{builtCount}/{allChildFeatures.length}</span>
+                          </button>
+                          {!isL2Collapsed && visibleFeatures.length > 0 && (
+                            <div className="ml-5 space-y-0.5 pb-1">
+                              {visibleFeatures.map((f: any) => (
+                                <div key={f.id} className="flex items-center gap-2 py-1 group" data-testid={`roadmap-feature-${f.id}`}>
+                                  <CapStatusBadge status={f.status || 'built'} onClick={() => {
+                                    const cycle = ['built', 'now', 'next', 'later'];
+                                    const next = cycle[(cycle.indexOf(f.status || 'built') + 1) % cycle.length];
+                                    moveCapStatus(f.id, next);
+                                  }} />
+                                  <span className={`flex-1 text-xs ${(f.status || 'built') === 'built' ? 'text-gray-400' : 'text-gray-200'}`}>{f.title}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
-
-      {visibleLanes.map(lane => {
-        const capFeatures = features.filter((f: any) => (f.status || 'built') === lane.id);
-        const laneRoadmapItems = (items || []).filter((i: any) => i.lane === lane.id || (lane.id === 'built' && i.lane === 'done'));
-        const totalCount = capFeatures.length + laneRoadmapItems.length;
-        const borderColor = lane.color === 'emerald' ? 'border-emerald-500/30' : lane.color === 'blue' ? 'border-blue-500/30' : lane.color === 'amber' ? 'border-amber-500/30' : 'border-gray-700';
-        const labelColor = lane.color === 'emerald' ? 'text-emerald-400' : lane.color === 'blue' ? 'text-blue-400' : lane.color === 'amber' ? 'text-amber-400' : 'text-gray-400';
-        const isDragOver = dragOverLane === lane.id;
-        return (
-          <div key={lane.id} onDragOver={e => { e.preventDefault(); setDragOverLane(lane.id); }} onDragLeave={() => setDragOverLane(null)} onDrop={e => handleDrop(e, lane.id)}>
-            <div className="flex items-center gap-2 mb-2">
-              <span className={`text-xs font-medium ${labelColor}`}>{lane.label}</span>
-              <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">{totalCount}</Badge>
-            </div>
-            {totalCount === 0 ? (
-              <div className={`border ${isDragOver ? 'border-blue-400 bg-blue-500/5' : borderColor} border-dashed rounded-lg p-4 text-center transition-colors`}>
-                <p className="text-[10px] text-gray-600">{isDragOver ? 'Drop here' : 'No items'}</p>
-              </div>
-            ) : (
-              <div className={`space-y-1.5 rounded-lg p-1 transition-colors ${isDragOver ? 'bg-blue-500/5 ring-1 ring-blue-400/30' : ''}`}>
-                {capFeatures.map((f: any) => {
-                  const parentL2 = l2s.find((l2: any) => l2.id === f.parentId);
-                  const parentL1 = parentL2 ? l1s.find((l1: any) => l1.id === parentL2.parentId) : null;
-                  return (
-                    <div key={`cap-${f.id}`} draggable onDragStart={e => handleDragStart(e, 'cap', f.id)} className={`border ${borderColor} rounded-lg p-3 bg-gray-900/30 cursor-grab active:cursor-grabbing`} data-testid={`roadmap-cap-${f.id}`}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <CapStatusBadge status={f.status || 'built'} onClick={() => {
-                              const cycle = ['built', 'now', 'next', 'later'];
-                              const next = cycle[(cycle.indexOf(f.status || 'built') + 1) % cycle.length];
-                              moveCapStatus(f.id, next);
-                            }} />
-                            <p className="text-xs font-medium text-gray-200">{f.title}</p>
-                          </div>
-                          {parentL2 && <p className="text-[10px] text-gray-500 mt-0.5">{parentL1 ? `${parentL1.title} / ` : ''}{parentL2.title}</p>}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                {laneRoadmapItems.map((item: any) => {
-                  const linkedOkr = activeOkrs.find((o: any) => o.id === item.okrId);
-                  return (
-                    <div key={`rm-${item.id}`} draggable onDragStart={e => handleDragStart(e, 'rm', item.id)} className={`border ${borderColor} rounded-lg p-3 bg-gray-900/30 cursor-grab active:cursor-grabbing`} data-testid={`roadmap-rm-${item.id}`}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <Badge variant="outline" className="text-[9px] text-violet-400 border-violet-500/30">Roadmap</Badge>
-                            <p className="text-xs font-medium text-gray-200">{item.title}</p>
-                          </div>
-                          {item.description && <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-2">{item.description}</p>}
-                          {linkedOkr && <Badge variant="outline" className="text-[9px] text-blue-400/60 border-blue-500/20 mt-1">{linkedOkr.title}</Badge>}
-                        </div>
-                        <div className="flex items-center gap-0.5">
-                          <Button size="icon" variant="ghost" onClick={() => deleteItem(item.id)} className="h-5 w-5 text-red-400/60" data-testid={`button-delete-roadmap-${item.id}`}><X className="w-2.5 h-2.5" /></Button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
     </div>
   );
 }
