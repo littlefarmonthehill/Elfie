@@ -644,6 +644,15 @@ export async function runMigrations() {
     await pool.query(`ALTER TABLE product_backlog_items ALTER COLUMN status SET DEFAULT 'new'`);
     console.log('[Migration] Phase-32 (backlog status alignment: open→next, in-progress→now) complete.');
 
+    // Phase-33: Add "Batch Processing of Scans" feature to BrickSpotter 3000 (now)
+    await pool.query(`
+      INSERT INTO product_capabilities (title, level, parent_id, cap_status)
+      SELECT 'Batch Processing of Scans', 3, id, 'now'
+      FROM product_capabilities WHERE title = 'Brick Spotter 3000' AND level = 2
+      AND NOT EXISTS (SELECT 1 FROM product_capabilities WHERE title = 'Batch Processing of Scans' AND level = 3)
+    `);
+    console.log('[Migration] Phase-33 (BrickSpotter batch processing feature) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
