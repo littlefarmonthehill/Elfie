@@ -38,7 +38,7 @@ interface SettingsModalProps {
   scoringExample?: PricingInsight;
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'productCapabilities' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -837,157 +837,6 @@ function CapStatusBadge({ status, onClick }: { status: string; onClick: () => vo
   );
 }
 
-function ProductCapabilitiesPanel() {
-  const { toast } = useToast();
-  const { data: caps, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/capabilities'] });
-  const [newL1, setNewL1] = useState('');
-  const [newL2, setNewL2] = useState<Record<number, string>>({});
-  const [newFeature, setNewFeature] = useState<Record<number, string>>({});
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editTitle, setEditTitle] = useState('');
-  const [capFilter, setCapFilter] = useState<'all' | 'built' | 'now' | 'next' | 'later'>('all');
-
-  const l1s = (caps || []).filter((c: any) => c.level === 1);
-  const l2s = (caps || []).filter((c: any) => c.level === 2);
-  const features = (caps || []).filter((c: any) => c.level === 3);
-
-  const statusCycle = ['built', 'now', 'next', 'later'];
-  const nextStatus = (current: string) => statusCycle[(statusCycle.indexOf(current) + 1) % statusCycle.length];
-
-  const getL2Status = (l2: any) => {
-    const children = features.filter((f: any) => f.parentId === l2.id);
-    if (children.length === 0) return l2.status || 'built';
-    const allBuilt = children.every((f: any) => (f.status || 'built') === 'built');
-    if (allBuilt) return 'built';
-    const statuses = children.map((f: any) => f.status || 'built').filter((s: string) => s !== 'built');
-    if (statuses.includes('now')) return 'now';
-    if (statuses.includes('next')) return 'next';
-    return 'later';
-  };
-
-  const addCap = async (title: string, level: number, parentId: number | null, status?: string) => {
-    if (!title.trim()) return;
-    try {
-      await apiRequest('POST', '/api/platform-admin/product/capabilities', { title: title.trim(), level, parentId, status: status || 'built' });
-      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] });
-    } catch (e: any) { toast({ title: 'Failed to add', description: e.message, variant: 'destructive' }); }
-  };
-
-  const updateCap = async (id: number, updates: Record<string, any>) => {
-    try {
-      await apiRequest('PATCH', `/api/platform-admin/product/capabilities/${id}`, updates);
-      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] });
-      setEditingId(null);
-    } catch (e: any) { toast({ title: 'Failed to update', description: e.message, variant: 'destructive' }); }
-  };
-
-  const deleteCap = async (id: number) => {
-    try {
-      await apiRequest('DELETE', `/api/platform-admin/product/capabilities/${id}`);
-      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] });
-    } catch (e: any) { toast({ title: 'Failed to delete', description: e.message, variant: 'destructive' }); }
-  };
-
-  if (isLoading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-500" /></div>;
-
-  const builtCount = (caps || []).filter((c: any) => c.level === 3 && (c.status || 'built') === 'built').length;
-  const totalFeatures = (caps || []).filter((c: any) => c.level === 3).length;
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <p className="text-sm font-medium text-gray-100">Capability Map</p>
-        <p className="sm-description mt-1">Organize your product into L1 Capabilities, L2 sub-capabilities, and Features. Click feature status badges to cycle through Built / Now / Next / Later. L2 status is derived from its features.</p>
-      </div>
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {(['all', 'built', 'now', 'next', 'later'] as const).map(f => {
-          const colors: Record<string, string> = { all: 'bg-blue-500/20 text-blue-300 border-blue-500/30', built: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30', now: 'bg-blue-500/20 text-blue-300 border-blue-500/30', next: 'bg-amber-500/20 text-amber-300 border-amber-500/30', later: 'bg-gray-500/20 text-gray-400 border-gray-500/30' };
-          const count = f === 'all' ? totalFeatures : (caps || []).filter((c: any) => c.level === 3 && (c.status || 'built') === f).length;
-          return (
-            <button key={f} onClick={() => setCapFilter(f)} className={`text-[10px] px-2.5 py-1 rounded-full transition-colors border ${capFilter === f ? colors[f] : 'text-gray-500 border-transparent'}`} data-testid={`button-cap-filter-${f}`}>
-              {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
-              <span className="ml-1 text-gray-600">({count})</span>
-            </button>
-          );
-        })}
-      </div>
-      <div className="flex items-center gap-2">
-        <input className="flex-1 bg-black/30 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-400/50" placeholder="New L1 Capability..." value={newL1} onChange={e => setNewL1(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { addCap(newL1, 1, null); setNewL1(''); } }} data-testid="input-new-l1" />
-        <Button size="sm" variant="outline" onClick={() => { addCap(newL1, 1, null); setNewL1(''); }} disabled={!newL1.trim()} data-testid="button-add-l1"><Plus className="w-3 h-3 mr-1" />Add L1</Button>
-      </div>
-      {l1s.length === 0 && <p className="text-xs text-gray-500 italic">No capabilities yet. Add your first L1 capability above.</p>}
-      <div className="space-y-3">
-        {l1s.filter((l1: any) => {
-          if (capFilter === 'all') return true;
-          const childL2Ids = l2s.filter((c: any) => c.parentId === l1.id).map((c: any) => c.id);
-          return features.some((f: any) => childL2Ids.includes(f.parentId) && (f.status || 'built') === capFilter);
-        }).map((l1: any) => {
-          const childL2s = l2s.filter((c: any) => c.parentId === l1.id && (capFilter === 'all' || features.some((f: any) => f.parentId === c.id && (f.status || 'built') === capFilter)));
-          return (
-            <div key={l1.id} className="border border-gray-700 rounded-md bg-gray-800/50">
-              <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-700">
-                <Layers className="w-4 h-4 text-blue-400 shrink-0" />
-                {editingId === l1.id ? (
-                  <input className="flex-1 bg-black/30 border border-blue-500/30 rounded px-2 py-0.5 text-sm text-gray-200 focus:outline-none" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => updateCap(l1.id, { title: editTitle })} onKeyDown={e => { if (e.key === 'Enter') updateCap(l1.id, { title: editTitle }); if (e.key === 'Escape') setEditingId(null); }} autoFocus data-testid={`input-edit-cap-${l1.id}`} />
-                ) : (
-                  <span className="flex-1 text-sm font-medium text-gray-200 cursor-pointer" onClick={() => { setEditingId(l1.id); setEditTitle(l1.title); }} data-testid={`text-l1-${l1.id}`}>{l1.title}</span>
-                )}
-                <span className="text-[9px] text-gray-500">{l2s.filter((c: any) => c.parentId === l1.id).reduce((n: number, l2: any) => n + features.filter((f: any) => f.parentId === l2.id && (f.status || 'built') === 'built').length, 0)}/{l2s.filter((c: any) => c.parentId === l1.id).reduce((n: number, l2: any) => n + features.filter((f: any) => f.parentId === l2.id).length, 0)}</span>
-                <Button size="icon" variant="ghost" onClick={() => deleteCap(l1.id)} data-testid={`button-delete-l1-${l1.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
-              </div>
-              <div className="px-3 py-2 space-y-2">
-                {childL2s.map((l2: any) => {
-                  const allChildFeatures = features.filter((f: any) => f.parentId === l2.id);
-                  const childFeatures = capFilter === 'all' ? allChildFeatures : allChildFeatures.filter((f: any) => (f.status || 'built') === capFilter);
-                  const derivedStatus = getL2Status(l2);
-                  return (
-                    <div key={l2.id} className="ml-4 border border-gray-700/50 rounded-md bg-gray-900/30">
-                      <div className="flex items-center gap-2 px-2 py-1.5">
-                        <ChevronRight className="w-3 h-3 text-violet-400 shrink-0" />
-                        {editingId === l2.id ? (
-                          <input className="flex-1 bg-black/30 border border-violet-500/30 rounded px-2 py-0.5 text-xs text-gray-200 focus:outline-none" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => updateCap(l2.id, { title: editTitle })} onKeyDown={e => { if (e.key === 'Enter') updateCap(l2.id, { title: editTitle }); if (e.key === 'Escape') setEditingId(null); }} autoFocus data-testid={`input-edit-cap-${l2.id}`} />
-                        ) : (
-                          <span className="flex-1 text-xs font-medium text-gray-300 cursor-pointer" onClick={() => { setEditingId(l2.id); setEditTitle(l2.title); }} data-testid={`text-l2-${l2.id}`}>{l2.title}</span>
-                        )}
-                        <span className={`px-1.5 py-0.5 text-[9px] font-medium rounded border shrink-0 ${derivedStatus === 'built' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : derivedStatus === 'now' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' : derivedStatus === 'next' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-gray-500/20 text-gray-400 border-gray-500/30'}`} data-testid={`badge-l2-status-${l2.id}`}>{derivedStatus === 'built' ? 'Built' : derivedStatus === 'now' ? 'Now' : derivedStatus === 'next' ? 'Next' : 'Later'}</span>
-                        <span className="text-[9px] text-gray-500">{allChildFeatures.filter((f: any) => (f.status || 'built') === 'built').length}/{allChildFeatures.length}</span>
-                        <InlineDropdown value={String(l2.parentId)} options={l1s.map((other: any) => ({ value: String(other.id), label: other.title }))} onChange={val => { const newParent = parseInt(val); if (newParent !== l2.parentId) updateCap(l2.id, { parentId: newParent }); }} testId={`select-cap-l2-l1-${l2.id}`} />
-                        <Button size="icon" variant="ghost" onClick={() => deleteCap(l2.id)} data-testid={`button-delete-l2-${l2.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
-                      </div>
-                      {childFeatures.length > 0 && (
-                        <div className="ml-6 px-2 pb-1.5 space-y-1">
-                          {childFeatures.map((f: any) => (
-                            <div key={f.id} className="flex items-center gap-2 group">
-                              <CapStatusBadge status={f.status || 'built'} onClick={() => updateCap(f.id, { status: nextStatus(f.status || 'built') })} />
-                              {editingId === f.id ? (
-                                <input className="flex-1 bg-black/30 border border-emerald-500/30 rounded px-2 py-0.5 text-xs text-gray-300 focus:outline-none" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => updateCap(f.id, { title: editTitle })} onKeyDown={e => { if (e.key === 'Enter') updateCap(f.id, { title: editTitle }); if (e.key === 'Escape') setEditingId(null); }} autoFocus data-testid={`input-edit-cap-${f.id}`} />
-                              ) : (
-                                <span className={`flex-1 text-xs cursor-pointer ${(f.status || 'built') === 'built' ? 'text-gray-300' : 'text-gray-400'}`} onClick={() => { setEditingId(f.id); setEditTitle(f.title); }} data-testid={`text-feature-${f.id}`}>{f.title}</span>
-                              )}
-                              <InlineDropdown value={String(f.parentId)} options={l2s.map((other: any) => { const pL1 = l1s.find((p: any) => p.id === other.parentId); return { value: String(other.id), label: `${pL1 ? pL1.title + ' / ' : ''}${other.title}` }; })} onChange={val => { const newParent = parseInt(val); if (newParent !== f.parentId) updateCap(f.id, { parentId: newParent }); }} testId={`select-cap-feature-l2-${f.id}`} />
-                              <Button size="icon" variant="ghost" className="invisible group-hover:visible" onClick={() => deleteCap(f.id)} data-testid={`button-delete-feature-${f.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      <div className="ml-6 px-2 pb-1.5">
-                        <input className="w-full bg-transparent border-b border-dashed border-gray-700 px-1 py-0.5 text-xs text-gray-400 placeholder-gray-600 focus:outline-none focus:border-emerald-400/50" placeholder="+ Add feature..." value={newFeature[l2.id] || ''} onChange={e => setNewFeature(p => ({ ...p, [l2.id]: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter' && (newFeature[l2.id] || '').trim()) { addCap(newFeature[l2.id], 3, l2.id); setNewFeature(p => ({ ...p, [l2.id]: '' })); } }} data-testid={`input-new-feature-${l2.id}`} />
-                      </div>
-                    </div>
-                  );
-                })}
-                <div className="ml-4 flex items-center gap-1">
-                  <input className="flex-1 bg-transparent border-b border-dashed border-gray-700 px-1 py-0.5 text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-violet-400/50" placeholder="+ Add L2 sub-capability..." value={newL2[l1.id] || ''} onChange={e => setNewL2(p => ({ ...p, [l1.id]: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter' && (newL2[l1.id] || '').trim()) { addCap(newL2[l1.id], 2, l1.id); setNewL2(p => ({ ...p, [l1.id]: '' })); } }} data-testid={`input-new-l2-${l1.id}`} />
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 function ProductOkrsPanel() {
   const { toast } = useToast();
   const { data: okrs, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/okrs'] });
@@ -1157,10 +1006,38 @@ function ProductRoadmapPanel() {
   const { data: caps, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/capabilities'] });
   const [statusFilter, setStatusFilter] = useState<'all' | 'built' | 'now' | 'next' | 'later'>('all');
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
+  const [newL1, setNewL1] = useState('');
+  const [newL2, setNewL2] = useState<Record<number, string>>({});
+  const [newFeature, setNewFeature] = useState<Record<number, string>>({});
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState('');
 
   const l1s = (caps || []).filter((c: any) => c.level === 1);
   const l2s = (caps || []).filter((c: any) => c.level === 2);
   const features = (caps || []).filter((c: any) => c.level === 3);
+
+  const addCap = async (title: string, level: number, parentId: number | null, status?: string) => {
+    if (!title.trim()) return;
+    try {
+      await apiRequest('POST', '/api/platform-admin/product/capabilities', { title: title.trim(), level, parentId, status: status || 'built' });
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] });
+    } catch (e: any) { toast({ title: 'Failed to add', description: e.message, variant: 'destructive' }); }
+  };
+
+  const updateCap = async (id: number, updates: Record<string, any>) => {
+    try {
+      await apiRequest('PATCH', `/api/platform-admin/product/capabilities/${id}`, updates);
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] });
+      setEditingId(null);
+    } catch (e: any) { toast({ title: 'Failed to update', description: e.message, variant: 'destructive' }); }
+  };
+
+  const deleteCap = async (id: number) => {
+    try {
+      await apiRequest('DELETE', `/api/platform-admin/product/capabilities/${id}`);
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] });
+    } catch (e: any) { toast({ title: 'Failed to delete', description: e.message, variant: 'destructive' }); }
+  };
 
   const moveCapStatus = async (id: number, status: string) => {
     try {
@@ -1195,7 +1072,7 @@ function ProductRoadmapPanel() {
     <div className="space-y-4">
       <div>
         <p className="text-sm font-medium text-gray-100">Roadmap</p>
-        <p className="sm-description mt-1">Capability tree by delivery horizon. Filter by status to see what's built, in progress, or planned.</p>
+        <p className="sm-description mt-1">Capability tree by delivery horizon. Add L1/L2/features, tap status to cycle, filter by status.</p>
       </div>
 
       <div className="flex items-center gap-1.5 flex-wrap">
@@ -1211,24 +1088,38 @@ function ProductRoadmapPanel() {
         })}
       </div>
 
-      {filteredL1s.length === 0 ? (
+      <div className="flex items-center gap-2">
+        <input className="flex-1 bg-black/30 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-400/50" placeholder="New L1 Capability..." value={newL1} onChange={e => setNewL1(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { addCap(newL1, 1, null); setNewL1(''); } }} data-testid="input-new-l1" />
+        <Button size="sm" variant="outline" onClick={() => { addCap(newL1, 1, null); setNewL1(''); }} disabled={!newL1.trim()} data-testid="button-add-l1"><Plus className="w-3 h-3 mr-1" />Add L1</Button>
+      </div>
+
+      {l1s.length === 0 && <p className="text-xs text-gray-500 italic">No capabilities yet. Add your first L1 capability above.</p>}
+
+      {filteredL1s.length === 0 && l1s.length > 0 ? (
         <div className="text-center py-8">
           <Layers className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-          <p className="text-xs text-gray-500">{statusFilter === 'all' ? 'No capabilities yet.' : `No ${statusFilter} features found.`}</p>
+          <p className="text-xs text-gray-500">{`No ${statusFilter} features found.`}</p>
         </div>
       ) : (
         <div className="space-y-2">
           {filteredL1s.map((l1: any) => {
             const childL2s = l2s.filter((c: any) => c.parentId === l1.id && (statusFilter === 'all' || features.some((f: any) => f.parentId === c.id && (f.status || 'built') === statusFilter)));
-            const allL2Ids = l2s.filter((c: any) => c.parentId === l1.id).map((c: any) => c.id);
+            const allL1L2s = l2s.filter((c: any) => c.parentId === l1.id);
+            const allL2Ids = allL1L2s.map((c: any) => c.id);
             const l1FeatureCount = features.filter((f: any) => allL2Ids.includes(f.parentId)).length;
             const l1BuiltCount = features.filter((f: any) => allL2Ids.includes(f.parentId) && (f.status || 'built') === 'built').length;
             const isL1Collapsed = collapsed[l1.id];
             return (
               <div key={l1.id} className="border border-gray-700 rounded-md bg-gray-800/50" data-testid={`roadmap-l1-${l1.id}`}>
-                <button onClick={() => toggleCollapse(l1.id)} className="w-full flex items-center gap-2 px-3 py-2.5 text-left" data-testid={`button-toggle-l1-${l1.id}`}>
-                  <ChevronRight className={`w-3.5 h-3.5 text-gray-400 transition-transform shrink-0 ${isL1Collapsed ? '' : 'rotate-90'}`} />
-                  <span className="flex-1 text-sm font-medium text-gray-200">{l1.title}</span>
+                <div className="w-full flex items-center gap-2 px-3 py-2.5">
+                  <button onClick={() => toggleCollapse(l1.id)} className="flex items-center" data-testid={`button-toggle-l1-${l1.id}`}>
+                    <ChevronRight className={`w-3.5 h-3.5 text-gray-400 transition-transform shrink-0 ${isL1Collapsed ? '' : 'rotate-90'}`} />
+                  </button>
+                  {editingId === l1.id ? (
+                    <input className="flex-1 bg-black/30 border border-blue-500/30 rounded px-2 py-0.5 text-sm text-gray-200 focus:outline-none" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => updateCap(l1.id, { title: editTitle })} onKeyDown={e => { if (e.key === 'Enter') updateCap(l1.id, { title: editTitle }); if (e.key === 'Escape') setEditingId(null); }} autoFocus data-testid={`input-edit-l1-${l1.id}`} />
+                  ) : (
+                    <span className="flex-1 text-sm font-medium text-gray-200 cursor-pointer" onClick={() => { setEditingId(l1.id); setEditTitle(l1.title); }} data-testid={`text-l1-${l1.id}`}>{l1.title}</span>
+                  )}
                   <span className="text-[10px] text-gray-500">{l1BuiltCount}/{l1FeatureCount}</span>
                   <div className="flex gap-0.5">
                     {['built', 'now', 'next', 'later'].map(s => {
@@ -1236,7 +1127,8 @@ function ProductRoadmapPanel() {
                       return c > 0 ? <span key={s} className={`w-1.5 h-1.5 rounded-full ${statusColors[s]}`} title={`${c} ${s}`} /> : null;
                     })}
                   </div>
-                </button>
+                  <Button size="icon" variant="ghost" onClick={() => deleteCap(l1.id)} data-testid={`button-delete-l1-${l1.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
+                </div>
                 {!isL1Collapsed && (
                   <div className="px-3 pb-2 space-y-1.5">
                     {childL2s.map((l2: any) => {
@@ -1251,10 +1143,15 @@ function ProductRoadmapPanel() {
                             <button onClick={() => toggleCollapse(l2.id)} className="flex items-center gap-1 text-left" data-testid={`button-toggle-l2-${l2.id}`}>
                               <ChevronRight className={`w-3 h-3 text-violet-400 transition-transform shrink-0 ${isL2Collapsed ? '' : 'rotate-90'}`} />
                             </button>
-                            <span className="flex-1 text-xs font-medium text-gray-300">{l2.title}</span>
+                            {editingId === l2.id ? (
+                              <input className="flex-1 bg-black/30 border border-violet-500/30 rounded px-2 py-0.5 text-xs text-gray-200 focus:outline-none" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => updateCap(l2.id, { title: editTitle })} onKeyDown={e => { if (e.key === 'Enter') updateCap(l2.id, { title: editTitle }); if (e.key === 'Escape') setEditingId(null); }} autoFocus data-testid={`input-edit-l2-${l2.id}`} />
+                            ) : (
+                              <span className="flex-1 text-xs font-medium text-gray-300 cursor-pointer" onClick={() => { setEditingId(l2.id); setEditTitle(l2.title); }} data-testid={`text-l2-${l2.id}`}>{l2.title}</span>
+                            )}
                             <CapStatusBadge status={derivedStatus} />
                             <span className="text-[10px] text-gray-500">{builtCount}/{allChildFeatures.length}</span>
                             <InlineDropdown value={String(l2.parentId)} options={l1s.map((other: any) => ({ value: String(other.id), label: other.title }))} onChange={async val => { const newParent = parseInt(val); if (newParent !== l2.parentId) { try { await apiRequest('PATCH', `/api/platform-admin/product/capabilities/${l2.id}`, { parentId: newParent }); queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] }); } catch {} } }} testId={`select-l2-l1-${l2.id}`} />
+                            <Button size="icon" variant="ghost" onClick={() => deleteCap(l2.id)} data-testid={`button-delete-l2-${l2.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
                           </div>
                           {!isL2Collapsed && visibleFeatures.length > 0 && (
                             <div className="ml-5 space-y-0.5 pb-1">
@@ -1265,15 +1162,30 @@ function ProductRoadmapPanel() {
                                     const next = cycle[(cycle.indexOf(f.status || 'built') + 1) % cycle.length];
                                     moveCapStatus(f.id, next);
                                   }} />
-                                  <span className={`flex-1 text-xs ${(f.status || 'built') === 'built' ? 'text-gray-400' : 'text-gray-200'}`}>{f.title}</span>
+                                  {editingId === f.id ? (
+                                    <input className="flex-1 bg-black/30 border border-emerald-500/30 rounded px-2 py-0.5 text-xs text-gray-300 focus:outline-none" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => updateCap(f.id, { title: editTitle })} onKeyDown={e => { if (e.key === 'Enter') updateCap(f.id, { title: editTitle }); if (e.key === 'Escape') setEditingId(null); }} autoFocus data-testid={`input-edit-feature-${f.id}`} />
+                                  ) : (
+                                    <span className={`flex-1 text-xs cursor-pointer ${(f.status || 'built') === 'built' ? 'text-gray-400' : 'text-gray-200'}`} onClick={() => { setEditingId(f.id); setEditTitle(f.title); }} data-testid={`text-feature-${f.id}`}>{f.title}</span>
+                                  )}
                                   <InlineDropdown value={String(f.parentId)} options={l2s.map((other: any) => { const pL1 = l1s.find((p: any) => p.id === other.parentId); return { value: String(other.id), label: `${pL1 ? pL1.title + ' / ' : ''}${other.title}` }; })} onChange={async val => { const newParent = parseInt(val); if (newParent !== f.parentId) { try { await apiRequest('PATCH', `/api/platform-admin/product/capabilities/${f.id}`, { parentId: newParent }); queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] }); } catch {} } }} testId={`select-feature-l2-${f.id}`} />
+                                  <Button size="icon" variant="ghost" className="invisible group-hover:visible" onClick={() => deleteCap(f.id)} data-testid={`button-delete-feature-${f.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
                                 </div>
                               ))}
+                            </div>
+                          )}
+                          {!isL2Collapsed && statusFilter === 'all' && (
+                            <div className="ml-5 pb-1">
+                              <input className="w-full bg-transparent border-b border-dashed border-gray-700 px-1 py-0.5 text-xs text-gray-400 placeholder-gray-600 focus:outline-none focus:border-emerald-400/50" placeholder="+ Add feature..." value={newFeature[l2.id] || ''} onChange={e => setNewFeature(p => ({ ...p, [l2.id]: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter' && (newFeature[l2.id] || '').trim()) { addCap(newFeature[l2.id], 3, l2.id); setNewFeature(p => ({ ...p, [l2.id]: '' })); } }} data-testid={`input-new-feature-${l2.id}`} />
                             </div>
                           )}
                         </div>
                       );
                     })}
+                    {statusFilter === 'all' && (
+                      <div className="ml-3 flex items-center gap-1">
+                        <input className="flex-1 bg-transparent border-b border-dashed border-gray-700 px-1 py-0.5 text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-violet-400/50" placeholder="+ Add L2 sub-capability..." value={newL2[l1.id] || ''} onChange={e => setNewL2(p => ({ ...p, [l1.id]: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter' && (newL2[l1.id] || '').trim()) { addCap(newL2[l1.id], 2, l1.id); setNewL2(p => ({ ...p, [l1.id]: '' })); } }} data-testid={`input-new-l2-${l1.id}`} />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1341,7 +1253,7 @@ function ProductBacklogPanel() {
       {notBuilt.length === 0 ? (
         <div className="text-center py-8">
           <ListTodo className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-          <p className="text-xs text-gray-500">All features are built. Change a feature's status in the Roadmap or Capabilities panel to add it here.</p>
+          <p className="text-xs text-gray-500">All features are built. Change a feature's status in the Roadmap to add it here.</p>
         </div>
       ) : (
         visibleGroups.map(group => {
@@ -3105,7 +3017,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       items: [
         { id: 'productVision' as const, label: 'Vision of Success', icon: Crosshair },
         { id: 'productOkrs' as const, label: 'OKRs', icon: Target },
-        { id: 'productCapabilities' as const, label: 'Capabilities', icon: Layers },
         { id: 'productRoadmap' as const, label: 'Roadmap', icon: Map },
         { id: 'productBacklog' as const, label: 'Backlog', icon: ListTodo },
       ],
@@ -7590,9 +7501,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
             {/* Backlog */}
             {activeSection === 'productBacklog' && <ProductBacklogPanel />}
-
-            {/* Capabilities */}
-            {activeSection === 'productCapabilities' && <ProductCapabilitiesPanel />}
 
             {/* Plans & Pricing */}
             {activeSection === 'plansAndPricing' && (() => {
