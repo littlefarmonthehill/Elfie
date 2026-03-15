@@ -1151,7 +1151,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     if (!textToSend.trim() || isLoading) return;
     
     inputRef.current?.blur();
-    if (inputRef.current) (inputRef.current as HTMLTextAreaElement).style.height = 'auto';
+    if (inputRef.current) (inputRef.current as HTMLTextAreaElement).style.height = '40px';
     
     const userMessage: ChatMessage = { role: 'user', content: textToSend };
     setInput('');
@@ -1623,9 +1623,9 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                 onBlur={() => setIsInputFocused(false)}
                 onClick={(e) => e.stopPropagation()}
                 placeholder="Ask E.L.F.I.E. for help..."
-                rows={2}
-                className="flex-1 text-sm md:text-base lg:text-lg bg-gray-800/80 border border-purple-500/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-500/50 rounded-md px-3 py-2 resize-none overflow-y-auto text-gray-100 placeholder:text-gray-500"
-                style={{ minHeight: '44px', maxHeight: '120px' }}
+                rows={1}
+                className="flex-1 text-sm md:text-base lg:text-lg bg-gray-800/80 border border-purple-500/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-500/50 rounded-md px-3 py-2 resize-none overflow-y-auto text-gray-100 placeholder:text-gray-500 leading-normal"
+                style={{ height: '40px', maxHeight: '120px' }}
                 data-testid="input-chat"
               />
               <Button 
