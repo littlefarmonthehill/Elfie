@@ -156,7 +156,7 @@ const SOURCE_ICONS: Record<string, { icon: any; label: string }> = {
   inventory: { icon: Package, label: 'Inventory' },
 };
 
-function ItemBusinessInsights({ itemId }: { itemId: number }) {
+function ItemBusinessInsightsDialog({ itemId, itemName, open, onOpenChange }: { itemId: number; itemName: string; open: boolean; onOpenChange: (open: boolean) => void }) {
   const { data: insightsData, isLoading, isError, refetch, isFetching } = useQuery<ItemInsightsResponse>({
     queryKey: ['/api/inventory', itemId, 'item-insights'],
     queryFn: async () => {
@@ -165,113 +165,110 @@ function ItemBusinessInsights({ itemId }: { itemId: number }) {
     },
     staleTime: 5 * 60 * 1000,
     retry: 1,
+    enabled: open,
   });
 
-  if (isLoading) {
-    return (
-      <div className="bg-gradient-to-r from-lego-orange/20 via-lego-orange/10 to-transparent border border-lego-orange/30 rounded-lg p-4">
-        <div className="flex items-center gap-1.5 mb-3">
-          <Sparkles className="h-3.5 w-3.5 text-lego-orange" />
-          <p className="text-[10px] md:text-sm font-bold text-lego-orange">BUSINESS INSIGHTS</p>
-        </div>
-        <div className="flex items-center justify-center gap-2 py-4">
-          <Loader2 className="h-4 w-4 text-lego-orange animate-spin" />
-          <span className="text-xs text-gray-400">Analyzing item data, market trends, and community signals...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (isError || !insightsData) {
-    return (
-      <div className="bg-gradient-to-r from-lego-orange/20 via-lego-orange/10 to-transparent border border-lego-orange/30 rounded-lg p-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-lego-orange" />
-            <p className="text-[10px] md:text-sm font-bold text-lego-orange">BUSINESS INSIGHTS</p>
-          </div>
-          <Button size="icon" variant="ghost" onClick={() => refetch()} data-testid="button-retry-insights">
-            <RefreshCw className="h-3 w-3 text-gray-400" />
-          </Button>
-        </div>
-        <p className="text-xs text-gray-500 text-center py-2">Unable to generate insights. Click refresh to retry.</p>
-      </div>
-    );
-  }
-
-  const { insights, meta } = insightsData;
-
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <Sparkles className="h-3.5 w-3.5 text-lego-orange" />
-          <p className="text-[10px] md:text-sm font-bold text-lego-orange">BUSINESS INSIGHTS</p>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1 text-[8px] text-gray-600">
-            {meta.newsCount > 0 && <span className="flex items-center gap-0.5"><Newspaper className="h-2.5 w-2.5" />{meta.newsCount}</span>}
-            {meta.forumCount > 0 && <span className="flex items-center gap-0.5"><MessageCircle className="h-2.5 w-2.5" />{meta.forumCount}</span>}
-            {meta.salesCount > 0 && <span className="flex items-center gap-0.5"><ShoppingCart className="h-2.5 w-2.5" />{meta.salesCount}</span>}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-gray-900 border-gray-700">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-sm">
+            <Sparkles className="h-4 w-4 text-lego-orange" />
+            <span className="text-lego-orange">Business Insights</span>
+          </DialogTitle>
+          <p className="text-xs text-gray-400 truncate">{itemName}</p>
+        </DialogHeader>
+
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center gap-3 py-8">
+            <Loader2 className="h-6 w-6 text-lego-orange animate-spin" />
+            <div className="text-center">
+              <p className="text-xs text-gray-300">Analyzing item data...</p>
+              <p className="text-[10px] text-gray-500 mt-1">Checking market news, forums, sales history, and pricing</p>
+            </div>
           </div>
-          <Button
-            size="icon"
-            variant="ghost"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            data-testid="button-refresh-insights"
-          >
-            <RefreshCw className={`h-3 w-3 text-gray-400 ${isFetching ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
-      </div>
+        )}
 
-      {insights.length === 0 ? (
-        <div className="app-card-muted p-3 text-center">
-          <p className="text-xs text-gray-500">No insights generated for this item yet.</p>
-        </div>
-      ) : (
-        <div className="space-y-1.5">
-          {insights.map((insight, idx) => {
-            const colors = INSIGHT_COLORS[insight.category] || INSIGHT_COLORS.market;
-            const IconComp = INSIGHT_ICONS[insight.category] || Sparkles;
-            const urgency = URGENCY_BADGE[insight.urgency] || URGENCY_BADGE.medium;
-            const sourceInfo = SOURCE_ICONS[insight.source] || SOURCE_ICONS.inventory;
-            const SourceIcon = sourceInfo.icon;
+        {isError && (
+          <div className="text-center py-6">
+            <AlertCircle className="h-6 w-6 text-red-400 mx-auto mb-2" />
+            <p className="text-xs text-gray-400 mb-3">Unable to generate insights</p>
+            <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-retry-insights">
+              <RefreshCw className="h-3 w-3 mr-1.5" /> Retry
+            </Button>
+          </div>
+        )}
 
-            return (
-              <div
-                key={idx}
-                className={`bg-gradient-to-r ${colors.bg} border ${colors.border} rounded-lg p-2.5`}
-                data-testid={`insight-card-${idx}`}
-              >
-                <div className="flex items-start gap-2">
-                  <IconComp className={`h-3.5 w-3.5 ${colors.icon} mt-0.5 shrink-0`} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                      <span className="text-[10px] md:text-xs font-semibold text-gray-200 leading-tight">{insight.title}</span>
-                      <span className={`inline-flex items-center rounded-full border text-[7px] px-1 py-px font-semibold leading-tight ${urgency.cls}`}>
-                        {urgency.label}
-                      </span>
-                    </div>
-                    <p className="text-[9px] md:text-xs text-gray-400 leading-relaxed">{insight.summary}</p>
-                    <div className="flex items-center gap-0.5 mt-1">
-                      <SourceIcon className="h-2 w-2 text-gray-600" />
-                      <span className="text-[7px] text-gray-600">{sourceInfo.label}</span>
-                    </div>
-                  </div>
-                </div>
+        {insightsData && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                {insightsData.meta.newsCount > 0 && <span className="flex items-center gap-0.5"><Newspaper className="h-3 w-3" />{insightsData.meta.newsCount} news</span>}
+                {insightsData.meta.forumCount > 0 && <span className="flex items-center gap-0.5"><MessageCircle className="h-3 w-3" />{insightsData.meta.forumCount} forum</span>}
+                {insightsData.meta.salesCount > 0 && <span className="flex items-center gap-0.5"><ShoppingCart className="h-3 w-3" />{insightsData.meta.salesCount} sales</span>}
+                {insightsData.meta.hasPriceGuide && <span className="flex items-center gap-0.5"><BarChart3 className="h-3 w-3" />Price guide</span>}
               </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => refetch()}
+                disabled={isFetching}
+                data-testid="button-refresh-insights"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 text-gray-400 ${isFetching ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
+
+            {insightsData.insights.length === 0 ? (
+              <div className="app-card-muted p-4 text-center">
+                <p className="text-xs text-gray-500">No insights could be generated for this item.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {insightsData.insights.map((insight, idx) => {
+                  const colors = INSIGHT_COLORS[insight.category] || INSIGHT_COLORS.market;
+                  const IconComp = INSIGHT_ICONS[insight.category] || Sparkles;
+                  const urgency = URGENCY_BADGE[insight.urgency] || URGENCY_BADGE.medium;
+                  const sourceInfo = SOURCE_ICONS[insight.source] || SOURCE_ICONS.inventory;
+                  const SourceIcon = sourceInfo.icon;
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`bg-gradient-to-r ${colors.bg} border ${colors.border} rounded-lg p-3`}
+                      data-testid={`insight-card-${idx}`}
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <IconComp className={`h-4 w-4 ${colors.icon} mt-0.5 shrink-0`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                            <span className="text-xs font-semibold text-gray-200 leading-tight">{insight.title}</span>
+                            <span className={`inline-flex items-center rounded-full border text-[8px] px-1.5 py-px font-semibold leading-tight ${urgency.cls}`}>
+                              {urgency.label}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-400 leading-relaxed">{insight.summary}</p>
+                          <div className="flex items-center gap-1 mt-1.5">
+                            <SourceIcon className="h-2.5 w-2.5 text-gray-600" />
+                            <span className="text-[9px] text-gray-600">{sourceInfo.label}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
 export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: InventoryDetailProps) {
   const [activeTab, setActiveTab] = useState(initialTab ?? "overview");
+  const [insightsOpen, setInsightsOpen] = useState(false);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [dateRange, setDateRange] = useState<'all' | '1year' | '2years' | '3months' | '6months'>('all');
@@ -491,6 +488,15 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                   BIND #{data.bindId}
                 </Badge>
               )}
+              <button
+                onClick={() => setInsightsOpen(true)}
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-lego-orange/15 border border-lego-orange/30 text-lego-orange hover:bg-lego-orange/25 transition-colors"
+                data-testid="button-business-insights"
+                title="AI Business Insights"
+              >
+                <Sparkles className="h-3 w-3" />
+                <span className="text-[9px] md:text-xs font-semibold">Insights</span>
+              </button>
             </div>
             <p className="text-xs text-white font-semibold mb-2 leading-tight" title={itemName}>
               {itemName}
@@ -1211,8 +1217,39 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
                   </div>
                 )}
 
-                {/* Business Insights */}
-                <ItemBusinessInsights itemId={data.id} />
+                {/* Strategy Recommendations — static fallback when no AI insights are open */}
+                <div className="bg-gradient-to-r from-lego-orange/20 via-lego-orange/10 to-transparent border border-lego-orange/30 rounded-lg p-2.5">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Sparkles className="h-3.5 w-3.5 text-lego-orange" />
+                    <p className="text-[10px] md:text-sm font-bold text-lego-orange">MOVEMENT STRATEGIES</p>
+                  </div>
+                  <div className="space-y-1.5 text-xs text-gray-300">
+                    {analytics.daysSinceLastSold !== null && analytics.daysSinceLastSold > 90 && (
+                      <p className="flex items-start gap-1.5">
+                        <span className="text-yellow-400 mt-0.5">&bull;</span>
+                        <span>Consider price reduction - item hasn't sold in {analytics.daysSinceLastSold} days</span>
+                      </p>
+                    )}
+                    {parseFloat(analytics.salesVelocity) > 5 && (
+                      <p className="flex items-start gap-1.5">
+                        <span className="text-green-400 mt-0.5">&bull;</span>
+                        <span>High velocity item ({analytics.salesVelocity}/mo) - consider restocking</span>
+                      </p>
+                    )}
+                    {analytics.topCustomers.length > 0 && analytics.topCustomers[0].orders > 1 && (
+                      <p className="flex items-start gap-1.5">
+                        <span className="text-blue-400 mt-0.5">&bull;</span>
+                        <span>Repeat buyers detected - reach out to {analytics.topCustomers[0].name} for bulk offers</span>
+                      </p>
+                    )}
+                    {analytics.bestSellingMonth !== 'N/A' && (
+                      <p className="flex items-start gap-1.5">
+                        <span className="text-purple-400 mt-0.5">&bull;</span>
+                        <span>Best sales in {analytics.bestSellingMonth} - plan promotions accordingly</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
               </>
             ) : (
               <div className="app-card-muted p-4 text-center">
@@ -1433,6 +1470,13 @@ export default function InventoryDetail({ data, onBrickLinkClick, initialTab }: 
           </button>
         </div>
       </div>
+
+      <ItemBusinessInsightsDialog
+        itemId={data.id}
+        itemName={`${data.itemNo} — ${itemName}`}
+        open={insightsOpen}
+        onOpenChange={setInsightsOpen}
+      />
     </div>
   );
 }

@@ -1207,6 +1207,7 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
     pomFreshnessDays: appSettings.pomFreshnessDays,
     pomZeroStockSkip: appSettings.pomZeroStockSkip,
     pomApiBudgetPct: appSettings.pomApiBudgetPct,
+    pomGuideFocus: appSettings.pomGuideFocus,
   }).from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
 
   const effectiveMaxItems = maxItems ?? pomSettings?.pomBatchSize ?? 1500;
@@ -1215,8 +1216,9 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
   const apiCallCeiling = Math.floor(totalCeiling * budgetPct / 100);
   const freshnessDays = pomSettings?.pomFreshnessDays ?? 180;
   const zeroStockSkip = pomSettings?.pomZeroStockSkip ?? true;
+  const guideFocus = (pomSettings?.pomGuideFocus as 'stock' | 'sold' | 'both') || 'both';
 
-  console.log(`[Price-o-Matic Sync] Starting sync for up to ${effectiveMaxItems} items (API ceiling: ${apiCallCeiling})`);
+  console.log(`[Price-o-Matic Sync] Starting sync for up to ${effectiveMaxItems} items (API ceiling: ${apiCallCeiling}, guide focus: ${guideFocus})`);
   pomSyncStopRequested = false;
   pomShutdownRequested = false;
 
@@ -1311,14 +1313,22 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
         if (item.cacheId && !cacheIdsWithQty.has(item.cacheId)) return true;
         const soldFresh = isFresh(item.soldFetchedAt);
         const stockFresh = isFresh(item.stockFetchedAt);
-        return !soldFresh || !stockFresh; // candidate if either guide is stale
+        // Guide focus filtering: only consider staleness for the focused guide type(s)
+        if (guideFocus === 'stock') return !stockFresh;
+        if (guideFocus === 'sold') return !soldFresh;
+        return !soldFresh || !stockFresh; // 'both': candidate if either guide is stale
       })
-      .map((item) => ({
-        ...item,
-        // If missing qty fields, both guides need re-fetch regardless of timestamp
-        soldIsFresh: item.cacheId && !cacheIdsWithQty.has(item.cacheId) ? false : isFresh(item.soldFetchedAt),
-        stockIsFresh: item.cacheId && !cacheIdsWithQty.has(item.cacheId) ? false : isFresh(item.stockFetchedAt),
-      }));
+      .map((item) => {
+        const missingQty = item.cacheId && !cacheIdsWithQty.has(item.cacheId);
+        const rawSoldFresh = missingQty ? false : isFresh(item.soldFetchedAt);
+        const rawStockFresh = missingQty ? false : isFresh(item.stockFetchedAt);
+        return {
+          ...item,
+          // When guide focus is set, mark the non-focused guide as "fresh" so we skip it
+          soldIsFresh: guideFocus === 'stock' ? true : rawSoldFresh,
+          stockIsFresh: guideFocus === 'sold' ? true : rawStockFresh,
+        };
+      });
 
     // Estimate API calls needed — items with one fresh guide need only 1 call, others need 2.
     const availableApiCalls = Math.max(0, apiCallCeiling - callsLast24h);

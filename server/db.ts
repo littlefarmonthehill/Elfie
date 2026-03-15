@@ -533,6 +533,10 @@ export async function runMigrations() {
     await pool.query(`UPDATE plan_configs SET trial_duration_days = 14 WHERE plan_key = 'trial' AND trial_duration_days = 0`);
     console.log('[Migration] Phase-24 (trial_duration_days column) complete.');
 
+    // Phase-25: pom_guide_focus column
+    await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS pom_guide_focus TEXT NOT NULL DEFAULT 'both'`);
+    console.log('[Migration] Phase-25 (pom_guide_focus column) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

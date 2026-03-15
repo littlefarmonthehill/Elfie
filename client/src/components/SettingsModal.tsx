@@ -813,6 +813,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [pomScheduleBatchSize, setPomScheduleBatchSize] = useState(1500);
   const [pomFreshnessDays, setPomFreshnessDays] = useState(180);
   const [pomZeroStockSkip, setPomZeroStockSkip] = useState(true);
+  const [pomGuideFocus, setPomGuideFocus] = useState<'stock' | 'sold' | 'both'>('both');
   const [catalogDetailEnabled, setCatalogDetailEnabled] = useState(false);
   const [catalogDetailFrequencyHours, setCatalogDetailFrequencyHours] = useState(1);
   const [catalogDetailBatchSize, setCatalogDetailBatchSize] = useState(500);
@@ -1748,6 +1749,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setPomScheduleBatchSize(platformSettings.pomScheduleBatchSize ?? 1500);
       setPomFreshnessDays(platformSettings.pomFreshnessDays ?? 180);
       setPomZeroStockSkip(platformSettings.pomZeroStockSkip !== false);
+      setPomGuideFocus(platformSettings.pomGuideFocus || 'both');
       setCatalogDetailEnabled(platformSettings.catalogDetailEnabled || false);
       setCatalogDetailFrequencyHours(platformSettings.catalogDetailFrequencyHours ?? 1);
       setCatalogDetailBatchSize(platformSettings.catalogDetailBatchSize ?? 500);
@@ -7066,17 +7068,18 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <p className="sm-label">Market Price Guides</p>
                                   <Popover><PopoverTrigger asChild><span onClick={e => e.stopPropagation()} className="cursor-help"><Info className="w-3 h-3 text-gray-500 shrink-0" /></span></PopoverTrigger><PopoverContent side="top" className="max-w-xs text-xs p-3" onClick={e => e.stopPropagation()}>
-                                    <p className="mb-1.5">Pulls supply (currently for sale) and sold (recent sales) price guide data from BrickLink for every lot in your inventory. Uses 2 API calls per lot (1 supply + 1 sold).</p>
+                                    <p className="mb-1.5">Pulls supply (currently for sale) and sold (recent sales) price guide data from BrickLink for every lot in your inventory. Uses {pomGuideFocus === 'both' ? '2 API calls per lot (1 supply + 1 sold)' : '1 API call per lot (' + (pomGuideFocus === 'stock' ? 'supply' : 'sold') + ' only)'}.</p>
                                     <div className="space-y-1 border-t pt-1.5 text-[11px]">
+                                      <p><span className="text-gray-500 dark:text-gray-400">Guide focus:</span> <span className="font-medium">{pomGuideFocus === 'both' ? 'Both (supply + sold)' : pomGuideFocus === 'stock' ? 'Supply only' : 'Sold only'}</span></p>
                                       <p><span className="text-gray-500 dark:text-gray-400">Freshness window:</span> <span className="font-medium">{pomFreshnessDays} days</span></p>
-                                      <p><span className="text-gray-500 dark:text-gray-400">Batch size:</span> <span className="font-medium">{pomScheduleBatchSize} lots</span> ({pomScheduleBatchSize * 2} API calls)</p>
+                                      <p><span className="text-gray-500 dark:text-gray-400">Batch size:</span> <span className="font-medium">{pomScheduleBatchSize} lots</span> ({pomGuideFocus === 'both' ? pomScheduleBatchSize * 2 : pomScheduleBatchSize} API calls)</p>
                                       <p><span className="text-gray-500 dark:text-gray-400">Zero-stock skip:</span> <span className="font-medium">{pomZeroStockSkip ? 'On — only lots in stock' : 'Off — all lots'}</span></p>
                                       <p><span className="text-gray-500 dark:text-gray-400">API budget:</span> <span className="font-medium">{pomApiBudgetPct}% of {blApiCallLimit}</span> = {Math.floor(blApiCallLimit * pomApiBudgetPct / 100)} calls/24h</p>
                                     </div>
                                   </PopoverContent></Popover>
                                   <span className={`sm-hint font-medium ${statusInfo(pomJob?.lastSyncStatus || null, pomScheduleEnabled).color}`}>{statusInfo(pomJob?.lastSyncStatus || null, pomScheduleEnabled).label}</span>
                                 </div>
-                                <p className="sm-hint">{pomScheduleEnabled ? `Daily at ${pomSyncTime} · batch ${pomScheduleBatchSize} · fresh ${pomFreshnessDays}d` : 'Schedule disabled'} · Last: {formatLastRun(pomJob?.lastSyncTime || null)}</p>
+                                <p className="sm-hint">{pomScheduleEnabled ? `Daily at ${pomSyncTime} · batch ${pomScheduleBatchSize} · fresh ${pomFreshnessDays}d · ${pomGuideFocus === 'both' ? 'stock+sold' : pomGuideFocus}` : 'Schedule disabled'} · Last: {formatLastRun(pomJob?.lastSyncTime || null)}</p>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
                                 <Button size="icon" variant="ghost" disabled={pomActive} onClick={(e) => { e.stopPropagation(); handleTrigger('priceomatic_cache'); }} title="Run now" data-testid="button-trigger-pom-sched">
@@ -7166,6 +7169,22 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                     <p className="sm-hint">Skip items with no stock across any store</p>
                                   </div>
                                   <Switch checked={pomZeroStockSkip} onCheckedChange={(checked) => { setPomZeroStockSkip(checked); updatePlatformSettingsMutation.mutate({ pomZeroStockSkip: checked }); }} data-testid="switch-pom-zerostock-sched" />
+                                </div>
+                                <div className="sm-row">
+                                  <div>
+                                    <span className="sm-label">Guide focus</span>
+                                    <p className="sm-hint">Which price guides to fetch — focus all API usage on one type or split between both</p>
+                                  </div>
+                                  <Select value={pomGuideFocus} onValueChange={(val: 'stock' | 'sold' | 'both') => { setPomGuideFocus(val); updatePlatformSettingsMutation.mutate({ pomGuideFocus: val }); }}>
+                                    <SelectTrigger className="w-28 text-xs" data-testid="select-pom-guide-focus">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="both">Both</SelectItem>
+                                      <SelectItem value="stock">Supply only</SelectItem>
+                                      <SelectItem value="sold">Sold only</SelectItem>
+                                    </SelectContent>
+                                  </Select>
                                 </div>
                               </div>
                             )}

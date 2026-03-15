@@ -572,6 +572,7 @@ export const appSettings = pgTable("app_settings", {
   pomScheduleBatchSize: integer("pom_schedule_batch_size").default(1500).notNull(), // Items per scheduled auto-run
   pomFreshnessDays: integer("pom_freshness_days").default(180).notNull(),       // Skip items with price data newer than N days
   pomZeroStockSkip: boolean("pom_zero_stock_skip").default(true).notNull(),     // Skip items with 0 stock across platform
+  pomGuideFocus: text("pom_guide_focus").default('both').notNull(),             // 'stock', 'sold', or 'both' — controls which price guide types to fetch
   // Suggested Pricing weights
   pomSugSoldAvgW: real("pom_sug_sold_avg_w").default(0.5).notNull(),
   pomSugStockMinW: real("pom_sug_stock_min_w").default(0.3).notNull(),
