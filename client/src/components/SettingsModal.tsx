@@ -4,7 +4,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { DimensionWheel, ScoringWheel, type PricingInsight } from "@/components/PriceOMaticDashboard";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Flag, Power, Zap, Globe, ToggleLeft, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save, ClipboardPaste, Headphones, MessageCircle, Send, Target, Map, ListTodo, Crosshair, ThumbsUp } from "lucide-react";
+import { CAPABILITY_STATUS_STYLES, CAPABILITY_STATUS_LABELS, CAPABILITY_STATUS_DOT_COLORS, TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Flag, Zap, Globe, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save, ClipboardPaste, Headphones, MessageCircle, Send, Target, Map, ListTodo, Crosshair, ThumbsUp } from "lucide-react";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
 import { Badge } from "@/components/ui/badge";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
@@ -823,17 +824,9 @@ function InlineDropdown({ value, options, onChange, className, testId }: { value
 }
 
 function CapStatusBadge({ status, onClick }: { status: string; onClick?: () => void }) {
-  const styles: Record<string, string> = {
-    built: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
-    'new': 'bg-violet-500/20 text-violet-300 border-violet-500/30',
-    now: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-    next: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-    later: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-  };
-  const labels: Record<string, string> = { built: 'Built', 'new': 'New', now: 'Now', next: 'Next', later: 'Later' };
   return (
-    <button onClick={onClick} className={`px-1.5 py-0.5 text-[9px] font-medium rounded border shrink-0 ${onClick ? 'cursor-pointer' : 'cursor-default'} ${styles[status] || styles.later}`} data-testid={`badge-status-${status}`}>
-      {labels[status] || status}
+    <button onClick={onClick} className={`px-1.5 py-0.5 text-[9px] font-medium rounded border shrink-0 ${onClick ? 'cursor-pointer' : 'cursor-default'} ${CAPABILITY_STATUS_STYLES[status] || CAPABILITY_STATUS_STYLES.later}`} data-testid={`badge-status-${status}`}>
+      {CAPABILITY_STATUS_LABELS[status] || status}
     </button>
   );
 }
@@ -1069,7 +1062,7 @@ function ProductRoadmapPanel() {
     return features.some((f: any) => childL2Ids.includes(f.parentId) && (f.status || 'built') === statusFilter);
   });
 
-  const statusColors: Record<string, string> = { built: 'bg-emerald-500', 'new': 'bg-violet-500', now: 'bg-blue-500', next: 'bg-amber-500', later: 'bg-gray-500' };
+  const statusColors = CAPABILITY_STATUS_DOT_COLORS;
 
   return (
     <div className="space-y-4">
@@ -1080,7 +1073,7 @@ function ProductRoadmapPanel() {
 
       <div className="flex items-center gap-1.5 flex-wrap">
         {(['all', 'built', 'new', 'now', 'next', 'later'] as const).map(f => {
-          const colors: Record<string, string> = { all: 'bg-blue-500/20 text-blue-300 border-blue-500/30', built: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30', 'new': 'bg-violet-500/20 text-violet-300 border-violet-500/30', now: 'bg-blue-500/20 text-blue-300 border-blue-500/30', next: 'bg-amber-500/20 text-amber-300 border-amber-500/30', later: 'bg-gray-500/20 text-gray-400 border-gray-500/30' };
+          const colors: Record<string, string> = { all: 'bg-blue-500/20 text-blue-300 border-blue-500/30', ...CAPABILITY_STATUS_STYLES };
           const count = f === 'all' ? features.length : features.filter((c: any) => (c.status || 'built') === f).length;
           return (
             <button key={f} onClick={() => setStatusFilter(f)} className={`text-[10px] px-2.5 py-1 rounded-full transition-colors border ${statusFilter === f ? colors[f] : 'text-gray-500 border-transparent'}`} data-testid={`button-roadmap-filter-${f}`}>
@@ -1249,7 +1242,7 @@ function ProductBacklogPanel() {
 
       <div className="flex items-center gap-1.5 flex-wrap">
         {(['all', 'new', 'now', 'next', 'later'] as const).map(f => {
-          const colors: Record<string, string> = { all: 'bg-blue-500/20 text-blue-300 border-blue-500/30', 'new': 'bg-violet-500/20 text-violet-300 border-violet-500/30', now: 'bg-blue-500/20 text-blue-300 border-blue-500/30', next: 'bg-amber-500/20 text-amber-300 border-amber-500/30', later: 'bg-gray-500/20 text-gray-400 border-gray-500/30' };
+          const colors: Record<string, string> = { all: 'bg-blue-500/20 text-blue-300 border-blue-500/30', ...CAPABILITY_STATUS_STYLES };
           const count = f === 'all' ? notBuilt.length : notBuilt.filter((c: any) => (c.status || 'built') === f).length;
           return (
             <button key={f} onClick={() => setFilter(f)} className={`text-[10px] px-2.5 py-1 rounded-full transition-colors border ${filter === f ? colors[f] : 'text-gray-500 border-transparent'}`} data-testid={`button-backlog-filter-${f}`}>
@@ -9576,22 +9569,12 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 <div className="sm-card">
                   <div className="px-4 py-3 bg-gray-800 border-b border-gray-700">
                     <span className="text-xs font-semibold text-gray-300">E.L.F.I.E. Terms of Service</span>
-                    <span className="text-[10px] text-gray-600 ml-2">Last updated: March 2026</span>
+                    <span className="text-[10px] text-gray-600 ml-2">Last updated: {TOS_LAST_UPDATED}</span>
                   </div>
                   <div className="px-4 py-4 text-xs text-gray-400 leading-relaxed space-y-3 max-h-[400px] overflow-y-auto" data-testid="tos-content-settings">
-                    <p><strong className="text-gray-300">1. Acceptance.</strong> By creating an account or using E.L.F.I.E. (the "Service"), you agree to these Terms. If you do not agree, do not use the Service.</p>
-                    <p><strong className="text-gray-300">2. Description.</strong> E.L.F.I.E. is a SaaS platform for LEGO and BrickLink inventory management, pricing intelligence, and AI-assisted operations.</p>
-                    <p><strong className="text-gray-300">3. Accounts.</strong> You must provide accurate information when registering. You are responsible for all activity under your account and for keeping credentials secure.</p>
-                    <p><strong className="text-gray-300">4. Acceptable Use.</strong> You agree not to: (a) violate any laws; (b) infringe on intellectual property rights; (c) interfere with or disrupt the Service; (d) attempt to gain unauthorized access; (e) use the Service to build a competing product; (f) bulk-export or redistribute marketplace data beyond internal use.</p>
-                    <p><strong className="text-gray-300">5. Data & Privacy.</strong> We collect and process data necessary to provide the Service. Your inventory, order, and business data remains yours. We do not sell your data to third parties. AI-processed content may be sent to third-party AI providers (OpenAI) for processing under their data policies.</p>
-                    <p><strong className="text-gray-300">6. Third-Party Integrations.</strong> The Service connects to BrickLink, BrickOwl, Rebrickable, Stripe, and OpenAI. Your use of these integrations is subject to their respective terms. You are responsible for ensuring your API credentials are valid and authorized.</p>
-                    <p><strong className="text-gray-300">7. Subscription & Billing.</strong> Paid plans are billed monthly or annually via Stripe. You may cancel at any time; access continues through the end of the billing period. Refunds are handled per our refund policy.</p>
-                    <p><strong className="text-gray-300">8. AI Disclaimer.</strong> AI-generated content (pricing suggestions, chat responses, part identification) is provided "as-is" for reference. Always verify AI outputs before acting on them. We are not liable for decisions made based on AI suggestions.</p>
-                    <p><strong className="text-gray-300">9. Catalog Images.</strong> Part images sourced from BrickLink and Rebrickable are licensed for internal inventory management only. They may not be redistributed or used on public-facing websites.</p>
-                    <p><strong className="text-gray-300">10. Limitation of Liability.</strong> The Service is provided "as-is" without warranties. To the maximum extent permitted by law, we are not liable for any indirect, incidental, or consequential damages arising from your use of the Service.</p>
-                    <p><strong className="text-gray-300">11. Termination.</strong> We may suspend or terminate accounts that violate these Terms. You may delete your account at any time through Settings.</p>
-                    <p><strong className="text-gray-300">12. Changes.</strong> We may update these Terms from time to time. Continued use after changes constitutes acceptance of the updated Terms.</p>
-                    <p><strong className="text-gray-300">13. Contact.</strong> Questions about these Terms can be directed through the in-app support system.</p>
+                    {TOS_SECTIONS.map(s => (
+                      <p key={s.num}><strong className="text-gray-300">{s.num}. {s.title}.</strong> {s.text}</p>
+                    ))}
                   </div>
                 </div>
 

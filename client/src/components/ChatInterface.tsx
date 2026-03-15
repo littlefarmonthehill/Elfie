@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Sparkles, Brain, ChevronDown, ChevronRight, Globe, Clock, Newspaper, MessageSquare, Headphones, Lightbulb, Plus, History, Trash2, X, Map, ThumbsUp, Check } from "lucide-react";
+import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Sparkles, Brain, ChevronDown, ChevronRight, Globe, Newspaper, MessageSquare, Headphones, Lightbulb, Plus, History, Trash2, X, Map, ThumbsUp, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InventoryGroup } from "@/components/InventoryGroup";
 import { OrderGroup } from "@/components/OrderGroup";
 import { ForumDiscussionsGroup } from "@/components/ForumDiscussionsGroup";
 import { MarketNewsGroup } from "@/components/MarketNewsGroup";
 import { useToast } from "@/hooks/use-toast";
+import { CAPABILITY_STATUS_STYLES } from "@/lib/constants";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
 function InlineNewsCard({ title, snippet, url, source, type, dateStr, username, replyCount, onSummarize }: {
@@ -1312,13 +1313,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     fetchRoadmap(newFilter);
   };
 
-  const statusColors: Record<string, string> = {
-    built: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
-    new: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-    now: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-    next: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-    later: 'bg-gray-500/20 text-gray-300 border-gray-500/30',
-  };
+  const statusColors = CAPABILITY_STATUS_STYLES;
 
   const handleEnterFeatureMode = () => {
     setFeatureRequestMode(true);

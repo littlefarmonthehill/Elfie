@@ -2045,7 +2045,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { sessionId } = req.body;
       if (!sessionId) return res.status(400).json({ message: "sessionId required" });
       const [existing] = await db.select().from(conversationThreads)
-        .where(eq(conversationThreads.sessionId, sessionId))
+        .where(and(eq(conversationThreads.sessionId, sessionId), eq(conversationThreads.orgId, orgId)))
         .limit(1);
       if (existing) return res.json(existing);
       const [thread] = await db.insert(conversationThreads).values({
@@ -4834,7 +4834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const xml = await generateBrickLinkXML();
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-      const filename = `planetbrick-inventory-${timestamp}.xml`;
+      const filename = `elfie-inventory-${timestamp}.xml`;
       
       res.setHeader('Content-Type', 'application/xml');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -4849,7 +4849,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const csv = await generateInventoryCSV();
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-      const filename = `planetbrick-inventory-${timestamp}.csv`;
+      const filename = `elfie-inventory-${timestamp}.csv`;
       
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -5542,14 +5542,14 @@ Format search_web URLs as markdown links.`;
         });
 
         const [existingThread] = await db.select().from(conversationThreads)
-          .where(eq(conversationThreads.sessionId, sessionId)).limit(1);
+          .where(and(eq(conversationThreads.sessionId, sessionId), eq(conversationThreads.orgId, orgId))).limit(1);
         if (!existingThread) {
           await db.insert(conversationThreads).values({ sessionId, orgId, title: 'New conversation' });
           isFirstExchange = true;
         } else {
           await db.update(conversationThreads)
             .set({ updatedAt: new Date() })
-            .where(eq(conversationThreads.sessionId, sessionId));
+            .where(and(eq(conversationThreads.sessionId, sessionId), eq(conversationThreads.orgId, orgId)));
           if (existingThread.title === 'New conversation') isFirstExchange = true;
         }
       } catch (saveError) {

@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, ArrowRight, Building2, Link, CreditCard, Sparkles, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { CheckCircle2, ArrowRight, Building2, Link, CreditCard, Sparkles, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2 } from "lucide-react";
+import { TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
 import type { Organization } from "@shared/schema";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
@@ -228,20 +229,10 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                 {showTos && (
                   <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 max-h-48 overflow-y-auto text-[11px] text-gray-400 leading-relaxed space-y-3" data-testid="tos-content-onboarding">
                     <p className="text-xs font-semibold text-gray-300">E.L.F.I.E. Terms of Service</p>
-                    <p>Last updated: March 2026</p>
-                    <p><strong className="text-gray-300">1. Acceptance.</strong> By creating an account or using E.L.F.I.E. (the "Service"), you agree to these Terms. If you do not agree, do not use the Service.</p>
-                    <p><strong className="text-gray-300">2. Description.</strong> E.L.F.I.E. is a SaaS platform for LEGO and BrickLink inventory management, pricing intelligence, and AI-assisted operations.</p>
-                    <p><strong className="text-gray-300">3. Accounts.</strong> You must provide accurate information when registering. You are responsible for all activity under your account and for keeping credentials secure.</p>
-                    <p><strong className="text-gray-300">4. Acceptable Use.</strong> You agree not to: (a) violate any laws; (b) infringe on intellectual property rights; (c) interfere with or disrupt the Service; (d) attempt to gain unauthorized access; (e) use the Service to build a competing product; (f) bulk-export or redistribute marketplace data beyond internal use.</p>
-                    <p><strong className="text-gray-300">5. Data & Privacy.</strong> We collect and process data necessary to provide the Service. Your inventory, order, and business data remains yours. We do not sell your data to third parties. AI-processed content may be sent to third-party AI providers (OpenAI) for processing under their data policies.</p>
-                    <p><strong className="text-gray-300">6. Third-Party Integrations.</strong> The Service connects to BrickLink, BrickOwl, Rebrickable, Stripe, and OpenAI. Your use of these integrations is subject to their respective terms. You are responsible for ensuring your API credentials are valid and authorized.</p>
-                    <p><strong className="text-gray-300">7. Subscription & Billing.</strong> Paid plans are billed monthly or annually via Stripe. You may cancel at any time; access continues through the end of the billing period. Refunds are handled per our refund policy.</p>
-                    <p><strong className="text-gray-300">8. AI Disclaimer.</strong> AI-generated content (pricing suggestions, chat responses, part identification) is provided "as-is" for reference. Always verify AI outputs before acting on them. We are not liable for decisions made based on AI suggestions.</p>
-                    <p><strong className="text-gray-300">9. Catalog Images.</strong> Part images sourced from BrickLink and Rebrickable are licensed for internal inventory management only. They may not be redistributed or used on public-facing websites.</p>
-                    <p><strong className="text-gray-300">10. Limitation of Liability.</strong> The Service is provided "as-is" without warranties. To the maximum extent permitted by law, we are not liable for any indirect, incidental, or consequential damages arising from your use of the Service.</p>
-                    <p><strong className="text-gray-300">11. Termination.</strong> We may suspend or terminate accounts that violate these Terms. You may delete your account at any time through Settings.</p>
-                    <p><strong className="text-gray-300">12. Changes.</strong> We may update these Terms from time to time. Continued use after changes constitutes acceptance of the updated Terms.</p>
-                    <p><strong className="text-gray-300">13. Contact.</strong> Questions about these Terms can be directed through the in-app support system.</p>
+                    <p>Last updated: {TOS_LAST_UPDATED}</p>
+                    {TOS_SECTIONS.map(s => (
+                      <p key={s.num}><strong className="text-gray-300">{s.num}. {s.title}.</strong> {s.text}</p>
+                    ))}
                   </div>
                 )}
               </div>
