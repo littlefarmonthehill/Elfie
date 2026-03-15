@@ -922,7 +922,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [activeAuditPlatformTab, setActiveAuditPlatformTab] = useState<'enrichment' | 'bricklink' | 'logs' | 'database'>('enrichment');
   const [blBreakdownSort, setBlBreakdownSort] = useState<{ col: string; dir: 'asc' | 'desc' }>({ col: 'total', dir: 'desc' });
   const [showBlSchedulePopup, setShowBlSchedulePopup] = useState(false);
-  const [activePlanTab, setActivePlanTab] = useState<string>('trial');
+  const [editingPlanName, setEditingPlanName] = useState<string | null>(null);
   const [planDraft, setPlanDraft] = useState<Record<string, any>>({});
   const [impersonationSearch, setImpersonationSearch] = useState('');
   const [orgSearch, setOrgSearch] = useState('');
@@ -6452,54 +6452,63 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
                   {plans.length > 0 && (
                     <div className="rounded-md border border-gray-700 bg-gray-800/40 overflow-x-auto" data-testid="plans-comparison-grid">
-                      <table className="w-full border-collapse" style={{ minWidth: '480px', fontSize: '9px' }}>
+                      <table className="w-full border-collapse" style={{ minWidth: '400px', fontSize: '9px' }}>
                         <thead>
                           <tr className="border-b border-gray-700/60">
-                            <th className="text-left px-2 py-1 text-gray-500 font-medium w-[110px] sticky left-0 bg-gray-800/90 z-10" />
-                            {plans.map(plan => {
-                              const locked = (plan.orgCount ?? 0) > 0;
-                              return (
-                                <th key={plan.planKey} className="px-1 py-1 text-center align-middle" data-testid={`col-plan-${plan.planKey}`}>
-                                  <div className="flex flex-col items-center gap-0.5">
-                                    <div className="flex items-center justify-center gap-1">
-                                      {locked ? (
-                                        <span className="text-[9px] font-semibold text-gray-200">{plan.name}</span>
-                                      ) : (
-                                        <input
-                                          value={getDraft(plan.planKey, 'name', plan.name)}
-                                          onChange={e => setDraft(plan.planKey, 'name', e.target.value)}
-                                          data-testid={`input-plan-name-${plan.planKey}`}
-                                          style={inputStyle}
-                                          className={`${inputCls} font-semibold max-w-[70px]`}
-                                        />
-                                      )}
-                                      {plan.orgCount > 0 && (
-                                        <span className="inline-flex items-center justify-center rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[7px] font-semibold min-w-[12px] px-0.5 leading-tight" data-testid={`badge-orgcount-${plan.planKey}`}>{plan.orgCount}</span>
-                                      )}
-                                      {locked && <Lock className="h-2 w-2 text-blue-400/60" />}
-                                    </div>
-                                    <div className="flex items-center gap-0.5">
-                                      <span className="text-[7px] text-gray-600">Sunset</span>
-                                      <Switch
-                                        checked={getDraft(plan.planKey, 'isSunset', plan.isSunset)}
-                                        onCheckedChange={checked => {
-                                          setDraft(plan.planKey, 'isSunset', checked);
-                                          sunsetPlanMutation.mutate({ planKey: plan.planKey, isSunset: checked });
-                                        }}
-                                        data-testid={`switch-sunset-${plan.planKey}`}
-                                        className="scale-[0.4]"
+                            <th className="text-left px-2 py-1 text-gray-500 font-medium w-[100px] sticky left-0 bg-gray-800/90 z-10" />
+                            {plans.map(plan => (
+                              <th key={plan.planKey} className="px-0.5 py-1 text-center align-middle" data-testid={`col-plan-${plan.planKey}`}>
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <div className="flex items-center justify-center gap-0.5">
+                                    {editingPlanName === plan.planKey ? (
+                                      <input
+                                        autoFocus
+                                        value={getDraft(plan.planKey, 'name', plan.name)}
+                                        onChange={e => setDraft(plan.planKey, 'name', e.target.value)}
+                                        onBlur={() => setEditingPlanName(null)}
+                                        onKeyDown={e => { if (e.key === 'Enter') setEditingPlanName(null); }}
+                                        data-testid={`input-plan-name-${plan.planKey}`}
+                                        style={inputStyle}
+                                        className={`${inputCls} font-semibold max-w-[60px]`}
                                       />
-                                    </div>
+                                    ) : (
+                                      <>
+                                        <span className="text-[9px] font-semibold text-gray-200">{getDraft(plan.planKey, 'name', plan.name)}</span>
+                                        <button
+                                          onClick={() => setEditingPlanName(plan.planKey)}
+                                          data-testid={`button-edit-name-${plan.planKey}`}
+                                          className="text-gray-600 hover:text-gray-300 transition-colors"
+                                        >
+                                          <Pencil className="h-2 w-2" />
+                                        </button>
+                                      </>
+                                    )}
+                                    {plan.orgCount > 0 && (
+                                      <span className="inline-flex items-center justify-center rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[7px] font-semibold min-w-[12px] px-0.5 leading-tight" data-testid={`badge-orgcount-${plan.planKey}`}>{plan.orgCount}</span>
+                                    )}
+                                    {(plan.orgCount ?? 0) > 0 && <Lock className="h-2 w-2 text-blue-400/60" />}
                                   </div>
-                                </th>
-                              );
-                            })}
+                                  <div className="flex items-center gap-0.5">
+                                    <span className="text-[7px] text-gray-600">Sunset</span>
+                                    <Switch
+                                      checked={getDraft(plan.planKey, 'isSunset', plan.isSunset)}
+                                      onCheckedChange={checked => {
+                                        setDraft(plan.planKey, 'isSunset', checked);
+                                        sunsetPlanMutation.mutate({ planKey: plan.planKey, isSunset: checked });
+                                      }}
+                                      data-testid={`switch-sunset-${plan.planKey}`}
+                                      className="scale-[0.4]"
+                                    />
+                                  </div>
+                                </div>
+                              </th>
+                            ))}
                           </tr>
                         </thead>
                         <tbody>
                           {/* Trial duration row */}
                           <tr className="border-b border-gray-700/30">
-                            <td className="px-2 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Trial days</td>
+                            <td className="px-2 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10 w-[100px]">Trial days</td>
                             {plans.map(plan => {
                               const locked = (plan.orgCount ?? 0) > 0;
                               const isTrial = plan.planKey === 'trial';
