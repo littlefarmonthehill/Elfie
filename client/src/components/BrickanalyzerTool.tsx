@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle }
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronLeft, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle, ThumbsUp, ThumbsDown, Minus, FlaskConical, BarChart3, RefreshCw, Target, Info, ChevronDown, ChevronUp } from "lucide-react";
+import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -61,6 +62,7 @@ interface ScanResult {
   bboxY?: number | null;
   bboxW?: number | null;
   bboxH?: number | null;
+  detectionSource?: 'brickognize' | 'elfie' | null;
 }
 
 interface BrickanalyzerScan {
@@ -2331,6 +2333,36 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                               >
                                 {displayPrice != null ? `$${displayPrice.toFixed(2)}` : '—'}
                               </button>
+                              {r.detectionSource === 'elfie' && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span
+                                      data-testid={`elfie-badge-${r.cropIndex ?? i}`}
+                                      style={{
+                                        position: 'absolute',
+                                        top: -10,
+                                        left: -10,
+                                        zIndex: 25,
+                                        width: 20,
+                                        height: 20,
+                                        borderRadius: '50%',
+                                        background: 'rgba(139,92,246,0.92)',
+                                        border: '1.5px solid rgba(196,167,255,0.80)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
+                                        pointerEvents: 'auto',
+                                      }}
+                                    >
+                                      <img src={elfieRobot} alt="E.L.F.I.E. detection" style={{ width: 14, height: 14, objectFit: 'contain' }} />
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-xs">
+                                    Identified by E.L.F.I.E. visual search
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
                               {/* ── Heatmap price info popup ───────────────────── */}
                               {heatmapPopupCropIndex === (r.cropIndex ?? null) && (
                                 <div
@@ -2979,6 +3011,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                   <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(250,204,21,0.45)', border: '1.5px solid rgb(250,204,21)' }} /> Low</span>
                   <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(107,114,128,0.35)', border: '1.5px solid rgb(107,114,128)' }} /> No price</span>
                   <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: 'rgba(45,212,191,0.15)', border: '1.5px dashed rgba(45,212,191,0.75)' }} /> Unknown (tap)</span>
+                  <span className="flex items-center gap-1"><span className="inline-block w-3.5 h-3.5 rounded-full flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.92)', border: '1.5px solid rgba(196,167,255,0.80)' }}><img src={elfieRobot} alt="" style={{ width: 10, height: 10, objectFit: 'contain' }} /></span> E.L.F.I.E.</span>
                 </div>
                 <div className="flex items-center gap-1 ml-auto">
                   <ZoomIn className="w-3 h-3" />
@@ -3252,6 +3285,19 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                           </p>
                           {grp.itemType === 'MINIFIG' && (
                             <span className="text-[9px] sm:text-lg font-semibold uppercase tracking-wider text-amber-400 bg-amber-900/40 border border-amber-500/30 rounded px-1 py-0.5 flex-shrink-0">Fig</span>
+                          )}
+                          {grp.entries.some(e => e.detectionSource === 'elfie') && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="flex items-center gap-0.5 text-[9px] sm:text-xs font-semibold text-purple-300 bg-purple-900/50 border border-purple-500/30 rounded px-1 py-0.5 flex-shrink-0 cursor-help" data-testid={`elfie-card-badge-${gi}`}>
+                                  <img src={elfieRobot} alt="" className="w-3 h-3 sm:w-4 sm:h-4 object-contain" />
+                                  <span className="hidden sm:inline">E.L.F.I.E.</span>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs">
+                                Identified by E.L.F.I.E. visual search ({(grp.entries.find(e => e.detectionSource === 'elfie')?.note) || 'CLIP'})
+                              </TooltipContent>
+                            </Tooltip>
                           )}
                           {grp.partNo && (
                             <a

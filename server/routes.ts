@@ -6667,6 +6667,63 @@ Format search_web URLs as markdown links.`;
         }
       }
 
+      // ── Step 2c: CLIP fallback for unrecognized crops ──────────────────────
+      // Pieces where Brickognize returned no part number (partNo === '') get run
+      // through CLIP visual search. If a match is found above the similarity
+      // threshold, we populate the piece with the CLIP result and tag it as
+      // detectionSource: 'elfie'. Only runs if the Python service is available
+      // and there are CLIP embeddings in the database to search against.
+      const clipFallbackSet = new Set<number>();
+      if (!calibration) {
+        const unrecognized = filteredIdentified.filter((p: any) => !p.partNo && p.cropIndex != null);
+        if (unrecognized.length > 0) {
+          try {
+            const { isPythonServiceReady, embedCrop: _embedCropFn } = await import('./services/segmentClient.js');
+            const { findNearestParts: _findNearest, getCatalogEmbeddingStats } = await import('./services/clip-search.js');
+            const stats = await getCatalogEmbeddingStats();
+            const totalEmbeddings = stats.total ?? 0;
+            if (isPythonServiceReady() && totalEmbeddings > 0) {
+              setProgress(scanId, 'E.L.F.I.E. visual search', `Running CLIP on ${unrecognized.length} unrecognized piece${unrecognized.length !== 1 ? 's' : ''}…`, 79);
+              console.log(`[Brickanalyzer] CLIP fallback: ${unrecognized.length} unrecognized crops, ${totalEmbeddings} embeddings available`);
+              const cropCache = brickanalyzerCropCache.get(scanId);
+              const CLIP_MIN_SIMILARITY = 0.60;
+              let clipHits = 0;
+              let clipFails = 0;
+              const CLIP_CONCURRENCY = 2;
+              for (let ci = 0; ci < unrecognized.length; ci += CLIP_CONCURRENCY) {
+                const batch = unrecognized.slice(ci, ci + CLIP_CONCURRENCY);
+                await Promise.all(batch.map(async (piece: any) => {
+                  try {
+                    const cropBuf = cropCache?.[piece.cropIndex];
+                    if (!cropBuf) return;
+                    const embedding = await _embedCropFn(cropBuf);
+                    const matches = await _findNearest(embedding, 3, CLIP_MIN_SIMILARITY);
+                    if (matches.length > 0) {
+                      const best = matches[0];
+                      piece.partNo = best.itemNo;
+                      piece.itemType = best.itemType || 'PART';
+                      piece.confidence = best.similarity >= 0.80 ? 'high' : best.similarity >= 0.70 ? 'medium' : 'low';
+                      piece.note = `CLIP match ${(best.similarity * 100).toFixed(0)}%`;
+                      piece.detectionSource = 'elfie';
+                      clipFallbackSet.add(piece.cropIndex);
+                      clipHits++;
+                      console.log(`[Brickanalyzer] CLIP hit crop ${piece.cropIndex}: ${best.itemNo} (${(best.similarity * 100).toFixed(1)}% sim)`);
+                    }
+                  } catch (clipErr: any) {
+                    clipFails++;
+                    console.warn(`[Brickanalyzer] CLIP fallback failed for crop ${piece.cropIndex}:`, clipErr.message);
+                  }
+                }));
+                setProgress(scanId, 'E.L.F.I.E. visual search', `CLIP ${Math.min(ci + CLIP_CONCURRENCY, unrecognized.length)}/${unrecognized.length} · ${clipHits} matched`, 79);
+              }
+              console.log(`[Brickanalyzer] CLIP fallback: ${clipHits} matched, ${clipFails} failed, ${unrecognized.length - clipHits - clipFails} no match out of ${unrecognized.length} crops`);
+            }
+          } catch (clipSetupErr: any) {
+            console.warn(`[Brickanalyzer] CLIP fallback setup failed:`, clipSetupErr.message);
+          }
+        }
+      }
+
       const pomSettings = await getOrgSettings(orgId);
 
       // Progress: enrichment phase
@@ -7139,6 +7196,7 @@ Format search_web URLs as markdown links.`;
           80 + Math.round(enrichIdx / filteredIdentified.length * 17),
         );
 
+        const detectionSource = clipFallbackSet.has(piece.cropIndex) ? 'elfie' : 'brickognize';
         return {
           partNo: piece.partNo || '',
           partName: piece.partName || 'Unknown Part',
@@ -7172,6 +7230,7 @@ Format search_web URLs as markdown links.`;
           bboxY: (piece as any).bboxY ?? null,
           bboxW: (piece as any).bboxW ?? null,
           bboxH: (piece as any).bboxH ?? null,
+          detectionSource,
         };
         } catch (enrichErr: any) {
           console.error(`[Brickanalyzer] Enrichment failed for piece ${piece.partNo || '(unknown)'}:`, enrichErr.message);
@@ -7197,6 +7256,7 @@ Format search_web URLs as markdown links.`;
             bboxY: (piece as any).bboxY ?? null,
             bboxW: (piece as any).bboxW ?? null,
             bboxH: (piece as any).bboxH ?? null,
+            detectionSource: clipFallbackSet.has(piece.cropIndex) ? 'elfie' : 'brickognize',
           };
         }
       }));
