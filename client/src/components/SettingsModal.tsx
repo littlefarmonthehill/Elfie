@@ -1240,7 +1240,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       supply: { has: number; hasInStock: number; stale: number; staleInStock: number };
       sold: { has: number; hasInStock: number; stale: number; staleInStock: number };
       inventoryNotInCatalog: number;
-      apiBudget: { total: number; pomPct: number; catalogDetailPct: number; used24h: number };
+      apiBudget: { total: number; pomPct: number; catalogDetailPct: number; used24h: number; expiryBuckets?: { expiresAt: string; count: number }[] };
     };
   };
 
@@ -7053,6 +7053,52 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                       <span className="text-[10px] text-blue-400/80">Detail {budget.catalogDetailPct}% ({Math.floor(limit * budget.catalogDetailPct / 100)})</span>
                                       <span className="text-[10px] text-gray-400/80">Reserve {reservePct}% ({Math.floor(limit * reservePct / 100)})</span>
                                     </div>
+                                    {budget.expiryBuckets && budget.expiryBuckets.length > 0 && (() => {
+                                      const now = Date.now();
+                                      const futureBuckets = budget.expiryBuckets!
+                                        .map(b => ({ expiresAt: new Date(b.expiresAt), count: b.count }))
+                                        .filter(b => b.expiresAt.getTime() > now)
+                                        .sort((a, b) => a.expiresAt.getTime() - b.expiresAt.getTime());
+                                      if (futureBuckets.length === 0) return null;
+                                      let runningAvailable = remaining;
+                                      const forecast = futureBuckets.map(b => {
+                                        runningAvailable += b.count;
+                                        return { ...b, available: Math.min(runningAvailable, limit) };
+                                      });
+                                      const maxBar = Math.max(...futureBuckets.map(b => b.count));
+                                      const fmtTime = (d: Date) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                                      const fmtRelative = (d: Date) => {
+                                        const mins = Math.round((d.getTime() - now) / 60000);
+                                        if (mins < 60) return `${mins}m`;
+                                        const hrs = Math.floor(mins / 60);
+                                        const rm = mins % 60;
+                                        return rm > 0 ? `${hrs}h ${rm}m` : `${hrs}h`;
+                                      };
+                                      return (
+                                        <div className="mt-2.5 pt-2 border-t border-gray-700/30">
+                                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                                            <span className="text-[10px] font-medium text-gray-400">API Recovery Forecast</span>
+                                            <span className="text-[10px] text-gray-500">{futureBuckets.reduce((s, b) => s + b.count, 0).toLocaleString()} calls freeing up</span>
+                                          </div>
+                                          <div className="space-y-0.5">
+                                            {forecast.map((b, i) => (
+                                              <div key={i} className="flex items-center gap-2 text-[10px]">
+                                                <span className="text-gray-500 w-[44px] text-right shrink-0 font-mono">{fmtRelative(b.expiresAt)}</span>
+                                                <span className="text-gray-400 w-[58px] shrink-0 font-mono">{fmtTime(b.expiresAt)}</span>
+                                                <div className="flex-1 h-1 rounded-full bg-gray-700/40 overflow-hidden">
+                                                  <div className="h-full bg-green-500/60 rounded-full" style={{ width: `${maxBar > 0 ? Math.max(2, Math.round((b.count / maxBar) * 100)) : 0}%` }} />
+                                                </div>
+                                                <span className="text-green-400/80 w-[42px] text-right shrink-0 font-mono">+{b.count.toLocaleString()}</span>
+                                                <span className="text-gray-500 w-[52px] text-right shrink-0 font-mono">{b.available.toLocaleString()}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                          <div className="flex items-center justify-end gap-2 mt-1">
+                                            <span className="text-[9px] text-gray-600">+freed · total available</span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
                                   );
                                 })()}
