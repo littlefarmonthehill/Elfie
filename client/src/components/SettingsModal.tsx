@@ -1354,7 +1354,7 @@ function ProductBacklogPanel() {
   const [newEffort, setNewEffort] = useState('M');
   const [newRoadmapId, setNewRoadmapId] = useState<number | null>(null);
   const [newCapabilityId, setNewCapabilityId] = useState<number | null>(null);
-  const [filter, setFilter] = useState<'all' | 'open' | 'in-progress' | 'done'>('all');
+  const [filter, setFilter] = useState<'all' | 'new' | 'next' | 'now' | 'later' | 'done'>('all');
   const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
 
   const l1s = (caps || []).filter((c: any) => c.level === 1);
@@ -1402,8 +1402,10 @@ function ProductBacklogPanel() {
 
   const priorityOrder = { high: 0, medium: 1, low: 2 } as Record<string, number>;
   const statusGroups = [
-    { id: 'open', label: 'Open', color: 'gray' },
-    { id: 'in-progress', label: 'In Progress', color: 'blue' },
+    { id: 'new', label: 'New', color: 'violet' },
+    { id: 'next', label: 'Next', color: 'amber' },
+    { id: 'now', label: 'Now', color: 'blue' },
+    { id: 'later', label: 'Later', color: 'gray' },
     { id: 'done', label: 'Done', color: 'emerald' },
   ];
   const visibleGroups = filter === 'all' ? statusGroups : statusGroups.filter(g => g.id === filter);
@@ -1413,7 +1415,7 @@ function ProductBacklogPanel() {
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <p className="text-sm font-medium text-gray-100">Backlog</p>
-          <p className="sm-description mt-1">Work items linked to L2 capabilities. Drag and drop between status groups.</p>
+          <p className="sm-description mt-1">Work items linked to L2 capabilities. Statuses align with roadmap: New / Next / Now / Later / Done.</p>
         </div>
         <Button size="sm" variant="outline" onClick={() => setShowAdd(true)} data-testid="button-add-backlog">
           <Plus className="w-3.5 h-3.5 mr-1" /> Add Item
@@ -1421,12 +1423,13 @@ function ProductBacklogPanel() {
       </div>
 
       <div className="flex items-center gap-1.5 flex-wrap">
-        {(['all', 'open', 'in-progress', 'done'] as const).map(f => {
-          const colors: Record<string, string> = { all: 'bg-blue-500/20 text-blue-300 border-blue-500/30', open: 'bg-gray-500/20 text-gray-400 border-gray-500/30', 'in-progress': 'bg-blue-500/20 text-blue-300 border-blue-500/30', done: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' };
+        {(['all', 'new', 'next', 'now', 'later', 'done'] as const).map(f => {
+          const colors: Record<string, string> = { all: 'bg-blue-500/20 text-blue-300 border-blue-500/30', 'new': 'bg-violet-500/20 text-violet-300 border-violet-500/30', next: 'bg-amber-500/20 text-amber-300 border-amber-500/30', now: 'bg-blue-500/20 text-blue-300 border-blue-500/30', later: 'bg-gray-500/20 text-gray-400 border-gray-500/30', done: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' };
+          const labels: Record<string, string> = { all: 'All', 'new': 'New', next: 'Next', now: 'Now', later: 'Later', done: 'Done' };
           const count = f === 'all' ? (items || []).length : (items || []).filter((i: any) => i.status === f).length;
           return (
             <button key={f} onClick={() => setFilter(f)} className={`text-[10px] px-2.5 py-1 rounded-full transition-colors border ${filter === f ? colors[f] : 'text-gray-500 border-transparent'}`} data-testid={`button-filter-${f}`}>
-              {f === 'all' ? 'All' : f === 'in-progress' ? 'In Progress' : f.charAt(0).toUpperCase() + f.slice(1)}
+              {labels[f]}
               <span className="ml-1 text-gray-600">({count})</span>
             </button>
           );
@@ -1469,8 +1472,8 @@ function ProductBacklogPanel() {
 
       {visibleGroups.map(group => {
         const groupItems = [...(items || []).filter((i: any) => i.status === group.id)].sort((a: any, b: any) => (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1));
-        const borderColor = group.color === 'emerald' ? 'border-emerald-500/30' : group.color === 'blue' ? 'border-blue-500/30' : 'border-gray-700';
-        const labelColor = group.color === 'emerald' ? 'text-emerald-400' : group.color === 'blue' ? 'text-blue-400' : 'text-gray-400';
+        const borderColor = group.color === 'emerald' ? 'border-emerald-500/30' : group.color === 'blue' ? 'border-blue-500/30' : group.color === 'amber' ? 'border-amber-500/30' : group.color === 'violet' ? 'border-violet-500/30' : 'border-gray-700';
+        const labelColor = group.color === 'emerald' ? 'text-emerald-400' : group.color === 'blue' ? 'text-blue-400' : group.color === 'amber' ? 'text-amber-400' : group.color === 'violet' ? 'text-violet-400' : 'text-gray-400';
         const isDragOver = dragOverStatus === group.id;
         return (
           <div key={group.id} onDragOver={e => { e.preventDefault(); setDragOverStatus(group.id); }} onDragLeave={() => setDragOverStatus(null)} onDrop={e => handleDrop(e, group.id)}>
