@@ -187,6 +187,13 @@ ChatGPT-style conversation management with thread persistence and auto-expiry.
 - **Feature Voting**: `feature_votes` table (id, capability_id, user_id, org_id, created_at) with unique constraint on (capability_id, user_id). Migration Phase-35. Toggle vote via `POST /api/feature-votes/:capabilityId`. Vote counts shown on admin Roadmap and Backlog panels via `GET /api/feature-votes/counts`. Public roadmap via `GET /api/public-roadmap?status=all|new|now|next|later|built`.
 - **Support ticket status**: Shown inline above the input area when a ticket is active/escalated.
 
+## Terms of Service
+
+- **Onboarding**: Step 1 (Company Info) includes a required "I agree to the Terms of Service" checkbox. Users can expand/collapse the full TOS inline before accepting. The Continue button is disabled until TOS is accepted. Acceptance timestamp saved as `tosAcceptedAt` on the organization record.
+- **Settings**: Full TOS text displayed inline in the "Legal & Terms" section (last item in company settings). Shows acceptance date if TOS was accepted, or a notice if not yet formally accepted.
+- **Schema**: `tos_accepted_at` column on `organizations` table. Migration Phase-36.
+- **Content**: 13-section Terms covering acceptance, description, accounts, acceptable use, data & privacy, third-party integrations, subscription & billing, AI disclaimer, catalog images, limitation of liability, termination, changes, and contact.
+
 ## Elfie Chat — Progressive Reveal & AI Overviews
 
 - **Streaming reveal**: Character-level reveal at 3 chars/25ms, 80ms pause at newlines, 200ms pause before `###` headers. `StreamingMessage` wrapper progressively reveals content through `MessageContent`. Only the latest response streams; older messages render fully. Streaming flags are cleared when the chat is minimized to prevent background interval leaks. Messages use `messageId` for stable React keys and callback targeting.

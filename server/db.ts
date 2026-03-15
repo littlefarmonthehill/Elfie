@@ -812,6 +812,10 @@ export async function runMigrations() {
     await client.query(`CREATE INDEX IF NOT EXISTS feature_votes_capability_idx ON feature_votes (capability_id)`);
     console.log('[Migration] Phase-35 (feature votes table) complete.');
 
+    // Phase-36: TOS accepted timestamp on organizations
+    await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS tos_accepted_at TIMESTAMP`);
+    console.log('[Migration] Phase-36 (tos_accepted_at column) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

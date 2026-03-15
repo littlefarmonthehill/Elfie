@@ -9554,26 +9554,44 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
             {activeSection === 'legal' && (
               <div className="p-4 space-y-5">
 
-                {/* Platform Terms */}
+                {/* TOS Acceptance Status */}
                 <div className="sm-card">
                   <div className="px-4 py-3 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
                     <FileText className="h-4 w-4 text-blue-400" />
-                    <span className="text-sm font-semibold text-white">Platform Terms</span>
+                    <span className="text-sm font-semibold text-white">Terms of Service</span>
                   </div>
                   <div className="px-4 py-3 space-y-2">
-                    <p className="text-xs text-gray-300 leading-relaxed">
-                      By using E.L.F.I.E. you agree to our Terms of Service and Privacy Policy. These documents govern how the platform operates, how your data is handled, and the obligations of both parties.
-                    </p>
-                    <div className="flex flex-wrap gap-3 pt-1">
-                      <a href="https://planetbrick.io/terms" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors">
-                        <span>Terms of Service</span>
-                        <ExternalLink className="h-3 w-3 shrink-0" />
-                      </a>
-                      <a href="https://planetbrick.io/privacy" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors">
-                        <span>Privacy Policy</span>
-                        <ExternalLink className="h-3 w-3 shrink-0" />
-                      </a>
-                    </div>
+                    {org?.tosAcceptedAt ? (
+                      <div className="flex items-center gap-2 text-xs text-green-400">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        <span>Accepted on {new Date(org.tosAcceptedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-amber-400">Terms have not been formally accepted yet. They were accepted during onboarding.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Full Terms of Service */}
+                <div className="sm-card">
+                  <div className="px-4 py-3 bg-gray-800 border-b border-gray-700">
+                    <span className="text-xs font-semibold text-gray-300">E.L.F.I.E. Terms of Service</span>
+                    <span className="text-[10px] text-gray-600 ml-2">Last updated: March 2026</span>
+                  </div>
+                  <div className="px-4 py-4 text-xs text-gray-400 leading-relaxed space-y-3 max-h-[400px] overflow-y-auto" data-testid="tos-content-settings">
+                    <p><strong className="text-gray-300">1. Acceptance.</strong> By creating an account or using E.L.F.I.E. (the "Service"), you agree to these Terms. If you do not agree, do not use the Service.</p>
+                    <p><strong className="text-gray-300">2. Description.</strong> E.L.F.I.E. is a SaaS platform for LEGO and BrickLink inventory management, pricing intelligence, and AI-assisted operations.</p>
+                    <p><strong className="text-gray-300">3. Accounts.</strong> You must provide accurate information when registering. You are responsible for all activity under your account and for keeping credentials secure.</p>
+                    <p><strong className="text-gray-300">4. Acceptable Use.</strong> You agree not to: (a) violate any laws; (b) infringe on intellectual property rights; (c) interfere with or disrupt the Service; (d) attempt to gain unauthorized access; (e) use the Service to build a competing product; (f) bulk-export or redistribute marketplace data beyond internal use.</p>
+                    <p><strong className="text-gray-300">5. Data & Privacy.</strong> We collect and process data necessary to provide the Service. Your inventory, order, and business data remains yours. We do not sell your data to third parties. AI-processed content may be sent to third-party AI providers (OpenAI) for processing under their data policies.</p>
+                    <p><strong className="text-gray-300">6. Third-Party Integrations.</strong> The Service connects to BrickLink, BrickOwl, Rebrickable, Stripe, and OpenAI. Your use of these integrations is subject to their respective terms. You are responsible for ensuring your API credentials are valid and authorized.</p>
+                    <p><strong className="text-gray-300">7. Subscription & Billing.</strong> Paid plans are billed monthly or annually via Stripe. You may cancel at any time; access continues through the end of the billing period. Refunds are handled per our refund policy.</p>
+                    <p><strong className="text-gray-300">8. AI Disclaimer.</strong> AI-generated content (pricing suggestions, chat responses, part identification) is provided "as-is" for reference. Always verify AI outputs before acting on them. We are not liable for decisions made based on AI suggestions.</p>
+                    <p><strong className="text-gray-300">9. Catalog Images.</strong> Part images sourced from BrickLink and Rebrickable are licensed for internal inventory management only. They may not be redistributed or used on public-facing websites.</p>
+                    <p><strong className="text-gray-300">10. Limitation of Liability.</strong> The Service is provided "as-is" without warranties. To the maximum extent permitted by law, we are not liable for any indirect, incidental, or consequential damages arising from your use of the Service.</p>
+                    <p><strong className="text-gray-300">11. Termination.</strong> We may suspend or terminate accounts that violate these Terms. You may delete your account at any time through Settings.</p>
+                    <p><strong className="text-gray-300">12. Changes.</strong> We may update these Terms from time to time. Continued use after changes constitutes acceptance of the updated Terms.</p>
+                    <p><strong className="text-gray-300">13. Contact.</strong> Questions about these Terms can be directed through the in-app support system.</p>
                   </div>
                 </div>
 

@@ -88,6 +88,7 @@ export const organizations = pgTable("organizations", {
   blApiCallLimitOverride: integer("bl_api_call_limit_override"),
   // Per-org feature gate overrides (null = use plan defaults). Keys: elfieAiMode, brickSpotter, pom, warehouseModule, universalCatalog, dataEnrichment
   featureOverrides: jsonb("feature_overrides").$type<Record<string, boolean>>(),
+  tosAcceptedAt: timestamp("tos_accepted_at"),
 });
 
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({

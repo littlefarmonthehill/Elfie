@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, ArrowRight, Building2, Link, CreditCard, Sparkles, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2 } from "lucide-react";
+import { CheckCircle2, ArrowRight, Building2, Link, CreditCard, Sparkles, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
 import type { Organization } from "@shared/schema";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
@@ -30,6 +30,8 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
   const [address, setAddress] = useState(org.address || "");
   const [phone, setPhone] = useState(org.phone || "");
   const [website, setWebsite] = useState(org.website || "");
+  const [tosAccepted, setTosAccepted] = useState(!!org.tosAcceptedAt);
+  const [showTos, setShowTos] = useState(false);
 
   // Step 2 — BrickLink
   const [blKey, setBlKey] = useState("");
@@ -57,7 +59,11 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
   });
 
   const handleStep1 = async () => {
-    await saveOrgMutation.mutateAsync({ name: name.trim() || org.name, address, phone, website });
+    const data: Record<string, any> = { name: name.trim() || org.name, address, phone, website };
+    if (tosAccepted && !org.tosAcceptedAt) {
+      data.tosAcceptedAt = new Date().toISOString();
+    }
+    await saveOrgMutation.mutateAsync(data);
     setStep(2);
   };
 
@@ -198,8 +204,49 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                   </div>
                 </div>
               </div>
+              <div className="border-t border-gray-800 pt-4 mt-2 space-y-3">
+                <label className="flex items-start gap-2.5 cursor-pointer group" data-testid="label-tos-accept">
+                  <input
+                    type="checkbox"
+                    checked={tosAccepted}
+                    onChange={(e) => setTosAccepted(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-600 bg-gray-800 text-blue-500 focus:ring-blue-500/30 cursor-pointer"
+                    data-testid="checkbox-tos-accept"
+                  />
+                  <span className="text-xs text-gray-400 leading-relaxed">
+                    I agree to the{" "}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); setShowTos(!showTos); }}
+                      className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+                      data-testid="button-view-tos"
+                    >
+                      Terms of Service
+                    </button>
+                  </span>
+                </label>
+                {showTos && (
+                  <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 max-h-48 overflow-y-auto text-[11px] text-gray-400 leading-relaxed space-y-3" data-testid="tos-content-onboarding">
+                    <p className="text-xs font-semibold text-gray-300">E.L.F.I.E. Terms of Service</p>
+                    <p>Last updated: March 2026</p>
+                    <p><strong className="text-gray-300">1. Acceptance.</strong> By creating an account or using E.L.F.I.E. (the "Service"), you agree to these Terms. If you do not agree, do not use the Service.</p>
+                    <p><strong className="text-gray-300">2. Description.</strong> E.L.F.I.E. is a SaaS platform for LEGO and BrickLink inventory management, pricing intelligence, and AI-assisted operations.</p>
+                    <p><strong className="text-gray-300">3. Accounts.</strong> You must provide accurate information when registering. You are responsible for all activity under your account and for keeping credentials secure.</p>
+                    <p><strong className="text-gray-300">4. Acceptable Use.</strong> You agree not to: (a) violate any laws; (b) infringe on intellectual property rights; (c) interfere with or disrupt the Service; (d) attempt to gain unauthorized access; (e) use the Service to build a competing product; (f) bulk-export or redistribute marketplace data beyond internal use.</p>
+                    <p><strong className="text-gray-300">5. Data & Privacy.</strong> We collect and process data necessary to provide the Service. Your inventory, order, and business data remains yours. We do not sell your data to third parties. AI-processed content may be sent to third-party AI providers (OpenAI) for processing under their data policies.</p>
+                    <p><strong className="text-gray-300">6. Third-Party Integrations.</strong> The Service connects to BrickLink, BrickOwl, Rebrickable, Stripe, and OpenAI. Your use of these integrations is subject to their respective terms. You are responsible for ensuring your API credentials are valid and authorized.</p>
+                    <p><strong className="text-gray-300">7. Subscription & Billing.</strong> Paid plans are billed monthly or annually via Stripe. You may cancel at any time; access continues through the end of the billing period. Refunds are handled per our refund policy.</p>
+                    <p><strong className="text-gray-300">8. AI Disclaimer.</strong> AI-generated content (pricing suggestions, chat responses, part identification) is provided "as-is" for reference. Always verify AI outputs before acting on them. We are not liable for decisions made based on AI suggestions.</p>
+                    <p><strong className="text-gray-300">9. Catalog Images.</strong> Part images sourced from BrickLink and Rebrickable are licensed for internal inventory management only. They may not be redistributed or used on public-facing websites.</p>
+                    <p><strong className="text-gray-300">10. Limitation of Liability.</strong> The Service is provided "as-is" without warranties. To the maximum extent permitted by law, we are not liable for any indirect, incidental, or consequential damages arising from your use of the Service.</p>
+                    <p><strong className="text-gray-300">11. Termination.</strong> We may suspend or terminate accounts that violate these Terms. You may delete your account at any time through Settings.</p>
+                    <p><strong className="text-gray-300">12. Changes.</strong> We may update these Terms from time to time. Continued use after changes constitutes acceptance of the updated Terms.</p>
+                    <p><strong className="text-gray-300">13. Contact.</strong> Questions about these Terms can be directed through the in-app support system.</p>
+                  </div>
+                )}
+              </div>
               <div className="pt-2 flex justify-end">
-                <Button onClick={handleStep1} disabled={isSaving || !name.trim()} data-testid="button-onboard-next-1">
+                <Button onClick={handleStep1} disabled={isSaving || !name.trim() || !tosAccepted} data-testid="button-onboard-next-1">
                   {isSaving ? "Saving…" : "Continue"}
                   <ArrowRight className="w-4 h-4 ml-1" />
                 </Button>
