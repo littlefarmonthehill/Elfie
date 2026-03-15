@@ -823,7 +823,35 @@ function InlineDropdown({ value, options, onChange, className, testId }: { value
   );
 }
 
-function CapStatusBadge({ status, onClick }: { status: string; onClick?: () => void }) {
+function CapStatusBadge({ status, onClick, onSelect }: { status: string; onClick?: () => void; onSelect?: (s: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+  if (onSelect) {
+    const statuses = ['built', 'new', 'now', 'next', 'later'];
+    return (
+      <div ref={ref} className="relative inline-block">
+        <button onClick={(e) => { e.stopPropagation(); setOpen(!open); }} className={`px-1.5 py-0.5 text-[9px] font-medium rounded border shrink-0 cursor-pointer ${CAPABILITY_STATUS_STYLES[status] || CAPABILITY_STATUS_STYLES.later}`} data-testid={`badge-status-${status}`}>
+          {CAPABILITY_STATUS_LABELS[status] || status} <ChevronDown className="inline w-2 h-2 ml-0.5 opacity-50" />
+        </button>
+        {open && (
+          <div className="absolute z-50 mt-0.5 left-0 bg-gray-800 border border-gray-600 rounded-md shadow-lg py-0.5 min-w-[80px]">
+            {statuses.map(s => (
+              <button key={s} onClick={(e) => { e.stopPropagation(); onSelect(s); setOpen(false); }} className={`block w-full text-left px-2 py-1 text-[10px] font-medium ${s === status ? 'bg-gray-700' : 'hover:bg-gray-700'}`} data-testid={`badge-status-option-${s}`}>
+                <span className={`inline-block w-2 h-2 rounded-full mr-1.5 ${CAPABILITY_STATUS_DOT_COLORS[s] || 'bg-gray-500'}`} />
+                <span className={CAPABILITY_STATUS_STYLES[s]?.split(' ').find(c => c.startsWith('text-')) || 'text-gray-400'}>{CAPABILITY_STATUS_LABELS[s] || s}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
   return (
     <button onClick={onClick} className={`px-1.5 py-0.5 text-[9px] font-medium rounded border shrink-0 ${onClick ? 'cursor-pointer' : 'cursor-default'} ${CAPABILITY_STATUS_STYLES[status] || CAPABILITY_STATUS_STYLES.later}`} data-testid={`badge-status-${status}`}>
       {CAPABILITY_STATUS_LABELS[status] || status}
@@ -1153,11 +1181,7 @@ function ProductRoadmapPanel() {
                             <div className="ml-5 space-y-0.5 pb-1">
                               {visibleFeatures.map((f: any) => (
                                 <div key={f.id} className="flex items-center gap-2 py-1 group" data-testid={`roadmap-feature-${f.id}`}>
-                                  <CapStatusBadge status={f.status || 'built'} onClick={() => {
-                                    const cycle = ['built', 'new', 'now', 'next', 'later'];
-                                    const next = cycle[(cycle.indexOf(f.status || 'built') + 1) % cycle.length];
-                                    moveCapStatus(f.id, next);
-                                  }} />
+                                  <CapStatusBadge status={f.status || 'built'} onSelect={(s) => moveCapStatus(f.id, s)} />
                                   {editingId === f.id ? (
                                     <input className="flex-1 bg-black/30 border border-emerald-500/30 rounded px-2 py-0.5 text-xs text-gray-300 focus:outline-none" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => updateCap(f.id, { title: editTitle })} onKeyDown={e => { if (e.key === 'Enter') updateCap(f.id, { title: editTitle }); if (e.key === 'Escape') setEditingId(null); }} autoFocus data-testid={`input-edit-feature-${f.id}`} />
                                   ) : (
@@ -1281,11 +1305,7 @@ function ProductBacklogPanel() {
                     return (
                       <div key={f.id} className={`border ${borderColor} rounded-lg p-3 bg-gray-900/30`} data-testid={`backlog-feature-${f.id}`}>
                         <div className="flex items-center gap-2">
-                          <CapStatusBadge status={f.status || 'built'} onClick={() => {
-                            const cycle = ['new', 'now', 'next', 'later', 'built'];
-                            const next = cycle[(cycle.indexOf(f.status || 'built') + 1) % cycle.length];
-                            moveCapStatus(f.id, next);
-                          }} />
+                          <CapStatusBadge status={f.status || 'built'} onSelect={(s) => moveCapStatus(f.id, s)} />
                           <span className="flex-1 text-xs text-gray-200 min-w-0">{f.title}</span>
                           {(voteCounts?.[f.id] || 0) > 0 && (
                             <span className="flex items-center gap-0.5 text-[10px] text-cyan-400" title={`${voteCounts?.[f.id]} vote(s)`} data-testid={`votes-backlog-${f.id}`}>
