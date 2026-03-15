@@ -5956,7 +5956,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                 <div className="space-y-0.5 mt-1">
                                   {forecast.map((b, i) => (
                                     <div key={i} className="flex items-center gap-2 text-[10px]">
-                                      <span className="text-gray-500 w-[44px] text-right shrink-0 font-mono">{fmtRelative(b)}</span>
+                                      <span className="text-gray-500 w-[44px] text-right shrink-0 font-mono">{fmtRelative(b.rollsOffAt)}</span>
                                       <span className="text-gray-400 w-[58px] shrink-0 font-mono">{fmtTime(b.rollsOffAt)}</span>
                                       <div className="flex-1 h-1.5 rounded-full bg-gray-700/40 overflow-hidden">
                                         <div className="h-full bg-green-500/60 rounded-full transition-all" style={{ width: `${maxBar > 0 ? Math.max(3, Math.round((b.count / maxBar) * 100)) : 0}%` }} />
