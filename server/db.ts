@@ -633,6 +633,11 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-30 (vision statement + capabilities table) complete.');
 
+    // Phase-31: Capability status + backlog capability link
+    await pool.query(`ALTER TABLE product_capabilities ADD COLUMN IF NOT EXISTS cap_status VARCHAR(20) NOT NULL DEFAULT 'built'`);
+    await pool.query(`ALTER TABLE product_backlog_items ADD COLUMN IF NOT EXISTS capability_id INTEGER`);
+    console.log('[Migration] Phase-31 (capability status + backlog capability link) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

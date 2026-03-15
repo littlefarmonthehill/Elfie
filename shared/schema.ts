@@ -1673,6 +1673,7 @@ export const productBacklogItems = pgTable("product_backlog_items", {
   effort: varchar("effort", { length: 10 }).notNull().default('M'),
   status: varchar("status", { length: 20 }).notNull().default('open'),
   roadmapItemId: integer("roadmap_item_id"),
+  capabilityId: integer("capability_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 export const insertProductBacklogItemSchema = createInsertSchema(productBacklogItems).omit({ id: true, createdAt: true });
@@ -1686,6 +1687,7 @@ export const productCapabilities = pgTable("product_capabilities", {
   level: integer("level").notNull().default(1),
   parentId: integer("parent_id"),
   sortOrder: integer("sort_order").notNull().default(0),
+  status: varchar("cap_status", { length: 20 }).notNull().default('built'),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 export const insertProductCapabilitySchema = createInsertSchema(productCapabilities).omit({ id: true, createdAt: true });

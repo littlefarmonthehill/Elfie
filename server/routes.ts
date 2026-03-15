@@ -2371,7 +2371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/platform-admin/product/backlog/:id', isSuperAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { title, description, priority, effort, status, roadmapItemId } = req.body;
+      const { title, description, priority, effort, status, roadmapItemId, capabilityId } = req.body;
       const updates: any = {};
       if (title !== undefined) updates.title = title;
       if (description !== undefined) updates.description = description;
@@ -2379,6 +2379,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (effort !== undefined) updates.effort = effort;
       if (status !== undefined) updates.status = status;
       if (roadmapItemId !== undefined) updates.roadmapItemId = roadmapItemId;
+      if (capabilityId !== undefined) updates.capabilityId = capabilityId;
       const [updated] = await db.update(productBacklogItems).set(updates).where(eq(productBacklogItems.id, id)).returning();
       res.json(updated);
     } catch (error: any) { res.status(500).json({ message: error.message }); }
@@ -2410,13 +2411,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/platform-admin/product/capabilities/:id', isSuperAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { title, description, level, parentId, sortOrder } = req.body;
+      const { title, description, level, parentId, sortOrder, status } = req.body;
+      const validStatuses = ['built', 'now', 'next', 'later'];
       const updates: any = {};
       if (title !== undefined) updates.title = title;
       if (description !== undefined) updates.description = description;
       if (level !== undefined) updates.level = level;
       if (parentId !== undefined) updates.parentId = parentId;
       if (sortOrder !== undefined) updates.sortOrder = sortOrder;
+      if (status !== undefined && validStatuses.includes(status)) updates.status = status;
       const [updated] = await db.update(productCapabilities).set(updates).where(eq(productCapabilities.id, id)).returning();
       res.json(updated);
     } catch (error: any) { res.status(500).json({ message: error.message }); }
@@ -2427,10 +2430,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const children = await db.select({ id: productCapabilities.id }).from(productCapabilities).where(eq(productCapabilities.parentId, id));
       const childIds = children.map(c => c.id);
+      const allIds = [id, ...childIds];
       if (childIds.length > 0) {
-        await db.delete(productCapabilities).where(inArray(productCapabilities.parentId, childIds));
+        const grandchildren = await db.select({ id: productCapabilities.id }).from(productCapabilities).where(inArray(productCapabilities.parentId, childIds));
+        const grandchildIds = grandchildren.map(c => c.id);
+        allIds.push(...grandchildIds);
+        if (grandchildIds.length > 0) {
+          await db.update(productBacklogItems).set({ capabilityId: null }).where(inArray(productBacklogItems.capabilityId, grandchildIds));
+          await db.delete(productCapabilities).where(inArray(productCapabilities.id, grandchildIds));
+        }
+        await db.update(productBacklogItems).set({ capabilityId: null }).where(inArray(productBacklogItems.capabilityId, childIds));
         await db.delete(productCapabilities).where(inArray(productCapabilities.id, childIds));
       }
+      await db.update(productBacklogItems).set({ capabilityId: null }).where(eq(productBacklogItems.capabilityId, id));
       await db.delete(productCapabilities).where(eq(productCapabilities.id, id));
       res.json({ ok: true });
     } catch (error: any) { res.status(500).json({ message: error.message }); }

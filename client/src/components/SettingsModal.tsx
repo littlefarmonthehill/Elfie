@@ -794,6 +794,21 @@ function ProductVisionPanel() {
   );
 }
 
+function CapStatusBadge({ status, onClick }: { status: string; onClick: () => void }) {
+  const styles: Record<string, string> = {
+    built: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+    now: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+    next: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    later: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+  };
+  const labels: Record<string, string> = { built: 'Built', now: 'Now', next: 'Next', later: 'Later' };
+  return (
+    <button onClick={onClick} className={`px-1.5 py-0.5 text-[9px] font-medium rounded border shrink-0 cursor-pointer ${styles[status] || styles.later}`} data-testid={`badge-status-${status}`}>
+      {labels[status] || status}
+    </button>
+  );
+}
+
 function ProductCapabilitiesPanel() {
   const { toast } = useToast();
   const { data: caps, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/capabilities'] });
@@ -808,10 +823,24 @@ function ProductCapabilitiesPanel() {
   const l2s = (caps || []).filter((c: any) => c.level === 2);
   const features = (caps || []).filter((c: any) => c.level === 3);
 
-  const addCap = async (title: string, level: number, parentId: number | null) => {
+  const statusCycle = ['built', 'now', 'next', 'later'];
+  const nextStatus = (current: string) => statusCycle[(statusCycle.indexOf(current) + 1) % statusCycle.length];
+
+  const getL2Status = (l2: any) => {
+    const children = features.filter((f: any) => f.parentId === l2.id);
+    if (children.length === 0) return l2.status || 'built';
+    const allBuilt = children.every((f: any) => (f.status || 'built') === 'built');
+    if (allBuilt) return 'built';
+    const statuses = children.map((f: any) => f.status || 'built').filter((s: string) => s !== 'built');
+    if (statuses.includes('now')) return 'now';
+    if (statuses.includes('next')) return 'next';
+    return 'later';
+  };
+
+  const addCap = async (title: string, level: number, parentId: number | null, status?: string) => {
     if (!title.trim()) return;
     try {
-      await apiRequest('POST', '/api/platform-admin/product/capabilities', { title: title.trim(), level, parentId });
+      await apiRequest('POST', '/api/platform-admin/product/capabilities', { title: title.trim(), level, parentId, status: status || 'built' });
       queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] });
     } catch (e: any) { toast({ title: 'Failed to add', description: e.message, variant: 'destructive' }); }
   };
@@ -834,11 +863,21 @@ function ProductCapabilitiesPanel() {
 
   if (isLoading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-500" /></div>;
 
+  const builtCount = (caps || []).filter((c: any) => c.level === 3 && (c.status || 'built') === 'built').length;
+  const totalFeatures = (caps || []).filter((c: any) => c.level === 3).length;
+
   return (
     <div className="space-y-4">
       <div>
         <p className="text-sm font-medium text-gray-100">Capability Map</p>
-        <p className="sm-description mt-1">Organize your product into L1 Capabilities, L2 sub-capabilities, and Features. Click a name to rename, or use the move icon to reparent.</p>
+        <p className="sm-description mt-1">Organize your product into L1 Capabilities, L2 sub-capabilities, and Features. Click feature status badges to cycle through Built / Now / Next / Later. L2 status is derived from its features.</p>
+      </div>
+      <div className="flex items-center gap-3 flex-wrap text-[10px]">
+        <span className="text-gray-400">{totalFeatures} features total</span>
+        <span className="text-emerald-400">{builtCount} built</span>
+        <span className="text-blue-400">{(caps || []).filter((c: any) => c.level === 3 && c.status === 'now').length} now</span>
+        <span className="text-amber-400">{(caps || []).filter((c: any) => c.level === 3 && c.status === 'next').length} next</span>
+        <span className="text-gray-500">{(caps || []).filter((c: any) => c.level === 3 && c.status === 'later').length} later</span>
       </div>
       <div className="flex items-center gap-2">
         <input className="flex-1 bg-black/30 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-400/50" placeholder="New L1 Capability..." value={newL1} onChange={e => setNewL1(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { addCap(newL1, 1, null); setNewL1(''); } }} data-testid="input-new-l1" />
@@ -857,11 +896,13 @@ function ProductCapabilitiesPanel() {
                 ) : (
                   <span className="flex-1 text-sm font-medium text-gray-200 cursor-pointer" onClick={() => { setEditingId(l1.id); setEditTitle(l1.title); }} data-testid={`text-l1-${l1.id}`}>{l1.title}</span>
                 )}
+                <span className="text-[9px] text-gray-500">{childL2s.reduce((n: number, l2: any) => n + features.filter((f: any) => f.parentId === l2.id && (f.status || 'built') === 'built').length, 0)}/{childL2s.reduce((n: number, l2: any) => n + features.filter((f: any) => f.parentId === l2.id).length, 0)}</span>
                 <Button size="icon" variant="ghost" onClick={() => deleteCap(l1.id)} data-testid={`button-delete-l1-${l1.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
               </div>
               <div className="px-3 py-2 space-y-2">
                 {childL2s.map((l2: any) => {
                   const childFeatures = features.filter((f: any) => f.parentId === l2.id);
+                  const derivedStatus = getL2Status(l2);
                   return (
                     <div key={l2.id} className="ml-4 border border-gray-700/50 rounded-md bg-gray-900/30">
                       <div className="flex items-center gap-2 px-2 py-1.5">
@@ -871,6 +912,8 @@ function ProductCapabilitiesPanel() {
                         ) : (
                           <span className="flex-1 text-xs font-medium text-gray-300 cursor-pointer" onClick={() => { setEditingId(l2.id); setEditTitle(l2.title); }} data-testid={`text-l2-${l2.id}`}>{l2.title}</span>
                         )}
+                        <span className={`px-1.5 py-0.5 text-[9px] font-medium rounded border shrink-0 ${derivedStatus === 'built' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : derivedStatus === 'now' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' : derivedStatus === 'next' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-gray-500/20 text-gray-400 border-gray-500/30'}`} data-testid={`badge-l2-status-${l2.id}`}>{derivedStatus === 'built' ? 'Built' : derivedStatus === 'now' ? 'Now' : derivedStatus === 'next' ? 'Next' : 'Later'}</span>
+                        <span className="text-[9px] text-gray-500">{childFeatures.filter((f: any) => (f.status || 'built') === 'built').length}/{childFeatures.length}</span>
                         <Button size="icon" variant="ghost" onClick={() => setMovingId(movingId === l2.id ? null : l2.id)} data-testid={`button-move-l2-${l2.id}`}><Share2 className="w-3 h-3 text-gray-500" /></Button>
                         <Button size="icon" variant="ghost" onClick={() => deleteCap(l2.id)} data-testid={`button-delete-l2-${l2.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
                       </div>
@@ -889,11 +932,11 @@ function ProductCapabilitiesPanel() {
                         <div className="ml-6 px-2 pb-1.5 space-y-1">
                           {childFeatures.map((f: any) => (
                             <div key={f.id} className="flex items-center gap-2 group">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                              <CapStatusBadge status={f.status || 'built'} onClick={() => updateCap(f.id, { status: nextStatus(f.status || 'built') })} />
                               {editingId === f.id ? (
                                 <input className="flex-1 bg-black/30 border border-emerald-500/30 rounded px-2 py-0.5 text-xs text-gray-300 focus:outline-none" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => updateCap(f.id, { title: editTitle })} onKeyDown={e => { if (e.key === 'Enter') updateCap(f.id, { title: editTitle }); if (e.key === 'Escape') setEditingId(null); }} autoFocus data-testid={`input-edit-cap-${f.id}`} />
                               ) : (
-                                <span className="flex-1 text-xs text-gray-400 cursor-pointer" onClick={() => { setEditingId(f.id); setEditTitle(f.title); }} data-testid={`text-feature-${f.id}`}>{f.title}</span>
+                                <span className={`flex-1 text-xs cursor-pointer ${(f.status || 'built') === 'built' ? 'text-gray-300' : 'text-gray-400'}`} onClick={() => { setEditingId(f.id); setEditTitle(f.title); }} data-testid={`text-feature-${f.id}`}>{f.title}</span>
                               )}
                               <Button size="icon" variant="ghost" className="invisible group-hover:visible" onClick={() => setMovingId(movingId === f.id ? null : f.id)} data-testid={`button-move-feature-${f.id}`}><Share2 className="w-3 h-3 text-gray-500" /></Button>
                               <Button size="icon" variant="ghost" className="invisible group-hover:visible" onClick={() => deleteCap(f.id)} data-testid={`button-delete-feature-${f.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
@@ -1219,19 +1262,24 @@ function ProductBacklogPanel() {
   const { toast } = useToast();
   const { data: items, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/backlog'] });
   const { data: roadmapItems } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/roadmap'] });
+  const { data: caps } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/capabilities'] });
   const [showAdd, setShowAdd] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newPriority, setNewPriority] = useState('medium');
   const [newEffort, setNewEffort] = useState('M');
   const [newRoadmapId, setNewRoadmapId] = useState<number | null>(null);
+  const [newCapabilityId, setNewCapabilityId] = useState<number | null>(null);
   const [filter, setFilter] = useState<'all' | 'open' | 'in-progress' | 'done'>('all');
+
+  const l1s = (caps || []).filter((c: any) => c.level === 1);
+  const l2s = (caps || []).filter((c: any) => c.level === 2);
 
   const addItem = async () => {
     if (!newTitle.trim()) return;
     try {
-      await apiRequest('POST', '/api/platform-admin/product/backlog', { title: newTitle, description: newDesc, priority: newPriority, effort: newEffort, roadmapItemId: newRoadmapId });
-      setNewTitle(''); setNewDesc(''); setNewPriority('medium'); setNewEffort('M'); setNewRoadmapId(null); setShowAdd(false);
+      await apiRequest('POST', '/api/platform-admin/product/backlog', { title: newTitle, description: newDesc, priority: newPriority, effort: newEffort, roadmapItemId: newRoadmapId, capabilityId: newCapabilityId });
+      setNewTitle(''); setNewDesc(''); setNewPriority('medium'); setNewEffort('M'); setNewRoadmapId(null); setNewCapabilityId(null); setShowAdd(false);
       queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/backlog'] });
     } catch (e: any) { toast({ title: 'Failed to add backlog item', description: e.message, variant: 'destructive' }); }
   };
@@ -1299,9 +1347,16 @@ function ProductBacklogPanel() {
               <option value="M">M</option>
               <option value="L">L</option>
             </select>
+            <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newCapabilityId ?? ''} onChange={e => setNewCapabilityId(e.target.value ? parseInt(e.target.value) : null)} data-testid="select-backlog-capability">
+              <option value="">No L2 capability</option>
+              {l2s.map((l2: any) => {
+                const parentL1 = l1s.find((p: any) => p.id === l2.parentId);
+                return <option key={l2.id} value={l2.id}>{parentL1 ? `${parentL1.title} / ` : ''}{l2.title}</option>;
+              })}
+            </select>
             {(roadmapItems || []).length > 0 && (
               <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newRoadmapId ?? ''} onChange={e => setNewRoadmapId(e.target.value ? parseInt(e.target.value) : null)} data-testid="select-backlog-roadmap">
-                <option value="">No linked capability</option>
+                <option value="">No roadmap link</option>
                 {(roadmapItems || []).map((r: any) => <option key={r.id} value={r.id}>{r.title}</option>)}
               </select>
             )}
@@ -1320,6 +1375,8 @@ function ProductBacklogPanel() {
         <div className="space-y-1.5">
           {sorted.map((item: any) => {
             const linkedRoadmap = (roadmapItems || []).find((r: any) => r.id === item.roadmapItemId);
+            const linkedCap = l2s.find((c: any) => c.id === item.capabilityId);
+            const linkedCapParent = linkedCap ? l1s.find((p: any) => p.id === linkedCap.parentId) : null;
             const priorityColor = item.priority === 'high' ? 'text-red-400 border-red-500/30' : item.priority === 'medium' ? 'text-amber-400 border-amber-500/30' : 'text-gray-400 border-gray-600';
             const statusColor = item.status === 'done' ? 'text-green-400 border-green-500/30' : item.status === 'in-progress' ? 'text-blue-400 border-blue-500/30' : 'text-gray-400 border-gray-600';
             return (
@@ -1332,9 +1389,16 @@ function ProductBacklogPanel() {
                       <p className="text-xs font-medium text-gray-200">{item.title}</p>
                     </div>
                     {item.description && <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-1">{item.description}</p>}
-                    {linkedRoadmap && <Badge variant="outline" className="text-[9px] text-violet-400/60 border-violet-500/20 mt-1">{linkedRoadmap.title}</Badge>}
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      {linkedCap && <Badge variant="outline" className="text-[9px] text-blue-400/60 border-blue-500/20">{linkedCapParent ? `${linkedCapParent.title} / ` : ''}{linkedCap.title}</Badge>}
+                      {linkedRoadmap && <Badge variant="outline" className="text-[9px] text-violet-400/60 border-violet-500/20">{linkedRoadmap.title}</Badge>}
+                    </div>
                   </div>
                   <div className="flex items-center gap-1">
+                    <select value={item.capabilityId ?? ''} onChange={e => { const val = e.target.value ? parseInt(e.target.value) : null; apiRequest('PATCH', `/api/platform-admin/product/backlog/${item.id}`, { capabilityId: val }).then(() => queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/backlog'] })); }} className="bg-transparent border border-gray-700 rounded text-[10px] text-gray-500 px-1 py-0.5 focus:outline-none max-w-[100px]" data-testid={`select-capability-${item.id}`}>
+                      <option value="">L2</option>
+                      {l2s.map((l2: any) => <option key={l2.id} value={l2.id}>{l2.title}</option>)}
+                    </select>
                     <select value={item.status} onChange={e => updateStatus(item.id, e.target.value)} className={`bg-transparent border rounded text-[10px] px-1.5 py-0.5 focus:outline-none ${statusColor}`} data-testid={`select-status-${item.id}`}>
                       <option value="open">Open</option>
                       <option value="in-progress">In Progress</option>
