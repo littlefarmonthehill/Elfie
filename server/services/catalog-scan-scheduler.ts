@@ -154,7 +154,7 @@ export async function runCatalogScan(): Promise<CatalogScanResult> {
       .leftJoin(priceGuideCache, and(
         eq(blInventory.itemNo, priceGuideCache.itemNo),
         eq(blInventory.itemType, priceGuideCache.itemType),
-        sql`COALESCE(${blInventory.colorId}, -1) = ${priceGuideCache.colorId}`,
+        sql`CASE WHEN COALESCE(${blInventory.colorId}, 0) = 0 THEN ${priceGuideCache.colorId} IN (0, -1) ELSE ${blInventory.colorId} = ${priceGuideCache.colorId} END`,
         sql`${blInventory.newOrUsed} = ${priceGuideCache.newOrUsed}`,
       ))
       .where(and(quantityFilter, isNull(priceGuideCache.id)));
@@ -166,7 +166,7 @@ export async function runCatalogScan(): Promise<CatalogScanResult> {
       .innerJoin(priceGuideCache, and(
         eq(blInventory.itemNo, priceGuideCache.itemNo),
         eq(blInventory.itemType, priceGuideCache.itemType),
-        sql`COALESCE(${blInventory.colorId}, -1) = ${priceGuideCache.colorId}`,
+        sql`CASE WHEN COALESCE(${blInventory.colorId}, 0) = 0 THEN ${priceGuideCache.colorId} IN (0, -1) ELSE ${blInventory.colorId} = ${priceGuideCache.colorId} END`,
         sql`${blInventory.newOrUsed} = ${priceGuideCache.newOrUsed}`,
       ))
       .where(and(quantityFilter, lt(priceGuideCache.fetchedAt, pomStaleThreshold)));
