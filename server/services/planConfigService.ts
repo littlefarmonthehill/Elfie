@@ -45,6 +45,7 @@ export async function seedPlanConfigsIfEmpty() {
       limitBusinessIntel: config.limits.businessIntel,
       featureBrickOwl: config.features.brickOwl,
       featureElfieAi: config.features.elfieAiMode,
+      featureElfieCustom: config.features.elfieCustom,
       featurePriceOMatic: config.features.priceOMatic,
       featureEasypost: config.features.easypostAutomation,
       featureDataImages: config.features.dataEnrichmentImages,
@@ -147,6 +148,7 @@ export function dbPlanToFeatures(plan: PlanConfig) {
   return {
     brickOwl: plan.featureBrickOwl,
     elfieAiMode: plan.featureElfieAi,
+    elfieCustom: plan.featureElfieCustom,
     priceOMatic: plan.featurePriceOMatic,
     easypostAutomation: plan.featureEasypost,
     dataEnrichmentImages: plan.featureDataImages,

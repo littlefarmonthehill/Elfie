@@ -1536,7 +1536,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     limitSeats: number; limitScans: number; limitAutomationRules: number;
     limitOrderHistoryDays: number; limitInventoryItems: number;
     limitOrders: number; limitElfieQueries: number; limitBusinessIntel: number;
-    featureBrickOwl: boolean; featureElfieAi: boolean; featurePriceOMatic: boolean;
+    featureBrickOwl: boolean; featureElfieAi: boolean; featureElfieCustom: boolean; featurePriceOMatic: boolean;
     featureEasypost: boolean; featureDataImages: boolean; featureDataSemantic: boolean;
     featureFullEnrichment: boolean; featurePaymentSync: boolean;
     isSunset: boolean; sortOrder: number; updatedAt: string; orgCount: number;
@@ -2708,7 +2708,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 const tier = getTierConfig(org?.plan ?? 'trial');
                 const fo = (org?.featureOverrides ?? {}) as Record<string, boolean>;
                 const FEATURE_ROWS: Array<{ key: string | null; tierKey: keyof typeof tier.features | null; label: string; icon: React.ElementType }> = [
-                  { key: 'elfieAiMode',      tierKey: 'elfieAiMode',        label: 'E.L.F.I.E. AI Mode',    icon: Brain },
+                  { key: 'elfieAiMode',      tierKey: 'elfieAiMode',        label: 'E.L.F.I.E. AI (Default)', icon: Brain },
+                  { key: 'elfieCustom',      tierKey: 'elfieCustom',        label: 'E.L.F.I.E. AI (Customized)', icon: Brain },
                   { key: 'pom',              tierKey: 'priceOMatic',         label: 'Price-o-Matic',          icon: TrendingUp },
                   { key: 'dataEnrichment',   tierKey: 'fullDataEnrichment',  label: 'Data Enrichment',        icon: Database },
                   { key: 'brickSpotter',     tierKey: null,                  label: 'BrickSpotter Scanning',  icon: Zap },
@@ -3262,7 +3263,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     {[
                       { feature: 'BrickLink Sync', foundation: true, core: true },
                       { feature: 'BrickOwl Sync', foundation: false, core: true },
-                      { feature: 'E.L.F.I.E. AI Mode', foundation: false, core: true },
+                      { feature: 'E.L.F.I.E. AI (Default)', foundation: true, core: true },
+                      { feature: 'E.L.F.I.E. AI (Customized)', foundation: false, core: true },
                       { feature: 'Price-o-Matic', foundation: false, core: true },
                       { feature: 'Auto-Shipping Rules', foundation: false, core: true },
                       { feature: 'Unlimited Scans', foundation: false, core: true },
@@ -4272,6 +4274,25 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       )}
                     </div>
 
+                    {(() => {
+                      const tier = getTierConfig(org?.plan ?? 'trial');
+                      const fo = (org?.featureOverrides ?? {}) as Record<string, boolean>;
+                      const hasElfieCustom = fo['elfieCustom'] !== undefined ? fo['elfieCustom'] : tier.features.elfieCustom;
+                      if (!hasElfieCustom) return (
+                        <div className="rounded-lg bg-gray-800/40 border border-gray-700/50 p-4 text-center space-y-2">
+                          <Lock className="h-5 w-5 text-gray-600 mx-auto" />
+                          <p className="text-xs text-gray-400">Custom prompts & conversation-based tuning are available on <strong className="text-gray-200">Core</strong> and <strong className="text-gray-200">Flagship</strong> plans.</p>
+                          <p className="text-[10px] text-gray-600">Upgrade your plan to personalize E.L.F.I.E. for your business.</p>
+                        </div>
+                      );
+                      return null;
+                    })()}
+                    {(() => {
+                      const tier = getTierConfig(org?.plan ?? 'trial');
+                      const fo = (org?.featureOverrides ?? {}) as Record<string, boolean>;
+                      const hasElfieCustom = fo['elfieCustom'] !== undefined ? fo['elfieCustom'] : tier.features.elfieCustom;
+                      if (!hasElfieCustom) return null;
+                      return (<>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <div className="flex items-center gap-1.5">
@@ -4460,6 +4481,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         </div>
                       )}
                     </div>
+                      </>);
+                    })()}
 
                     <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
                       <p className="text-xs text-purple-300">
@@ -5295,7 +5318,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           label: string;
                           icon: React.ElementType;
                         }> = [
-                          { overrideKey: 'elfieAiMode',      tierFeatureKey: 'elfieAiMode',        label: 'E.L.F.I.E. AI Mode',    icon: Brain },
+                          { overrideKey: 'elfieAiMode',      tierFeatureKey: 'elfieAiMode',        label: 'E.L.F.I.E. AI (Default)', icon: Brain },
+                          { overrideKey: 'elfieCustom',      tierFeatureKey: 'elfieCustom',        label: 'E.L.F.I.E. AI (Customized)', icon: Brain },
                           { overrideKey: 'pom',              tierFeatureKey: 'priceOMatic',         label: 'Price-o-Matic',          icon: TrendingUp },
                           { overrideKey: 'dataEnrichment',   tierFeatureKey: 'fullDataEnrichment',  label: 'Data Enrichment',        icon: Database },
                           { overrideKey: 'brickSpotter',     tierFeatureKey: null,                  label: 'BrickSpotter Scanning',  icon: Zap },
@@ -6684,7 +6708,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 { key: 'featurePaymentSync', label: 'Payment Sync' },
                 { key: 'featurePriceOMatic', label: 'Price-o-Matic' },
                 { key: 'featureBrickOwl', label: 'BrickOwl' },
-                { key: 'featureElfieAi', label: 'E.L.F.I.E. AI' },
+                { key: 'featureElfieAi', label: 'E.L.F.I.E. AI (Default)' },
+                { key: 'featureElfieCustom', label: 'E.L.F.I.E. AI (Customized)' },
                 { key: 'featureDataImages', label: 'Image Enrichment' },
                 { key: 'featureDataSemantic', label: 'Semantic Enrichment' },
                 { key: 'featureFullEnrichment', label: 'Full Enrichment' },

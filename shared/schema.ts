@@ -1562,6 +1562,7 @@ export const planConfigs = pgTable("plan_configs", {
   // Features
   featureBrickOwl: boolean("feature_brick_owl").notNull().default(false),
   featureElfieAi: boolean("feature_elfie_ai").notNull().default(false),
+  featureElfieCustom: boolean("feature_elfie_custom").notNull().default(false),
   featurePriceOMatic: boolean("feature_price_o_matic").notNull().default(false),
   featureEasypost: boolean("feature_easypost").notNull().default(false),
   featureDataImages: boolean("feature_data_images").notNull().default(false),

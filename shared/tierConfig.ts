@@ -14,6 +14,7 @@ export interface TierLimits {
 export interface TierFeatures {
   brickOwl: boolean;
   elfieAiMode: boolean;
+  elfieCustom: boolean;
   priceOMatic: boolean;
   easypostAutomation: boolean;
   dataEnrichmentImages: boolean;
@@ -57,6 +58,7 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
     features: {
       brickOwl: false,
       elfieAiMode: true,
+      elfieCustom: false,
       priceOMatic: false,
       easypostAutomation: false,
       dataEnrichmentImages: true,
@@ -87,6 +89,7 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
     features: {
       brickOwl: false,
       elfieAiMode: true,
+      elfieCustom: false,
       priceOMatic: true,
       easypostAutomation: false,
       dataEnrichmentImages: true,
@@ -117,6 +120,7 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
     features: {
       brickOwl: true,
       elfieAiMode: true,
+      elfieCustom: true,
       priceOMatic: true,
       easypostAutomation: true,
       dataEnrichmentImages: true,
@@ -147,6 +151,7 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
     features: {
       brickOwl: true,
       elfieAiMode: true,
+      elfieCustom: true,
       priceOMatic: true,
       easypostAutomation: true,
       dataEnrichmentImages: true,
