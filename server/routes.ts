@@ -1214,19 +1214,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(gte(blApiCalls.timestamp, twentyFourHoursAgoCov));
       catalogCoverage.apiBudget.used24h = Number(apiUsageRow?.count) || 0;
 
-      const expiryBuckets = await db.execute(sql`
-        SELECT
-          date_trunc('hour', timestamp + INTERVAL '24 hours') AS expires_at,
-          COUNT(*)::int AS calls_expiring
-        FROM bl_api_calls
-        WHERE timestamp >= NOW() - INTERVAL '24 hours'
-        GROUP BY 1
-        ORDER BY 1
-      `);
-      (catalogCoverage.apiBudget as any).expiryBuckets = (expiryBuckets.rows as any[]).map(r => ({
-        expiresAt: r.expires_at,
-        count: Number(r.calls_expiring),
-      }));
 
       const { getActiveBuild } = await import('./services/clip-search.js');
       const clipBuild = getActiveBuild();
