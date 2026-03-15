@@ -1558,7 +1558,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hourlyBuckets,
         perOrg: perOrgRows.map(r => ({ orgId: r.orgId, calls: Number(r.calls) })),
         topEndpoints: recentEndpoints.map(r => ({ endpoint: r.endpoint, calls: Number(r.calls) })),
-        ceiling: 5000,
+        ceiling: await (async () => {
+          try {
+            const [ps] = await db
+              .select({ blApiCallLimit: appSettings.blApiCallLimit })
+              .from(appSettings)
+              .where(eq(appSettings.id, PLATFORM_ORG_ID))
+              .limit(1);
+            return ps?.blApiCallLimit ?? 5000;
+          } catch { return 5000; }
+        })(),
       });
     } catch (error) {
       console.error("Error fetching platform BL API usage:", error);
