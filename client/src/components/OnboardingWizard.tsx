@@ -413,7 +413,7 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                 <div className="app-card p-3 mb-2 space-y-2">
                   <div className="flex items-center gap-2">
                     <Smartphone className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                    <p className="text-xs font-medium text-gray-300">Add PlanetBrick to your home screen</p>
+                    <p className="text-xs font-medium text-gray-300">Add E.L.F.I.E. to your home screen</p>
                   </div>
                   {installStatus === 'promptable' ? (
                     <div className="flex items-center justify-between gap-3">

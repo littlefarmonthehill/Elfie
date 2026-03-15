@@ -50,7 +50,7 @@ function partImageUrl(partNo: string): string {
 /** Fetch a gzipped URL and return the decompressed text. */
 function fetchGzipped(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'User-Agent': 'PlanetBrick-Catalog-Builder/1.0' } }, (res) => {
+    https.get(url, { headers: { 'User-Agent': 'ELFIE-Catalog-Builder/1.0' } }, (res) => {
       if (res.statusCode !== 200) {
         res.resume();
         return reject(new Error(`HTTP ${res.statusCode} fetching ${url}`));

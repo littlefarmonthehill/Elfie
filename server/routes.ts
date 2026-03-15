@@ -47,7 +47,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, planConfigs, PLATFORM_ORG_ID } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, planConfigs, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -2194,6 +2194,173 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
+  });
+
+  // ─── Product Management routes (superAdmin only) ────────────────────────────
+
+  // Vision of Success
+  app.get('/api/platform-admin/product/vision', isSuperAdmin, async (_req, res) => {
+    try {
+      const [vision] = await db.select().from(productVision).limit(1);
+      res.json(vision || { id: null, whatChanges: '', howIFeel: '', whatPeopleSay: '' });
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.put('/api/platform-admin/product/vision', isSuperAdmin, async (req, res) => {
+    try {
+      const { whatChanges, howIFeel, whatPeopleSay } = req.body;
+      const [existing] = await db.select().from(productVision).limit(1);
+      if (existing) {
+        const [updated] = await db.update(productVision).set({ whatChanges, howIFeel, whatPeopleSay, updatedAt: new Date() }).where(eq(productVision.id, existing.id)).returning();
+        res.json(updated);
+      } else {
+        const [created] = await db.insert(productVision).values({ whatChanges, howIFeel, whatPeopleSay }).returning();
+        res.json(created);
+      }
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  // OKRs
+  app.get('/api/platform-admin/product/okrs', isSuperAdmin, async (_req, res) => {
+    try {
+      const okrs = await db.select().from(productOkrs).orderBy(desc(productOkrs.createdAt));
+      const krs = await db.select().from(productKeyResults).orderBy(asc(productKeyResults.id));
+      const result = okrs.map(o => ({ ...o, keyResults: krs.filter(k => k.okrId === o.id) }));
+      res.json(result);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.post('/api/platform-admin/product/okrs', isSuperAdmin, async (req, res) => {
+    try {
+      const parsed = insertProductOkrSchema.parse(req.body);
+      const [okr] = await db.insert(productOkrs).values(parsed).returning();
+      res.json({ ...okr, keyResults: [] });
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.patch('/api/platform-admin/product/okrs/:id', isSuperAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { title, timeframe, status } = req.body;
+      const updates: any = {};
+      if (title !== undefined) updates.title = title;
+      if (timeframe !== undefined) updates.timeframe = timeframe;
+      if (status !== undefined) updates.status = status;
+      const [updated] = await db.update(productOkrs).set(updates).where(eq(productOkrs.id, id)).returning();
+      res.json(updated);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.delete('/api/platform-admin/product/okrs/:id', isSuperAdmin, async (req, res) => {
+    try {
+      await db.delete(productOkrs).where(eq(productOkrs.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  // Key Results
+  app.post('/api/platform-admin/product/key-results', isSuperAdmin, async (req, res) => {
+    try {
+      const parsed = insertProductKeyResultSchema.parse(req.body);
+      const [kr] = await db.insert(productKeyResults).values(parsed).returning();
+      res.json(kr);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.patch('/api/platform-admin/product/key-results/:id', isSuperAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { title, progress } = req.body;
+      const updates: any = {};
+      if (title !== undefined) updates.title = title;
+      if (progress !== undefined) updates.progress = Math.max(0, Math.min(100, progress));
+      const [updated] = await db.update(productKeyResults).set(updates).where(eq(productKeyResults.id, id)).returning();
+      res.json(updated);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.delete('/api/platform-admin/product/key-results/:id', isSuperAdmin, async (req, res) => {
+    try {
+      await db.delete(productKeyResults).where(eq(productKeyResults.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  // Roadmap Items
+  app.get('/api/platform-admin/product/roadmap', isSuperAdmin, async (_req, res) => {
+    try {
+      const items = await db.select().from(productRoadmapItems).orderBy(asc(productRoadmapItems.createdAt));
+      res.json(items);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.post('/api/platform-admin/product/roadmap', isSuperAdmin, async (req, res) => {
+    try {
+      const parsed = insertProductRoadmapItemSchema.parse(req.body);
+      const [item] = await db.insert(productRoadmapItems).values(parsed).returning();
+      res.json(item);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.patch('/api/platform-admin/product/roadmap/:id', isSuperAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { title, description, lane, okrId, targetDate } = req.body;
+      const updates: any = {};
+      if (title !== undefined) updates.title = title;
+      if (description !== undefined) updates.description = description;
+      if (lane !== undefined) updates.lane = lane;
+      if (okrId !== undefined) updates.okrId = okrId;
+      if (targetDate !== undefined) updates.targetDate = targetDate ? new Date(targetDate) : null;
+      const [updated] = await db.update(productRoadmapItems).set(updates).where(eq(productRoadmapItems.id, id)).returning();
+      res.json(updated);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.delete('/api/platform-admin/product/roadmap/:id', isSuperAdmin, async (req, res) => {
+    try {
+      await db.delete(productRoadmapItems).where(eq(productRoadmapItems.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  // Backlog Items
+  app.get('/api/platform-admin/product/backlog', isSuperAdmin, async (_req, res) => {
+    try {
+      const items = await db.select().from(productBacklogItems).orderBy(desc(productBacklogItems.createdAt));
+      res.json(items);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.post('/api/platform-admin/product/backlog', isSuperAdmin, async (req, res) => {
+    try {
+      const parsed = insertProductBacklogItemSchema.parse(req.body);
+      const [item] = await db.insert(productBacklogItems).values(parsed).returning();
+      res.json(item);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.patch('/api/platform-admin/product/backlog/:id', isSuperAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { title, description, priority, effort, status, roadmapItemId } = req.body;
+      const updates: any = {};
+      if (title !== undefined) updates.title = title;
+      if (description !== undefined) updates.description = description;
+      if (priority !== undefined) updates.priority = priority;
+      if (effort !== undefined) updates.effort = effort;
+      if (status !== undefined) updates.status = status;
+      if (roadmapItemId !== undefined) updates.roadmapItemId = roadmapItemId;
+      const [updated] = await db.update(productBacklogItems).set(updates).where(eq(productBacklogItems.id, id)).returning();
+      res.json(updated);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.delete('/api/platform-admin/product/backlog/:id', isSuperAdmin, async (req, res) => {
+    try {
+      await db.delete(productBacklogItems).where(eq(productBacklogItems.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
   });
 
   // ─── Billing routes ──────────────────────────────────────────────────────────
@@ -4450,7 +4617,7 @@ Be direct — no filler, no generic "the community is discussing..." phrasing. W
   });
 
   app.get("/api/elfie-default-prompt", isApproved, async (_req, res) => {
-    const prompt = `You are E.L.F.I.E. (Expert LEGO Fulfillment & Inventory Engine) — the business brain behind PlanetBrick, a LEGO-exclusive parts reseller serving AFOLs (Adult Fans of LEGO). You have direct database access to everything: inventory, orders, pricing, customers, sales history.
+    const prompt = `You are E.L.F.I.E. (Electronic Lifeform For Intelligent Elements) — the business brain behind E.L.F.I.E., a LEGO-exclusive parts reseller platform serving AFOLs (Adult Fans of LEGO). You have direct database access to everything: inventory, orders, pricing, customers, sales history.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 WHO YOU ARE
@@ -4515,7 +4682,7 @@ STRUCTURE GUIDANCE:
 THE BUSINESS YOU'RE RUNNING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-PlanetBrick is LEGO-exclusive parts only — no sets for kids, no competing brands (K'NEX, Mega Construx, etc.). The customers are adult builders: MOC creators, custom project builders, collectors who care deeply about specific colors, rare pieces, and bulk availability.
+E.L.F.I.E. is LEGO-exclusive parts only — no sets for kids, no competing brands (K'NEX, Mega Construx, etc.). The customers are adult builders: MOC creators, custom project builders, collectors who care deeply about specific colors, rare pieces, and bulk availability.
 
 This means:
 - Color precision matters. Dark Bluish Gray and Medium Bluish Gray are completely different products to an AFOL.
@@ -4541,10 +4708,10 @@ Always ground your answers in actual tool and database results.
 When suggesting follow-up questions, format each as: **PROMPT:** "Your complete question here"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PLANETBRICK PLATFORM — FEATURES & TOOLS
+E.L.F.I.E. PLATFORM — FEATURES & TOOLS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-You live inside PlanetBrick, a full business operations platform. When users ask "what can you do?", "what is X?", or "how do I do Y?", you should know about all of these features. You cannot open these screens directly — but you can explain what they do and guide the user to them.
+You live inside E.L.F.I.E., a full business operations platform. When users ask "what can you do?", "what is X?", or "how do I do Y?", you should know about all of these features. You cannot open these screens directly — but you can explain what they do and guide the user to them.
 
 **Main Tabs:**
 - **Dashboard** — High-level business overview: revenue, orders, top parts, recent activity.
@@ -4576,7 +4743,7 @@ You are the AI assistant accessible via the chat drawer (the robot icon). You ca
 The gear icon opens Settings where users can configure BrickLink/BrickOwl API credentials, shipping providers, sync schedules, Price-o-Matic scoring weights, and more. Super admins have access to Platform Admin for managing plans, API budgets, database maintenance, and multi-org management.
 
 **Multi-Platform Sync:**
-PlanetBrick syncs inventory across BrickLink and BrickOwl. Changes made on either platform are reflected in PlanetBrick. Orders from both platforms are tracked in a unified view.`;
+E.L.F.I.E. syncs inventory across BrickLink and BrickOwl. Changes made on either platform are reflected in E.L.F.I.E. Orders from both platforms are tracked in a unified view.`;
     res.json({ prompt });
   });
 
@@ -4630,18 +4797,18 @@ PlanetBrick syncs inventory across BrickLink and BrickOwl. Changes made on eithe
       const { getOpenAIClient } = await import('./services/ai-agent');
       const openai = getOpenAIClient();
 
-      const defaultPromptBlock = `You are E.L.F.I.E. (Expert LEGO Fulfillment & Inventory Engine) — the business brain behind PlanetBrick, a LEGO-exclusive parts reseller serving AFOLs (Adult Fans of LEGO). You have direct database access to everything: inventory, orders, pricing, customers, sales history.
+      const defaultPromptBlock = `You are E.L.F.I.E. (Electronic Lifeform For Intelligent Elements) — the business brain behind E.L.F.I.E., a LEGO-exclusive parts reseller platform serving AFOLs (Adult Fans of LEGO). You have direct database access to everything: inventory, orders, pricing, customers, sales history.
 
 You are a trusted business partner who understands the economics of reselling, the AFOL market, and what it takes to run a profitable parts operation. You are calm, direct, and honest. You have opinions formed from data.
 
-PlanetBrick is LEGO-exclusive parts only. The customers are adult builders: MOC creators, custom project builders, collectors who care deeply about specific colors, rare pieces, and bulk availability. Color precision matters. Breadth of inventory signals credibility. Pricing needs to reflect market reality.`;
+E.L.F.I.E. is LEGO-exclusive parts only. The customers are adult builders: MOC creators, custom project builders, collectors who care deeply about specific colors, rare pieces, and bulk availability. Color precision matters. Breadth of inventory signals credibility. Pricing needs to reflect market reality.`;
 
       const analysis = await openai.chat.completions.create({
         model: 'gpt-4o',
         messages: [
           {
             role: 'system',
-            content: `You are a prompt engineering expert. You're analyzing an AI assistant called E.L.F.I.E. that helps run a LEGO parts reselling business on PlanetBrick.
+            content: `You are a prompt engineering expert. You're analyzing an AI assistant called E.L.F.I.E. that helps run a LEGO parts reselling business on E.L.F.I.E..
 
 You have THREE inputs:
 1. The HARDCODED DEFAULT PROMPT — the built-in personality and behavior instructions E.L.F.I.E. uses by default
@@ -4762,7 +4929,7 @@ ${transcript}`
         day: 'numeric' 
       });
       
-      const defaultSystemPrompt = `You are E.L.F.I.E. (Expert LEGO Fulfillment & Inventory Engine) — the business brain behind PlanetBrick, a LEGO-exclusive parts reseller serving AFOLs (Adult Fans of LEGO). You have direct database access to everything: inventory, orders, pricing, customers, sales history.
+      const defaultSystemPrompt = `You are E.L.F.I.E. (Electronic Lifeform For Intelligent Elements) — the business brain behind E.L.F.I.E., a LEGO-exclusive parts reseller platform serving AFOLs (Adult Fans of LEGO). You have direct database access to everything: inventory, orders, pricing, customers, sales history.
 
 Today's date: ${currentDate}
 Current context: ${context}
@@ -4831,7 +4998,7 @@ STRUCTURE GUIDANCE:
 THE BUSINESS YOU'RE RUNNING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-PlanetBrick is LEGO-exclusive parts only — no sets for kids, no competing brands (K'NEX, Mega Construx, etc.). The customers are adult builders: MOC creators, custom project builders, collectors who care deeply about specific colors, rare pieces, and bulk availability.
+E.L.F.I.E. is LEGO-exclusive parts only — no sets for kids, no competing brands (K'NEX, Mega Construx, etc.). The customers are adult builders: MOC creators, custom project builders, collectors who care deeply about specific colors, rare pieces, and bulk availability.
 
 This means:
 - Color precision matters. Dark Bluish Gray and Medium Bluish Gray are completely different products to an AFOL.
@@ -4857,10 +5024,10 @@ Always ground your answers in actual tool and database results.
 When suggesting follow-up questions, format each as: **PROMPT:** "Your complete question here"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PLANETBRICK PLATFORM — FEATURES & TOOLS
+E.L.F.I.E. PLATFORM — FEATURES & TOOLS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-You live inside PlanetBrick, a full business operations platform. When users ask "what can you do?", "what is X?", or "how do I do Y?", you should know about all of these features. You cannot open these screens directly — but you can explain what they do and guide the user to them.
+You live inside E.L.F.I.E., a full business operations platform. When users ask "what can you do?", "what is X?", or "how do I do Y?", you should know about all of these features. You cannot open these screens directly — but you can explain what they do and guide the user to them.
 
 **Navigation:** The app has five main tabs across the top:
 - **Ops Central** — The main dashboard / launchpad. Shows headline metrics (total inventory value, open orders, recent sales), urgent alerts, running background jobs, and quick-action cards that jump to each section.
@@ -4892,7 +5059,7 @@ You are the AI assistant accessible via the chat drawer (the robot icon). You ca
 The gear icon opens Settings where users can configure BrickLink/BrickOwl API credentials, shipping providers, sync schedules, Price-o-Matic scoring weights, and more. Super admins have access to Platform Admin for managing plans, API budgets, database maintenance, and multi-org management.
 
 **Multi-Platform Sync:**
-PlanetBrick syncs inventory across BrickLink and BrickOwl. Changes made on either platform are reflected in PlanetBrick. Orders from both platforms are tracked in a unified view.`;
+E.L.F.I.E. syncs inventory across BrickLink and BrickOwl. Changes made on either platform are reflected in E.L.F.I.E. Orders from both platforms are tracked in a unified view.`;
 
       // Enhanced system prompt for function calling capabilities
       const enhancedDefaultPrompt = `${defaultSystemPrompt}
@@ -12747,7 +12914,7 @@ Return ONLY a JSON array, no markdown, no explanation.`;
       };
       const typeLabel = typeLabels[type] ?? "Enhancement";
 
-      const systemPrompt = `You are E.L.F.I.E., the AI assistant for PlanetBrick, a LEGO reselling business operations platform.
+      const systemPrompt = `You are E.L.F.I.E., the AI assistant for E.L.F.I.E. (Electronic Lifeform For Intelligent Elements), a LEGO reselling business operations platform.
 Your job is to take a user's raw app feedback and refine it into a clear, structured request that can be handed to a developer.
 Write everything in plain English that a non-technical business owner can understand.
 Your response MUST be valid JSON with these exact keys: title, refinedDescription, acceptanceCriteria.

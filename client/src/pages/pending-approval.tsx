@@ -48,7 +48,7 @@ export default function PendingApproval() {
                 <div className="relative">
                   <img 
                     src={logoUrl} 
-                    alt="PlanetBrick.com" 
+                    alt="E.L.F.I.E." 
                     className="w-full max-w-[180px] md:max-w-xs h-auto drop-shadow-2xl"
                   />
                   {/* Glow effect behind logo */}

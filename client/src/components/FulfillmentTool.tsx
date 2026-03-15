@@ -963,7 +963,7 @@ export default function FulfillmentTool() {
                   You are about to ship {shippableCount} order{shippableCount !== 1 ? 's' : ''}.
                 </p>
                 <p className="text-sm text-purple-300">
-                  Each order will be marked as shipped in PlanetBrick and the shipped status will be sent to the marketplace channel (BrickLink / BrickOwl).
+                  Each order will be marked as shipped in E.L.F.I.E. and the shipped status will be sent to the marketplace channel (BrickLink / BrickOwl).
                 </p>
               </AlertDescription>
             </Alert>

@@ -56,7 +56,7 @@ const GROUPS: DashboardGroup[] = [
 
 function formatForAgent(issue: SyncIssue): string {
   const group = GROUPS.find(g => g.syncTypes.includes(issue.syncType));
-  let text = `PlanetBrick Issue Report\n`;
+  let text = `E.L.F.I.E. Issue Report\n`;
   text += `Dashboard: ${group?.label ?? "Unknown"}\n`;
   text += `Capability: ${issue.syncType.replace(/_/g, " ")}\n`;
   text += `Issue Type: ${issue.issueType.replace(/_/g, " ")}\n`;

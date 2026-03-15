@@ -71,7 +71,7 @@ export default function Header({ onSettingsClick, onElfieClick, supportNotificat
       }
       if (notifPermission === 'granted' && document.hidden) {
         try {
-          new Notification('PlanetBrick Support', {
+          new Notification('E.L.F.I.E. Support', {
             body: `${current} open support ticket${current !== 1 ? 's' : ''} waiting`,
             icon: elfieRobot,
             tag: 'support-queue',
@@ -140,7 +140,7 @@ export default function Header({ onSettingsClick, onElfieClick, supportNotificat
 
         {/* App Name - Centered */}
         <h1 className="absolute left-1/2 transform -translate-x-1/2 text-base md:text-2xl lg:text-3xl font-bold text-foreground">
-          {org?.name ?? 'PlanetBrick'}
+          {org?.name ?? 'E.L.F.I.E.'}
         </h1>
 
         {/* Settings - Right */}

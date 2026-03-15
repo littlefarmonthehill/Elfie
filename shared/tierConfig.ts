@@ -44,7 +44,7 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
   trial: {
     id: 'trial',
     name: 'Free Trial',
-    tagline: '14 days to explore PlanetBrick',
+    tagline: '14 days to explore E.L.F.I.E.',
     trialDurationDays: 14,
     limits: {
       seats: 1,

@@ -54,7 +54,7 @@ export default function EmployeeWelcome({ user, orgName, onComplete }: Props) {
             Welcome to {orgName}
           </h1>
           <p className="text-sm text-gray-400">
-            Hi {user.firstName || "there"}! You're all set to start using PlanetBrick with your team.
+            Hi {user.firstName || "there"}! You're all set to start using E.L.F.I.E. with your team.
           </p>
         </div>
 
@@ -73,7 +73,7 @@ export default function EmployeeWelcome({ user, orgName, onComplete }: Props) {
             <div className="bg-gray-800/50 border border-gray-700/50 rounded-lg p-3 space-y-2">
               <div className="flex items-center gap-2">
                 <Smartphone className="w-4 h-4 text-blue-400 flex-shrink-0" />
-                <p className="text-xs font-medium text-gray-300">Add PlanetBrick to your home screen</p>
+                <p className="text-xs font-medium text-gray-300">Add E.L.F.I.E. to your home screen</p>
               </div>
               {installStatus === "promptable" ? (
                 <div className="flex items-center justify-between gap-3">

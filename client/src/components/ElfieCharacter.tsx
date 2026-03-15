@@ -161,7 +161,7 @@ export function ElfieCharacter({ onAnimationComplete, isClosing = false, isResti
 function FloatingElfie({ isResting }: { isResting: boolean }) {
   return (
     <>
-      {/* PlanetBrick trademarked robot character */}
+      {/* E.L.F.I.E. robot character */}
       <svg
         width="100"
         height="120"

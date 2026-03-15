@@ -212,7 +212,7 @@ export default function PlatformAdmin() {
             </Link>
             <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
               <ShieldCheck className="w-8 h-8 text-primary" />
-              PlanetBrick Platform Admin
+              E.L.F.I.E. Platform Admin
             </h1>
           </div>
         </div>

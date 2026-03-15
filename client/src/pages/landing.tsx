@@ -136,7 +136,7 @@ const GLOBAL_CSS = `
 function HomeScreen({ tune }: { tune: (id: ChId) => void }) {
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(18px,2.5vw,36px) clamp(22px,3vw,44px)", color: "#E8F4FF", animation: "pb-slidein 0.3s ease-out" }}>
-      <img src={logoUrl} alt="PlanetBrick" style={{ height: "clamp(22px,2.8vw,34px)", width: "auto", objectFit: "contain", objectPosition: "left", marginBottom: "clamp(10px,1.8vw,18px)", opacity: 0.95 }} />
+      <img src={logoUrl} alt="E.L.F.I.E." style={{ height: "clamp(22px,2.8vw,34px)", width: "auto", objectFit: "contain", objectPosition: "left", marginBottom: "clamp(10px,1.8vw,18px)", opacity: 0.95 }} />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
         <div style={{ fontSize: "clamp(8px,0.75vw,11px)", fontFamily: "monospace", color: TEAL, letterSpacing: "0.35em", marginBottom: "10px", textTransform: "uppercase" }}>
           ▸ Broadcasting from Orbit
@@ -147,7 +147,7 @@ function HomeScreen({ tune }: { tune: (id: ChId) => void }) {
         </h1>
         <p style={{ fontSize: "clamp(12px,1.1vw,15px)", color: "rgba(210,230,255,0.88)", maxWidth: "460px", lineHeight: 1.7, marginBottom: "clamp(14px,2vw,24px)" }}>
           AI-powered repricing, instant part identification, and multichannel sync —
-          PlanetBrick runs your back office while you build.
+          E.L.F.I.E. runs your back office while you build.
         </p>
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
           <button onClick={() => tune("ops")} style={{
@@ -426,7 +426,7 @@ function LiveScreen({ onSignIn, canPromptInstall, showInstallOption, isInstalled
             App installed
           </h2>
           <p style={{ fontSize: "clamp(10px,0.9vw,13px)", color: "rgba(210,230,255,0.75)", maxWidth: "360px", lineHeight: 1.6, margin: 0 }}>
-            PlanetBrick is on your home screen. Launch it anytime for the full experience.
+            E.L.F.I.E. is on your home screen. Launch it anytime for the full experience.
           </p>
         </>
       ) : (
@@ -436,7 +436,7 @@ function LiveScreen({ onSignIn, canPromptInstall, showInstallOption, isInstalled
             Add to Home Screen
           </h2>
           <p style={{ fontSize: "clamp(10px,0.9vw,13px)", color: "rgba(210,230,255,0.75)", maxWidth: "360px", lineHeight: 1.6, margin: 0 }}>
-            Install PlanetBrick for instant access — works offline, launches like a native app.
+            Install E.L.F.I.E. for instant access — works offline, launches like a native app.
           </p>
         </>
       )}

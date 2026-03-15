@@ -46,7 +46,7 @@ function LogoHeader() {
       <div className="relative">
         <img
           src={logoUrl}
-          alt="PlanetBrick.com"
+          alt="E.L.F.I.E."
           className="w-full max-w-[180px] md:max-w-[220px] lg:max-w-[260px] h-auto drop-shadow-2xl"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 opacity-20 blur-2xl -z-10" />
@@ -127,7 +127,7 @@ export default function Signup() {
         body.joinOrgId = selectedOrgId;
       }
       await apiRequest("POST", "/api/signup", body);
-      toast({ title: "Account Created!", description: mode === "employee" ? "Your company admin will review and approve your access." : "Welcome to PlanetBrick" });
+      toast({ title: "Account Created!", description: mode === "employee" ? "Your company admin will review and approve your access." : "Welcome to E.L.F.I.E." });
       window.location.href = "/";
     } catch (error: any) {
       toast({ title: "Signup Failed", description: error.message || "Failed to create account", variant: "destructive" });
@@ -148,7 +148,7 @@ export default function Signup() {
 
               {mode === "choose" && (
                 <>
-                  <ElfieWelcome title="Welcome to PlanetBrick!" subtitle="How would you like to get started?" />
+                  <ElfieWelcome title="Welcome to E.L.F.I.E.!" subtitle="How would you like to get started?" />
                   <div className="space-y-2.5 md:space-y-3">
                     <button
                       onClick={() => setMode("business")}
@@ -174,7 +174,7 @@ export default function Signup() {
                       </div>
                       <div className="flex-1 text-left">
                         <p className="text-white font-semibold text-sm md:text-base">Join an Existing Business</p>
-                        <p className="text-gray-400 text-[10px] md:text-xs">Sign up as an employee of a business already on PlanetBrick</p>
+                        <p className="text-gray-400 text-[10px] md:text-xs">Sign up as an employee of a business already on E.L.F.I.E.</p>
                       </div>
                     </button>
                   </div>

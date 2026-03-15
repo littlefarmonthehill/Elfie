@@ -70,7 +70,7 @@ export default function Login() {
 
               <div className="flex justify-center">
                 <div className="relative">
-                  <img src={logoUrl} alt="PlanetBrick.com" className="w-full max-w-[180px] md:max-w-[220px] lg:max-w-[260px] h-auto drop-shadow-2xl" />
+                  <img src={logoUrl} alt="E.L.F.I.E." className="w-full max-w-[180px] md:max-w-[220px] lg:max-w-[260px] h-auto drop-shadow-2xl" />
                   <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 opacity-20 blur-2xl -z-10" />
                 </div>
               </div>

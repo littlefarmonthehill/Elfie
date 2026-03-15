@@ -73,11 +73,11 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMP`);
     await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS bl_api_call_limit_override INTEGER`);
 
-    // Seed the default PlanetBrick org. Use UPDATE on conflict so any legacy
+    // Seed the default E.L.F.I.E. org. Use UPDATE on conflict so any legacy
     // plan value ('pro', 'free', 'foundation') gets corrected to 'flagship'.
     await client.query(`
       INSERT INTO organizations (id, name, slug, plan)
-      VALUES ('org_planetbrick', 'PlanetBrick', 'planetbrick', 'flagship')
+      VALUES ('org_planetbrick', 'E.L.F.I.E.', 'planetbrick', 'flagship')
       ON CONFLICT (id) DO UPDATE SET
         plan = CASE WHEN organizations.plan IN ('pro', 'free', 'foundation') THEN 'flagship' ELSE organizations.plan END
     `);
@@ -487,7 +487,7 @@ export async function runMigrations() {
 
     // Phase-23: Backfill industry-standard plan defaults
     await pool.query(`UPDATE plan_configs SET
-      name = 'Free Trial', tagline = '14 days to explore PlanetBrick',
+      name = 'Free Trial', tagline = '14 days to explore E.L.F.I.E.',
       price_monthly = 0, price_annual = 0, price_annual_monthly = 0,
       limit_seats = 1, limit_scans = 10, limit_automation_rules = 0,
       limit_order_history_days = 14, limit_inventory_items = 500,
@@ -560,6 +560,63 @@ export async function runMigrations() {
     await pool.query(`CREATE INDEX IF NOT EXISTS support_tickets_org_id_idx ON support_tickets (org_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS support_tickets_status_idx ON support_tickets (status)`);
     console.log('[Migration] Phase-27 (support_tickets table) complete.');
+
+    // Phase-28: Product Management tables (Vision, OKRs, Roadmap, Backlog)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS product_vision (
+        id SERIAL PRIMARY KEY,
+        what_changes TEXT NOT NULL DEFAULT '',
+        how_i_feel TEXT NOT NULL DEFAULT '',
+        what_people_say TEXT NOT NULL DEFAULT '',
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS product_okrs (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(500) NOT NULL,
+        timeframe VARCHAR(50) NOT NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'active',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS product_key_results (
+        id SERIAL PRIMARY KEY,
+        okr_id INTEGER NOT NULL REFERENCES product_okrs(id) ON DELETE CASCADE,
+        title VARCHAR(500) NOT NULL,
+        progress INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS product_roadmap_items (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(500) NOT NULL,
+        description TEXT DEFAULT '',
+        lane VARCHAR(20) NOT NULL DEFAULT 'later',
+        okr_id INTEGER REFERENCES product_okrs(id) ON DELETE SET NULL,
+        target_date TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS product_backlog_items (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(500) NOT NULL,
+        description TEXT DEFAULT '',
+        priority VARCHAR(20) NOT NULL DEFAULT 'medium',
+        effort VARCHAR(10) NOT NULL DEFAULT 'M',
+        status VARCHAR(20) NOT NULL DEFAULT 'open',
+        roadmap_item_id INTEGER REFERENCES product_roadmap_items(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    console.log('[Migration] Phase-28 (product management tables) complete.');
+
+    // Phase-29: Update org name from PlanetBrick to E.L.F.I.E.
+    await pool.query(`UPDATE organizations SET name = 'E.L.F.I.E.' WHERE id = 'org_planetbrick' AND name = 'PlanetBrick'`);
+    console.log('[Migration] Phase-29 (org rename to E.L.F.I.E.) complete.');
 
     console.log('[Migration] All startup migrations finished successfully.');
 

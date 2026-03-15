@@ -1619,3 +1619,61 @@ export const aiUsageLog = pgTable("ai_usage_log", {
 });
 
 export type AiUsageLog = typeof aiUsageLog.$inferSelect;
+
+export const productVision = pgTable("product_vision", {
+  id: serial("id").primaryKey(),
+  whatChanges: text("what_changes").notNull().default(''),
+  howIFeel: text("how_i_feel").notNull().default(''),
+  whatPeopleSay: text("what_people_say").notNull().default(''),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type ProductVision = typeof productVision.$inferSelect;
+
+export const productOkrs = pgTable("product_okrs", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 500 }).notNull(),
+  timeframe: varchar("timeframe", { length: 50 }).notNull(),
+  status: varchar("status", { length: 30 }).notNull().default('active'),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertProductOkrSchema = createInsertSchema(productOkrs).omit({ id: true, createdAt: true });
+export type InsertProductOkr = z.infer<typeof insertProductOkrSchema>;
+export type ProductOkr = typeof productOkrs.$inferSelect;
+
+export const productKeyResults = pgTable("product_key_results", {
+  id: serial("id").primaryKey(),
+  okrId: integer("okr_id").notNull(),
+  title: varchar("title", { length: 500 }).notNull(),
+  progress: integer("progress").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertProductKeyResultSchema = createInsertSchema(productKeyResults).omit({ id: true, createdAt: true });
+export type InsertProductKeyResult = z.infer<typeof insertProductKeyResultSchema>;
+export type ProductKeyResult = typeof productKeyResults.$inferSelect;
+
+export const productRoadmapItems = pgTable("product_roadmap_items", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 500 }).notNull(),
+  description: text("description").default(''),
+  lane: varchar("lane", { length: 20 }).notNull().default('later'),
+  okrId: integer("okr_id"),
+  targetDate: timestamp("target_date"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertProductRoadmapItemSchema = createInsertSchema(productRoadmapItems).omit({ id: true, createdAt: true });
+export type InsertProductRoadmapItem = z.infer<typeof insertProductRoadmapItemSchema>;
+export type ProductRoadmapItem = typeof productRoadmapItems.$inferSelect;
+
+export const productBacklogItems = pgTable("product_backlog_items", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 500 }).notNull(),
+  description: text("description").default(''),
+  priority: varchar("priority", { length: 20 }).notNull().default('medium'),
+  effort: varchar("effort", { length: 10 }).notNull().default('M'),
+  status: varchar("status", { length: 20 }).notNull().default('open'),
+  roadmapItemId: integer("roadmap_item_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertProductBacklogItemSchema = createInsertSchema(productBacklogItems).omit({ id: true, createdAt: true });
+export type InsertProductBacklogItem = z.infer<typeof insertProductBacklogItemSchema>;
+export type ProductBacklogItem = typeof productBacklogItems.$inferSelect;
