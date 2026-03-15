@@ -810,7 +810,7 @@ function InlineDropdown({ value, options, onChange, className, testId }: { value
         {selected?.label || value} <ChevronDown className="inline w-2 h-2 ml-0.5 opacity-50" />
       </button>
       {open && (
-        <div className="absolute z-50 mt-0.5 left-0 bg-gray-800 border border-gray-600 rounded-md shadow-lg py-0.5 max-h-[180px] overflow-y-auto min-w-[140px]" style={{ maxWidth: '220px' }}>
+        <div className="absolute z-50 mt-0.5 right-0 bg-gray-800 border border-gray-600 rounded-md shadow-lg py-0.5 max-h-[180px] overflow-y-auto min-w-[140px]" style={{ maxWidth: '220px' }}>
           {options.map(o => (
             <button key={o.value} onClick={() => { onChange(o.value); setOpen(false); }} className={`block w-full text-left px-2 py-1 text-[10px] truncate ${o.value === value ? 'bg-blue-500/20 text-blue-300' : 'text-gray-300 hover:bg-gray-700'}`} data-testid={testId ? `${testId}-option-${o.value}` : undefined}>
               {o.label}

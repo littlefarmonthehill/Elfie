@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Sparkles, Brain, ChevronDown, ChevronRight, Globe, Clock, Newspaper, MessageSquare, Headphones, Lightbulb, Plus, History, Trash2, X, Map, ThumbsUp } from "lucide-react";
+import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Sparkles, Brain, ChevronDown, ChevronRight, Globe, Clock, Newspaper, MessageSquare, Headphones, Lightbulb, Plus, History, Trash2, X, Map, ThumbsUp, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InventoryGroup } from "@/components/InventoryGroup";
 import { OrderGroup } from "@/components/OrderGroup";
@@ -1359,13 +1359,13 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
       setPendingFeature(data.rephrased);
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: `Here's how I'd word your request:\n\n**"${data.rephrased}"**\n\nDoes this capture what you want? Type **yes** to submit, or describe it differently and I'll try again.` },
+        { role: 'assistant', content: `Here's how I'd word your request:\n\n**"${data.rephrased}"**\n\nDoes this capture what you want? Tap **Submit** below to send it, or describe it differently and I'll try again.` },
       ]);
     } catch {
       setPendingFeature(description);
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: `I couldn't rephrase that automatically, but I have your request:\n\n**"${description}"**\n\nType **yes** to submit it as-is, or try describing it differently.` },
+        { role: 'assistant', content: `I couldn't rephrase that automatically, but I have your request:\n\n**"${description}"**\n\nTap **Submit** below to send it as-is, or try describing it differently.` },
       ]);
     } finally {
       setIsLoading(false);
@@ -1731,25 +1731,6 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
             <Newspaper className="h-3 w-3" />
             <span>Latest News</span>
           </button>
-          <button
-            onClick={handleOpenRoadmap}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30"
-            data-testid="button-view-roadmap"
-          >
-            <Map className="h-3 w-3" />
-            <span>View Roadmap</span>
-          </button>
-          {!featureRequestMode && (
-            <button
-              onClick={handleEnterFeatureMode}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30"
-              data-testid="button-feature-request"
-              disabled={isLoading}
-            >
-              <Lightbulb className="h-3 w-3" />
-              <span>Feature Request</span>
-            </button>
-          )}
           {!supportTicket && !featureRequestMode && (
             <button
               onClick={handleEscalate}
@@ -1761,6 +1742,25 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
               <span>Agent Request</span>
             </button>
           )}
+          {!featureRequestMode && (
+            <button
+              onClick={handleEnterFeatureMode}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30"
+              data-testid="button-feature-request"
+              disabled={isLoading}
+            >
+              <Lightbulb className="h-3 w-3" />
+              <span>Feature Request</span>
+            </button>
+          )}
+          <button
+            onClick={handleOpenRoadmap}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30"
+            data-testid="button-view-roadmap"
+          >
+            <Map className="h-3 w-3" />
+            <span>View Roadmap</span>
+          </button>
         </div>
       )}
 
@@ -2006,6 +2006,17 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                   <Lightbulb className="h-3 w-3" />
                   <span>Feature Request Mode</span>
                 </div>
+                {pendingFeature && (
+                  <button
+                    onClick={handleFeatureConfirm}
+                    disabled={isLoading}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-green-500/20 border border-green-500/30 text-green-300 text-[10px] md:text-xs font-medium hover:bg-green-500/30 transition-colors"
+                    data-testid="button-feature-submit"
+                  >
+                    <Check className="h-3 w-3" />
+                    <span>Submit</span>
+                  </button>
+                )}
                 <button
                   onClick={handleExitFeatureMode}
                   className="text-[10px] text-gray-500 hover:text-gray-300 underline"
@@ -2042,7 +2053,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
                 }}
                 onBlur={() => setIsInputFocused(false)}
                 onClick={(e) => e.stopPropagation()}
-                placeholder={featureRequestMode ? (pendingFeature ? 'Type "yes" to submit or describe differently...' : 'Describe the feature you want...') : 'Ask E.L.F.I.E. for help...'}
+                placeholder={featureRequestMode ? (pendingFeature ? 'Describe differently to revise, or tap Submit above...' : 'Describe the feature you want...') : 'Ask E.L.F.I.E. for help...'}
                 rows={1}
                 className="flex-1 text-sm md:text-base lg:text-lg bg-gray-800/80 border border-purple-500/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple-500/50 rounded-md px-3 py-2 resize-none overflow-y-auto text-gray-100 placeholder:text-gray-500 leading-normal"
                 style={{ height: '40px', maxHeight: '120px' }}
