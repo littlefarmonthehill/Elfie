@@ -4274,7 +4274,29 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
                     <div className="space-y-2">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <Label htmlFor="system-prompt" className="text-xs text-gray-200">Custom Prompt</Label>
+                        <div className="flex items-center gap-1.5">
+                          <Label htmlFor="system-prompt" className="text-xs text-gray-200">Custom Prompt</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button className="text-gray-500 hover:text-gray-300 transition-colors" data-testid="button-custom-prompt-info">
+                                <Info className="h-3.5 w-3.5" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent side="top" align="start" className="w-80 text-xs space-y-2 bg-gray-900 border-gray-700">
+                              <p className="font-medium text-gray-200">Customize E.L.F.I.E. for Your Business</p>
+                              <p className="text-gray-400">Use this field to tailor how E.L.F.I.E. thinks, speaks, and prioritizes for your specific store. Your custom prompt replaces the built-in defaults — tool access stays the same.</p>
+                              <div className="space-y-1.5 text-gray-400">
+                                <p className="font-medium text-gray-300">Ideas for what to include:</p>
+                                <p>- Your store's specialty (e.g., "We focus on rare Technic parts and vintage Castle sets")</p>
+                                <p>- Communication style ("Keep answers brief" or "Give detailed analysis")</p>
+                                <p>- Business priorities ("Always highlight margin opportunities" or "Flag slow-moving inventory")</p>
+                                <p>- Customer context ("Our top buyers are MOC builders who care about color accuracy")</p>
+                                <p>- Things to avoid ("Don't suggest discounting rare parts")</p>
+                              </div>
+                              <p className="text-gray-500 pt-1 border-t border-gray-700/50">Tip: Use "Analyze Conversations" below to auto-generate a prompt based on your actual chat history with E.L.F.I.E.</p>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                         {systemPrompt && (
                           <Button
                             size="sm"
