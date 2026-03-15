@@ -38,7 +38,7 @@ interface SettingsModalProps {
   scoringExample?: PricingInsight;
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'productCapabilities' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -718,25 +718,37 @@ function ProductVisionPanel() {
   const [whatChanges, setWhatChanges] = useState('');
   const [howIFeel, setHowIFeel] = useState('');
   const [whatPeopleSay, setWhatPeopleSay] = useState('');
+  const [visionStatement, setVisionStatement] = useState('');
   const [initialized, setInitialized] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     if (vision && !initialized) {
       setWhatChanges(vision.whatChanges || '');
       setHowIFeel(vision.howIFeel || '');
       setWhatPeopleSay(vision.whatPeopleSay || '');
+      setVisionStatement(vision.visionStatement || '');
       setInitialized(true);
     }
   }, [vision, initialized]);
 
-  const handleSave = async () => {
-    setSaving(true);
+  const saveField = async (field: string, value: string) => {
     try {
-      await apiRequest('PUT', '/api/platform-admin/product/vision', { whatChanges, howIFeel, whatPeopleSay });
+      await apiRequest('PUT', '/api/platform-admin/product/vision', { [field]: value });
       queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/vision'] });
-      toast({ title: 'Vision saved' });
-    } catch (e: any) { toast({ title: 'Failed to save vision', description: e.message, variant: 'destructive' }); } finally { setSaving(false); }
+    } catch (e: any) { toast({ title: 'Failed to save', description: e.message, variant: 'destructive' }); }
+  };
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    try {
+      const result = await apiRequest('POST', '/api/platform-admin/product/vision/generate', { whatChanges, howIFeel, whatPeopleSay });
+      const stmt = (result as any).visionStatement || '';
+      setVisionStatement(stmt);
+      await apiRequest('PUT', '/api/platform-admin/product/vision', { visionStatement: stmt });
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/vision'] });
+      toast({ title: 'Vision statement generated' });
+    } catch (e: any) { toast({ title: 'Failed to generate', description: e.message, variant: 'destructive' }); } finally { setGenerating(false); }
   };
 
   if (isLoading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-500" /></div>;
@@ -745,26 +757,149 @@ function ProductVisionPanel() {
     <div className="space-y-4">
       <div>
         <p className="text-sm font-medium text-gray-100">Vision of Success</p>
-        <p className="sm-description mt-1">Define what success looks like. Every OKR, roadmap item, and backlog task should trace back to this vision.</p>
+        <p className="sm-description mt-1">Define what success looks like. Every OKR, roadmap item, and backlog task should trace back to this vision. Changes auto-save when you leave a field.</p>
       </div>
       <div className="space-y-4">
-        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4 space-y-2">
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-md p-4 space-y-2">
           <label className="block text-xs font-medium text-emerald-300">If we are successful, what changes?</label>
-          <textarea className="w-full bg-black/30 border border-emerald-500/20 rounded-md p-3 text-sm text-gray-200 min-h-[80px] resize-y focus:outline-none focus:border-emerald-400/50" placeholder="e.g. E.L.F.I.E. is the operating system for LEGO resellers — they can't run their business without it" value={whatChanges} onChange={e => setWhatChanges(e.target.value)} data-testid="input-vision-what-changes" />
+          <textarea className="w-full bg-black/30 border border-emerald-500/20 rounded-md p-3 text-sm text-gray-200 min-h-[80px] resize-y focus:outline-none focus:border-emerald-400/50" placeholder="e.g. E.L.F.I.E. is the operating system for LEGO resellers — they can't run their business without it" value={whatChanges} onChange={e => setWhatChanges(e.target.value)} onBlur={() => saveField('whatChanges', whatChanges)} data-testid="input-vision-what-changes" />
         </div>
-        <div className="bg-violet-500/10 border border-violet-500/30 rounded-lg p-4 space-y-2">
+        <div className="bg-violet-500/10 border border-violet-500/30 rounded-md p-4 space-y-2">
           <label className="block text-xs font-medium text-violet-300">If we are successful, how do I feel?</label>
-          <textarea className="w-full bg-black/30 border border-violet-500/20 rounded-md p-3 text-sm text-gray-200 min-h-[80px] resize-y focus:outline-none focus:border-violet-400/50" placeholder="e.g. Confident that the platform is delivering real value, proud of what we've built" value={howIFeel} onChange={e => setHowIFeel(e.target.value)} data-testid="input-vision-how-i-feel" />
+          <textarea className="w-full bg-black/30 border border-violet-500/20 rounded-md p-3 text-sm text-gray-200 min-h-[80px] resize-y focus:outline-none focus:border-violet-400/50" placeholder="e.g. Confident that the platform is delivering real value, proud of what we've built" value={howIFeel} onChange={e => setHowIFeel(e.target.value)} onBlur={() => saveField('howIFeel', howIFeel)} data-testid="input-vision-how-i-feel" />
         </div>
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 space-y-2">
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-md p-4 space-y-2">
           <label className="block text-xs font-medium text-amber-300">If we are successful, what are people saying?</label>
-          <textarea className="w-full bg-black/30 border border-amber-500/20 rounded-md p-3 text-sm text-gray-200 min-h-[80px] resize-y focus:outline-none focus:border-amber-400/50" placeholder='e.g. "This is the best investment I made in my LEGO business"' value={whatPeopleSay} onChange={e => setWhatPeopleSay(e.target.value)} data-testid="input-vision-what-people-say" />
+          <textarea className="w-full bg-black/30 border border-amber-500/20 rounded-md p-3 text-sm text-gray-200 min-h-[80px] resize-y focus:outline-none focus:border-amber-400/50" placeholder='e.g. "This is the best investment I made in my LEGO business"' value={whatPeopleSay} onChange={e => setWhatPeopleSay(e.target.value)} onBlur={() => saveField('whatPeopleSay', whatPeopleSay)} data-testid="input-vision-what-people-say" />
         </div>
       </div>
-      <Button onClick={handleSave} disabled={saving} className="w-full" data-testid="button-save-vision">
-        {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-        Save Vision
-      </Button>
+      <div className="border border-blue-500/30 bg-blue-500/10 rounded-md p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <p className="text-xs font-medium text-blue-300">AI-Generated Vision Statement</p>
+            <p className="text-[10px] text-gray-400 mt-0.5">Synthesized from your answers above</p>
+          </div>
+          <Button size="sm" variant="outline" onClick={handleGenerate} disabled={generating || (!whatChanges && !howIFeel && !whatPeopleSay)} data-testid="button-generate-vision">
+            {generating ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />}
+            {visionStatement ? 'Regenerate' : 'Generate'}
+          </Button>
+        </div>
+        {visionStatement ? (
+          <textarea className="w-full bg-black/30 border border-blue-500/20 rounded-md p-3 text-sm text-gray-200 min-h-[80px] resize-y focus:outline-none focus:border-blue-400/50" value={visionStatement} onChange={e => setVisionStatement(e.target.value)} onBlur={() => saveField('visionStatement', visionStatement)} data-testid="input-vision-statement" />
+        ) : (
+          <p className="text-xs text-gray-500 italic">Fill in the prompts above and click Generate to create a vision statement.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProductCapabilitiesPanel() {
+  const { toast } = useToast();
+  const { data: caps, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/capabilities'] });
+  const [newL1, setNewL1] = useState('');
+  const [newL2, setNewL2] = useState<Record<number, string>>({});
+  const [newFeature, setNewFeature] = useState<Record<number, string>>({});
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+
+  const l1s = (caps || []).filter((c: any) => c.level === 1);
+  const l2s = (caps || []).filter((c: any) => c.level === 2);
+  const features = (caps || []).filter((c: any) => c.level === 3);
+
+  const addCap = async (title: string, level: number, parentId: number | null) => {
+    if (!title.trim()) return;
+    try {
+      await apiRequest('POST', '/api/platform-admin/product/capabilities', { title: title.trim(), level, parentId });
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] });
+    } catch (e: any) { toast({ title: 'Failed to add', description: e.message, variant: 'destructive' }); }
+  };
+
+  const updateCap = async (id: number, title: string) => {
+    try {
+      await apiRequest('PATCH', `/api/platform-admin/product/capabilities/${id}`, { title });
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] });
+      setEditingId(null);
+    } catch (e: any) { toast({ title: 'Failed to update', description: e.message, variant: 'destructive' }); }
+  };
+
+  const deleteCap = async (id: number) => {
+    try {
+      await apiRequest('DELETE', `/api/platform-admin/product/capabilities/${id}`);
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] });
+    } catch (e: any) { toast({ title: 'Failed to delete', description: e.message, variant: 'destructive' }); }
+  };
+
+  if (isLoading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-500" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm font-medium text-gray-100">Capability Map</p>
+        <p className="sm-description mt-1">Organize your product into L1 Capabilities, L2 sub-capabilities, and Features.</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <input className="flex-1 bg-black/30 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-400/50" placeholder="New L1 Capability..." value={newL1} onChange={e => setNewL1(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { addCap(newL1, 1, null); setNewL1(''); } }} data-testid="input-new-l1" />
+        <Button size="sm" variant="outline" onClick={() => { addCap(newL1, 1, null); setNewL1(''); }} disabled={!newL1.trim()} data-testid="button-add-l1"><Plus className="w-3 h-3 mr-1" />Add L1</Button>
+      </div>
+      {l1s.length === 0 && <p className="text-xs text-gray-500 italic">No capabilities yet. Add your first L1 capability above.</p>}
+      <div className="space-y-3">
+        {l1s.map((l1: any) => {
+          const childL2s = l2s.filter((c: any) => c.parentId === l1.id);
+          return (
+            <div key={l1.id} className="border border-gray-700 rounded-md bg-gray-800/50">
+              <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-700">
+                <Layers className="w-4 h-4 text-blue-400 shrink-0" />
+                {editingId === l1.id ? (
+                  <input className="flex-1 bg-black/30 border border-blue-500/30 rounded px-2 py-0.5 text-sm text-gray-200 focus:outline-none" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => updateCap(l1.id, editTitle)} onKeyDown={e => { if (e.key === 'Enter') updateCap(l1.id, editTitle); if (e.key === 'Escape') setEditingId(null); }} autoFocus data-testid={`input-edit-cap-${l1.id}`} />
+                ) : (
+                  <span className="flex-1 text-sm font-medium text-gray-200 cursor-pointer" onClick={() => { setEditingId(l1.id); setEditTitle(l1.title); }} data-testid={`text-l1-${l1.id}`}>{l1.title}</span>
+                )}
+                <Button size="icon" variant="ghost" onClick={() => deleteCap(l1.id)} data-testid={`button-delete-l1-${l1.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
+              </div>
+              <div className="px-3 py-2 space-y-2">
+                {childL2s.map((l2: any) => {
+                  const childFeatures = features.filter((f: any) => f.parentId === l2.id);
+                  return (
+                    <div key={l2.id} className="ml-4 border border-gray-700/50 rounded-md bg-gray-900/30">
+                      <div className="flex items-center gap-2 px-2 py-1.5">
+                        <ChevronRight className="w-3 h-3 text-violet-400 shrink-0" />
+                        {editingId === l2.id ? (
+                          <input className="flex-1 bg-black/30 border border-violet-500/30 rounded px-2 py-0.5 text-xs text-gray-200 focus:outline-none" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => updateCap(l2.id, editTitle)} onKeyDown={e => { if (e.key === 'Enter') updateCap(l2.id, editTitle); if (e.key === 'Escape') setEditingId(null); }} autoFocus data-testid={`input-edit-cap-${l2.id}`} />
+                        ) : (
+                          <span className="flex-1 text-xs font-medium text-gray-300 cursor-pointer" onClick={() => { setEditingId(l2.id); setEditTitle(l2.title); }} data-testid={`text-l2-${l2.id}`}>{l2.title}</span>
+                        )}
+                        <Button size="icon" variant="ghost" onClick={() => deleteCap(l2.id)} data-testid={`button-delete-l2-${l2.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
+                      </div>
+                      {childFeatures.length > 0 && (
+                        <div className="ml-6 px-2 pb-1.5 space-y-1">
+                          {childFeatures.map((f: any) => (
+                            <div key={f.id} className="flex items-center gap-2 group">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                              {editingId === f.id ? (
+                                <input className="flex-1 bg-black/30 border border-emerald-500/30 rounded px-2 py-0.5 text-xs text-gray-300 focus:outline-none" value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => updateCap(f.id, editTitle)} onKeyDown={e => { if (e.key === 'Enter') updateCap(f.id, editTitle); if (e.key === 'Escape') setEditingId(null); }} autoFocus data-testid={`input-edit-cap-${f.id}`} />
+                              ) : (
+                                <span className="flex-1 text-xs text-gray-400 cursor-pointer" onClick={() => { setEditingId(f.id); setEditTitle(f.title); }} data-testid={`text-feature-${f.id}`}>{f.title}</span>
+                              )}
+                              <Button size="icon" variant="ghost" className="invisible group-hover:visible" onClick={() => deleteCap(f.id)} data-testid={`button-delete-feature-${f.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="ml-6 px-2 pb-1.5">
+                        <input className="w-full bg-transparent border-b border-dashed border-gray-700 px-1 py-0.5 text-xs text-gray-400 placeholder-gray-600 focus:outline-none focus:border-emerald-400/50" placeholder="+ Add feature..." value={newFeature[l2.id] || ''} onChange={e => setNewFeature(p => ({ ...p, [l2.id]: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter' && (newFeature[l2.id] || '').trim()) { addCap(newFeature[l2.id], 3, l2.id); setNewFeature(p => ({ ...p, [l2.id]: '' })); } }} data-testid={`input-new-feature-${l2.id}`} />
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="ml-4 flex items-center gap-1">
+                  <input className="flex-1 bg-transparent border-b border-dashed border-gray-700 px-1 py-0.5 text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-violet-400/50" placeholder="+ Add L2 sub-capability..." value={newL2[l1.id] || ''} onChange={e => setNewL2(p => ({ ...p, [l1.id]: e.target.value }))} onKeyDown={e => { if (e.key === 'Enter' && (newL2[l1.id] || '').trim()) { addCap(newL2[l1.id], 2, l1.id); setNewL2(p => ({ ...p, [l1.id]: '' })); } }} data-testid={`input-new-l2-${l1.id}`} />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -2913,6 +3048,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       items: [
         { id: 'productVision' as const, label: 'Vision of Success', icon: Crosshair },
         { id: 'productOkrs' as const, label: 'OKRs', icon: Target },
+        { id: 'productCapabilities' as const, label: 'Capabilities', icon: Layers },
         { id: 'productRoadmap' as const, label: 'Roadmap', icon: Map },
         { id: 'productBacklog' as const, label: 'Backlog', icon: ListTodo },
       ],
@@ -7397,6 +7533,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
             {/* Backlog */}
             {activeSection === 'productBacklog' && <ProductBacklogPanel />}
+
+            {/* Capabilities */}
+            {activeSection === 'productCapabilities' && <ProductCapabilitiesPanel />}
 
             {/* Plans & Pricing */}
             {activeSection === 'plansAndPricing' && (() => {

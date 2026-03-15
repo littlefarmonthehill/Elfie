@@ -47,7 +47,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, planConfigs, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, planConfigs, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -2202,21 +2202,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/platform-admin/product/vision', isSuperAdmin, async (_req, res) => {
     try {
       const [vision] = await db.select().from(productVision).limit(1);
-      res.json(vision || { id: null, whatChanges: '', howIFeel: '', whatPeopleSay: '' });
+      res.json(vision || { id: null, whatChanges: '', howIFeel: '', whatPeopleSay: '', visionStatement: '' });
     } catch (error: any) { res.status(500).json({ message: error.message }); }
   });
 
   app.put('/api/platform-admin/product/vision', isSuperAdmin, async (req, res) => {
     try {
-      const { whatChanges, howIFeel, whatPeopleSay } = req.body;
+      const { whatChanges, howIFeel, whatPeopleSay, visionStatement } = req.body;
+      const updates: any = { updatedAt: new Date() };
+      if (whatChanges !== undefined) updates.whatChanges = whatChanges;
+      if (howIFeel !== undefined) updates.howIFeel = howIFeel;
+      if (whatPeopleSay !== undefined) updates.whatPeopleSay = whatPeopleSay;
+      if (visionStatement !== undefined) updates.visionStatement = visionStatement;
       const [existing] = await db.select().from(productVision).limit(1);
       if (existing) {
-        const [updated] = await db.update(productVision).set({ whatChanges, howIFeel, whatPeopleSay, updatedAt: new Date() }).where(eq(productVision.id, existing.id)).returning();
+        const [updated] = await db.update(productVision).set(updates).where(eq(productVision.id, existing.id)).returning();
         res.json(updated);
       } else {
-        const [created] = await db.insert(productVision).values({ whatChanges, howIFeel, whatPeopleSay }).returning();
+        const [created] = await db.insert(productVision).values({ whatChanges: whatChanges || '', howIFeel: howIFeel || '', whatPeopleSay: whatPeopleSay || '', visionStatement: visionStatement || '' }).returning();
         res.json(created);
       }
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.post('/api/platform-admin/product/vision/generate', isSuperAdmin, async (req, res) => {
+    try {
+      const { whatChanges, howIFeel, whatPeopleSay } = req.body;
+      if (!whatChanges && !howIFeel && !whatPeopleSay) {
+        return res.status(400).json({ message: 'Fill in at least one field before generating.' });
+      }
+      const apiKey = await getPlatformOpenAIKey();
+      if (!apiKey) return res.status(400).json({ message: 'OpenAI API key not configured.' });
+      const openai = new OpenAI({ apiKey });
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        temperature: 0.7,
+        max_tokens: 300,
+        messages: [
+          { role: 'system', content: 'You are a product strategist. Write a concise, inspiring product vision statement (2-4 sentences) based on the founder\'s answers to three prompts. The statement should be forward-looking, specific to their product, and motivating for a team. Do not use bullet points or headers — just the statement.' },
+          { role: 'user', content: `If we are successful, what changes?\n${whatChanges}\n\nIf we are successful, how do I feel?\n${howIFeel}\n\nIf we are successful, what are people saying?\n${whatPeopleSay}` },
+        ],
+      });
+      const statement = completion.choices[0]?.message?.content?.trim() || '';
+      res.json({ visionStatement: statement });
     } catch (error: any) { res.status(500).json({ message: error.message }); }
   });
 
@@ -2359,6 +2387,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/platform-admin/product/backlog/:id', isSuperAdmin, async (req, res) => {
     try {
       await db.delete(productBacklogItems).where(eq(productBacklogItems.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  // Capabilities
+  app.get('/api/platform-admin/product/capabilities', isSuperAdmin, async (_req, res) => {
+    try {
+      const caps = await db.select().from(productCapabilities).orderBy(asc(productCapabilities.level), asc(productCapabilities.sortOrder));
+      res.json(caps);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.post('/api/platform-admin/product/capabilities', isSuperAdmin, async (req, res) => {
+    try {
+      const parsed = insertProductCapabilitySchema.parse(req.body);
+      const [cap] = await db.insert(productCapabilities).values(parsed).returning();
+      res.json(cap);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.patch('/api/platform-admin/product/capabilities/:id', isSuperAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { title, description, level, parentId, sortOrder } = req.body;
+      const updates: any = {};
+      if (title !== undefined) updates.title = title;
+      if (description !== undefined) updates.description = description;
+      if (level !== undefined) updates.level = level;
+      if (parentId !== undefined) updates.parentId = parentId;
+      if (sortOrder !== undefined) updates.sortOrder = sortOrder;
+      const [updated] = await db.update(productCapabilities).set(updates).where(eq(productCapabilities.id, id)).returning();
+      res.json(updated);
+    } catch (error: any) { res.status(500).json({ message: error.message }); }
+  });
+
+  app.delete('/api/platform-admin/product/capabilities/:id', isSuperAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const children = await db.select({ id: productCapabilities.id }).from(productCapabilities).where(eq(productCapabilities.parentId, id));
+      const childIds = children.map(c => c.id);
+      if (childIds.length > 0) {
+        await db.delete(productCapabilities).where(inArray(productCapabilities.parentId, childIds));
+        await db.delete(productCapabilities).where(inArray(productCapabilities.id, childIds));
+      }
+      await db.delete(productCapabilities).where(eq(productCapabilities.id, id));
       res.json({ ok: true });
     } catch (error: any) { res.status(500).json({ message: error.message }); }
   });

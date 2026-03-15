@@ -618,6 +618,21 @@ export async function runMigrations() {
     await pool.query(`UPDATE organizations SET name = 'E.L.F.I.E.' WHERE id = 'org_planetbrick' AND name = 'PlanetBrick'`);
     console.log('[Migration] Phase-29 (org rename to E.L.F.I.E.) complete.');
 
+    // Phase-30: Vision statement column + capabilities table
+    await pool.query(`ALTER TABLE product_vision ADD COLUMN IF NOT EXISTS vision_statement TEXT NOT NULL DEFAULT ''`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS product_capabilities (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(500) NOT NULL,
+        description TEXT DEFAULT '',
+        level INTEGER NOT NULL DEFAULT 1,
+        parent_id INTEGER,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    console.log('[Migration] Phase-30 (vision statement + capabilities table) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

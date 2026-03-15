@@ -1625,6 +1625,7 @@ export const productVision = pgTable("product_vision", {
   whatChanges: text("what_changes").notNull().default(''),
   howIFeel: text("how_i_feel").notNull().default(''),
   whatPeopleSay: text("what_people_say").notNull().default(''),
+  visionStatement: text("vision_statement").notNull().default(''),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 export type ProductVision = typeof productVision.$inferSelect;
@@ -1677,3 +1678,16 @@ export const productBacklogItems = pgTable("product_backlog_items", {
 export const insertProductBacklogItemSchema = createInsertSchema(productBacklogItems).omit({ id: true, createdAt: true });
 export type InsertProductBacklogItem = z.infer<typeof insertProductBacklogItemSchema>;
 export type ProductBacklogItem = typeof productBacklogItems.$inferSelect;
+
+export const productCapabilities = pgTable("product_capabilities", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 500 }).notNull(),
+  description: text("description").default(''),
+  level: integer("level").notNull().default(1),
+  parentId: integer("parent_id"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertProductCapabilitySchema = createInsertSchema(productCapabilities).omit({ id: true, createdAt: true });
+export type InsertProductCapability = z.infer<typeof insertProductCapabilitySchema>;
+export type ProductCapability = typeof productCapabilities.$inferSelect;

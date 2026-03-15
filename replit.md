@@ -159,13 +159,14 @@ Scheduled background job that cross-references each org's inventory, sales, and 
 
 Internal product management tools for the platform admin (superAdmin only). Located under the "Product" nav group in SettingsModal.
 
-- **Tables**: `product_vision`, `product_okrs`, `product_key_results`, `product_roadmap_items`, `product_backlog_items`. Migration Phase-28 in `server/db.ts`.
-- **Vision of Success**: Three-field form (whatChanges, howIFeel, whatPeopleSay). Single row, upserted on save. Anchors all strategic planning.
+- **Tables**: `product_vision`, `product_okrs`, `product_key_results`, `product_roadmap_items`, `product_backlog_items`, `product_capabilities`. Migration Phase-28 (core tables), Phase-30 (vision_statement column + capabilities table) in `server/db.ts`.
+- **Vision of Success**: Three-field form (whatChanges, howIFeel, whatPeopleSay) with auto-save on blur (no Save button). AI-generated vision statement via `POST /api/platform-admin/product/vision/generate` using GPT-4o-mini. Statement is editable and also auto-saves on blur. Single row, upserted.
 - **OKRs**: Max 3 active objectives, each with up to 3 key results. Progress is manual 0-100%. Objectives can be archived/restored. Average KR progress shown per objective.
+- **Capabilities**: Three-level hierarchy — L1 Capability → L2 Sub-capability → Features (level 3). Self-referencing `parent_id` column. Inline editing (click to edit, blur/Enter to save). Add items via inline inputs at each level.
 - **Roadmap**: Items in 4 lanes: `now`, `next`, `later`, `done`. Each item can optionally link to an active OKR for strategic alignment. Move between lanes with one click.
 - **Backlog**: Individual work items with priority (high/medium/low), effort (S/M/L), status (open/in-progress/done). Optionally linked to a roadmap capability. Sorted by priority order. Filterable by status.
-- **API routes**: All under `/api/platform-admin/product/*` — `GET/PUT /vision`, `GET/POST /okrs`, `PATCH/DELETE /okrs/:id`, `POST /key-results`, `PATCH/DELETE /key-results/:id`, `GET/POST /roadmap`, `PATCH/DELETE /roadmap/:id`, `GET/POST /backlog`, `PATCH/DELETE /backlog/:id`.
-- **Traceability chain**: Vision → OKRs → Roadmap → Backlog. Each level can reference its parent for end-to-end alignment.
+- **API routes**: All under `/api/platform-admin/product/*` — `GET/PUT /vision`, `POST /vision/generate`, `GET/POST /okrs`, `PATCH/DELETE /okrs/:id`, `POST /key-results`, `PATCH/DELETE /key-results/:id`, `GET/POST /capabilities`, `PATCH/DELETE /capabilities/:id`, `GET/POST /roadmap`, `PATCH/DELETE /roadmap/:id`, `GET/POST /backlog`, `PATCH/DELETE /backlog/:id`.
+- **Traceability chain**: Vision → OKRs → Capabilities → Roadmap → Backlog. Each level can reference its parent for end-to-end alignment.
 
 ## Elfie Chat — Progressive Reveal & AI Overviews
 
