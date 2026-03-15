@@ -47,7 +47,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, planConfigs, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, planConfigs, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -2641,6 +2641,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('[FeatureRequest] submit error:', error.message);
       res.status(500).json({ message: 'Could not save feature request.' });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Public Roadmap & Feature Voting
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // GET /api/public-roadmap — returns L1→L2→L3 capabilities with vote counts
+  app.get('/api/public-roadmap', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub || '';
+      const statusFilter = req.query.status as string | undefined;
+      const allCaps = await db.select().from(productCapabilities).orderBy(asc(productCapabilities.level), asc(productCapabilities.sortOrder));
+      const voteCounts = await db.select({
+        capabilityId: featureVotes.capabilityId,
+        votes: count(),
+      }).from(featureVotes).groupBy(featureVotes.capabilityId);
+      const voteMap = new Map(voteCounts.map(v => [v.capabilityId, Number(v.votes)]));
+      let userVotes: number[] = [];
+      if (userId) {
+        const uv = await db.select({ capabilityId: featureVotes.capabilityId }).from(featureVotes).where(eq(featureVotes.userId, userId));
+        userVotes = uv.map(v => v.capabilityId);
+      }
+      let features = allCaps.filter(c => c.level === 3);
+      if (statusFilter && statusFilter !== 'all') {
+        features = features.filter(c => c.status === statusFilter);
+      }
+      const l2s = allCaps.filter(c => c.level === 2);
+      const l1s = allCaps.filter(c => c.level === 1);
+      const enriched = features.map(f => ({
+        id: f.id,
+        title: f.title,
+        description: f.description,
+        status: f.status,
+        parentId: f.parentId,
+        l2Name: l2s.find(l => l.id === f.parentId)?.title || '',
+        l1Name: (() => { const l2 = l2s.find(l => l.id === f.parentId); return l2 ? (l1s.find(l => l.id === l2.parentId)?.title || '') : ''; })(),
+        votes: voteMap.get(f.id) || 0,
+        userVoted: userVotes.includes(f.id),
+      }));
+      enriched.sort((a, b) => b.votes - a.votes);
+      res.json(enriched);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // POST /api/feature-votes/:capabilityId — toggle vote (add or remove)
+  app.post('/api/feature-votes/:capabilityId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = (req.user as any)?.id || (req.user as any)?.claims?.sub || '';
+      const orgId = reqOrgId(req);
+      const capabilityId = parseInt(req.params.capabilityId, 10);
+      if (!capabilityId || isNaN(capabilityId)) return res.status(400).json({ message: 'Invalid capability ID' });
+      const [cap] = await db.select().from(productCapabilities).where(eq(productCapabilities.id, capabilityId)).limit(1);
+      if (!cap || cap.level !== 3) return res.status(404).json({ message: 'Feature not found' });
+      const [existing] = await db.select().from(featureVotes)
+        .where(and(eq(featureVotes.capabilityId, capabilityId), eq(featureVotes.userId, userId)))
+        .limit(1);
+      if (existing) {
+        await db.delete(featureVotes).where(eq(featureVotes.id, existing.id));
+        const [{ votes }] = await db.select({ votes: count() }).from(featureVotes).where(eq(featureVotes.capabilityId, capabilityId));
+        return res.json({ voted: false, votes: Number(votes) });
+      }
+      await db.insert(featureVotes).values({ capabilityId, userId, orgId });
+      const [{ votes }] = await db.select({ votes: count() }).from(featureVotes).where(eq(featureVotes.capabilityId, capabilityId));
+      res.json({ voted: true, votes: Number(votes) });
+    } catch (error: any) {
+      if (error.message?.includes('unique') || error.code === '23505') {
+        const [{ votes }] = await db.select({ votes: count() }).from(featureVotes).where(eq(featureVotes.capabilityId, parseInt(req.params.capabilityId, 10)));
+        return res.json({ voted: true, votes: Number(votes) });
+      }
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // GET /api/feature-votes/counts — vote counts for all features (for admin panels)
+  app.get('/api/feature-votes/counts', isAuthenticated, async (req: any, res) => {
+    try {
+      const voteCounts = await db.select({
+        capabilityId: featureVotes.capabilityId,
+        votes: count(),
+      }).from(featureVotes).groupBy(featureVotes.capabilityId);
+      const map: Record<number, number> = {};
+      voteCounts.forEach(v => { map[v.capabilityId] = Number(v.votes); });
+      res.json(map);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   });
 

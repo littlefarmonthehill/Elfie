@@ -798,6 +798,20 @@ export async function runMigrations() {
     await client.query(`CREATE INDEX IF NOT EXISTS conversation_threads_updated_idx ON conversation_threads (updated_at)`);
     console.log('[Migration] Phase-34 (conversation threads table) complete.');
 
+    // Phase-35: Feature votes table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS feature_votes (
+        id SERIAL PRIMARY KEY,
+        capability_id INTEGER NOT NULL,
+        user_id VARCHAR(255) NOT NULL,
+        org_id VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS feature_votes_unique_vote ON feature_votes (capability_id, user_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS feature_votes_capability_idx ON feature_votes (capability_id)`);
+    console.log('[Migration] Phase-35 (feature votes table) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

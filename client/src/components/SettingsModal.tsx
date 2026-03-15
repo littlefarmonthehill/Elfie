@@ -4,7 +4,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { DimensionWheel, ScoringWheel, type PricingInsight } from "@/components/PriceOMaticDashboard";
 import { APP_VERSION, APP_NAME } from "@shared/version";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Flag, Power, Zap, Globe, ToggleLeft, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save, ClipboardPaste, Headphones, MessageCircle, Send, Target, Map, ListTodo, Crosshair } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Flag, Power, Zap, Globe, ToggleLeft, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save, ClipboardPaste, Headphones, MessageCircle, Send, Target, Map, ListTodo, Crosshair, ThumbsUp } from "lucide-react";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
 import { Badge } from "@/components/ui/badge";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
@@ -1005,6 +1005,7 @@ function ProductOkrsPanel() {
 function ProductRoadmapPanel() {
   const { toast } = useToast();
   const { data: caps, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/capabilities'] });
+  const { data: voteCounts } = useQuery<Record<number, number>>({ queryKey: ['/api/feature-votes/counts'] });
   const [statusFilter, setStatusFilter] = useState<'all' | 'built' | 'new' | 'now' | 'next' | 'later'>('all');
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
   const [newL1, setNewL1] = useState('');
@@ -1169,6 +1170,11 @@ function ProductRoadmapPanel() {
                                   ) : (
                                     <span className={`flex-1 text-xs cursor-pointer ${(f.status || 'built') === 'built' ? 'text-gray-400' : 'text-gray-200'}`} onClick={() => { setEditingId(f.id); setEditTitle(f.title); }} data-testid={`text-feature-${f.id}`}>{f.title}</span>
                                   )}
+                                  {(voteCounts?.[f.id] || 0) > 0 && (
+                                    <span className="flex items-center gap-0.5 text-[10px] text-cyan-400" title={`${voteCounts?.[f.id]} vote(s)`} data-testid={`votes-roadmap-${f.id}`}>
+                                      <ThumbsUp className="w-2.5 h-2.5" />{voteCounts?.[f.id]}
+                                    </span>
+                                  )}
                                   <InlineDropdown value={String(f.parentId)} options={l2s.map((other: any) => { const pL1 = l1s.find((p: any) => p.id === other.parentId); return { value: String(other.id), label: `${pL1 ? pL1.title + ' / ' : ''}${other.title}` }; })} onChange={async val => { const newParent = parseInt(val); if (newParent !== f.parentId) { try { await apiRequest('PATCH', `/api/platform-admin/product/capabilities/${f.id}`, { parentId: newParent }); queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] }); } catch {} } }} testId={`select-feature-l2-${f.id}`} />
                                   <Button size="icon" variant="ghost" className="invisible group-hover:visible" onClick={() => deleteCap(f.id)} data-testid={`button-delete-feature-${f.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
                                 </div>
@@ -1202,6 +1208,7 @@ function ProductRoadmapPanel() {
 function ProductBacklogPanel() {
   const { toast } = useToast();
   const { data: caps, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/capabilities'] });
+  const { data: voteCounts } = useQuery<Record<number, number>>({ queryKey: ['/api/feature-votes/counts'] });
   const [filter, setFilter] = useState<'all' | 'new' | 'now' | 'next' | 'later'>('all');
 
   const l1s = (caps || []).filter((c: any) => c.level === 1);
@@ -1287,6 +1294,11 @@ function ProductBacklogPanel() {
                             moveCapStatus(f.id, next);
                           }} />
                           <span className="flex-1 text-xs text-gray-200 min-w-0">{f.title}</span>
+                          {(voteCounts?.[f.id] || 0) > 0 && (
+                            <span className="flex items-center gap-0.5 text-[10px] text-cyan-400" title={`${voteCounts?.[f.id]} vote(s)`} data-testid={`votes-backlog-${f.id}`}>
+                              <ThumbsUp className="w-2.5 h-2.5" />{voteCounts?.[f.id]}
+                            </span>
+                          )}
                           <InlineDropdown value={String(f.parentId)} options={l2s.map((other: any) => { const pL1 = l1s.find((p: any) => p.id === other.parentId); return { value: String(other.id), label: `${pL1 ? pL1.title + ' / ' : ''}${other.title}` }; })} onChange={val => { const newParent = parseInt(val); if (newParent !== f.parentId) moveCapParent(f.id, newParent); }} testId={`select-backlog-l2-${f.id}`} />
                         </div>
                         {parentL2 && <p className="text-[10px] text-gray-500 mt-0.5 ml-7">{parentL1 ? `${parentL1.title} / ` : ''}{parentL2.title}</p>}

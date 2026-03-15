@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Sparkles, Brain, ChevronDown, ChevronRight, Globe, Clock, Newspaper, MessageSquare, Headphones, Lightbulb, Plus, History, Trash2, X } from "lucide-react";
+import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Sparkles, Brain, ChevronDown, ChevronRight, Globe, Clock, Newspaper, MessageSquare, Headphones, Lightbulb, Plus, History, Trash2, X, Map, ThumbsUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InventoryGroup } from "@/components/InventoryGroup";
 import { OrderGroup } from "@/components/OrderGroup";
@@ -1085,6 +1085,11 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const [showThreadList, setShowThreadList] = useState(false);
   const [threads, setThreads] = useState<{ id: string; sessionId: string; title: string; updatedAt: string }[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(false);
+  const [showRoadmap, setShowRoadmap] = useState(false);
+  const [roadmapFeatures, setRoadmapFeatures] = useState<any[]>([]);
+  const [roadmapLoading, setRoadmapLoading] = useState(false);
+  const [roadmapFilter, setRoadmapFilter] = useState<string>('all');
+  const [votingIds, setVotingIds] = useState<Set<number>>(new Set());
   const lastPollRef = useRef<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -1256,6 +1261,63 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
     } finally {
       setEscalating(false);
     }
+  };
+
+  const fetchRoadmap = async (filter?: string) => {
+    setRoadmapLoading(true);
+    try {
+      const statusParam = filter || roadmapFilter;
+      const resp = await fetch(`/api/public-roadmap?status=${statusParam}`, { credentials: 'include' });
+      if (resp.ok) {
+        const data = await resp.json();
+        setRoadmapFeatures(data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch roadmap:', e);
+    } finally {
+      setRoadmapLoading(false);
+    }
+  };
+
+  const handleOpenRoadmap = () => {
+    setShowRoadmap(true);
+    setShowThreadList(false);
+    fetchRoadmap();
+  };
+
+  const handleVote = async (capabilityId: number) => {
+    if (votingIds.has(capabilityId)) return;
+    setVotingIds(prev => new Set(prev).add(capabilityId));
+    try {
+      const resp = await fetch(`/api/feature-votes/${capabilityId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      if (resp.ok) {
+        const result = await resp.json();
+        setRoadmapFeatures(prev => prev.map(f =>
+          f.id === capabilityId ? { ...f, votes: result.votes, userVoted: result.voted } : f
+        ));
+      }
+    } catch (e) {
+      console.error('Vote failed:', e);
+    } finally {
+      setVotingIds(prev => { const next = new Set(prev); next.delete(capabilityId); return next; });
+    }
+  };
+
+  const handleRoadmapFilterChange = (newFilter: string) => {
+    setRoadmapFilter(newFilter);
+    fetchRoadmap(newFilter);
+  };
+
+  const statusColors: Record<string, string> = {
+    built: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+    new: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+    now: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+    next: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    later: 'bg-gray-500/20 text-gray-300 border-gray-500/30',
   };
 
   const handleEnterFeatureMode = () => {
@@ -1669,6 +1731,14 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
             <Newspaper className="h-3 w-3" />
             <span>Latest News</span>
           </button>
+          <button
+            onClick={handleOpenRoadmap}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30"
+            data-testid="button-view-roadmap"
+          >
+            <Map className="h-3 w-3" />
+            <span>View Roadmap</span>
+          </button>
           {!featureRequestMode && (
             <button
               onClick={handleEnterFeatureMode}
@@ -1752,6 +1822,80 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
               <Plus className="h-4 w-4" />
               <span>New Conversation</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {!isMinimized && showRoadmap && (
+        <div className="absolute inset-0 top-[auto] z-20 bg-gray-900/95 backdrop-blur-sm flex flex-col" style={{ height: 'calc(100% - 60px)', top: '60px' }}>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-cyan-500/20">
+            <span className="text-sm font-medium text-cyan-300">Product Roadmap</span>
+            <Button size="icon" variant="ghost" onClick={() => setShowRoadmap(false)} className="h-6 w-6 hover:bg-cyan-500/20" data-testid="button-close-roadmap">
+              <X className="h-4 w-4 text-gray-400" />
+            </Button>
+          </div>
+          <div className="flex gap-1.5 px-4 py-2 overflow-x-auto scrollbar-hide border-b border-cyan-500/10">
+            {['all', 'new', 'now', 'next', 'later', 'built'].map((s) => (
+              <button
+                key={s}
+                onClick={() => handleRoadmapFilterChange(s)}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all border ${
+                  roadmapFilter === s
+                    ? 'bg-cyan-500/30 text-cyan-200 border-cyan-500/40'
+                    : 'bg-gray-800/40 text-gray-400 border-gray-700/40 hover:bg-gray-700/50'
+                }`}
+                data-testid={`roadmap-filter-${s}`}
+              >
+                {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
+              </button>
+            ))}
+          </div>
+          <div className="flex-1 overflow-y-auto p-3">
+            {roadmapLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCcw className="h-5 w-5 animate-spin text-cyan-400" />
+              </div>
+            ) : roadmapFeatures.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 text-sm">No features found</div>
+            ) : (
+              <div className="space-y-2">
+                {roadmapFeatures.map((feature) => (
+                  <div
+                    key={feature.id}
+                    className="flex items-start gap-3 px-3 py-3 rounded-lg bg-gray-800/50 border border-gray-700/40"
+                    data-testid={`roadmap-feature-${feature.id}`}
+                  >
+                    <button
+                      onClick={() => handleVote(feature.id)}
+                      disabled={votingIds.has(feature.id)}
+                      className={`flex flex-col items-center gap-0.5 pt-0.5 min-w-[36px] rounded-md px-1 py-1 transition-all disabled:opacity-50 ${
+                        feature.userVoted
+                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                          : 'bg-gray-700/40 text-gray-500 border border-gray-600/30 hover:bg-gray-600/40 hover:text-gray-300'
+                      }`}
+                      data-testid={`vote-button-${feature.id}`}
+                    >
+                      <ThumbsUp className={`h-3.5 w-3.5 ${feature.userVoted ? 'fill-cyan-400' : ''}`} />
+                      <span className="text-[10px] font-semibold">{feature.votes}</span>
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm text-gray-200 leading-snug">{feature.title}</div>
+                      {feature.description && (
+                        <div className="text-xs text-gray-500 mt-1 line-clamp-2">{feature.description}</div>
+                      )}
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium border ${statusColors[feature.status] || 'bg-gray-500/20 text-gray-300 border-gray-500/30'}`}>
+                          {feature.status}
+                        </span>
+                        {feature.l2Name && (
+                          <span className="text-[10px] text-gray-500">{feature.l2Name}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

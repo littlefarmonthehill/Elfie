@@ -1708,3 +1708,16 @@ export const productCapabilities = pgTable("product_capabilities", {
 export const insertProductCapabilitySchema = createInsertSchema(productCapabilities).omit({ id: true, createdAt: true });
 export type InsertProductCapability = z.infer<typeof insertProductCapabilitySchema>;
 export type ProductCapability = typeof productCapabilities.$inferSelect;
+
+export const featureVotes = pgTable("feature_votes", {
+  id: serial("id").primaryKey(),
+  capabilityId: integer("capability_id").notNull(),
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  orgId: varchar("org_id", { length: 255 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueVote: uniqueIndex("feature_votes_unique_idx").on(table.capabilityId, table.userId),
+  capabilityIdx: index("feature_votes_capability_idx").on(table.capabilityId),
+}));
+
+export type FeatureVote = typeof featureVotes.$inferSelect;
