@@ -6430,63 +6430,58 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
               const plans = planConfigs || [];
               const anyDirty = Object.keys(planDraft).length > 0;
 
-              const inputCls = "w-full bg-gray-900/60 border border-gray-700 rounded px-1.5 py-0.5 text-[11px] text-gray-200 outline-none focus:border-gray-500 text-center";
+              const inputCls = "w-full bg-gray-900/60 border border-gray-700 rounded px-1 py-px text-[9px] text-gray-200 outline-none focus:border-gray-500 text-center";
 
               return (
-                <div className="p-4 space-y-4">
-                  <div className="flex items-center justify-between gap-2 px-1">
-                    <div className="flex items-center gap-2">
-                      <Tag className="h-4 w-4 text-yellow-500/70" />
-                      <p className="text-xs font-semibold text-gray-100 uppercase tracking-widest">Plans & Pricing</p>
+                <div className="p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Tag className="h-3 w-3 text-yellow-500/70" />
+                      <p className="text-[9px] font-semibold text-gray-100 uppercase tracking-widest">Plans & Pricing</p>
                     </div>
-                    <p className="text-[9px] text-gray-600">-1 = unlimited</p>
+                    <p className="text-[7px] text-gray-600">-1 = unlimited</p>
                   </div>
 
                   {planConfigsLoading && (
-                    <div className="flex items-center justify-center h-24">
-                      <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+                    <div className="flex items-center justify-center h-16">
+                      <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
                     </div>
                   )}
 
                   {plans.length > 0 && (
-                    <div className="rounded-lg border border-gray-700 bg-gray-800/40 overflow-x-auto" data-testid="plans-comparison-grid">
-                      <table className="w-full text-[11px] border-collapse" style={{ minWidth: '520px' }}>
+                    <div className="rounded-md border border-gray-700 bg-gray-800/40 overflow-x-auto" data-testid="plans-comparison-grid">
+                      <table className="w-full text-[9px] border-collapse" style={{ minWidth: '480px' }}>
                         <thead>
                           <tr className="border-b border-gray-700/60">
-                            <th className="text-left px-3 py-2 text-gray-500 font-medium w-[140px] sticky left-0 bg-gray-800/90 z-10" />
+                            <th className="text-left px-2 py-1 text-gray-500 font-medium w-[110px] sticky left-0 bg-gray-800/90 z-10" />
                             {plans.map(plan => {
                               const locked = (plan.orgCount ?? 0) > 0;
                               return (
-                                <th key={plan.planKey} className="px-2 py-2 text-center" data-testid={`col-plan-${plan.planKey}`}>
-                                  <div className="space-y-1">
+                                <th key={plan.planKey} className="px-1 py-1 text-center" data-testid={`col-plan-${plan.planKey}`}>
+                                  <div className="flex items-center justify-center gap-1">
                                     {locked ? (
-                                      <p className="text-xs font-semibold text-gray-200">{plan.name}</p>
+                                      <span className="text-[9px] font-semibold text-gray-200">{plan.name}</span>
                                     ) : (
                                       <input
                                         value={getDraft(plan.planKey, 'name', plan.name)}
                                         onChange={e => setDraft(plan.planKey, 'name', e.target.value)}
                                         data-testid={`input-plan-name-${plan.planKey}`}
-                                        className={`${inputCls} font-semibold`}
+                                        className={`${inputCls} font-semibold max-w-[70px]`}
                                       />
                                     )}
-                                    <div className="flex items-center justify-center gap-1.5">
-                                      {plan.orgCount > 0 && (
-                                        <span className="inline-flex items-center justify-center rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[8px] font-semibold min-w-[14px] px-1 leading-tight" data-testid={`badge-orgcount-${plan.planKey}`}>{plan.orgCount}</span>
-                                      )}
-                                      {locked && <Lock className="h-2.5 w-2.5 text-blue-400/60" />}
-                                      <div className="flex items-center gap-0.5">
-                                        <span className="text-[8px] text-gray-600">Sun</span>
-                                        <Switch
-                                          checked={getDraft(plan.planKey, 'isSunset', plan.isSunset)}
-                                          onCheckedChange={checked => {
-                                            setDraft(plan.planKey, 'isSunset', checked);
-                                            sunsetPlanMutation.mutate({ planKey: plan.planKey, isSunset: checked });
-                                          }}
-                                          data-testid={`switch-sunset-${plan.planKey}`}
-                                          className="scale-[0.55]"
-                                        />
-                                      </div>
-                                    </div>
+                                    {plan.orgCount > 0 && (
+                                      <span className="inline-flex items-center justify-center rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[7px] font-semibold min-w-[12px] px-0.5 leading-tight" data-testid={`badge-orgcount-${plan.planKey}`}>{plan.orgCount}</span>
+                                    )}
+                                    {locked && <Lock className="h-2 w-2 text-blue-400/60" />}
+                                    <Switch
+                                      checked={getDraft(plan.planKey, 'isSunset', plan.isSunset)}
+                                      onCheckedChange={checked => {
+                                        setDraft(plan.planKey, 'isSunset', checked);
+                                        sunsetPlanMutation.mutate({ planKey: plan.planKey, isSunset: checked });
+                                      }}
+                                      data-testid={`switch-sunset-${plan.planKey}`}
+                                      className="scale-[0.4]"
+                                    />
                                   </div>
                                 </th>
                               );
@@ -6496,19 +6491,19 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         <tbody>
                           {/* Tagline row */}
                           <tr className="border-b border-gray-700/30">
-                            <td className="px-3 py-1.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Tagline</td>
+                            <td className="px-2 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Tagline</td>
                             {plans.map(plan => {
                               const locked = (plan.orgCount ?? 0) > 0;
                               return (
-                                <td key={plan.planKey} className="px-2 py-1.5 text-center">
+                                <td key={plan.planKey} className="px-1 py-0.5 text-center">
                                   {locked ? (
-                                    <span className="text-gray-500 text-[10px]">{plan.tagline}</span>
+                                    <span className="text-gray-500 text-[8px]">{plan.tagline}</span>
                                   ) : (
                                     <input
                                       value={getDraft(plan.planKey, 'tagline', plan.tagline)}
                                       onChange={e => setDraft(plan.planKey, 'tagline', e.target.value)}
                                       data-testid={`input-plan-tagline-${plan.planKey}`}
-                                      className={`${inputCls} text-[10px] text-gray-400`}
+                                      className={`${inputCls} text-[8px] text-gray-400`}
                                     />
                                   )}
                                 </td>
@@ -6518,15 +6513,15 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
                           {/* Pricing section header */}
                           <tr className="border-b border-gray-700/30 bg-gray-900/30">
-                            <td colSpan={plans.length + 1} className="px-3 py-1 text-[9px] font-semibold text-gray-400 uppercase tracking-widest">Pricing (USD)</td>
+                            <td colSpan={plans.length + 1} className="px-2 py-0.5 text-[7px] font-semibold text-gray-400 uppercase tracking-widest">Pricing (USD)</td>
                           </tr>
                           {/* Monthly */}
                           <tr className="border-b border-gray-700/30">
-                            <td className="px-3 py-1.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Monthly</td>
+                            <td className="px-2 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Monthly</td>
                             {plans.map(plan => {
                               const locked = (plan.orgCount ?? 0) > 0;
                               return (
-                                <td key={plan.planKey} className="px-2 py-1.5 text-center">
+                                <td key={plan.planKey} className="px-1 py-0.5 text-center">
                                   {locked ? (
                                     <span className="text-gray-300 font-semibold">${fmtCents(plan.priceMonthly)}</span>
                                   ) : (
@@ -6543,11 +6538,11 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           </tr>
                           {/* Annual */}
                           <tr className="border-b border-gray-700/30">
-                            <td className="px-3 py-1.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Annual total</td>
+                            <td className="px-2 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Annual total</td>
                             {plans.map(plan => {
                               const locked = (plan.orgCount ?? 0) > 0;
                               return (
-                                <td key={plan.planKey} className="px-2 py-1.5 text-center">
+                                <td key={plan.planKey} className="px-1 py-0.5 text-center">
                                   {locked ? (
                                     <span className="text-gray-300 font-semibold">${fmtCents(plan.priceAnnual)}</span>
                                   ) : (
@@ -6564,11 +6559,11 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           </tr>
                           {/* Annual/Mo */}
                           <tr className="border-b border-gray-700/30">
-                            <td className="px-3 py-1.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Annual/mo rate</td>
+                            <td className="px-2 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Annual/mo</td>
                             {plans.map(plan => {
                               const locked = (plan.orgCount ?? 0) > 0;
                               return (
-                                <td key={plan.planKey} className="px-2 py-1.5 text-center">
+                                <td key={plan.planKey} className="px-1 py-0.5 text-center">
                                   {locked ? (
                                     <span className="text-gray-300 font-semibold">${fmtCents(plan.priceAnnualMonthly)}</span>
                                   ) : (
@@ -6586,16 +6581,16 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
                           {/* Usage limits section header */}
                           <tr className="border-b border-gray-700/30 bg-gray-900/30">
-                            <td colSpan={plans.length + 1} className="px-3 py-1 text-[9px] font-semibold text-gray-400 uppercase tracking-widest">Usage Limits</td>
+                            <td colSpan={plans.length + 1} className="px-2 py-0.5 text-[7px] font-semibold text-gray-400 uppercase tracking-widest">Usage Limits</td>
                           </tr>
                           {LIMIT_ROWS.map(({ label, field }) => (
                             <tr key={field} className="border-b border-gray-700/30">
-                              <td className="px-3 py-1.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">{label}</td>
+                              <td className="px-2 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">{label}</td>
                               {plans.map(plan => {
                                 const locked = (plan.orgCount ?? 0) > 0;
                                 const val = getDraft(plan.planKey, field, (plan as any)[field]);
                                 return (
-                                  <td key={plan.planKey} className="px-2 py-1.5 text-center">
+                                  <td key={plan.planKey} className="px-1 py-0.5 text-center">
                                     {locked ? (
                                       <span className="text-gray-300 font-semibold">{fmtLimit(val)}</span>
                                     ) : (
@@ -6614,24 +6609,24 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
                           {/* Features section header */}
                           <tr className="border-b border-gray-700/30 bg-gray-900/30">
-                            <td colSpan={plans.length + 1} className="px-3 py-1 text-[9px] font-semibold text-gray-400 uppercase tracking-widest">Features</td>
+                            <td colSpan={plans.length + 1} className="px-2 py-0.5 text-[7px] font-semibold text-gray-400 uppercase tracking-widest">Features</td>
                           </tr>
                           {FEATURE_ROWS.map(({ key, label }) => (
                             <tr key={key} className="border-b border-gray-700/30">
-                              <td className="px-3 py-1.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">{label}</td>
+                              <td className="px-2 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">{label}</td>
                               {plans.map(plan => {
                                 const locked = (plan.orgCount ?? 0) > 0;
                                 const val = getDraft(plan.planKey, key, (plan as any)[key]);
                                 return (
-                                  <td key={plan.planKey} className="px-2 py-1.5 text-center">
+                                  <td key={plan.planKey} className="px-1 py-0.5 text-center">
                                     {locked ? (
-                                      val ? <CheckCircle2 className="h-3 w-3 text-green-500/70 mx-auto" /> : <X className="h-3 w-3 text-gray-700 mx-auto" />
+                                      val ? <CheckCircle2 className="h-2.5 w-2.5 text-green-500/70 mx-auto" /> : <X className="h-2.5 w-2.5 text-gray-700 mx-auto" />
                                     ) : (
                                       <Switch
                                         checked={val}
                                         onCheckedChange={checked => setDraft(plan.planKey, key, checked)}
                                         data-testid={`switch-feature-${key}-${plan.planKey}`}
-                                        className="scale-[0.6] mx-auto"
+                                        className="scale-[0.45] mx-auto"
                                       />
                                     )}
                                   </td>
@@ -6646,7 +6641,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
                   {/* Save buttons per plan */}
                   {plans.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2 justify-end">
+                    <div className="flex flex-wrap items-center gap-1.5 justify-end">
                       {plans.filter(p => (p.orgCount ?? 0) === 0 && (planDraft as any)[p.planKey]).map(plan => (
                         <button
                           key={plan.planKey}
@@ -6657,7 +6652,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           }}
                           disabled={savePlanMutation.isPending}
                           data-testid={`button-save-plan-${plan.planKey}`}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-600/20 hover:bg-yellow-600/30 border border-yellow-500/30 rounded text-[10px] font-medium text-yellow-400 transition-colors disabled:opacity-50"
+                          className="flex items-center gap-1 px-2 py-1 bg-yellow-600/20 hover:bg-yellow-600/30 border border-yellow-500/30 rounded text-[9px] font-medium text-yellow-400 transition-colors disabled:opacity-50"
                         >
                           {savePlanMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
                           Save {plan.name}
