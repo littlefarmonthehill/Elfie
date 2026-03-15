@@ -2209,11 +2209,11 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     {
       label: 'Plans & Customers',
       items: [
-        { id: 'orgs' as const, label: 'Organizations', icon: Building2 },
-        { id: 'impersonation' as const, label: 'View as Company', icon: EyeOff },
-        { id: 'billingOverview' as const, label: 'Billing Overview', icon: CreditCard },
         { id: 'plansAndPricing' as const, label: 'Plans & Pricing', icon: Tag },
+        { id: 'orgs' as const, label: 'Organizations', icon: Building2 },
+        { id: 'billingOverview' as const, label: 'Billing Overview', icon: CreditCard },
         { id: 'announcements' as const, label: 'Announcements', icon: Megaphone },
+        { id: 'impersonation' as const, label: 'View as Company', icon: EyeOff },
       ],
     },
     {
