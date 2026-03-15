@@ -4238,7 +4238,53 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   <h3 className="text-sm font-medium text-gray-100 mb-3">Chat Assistant (E.L.F.I.E.)</h3>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="system-prompt" className="text-xs text-gray-200">System Prompt / Role Instructions</Label>
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <Label htmlFor="system-prompt" className="text-xs text-gray-200">System Prompt / Role Instructions</Label>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {systemPrompt && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              data-testid="button-clear-elfie-prompt"
+                              onClick={() => {
+                                setSystemPrompt('');
+                                updateSettingsMutation.mutate({
+                                  aiEnabled,
+                                  ...(openaiApiKey ? { openaiApiKey } : {}),
+                                  selectedModel: selectedModel || null,
+                                  systemPrompt: null,
+                                });
+                              }}
+                              className="text-[10px] text-gray-500"
+                            >
+                              Clear & Use Defaults
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            data-testid="button-load-default-elfie-prompt"
+                            onClick={async () => {
+                              try {
+                                const res = await fetch('/api/elfie-default-prompt');
+                                const data = await res.json();
+                                if (data.prompt) {
+                                  setSystemPrompt(data.prompt);
+                                  updateSettingsMutation.mutate({
+                                    aiEnabled,
+                                    ...(openaiApiKey ? { openaiApiKey } : {}),
+                                    selectedModel: selectedModel || null,
+                                    systemPrompt: data.prompt,
+                                  });
+                                }
+                              } catch {}
+                            }}
+                            className="text-[10px]"
+                          >
+                            {systemPrompt ? 'Reset to Default' : 'Load Default Prompt'}
+                          </Button>
+                        </div>
+                      </div>
                       <Textarea
                         id="system-prompt"
                         placeholder="Enter custom instructions for E.L.F.I.E..."
@@ -4256,7 +4302,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         data-testid="textarea-system-prompt"
                       />
                       <p className="sm-description">
-                        Customize E.L.F.I.E.'s role and behavior. Leave empty to use default instructions.
+                        {systemPrompt
+                          ? 'Your custom prompt replaces the default personality & behavior sections. Tool instructions are always appended automatically.'
+                          : 'No custom prompt set — using built-in defaults. Click "Load Default Prompt" to view and edit.'}
                       </p>
                     </div>
 
