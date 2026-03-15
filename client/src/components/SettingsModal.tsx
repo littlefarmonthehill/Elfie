@@ -3265,6 +3265,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       { feature: 'BrickOwl Sync', foundation: false, core: true },
                       { feature: 'E.L.F.I.E. AI (Default)', foundation: true, core: true },
                       { feature: 'E.L.F.I.E. AI (Customized)', foundation: false, core: true },
+                      { feature: 'Business Insights', foundation: true, core: true },
                       { feature: 'Price-o-Matic', foundation: false, core: true },
                       { feature: 'Auto-Shipping Rules', foundation: false, core: true },
                       { feature: 'Unlimited Scans', foundation: false, core: true },
