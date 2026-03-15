@@ -5824,6 +5824,65 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           </div>
                         </div>
 
+                        {(() => {
+                          const now = Date.now();
+                          const ceiling = platformBlApiUsage.ceiling;
+                          const currentUsed = platformBlApiUsage.callsLast24h;
+                          const currentAvailable = Math.max(0, ceiling - currentUsed);
+                          const futureBuckets = platformBlApiUsage.hourlyBuckets
+                            .filter(b => b.calls > 0)
+                            .map(b => ({ rollsOffAt: new Date(b.rollsOffAt), count: b.calls }))
+                            .filter(b => b.rollsOffAt.getTime() > now)
+                            .sort((a, b) => a.rollsOffAt.getTime() - b.rollsOffAt.getTime());
+                          if (futureBuckets.length === 0) return null;
+                          let running = currentAvailable;
+                          const forecast = futureBuckets.map(b => {
+                            running += b.count;
+                            return { ...b, available: Math.min(running, ceiling) };
+                          });
+                          const totalFreeing = futureBuckets.reduce((s, b) => s + b.count, 0);
+                          const maxBar = Math.max(...futureBuckets.map(b => b.count));
+                          const fmtTime = (d: Date) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                          const fmtRelative = (d: Date) => {
+                            const mins = Math.round((d.getTime() - now) / 60000);
+                            if (mins < 60) return `${mins}m`;
+                            const hrs = Math.floor(mins / 60);
+                            const rm = mins % 60;
+                            return rm > 0 ? `${hrs}h ${rm}m` : `${hrs}h`;
+                          };
+                          return (
+                            <div data-testid="api-recovery-forecast">
+                              <p className="sm-group-label mb-2 px-1">API Recovery Forecast</p>
+                              <div className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-3 space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="text-xs font-semibold text-gray-200">Budget Recovery Timeline</div>
+                                  <span className="text-[10px] text-green-400/80">{totalFreeing.toLocaleString()} calls freeing up</span>
+                                </div>
+                                <div className="text-[11px] text-gray-500">
+                                  {currentAvailable.toLocaleString()} available now · {ceiling.toLocaleString()} limit
+                                </div>
+                                <div className="space-y-0.5 mt-1">
+                                  {forecast.map((b, i) => (
+                                    <div key={i} className="flex items-center gap-2 text-[10px]">
+                                      <span className="text-gray-500 w-[44px] text-right shrink-0 font-mono">{fmtRelative(b.rollsOffAt)}</span>
+                                      <span className="text-gray-400 w-[58px] shrink-0 font-mono">{fmtTime(b.rollsOffAt)}</span>
+                                      <div className="flex-1 h-1.5 rounded-full bg-gray-700/40 overflow-hidden">
+                                        <div className="h-full bg-green-500/60 rounded-full transition-all" style={{ width: `${maxBar > 0 ? Math.max(3, Math.round((b.count / maxBar) * 100)) : 0}%` }} />
+                                      </div>
+                                      <span className="text-green-400/80 w-[48px] text-right shrink-0 font-mono">+{b.count.toLocaleString()}</span>
+                                      <span className="text-gray-400 w-[56px] text-right shrink-0 font-mono">{b.available.toLocaleString()}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="flex items-center justify-between gap-2 mt-1 pt-1.5 border-t border-gray-700/30">
+                                  <span className="text-[9px] text-gray-600">Calls expire 24h after they were made</span>
+                                  <span className="text-[9px] text-gray-600">+freed · available</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
                         <div>
                           <div className="flex items-center justify-between gap-2 mb-2 px-1">
                             <p className="sm-group-label">Hourly Call Volume (All Orgs)</p>
@@ -5916,64 +5975,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           </div>
                         )}
 
-                        {(() => {
-                          const now = Date.now();
-                          const ceiling = platformBlApiUsage.ceiling;
-                          const currentUsed = platformBlApiUsage.callsLast24h;
-                          const currentAvailable = Math.max(0, ceiling - currentUsed);
-                          const futureBuckets = platformBlApiUsage.hourlyBuckets
-                            .filter(b => b.calls > 0)
-                            .map(b => ({ rollsOffAt: new Date(b.rollsOffAt), count: b.calls }))
-                            .filter(b => b.rollsOffAt.getTime() > now)
-                            .sort((a, b) => a.rollsOffAt.getTime() - b.rollsOffAt.getTime());
-                          if (futureBuckets.length === 0) return null;
-                          let running = currentAvailable;
-                          const forecast = futureBuckets.map(b => {
-                            running += b.count;
-                            return { ...b, available: Math.min(running, ceiling) };
-                          });
-                          const totalFreeing = futureBuckets.reduce((s, b) => s + b.count, 0);
-                          const maxBar = Math.max(...futureBuckets.map(b => b.count));
-                          const fmtTime = (d: Date) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-                          const fmtRelative = (d: Date) => {
-                            const mins = Math.round((d.getTime() - now) / 60000);
-                            if (mins < 60) return `${mins}m`;
-                            const hrs = Math.floor(mins / 60);
-                            const rm = mins % 60;
-                            return rm > 0 ? `${hrs}h ${rm}m` : `${hrs}h`;
-                          };
-                          return (
-                            <div data-testid="api-recovery-forecast">
-                              <p className="sm-group-label mb-2 px-1">API Recovery Forecast</p>
-                              <div className="rounded-lg bg-gray-800/60 border border-gray-700 px-3 py-3 space-y-2">
-                                <div className="flex items-center justify-between gap-2">
-                                  <div className="text-xs font-semibold text-gray-200">Budget Recovery Timeline</div>
-                                  <span className="text-[10px] text-green-400/80">{totalFreeing.toLocaleString()} calls freeing up</span>
-                                </div>
-                                <div className="text-[11px] text-gray-500">
-                                  {currentAvailable.toLocaleString()} available now · {ceiling.toLocaleString()} limit
-                                </div>
-                                <div className="space-y-0.5 mt-1">
-                                  {forecast.map((b, i) => (
-                                    <div key={i} className="flex items-center gap-2 text-[10px]">
-                                      <span className="text-gray-500 w-[44px] text-right shrink-0 font-mono">{fmtRelative(b.rollsOffAt)}</span>
-                                      <span className="text-gray-400 w-[58px] shrink-0 font-mono">{fmtTime(b.rollsOffAt)}</span>
-                                      <div className="flex-1 h-1.5 rounded-full bg-gray-700/40 overflow-hidden">
-                                        <div className="h-full bg-green-500/60 rounded-full transition-all" style={{ width: `${maxBar > 0 ? Math.max(3, Math.round((b.count / maxBar) * 100)) : 0}%` }} />
-                                      </div>
-                                      <span className="text-green-400/80 w-[48px] text-right shrink-0 font-mono">+{b.count.toLocaleString()}</span>
-                                      <span className="text-gray-400 w-[56px] text-right shrink-0 font-mono">{b.available.toLocaleString()}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                                <div className="flex items-center justify-between gap-2 mt-1 pt-1.5 border-t border-gray-700/30">
-                                  <span className="text-[9px] text-gray-600">Calls expire 24h after they were made</span>
-                                  <span className="text-[9px] text-gray-600">+freed · available</span>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })()}
                       </>
                     )}
                   </div>
