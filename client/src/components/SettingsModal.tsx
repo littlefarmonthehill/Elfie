@@ -712,6 +712,490 @@ interface SupportTicketRow {
   orgName: string;
 }
 
+function ProductVisionPanel() {
+  const { toast } = useToast();
+  const { data: vision, isLoading } = useQuery<any>({ queryKey: ['/api/platform-admin/product/vision'] });
+  const [whatChanges, setWhatChanges] = useState('');
+  const [howIFeel, setHowIFeel] = useState('');
+  const [whatPeopleSay, setWhatPeopleSay] = useState('');
+  const [initialized, setInitialized] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (vision && !initialized) {
+      setWhatChanges(vision.whatChanges || '');
+      setHowIFeel(vision.howIFeel || '');
+      setWhatPeopleSay(vision.whatPeopleSay || '');
+      setInitialized(true);
+    }
+  }, [vision, initialized]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await apiRequest('PUT', '/api/platform-admin/product/vision', { whatChanges, howIFeel, whatPeopleSay });
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/vision'] });
+      toast({ title: 'Vision saved' });
+    } catch (e: any) { toast({ title: 'Failed to save vision', description: e.message, variant: 'destructive' }); } finally { setSaving(false); }
+  };
+
+  if (isLoading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-500" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm font-medium text-gray-100">Vision of Success</p>
+        <p className="sm-description mt-1">Define what success looks like. Every OKR, roadmap item, and backlog task should trace back to this vision.</p>
+      </div>
+      <div className="space-y-4">
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4 space-y-2">
+          <label className="block text-xs font-medium text-emerald-300">If we are successful, what changes?</label>
+          <textarea className="w-full bg-black/30 border border-emerald-500/20 rounded-md p-3 text-sm text-gray-200 min-h-[80px] resize-y focus:outline-none focus:border-emerald-400/50" placeholder="e.g. E.L.F.I.E. is the operating system for LEGO resellers — they can't run their business without it" value={whatChanges} onChange={e => setWhatChanges(e.target.value)} data-testid="input-vision-what-changes" />
+        </div>
+        <div className="bg-violet-500/10 border border-violet-500/30 rounded-lg p-4 space-y-2">
+          <label className="block text-xs font-medium text-violet-300">If we are successful, how do I feel?</label>
+          <textarea className="w-full bg-black/30 border border-violet-500/20 rounded-md p-3 text-sm text-gray-200 min-h-[80px] resize-y focus:outline-none focus:border-violet-400/50" placeholder="e.g. Confident that the platform is delivering real value, proud of what we've built" value={howIFeel} onChange={e => setHowIFeel(e.target.value)} data-testid="input-vision-how-i-feel" />
+        </div>
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 space-y-2">
+          <label className="block text-xs font-medium text-amber-300">If we are successful, what are people saying?</label>
+          <textarea className="w-full bg-black/30 border border-amber-500/20 rounded-md p-3 text-sm text-gray-200 min-h-[80px] resize-y focus:outline-none focus:border-amber-400/50" placeholder='e.g. "This is the best investment I made in my LEGO business"' value={whatPeopleSay} onChange={e => setWhatPeopleSay(e.target.value)} data-testid="input-vision-what-people-say" />
+        </div>
+      </div>
+      <Button onClick={handleSave} disabled={saving} className="w-full" data-testid="button-save-vision">
+        {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+        Save Vision
+      </Button>
+    </div>
+  );
+}
+
+function ProductOkrsPanel() {
+  const { toast } = useToast();
+  const { data: okrs, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/okrs'] });
+  const [showAdd, setShowAdd] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newTimeframe, setNewTimeframe] = useState('Q2 2026');
+  const [addingKrFor, setAddingKrFor] = useState<number | null>(null);
+  const [newKrTitle, setNewKrTitle] = useState('');
+
+  const addOkr = async () => {
+    if (!newTitle.trim()) return;
+    try {
+      await apiRequest('POST', '/api/platform-admin/product/okrs', { title: newTitle, timeframe: newTimeframe });
+      setNewTitle(''); setShowAdd(false);
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/okrs'] });
+    } catch (e: any) { toast({ title: 'Failed to add objective', description: e.message, variant: 'destructive' }); }
+  };
+
+  const addKr = async (okrId: number) => {
+    if (!newKrTitle.trim()) return;
+    try {
+      await apiRequest('POST', '/api/platform-admin/product/key-results', { okrId, title: newKrTitle });
+      setNewKrTitle(''); setAddingKrFor(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/okrs'] });
+    } catch (e: any) { toast({ title: 'Failed to add key result', description: e.message, variant: 'destructive' }); }
+  };
+
+  const updateKrProgress = async (krId: number, progress: number) => {
+    try {
+      await apiRequest('PATCH', `/api/platform-admin/product/key-results/${krId}`, { progress });
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/okrs'] });
+    } catch (e: any) { toast({ title: 'Failed to update progress', description: e.message, variant: 'destructive' }); }
+  };
+
+  const deleteOkr = async (id: number) => {
+    try {
+      await apiRequest('DELETE', `/api/platform-admin/product/okrs/${id}`);
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/okrs'] });
+    } catch (e: any) { toast({ title: 'Failed to delete objective', description: e.message, variant: 'destructive' }); }
+  };
+
+  const deleteKr = async (id: number) => {
+    try {
+      await apiRequest('DELETE', `/api/platform-admin/product/key-results/${id}`);
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/okrs'] });
+    } catch (e: any) { toast({ title: 'Failed to delete key result', description: e.message, variant: 'destructive' }); }
+  };
+
+  const toggleStatus = async (okr: any) => {
+    const next = okr.status === 'active' ? 'archived' : 'active';
+    try {
+      await apiRequest('PATCH', `/api/platform-admin/product/okrs/${okr.id}`, { status: next });
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/okrs'] });
+    } catch (e: any) { toast({ title: 'Failed to update status', description: e.message, variant: 'destructive' }); }
+  };
+
+  if (isLoading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-500" /></div>;
+
+  const activeOkrs = (okrs || []).filter((o: any) => o.status === 'active');
+  const archivedOkrs = (okrs || []).filter((o: any) => o.status === 'archived');
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <p className="text-sm font-medium text-gray-100">Objectives & Key Results</p>
+          <p className="sm-description mt-1">Up to 3 objectives, each with up to 3 measurable key results.</p>
+        </div>
+        {activeOkrs.length < 3 && (
+          <Button size="sm" variant="outline" onClick={() => setShowAdd(true)} data-testid="button-add-okr">
+            <Plus className="w-3.5 h-3.5 mr-1" /> Add Objective
+          </Button>
+        )}
+      </div>
+
+      {showAdd && (
+        <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 space-y-2">
+          <input type="text" className="w-full bg-black/30 border border-gray-600 rounded-md p-2 text-sm text-gray-200 focus:outline-none focus:border-blue-500" placeholder="Objective title..." value={newTitle} onChange={e => setNewTitle(e.target.value)} data-testid="input-okr-title" />
+          <div className="flex items-center gap-2 flex-wrap">
+            <input type="text" className="bg-black/30 border border-gray-600 rounded-md p-2 text-sm text-gray-200 w-32 focus:outline-none focus:border-blue-500" placeholder="Q2 2026" value={newTimeframe} onChange={e => setNewTimeframe(e.target.value)} data-testid="input-okr-timeframe" />
+            <Button size="sm" onClick={addOkr} data-testid="button-save-okr"><Save className="w-3 h-3 mr-1" /> Save</Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      {activeOkrs.map((okr: any, idx: number) => {
+        const krAvg = okr.keyResults.length > 0 ? Math.round(okr.keyResults.reduce((sum: number, kr: any) => sum + kr.progress, 0) / okr.keyResults.length) : 0;
+        return (
+          <div key={okr.id} className="bg-gray-900/50 border border-gray-700/50 rounded-lg p-4 space-y-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className="text-[10px] text-blue-400 border-blue-500/30">O{idx + 1}</Badge>
+                  <p className="text-sm font-medium text-gray-100">{okr.title}</p>
+                </div>
+                <p className="text-[10px] text-gray-500 mt-1">{okr.timeframe}</p>
+              </div>
+              <div className="flex items-center gap-1">
+                <Badge variant="outline" className={`text-[10px] ${krAvg >= 70 ? 'text-green-400 border-green-500/30' : krAvg >= 30 ? 'text-amber-400 border-amber-500/30' : 'text-gray-400 border-gray-600'}`}>{krAvg}%</Badge>
+                <Button size="icon" variant="ghost" onClick={() => toggleStatus(okr)} className="h-7 w-7" data-testid={`button-archive-okr-${okr.id}`}><History className="w-3 h-3" /></Button>
+                <Button size="icon" variant="ghost" onClick={() => deleteOkr(okr.id)} className="h-7 w-7 text-red-400" data-testid={`button-delete-okr-${okr.id}`}><Trash2 className="w-3 h-3" /></Button>
+              </div>
+            </div>
+
+            {okr.keyResults.map((kr: any, krIdx: number) => (
+              <div key={kr.id} className="ml-4 flex items-center gap-3">
+                <span className="text-[10px] text-gray-500 w-6">KR{krIdx + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-300 truncate">{kr.title}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${kr.progress >= 70 ? 'bg-green-500' : kr.progress >= 30 ? 'bg-amber-500' : 'bg-gray-600'}`} style={{ width: `${kr.progress}%` }} />
+                    </div>
+                    <input type="number" min="0" max="100" value={kr.progress} onChange={e => updateKrProgress(kr.id, parseInt(e.target.value) || 0)} className="w-12 bg-black/30 border border-gray-700 rounded px-1.5 py-0.5 text-[10px] text-gray-300 text-center focus:outline-none" data-testid={`input-kr-progress-${kr.id}`} />
+                    <span className="text-[10px] text-gray-500">%</span>
+                    <Button size="icon" variant="ghost" onClick={() => deleteKr(kr.id)} className="h-5 w-5 text-red-400/60" data-testid={`button-delete-kr-${kr.id}`}><X className="w-2.5 h-2.5" /></Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {okr.keyResults.length < 3 && (
+              addingKrFor === okr.id ? (
+                <div className="ml-4 flex items-center gap-2">
+                  <input type="text" className="flex-1 bg-black/30 border border-gray-600 rounded-md p-1.5 text-xs text-gray-200 focus:outline-none focus:border-blue-500" placeholder="Key result..." value={newKrTitle} onChange={e => setNewKrTitle(e.target.value)} onKeyDown={e => e.key === 'Enter' && addKr(okr.id)} data-testid={`input-kr-title-${okr.id}`} />
+                  <Button size="sm" onClick={() => addKr(okr.id)} className="text-xs h-7" data-testid={`button-save-kr-${okr.id}`}>Add</Button>
+                  <Button size="sm" variant="ghost" onClick={() => { setAddingKrFor(null); setNewKrTitle(''); }} className="text-xs h-7">Cancel</Button>
+                </div>
+              ) : (
+                <button onClick={() => setAddingKrFor(okr.id)} className="ml-4 text-[10px] text-blue-400/60 hover:text-blue-400 transition-colors" data-testid={`button-add-kr-${okr.id}`}>+ Add Key Result</button>
+              )
+            )}
+          </div>
+        );
+      })}
+
+      {archivedOkrs.length > 0 && (
+        <details className="mt-4">
+          <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-400">Archived ({archivedOkrs.length})</summary>
+          <div className="mt-2 space-y-2">
+            {archivedOkrs.map((okr: any) => (
+              <div key={okr.id} className="bg-gray-900/30 border border-gray-800 rounded-lg p-3 flex items-center justify-between gap-2 opacity-60">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-400 truncate">{okr.title}</p>
+                  <p className="text-[10px] text-gray-600">{okr.timeframe}</p>
+                </div>
+                <Button size="icon" variant="ghost" onClick={() => toggleStatus(okr)} className="h-6 w-6" data-testid={`button-restore-okr-${okr.id}`}><RotateCcw className="w-3 h-3" /></Button>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+
+      {activeOkrs.length === 0 && !showAdd && (
+        <div className="text-center py-8">
+          <Target className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+          <p className="text-xs text-gray-500">No objectives yet. Add up to 3 objectives with measurable key results.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProductRoadmapPanel() {
+  const { toast } = useToast();
+  const { data: items, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/roadmap'] });
+  const { data: okrs } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/okrs'] });
+  const [showAdd, setShowAdd] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const [newLane, setNewLane] = useState('later');
+  const [newOkrId, setNewOkrId] = useState<number | null>(null);
+
+  const lanes = [
+    { id: 'now', label: 'Now', color: 'green' },
+    { id: 'next', label: 'Next', color: 'blue' },
+    { id: 'later', label: 'Later', color: 'gray' },
+    { id: 'done', label: 'Done', color: 'emerald' },
+  ];
+
+  const addItem = async () => {
+    if (!newTitle.trim()) return;
+    try {
+      await apiRequest('POST', '/api/platform-admin/product/roadmap', { title: newTitle, description: newDesc, lane: newLane, okrId: newOkrId });
+      setNewTitle(''); setNewDesc(''); setNewLane('later'); setNewOkrId(null); setShowAdd(false);
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/roadmap'] });
+    } catch (e: any) { toast({ title: 'Failed to add roadmap item', description: e.message, variant: 'destructive' }); }
+  };
+
+  const moveLane = async (id: number, lane: string) => {
+    try {
+      await apiRequest('PATCH', `/api/platform-admin/product/roadmap/${id}`, { lane });
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/roadmap'] });
+    } catch (e: any) { toast({ title: 'Failed to move item', description: e.message, variant: 'destructive' }); }
+  };
+
+  const deleteItem = async (id: number) => {
+    try {
+      await apiRequest('DELETE', `/api/platform-admin/product/roadmap/${id}`);
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/roadmap'] });
+    } catch (e: any) { toast({ title: 'Failed to delete item', description: e.message, variant: 'destructive' }); }
+  };
+
+  if (isLoading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-500" /></div>;
+
+  const activeOkrs = (okrs || []).filter((o: any) => o.status === 'active');
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <p className="text-sm font-medium text-gray-100">Roadmap</p>
+          <p className="sm-description mt-1">Capabilities organized by delivery horizon. Link to OKRs for strategic alignment.</p>
+        </div>
+        <Button size="sm" variant="outline" onClick={() => setShowAdd(true)} data-testid="button-add-roadmap">
+          <Plus className="w-3.5 h-3.5 mr-1" /> Add Item
+        </Button>
+      </div>
+
+      {showAdd && (
+        <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 space-y-2">
+          <input type="text" className="w-full bg-black/30 border border-gray-600 rounded-md p-2 text-sm text-gray-200 focus:outline-none focus:border-blue-500" placeholder="Capability title..." value={newTitle} onChange={e => setNewTitle(e.target.value)} data-testid="input-roadmap-title" />
+          <textarea className="w-full bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 min-h-[50px] resize-y focus:outline-none focus:border-blue-500" placeholder="Description (optional)..." value={newDesc} onChange={e => setNewDesc(e.target.value)} data-testid="input-roadmap-desc" />
+          <div className="flex items-center gap-2 flex-wrap">
+            <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newLane} onChange={e => setNewLane(e.target.value)} data-testid="select-roadmap-lane">
+              {lanes.filter(l => l.id !== 'done').map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
+            </select>
+            {activeOkrs.length > 0 && (
+              <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newOkrId ?? ''} onChange={e => setNewOkrId(e.target.value ? parseInt(e.target.value) : null)} data-testid="select-roadmap-okr">
+                <option value="">No linked OKR</option>
+                {activeOkrs.map((o: any) => <option key={o.id} value={o.id}>{o.title}</option>)}
+              </select>
+            )}
+            <Button size="sm" onClick={addItem} data-testid="button-save-roadmap"><Save className="w-3 h-3 mr-1" /> Save</Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      {lanes.map(lane => {
+        const laneItems = (items || []).filter((i: any) => i.lane === lane.id);
+        const borderColor = lane.color === 'green' ? 'border-green-500/30' : lane.color === 'blue' ? 'border-blue-500/30' : lane.color === 'emerald' ? 'border-emerald-500/30' : 'border-gray-700';
+        const labelColor = lane.color === 'green' ? 'text-green-400' : lane.color === 'blue' ? 'text-blue-400' : lane.color === 'emerald' ? 'text-emerald-400' : 'text-gray-400';
+        return (
+          <div key={lane.id}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className={`text-xs font-medium ${labelColor}`}>{lane.label}</span>
+              <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">{laneItems.length}</Badge>
+            </div>
+            {laneItems.length === 0 ? (
+              <div className={`border ${borderColor} border-dashed rounded-lg p-3 text-center`}>
+                <p className="text-[10px] text-gray-600">No items</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {laneItems.map((item: any) => {
+                  const linkedOkr = activeOkrs.find((o: any) => o.id === item.okrId);
+                  return (
+                    <div key={item.id} className={`border ${borderColor} rounded-lg p-3 bg-gray-900/30`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-200">{item.title}</p>
+                          {item.description && <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-2">{item.description}</p>}
+                          {linkedOkr && <Badge variant="outline" className="text-[9px] text-blue-400/60 border-blue-500/20 mt-1">{linkedOkr.title}</Badge>}
+                        </div>
+                        <div className="flex items-center gap-0.5">
+                          {lanes.filter(l => l.id !== lane.id).map(l => (
+                            <button key={l.id} onClick={() => moveLane(item.id, l.id)} className="text-[9px] text-gray-600 hover:text-gray-300 px-1.5 py-0.5 rounded hover:bg-gray-800 transition-colors" data-testid={`button-move-${item.id}-${l.id}`}>{l.label}</button>
+                          ))}
+                          <Button size="icon" variant="ghost" onClick={() => deleteItem(item.id)} className="h-5 w-5 text-red-400/60" data-testid={`button-delete-roadmap-${item.id}`}><X className="w-2.5 h-2.5" /></Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ProductBacklogPanel() {
+  const { toast } = useToast();
+  const { data: items, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/backlog'] });
+  const { data: roadmapItems } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/roadmap'] });
+  const [showAdd, setShowAdd] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const [newPriority, setNewPriority] = useState('medium');
+  const [newEffort, setNewEffort] = useState('M');
+  const [newRoadmapId, setNewRoadmapId] = useState<number | null>(null);
+  const [filter, setFilter] = useState<'all' | 'open' | 'in-progress' | 'done'>('all');
+
+  const addItem = async () => {
+    if (!newTitle.trim()) return;
+    try {
+      await apiRequest('POST', '/api/platform-admin/product/backlog', { title: newTitle, description: newDesc, priority: newPriority, effort: newEffort, roadmapItemId: newRoadmapId });
+      setNewTitle(''); setNewDesc(''); setNewPriority('medium'); setNewEffort('M'); setNewRoadmapId(null); setShowAdd(false);
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/backlog'] });
+    } catch (e: any) { toast({ title: 'Failed to add backlog item', description: e.message, variant: 'destructive' }); }
+  };
+
+  const updateStatus = async (id: number, status: string) => {
+    try {
+      await apiRequest('PATCH', `/api/platform-admin/product/backlog/${id}`, { status });
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/backlog'] });
+    } catch (e: any) { toast({ title: 'Failed to update status', description: e.message, variant: 'destructive' }); }
+  };
+
+  const updatePriority = async (id: number, priority: string) => {
+    try {
+      await apiRequest('PATCH', `/api/platform-admin/product/backlog/${id}`, { priority });
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/backlog'] });
+    } catch (e: any) { toast({ title: 'Failed to update priority', description: e.message, variant: 'destructive' }); }
+  };
+
+  const deleteItem = async (id: number) => {
+    try {
+      await apiRequest('DELETE', `/api/platform-admin/product/backlog/${id}`);
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/backlog'] });
+    } catch (e: any) { toast({ title: 'Failed to delete item', description: e.message, variant: 'destructive' }); }
+  };
+
+  if (isLoading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-500" /></div>;
+
+  const filtered = (items || []).filter((i: any) => filter === 'all' || i.status === filter);
+  const priorityOrder = { high: 0, medium: 1, low: 2 } as Record<string, number>;
+  const sorted = [...filtered].sort((a: any, b: any) => (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <p className="text-sm font-medium text-gray-100">Backlog</p>
+          <p className="sm-description mt-1">Individual work items. Link to roadmap capabilities for traceability.</p>
+        </div>
+        <Button size="sm" variant="outline" onClick={() => setShowAdd(true)} data-testid="button-add-backlog">
+          <Plus className="w-3.5 h-3.5 mr-1" /> Add Item
+        </Button>
+      </div>
+
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {(['all', 'open', 'in-progress', 'done'] as const).map(f => (
+          <button key={f} onClick={() => setFilter(f)} className={`text-[10px] px-2.5 py-1 rounded-full transition-colors ${filter === f ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'text-gray-500 hover:text-gray-300 border border-transparent'}`} data-testid={`button-filter-${f}`}>
+            {f === 'all' ? 'All' : f === 'in-progress' ? 'In Progress' : f.charAt(0).toUpperCase() + f.slice(1)}
+            {f !== 'all' && <span className="ml-1 text-gray-600">({(items || []).filter((i: any) => i.status === f).length})</span>}
+          </button>
+        ))}
+      </div>
+
+      {showAdd && (
+        <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 space-y-2">
+          <input type="text" className="w-full bg-black/30 border border-gray-600 rounded-md p-2 text-sm text-gray-200 focus:outline-none focus:border-blue-500" placeholder="Task title..." value={newTitle} onChange={e => setNewTitle(e.target.value)} data-testid="input-backlog-title" />
+          <textarea className="w-full bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 min-h-[40px] resize-y focus:outline-none focus:border-blue-500" placeholder="Description (optional)..." value={newDesc} onChange={e => setNewDesc(e.target.value)} data-testid="input-backlog-desc" />
+          <div className="flex items-center gap-2 flex-wrap">
+            <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newPriority} onChange={e => setNewPriority(e.target.value)} data-testid="select-backlog-priority">
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+            <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newEffort} onChange={e => setNewEffort(e.target.value)} data-testid="select-backlog-effort">
+              <option value="S">S</option>
+              <option value="M">M</option>
+              <option value="L">L</option>
+            </select>
+            {(roadmapItems || []).length > 0 && (
+              <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newRoadmapId ?? ''} onChange={e => setNewRoadmapId(e.target.value ? parseInt(e.target.value) : null)} data-testid="select-backlog-roadmap">
+                <option value="">No linked capability</option>
+                {(roadmapItems || []).map((r: any) => <option key={r.id} value={r.id}>{r.title}</option>)}
+              </select>
+            )}
+            <Button size="sm" onClick={addItem} data-testid="button-save-backlog"><Save className="w-3 h-3 mr-1" /> Save</Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      {sorted.length === 0 ? (
+        <div className="text-center py-8">
+          <ListTodo className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+          <p className="text-xs text-gray-500">{filter === 'all' ? 'No backlog items yet.' : `No ${filter} items.`}</p>
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {sorted.map((item: any) => {
+            const linkedRoadmap = (roadmapItems || []).find((r: any) => r.id === item.roadmapItemId);
+            const priorityColor = item.priority === 'high' ? 'text-red-400 border-red-500/30' : item.priority === 'medium' ? 'text-amber-400 border-amber-500/30' : 'text-gray-400 border-gray-600';
+            const statusColor = item.status === 'done' ? 'text-green-400 border-green-500/30' : item.status === 'in-progress' ? 'text-blue-400 border-blue-500/30' : 'text-gray-400 border-gray-600';
+            return (
+              <div key={item.id} className={`border border-gray-700/50 rounded-lg p-3 bg-gray-900/30 ${item.status === 'done' ? 'opacity-50' : ''}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge variant="outline" className={`text-[9px] ${priorityColor}`}>{item.priority}</Badge>
+                      <Badge variant="outline" className="text-[9px] text-gray-500 border-gray-600">{item.effort}</Badge>
+                      <p className="text-xs font-medium text-gray-200">{item.title}</p>
+                    </div>
+                    {item.description && <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-1">{item.description}</p>}
+                    {linkedRoadmap && <Badge variant="outline" className="text-[9px] text-violet-400/60 border-violet-500/20 mt-1">{linkedRoadmap.title}</Badge>}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <select value={item.status} onChange={e => updateStatus(item.id, e.target.value)} className={`bg-transparent border rounded text-[10px] px-1.5 py-0.5 focus:outline-none ${statusColor}`} data-testid={`select-status-${item.id}`}>
+                      <option value="open">Open</option>
+                      <option value="in-progress">In Progress</option>
+                      <option value="done">Done</option>
+                    </select>
+                    <select value={item.priority} onChange={e => updatePriority(item.id, e.target.value)} className="bg-transparent border border-gray-700 rounded text-[10px] text-gray-500 px-1 py-0.5 focus:outline-none" data-testid={`select-priority-${item.id}`}>
+                      <option value="high">High</option>
+                      <option value="medium">Med</option>
+                      <option value="low">Low</option>
+                    </select>
+                    <Button size="icon" variant="ghost" onClick={() => deleteItem(item.id)} className="h-5 w-5 text-red-400/60" data-testid={`button-delete-backlog-${item.id}`}><X className="w-2.5 h-2.5" /></Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SupportQueuePanel() {
   const { data: openTickets, isLoading: ticketsLoading } = useQuery<SupportTicketRow[]>({
     queryKey: ['/api/platform-admin/support-queue'],
@@ -6903,506 +7387,16 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
             {activeSection === 'supportQueue' && <SupportQueuePanel />}
 
             {/* Vision of Success */}
-            {activeSection === 'productVision' && (() => {
-              const { data: vision, isLoading } = useQuery<any>({ queryKey: ['/api/platform-admin/product/vision'] });
-              const [whatChanges, setWhatChanges] = useState('');
-              const [howIFeel, setHowIFeel] = useState('');
-              const [whatPeopleSay, setWhatPeopleSay] = useState('');
-              const [initialized, setInitialized] = useState(false);
-              const [saving, setSaving] = useState(false);
-
-              useEffect(() => {
-                if (vision && !initialized) {
-                  setWhatChanges(vision.whatChanges || '');
-                  setHowIFeel(vision.howIFeel || '');
-                  setWhatPeopleSay(vision.whatPeopleSay || '');
-                  setInitialized(true);
-                }
-              }, [vision, initialized]);
-
-              const handleSave = async () => {
-                setSaving(true);
-                try {
-                  await apiRequest('PUT', '/api/platform-admin/product/vision', { whatChanges, howIFeel, whatPeopleSay });
-                  queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/vision'] });
-                  toast({ title: 'Vision saved' });
-                } catch (e: any) { toast({ title: 'Failed to save vision', description: e.message, variant: 'destructive' }); } finally { setSaving(false); }
-              };
-
-              if (isLoading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-500" /></div>;
-
-              return (
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-100">Vision of Success</p>
-                    <p className="sm-description mt-1">Define what success looks like. Every OKR, roadmap item, and backlog task should trace back to this vision.</p>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4 space-y-2">
-                      <label className="block text-xs font-medium text-emerald-300">If we are successful, what changes?</label>
-                      <textarea
-                        className="w-full bg-black/30 border border-emerald-500/20 rounded-md p-3 text-sm text-gray-200 min-h-[80px] resize-y focus:outline-none focus:border-emerald-400/50"
-                        placeholder="e.g. E.L.F.I.E. is the operating system for LEGO resellers — they can't run their business without it"
-                        value={whatChanges} onChange={e => setWhatChanges(e.target.value)}
-                        data-testid="input-vision-what-changes"
-                      />
-                    </div>
-
-                    <div className="bg-violet-500/10 border border-violet-500/30 rounded-lg p-4 space-y-2">
-                      <label className="block text-xs font-medium text-violet-300">If we are successful, how do I feel?</label>
-                      <textarea
-                        className="w-full bg-black/30 border border-violet-500/20 rounded-md p-3 text-sm text-gray-200 min-h-[80px] resize-y focus:outline-none focus:border-violet-400/50"
-                        placeholder="e.g. Confident that the platform is delivering real value, proud of what we've built"
-                        value={howIFeel} onChange={e => setHowIFeel(e.target.value)}
-                        data-testid="input-vision-how-i-feel"
-                      />
-                    </div>
-
-                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 space-y-2">
-                      <label className="block text-xs font-medium text-amber-300">If we are successful, what are people saying?</label>
-                      <textarea
-                        className="w-full bg-black/30 border border-amber-500/20 rounded-md p-3 text-sm text-gray-200 min-h-[80px] resize-y focus:outline-none focus:border-amber-400/50"
-                        placeholder='e.g. "This is the best investment I made in my LEGO business"'
-                        value={whatPeopleSay} onChange={e => setWhatPeopleSay(e.target.value)}
-                        data-testid="input-vision-what-people-say"
-                      />
-                    </div>
-                  </div>
-
-                  <Button onClick={handleSave} disabled={saving} className="w-full" data-testid="button-save-vision">
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-                    Save Vision
-                  </Button>
-                </div>
-              );
-            })()}
+            {activeSection === 'productVision' && <ProductVisionPanel />}
 
             {/* OKRs */}
-            {activeSection === 'productOkrs' && (() => {
-              const { data: okrs, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/okrs'] });
-              const [showAdd, setShowAdd] = useState(false);
-              const [newTitle, setNewTitle] = useState('');
-              const [newTimeframe, setNewTimeframe] = useState('Q2 2026');
-              const [addingKrFor, setAddingKrFor] = useState<number | null>(null);
-              const [newKrTitle, setNewKrTitle] = useState('');
-
-              const addOkr = async () => {
-                if (!newTitle.trim()) return;
-                try {
-                  await apiRequest('POST', '/api/platform-admin/product/okrs', { title: newTitle, timeframe: newTimeframe });
-                  setNewTitle(''); setShowAdd(false);
-                  queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/okrs'] });
-                } catch (e: any) { toast({ title: 'Failed to add objective', description: e.message, variant: 'destructive' }); }
-              };
-
-              const addKr = async (okrId: number) => {
-                if (!newKrTitle.trim()) return;
-                try {
-                  await apiRequest('POST', '/api/platform-admin/product/key-results', { okrId, title: newKrTitle });
-                  setNewKrTitle(''); setAddingKrFor(null);
-                  queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/okrs'] });
-                } catch (e: any) { toast({ title: 'Failed to add key result', description: e.message, variant: 'destructive' }); }
-              };
-
-              const updateKrProgress = async (krId: number, progress: number) => {
-                try {
-                  await apiRequest('PATCH', `/api/platform-admin/product/key-results/${krId}`, { progress });
-                  queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/okrs'] });
-                } catch (e: any) { toast({ title: 'Failed to update progress', description: e.message, variant: 'destructive' }); }
-              };
-
-              const deleteOkr = async (id: number) => {
-                try {
-                  await apiRequest('DELETE', `/api/platform-admin/product/okrs/${id}`);
-                  queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/okrs'] });
-                } catch (e: any) { toast({ title: 'Failed to delete objective', description: e.message, variant: 'destructive' }); }
-              };
-
-              const deleteKr = async (id: number) => {
-                try {
-                  await apiRequest('DELETE', `/api/platform-admin/product/key-results/${id}`);
-                  queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/okrs'] });
-                } catch (e: any) { toast({ title: 'Failed to delete key result', description: e.message, variant: 'destructive' }); }
-              };
-
-              const toggleStatus = async (okr: any) => {
-                const next = okr.status === 'active' ? 'archived' : 'active';
-                try {
-                  await apiRequest('PATCH', `/api/platform-admin/product/okrs/${okr.id}`, { status: next });
-                  queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/okrs'] });
-                } catch (e: any) { toast({ title: 'Failed to update status', description: e.message, variant: 'destructive' }); }
-              };
-
-              if (isLoading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-500" /></div>;
-
-              const activeOkrs = (okrs || []).filter((o: any) => o.status === 'active');
-              const archivedOkrs = (okrs || []).filter((o: any) => o.status === 'archived');
-
-              return (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div>
-                      <p className="text-sm font-medium text-gray-100">Objectives & Key Results</p>
-                      <p className="sm-description mt-1">Up to 3 objectives, each with up to 3 measurable key results.</p>
-                    </div>
-                    {activeOkrs.length < 3 && (
-                      <Button size="sm" variant="outline" onClick={() => setShowAdd(true)} data-testid="button-add-okr">
-                        <Plus className="w-3.5 h-3.5 mr-1" /> Add Objective
-                      </Button>
-                    )}
-                  </div>
-
-                  {showAdd && (
-                    <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 space-y-2">
-                      <input type="text" className="w-full bg-black/30 border border-gray-600 rounded-md p-2 text-sm text-gray-200 focus:outline-none focus:border-blue-500" placeholder="Objective title..." value={newTitle} onChange={e => setNewTitle(e.target.value)} data-testid="input-okr-title" />
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <input type="text" className="bg-black/30 border border-gray-600 rounded-md p-2 text-sm text-gray-200 w-32 focus:outline-none focus:border-blue-500" placeholder="Q2 2026" value={newTimeframe} onChange={e => setNewTimeframe(e.target.value)} data-testid="input-okr-timeframe" />
-                        <Button size="sm" onClick={addOkr} data-testid="button-save-okr"><Save className="w-3 h-3 mr-1" /> Save</Button>
-                        <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {activeOkrs.map((okr: any, idx: number) => {
-                    const krAvg = okr.keyResults.length > 0 ? Math.round(okr.keyResults.reduce((sum: number, kr: any) => sum + kr.progress, 0) / okr.keyResults.length) : 0;
-                    return (
-                      <div key={okr.id} className="bg-gray-900/50 border border-gray-700/50 rounded-lg p-4 space-y-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <Badge variant="outline" className="text-[10px] text-blue-400 border-blue-500/30">O{idx + 1}</Badge>
-                              <p className="text-sm font-medium text-gray-100">{okr.title}</p>
-                            </div>
-                            <p className="text-[10px] text-gray-500 mt-1">{okr.timeframe}</p>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Badge variant="outline" className={`text-[10px] ${krAvg >= 70 ? 'text-green-400 border-green-500/30' : krAvg >= 30 ? 'text-amber-400 border-amber-500/30' : 'text-gray-400 border-gray-600'}`}>{krAvg}%</Badge>
-                            <Button size="icon" variant="ghost" onClick={() => toggleStatus(okr)} className="h-7 w-7" data-testid={`button-archive-okr-${okr.id}`}><History className="w-3 h-3" /></Button>
-                            <Button size="icon" variant="ghost" onClick={() => deleteOkr(okr.id)} className="h-7 w-7 text-red-400" data-testid={`button-delete-okr-${okr.id}`}><Trash2 className="w-3 h-3" /></Button>
-                          </div>
-                        </div>
-
-                        {okr.keyResults.map((kr: any, krIdx: number) => (
-                          <div key={kr.id} className="ml-4 flex items-center gap-3">
-                            <span className="text-[10px] text-gray-500 w-6">KR{krIdx + 1}</span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-gray-300 truncate">{kr.title}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                                  <div className={`h-full rounded-full transition-all ${kr.progress >= 70 ? 'bg-green-500' : kr.progress >= 30 ? 'bg-amber-500' : 'bg-gray-600'}`} style={{ width: `${kr.progress}%` }} />
-                                </div>
-                                <input type="number" min="0" max="100" value={kr.progress} onChange={e => updateKrProgress(kr.id, parseInt(e.target.value) || 0)} className="w-12 bg-black/30 border border-gray-700 rounded px-1.5 py-0.5 text-[10px] text-gray-300 text-center focus:outline-none" data-testid={`input-kr-progress-${kr.id}`} />
-                                <span className="text-[10px] text-gray-500">%</span>
-                                <Button size="icon" variant="ghost" onClick={() => deleteKr(kr.id)} className="h-5 w-5 text-red-400/60" data-testid={`button-delete-kr-${kr.id}`}><X className="w-2.5 h-2.5" /></Button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-
-                        {okr.keyResults.length < 3 && (
-                          addingKrFor === okr.id ? (
-                            <div className="ml-4 flex items-center gap-2">
-                              <input type="text" className="flex-1 bg-black/30 border border-gray-600 rounded-md p-1.5 text-xs text-gray-200 focus:outline-none focus:border-blue-500" placeholder="Key result..." value={newKrTitle} onChange={e => setNewKrTitle(e.target.value)} onKeyDown={e => e.key === 'Enter' && addKr(okr.id)} data-testid={`input-kr-title-${okr.id}`} />
-                              <Button size="sm" onClick={() => addKr(okr.id)} className="text-xs h-7" data-testid={`button-save-kr-${okr.id}`}>Add</Button>
-                              <Button size="sm" variant="ghost" onClick={() => { setAddingKrFor(null); setNewKrTitle(''); }} className="text-xs h-7">Cancel</Button>
-                            </div>
-                          ) : (
-                            <button onClick={() => setAddingKrFor(okr.id)} className="ml-4 text-[10px] text-blue-400/60 hover:text-blue-400 transition-colors" data-testid={`button-add-kr-${okr.id}`}>+ Add Key Result</button>
-                          )
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {archivedOkrs.length > 0 && (
-                    <details className="mt-4">
-                      <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-400">Archived ({archivedOkrs.length})</summary>
-                      <div className="mt-2 space-y-2">
-                        {archivedOkrs.map((okr: any) => (
-                          <div key={okr.id} className="bg-gray-900/30 border border-gray-800 rounded-lg p-3 flex items-center justify-between gap-2 opacity-60">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs text-gray-400 truncate">{okr.title}</p>
-                              <p className="text-[10px] text-gray-600">{okr.timeframe}</p>
-                            </div>
-                            <Button size="icon" variant="ghost" onClick={() => toggleStatus(okr)} className="h-6 w-6" data-testid={`button-restore-okr-${okr.id}`}><RotateCcw className="w-3 h-3" /></Button>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
-                  )}
-
-                  {activeOkrs.length === 0 && !showAdd && (
-                    <div className="text-center py-8">
-                      <Target className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                      <p className="text-xs text-gray-500">No objectives yet. Add up to 3 objectives with measurable key results.</p>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+            {activeSection === 'productOkrs' && <ProductOkrsPanel />}
 
             {/* Roadmap */}
-            {activeSection === 'productRoadmap' && (() => {
-              const { data: items, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/roadmap'] });
-              const { data: okrs } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/okrs'] });
-              const [showAdd, setShowAdd] = useState(false);
-              const [newTitle, setNewTitle] = useState('');
-              const [newDesc, setNewDesc] = useState('');
-              const [newLane, setNewLane] = useState('later');
-              const [newOkrId, setNewOkrId] = useState<number | null>(null);
-
-              const addItem = async () => {
-                if (!newTitle.trim()) return;
-                try {
-                  await apiRequest('POST', '/api/platform-admin/product/roadmap', { title: newTitle, description: newDesc, lane: newLane, okrId: newOkrId });
-                  setNewTitle(''); setNewDesc(''); setNewLane('later'); setNewOkrId(null); setShowAdd(false);
-                  queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/roadmap'] });
-                } catch (e: any) { toast({ title: 'Failed to add roadmap item', description: e.message, variant: 'destructive' }); }
-              };
-
-              const moveLane = async (id: number, lane: string) => {
-                try {
-                  await apiRequest('PATCH', `/api/platform-admin/product/roadmap/${id}`, { lane });
-                  queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/roadmap'] });
-                } catch (e: any) { toast({ title: 'Failed to move item', description: e.message, variant: 'destructive' }); }
-              };
-
-              const deleteItem = async (id: number) => {
-                try {
-                  await apiRequest('DELETE', `/api/platform-admin/product/roadmap/${id}`);
-                  queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/roadmap'] });
-                } catch (e: any) { toast({ title: 'Failed to delete item', description: e.message, variant: 'destructive' }); }
-              };
-
-              if (isLoading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-500" /></div>;
-
-              const lanes = [
-                { id: 'now', label: 'Now', color: 'green' },
-                { id: 'next', label: 'Next', color: 'blue' },
-                { id: 'later', label: 'Later', color: 'gray' },
-                { id: 'done', label: 'Done', color: 'emerald' },
-              ];
-              const activeOkrs = (okrs || []).filter((o: any) => o.status === 'active');
-
-              return (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div>
-                      <p className="text-sm font-medium text-gray-100">Roadmap</p>
-                      <p className="sm-description mt-1">Capabilities organized by delivery horizon. Link to OKRs for strategic alignment.</p>
-                    </div>
-                    <Button size="sm" variant="outline" onClick={() => setShowAdd(true)} data-testid="button-add-roadmap">
-                      <Plus className="w-3.5 h-3.5 mr-1" /> Add Item
-                    </Button>
-                  </div>
-
-                  {showAdd && (
-                    <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 space-y-2">
-                      <input type="text" className="w-full bg-black/30 border border-gray-600 rounded-md p-2 text-sm text-gray-200 focus:outline-none focus:border-blue-500" placeholder="Capability title..." value={newTitle} onChange={e => setNewTitle(e.target.value)} data-testid="input-roadmap-title" />
-                      <textarea className="w-full bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 min-h-[50px] resize-y focus:outline-none focus:border-blue-500" placeholder="Description (optional)..." value={newDesc} onChange={e => setNewDesc(e.target.value)} data-testid="input-roadmap-desc" />
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newLane} onChange={e => setNewLane(e.target.value)} data-testid="select-roadmap-lane">
-                          {lanes.filter(l => l.id !== 'done').map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
-                        </select>
-                        {activeOkrs.length > 0 && (
-                          <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newOkrId ?? ''} onChange={e => setNewOkrId(e.target.value ? parseInt(e.target.value) : null)} data-testid="select-roadmap-okr">
-                            <option value="">No linked OKR</option>
-                            {activeOkrs.map((o: any) => <option key={o.id} value={o.id}>{o.title}</option>)}
-                          </select>
-                        )}
-                        <Button size="sm" onClick={addItem} data-testid="button-save-roadmap"><Save className="w-3 h-3 mr-1" /> Save</Button>
-                        <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {lanes.map(lane => {
-                    const laneItems = (items || []).filter((i: any) => i.lane === lane.id);
-                    const borderColor = lane.color === 'green' ? 'border-green-500/30' : lane.color === 'blue' ? 'border-blue-500/30' : lane.color === 'emerald' ? 'border-emerald-500/30' : 'border-gray-700';
-                    const labelColor = lane.color === 'green' ? 'text-green-400' : lane.color === 'blue' ? 'text-blue-400' : lane.color === 'emerald' ? 'text-emerald-400' : 'text-gray-400';
-                    return (
-                      <div key={lane.id}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={`text-xs font-medium ${labelColor}`}>{lane.label}</span>
-                          <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">{laneItems.length}</Badge>
-                        </div>
-                        {laneItems.length === 0 ? (
-                          <div className={`border ${borderColor} border-dashed rounded-lg p-3 text-center`}>
-                            <p className="text-[10px] text-gray-600">No items</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-1.5">
-                            {laneItems.map((item: any) => {
-                              const linkedOkr = activeOkrs.find((o: any) => o.id === item.okrId);
-                              return (
-                                <div key={item.id} className={`border ${borderColor} rounded-lg p-3 bg-gray-900/30`}>
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-xs font-medium text-gray-200">{item.title}</p>
-                                      {item.description && <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-2">{item.description}</p>}
-                                      {linkedOkr && <Badge variant="outline" className="text-[9px] text-blue-400/60 border-blue-500/20 mt-1">{linkedOkr.title}</Badge>}
-                                    </div>
-                                    <div className="flex items-center gap-0.5">
-                                      {lanes.filter(l => l.id !== lane.id).map(l => (
-                                        <button key={l.id} onClick={() => moveLane(item.id, l.id)} className="text-[9px] text-gray-600 hover:text-gray-300 px-1.5 py-0.5 rounded hover:bg-gray-800 transition-colors" data-testid={`button-move-${item.id}-${l.id}`}>{l.label}</button>
-                                      ))}
-                                      <Button size="icon" variant="ghost" onClick={() => deleteItem(item.id)} className="h-5 w-5 text-red-400/60" data-testid={`button-delete-roadmap-${item.id}`}><X className="w-2.5 h-2.5" /></Button>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
+            {activeSection === 'productRoadmap' && <ProductRoadmapPanel />}
 
             {/* Backlog */}
-            {activeSection === 'productBacklog' && (() => {
-              const { data: items, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/backlog'] });
-              const { data: roadmapItems } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/roadmap'] });
-              const [showAdd, setShowAdd] = useState(false);
-              const [newTitle, setNewTitle] = useState('');
-              const [newDesc, setNewDesc] = useState('');
-              const [newPriority, setNewPriority] = useState('medium');
-              const [newEffort, setNewEffort] = useState('M');
-              const [newRoadmapId, setNewRoadmapId] = useState<number | null>(null);
-              const [filter, setFilter] = useState<'all' | 'open' | 'in-progress' | 'done'>('all');
-
-              const addItem = async () => {
-                if (!newTitle.trim()) return;
-                try {
-                  await apiRequest('POST', '/api/platform-admin/product/backlog', { title: newTitle, description: newDesc, priority: newPriority, effort: newEffort, roadmapItemId: newRoadmapId });
-                  setNewTitle(''); setNewDesc(''); setNewPriority('medium'); setNewEffort('M'); setNewRoadmapId(null); setShowAdd(false);
-                  queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/backlog'] });
-                } catch (e: any) { toast({ title: 'Failed to add backlog item', description: e.message, variant: 'destructive' }); }
-              };
-
-              const updateStatus = async (id: number, status: string) => {
-                try {
-                  await apiRequest('PATCH', `/api/platform-admin/product/backlog/${id}`, { status });
-                  queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/backlog'] });
-                } catch (e: any) { toast({ title: 'Failed to update status', description: e.message, variant: 'destructive' }); }
-              };
-
-              const updatePriority = async (id: number, priority: string) => {
-                try {
-                  await apiRequest('PATCH', `/api/platform-admin/product/backlog/${id}`, { priority });
-                  queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/backlog'] });
-                } catch (e: any) { toast({ title: 'Failed to update priority', description: e.message, variant: 'destructive' }); }
-              };
-
-              const deleteItem = async (id: number) => {
-                try {
-                  await apiRequest('DELETE', `/api/platform-admin/product/backlog/${id}`);
-                  queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/backlog'] });
-                } catch (e: any) { toast({ title: 'Failed to delete item', description: e.message, variant: 'destructive' }); }
-              };
-
-              if (isLoading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-500" /></div>;
-
-              const filtered = (items || []).filter((i: any) => filter === 'all' || i.status === filter);
-              const priorityOrder = { high: 0, medium: 1, low: 2 } as Record<string, number>;
-              const sorted = [...filtered].sort((a: any, b: any) => (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1));
-
-              return (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div>
-                      <p className="text-sm font-medium text-gray-100">Backlog</p>
-                      <p className="sm-description mt-1">Individual work items. Link to roadmap capabilities for traceability.</p>
-                    </div>
-                    <Button size="sm" variant="outline" onClick={() => setShowAdd(true)} data-testid="button-add-backlog">
-                      <Plus className="w-3.5 h-3.5 mr-1" /> Add Item
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {(['all', 'open', 'in-progress', 'done'] as const).map(f => (
-                      <button key={f} onClick={() => setFilter(f)} className={`text-[10px] px-2.5 py-1 rounded-full transition-colors ${filter === f ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'text-gray-500 hover:text-gray-300 border border-transparent'}`} data-testid={`button-filter-${f}`}>
-                        {f === 'all' ? 'All' : f === 'in-progress' ? 'In Progress' : f.charAt(0).toUpperCase() + f.slice(1)}
-                        {f !== 'all' && <span className="ml-1 text-gray-600">({(items || []).filter((i: any) => i.status === f).length})</span>}
-                      </button>
-                    ))}
-                  </div>
-
-                  {showAdd && (
-                    <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 space-y-2">
-                      <input type="text" className="w-full bg-black/30 border border-gray-600 rounded-md p-2 text-sm text-gray-200 focus:outline-none focus:border-blue-500" placeholder="Task title..." value={newTitle} onChange={e => setNewTitle(e.target.value)} data-testid="input-backlog-title" />
-                      <textarea className="w-full bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 min-h-[40px] resize-y focus:outline-none focus:border-blue-500" placeholder="Description (optional)..." value={newDesc} onChange={e => setNewDesc(e.target.value)} data-testid="input-backlog-desc" />
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newPriority} onChange={e => setNewPriority(e.target.value)} data-testid="select-backlog-priority">
-                          <option value="high">High</option>
-                          <option value="medium">Medium</option>
-                          <option value="low">Low</option>
-                        </select>
-                        <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newEffort} onChange={e => setNewEffort(e.target.value)} data-testid="select-backlog-effort">
-                          <option value="S">S</option>
-                          <option value="M">M</option>
-                          <option value="L">L</option>
-                        </select>
-                        {(roadmapItems || []).length > 0 && (
-                          <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newRoadmapId ?? ''} onChange={e => setNewRoadmapId(e.target.value ? parseInt(e.target.value) : null)} data-testid="select-backlog-roadmap">
-                            <option value="">No linked capability</option>
-                            {(roadmapItems || []).map((r: any) => <option key={r.id} value={r.id}>{r.title}</option>)}
-                          </select>
-                        )}
-                        <Button size="sm" onClick={addItem} data-testid="button-save-backlog"><Save className="w-3 h-3 mr-1" /> Save</Button>
-                        <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {sorted.length === 0 ? (
-                    <div className="text-center py-8">
-                      <ListTodo className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-                      <p className="text-xs text-gray-500">{filter === 'all' ? 'No backlog items yet.' : `No ${filter} items.`}</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {sorted.map((item: any) => {
-                        const linkedRoadmap = (roadmapItems || []).find((r: any) => r.id === item.roadmapItemId);
-                        const priorityColor = item.priority === 'high' ? 'text-red-400 border-red-500/30' : item.priority === 'medium' ? 'text-amber-400 border-amber-500/30' : 'text-gray-400 border-gray-600';
-                        const statusColor = item.status === 'done' ? 'text-green-400 border-green-500/30' : item.status === 'in-progress' ? 'text-blue-400 border-blue-500/30' : 'text-gray-400 border-gray-600';
-                        return (
-                          <div key={item.id} className={`border border-gray-700/50 rounded-lg p-3 bg-gray-900/30 ${item.status === 'done' ? 'opacity-50' : ''}`}>
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <Badge variant="outline" className={`text-[9px] ${priorityColor}`}>{item.priority}</Badge>
-                                  <Badge variant="outline" className="text-[9px] text-gray-500 border-gray-600">{item.effort}</Badge>
-                                  <p className="text-xs font-medium text-gray-200">{item.title}</p>
-                                </div>
-                                {item.description && <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-1">{item.description}</p>}
-                                {linkedRoadmap && <Badge variant="outline" className="text-[9px] text-violet-400/60 border-violet-500/20 mt-1">{linkedRoadmap.title}</Badge>}
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <select value={item.status} onChange={e => updateStatus(item.id, e.target.value)} className={`bg-transparent border rounded text-[10px] px-1.5 py-0.5 focus:outline-none ${statusColor}`} data-testid={`select-status-${item.id}`}>
-                                  <option value="open">Open</option>
-                                  <option value="in-progress">In Progress</option>
-                                  <option value="done">Done</option>
-                                </select>
-                                <select value={item.priority} onChange={e => updatePriority(item.id, e.target.value)} className="bg-transparent border border-gray-700 rounded text-[10px] text-gray-500 px-1 py-0.5 focus:outline-none" data-testid={`select-priority-${item.id}`}>
-                                  <option value="high">High</option>
-                                  <option value="medium">Med</option>
-                                  <option value="low">Low</option>
-                                </select>
-                                <Button size="icon" variant="ghost" onClick={() => deleteItem(item.id)} className="h-5 w-5 text-red-400/60" data-testid={`button-delete-backlog-${item.id}`}><X className="w-2.5 h-2.5" /></Button>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+            {activeSection === 'productBacklog' && <ProductBacklogPanel />}
 
             {/* Plans & Pricing */}
             {activeSection === 'plansAndPricing' && (() => {
