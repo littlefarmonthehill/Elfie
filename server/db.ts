@@ -644,14 +644,144 @@ export async function runMigrations() {
     await pool.query(`ALTER TABLE product_backlog_items ALTER COLUMN status SET DEFAULT 'new'`);
     console.log('[Migration] Phase-32 (backlog status alignment: open→next, in-progress→now) complete.');
 
-    // Phase-33: Add "Batch Processing of Scans" feature to BrickSpotter 3000 (now)
-    await pool.query(`
-      INSERT INTO product_capabilities (title, level, parent_id, cap_status)
-      SELECT 'Batch Processing of Scans', 3, id, 'now'
-      FROM product_capabilities WHERE title = 'Brick Spotter 3000' AND level = 2
-      AND NOT EXISTS (SELECT 1 FROM product_capabilities WHERE title = 'Batch Processing of Scans' AND level = 3)
-    `);
-    console.log('[Migration] Phase-33 (BrickSpotter batch processing feature) complete.');
+    // Phase-33: Comprehensive capability tree seed (idempotent — skips if data exists)
+    const capCount = await pool.query(`SELECT COUNT(*) as cnt FROM product_capabilities`);
+    if (parseInt(capCount.rows[0].cnt) === 0) {
+      // L1 Capabilities
+      const l1s = [
+        'Product Management', 'Platform and Administration', 'AI and Intelligence',
+        'Sales and Analytics', 'Order Management', 'Inventory Management'
+      ];
+      for (const t of l1s) await pool.query(`INSERT INTO product_capabilities (title, level, cap_status) VALUES ($1, 1, 'built')`, [t]);
+
+      // L2 Capabilities: [title, parentL1Title, status]
+      const l2s: [string, string, string][] = [
+        ['Execution', 'Product Management', 'built'],
+        ['Strategic Planning', 'Product Management', 'built'],
+        ['Support', 'Platform and Administration', 'built'],
+        ['Customer Portal', 'Platform and Administration', 'built'],
+        ['Billing and Subscriptions', 'Platform and Administration', 'built'],
+        ['Multi-Tenant System', 'Platform and Administration', 'built'],
+        ['Brick Spotter 3000', 'AI and Intelligence', 'built'],
+        ['Semantic Search', 'AI and Intelligence', 'built'],
+        ['E.L.F.I.E. Chat Assistant', 'AI and Intelligence', 'built'],
+        ['Communications and Notifications', 'AI and Intelligence', 'later'],
+        ['Business Owner Intelligence', 'AI and Intelligence', 'next'],
+        ['Market Intelligence', 'Sales and Analytics', 'built'],
+        ['Pricing Intelligence', 'Sales and Analytics', 'built'],
+        ['Sales Dashboards', 'Sales and Analytics', 'built'],
+        ['Order Adjustments', 'Order Management', 'built'],
+        ['Shipping', 'Order Management', 'built'],
+        ['Order Processing', 'Order Management', 'built'],
+        ['Warehouse Operations', 'Inventory Management', 'built'],
+        ['Catalog Management', 'Inventory Management', 'built'],
+        ['BrickOwl Sync', 'Inventory Management', 'built'],
+        ['BrickLink Sync', 'Inventory Management', 'built'],
+      ];
+      for (const [t, p, s] of l2s) {
+        await pool.query(`INSERT INTO product_capabilities (title, level, parent_id, cap_status) SELECT $1, 2, id, $3 FROM product_capabilities WHERE title = $2 AND level = 1`, [t, p, s]);
+      }
+
+      // L3 Features: [title, parentL2Title, status]
+      const l3s: [string, string, string][] = [
+        ['Capability mapping', 'Execution', 'built'],
+        ['Roadmap lanes', 'Execution', 'built'],
+        ['Backlog with priority/effort/status', 'Execution', 'built'],
+        ['Vision of Success', 'Strategic Planning', 'built'],
+        ['AI-generated vision statements', 'Strategic Planning', 'built'],
+        ['OKR tracking', 'Strategic Planning', 'built'],
+        ['Live support ticket queue', 'Support', 'built'],
+        ['Real-time polling', 'Support', 'built'],
+        ['Ticket resolution workflow', 'Support', 'built'],
+        ['Retro-futuristic showroom', 'Customer Portal', 'built'],
+        ['Community features', 'Customer Portal', 'built'],
+        ['Customer feedback system', 'Customer Portal', 'built'],
+        ['Stripe checkout integration', 'Billing and Subscriptions', 'built'],
+        ['Tiered plan management', 'Billing and Subscriptions', 'built'],
+        ['Usage limit enforcement', 'Billing and Subscriptions', 'built'],
+        ['Auto-renewal controls', 'Billing and Subscriptions', 'built'],
+        ['Organization management', 'Multi-Tenant System', 'built'],
+        ['Role-based access control', 'Multi-Tenant System', 'built'],
+        ['Admin impersonation', 'Multi-Tenant System', 'built'],
+        ['Approval workflow', 'Multi-Tenant System', 'built'],
+        ['Multi-piece LEGO scanning', 'Brick Spotter 3000', 'built'],
+        ['Contour-based segmentation', 'Brick Spotter 3000', 'built'],
+        ['Brickognize classification', 'Brick Spotter 3000', 'built'],
+        ['CLIP visual similarity', 'Brick Spotter 3000', 'built'],
+        ['Batch Processing of Scans', 'Brick Spotter 3000', 'now'],
+        ['Semantic inventory search', 'Semantic Search', 'built'],
+        ['Semantic catalog search', 'Semantic Search', 'built'],
+        ['Natural language queries', 'Semantic Search', 'built'],
+        ['Embedding-powered search', 'Semantic Search', 'built'],
+        ['Local-first API policy (zero BrickLink calls by default)', 'E.L.F.I.E. Chat Assistant', 'built'],
+        ['18 built-in analysis tools (catalog, pricing, orders, sales, inventory)', 'E.L.F.I.E. Chat Assistant', 'built'],
+        ['Live support escalation to human agent', 'E.L.F.I.E. Chat Assistant', 'built'],
+        ['Web search integration', 'E.L.F.I.E. Chat Assistant', 'built'],
+        ['Forum and market news search', 'E.L.F.I.E. Chat Assistant', 'built'],
+        ['Proactive alerts (low stock, stale pricing, order issues)', 'Communications and Notifications', 'later'],
+        ['Daily business briefing / digest', 'Communications and Notifications', 'later'],
+        ['In-app notification center', 'Communications and Notifications', 'later'],
+        ['Actionable notifications (one-click resolve)', 'Communications and Notifications', 'later'],
+        ['Customizable alert thresholds', 'Communications and Notifications', 'later'],
+        ['Learn owner goals and strategy over time', 'Business Owner Intelligence', 'next'],
+        ['Personalized business recommendations', 'Business Owner Intelligence', 'next'],
+        ['Strategy-aware responses (informed by Vision and OKRs)', 'Business Owner Intelligence', 'next'],
+        ['Business health scoring', 'Business Owner Intelligence', 'next'],
+        ['Trend detection and proactive insights', 'Business Owner Intelligence', 'next'],
+        ['Natural language report generation', 'Business Owner Intelligence', 'next'],
+        ['BrickLink forum scraping', 'Market Intelligence', 'built'],
+        ['Market news AI summaries', 'Market Intelligence', 'built'],
+        ['Price trend analysis', 'Market Intelligence', 'built'],
+        ['Competitive pricing insights', 'Market Intelligence', 'built'],
+        ['Price-o-Matic auto-pricing', 'Pricing Intelligence', 'built'],
+        ['Guide-weighted scoring', 'Pricing Intelligence', 'built'],
+        ['Repricing score configurator', 'Pricing Intelligence', 'built'],
+        ['Scoring weights configuration', 'Pricing Intelligence', 'built'],
+        ['Year-over-year comparison', 'Sales Dashboards', 'built'],
+        ['Platform comparison analysis', 'Sales Dashboards', 'built'],
+        ['Performance dashboard', 'Sales Dashboards', 'built'],
+        ['Revenue metrics', 'Sales Dashboards', 'built'],
+        ['Refund tracking', 'Order Adjustments', 'built'],
+        ['PayPal capture polling', 'Order Adjustments', 'built'],
+        ['Order adjustment log', 'Order Adjustments', 'built'],
+        ['EasyPost multi-carrier integration', 'Shipping', 'built'],
+        ['Rate shopping', 'Shipping', 'built'],
+        ['Label generation', 'Shipping', 'built'],
+        ['Shipment tracking', 'Shipping', 'built'],
+        ['Order sync from BrickLink', 'Order Processing', 'built'],
+        ['Order tracking dashboard', 'Order Processing', 'built'],
+        ['Picklist generation', 'Order Processing', 'built'],
+        ['EOD forms', 'Order Processing', 'built'],
+        ['Aisle/Shelf/Bin hierarchy', 'Warehouse Operations', 'built'],
+        ['Bin-level picklist', 'Warehouse Operations', 'built'],
+        ['Inventory location tracking', 'Warehouse Operations', 'built'],
+        ['Pick and pack fulfillment', 'Warehouse Operations', 'built'],
+        ['Part catalog enrichment', 'Catalog Management', 'built'],
+        ['Shared image/weight data', 'Catalog Management', 'built'],
+        ['CLIP visual embeddings', 'Catalog Management', 'built'],
+        ['Rebrickable set-part relationships', 'Catalog Management', 'built'],
+        ['Cross-platform sync', 'BrickOwl Sync', 'built'],
+        ['Channel mapping', 'BrickOwl Sync', 'built'],
+        ['Inventory mirroring', 'BrickOwl Sync', 'built'],
+        ['Real-time inventory sync', 'BrickLink Sync', 'built'],
+        ['Global sync lock', 'BrickLink Sync', 'built'],
+        ['SKU standardization', 'BrickLink Sync', 'built'],
+        ['Inventory-catalog split architecture', 'BrickLink Sync', 'built'],
+      ];
+      for (const [t, p, s] of l3s) {
+        await pool.query(`INSERT INTO product_capabilities (title, level, parent_id, cap_status) SELECT $1, 3, id, $3 FROM product_capabilities WHERE title = $2 AND level = 2`, [t, p, s]);
+      }
+      console.log('[Migration] Phase-33 (full capability tree seed) complete.');
+    } else {
+      // Existing DB — just ensure Batch Processing of Scans exists
+      await pool.query(`
+        INSERT INTO product_capabilities (title, level, parent_id, cap_status)
+        SELECT 'Batch Processing of Scans', 3, id, 'now'
+        FROM product_capabilities WHERE title = 'Brick Spotter 3000' AND level = 2
+        AND NOT EXISTS (SELECT 1 FROM product_capabilities WHERE title = 'Batch Processing of Scans' AND level = 3)
+      `);
+      console.log('[Migration] Phase-33 (capability tree already populated, batch scan feature ensured) complete.');
+    }
 
     console.log('[Migration] All startup migrations finished successfully.');
 
