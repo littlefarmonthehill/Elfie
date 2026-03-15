@@ -6430,7 +6430,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
               const plans = planConfigs || [];
               const anyDirty = Object.keys(planDraft).length > 0;
 
-              const inputCls = "w-full bg-gray-900/60 border border-gray-700 rounded px-1 py-px text-[9px] text-gray-200 outline-none focus:border-gray-500 text-center";
+              const inputStyle: React.CSSProperties = { fontSize: '16px', transform: 'scale(0.56)', transformOrigin: 'center', margin: '0 -22%' };
+              const inputCls = "w-full bg-gray-900/60 border border-gray-700 rounded px-1 py-px text-gray-200 outline-none focus:border-gray-500 text-center";
 
               return (
                 <div className="p-3 space-y-2">
@@ -6450,7 +6451,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
                   {plans.length > 0 && (
                     <div className="rounded-md border border-gray-700 bg-gray-800/40 overflow-x-auto" data-testid="plans-comparison-grid">
-                      <table className="w-full text-[9px] border-collapse" style={{ minWidth: '480px' }}>
+                      <table className="w-full border-collapse" style={{ minWidth: '480px', fontSize: '9px' }}>
                         <thead>
                           <tr className="border-b border-gray-700/60">
                             <th className="text-left px-2 py-1 text-gray-500 font-medium w-[110px] sticky left-0 bg-gray-800/90 z-10" />
@@ -6466,6 +6467,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                         value={getDraft(plan.planKey, 'name', plan.name)}
                                         onChange={e => setDraft(plan.planKey, 'name', e.target.value)}
                                         data-testid={`input-plan-name-${plan.planKey}`}
+                                        style={inputStyle}
                                         className={`${inputCls} font-semibold max-w-[70px]`}
                                       />
                                     )}
@@ -6503,6 +6505,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                       value={getDraft(plan.planKey, 'tagline', plan.tagline)}
                                       onChange={e => setDraft(plan.planKey, 'tagline', e.target.value)}
                                       data-testid={`input-plan-tagline-${plan.planKey}`}
+                                      style={inputStyle}
                                       className={`${inputCls} text-[8px] text-gray-400`}
                                     />
                                   )}
@@ -6523,12 +6526,13 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               return (
                                 <td key={plan.planKey} className="px-1 py-0.5 text-center">
                                   {locked ? (
-                                    <span className="text-gray-300 font-semibold">${fmtCents(plan.priceMonthly)}</span>
+                                    <span className="text-[9px] text-gray-300 font-semibold">${fmtCents(plan.priceMonthly)}</span>
                                   ) : (
                                     <input type="number" min={0} step={0.01}
                                       value={fmtCents(getDraft(plan.planKey, 'priceMonthly', plan.priceMonthly))}
                                       onChange={e => setDraft(plan.planKey, 'priceMonthly', parseCents(e.target.value))}
                                       data-testid={`input-plan-priceMonthly-${plan.planKey}`}
+                                      style={inputStyle}
                                       className={inputCls}
                                     />
                                   )}
@@ -6544,12 +6548,13 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               return (
                                 <td key={plan.planKey} className="px-1 py-0.5 text-center">
                                   {locked ? (
-                                    <span className="text-gray-300 font-semibold">${fmtCents(plan.priceAnnual)}</span>
+                                    <span className="text-[9px] text-gray-300 font-semibold">${fmtCents(plan.priceAnnual)}</span>
                                   ) : (
                                     <input type="number" min={0} step={0.01}
                                       value={fmtCents(getDraft(plan.planKey, 'priceAnnual', plan.priceAnnual))}
                                       onChange={e => setDraft(plan.planKey, 'priceAnnual', parseCents(e.target.value))}
                                       data-testid={`input-plan-priceAnnual-${plan.planKey}`}
+                                      style={inputStyle}
                                       className={inputCls}
                                     />
                                   )}
@@ -6565,12 +6570,13 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               return (
                                 <td key={plan.planKey} className="px-1 py-0.5 text-center">
                                   {locked ? (
-                                    <span className="text-gray-300 font-semibold">${fmtCents(plan.priceAnnualMonthly)}</span>
+                                    <span className="text-[9px] text-gray-300 font-semibold">${fmtCents(plan.priceAnnualMonthly)}</span>
                                   ) : (
                                     <input type="number" min={0} step={0.01}
                                       value={fmtCents(getDraft(plan.planKey, 'priceAnnualMonthly', plan.priceAnnualMonthly))}
                                       onChange={e => setDraft(plan.planKey, 'priceAnnualMonthly', parseCents(e.target.value))}
                                       data-testid={`input-plan-priceAnnualMonthly-${plan.planKey}`}
+                                      style={inputStyle}
                                       className={inputCls}
                                     />
                                   )}
@@ -6592,12 +6598,13 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                 return (
                                   <td key={plan.planKey} className="px-1 py-0.5 text-center">
                                     {locked ? (
-                                      <span className="text-gray-300 font-semibold">{fmtLimit(val)}</span>
+                                      <span className="text-[9px] text-gray-300 font-semibold">{fmtLimit(val)}</span>
                                     ) : (
                                       <input type="number" min={-1}
                                         value={val}
                                         onChange={e => setDraft(plan.planKey, field, parseInt(e.target.value, 10) || 0)}
                                         data-testid={`input-plan-${field}-${plan.planKey}`}
+                                        style={inputStyle}
                                         className={inputCls}
                                       />
                                     )}
