@@ -4257,7 +4257,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               }}
                               className="text-[10px] text-gray-500"
                             >
-                              Clear & Use Defaults
+                              Clear
                             </Button>
                           )}
                           <Button
@@ -4281,7 +4281,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             }}
                             className="text-[10px]"
                           >
-                            {systemPrompt ? 'Reset to Default' : 'Load Default Prompt'}
+                            Load Default Prompt
                           </Button>
                         </div>
                       </div>
