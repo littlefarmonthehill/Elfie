@@ -1163,11 +1163,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON UPPER(i.item_no) = p.item_no AND i.item_type = p.item_type
              AND CASE WHEN COALESCE(i.color_id, 0) = 0 THEN p.color_id IN (0, -1) ELSE i.color_id = p.color_id END AND i.new_or_used = p.new_or_used
-           WHERE p.stock_avg_price IS NOT NULL AND p.fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays}) AS stale_supply,
+           WHERE p.stock_avg_price IS NOT NULL AND p.stock_fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays}) AS stale_supply,
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON UPPER(i.item_no) = p.item_no AND i.item_type = p.item_type
              AND CASE WHEN COALESCE(i.color_id, 0) = 0 THEN p.color_id IN (0, -1) ELSE i.color_id = p.color_id END AND i.new_or_used = p.new_or_used
-           WHERE p.stock_avg_price IS NOT NULL AND p.fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays} AND i.quantity > 0) AS stale_supply_instock,
+           WHERE p.stock_avg_price IS NOT NULL AND p.stock_fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays} AND i.quantity > 0) AS stale_supply_instock,
 
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON UPPER(i.item_no) = p.item_no AND i.item_type = p.item_type
@@ -1180,11 +1180,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON UPPER(i.item_no) = p.item_no AND i.item_type = p.item_type
              AND CASE WHEN COALESCE(i.color_id, 0) = 0 THEN p.color_id IN (0, -1) ELSE i.color_id = p.color_id END AND i.new_or_used = p.new_or_used
-           WHERE p.sold_avg_price IS NOT NULL AND p.fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays}) AS stale_sold,
+           WHERE p.sold_avg_price IS NOT NULL AND p.sold_fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays}) AS stale_sold,
           (SELECT COUNT(DISTINCT i.id) FROM bl_inventory i
            INNER JOIN price_guide_cache p ON UPPER(i.item_no) = p.item_no AND i.item_type = p.item_type
              AND CASE WHEN COALESCE(i.color_id, 0) = 0 THEN p.color_id IN (0, -1) ELSE i.color_id = p.color_id END AND i.new_or_used = p.new_or_used
-           WHERE p.sold_avg_price IS NOT NULL AND p.fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays} AND i.quantity > 0) AS stale_sold_instock,
+           WHERE p.sold_avg_price IS NOT NULL AND p.sold_fetched_at < NOW() - INTERVAL '1 day' * ${priceFreshDays} AND i.quantity > 0) AS stale_sold_instock,
 
           (SELECT COUNT(DISTINCT i.id)
            FROM bl_inventory i
