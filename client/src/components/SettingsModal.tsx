@@ -818,6 +818,7 @@ function ProductCapabilitiesPanel() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [movingId, setMovingId] = useState<number | null>(null);
+  const [capFilter, setCapFilter] = useState<'all' | 'built' | 'now' | 'next' | 'later'>('all');
 
   const l1s = (caps || []).filter((c: any) => c.level === 1);
   const l2s = (caps || []).filter((c: any) => c.level === 2);
@@ -872,12 +873,17 @@ function ProductCapabilitiesPanel() {
         <p className="text-sm font-medium text-gray-100">Capability Map</p>
         <p className="sm-description mt-1">Organize your product into L1 Capabilities, L2 sub-capabilities, and Features. Click feature status badges to cycle through Built / Now / Next / Later. L2 status is derived from its features.</p>
       </div>
-      <div className="flex items-center gap-3 flex-wrap text-[10px]">
-        <span className="text-gray-400">{totalFeatures} features total</span>
-        <span className="text-emerald-400">{builtCount} built</span>
-        <span className="text-blue-400">{(caps || []).filter((c: any) => c.level === 3 && c.status === 'now').length} now</span>
-        <span className="text-amber-400">{(caps || []).filter((c: any) => c.level === 3 && c.status === 'next').length} next</span>
-        <span className="text-gray-500">{(caps || []).filter((c: any) => c.level === 3 && c.status === 'later').length} later</span>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {(['all', 'built', 'now', 'next', 'later'] as const).map(f => {
+          const colors: Record<string, string> = { all: 'bg-blue-500/20 text-blue-300 border-blue-500/30', built: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30', now: 'bg-blue-500/20 text-blue-300 border-blue-500/30', next: 'bg-amber-500/20 text-amber-300 border-amber-500/30', later: 'bg-gray-500/20 text-gray-400 border-gray-500/30' };
+          const count = f === 'all' ? totalFeatures : (caps || []).filter((c: any) => c.level === 3 && (c.status || 'built') === f).length;
+          return (
+            <button key={f} onClick={() => setCapFilter(f)} className={`text-[10px] px-2.5 py-1 rounded-full transition-colors border ${capFilter === f ? colors[f] : 'text-gray-500 border-transparent'}`} data-testid={`button-cap-filter-${f}`}>
+              {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+              <span className="ml-1 text-gray-600">({count})</span>
+            </button>
+          );
+        })}
       </div>
       <div className="flex items-center gap-2">
         <input className="flex-1 bg-black/30 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-blue-400/50" placeholder="New L1 Capability..." value={newL1} onChange={e => setNewL1(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { addCap(newL1, 1, null); setNewL1(''); } }} data-testid="input-new-l1" />
@@ -885,8 +891,12 @@ function ProductCapabilitiesPanel() {
       </div>
       {l1s.length === 0 && <p className="text-xs text-gray-500 italic">No capabilities yet. Add your first L1 capability above.</p>}
       <div className="space-y-3">
-        {l1s.map((l1: any) => {
-          const childL2s = l2s.filter((c: any) => c.parentId === l1.id);
+        {l1s.filter((l1: any) => {
+          if (capFilter === 'all') return true;
+          const childL2Ids = l2s.filter((c: any) => c.parentId === l1.id).map((c: any) => c.id);
+          return features.some((f: any) => childL2Ids.includes(f.parentId) && (f.status || 'built') === capFilter);
+        }).map((l1: any) => {
+          const childL2s = l2s.filter((c: any) => c.parentId === l1.id && (capFilter === 'all' || features.some((f: any) => f.parentId === c.id && (f.status || 'built') === capFilter)));
           return (
             <div key={l1.id} className="border border-gray-700 rounded-md bg-gray-800/50">
               <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-700">
@@ -896,12 +906,13 @@ function ProductCapabilitiesPanel() {
                 ) : (
                   <span className="flex-1 text-sm font-medium text-gray-200 cursor-pointer" onClick={() => { setEditingId(l1.id); setEditTitle(l1.title); }} data-testid={`text-l1-${l1.id}`}>{l1.title}</span>
                 )}
-                <span className="text-[9px] text-gray-500">{childL2s.reduce((n: number, l2: any) => n + features.filter((f: any) => f.parentId === l2.id && (f.status || 'built') === 'built').length, 0)}/{childL2s.reduce((n: number, l2: any) => n + features.filter((f: any) => f.parentId === l2.id).length, 0)}</span>
+                <span className="text-[9px] text-gray-500">{l2s.filter((c: any) => c.parentId === l1.id).reduce((n: number, l2: any) => n + features.filter((f: any) => f.parentId === l2.id && (f.status || 'built') === 'built').length, 0)}/{l2s.filter((c: any) => c.parentId === l1.id).reduce((n: number, l2: any) => n + features.filter((f: any) => f.parentId === l2.id).length, 0)}</span>
                 <Button size="icon" variant="ghost" onClick={() => deleteCap(l1.id)} data-testid={`button-delete-l1-${l1.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
               </div>
               <div className="px-3 py-2 space-y-2">
                 {childL2s.map((l2: any) => {
-                  const childFeatures = features.filter((f: any) => f.parentId === l2.id);
+                  const allChildFeatures = features.filter((f: any) => f.parentId === l2.id);
+                  const childFeatures = capFilter === 'all' ? allChildFeatures : allChildFeatures.filter((f: any) => (f.status || 'built') === capFilter);
                   const derivedStatus = getL2Status(l2);
                   return (
                     <div key={l2.id} className="ml-4 border border-gray-700/50 rounded-md bg-gray-900/30">
@@ -913,7 +924,7 @@ function ProductCapabilitiesPanel() {
                           <span className="flex-1 text-xs font-medium text-gray-300 cursor-pointer" onClick={() => { setEditingId(l2.id); setEditTitle(l2.title); }} data-testid={`text-l2-${l2.id}`}>{l2.title}</span>
                         )}
                         <span className={`px-1.5 py-0.5 text-[9px] font-medium rounded border shrink-0 ${derivedStatus === 'built' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : derivedStatus === 'now' ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' : derivedStatus === 'next' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-gray-500/20 text-gray-400 border-gray-500/30'}`} data-testid={`badge-l2-status-${l2.id}`}>{derivedStatus === 'built' ? 'Built' : derivedStatus === 'now' ? 'Now' : derivedStatus === 'next' ? 'Next' : 'Later'}</span>
-                        <span className="text-[9px] text-gray-500">{childFeatures.filter((f: any) => (f.status || 'built') === 'built').length}/{childFeatures.length}</span>
+                        <span className="text-[9px] text-gray-500">{allChildFeatures.filter((f: any) => (f.status || 'built') === 'built').length}/{allChildFeatures.length}</span>
                         <Button size="icon" variant="ghost" onClick={() => setMovingId(movingId === l2.id ? null : l2.id)} data-testid={`button-move-l2-${l2.id}`}><Share2 className="w-3 h-3 text-gray-500" /></Button>
                         <Button size="icon" variant="ghost" onClick={() => deleteCap(l2.id)} data-testid={`button-delete-l2-${l2.id}`}><Trash2 className="w-3 h-3 text-gray-500" /></Button>
                       </div>
@@ -1141,18 +1152,25 @@ function ProductRoadmapPanel() {
   const { toast } = useToast();
   const { data: items, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/roadmap'] });
   const { data: okrs } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/okrs'] });
+  const { data: caps } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/capabilities'] });
   const [showAdd, setShowAdd] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newLane, setNewLane] = useState('later');
   const [newOkrId, setNewOkrId] = useState<number | null>(null);
+  const [laneFilter, setLaneFilter] = useState<'all' | 'built' | 'now' | 'next' | 'later'>('all');
+  const [dragOverLane, setDragOverLane] = useState<string | null>(null);
 
   const lanes = [
-    { id: 'now', label: 'Now', color: 'green' },
-    { id: 'next', label: 'Next', color: 'blue' },
+    { id: 'built', label: 'Built', color: 'emerald' },
+    { id: 'now', label: 'Now', color: 'blue' },
+    { id: 'next', label: 'Next', color: 'amber' },
     { id: 'later', label: 'Later', color: 'gray' },
-    { id: 'done', label: 'Done', color: 'emerald' },
   ];
+
+  const l1s = (caps || []).filter((c: any) => c.level === 1);
+  const l2s = (caps || []).filter((c: any) => c.level === 2);
+  const features = (caps || []).filter((c: any) => c.level === 3);
 
   const addItem = async () => {
     if (!newTitle.trim()) return;
@@ -1170,6 +1188,13 @@ function ProductRoadmapPanel() {
     } catch (e: any) { toast({ title: 'Failed to move item', description: e.message, variant: 'destructive' }); }
   };
 
+  const moveCapStatus = async (id: number, status: string) => {
+    try {
+      await apiRequest('PATCH', `/api/platform-admin/product/capabilities/${id}`, { status });
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/capabilities'] });
+    } catch (e: any) { toast({ title: 'Failed to update status', description: e.message, variant: 'destructive' }); }
+  };
+
   const deleteItem = async (id: number) => {
     try {
       await apiRequest('DELETE', `/api/platform-admin/product/roadmap/${id}`);
@@ -1177,20 +1202,55 @@ function ProductRoadmapPanel() {
     } catch (e: any) { toast({ title: 'Failed to delete item', description: e.message, variant: 'destructive' }); }
   };
 
+  const handleDragStart = (e: React.DragEvent, type: 'cap' | 'rm', id: number) => {
+    e.dataTransfer.setData('text/plain', JSON.stringify({ type, id }));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, targetLane: string) => {
+    e.preventDefault();
+    setDragOverLane(null);
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+      if (data.type === 'cap') {
+        const feat = features.find((f: any) => f.id === data.id);
+        if (feat && (feat.status || 'built') !== targetLane) moveCapStatus(data.id, targetLane);
+      } else if (data.type === 'rm') {
+        const mappedLane = targetLane === 'built' ? 'done' : targetLane;
+        const item = (items || []).find((i: any) => i.id === data.id);
+        if (item && item.lane !== mappedLane) moveLane(data.id, mappedLane);
+      }
+    } catch {}
+  };
+
   if (isLoading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-500" /></div>;
 
   const activeOkrs = (okrs || []).filter((o: any) => o.status === 'active');
+  const visibleLanes = laneFilter === 'all' ? lanes : lanes.filter(l => l.id === laneFilter);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <p className="text-sm font-medium text-gray-100">Roadmap</p>
-          <p className="sm-description mt-1">Capabilities organized by delivery horizon. Link to OKRs for strategic alignment.</p>
+          <p className="sm-description mt-1">Capability features by delivery horizon. Drag and drop between lanes to change status.</p>
         </div>
         <Button size="sm" variant="outline" onClick={() => setShowAdd(true)} data-testid="button-add-roadmap">
           <Plus className="w-3.5 h-3.5 mr-1" /> Add Item
         </Button>
+      </div>
+
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {(['all', 'built', 'now', 'next', 'later'] as const).map(f => {
+          const colors: Record<string, string> = { all: 'bg-blue-500/20 text-blue-300 border-blue-500/30', built: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30', now: 'bg-blue-500/20 text-blue-300 border-blue-500/30', next: 'bg-amber-500/20 text-amber-300 border-amber-500/30', later: 'bg-gray-500/20 text-gray-400 border-gray-500/30' };
+          const count = f === 'all' ? features.length + (items || []).length : features.filter((c: any) => (c.status || 'built') === f).length + (items || []).filter((i: any) => i.lane === f || (f === 'built' && i.lane === 'done')).length;
+          return (
+            <button key={f} onClick={() => setLaneFilter(f)} className={`text-[10px] px-2.5 py-1 rounded-full transition-colors border ${laneFilter === f ? colors[f] : 'text-gray-500 border-transparent'}`} data-testid={`button-roadmap-filter-${f}`}>
+              {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+              <span className="ml-1 text-gray-600">({count})</span>
+            </button>
+          );
+        })}
       </div>
 
       {showAdd && (
@@ -1199,7 +1259,7 @@ function ProductRoadmapPanel() {
           <textarea className="w-full bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 min-h-[50px] resize-y focus:outline-none focus:border-blue-500" placeholder="Description (optional)..." value={newDesc} onChange={e => setNewDesc(e.target.value)} data-testid="input-roadmap-desc" />
           <div className="flex items-center gap-2 flex-wrap">
             <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newLane} onChange={e => setNewLane(e.target.value)} data-testid="select-roadmap-lane">
-              {lanes.filter(l => l.id !== 'done').map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
+              {lanes.map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
             </select>
             {activeOkrs.length > 0 && (
               <select className="bg-black/30 border border-gray-600 rounded-md p-2 text-xs text-gray-200 focus:outline-none" value={newOkrId ?? ''} onChange={e => setNewOkrId(e.target.value ? parseInt(e.target.value) : null)} data-testid="select-roadmap-okr">
@@ -1213,36 +1273,60 @@ function ProductRoadmapPanel() {
         </div>
       )}
 
-      {lanes.map(lane => {
-        const laneItems = (items || []).filter((i: any) => i.lane === lane.id);
-        const borderColor = lane.color === 'green' ? 'border-green-500/30' : lane.color === 'blue' ? 'border-blue-500/30' : lane.color === 'emerald' ? 'border-emerald-500/30' : 'border-gray-700';
-        const labelColor = lane.color === 'green' ? 'text-green-400' : lane.color === 'blue' ? 'text-blue-400' : lane.color === 'emerald' ? 'text-emerald-400' : 'text-gray-400';
+      {visibleLanes.map(lane => {
+        const capFeatures = features.filter((f: any) => (f.status || 'built') === lane.id);
+        const laneRoadmapItems = (items || []).filter((i: any) => i.lane === lane.id || (lane.id === 'built' && i.lane === 'done'));
+        const totalCount = capFeatures.length + laneRoadmapItems.length;
+        const borderColor = lane.color === 'emerald' ? 'border-emerald-500/30' : lane.color === 'blue' ? 'border-blue-500/30' : lane.color === 'amber' ? 'border-amber-500/30' : 'border-gray-700';
+        const labelColor = lane.color === 'emerald' ? 'text-emerald-400' : lane.color === 'blue' ? 'text-blue-400' : lane.color === 'amber' ? 'text-amber-400' : 'text-gray-400';
+        const isDragOver = dragOverLane === lane.id;
         return (
-          <div key={lane.id}>
+          <div key={lane.id} onDragOver={e => { e.preventDefault(); setDragOverLane(lane.id); }} onDragLeave={() => setDragOverLane(null)} onDrop={e => handleDrop(e, lane.id)}>
             <div className="flex items-center gap-2 mb-2">
               <span className={`text-xs font-medium ${labelColor}`}>{lane.label}</span>
-              <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">{laneItems.length}</Badge>
+              <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">{totalCount}</Badge>
             </div>
-            {laneItems.length === 0 ? (
-              <div className={`border ${borderColor} border-dashed rounded-lg p-3 text-center`}>
-                <p className="text-[10px] text-gray-600">No items</p>
+            {totalCount === 0 ? (
+              <div className={`border ${isDragOver ? 'border-blue-400 bg-blue-500/5' : borderColor} border-dashed rounded-lg p-4 text-center transition-colors`}>
+                <p className="text-[10px] text-gray-600">{isDragOver ? 'Drop here' : 'No items'}</p>
               </div>
             ) : (
-              <div className="space-y-1.5">
-                {laneItems.map((item: any) => {
-                  const linkedOkr = activeOkrs.find((o: any) => o.id === item.okrId);
+              <div className={`space-y-1.5 rounded-lg p-1 transition-colors ${isDragOver ? 'bg-blue-500/5 ring-1 ring-blue-400/30' : ''}`}>
+                {capFeatures.map((f: any) => {
+                  const parentL2 = l2s.find((l2: any) => l2.id === f.parentId);
+                  const parentL1 = parentL2 ? l1s.find((l1: any) => l1.id === parentL2.parentId) : null;
                   return (
-                    <div key={item.id} className={`border ${borderColor} rounded-lg p-3 bg-gray-900/30`}>
+                    <div key={`cap-${f.id}`} draggable onDragStart={e => handleDragStart(e, 'cap', f.id)} className={`border ${borderColor} rounded-lg p-3 bg-gray-900/30 cursor-grab active:cursor-grabbing`} data-testid={`roadmap-cap-${f.id}`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-200">{item.title}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <CapStatusBadge status={f.status || 'built'} onClick={() => {
+                              const cycle = ['built', 'now', 'next', 'later'];
+                              const next = cycle[(cycle.indexOf(f.status || 'built') + 1) % cycle.length];
+                              moveCapStatus(f.id, next);
+                            }} />
+                            <p className="text-xs font-medium text-gray-200">{f.title}</p>
+                          </div>
+                          {parentL2 && <p className="text-[10px] text-gray-500 mt-0.5">{parentL1 ? `${parentL1.title} / ` : ''}{parentL2.title}</p>}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {laneRoadmapItems.map((item: any) => {
+                  const linkedOkr = activeOkrs.find((o: any) => o.id === item.okrId);
+                  return (
+                    <div key={`rm-${item.id}`} draggable onDragStart={e => handleDragStart(e, 'rm', item.id)} className={`border ${borderColor} rounded-lg p-3 bg-gray-900/30 cursor-grab active:cursor-grabbing`} data-testid={`roadmap-rm-${item.id}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge variant="outline" className="text-[9px] text-violet-400 border-violet-500/30">Roadmap</Badge>
+                            <p className="text-xs font-medium text-gray-200">{item.title}</p>
+                          </div>
                           {item.description && <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-2">{item.description}</p>}
                           {linkedOkr && <Badge variant="outline" className="text-[9px] text-blue-400/60 border-blue-500/20 mt-1">{linkedOkr.title}</Badge>}
                         </div>
                         <div className="flex items-center gap-0.5">
-                          {lanes.filter(l => l.id !== lane.id).map(l => (
-                            <button key={l.id} onClick={() => moveLane(item.id, l.id)} className="text-[9px] text-gray-600 hover:text-gray-300 px-1.5 py-0.5 rounded hover:bg-gray-800 transition-colors" data-testid={`button-move-${item.id}-${l.id}`}>{l.label}</button>
-                          ))}
                           <Button size="icon" variant="ghost" onClick={() => deleteItem(item.id)} className="h-5 w-5 text-red-400/60" data-testid={`button-delete-roadmap-${item.id}`}><X className="w-2.5 h-2.5" /></Button>
                         </div>
                       </div>
@@ -1271,6 +1355,7 @@ function ProductBacklogPanel() {
   const [newRoadmapId, setNewRoadmapId] = useState<number | null>(null);
   const [newCapabilityId, setNewCapabilityId] = useState<number | null>(null);
   const [filter, setFilter] = useState<'all' | 'open' | 'in-progress' | 'done'>('all');
+  const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
 
   const l1s = (caps || []).filter((c: any) => c.level === 1);
   const l2s = (caps || []).filter((c: any) => c.level === 2);
@@ -1284,18 +1369,11 @@ function ProductBacklogPanel() {
     } catch (e: any) { toast({ title: 'Failed to add backlog item', description: e.message, variant: 'destructive' }); }
   };
 
-  const updateStatus = async (id: number, status: string) => {
+  const updateItem = async (id: number, updates: Record<string, any>) => {
     try {
-      await apiRequest('PATCH', `/api/platform-admin/product/backlog/${id}`, { status });
+      await apiRequest('PATCH', `/api/platform-admin/product/backlog/${id}`, updates);
       queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/backlog'] });
-    } catch (e: any) { toast({ title: 'Failed to update status', description: e.message, variant: 'destructive' }); }
-  };
-
-  const updatePriority = async (id: number, priority: string) => {
-    try {
-      await apiRequest('PATCH', `/api/platform-admin/product/backlog/${id}`, { priority });
-      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/backlog'] });
-    } catch (e: any) { toast({ title: 'Failed to update priority', description: e.message, variant: 'destructive' }); }
+    } catch (e: any) { toast({ title: 'Failed to update', description: e.message, variant: 'destructive' }); }
   };
 
   const deleteItem = async (id: number) => {
@@ -1305,18 +1383,37 @@ function ProductBacklogPanel() {
     } catch (e: any) { toast({ title: 'Failed to delete item', description: e.message, variant: 'destructive' }); }
   };
 
+  const handleDragStart = (e: React.DragEvent, id: number) => {
+    e.dataTransfer.setData('text/plain', String(id));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, targetStatus: string) => {
+    e.preventDefault();
+    setDragOverStatus(null);
+    const id = parseInt(e.dataTransfer.getData('text/plain'));
+    if (!isNaN(id)) {
+      const item = (items || []).find((i: any) => i.id === id);
+      if (item && item.status !== targetStatus) updateItem(id, { status: targetStatus });
+    }
+  };
+
   if (isLoading) return <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-gray-500" /></div>;
 
-  const filtered = (items || []).filter((i: any) => filter === 'all' || i.status === filter);
   const priorityOrder = { high: 0, medium: 1, low: 2 } as Record<string, number>;
-  const sorted = [...filtered].sort((a: any, b: any) => (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1));
+  const statusGroups = [
+    { id: 'open', label: 'Open', color: 'gray' },
+    { id: 'in-progress', label: 'In Progress', color: 'blue' },
+    { id: 'done', label: 'Done', color: 'emerald' },
+  ];
+  const visibleGroups = filter === 'all' ? statusGroups : statusGroups.filter(g => g.id === filter);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <p className="text-sm font-medium text-gray-100">Backlog</p>
-          <p className="sm-description mt-1">Individual work items. Link to roadmap capabilities for traceability.</p>
+          <p className="sm-description mt-1">Work items linked to L2 capabilities. Drag and drop between status groups.</p>
         </div>
         <Button size="sm" variant="outline" onClick={() => setShowAdd(true)} data-testid="button-add-backlog">
           <Plus className="w-3.5 h-3.5 mr-1" /> Add Item
@@ -1324,12 +1421,16 @@ function ProductBacklogPanel() {
       </div>
 
       <div className="flex items-center gap-1.5 flex-wrap">
-        {(['all', 'open', 'in-progress', 'done'] as const).map(f => (
-          <button key={f} onClick={() => setFilter(f)} className={`text-[10px] px-2.5 py-1 rounded-full transition-colors ${filter === f ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' : 'text-gray-500 hover:text-gray-300 border border-transparent'}`} data-testid={`button-filter-${f}`}>
-            {f === 'all' ? 'All' : f === 'in-progress' ? 'In Progress' : f.charAt(0).toUpperCase() + f.slice(1)}
-            {f !== 'all' && <span className="ml-1 text-gray-600">({(items || []).filter((i: any) => i.status === f).length})</span>}
-          </button>
-        ))}
+        {(['all', 'open', 'in-progress', 'done'] as const).map(f => {
+          const colors: Record<string, string> = { all: 'bg-blue-500/20 text-blue-300 border-blue-500/30', open: 'bg-gray-500/20 text-gray-400 border-gray-500/30', 'in-progress': 'bg-blue-500/20 text-blue-300 border-blue-500/30', done: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' };
+          const count = f === 'all' ? (items || []).length : (items || []).filter((i: any) => i.status === f).length;
+          return (
+            <button key={f} onClick={() => setFilter(f)} className={`text-[10px] px-2.5 py-1 rounded-full transition-colors border ${filter === f ? colors[f] : 'text-gray-500 border-transparent'}`} data-testid={`button-filter-${f}`}>
+              {f === 'all' ? 'All' : f === 'in-progress' ? 'In Progress' : f.charAt(0).toUpperCase() + f.slice(1)}
+              <span className="ml-1 text-gray-600">({count})</span>
+            </button>
+          );
+        })}
       </div>
 
       {showAdd && (
@@ -1366,57 +1467,64 @@ function ProductBacklogPanel() {
         </div>
       )}
 
-      {sorted.length === 0 ? (
-        <div className="text-center py-8">
-          <ListTodo className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-          <p className="text-xs text-gray-500">{filter === 'all' ? 'No backlog items yet.' : `No ${filter} items.`}</p>
-        </div>
-      ) : (
-        <div className="space-y-1.5">
-          {sorted.map((item: any) => {
-            const linkedRoadmap = (roadmapItems || []).find((r: any) => r.id === item.roadmapItemId);
-            const linkedCap = l2s.find((c: any) => c.id === item.capabilityId);
-            const linkedCapParent = linkedCap ? l1s.find((p: any) => p.id === linkedCap.parentId) : null;
-            const priorityColor = item.priority === 'high' ? 'text-red-400 border-red-500/30' : item.priority === 'medium' ? 'text-amber-400 border-amber-500/30' : 'text-gray-400 border-gray-600';
-            const statusColor = item.status === 'done' ? 'text-green-400 border-green-500/30' : item.status === 'in-progress' ? 'text-blue-400 border-blue-500/30' : 'text-gray-400 border-gray-600';
-            return (
-              <div key={item.id} className={`border border-gray-700/50 rounded-lg p-3 bg-gray-900/30 ${item.status === 'done' ? 'opacity-50' : ''}`}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <Badge variant="outline" className={`text-[9px] ${priorityColor}`}>{item.priority}</Badge>
-                      <Badge variant="outline" className="text-[9px] text-gray-500 border-gray-600">{item.effort}</Badge>
-                      <p className="text-xs font-medium text-gray-200">{item.title}</p>
-                    </div>
-                    {item.description && <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-1">{item.description}</p>}
-                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                      {linkedCap && <Badge variant="outline" className="text-[9px] text-blue-400/60 border-blue-500/20">{linkedCapParent ? `${linkedCapParent.title} / ` : ''}{linkedCap.title}</Badge>}
-                      {linkedRoadmap && <Badge variant="outline" className="text-[9px] text-violet-400/60 border-violet-500/20">{linkedRoadmap.title}</Badge>}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <select value={item.capabilityId ?? ''} onChange={e => { const val = e.target.value ? parseInt(e.target.value) : null; apiRequest('PATCH', `/api/platform-admin/product/backlog/${item.id}`, { capabilityId: val }).then(() => queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/product/backlog'] })); }} className="bg-transparent border border-gray-700 rounded text-[10px] text-gray-500 px-1 py-0.5 focus:outline-none max-w-[100px]" data-testid={`select-capability-${item.id}`}>
-                      <option value="">L2</option>
-                      {l2s.map((l2: any) => <option key={l2.id} value={l2.id}>{l2.title}</option>)}
-                    </select>
-                    <select value={item.status} onChange={e => updateStatus(item.id, e.target.value)} className={`bg-transparent border rounded text-[10px] px-1.5 py-0.5 focus:outline-none ${statusColor}`} data-testid={`select-status-${item.id}`}>
-                      <option value="open">Open</option>
-                      <option value="in-progress">In Progress</option>
-                      <option value="done">Done</option>
-                    </select>
-                    <select value={item.priority} onChange={e => updatePriority(item.id, e.target.value)} className="bg-transparent border border-gray-700 rounded text-[10px] text-gray-500 px-1 py-0.5 focus:outline-none" data-testid={`select-priority-${item.id}`}>
-                      <option value="high">High</option>
-                      <option value="medium">Med</option>
-                      <option value="low">Low</option>
-                    </select>
-                    <Button size="icon" variant="ghost" onClick={() => deleteItem(item.id)} className="h-5 w-5 text-red-400/60" data-testid={`button-delete-backlog-${item.id}`}><X className="w-2.5 h-2.5" /></Button>
-                  </div>
-                </div>
+      {visibleGroups.map(group => {
+        const groupItems = [...(items || []).filter((i: any) => i.status === group.id)].sort((a: any, b: any) => (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1));
+        const borderColor = group.color === 'emerald' ? 'border-emerald-500/30' : group.color === 'blue' ? 'border-blue-500/30' : 'border-gray-700';
+        const labelColor = group.color === 'emerald' ? 'text-emerald-400' : group.color === 'blue' ? 'text-blue-400' : 'text-gray-400';
+        const isDragOver = dragOverStatus === group.id;
+        return (
+          <div key={group.id} onDragOver={e => { e.preventDefault(); setDragOverStatus(group.id); }} onDragLeave={() => setDragOverStatus(null)} onDrop={e => handleDrop(e, group.id)}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className={`text-xs font-medium ${labelColor}`}>{group.label}</span>
+              <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">{groupItems.length}</Badge>
+            </div>
+            {groupItems.length === 0 ? (
+              <div className={`border ${isDragOver ? 'border-blue-400 bg-blue-500/5' : borderColor} border-dashed rounded-lg p-4 text-center transition-colors`}>
+                <p className="text-[10px] text-gray-600">{isDragOver ? 'Drop here' : 'No items'}</p>
               </div>
-            );
-          })}
-        </div>
-      )}
+            ) : (
+              <div className={`space-y-1.5 rounded-lg p-1 transition-colors ${isDragOver ? 'bg-blue-500/5 ring-1 ring-blue-400/30' : ''}`}>
+                {groupItems.map((item: any) => {
+                  const linkedRoadmap = (roadmapItems || []).find((r: any) => r.id === item.roadmapItemId);
+                  const linkedCap = l2s.find((c: any) => c.id === item.capabilityId);
+                  const linkedCapParent = linkedCap ? l1s.find((p: any) => p.id === linkedCap.parentId) : null;
+                  const priorityColor = item.priority === 'high' ? 'text-red-400 border-red-500/30' : item.priority === 'medium' ? 'text-amber-400 border-amber-500/30' : 'text-gray-400 border-gray-600';
+                  return (
+                    <div key={item.id} draggable onDragStart={e => handleDragStart(e, item.id)} className={`border ${borderColor} rounded-lg p-3 bg-gray-900/30 cursor-grab active:cursor-grabbing ${item.status === 'done' ? 'opacity-50' : ''}`} data-testid={`backlog-item-${item.id}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge variant="outline" className={`text-[9px] ${priorityColor}`}>{item.priority}</Badge>
+                            <Badge variant="outline" className="text-[9px] text-gray-500 border-gray-600">{item.effort}</Badge>
+                            <p className="text-xs font-medium text-gray-200">{item.title}</p>
+                          </div>
+                          {item.description && <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-1">{item.description}</p>}
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                            {linkedCap && <Badge variant="outline" className="text-[9px] text-blue-400/60 border-blue-500/20">{linkedCapParent ? `${linkedCapParent.title} / ` : ''}{linkedCap.title}</Badge>}
+                            {linkedRoadmap && <Badge variant="outline" className="text-[9px] text-violet-400/60 border-violet-500/20">{linkedRoadmap.title}</Badge>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <select value={item.capabilityId ?? ''} onChange={e => updateItem(item.id, { capabilityId: e.target.value ? parseInt(e.target.value) : null })} className="bg-transparent border border-gray-700 rounded text-[10px] text-gray-500 px-1 py-0.5 focus:outline-none max-w-[120px]" data-testid={`select-capability-${item.id}`}>
+                            <option value="">L2</option>
+                            {l2s.map((l2: any) => { const p = l1s.find((p: any) => p.id === l2.parentId); return <option key={l2.id} value={l2.id}>{p ? `${p.title} / ` : ''}{l2.title}</option>; })}
+                          </select>
+                          <select value={item.priority} onChange={e => updateItem(item.id, { priority: e.target.value })} className="bg-transparent border border-gray-700 rounded text-[10px] text-gray-500 px-1 py-0.5 focus:outline-none" data-testid={`select-priority-${item.id}`}>
+                            <option value="high">High</option>
+                            <option value="medium">Med</option>
+                            <option value="low">Low</option>
+                          </select>
+                          <Button size="icon" variant="ghost" onClick={() => deleteItem(item.id)} className="h-5 w-5 text-red-400/60" data-testid={`button-delete-backlog-${item.id}`}><X className="w-2.5 h-2.5" /></Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
