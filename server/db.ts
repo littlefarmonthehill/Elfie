@@ -537,6 +537,30 @@ export async function runMigrations() {
     await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS pom_guide_focus TEXT NOT NULL DEFAULT 'both'`);
     console.log('[Migration] Phase-25 (pom_guide_focus column) complete.');
 
+    // Phase-26: Elfie custom + live support columns on plan_configs
+    await pool.query(`ALTER TABLE plan_configs ADD COLUMN IF NOT EXISTS feature_elfie_custom BOOLEAN NOT NULL DEFAULT false`);
+    await pool.query(`ALTER TABLE plan_configs ADD COLUMN IF NOT EXISTS feature_elfie_live_support BOOLEAN NOT NULL DEFAULT false`);
+    await pool.query(`UPDATE plan_configs SET feature_elfie_custom = true, feature_elfie_live_support = true WHERE plan_key IN ('core', 'flagship') AND feature_elfie_custom = false`);
+    console.log('[Migration] Phase-26 (elfie custom + live support plan_configs columns) complete.');
+
+    // Phase-27: support_tickets table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS support_tickets (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        org_id VARCHAR NOT NULL,
+        session_id TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'escalated',
+        subject TEXT,
+        assigned_to VARCHAR,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        resolved_at TIMESTAMPTZ
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS support_tickets_org_id_idx ON support_tickets (org_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS support_tickets_status_idx ON support_tickets (status)`);
+    console.log('[Migration] Phase-27 (support_tickets table) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

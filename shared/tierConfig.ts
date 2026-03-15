@@ -15,6 +15,7 @@ export interface TierFeatures {
   brickOwl: boolean;
   elfieAiMode: boolean;
   elfieCustom: boolean;
+  elfieLiveSupport: boolean;
   priceOMatic: boolean;
   easypostAutomation: boolean;
   dataEnrichmentImages: boolean;
@@ -59,6 +60,7 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
       brickOwl: false,
       elfieAiMode: true,
       elfieCustom: false,
+      elfieLiveSupport: false,
       priceOMatic: false,
       easypostAutomation: false,
       dataEnrichmentImages: true,
@@ -90,6 +92,7 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
       brickOwl: false,
       elfieAiMode: true,
       elfieCustom: false,
+      elfieLiveSupport: false,
       priceOMatic: true,
       easypostAutomation: false,
       dataEnrichmentImages: true,
@@ -121,6 +124,7 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
       brickOwl: true,
       elfieAiMode: true,
       elfieCustom: true,
+      elfieLiveSupport: true,
       priceOMatic: true,
       easypostAutomation: true,
       dataEnrichmentImages: true,
@@ -152,6 +156,7 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
       brickOwl: true,
       elfieAiMode: true,
       elfieCustom: true,
+      elfieLiveSupport: true,
       priceOMatic: true,
       easypostAutomation: true,
       dataEnrichmentImages: true,

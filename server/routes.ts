@@ -37,7 +37,7 @@ function maskSettingsSecrets(settings: Record<string, any> | null): Record<strin
 }
 import { storage } from "./storage";
 import { getEffectiveLimits } from "@shared/tierConfig";
-import { seedPlanConfigsIfEmpty, getAllPlanConfigsWithCounts, updatePlanConfig, setPlanSunset, dbPlanToLimits } from "./services/planConfigService";
+import { seedPlanConfigsIfEmpty, getAllPlanConfigsWithCounts, updatePlanConfig, setPlanSunset, dbPlanToLimits, dbPlanToFeatures } from "./services/planConfigService";
 import { setupAuth, isAuthenticated, isApproved, isOrgOwner, getOrgId, isSuperAdmin } from "./auth";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, bricklinkCatalogRequest, calculateSuggestedPriceWithSupply } from "./services/bricklink";
 import { getPomIsRunning, setPomIsRunning } from "./services/pom-scheduler";
@@ -47,7 +47,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, PLATFORM_ORG_ID } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, planConfigs, PLATFORM_ORG_ID } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -1916,6 +1916,210 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Catalog migration error:", error);
       res.status(500).json({ message: error.message || "Migration failed" });
+    }
+  });
+
+  // ─── Support Ticket routes ─────────────────────────────────────────────────
+
+  // POST /api/support/escalate — org user escalates chat to live support
+  app.post('/api/support/escalate', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
+      if (!org) return res.status(404).json({ message: "Organization not found" });
+      const overrides = (org.featureOverrides ?? {}) as Record<string, boolean>;
+      if (typeof overrides.elfieLiveSupport === 'boolean') {
+        if (!overrides.elfieLiveSupport) return res.status(403).json({ message: "Live support is not available on your current plan" });
+      } else {
+        const [planConfig] = await db.select().from(planConfigs).where(eq(planConfigs.planKey, org.plan ?? 'trial')).limit(1);
+        if (planConfig) {
+          const features = dbPlanToFeatures(planConfig);
+          if (!features.elfieLiveSupport) return res.status(403).json({ message: "Live support is not available on your current plan" });
+        }
+      }
+      const { sessionId, subject } = req.body;
+      if (!sessionId) return res.status(400).json({ message: "sessionId required" });
+      const existing = await db.select().from(supportTickets)
+        .where(and(eq(supportTickets.orgId, orgId), eq(supportTickets.sessionId, sessionId), ne(supportTickets.status, 'resolved')))
+        .limit(1);
+      if (existing.length > 0) return res.json(existing[0]);
+      const [ticket] = await db.insert(supportTickets).values({
+        orgId,
+        sessionId,
+        subject: subject || 'Live support request',
+        status: 'escalated',
+      }).returning();
+      await db.insert(conversations).values({
+        sessionId,
+        role: 'system',
+        content: 'This conversation has been escalated to live support. A team member will join shortly.',
+        orgId,
+      });
+      res.json(ticket);
+    } catch (error: any) {
+      console.error("Support escalate error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // GET /api/support/ticket-status — get current ticket status for a session
+  app.get('/api/support/ticket-status', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const sessionId = req.query.sessionId as string;
+      if (!sessionId) return res.status(400).json({ message: "sessionId required" });
+      const tickets = await db.select().from(supportTickets)
+        .where(and(eq(supportTickets.orgId, orgId), eq(supportTickets.sessionId, sessionId), ne(supportTickets.status, 'resolved')))
+        .orderBy(desc(supportTickets.createdAt))
+        .limit(1);
+      res.json(tickets[0] || null);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // GET /api/support/messages — org user polls for new support messages in their session
+  app.get('/api/support/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const sessionId = req.query.sessionId as string;
+      const since = req.query.since as string;
+      if (!sessionId) return res.status(400).json({ message: "sessionId required" });
+      let query = db.select().from(conversations)
+        .where(and(
+          eq(conversations.orgId, orgId),
+          eq(conversations.sessionId, sessionId),
+          or(eq(conversations.role, 'support'), eq(conversations.role, 'system')),
+        ))
+        .orderBy(asc(conversations.createdAt));
+      if (since) {
+        const sinceDate = new Date(parseInt(since));
+        query = db.select().from(conversations)
+          .where(and(
+            eq(conversations.orgId, orgId),
+            eq(conversations.sessionId, sessionId),
+            or(eq(conversations.role, 'support'), eq(conversations.role, 'system')),
+            gt(conversations.createdAt, sinceDate),
+          ))
+          .orderBy(asc(conversations.createdAt));
+      }
+      const msgs = await query;
+      res.json(msgs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // GET /api/platform-admin/support-queue — all open/active tickets (superAdmin)
+  app.get('/api/platform-admin/support-queue', isSuperAdmin, async (_req, res) => {
+    try {
+      const tickets = await db.select({
+        ticket: supportTickets,
+        orgName: organizations.name,
+      }).from(supportTickets)
+        .leftJoin(organizations, eq(supportTickets.orgId, organizations.id))
+        .where(ne(supportTickets.status, 'resolved'))
+        .orderBy(desc(supportTickets.createdAt));
+      const result = tickets.map(t => ({
+        ...t.ticket,
+        orgName: t.orgName || 'Unknown',
+      }));
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // GET /api/platform-admin/support-queue/history — resolved tickets (superAdmin)
+  app.get('/api/platform-admin/support-queue/history', isSuperAdmin, async (_req, res) => {
+    try {
+      const tickets = await db.select({
+        ticket: supportTickets,
+        orgName: organizations.name,
+      }).from(supportTickets)
+        .leftJoin(organizations, eq(supportTickets.orgId, organizations.id))
+        .where(eq(supportTickets.status, 'resolved'))
+        .orderBy(desc(supportTickets.resolvedAt))
+        .limit(50);
+      const result = tickets.map(t => ({
+        ...t.ticket,
+        orgName: t.orgName || 'Unknown',
+      }));
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // GET /api/platform-admin/support-queue/:ticketId/messages — conversation for a ticket
+  app.get('/api/platform-admin/support-queue/:ticketId/messages', isSuperAdmin, async (req, res) => {
+    try {
+      const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, req.params.ticketId)).limit(1);
+      if (!ticket) return res.status(404).json({ message: "Ticket not found" });
+      const msgs = await db.select().from(conversations)
+        .where(and(eq(conversations.orgId, ticket.orgId), eq(conversations.sessionId, ticket.sessionId)))
+        .orderBy(asc(conversations.createdAt));
+      res.json({ ticket, messages: msgs });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // POST /api/platform-admin/support-queue/:ticketId/reply — admin sends a message
+  app.post('/api/platform-admin/support-queue/:ticketId/reply', isSuperAdmin, async (req: any, res) => {
+    try {
+      const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, req.params.ticketId)).limit(1);
+      if (!ticket) return res.status(404).json({ message: "Ticket not found" });
+      const { content } = req.body;
+      if (!content?.trim()) return res.status(400).json({ message: "content required" });
+      const adminUser = req.user;
+      const displayName = adminUser?.email || 'Support Agent';
+      await db.insert(conversations).values({
+        sessionId: ticket.sessionId,
+        role: 'support',
+        content: content.trim(),
+        context: displayName,
+        orgId: ticket.orgId,
+      });
+      if (ticket.status === 'escalated') {
+        await db.update(supportTickets)
+          .set({ status: 'active', assignedTo: adminUser?.id || null, updatedAt: new Date() })
+          .where(eq(supportTickets.id, ticket.id));
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // PATCH /api/platform-admin/support-queue/:ticketId/resolve — mark ticket resolved
+  app.patch('/api/platform-admin/support-queue/:ticketId/resolve', isSuperAdmin, async (req, res) => {
+    try {
+      const [ticket] = await db.update(supportTickets)
+        .set({ status: 'resolved', resolvedAt: new Date(), updatedAt: new Date() })
+        .where(eq(supportTickets.id, req.params.ticketId))
+        .returning();
+      if (!ticket) return res.status(404).json({ message: "Ticket not found" });
+      await db.insert(conversations).values({
+        sessionId: ticket.sessionId,
+        role: 'system',
+        content: 'This support session has been resolved. You can continue chatting with E.L.F.I.E. as usual.',
+        orgId: ticket.orgId,
+      });
+      res.json(ticket);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // GET /api/platform-admin/support-queue/count — badge count of open tickets
+  app.get('/api/platform-admin/support-queue/count', isSuperAdmin, async (_req, res) => {
+    try {
+      const [result] = await db.select({ count: count() }).from(supportTickets)
+        .where(ne(supportTickets.status, 'resolved'));
+      res.json({ count: result?.count || 0 });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   });
 

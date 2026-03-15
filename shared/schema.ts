@@ -648,6 +648,31 @@ export const insertConversationSchema = createInsertSchema(conversations).omit({
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type Conversation = typeof conversations.$inferSelect;
 
+// Support Tickets — escalated Elfie conversations
+export const supportTickets = pgTable("support_tickets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull(),
+  sessionId: text("session_id").notNull(),
+  status: text("status").notNull().default('escalated'), // escalated | active | resolved
+  subject: text("subject"),
+  assignedTo: varchar("assigned_to"), // platform admin user id
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  resolvedAt: timestamp("resolved_at"),
+}, (table) => ({
+  orgIdx: index("support_tickets_org_idx").on(table.orgId),
+  statusIdx: index("support_tickets_status_idx").on(table.status),
+}));
+
+export const insertSupportTicketSchema = createInsertSchema(supportTickets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  resolvedAt: true,
+});
+export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
+export type SupportTicket = typeof supportTickets.$inferSelect;
+
 // BrickLink API Call Tracking
 export const blApiCalls = pgTable("bl_api_calls", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1563,6 +1588,7 @@ export const planConfigs = pgTable("plan_configs", {
   featureBrickOwl: boolean("feature_brick_owl").notNull().default(false),
   featureElfieAi: boolean("feature_elfie_ai").notNull().default(false),
   featureElfieCustom: boolean("feature_elfie_custom").notNull().default(false),
+  featureElfieLiveSupport: boolean("feature_elfie_live_support").notNull().default(false),
   featurePriceOMatic: boolean("feature_price_o_matic").notNull().default(false),
   featureEasypost: boolean("feature_easypost").notNull().default(false),
   featureDataImages: boolean("feature_data_images").notNull().default(false),

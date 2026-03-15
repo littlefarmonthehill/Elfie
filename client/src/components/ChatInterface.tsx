@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Camera, Sparkles, Brain, ChevronDown, ChevronRight, Globe, Clock, Newspaper, MessageSquare } from "lucide-react";
+import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Camera, Sparkles, Brain, ChevronDown, ChevronRight, Globe, Clock, Newspaper, MessageSquare, Headphones, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InventoryGroup } from "@/components/InventoryGroup";
@@ -177,7 +177,7 @@ function themeMatchScore(theme: string, text: string): number {
 }
 
 interface ChatMessage {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'support' | 'system';
   content: string;
   messageId?: string;
   streaming?: boolean;
@@ -1073,6 +1073,9 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
   const [showScrollDown, setShowScrollDown] = useState(false);
+  const [supportTicket, setSupportTicket] = useState<{ id: string; status: string } | null>(null);
+  const [escalating, setEscalating] = useState(false);
+  const lastPollRef = useRef<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -1089,7 +1092,65 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
   useEffect(() => {
     localStorage.setItem('elfie-session-id', sessionId);
   }, [sessionId]);
-  
+
+  // Poll for new support/system messages when ticket is active
+  useEffect(() => {
+    if (!supportTicket || supportTicket.status === 'resolved') return;
+    const poll = async () => {
+      try {
+        const ticketRes = await fetch(`/api/support/ticket-status?sessionId=${encodeURIComponent(sessionId)}`, { credentials: 'include' });
+        if (ticketRes.ok) {
+          const t = await ticketRes.json();
+          if (t) setSupportTicket({ id: t.id, status: t.status });
+        }
+        const msgsRes = await fetch(`/api/support/messages?sessionId=${encodeURIComponent(sessionId)}&since=${lastPollRef.current}`, { credentials: 'include' });
+        if (!msgsRes.ok) return;
+        const newMsgs = await msgsRes.json();
+        if (newMsgs.length > 0) {
+          lastPollRef.current = Math.max(...newMsgs.map((m: any) => new Date(m.createdAt).getTime()));
+          setMessages(prev => [
+            ...prev,
+            ...newMsgs.map((m: any) => ({
+              role: m.role as 'support' | 'system',
+              content: m.content,
+            })),
+          ]);
+        }
+      } catch {}
+    };
+    const interval = setInterval(poll, 5000);
+    poll();
+    return () => clearInterval(interval);
+  }, [supportTicket, sessionId]);
+
+  const handleEscalate = async () => {
+    setEscalating(true);
+    try {
+      const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+      const res = await fetch('/api/support/escalate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          sessionId,
+          subject: lastUserMsg?.content?.slice(0, 100) || 'Live support request',
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to escalate');
+      const ticket = await res.json();
+      setSupportTicket({ id: ticket.id, status: ticket.status });
+      lastPollRef.current = Date.now();
+      setMessages(prev => [
+        ...prev,
+        { role: 'system', content: 'This conversation has been escalated to live support. A team member will join shortly.' },
+      ]);
+      toast({ title: 'Escalated to live support', description: 'A support agent will join this conversation.' });
+    } catch {
+      toast({ title: 'Could not escalate', description: 'Please try again.', variant: 'destructive' });
+    } finally {
+      setEscalating(false);
+    }
+  };
 
   const scrollToBottom = () => {
     // Never scroll if input is focused (critical for iOS keyboard)
@@ -1510,37 +1571,56 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
               {messages.map((message, i) => (
                 <div
                   key={message.messageId || i}
-                  className={`flex gap-2 md:gap-3 lg:gap-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  className={`flex gap-2 md:gap-3 lg:gap-4 ${message.role === 'user' ? 'justify-end' : message.role === 'system' ? 'justify-center' : 'justify-start'}`}
                   data-testid={`message-${message.role}-${i}`}
                 >
-                  {/* Show Elfie avatar for assistant messages */}
-                  {message.role === 'assistant' && (
-                    <div className="flex-shrink-0">
-                      <img src={elfieRobot} alt="Elfie" className="h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12 object-contain" />
+                  {message.role === 'system' ? (
+                    <div className="max-w-[90%] rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-2 text-xs text-amber-300 text-center">
+                      {message.content}
                     </div>
+                  ) : (
+                    <>
+                      {message.role === 'assistant' && (
+                        <div className="flex-shrink-0">
+                          <img src={elfieRobot} alt="Elfie" className="h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12 object-contain" />
+                        </div>
+                      )}
+                      {message.role === 'support' && (
+                        <div className="flex-shrink-0 h-8 w-8 md:h-10 md:w-10 lg:h-12 lg:w-12 rounded-full bg-green-600 flex items-center justify-center">
+                          <Headphones className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 text-white" />
+                        </div>
+                      )}
+                      <div
+                        className={`max-w-[85%] rounded-lg text-sm md:text-base lg:text-lg overflow-hidden ${
+                          message.role === 'user'
+                            ? colors.userBg + ' text-white p-3 md:p-4 lg:p-5'
+                            : message.role === 'support'
+                            ? 'bg-green-600/20 border border-green-500/30 text-green-100 p-3 md:p-4 lg:p-5'
+                            : 'text-gray-300'
+                        }`}
+                      >
+                        {message.role === 'support' && (
+                          <p className="text-[10px] font-semibold text-green-400 mb-1">Support Agent</p>
+                        )}
+                        {message.role === 'user' ? (
+                          message.content
+                        ) : message.role === 'support' ? (
+                          message.content
+                        ) : (
+                          <StreamingMessage
+                            message={message}
+                            onItemClick={onItemClick}
+                            onBrickLinkSearch={handleBrickLinkSearch}
+                            onPromptClick={handleSend}
+                            onSummarize={handleSummarize}
+                            onStreamingDone={() => {
+                              setMessages(prev => prev.map(m => m.messageId === message.messageId ? { ...m, streaming: false } : m));
+                            }}
+                          />
+                        )}
+                      </div>
+                    </>
                   )}
-                  <div
-                    className={`max-w-[85%] rounded-lg text-sm md:text-base lg:text-lg overflow-hidden ${
-                      message.role === 'user'
-                        ? colors.userBg + ' text-white p-3 md:p-4 lg:p-5'
-                        : 'text-gray-300'
-                    }`}
-                  >
-                    {message.role === 'user' ? (
-                      message.content
-                    ) : (
-                      <StreamingMessage
-                        message={message}
-                        onItemClick={onItemClick}
-                        onBrickLinkSearch={handleBrickLinkSearch}
-                        onPromptClick={handleSend}
-                        onSummarize={handleSummarize}
-                        onStreamingDone={() => {
-                          setMessages(prev => prev.map(m => m.messageId === message.messageId ? { ...m, streaming: false } : m));
-                        }}
-                      />
-                    )}
-                  </div>
                 </div>
               ))}
               
@@ -1602,6 +1682,28 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
               >
                 <Camera className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" />
               </Button>
+              {!supportTicket && (
+                <Button 
+                  size="icon" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEscalate();
+                  }}
+                  variant="ghost"
+                  className="text-green-400 hover:text-green-300 hover:bg-green-500/20 md:h-12 md:w-12 lg:h-14 lg:w-14"
+                  data-testid="button-escalate"
+                  disabled={isLoading || escalating || messages.length < 3}
+                  title="Talk to a person"
+                >
+                  {escalating ? <RefreshCcw className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 animate-spin" /> : <UserPlus className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6" />}
+                </Button>
+              )}
+              {supportTicket && supportTicket.status !== 'resolved' && (
+                <div className="flex items-center gap-1 px-2">
+                  <Headphones className="h-3.5 w-3.5 text-green-400" />
+                  <span className="text-[10px] text-green-400 whitespace-nowrap">{supportTicket.status === 'active' ? 'Agent joined' : 'Waiting...'}</span>
+                </div>
+              )}
               <textarea
                 ref={inputRef as any}
                 value={input}

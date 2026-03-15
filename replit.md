@@ -145,6 +145,15 @@ Scheduled background job that cross-references each org's inventory, sales, and 
 - **UI (Settings)**: Platform Scheduler > Market tab — Business Intel job card below Market News. Enabled toggle, frequency input.
 - **UI (Dashboard)**: Sales Dashboard > Business Intel drawer (cyan Radar button). Shows insight cards grouped by category with filter chips. Each card shows category icon, urgency badge, title, summary. Expandable detail shows affected items and price gap. Dismiss button per insight.
 
+## Elfie Live Support / Escalation System
+
+- **Feature gating**: `elfieLiveSupport` tier feature — Core + Flagship only. Controlled via `feature_elfie_live_support` column in `plan_configs`.
+- **DB table**: `supportTickets` (id serial PK, orgId, userId, sessionId, status enum escalated/active/resolved, createdAt, updatedAt). Phase-25+ migration in `server/db.ts`.
+- **User flow**: Escalate button (UserPlus icon) in ChatInterface appears after 3+ messages. Creates ticket via `POST /api/support/escalate`. Polling (`GET /api/support/messages?sessionId=&since=`) fetches new support/system messages every 5s. Ticket status shown inline (Headphones icon + status text). Button disabled while ticket is active/escalated; shows "Resolved" when done.
+- **Admin flow**: Support Queue in SettingsModal (Platform Admin nav). Lists open/active tickets with org name, user email, message count, timestamps. Click to view full conversation. Reply textarea sends via `POST /api/platform-admin/support-queue/:id/reply`. Resolve button closes ticket. Badge shows open ticket count.
+- **Message roles**: `support` role for admin replies (agent email stored in `context` field), `system` role for status change notifications. Both rendered distinctly in ChatInterface (green avatar for support, amber banner for system).
+- **API routes**: `POST /api/support/escalate`, `GET /api/support/ticket-status`, `GET /api/support/messages` (user-facing). `GET /api/platform-admin/support-queue` (list), `GET /api/platform-admin/support-queue/:id/messages`, `POST /api/platform-admin/support-queue/:id/reply`, `POST /api/platform-admin/support-queue/:id/resolve`, `GET /api/platform-admin/support-queue/count`, `GET /api/platform-admin/support-queue/:id/history` (admin).
+
 ## Elfie Chat — Progressive Reveal & AI Overviews
 
 - **Streaming reveal**: Character-level reveal at 3 chars/25ms, 80ms pause at newlines, 200ms pause before `###` headers. `StreamingMessage` wrapper progressively reveals content through `MessageContent`. Only the latest response streams; older messages render fully. Streaming flags are cleared when the chat is minimized to prevent background interval leaks. Messages use `messageId` for stable React keys and callback targeting.
