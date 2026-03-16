@@ -1311,8 +1311,13 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
     // Freshness window from scheduler settings — items not fetched within N days (or never fetched) are candidates.
     // Per-guide freshness: check sold and stock independently. An item is a candidate if EITHER guide is stale.
     const FRESHNESS_MS = freshnessDays * 24 * 60 * 60 * 1000;
+    // Confirmed-empty items (fetched but BrickLink returned no sellers/sales) use a shorter window so they
+    // cycle back for re-checking periodically without locking into the full 180-day wait.
+    // Cap at 15 days regardless of the freshness setting — empty items are cheap to check.
+    const EMPTY_FRESHNESS_MS = Math.min(freshnessDays, 15) * 24 * 60 * 60 * 1000;
     const now = Date.now();
     const isFresh = (ts: Date | null | undefined) => ts != null && (now - new Date(ts).getTime()) < FRESHNESS_MS;
+    const isEmptyFresh = (ts: Date | null | undefined) => ts != null && (now - new Date(ts).getTime()) < EMPTY_FRESHNESS_MS;
 
     // Check which cached entries are missing the Phase-19 qty fields so we can force re-fetch them
     const cacheIdsWithQty = new Set<string>();
@@ -1331,24 +1336,27 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
         if (!item.lastFetched) return true; // never fetched at all
         // If cached entry exists but is missing qty fields, treat as stale
         if (item.cacheId && !cacheIdsWithQty.has(item.cacheId)) return true;
-        const soldFresh = isFresh(item.soldFetchedAt);
-        const stockFresh = isFresh(item.stockFetchedAt);
         const missingStock = Number(item.missingStockFields) || 0;
         const missingSold = Number(item.missingSoldFields) || 0;
-        // Guide focus filtering: stale OR missing data for the focused guide type(s)
-        // Only treat "missing data" as a reason to fetch if the item was NEVER fetched for that guide.
-        // Items that were fetched and confirmed empty (no sellers) should follow the normal freshness cycle,
-        // not be re-fetched every single sync (which creates an infinite loop burning API budget).
-        if (guideFocus === 'stock') return !stockFresh || (missingStock > 0 && !item.stockFetchedAt);
-        if (guideFocus === 'sold') return !soldFresh || (missingSold > 0 && !item.soldFetchedAt);
+        // Confirmed-empty: fetched but no price data returned (BrickLink had no sellers/sales).
+        // Use the shorter EMPTY_FRESHNESS_MS window so they cycle back for re-checking periodically
+        // without burning the full 180-day window or looping infinitely every sync.
+        const stockConfirmedEmpty = missingStock >= 3 && item.stockFetchedAt != null;
+        const soldConfirmedEmpty = missingSold >= 3 && item.soldFetchedAt != null;
+        const stockFresh = stockConfirmedEmpty ? isEmptyFresh(item.stockFetchedAt) : isFresh(item.stockFetchedAt);
+        const soldFresh = soldConfirmedEmpty ? isEmptyFresh(item.soldFetchedAt) : isFresh(item.soldFetchedAt);
+        if (guideFocus === 'stock') return !stockFresh;
+        if (guideFocus === 'sold') return !soldFresh;
         return !soldFresh || !stockFresh; // 'both': candidate if either guide is stale
       })
       .map((item) => {
         const missingQty = item.cacheId && !cacheIdsWithQty.has(item.cacheId);
-        const rawSoldFresh = missingQty ? false : isFresh(item.soldFetchedAt);
-        const rawStockFresh = missingQty ? false : isFresh(item.stockFetchedAt);
         const missingStock = Number(item.missingStockFields) || 0;
         const missingSold = Number(item.missingSoldFields) || 0;
+        const _stockEmpty = missingStock >= 3 && item.stockFetchedAt != null;
+        const _soldEmpty = missingSold >= 3 && item.soldFetchedAt != null;
+        const rawSoldFresh = missingQty ? false : (_soldEmpty ? isEmptyFresh(item.soldFetchedAt) : isFresh(item.soldFetchedAt));
+        const rawStockFresh = missingQty ? false : (_stockEmpty ? isEmptyFresh(item.stockFetchedAt) : isFresh(item.stockFetchedAt));
         let relevantMissing: number;
         if (guideFocus === 'stock') relevantMissing = missingStock;
         else if (guideFocus === 'sold') relevantMissing = missingSold;
