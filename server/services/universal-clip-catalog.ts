@@ -43,26 +43,35 @@ export function getLastImportedAt()        { return _lastImportedAt; }
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
 /**
- * Image URLs to try in order when embedding a part.
+ * Build an ordered list of image URLs to try for a given part.
  *
- * Priority:
- *  1. BrickLink CDN /ItemImage/PL/ .png — the format BL serves for neutral-color
- *     part-list photos. Confirmed working for ~14% of Rebrickable parts (those
- *     that share part numbers with BrickLink).
- *  2. BrickLink CDN /PL/ .jpg — older/alternate CDN path, minimal extra coverage.
- *  3. Rebrickable CDN — Rebrickable hosts photos for most of their catalog under a
- *     predictable CDN path (no auth needed). Color 0 is the neutral/default rendering.
- *     The URL works as-is for a majority of Rebrickable part numbers.
+ * @param rbId  — the Rebrickable part number (source of the queue row)
+ * @param blId  — the BrickLink part number resolved via part_id_mappings, or null if unknown
  *
- * ~85% of Rebrickable parts are Rebrickable-only and have no BL CDN image at all.
- * For those, the Rebrickable CDN is the best fallback that doesn't require API quota.
+ * Strategy:
+ *  - BL CDN URLs use the BL part number (blId) when available — that's the only number BL CDN
+ *    recognises. Using rbId for BL CDN URLs causes the ~85% 404 rate we saw previously.
+ *  - Rebrickable CDN URLs use the Rebrickable part number (rbId). Rebrickable hosts photos
+ *    for most of their catalog; color 15 (white) and 1 (black) are the most common baselines.
+ *  - If blId equals rbId we deduplicate automatically via Set later (or they hit the same URL).
  */
-function partImageUrls(partNo: string): string[] {
-  return [
-    `https://img.bricklink.com/ItemImage/PL/${partNo}.png`,          // BL CDN (proven ~14% hit)
-    `https://img.bricklink.com/PL/${partNo}.jpg`,                     // BL CDN alternate path
-    `https://cdn.rebrickable.com/media/parts/photos/0/${partNo}.jpg`, // Rebrickable CDN, color 0
-  ];
+function partImageUrls(rbId: string, blId: string | null): string[] {
+  const urls: string[] = [];
+
+  // BL CDN — only useful when we have the correct BL part number
+  if (blId) {
+    urls.push(`https://img.bricklink.com/ItemImage/PL/${blId}.png`);
+    urls.push(`https://img.bricklink.com/PL/${blId}.jpg`);
+  }
+
+  // Rebrickable CDN — publicly accessible, no auth, uses Rebrickable's own numbering.
+  // Try a few common color IDs: 15 (white) and 71 (light grey) tend to be photographed
+  // for most parts. Color 0 is "not a real color" in Rebrickable's system.
+  urls.push(`https://cdn.rebrickable.com/media/parts/photos/15/${rbId}.jpg`);
+  urls.push(`https://cdn.rebrickable.com/media/parts/photos/71/${rbId}.jpg`);
+  urls.push(`https://cdn.rebrickable.com/media/parts/photos/1/${rbId}.jpg`);
+
+  return urls;
 }
 
 /** Fetch a gzipped URL and return the decompressed text. */
@@ -228,8 +237,15 @@ export async function retryStaleItems(olderThanDays: number = 30): Promise<numbe
 const WORKER_CONCURRENCY = 5;
 
 async function processOnePart(partNo: string): Promise<void> {
+  // Resolve the BrickLink part number for this Rebrickable part_no via part_id_mappings.
+  // BL CDN requires BL-native IDs — using Rebrickable IDs directly causes 404s for ~85% of parts.
+  const mappingRows = await db.execute<{ bl_id: string | null }>(
+    sql`SELECT bl_id FROM part_id_mappings WHERE rebrickable_id = ${partNo} AND bl_id IS NOT NULL LIMIT 1`
+  ).then(r => r.rows ?? []);
+  const blId: string | null = mappingRows[0]?.bl_id ?? null;
+
   // Try each candidate URL in order — first success wins.
-  const urls = partImageUrls(partNo);
+  const urls = partImageUrls(partNo, blId);
   let embedding: number[] | null = null;
   let lastErr: any = null;
 

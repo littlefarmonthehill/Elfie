@@ -227,8 +227,9 @@ export const partIdMappings = pgTable("part_id_mappings", {
   rebrickableId: text("rebrickable_id"), // Rebrickable part_num
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
-  blIdIdx: index("part_mappings_bl_id_idx").on(table.blId),
-  legoIdIdx: index("part_mappings_lego_id_idx").on(table.legoId),
+  blIdIdx:         index("part_mappings_bl_id_idx").on(table.blId),
+  legoIdIdx:       index("part_mappings_lego_id_idx").on(table.legoId),
+  rebrickableIdx:  index("part_mappings_rebrickable_id_idx").on(table.rebrickableId),
 }));
 
 export const insertPartIdMappingSchema = createInsertSchema(partIdMappings).omit({ id: true, updatedAt: true });

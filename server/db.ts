@@ -870,14 +870,25 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-39 (backfill stock_quantity + stock_qty_avg_price) complete.');
 
-    // Phase-40: Reset universal_catalog_queue no_image/failed rows so they retry with the
-    // corrected BL CDN URL format (/PL/{partNo}.jpg instead of /ItemImage/PL/{partNo}.png).
+    // Phase-40: One-time reset of universal_catalog_queue rows that failed with the OLD
+    // BL CDN URL format (/ItemImage/PL/{partNo}.png returning 404). Scoped to items
+    // attempted BEFORE 2026-03-16 so re-runs (restarts) don't undo fresh work.
     await client.query(`
       UPDATE universal_catalog_queue
       SET status = 'pending', attempted_at = NULL, error_msg = NULL
       WHERE status IN ('no_image', 'failed')
+        AND (attempted_at IS NULL OR attempted_at < '2026-03-16'::date)
     `);
     console.log('[Migration] Phase-40 (reset universal catalog no_image/failed for CDN URL fix) complete.');
+
+    // Phase-41: Index part_id_mappings.rebrickable_id — the universal catalog worker now
+    // looks up bl_id by rebrickable_id on every part processed; without this index that
+    // query is a full table scan.
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS part_mappings_rebrickable_id_idx
+        ON part_id_mappings (rebrickable_id)
+    `);
+    console.log('[Migration] Phase-41 (index part_id_mappings.rebrickable_id) complete.');
 
     console.log('[Migration] All startup migrations finished successfully.');
 
