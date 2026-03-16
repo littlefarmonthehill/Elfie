@@ -73,18 +73,29 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
+  // Use process.cwd() + "dist/public" — reliable across all environments.
+  // import.meta.dirname can resolve incorrectly in esbuild bundles depending
+  // on the Node version / working directory at runtime.
+  const distPath = path.resolve(process.cwd(), "dist", "public");
 
   if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
+    // Log clearly rather than throwing — a thrown error here is caught by the
+    // outer IIFE try-catch in index.ts and silently discarded, leaving the
+    // app permanently broken with "Cannot GET /".
+    console.error(
+      `[ServeStatic] Build directory not found: ${distPath}. Run "npm run build" first.`,
     );
+    return;
   }
 
+  console.log(`[ServeStatic] Serving static files from ${distPath}`);
   app.use(express.static(distPath));
 
-  // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
+  // Catch-all: serve index.html for SPA routes.
+  // Pass /api/* to the next handler so API routes registered after this
+  // middleware (i.e. by registerRoutes) still work correctly.
+  app.use("*", (req, res, next) => {
+    if (req.path.startsWith("/api")) return next();
     res.set({
       "Cache-Control": "no-cache, no-store, must-revalidate",
       "Pragma": "no-cache",

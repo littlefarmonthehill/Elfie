@@ -141,10 +141,16 @@ app.use((req, res, next) => {
 });
 
 // ── Step 3: Create the HTTP server and open the port NOW ─────────────────────
-// serveStatic is intentionally registered AFTER registerRoutes (inside the background
-// IIFE below) so the catch-all never shadows API routes. In development, setupVite
-// is also wired after routes for the same reason.
 const isProduction = process.env.NODE_ENV !== 'development';
+
+// ── Production static serving — registered IMMEDIATELY ───────────────────────
+// Must happen before the async IIFE below so the frontend is reachable as soon
+// as the port opens, not only after the ~30-second migration window completes.
+// The catch-all inside serveStatic passes /api/* to next(), so API routes
+// registered later by registerRoutes() still take priority.
+if (isProduction) {
+  serveStatic(app);
+}
 
 const httpServer = createServer(app);
 const port = parseInt(process.env.PORT || '5000', 10);
@@ -221,10 +227,10 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       //     The server it returns internally is discarded — we use httpServer above.
       await registerRoutes(app);
 
-      // 4e. Wire up static serving / Vite AFTER routes so the catch-all never shadows API routes.
-      if (isProduction) {
-        serveStatic(app);
-      } else {
+      // 4e. Wire up Vite dev middleware AFTER routes so the catch-all never shadows API routes.
+      // NOTE: Production static serving is registered earlier (before this IIFE) so the
+      // frontend is available immediately — even before migrations complete.
+      if (!isProduction) {
         await setupVite(app, httpServer);
       }
 
