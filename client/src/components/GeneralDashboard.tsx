@@ -6,9 +6,10 @@ import {
   ScanSearch, ArrowRight, Settings, AlertTriangle, Zap,
   TrendingDown, Clock, Activity, CreditCard, ChevronRight,
   ChevronDown, ChevronUp,
-  Sparkles, Globe, Boxes, Megaphone, BarChart3,
+  Sparkles, Globe, Megaphone,
 } from "lucide-react";
 import DashboardNotifications from "./DashboardNotifications";
+import { BillingDrawer } from "./BillingDrawer";
 import { cn } from "@/lib/utils";
 
 interface GeneralDashboardProps {
@@ -223,165 +224,100 @@ interface OrgUsageData {
   pricing: { basePrice: number; overageBump: number; monthlyCap: number };
 }
 
-function bumpCount(current: number, base: number, bump: number) {
-  return current <= base ? 0 : Math.ceil((current - base) / bump);
-}
-
-function bumpProgress(current: number, base: number, bump: number): number {
-  if (current <= base) return base > 0 ? (current / base) * 100 : 0;
-  const n = bumpCount(current, base, bump);
-  const floor = base + (n - 1) * bump;
-  return ((current - floor) / bump) * 100;
-}
-
-function UsageSynopsis({ onOpenSettings }: { onOpenSettings?: (section: any) => void }) {
+function UsageSynopsis({ onOpenSettings: _onOpenSettings }: { onOpenSettings?: (section: any) => void }) {
+  const [billingOpen, setBillingOpen] = useState(false);
   const { data: usage, isLoading } = useQuery<OrgUsageData>({ queryKey: ['/api/org/usage'] });
 
   if (isLoading || !usage) return null;
 
-  const dims = [
-    { label: 'Inventory', ...usage.dimensions.inventoryLots },
-    { label: 'Orders/mo', ...usage.dimensions.ordersPerMonth },
-    { label: 'Stores', ...usage.dimensions.connectedStores },
-    { label: 'AI Calls', ...usage.dimensions.aiCalls },
-    { label: 'Scans', ...usage.dimensions.scans },
-  ];
-
+  const dims = Object.values(usage.dimensions);
   let totalBumps = 0;
-  let anyApproaching = false;
   for (const d of dims) {
-    totalBumps += bumpCount(d.current, d.base, d.bump);
-    const pct = d.base > 0 ? (d.current / d.base) * 100 : 0;
-    const inBump = d.current > d.base;
-    const progress = inBump ? bumpProgress(d.current, d.base, d.bump) : pct;
-    if (progress >= 80) anyApproaching = true;
+    if (d.current > d.base) totalBumps += Math.ceil((d.current - d.base) / d.bump);
   }
 
   const { basePrice, overageBump, monthlyCap } = usage.pricing;
-  const estimated = Math.min(basePrice + totalBumps * overageBump, monthlyCap) / 100;
-  const baseDollars = basePrice / 100;
-  const bumpCostTotal = (totalBumps * overageBump) / 100;
+  const overageTotal = totalBumps * overageBump;
+  const estimated = Math.min(basePrice + overageTotal, monthlyCap);
+  const capPct = Math.min(100, (estimated / monthlyCap) * 100);
 
-  const memberSince = usage.billingStartDate
-    ? new Date(usage.billingStartDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-    : null;
+  const monthLabel = usage.period?.start
+    ? new Date(usage.period.start).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+    : '';
 
-  const periodStart = usage.period?.start
-    ? new Date(usage.period.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    : null;
+  const anyApproaching = dims.some((d) => {
+    const pct = d.base > 0 ? (d.current / d.base) * 100 : 0;
+    return pct >= 80 && d.current <= d.base;
+  });
 
   return (
-    <div className="px-3 py-2.5 border-t border-gray-700/30 bg-gray-900/40" data-testid="section-usage-synopsis">
-      <button
-        onClick={() => onOpenSettings?.('billing')}
-        className="w-full text-left group"
-        data-testid="button-usage-details"
-      >
-        {/* Header row */}
-        <div className="flex items-center justify-between gap-2 mb-1.5">
-          <span className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-            <BarChart3 className="w-3 h-3" />
-            My Plan
-          </span>
-          <span className={cn(
-            "text-[10px] tabular-nums font-medium",
-            totalBumps > 0 ? 'text-amber-400' : 'text-gray-400'
-          )}>
-            ${baseDollars.toFixed(0)}{bumpCostTotal > 0 ? ` +$${bumpCostTotal.toFixed(0)}` : ''}/mo
-          </span>
-        </div>
-
-        {/* Period annotation */}
-        {periodStart && (
-          <div className="text-[9px] text-gray-600 mb-2 tabular-nums">
-            Resets {periodStart} &nbsp;·&nbsp; {memberSince ? `Since ${memberSince}` : ''}
+    <>
+      <div className="px-3 py-2.5 border-t border-gray-700/30 bg-gray-900/40" data-testid="section-usage-synopsis">
+        <button
+          onClick={() => setBillingOpen(true)}
+          className="w-full text-left"
+          data-testid="button-usage-details"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <CreditCard className="w-3 h-3" />
+              My Plan
+            </span>
+            <span className="text-[9px] text-gray-600">{monthLabel}</span>
           </div>
-        )}
 
-        {/* Usage bars */}
-        <div className="space-y-1.5">
-          {dims.map((d) => (
-            <UsageMiniBar
-              key={d.label}
-              label={d.label}
-              current={d.current}
-              base={d.base}
-              bump={d.bump}
+          {/* Cost rows */}
+          <div className="space-y-1 mb-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] text-gray-400">Base fee</span>
+              <span className="text-[10px] text-gray-300 font-mono tabular-nums">${(basePrice / 100).toFixed(2)}</span>
+            </div>
+            {totalBumps > 0 && (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] text-amber-400/80">
+                  Overages ({totalBumps} bump{totalBumps !== 1 ? 's' : ''})
+                </span>
+                <span className="text-[10px] text-amber-400 font-mono tabular-nums">
+                  +${(overageTotal / 100).toFixed(2)}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Total bar — shows pct of monthly cap */}
+          <div className="h-1.5 rounded-full bg-gray-700/50 overflow-hidden mb-1.5">
+            <div
+              className={cn("h-full rounded-full transition-all duration-500",
+                totalBumps > 0 ? 'bg-amber-400/70' : anyApproaching ? 'bg-amber-400/50' : 'bg-green-500/60'
+              )}
+              style={{ width: `${capPct}%` }}
             />
-          ))}
-        </div>
+          </div>
 
-        {/* Summary warning row */}
-        {(totalBumps > 0 || anyApproaching) && (
-          <div className="mt-2 flex items-center gap-1.5">
-            <AlertTriangle className={cn("w-3 h-3 shrink-0", totalBumps > 0 ? 'text-amber-400' : 'text-amber-400/70')} />
-            <span className={cn("text-[10px]", totalBumps > 0 ? 'text-amber-400' : 'text-amber-400/70')}>
-              {totalBumps > 0
-                ? `${totalBumps} overage bump${totalBumps > 1 ? 's' : ''} · $${estimated.toFixed(0)}/mo est.`
-                : 'Approaching limit on some dimensions'}
+          {/* Bottom: est total + arrow */}
+          <div className="flex items-center justify-between gap-2">
+            <span className={cn("text-[10px] font-semibold tabular-nums font-mono",
+              totalBumps > 0 ? 'text-amber-400' : 'text-gray-300'
+            )}>
+              ~${(estimated / 100).toFixed(2)}/mo
+            </span>
+            <span className="flex items-center gap-0.5 text-[9px] text-gray-600">
+              See breakdown <ChevronRight className="w-2.5 h-2.5" />
             </span>
           </div>
-        )}
-      </button>
-    </div>
-  );
-}
 
-function UsageMiniBar({ label, current, base, bump }: { label: string; current: number; base: number; bump: number }) {
-  const overBase = current > base;
-  const bumps = bumpCount(current, base, bump);
-  const pctRaw = bumpProgress(current, base, bump);
-  const pct = Math.min(100, pctRaw);
-
-  // approaching = within 20% of the next threshold (either base or next bump boundary)
-  const approaching = pctRaw >= 80;
-
-  // Bar color logic:
-  //   - Under base, healthy:        green
-  //   - Under base, approaching:    amber
-  //   - Over base (bump territory): amber → red when approaching next bump
-  const barColor = overBase
-    ? (approaching ? 'bg-red-500/70' : 'bg-amber-400/60')
-    : (approaching ? 'bg-amber-400/70' : 'bg-green-500/60');
-
-  // Next threshold label for the count display
-  const nextThreshold = overBase ? base + bumps * bump : base;
-
-  return (
-    <div className="flex items-center gap-2" data-testid={`usage-bar-${label.toLowerCase().replace(/\s+/g, '-')}`}>
-      {/* Label + bump badge */}
-      <div className="flex items-center gap-1 w-20 shrink-0 min-w-0">
-        <span className="text-[10px] text-gray-400 truncate leading-none">{label}</span>
-        {overBase && (
-          <span className="text-[8px] font-semibold text-amber-400 leading-none shrink-0">
-            +{bumps}
-          </span>
-        )}
+          {anyApproaching && totalBumps === 0 && (
+            <div className="mt-1.5 flex items-center gap-1">
+              <AlertTriangle className="w-2.5 h-2.5 text-amber-400/70 shrink-0" />
+              <span className="text-[9px] text-amber-400/70">Approaching limit on some tools</span>
+            </div>
+          )}
+        </button>
       </div>
 
-      {/* Progress bar */}
-      <div className="relative flex-1 h-1.5 rounded-full bg-gray-700/50 overflow-hidden">
-        <div
-          className={cn("h-full rounded-full transition-all duration-500", barColor)}
-          style={{ width: `${pct}%` }}
-        />
-        {/* Approaching-threshold pulse marker at 80% of bar */}
-        {approaching && !overBase && (
-          <div
-            className="absolute top-0 h-full w-px bg-amber-400/60"
-            style={{ left: '80%' }}
-          />
-        )}
-      </div>
-
-      {/* Count: current / next threshold */}
-      <span className={cn(
-        "text-[9px] tabular-nums shrink-0 w-16 text-right leading-none",
-        overBase ? 'text-amber-400 font-medium' : approaching ? 'text-amber-400/80' : 'text-gray-500'
-      )}>
-        {current.toLocaleString()}/{nextThreshold.toLocaleString()}
-      </span>
-    </div>
+      <BillingDrawer open={billingOpen} onClose={() => setBillingOpen(false)} />
+    </>
   );
 }
 

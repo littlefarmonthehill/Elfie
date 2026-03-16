@@ -1152,6 +1152,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/org/billing/history — last 6 complete months of billing data for the current org
+  app.get('/api/org/billing/history', isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { getOrgAiUsageForMonth } = await import('./services/ai-usage-tracker');
+      const [pm] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
+      const pricing = {
+        basePrice: pm?.basePrice ?? 3900,
+        overageBump: pm?.overageBump ?? 500,
+        monthlyCap: pm?.monthlyCap ?? 9900,
+      };
+
+      // Current snapshot values (no historical tracking for these)
+      const [invCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(blInventory).where(eq(blInventory.orgId, orgId));
+      const [storeCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orgIntegrations).where(eq(orgIntegrations.orgId, orgId));
+      const inventoryLotsCurrent = Number(invCount.count);
+      const storesCurrent = Number(storeCount.count);
+
+      // Build last 6 complete calendar months (not including current month)
+      const now = new Date();
+      const months: Array<{
+        label: string;
+        periodStart: string;
+        periodEnd: string;
+        dimensions: Record<string, { current: number; base: number; bump: number }>;
+        pricing: typeof pricing;
+        totalBumps: number;
+        estimatedCost: number;
+      }> = [];
+
+      for (let i = 1; i <= 6; i++) {
+        const mStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const mEnd   = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+
+        const [orderRow] = await db.select({ count: sql<number>`COUNT(*)::int` })
+          .from(orders)
+          .where(and(eq(orders.orgId, orgId), gte(orders.orderDate, mStart), sql`${orders.orderDate} < ${mEnd}`));
+
+        const [scanRow] = await db.select({ count: sql<number>`COUNT(*)::int` })
+          .from(brickanalyzerScans)
+          .where(and(eq(brickanalyzerScans.orgId, orgId), gte(brickanalyzerScans.createdAt, mStart), sql`${brickanalyzerScans.createdAt} < ${mEnd}`));
+
+        const aiCalls = await getOrgAiUsageForMonth(orgId, mStart, mEnd);
+
+        const dims = {
+          inventoryLots:  { current: inventoryLotsCurrent, base: pm?.baseInventoryLots ?? 5000, bump: pm?.bumpInventoryLots ?? 2500 },
+          ordersPerMonth: { current: Number(orderRow.count), base: pm?.baseOrdersPerMonth ?? 100, bump: pm?.bumpOrdersPerMonth ?? 50 },
+          connectedStores:{ current: storesCurrent, base: pm?.baseConnectedStores ?? 2, bump: pm?.bumpConnectedStores ?? 1 },
+          aiCalls:        { current: aiCalls, base: pm?.baseAiCalls ?? 200, bump: pm?.bumpAiCalls ?? 100 },
+          scans:          { current: Number(scanRow.count), base: pm?.baseScans ?? 50, bump: pm?.bumpScans ?? 25 },
+        };
+
+        let totalBumps = 0;
+        for (const d of Object.values(dims)) {
+          if (d.current > d.base) totalBumps += Math.ceil((d.current - d.base) / d.bump);
+        }
+        const estimatedCost = Math.min(pricing.basePrice + totalBumps * pricing.overageBump, pricing.monthlyCap);
+
+        months.push({
+          label: mStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+          periodStart: mStart.toISOString(),
+          periodEnd: mEnd.toISOString(),
+          dimensions: dims,
+          pricing,
+          totalBumps,
+          estimatedCost,
+        });
+      }
+
+      res.json({ months });
+    } catch (err: any) {
+      console.error('Error fetching billing history:', err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // GET /api/platform-admin/org-usage/:orgId — admin view of any org's usage
   app.get('/api/platform-admin/org-usage/:orgId', isSuperAdmin, async (req: any, res) => {
     try {

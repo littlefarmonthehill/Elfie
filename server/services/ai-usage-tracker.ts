@@ -112,6 +112,20 @@ export async function getOrgAiUsageMtd(orgId: string) {
   return rows;
 }
 
+export async function getOrgAiUsageForMonth(orgId: string, from: Date, to: Date): Promise<number> {
+  const [row] = await db.select({
+    requests: sql<number>`COUNT(*)::int`.as('requests'),
+  })
+    .from(aiUsageLog)
+    .where(and(
+      eq(aiUsageLog.orgId, orgId),
+      gte(aiUsageLog.createdAt, from),
+      sql`${aiUsageLog.createdAt} < ${to}`,
+      sql`${aiUsageLog.operation} != 'embedding-onboarding'`,
+    ));
+  return Number(row?.requests ?? 0);
+}
+
 export async function getUsageByOrg(days: number = 30) {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
