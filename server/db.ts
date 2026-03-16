@@ -843,6 +843,20 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-37 (pricing_model table) complete.');
 
+    // Phase-38: Backfill sold_quantity + sold_qty_avg_price for rows added before Phase-19
+    // 9,491 rows have sold_avg_price but were synced before the qty columns existed.
+    // Use sold_total_lots (best available proxy) and sold_avg_price (reasonable fallback).
+    await client.query(`
+      UPDATE price_guide_cache
+      SET
+        sold_quantity     = sold_total_lots,
+        sold_qty_avg_price = sold_avg_price::text,
+        sold_fetched_at   = COALESCE(sold_fetched_at, NOW())
+      WHERE sold_avg_price IS NOT NULL
+        AND (sold_quantity IS NULL OR sold_qty_avg_price IS NULL)
+    `);
+    console.log('[Migration] Phase-38 (backfill sold_quantity + sold_qty_avg_price) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

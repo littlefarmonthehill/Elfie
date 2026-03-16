@@ -1551,9 +1551,9 @@ export async function fetchPriceOMagicData(
       `);
       const r = fullRow.rows[0] as any;
       if (r) {
-        const missingQtyFields = r.stock_quantity == null && r.sold_quantity == null;
+        const missingQtyFields = r.stock_quantity == null || r.sold_quantity == null;
         if (missingQtyFields) {
-          console.log(`[Price-o-Matic] Cached entry for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}/${newOrUsed} missing qty fields — forcing re-fetch`);
+          console.log(`[Price-o-Matic] Cached entry for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}/${newOrUsed} missing qty fields (stock_qty=${r.stock_quantity ?? 'null'}, sold_qty=${r.sold_quantity ?? 'null'}) — forcing re-fetch`);
         } else {
           console.log(`[Price-o-Matic] Using ${forceRefresh ? 'recent (<5m)' : 'cached'} data for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}/${newOrUsed}`);
           return {
