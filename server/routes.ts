@@ -6924,6 +6924,16 @@ Format search_web URLs as markdown links.`;
                     if (!cropBuf) return;
                     const embedding = await _embedCropFn(cropBuf);
                     const matches = await _findNearest(embedding, 3, CLIP_MIN_SIMILARITY);
+                    const { trackUsage: trackClipUsage } = await import('./services/ai-usage-tracker');
+                    trackClipUsage({
+                      service: 'clip',
+                      model: 'clip-vit-base-patch32',
+                      operation: 'brickspotter-scan',
+                      inputTokens: 0,
+                      outputTokens: 0,
+                      totalTokens: 0,
+                      orgId,
+                    });
                     if (matches.length > 0) {
                       const best = matches[0];
                       piece.partNo = best.itemNo;
@@ -6933,16 +6943,6 @@ Format search_web URLs as markdown links.`;
                       piece.detectionSource = 'elfie';
                       clipFallbackSet.add(piece.cropIndex);
                       clipHits++;
-                      const { trackUsage: trackClipUsage } = await import('./services/ai-usage-tracker');
-                      trackClipUsage({
-                        service: 'clip',
-                        model: 'clip-vit-base-patch32',
-                        operation: 'brickspotter-scan',
-                        inputTokens: 0,
-                        outputTokens: 0,
-                        totalTokens: 0,
-                        orgId,
-                      });
                       console.log(`[Brickanalyzer] CLIP hit crop ${piece.cropIndex}: ${best.itemNo} (${(best.similarity * 100).toFixed(1)}% sim)`);
                     }
                   } catch (clipErr: any) {
