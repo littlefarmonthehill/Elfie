@@ -145,9 +145,14 @@ export default function Login() {
                     <LogIn className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 mr-1.5 md:mr-2 lg:mr-3" />
                     {isLoading ? "Logging in..." : "Sign In"}
                   </Button>
-                  <button type="button" onClick={() => { setStep("email"); setPassword(""); }} className="w-full text-center text-gray-500 hover:text-gray-300 text-[10px] md:text-xs transition-colors flex items-center justify-center gap-1" data-testid="button-back">
-                    <ArrowLeft className="w-3 h-3" /> Back
-                  </button>
+                  <div className="flex items-center justify-between">
+                    <button type="button" onClick={() => { setStep("email"); setPassword(""); }} className="text-gray-500 hover:text-gray-300 text-[10px] md:text-xs transition-colors flex items-center gap-1" data-testid="button-back">
+                      <ArrowLeft className="w-3 h-3" /> Back
+                    </button>
+                    <a href="/forgot-password" className="text-cyan-500 hover:text-cyan-300 text-[10px] md:text-xs transition-colors" data-testid="link-forgot-password">
+                      Forgot password?
+                    </a>
+                  </div>
                 </form>
               )}
 

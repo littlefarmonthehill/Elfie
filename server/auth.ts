@@ -7,6 +7,8 @@ import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import { z } from "zod";
+import crypto from "crypto";
+import { pool } from "./db";
 import type { User } from "@shared/schema";
 
 // ─── Session type augmentation for impersonation ─────────────────────────────
@@ -284,6 +286,65 @@ export async function setupAuth(app: Express) {
         res.json({ message: "Logged out successfully" });
       });
     });
+  });
+
+  // Forgot password — generates a reset token and returns the reset URL
+  app.post("/api/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      const normalizedEmail = email.toLowerCase().trim();
+      const user = await storage.getUserByEmail(normalizedEmail);
+      // Always respond with 200 to avoid leaking whether an email exists
+      if (!user) {
+        return res.json({ resetUrl: null, message: "If that email is registered, a reset link has been generated." });
+      }
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      await pool.query(
+        `INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)`,
+        [user.id, token, expiresAt]
+      );
+      const baseUrl = process.env.REPLIT_DOMAINS
+        ? `https://${process.env.REPLIT_DOMAINS.split(",")[0].trim()}`
+        : `http://localhost:${process.env.PORT || 5000}`;
+      const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+      console.log(`[Auth] Password reset requested for ${normalizedEmail} — token expires ${expiresAt.toISOString()}`);
+      return res.json({ resetUrl });
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Reset password — validates token and sets new password
+  app.post("/api/reset-password", async (req, res) => {
+    try {
+      const { token, newPassword } = req.body;
+      if (!token || typeof token !== "string") {
+        return res.status(400).json({ message: "Reset token is required" });
+      }
+      if (!newPassword || typeof newPassword !== "string" || newPassword.length < 8) {
+        return res.status(400).json({ message: "Password must be at least 8 characters" });
+      }
+      const result = await pool.query(
+        `SELECT * FROM password_reset_tokens WHERE token = $1 AND used = false AND expires_at > NOW()`,
+        [token]
+      );
+      if (result.rowCount === 0) {
+        return res.status(400).json({ message: "Reset link is invalid or has expired. Please request a new one." });
+      }
+      const resetRecord = result.rows[0];
+      const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+      await storage.updateUserPassword(resetRecord.user_id, hashedPassword);
+      await pool.query(`UPDATE password_reset_tokens SET used = true WHERE token = $1`, [token]);
+      return res.json({ message: "Password updated successfully" });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
   });
 
   // Change password route

@@ -968,6 +968,19 @@ export async function runMigrations() {
     `);
     console.log(`[Migration] Phase-45 (sales-percentage billing plans) complete — seeded ${p45seed.rowCount ?? 0} plan(s), attached ${p45attach.rowCount ?? 0} org(s).`);
 
+    // ── Phase-46: Password reset tokens ─────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        id          SERIAL PRIMARY KEY,
+        user_id     VARCHAR NOT NULL,
+        token       VARCHAR(64) NOT NULL UNIQUE,
+        expires_at  TIMESTAMP NOT NULL,
+        used        BOOLEAN NOT NULL DEFAULT false,
+        created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    console.log('[Migration] Phase-46 (password reset tokens) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
