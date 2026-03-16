@@ -870,6 +870,15 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-39 (backfill stock_quantity + stock_qty_avg_price) complete.');
 
+    // Phase-40: Reset universal_catalog_queue no_image/failed rows so they retry with the
+    // corrected BL CDN URL format (/PL/{partNo}.jpg instead of /ItemImage/PL/{partNo}.png).
+    await client.query(`
+      UPDATE universal_catalog_queue
+      SET status = 'pending', attempted_at = NULL, error_msg = NULL
+      WHERE status IN ('no_image', 'failed')
+    `);
+    console.log('[Migration] Phase-40 (reset universal catalog no_image/failed for CDN URL fix) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

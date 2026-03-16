@@ -42,9 +42,16 @@ export function getLastImportedAt()        { return _lastImportedAt; }
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
-/** BrickLink neutral part image — shape-focused, no color context. */
-function partImageUrl(partNo: string): string {
-  return `https://img.bricklink.com/ItemImage/PL/${partNo}.png`;
+/**
+ * BrickLink CDN part image URLs to try in order — shape-focused, no color context.
+ * The /PL/ path is the "Part List" image BL serves for every part on their catalog pages.
+ * We try .jpg first (the historical format returned by the BL API), then .png as a fallback.
+ */
+function partImageUrls(partNo: string): string[] {
+  return [
+    `https://img.bricklink.com/PL/${partNo}.jpg`,
+    `https://img.bricklink.com/PL/${partNo}.png`,
+  ];
 }
 
 /** Fetch a gzipped URL and return the decompressed text. */
@@ -210,9 +217,28 @@ export async function retryStaleItems(olderThanDays: number = 30): Promise<numbe
 const WORKER_CONCURRENCY = 5;
 
 async function processOnePart(partNo: string): Promise<void> {
+  // Try each candidate URL in order — first success wins.
+  const urls = partImageUrls(partNo);
+  let embedding: number[] | null = null;
+  let lastErr: any = null;
+
+  for (const url of urls) {
+    try {
+      embedding = await embedUrl(url);
+      break; // got a valid embedding — stop trying
+    } catch (err: any) {
+      lastErr = err;
+      const msg = err?.message ?? '';
+      // Only fall through to the next URL on image-not-found errors.
+      // Network/server errors should not silently try the next URL.
+      if (!msg.includes('404') && !msg.includes('403') && !msg.includes('image not available')) {
+        throw err;
+      }
+    }
+  }
+
   try {
-    const url = partImageUrl(partNo);
-    const embedding = await embedUrl(url);
+    if (embedding === null) throw lastErr ?? new Error('No image found for any URL');
 
     // Store in bl_catalog_clip_embeddings with source='universal'
     const vecLit = `[${embedding.join(',')}]`;
