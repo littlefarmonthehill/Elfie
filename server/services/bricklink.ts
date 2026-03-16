@@ -1308,18 +1308,12 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
       )
       .limit(100000);
 
-    // Freshness window from scheduler settings — items not fetched within N days (or never fetched) are candidates.
-    // Per-guide freshness: check sold and stock independently. An item is a candidate if EITHER guide is stale.
+    // Freshness window from scheduler settings.
     const FRESHNESS_MS = freshnessDays * 24 * 60 * 60 * 1000;
-    // Confirmed-empty items (fetched but BrickLink returned no sellers/sales) use a shorter window so they
-    // cycle back for re-checking periodically without locking into the full 180-day wait.
-    // Cap at 15 days regardless of the freshness setting — empty items are cheap to check.
-    const EMPTY_FRESHNESS_MS = Math.min(freshnessDays, 15) * 24 * 60 * 60 * 1000;
     const now = Date.now();
     const isFresh = (ts: Date | null | undefined) => ts != null && (now - new Date(ts).getTime()) < FRESHNESS_MS;
-    const isEmptyFresh = (ts: Date | null | undefined) => ts != null && (now - new Date(ts).getTime()) < EMPTY_FRESHNESS_MS;
 
-    // Check which cached entries are missing the Phase-19 qty fields so we can force re-fetch them
+    // Check which cached entries are missing the Phase-19 qty fields so we can force re-fetch them.
     const cacheIdsWithQty = new Set<string>();
     if (inventoryItems.length > 0) {
       const qtyCheckResult = await db.execute(sql`
@@ -1331,48 +1325,49 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
       }
     }
 
+    // Priority-based candidate selection — ALL items are candidates, sorted so the budget cutoff
+    // naturally processes the most important work first:
+    //   1 (high) — missing data: never fetched, or fetched but BL returned nothing (keep trying)
+    //   2 (med)  — data exists but has aged past the freshness window (needs refresh)
+    //   3 (low)  — data exists and is fresh (top-up only once high+med are exhausted)
+    const calcPriority = (fetchedAt: Date | null | undefined, missingFields: number, missingQty: boolean) => {
+      if (!fetchedAt || missingQty) return 1;   // never fetched, or Phase-19 qty gap
+      if (missingFields >= 3) return 1;          // fetched but BL returned no data — keep trying
+      if (!isFresh(fetchedAt)) return 2;         // has data but stale
+      return 3;                                  // has data and fresh
+    };
+
     const filteredItems = inventoryItems
-      .filter((item) => {
-        if (!item.lastFetched) return true; // never fetched at all
-        // If cached entry exists but is missing qty fields, treat as stale
-        if (item.cacheId && !cacheIdsWithQty.has(item.cacheId)) return true;
-        const missingStock = Number(item.missingStockFields) || 0;
-        const missingSold = Number(item.missingSoldFields) || 0;
-        // Confirmed-empty: fetched but no price data returned (BrickLink had no sellers/sales).
-        // Use the shorter EMPTY_FRESHNESS_MS window so they cycle back for re-checking periodically
-        // without burning the full 180-day window or looping infinitely every sync.
-        const stockConfirmedEmpty = missingStock >= 3 && item.stockFetchedAt != null;
-        const soldConfirmedEmpty = missingSold >= 3 && item.soldFetchedAt != null;
-        const stockFresh = stockConfirmedEmpty ? isEmptyFresh(item.stockFetchedAt) : isFresh(item.stockFetchedAt);
-        const soldFresh = soldConfirmedEmpty ? isEmptyFresh(item.soldFetchedAt) : isFresh(item.soldFetchedAt);
-        if (guideFocus === 'stock') return !stockFresh;
-        if (guideFocus === 'sold') return !soldFresh;
-        return !soldFresh || !stockFresh; // 'both': candidate if either guide is stale
-      })
       .map((item) => {
-        const missingQty = item.cacheId && !cacheIdsWithQty.has(item.cacheId);
+        const missingQty = !!(item.cacheId && !cacheIdsWithQty.has(item.cacheId));
         const missingStock = Number(item.missingStockFields) || 0;
         const missingSold = Number(item.missingSoldFields) || 0;
-        const _stockEmpty = missingStock >= 3 && item.stockFetchedAt != null;
-        const _soldEmpty = missingSold >= 3 && item.soldFetchedAt != null;
-        const rawSoldFresh = missingQty ? false : (_soldEmpty ? isEmptyFresh(item.soldFetchedAt) : isFresh(item.soldFetchedAt));
-        const rawStockFresh = missingQty ? false : (_stockEmpty ? isEmptyFresh(item.stockFetchedAt) : isFresh(item.stockFetchedAt));
-        let relevantMissing: number;
-        if (guideFocus === 'stock') relevantMissing = missingStock;
-        else if (guideFocus === 'sold') relevantMissing = missingSold;
-        else relevantMissing = missingStock + missingSold;
+
+        // When guide focus excludes a guide, treat it as fully fresh (won't be fetched).
+        const stockPriority = guideFocus === 'sold' ? 3 : calcPriority(item.stockFetchedAt, missingStock, missingQty);
+        const soldPriority  = guideFocus === 'stock' ? 3 : calcPriority(item.soldFetchedAt, missingSold, missingQty);
+
+        // Item priority = the guide that needs attention most (lowest number wins).
+        const itemPriority = Math.min(stockPriority, soldPriority);
+
+        const relevantMissing = guideFocus === 'stock' ? missingStock
+          : guideFocus === 'sold' ? missingSold
+          : missingStock + missingSold;
+
         return {
           ...item,
-          // When guide focus is set, mark the non-focused guide as "fresh" so we skip it
-          soldIsFresh: guideFocus === 'stock' ? true : rawSoldFresh,
-          stockIsFresh: guideFocus === 'sold' ? true : rawStockFresh,
+          stockIsFresh: stockPriority === 3,
+          soldIsFresh:  soldPriority  === 3,
           relevantMissing,
+          _priority: itemPriority,
         };
       })
       .sort((a, b) => {
-        // 1) Most missing fields first
+        // Primary: priority band (1→2→3)
+        if (a._priority !== b._priority) return a._priority - b._priority;
+        // Secondary: most missing fields first (within same band)
         if (b.relevantMissing !== a.relevantMissing) return b.relevantMissing - a.relevantMissing;
-        // 2) Stale before fresh (oldest fetched_at first)
+        // Tertiary: oldest fetched_at first
         const aTs = a.lastFetched ? new Date(a.lastFetched).getTime() : 0;
         const bTs = b.lastFetched ? new Date(b.lastFetched).getTime() : 0;
         return aTs - bTs;
@@ -1396,13 +1391,16 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
 
     pomSyncProgress.itemsTotal = itemsToProcess.length;
 
-    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} candidates, ${filteredItems.length} stale (>${freshnessDays}d), processing ${itemsToProcess.length} (~${estimatedCalls} API calls: ${bothCount} both, ${onlyStockCount} stock-only, ${onlySoldCount} sold-only, available: ${availableApiCalls}, zeroStockSkip: ${zeroStockSkip})`);
+    const highPriCount = filteredItems.filter(i => i._priority === 1).length;
+    const medPriCount  = filteredItems.filter(i => i._priority === 2).length;
+    const lowPriCount  = filteredItems.filter(i => i._priority === 3).length;
+    console.log(`[Price-o-Matic Sync] Found ${inventoryItems.length} items — high:${highPriCount} med:${medPriCount} low:${lowPriCount} — processing ${itemsToProcess.length} (~${estimatedCalls} API calls: ${bothCount} both, ${onlyStockCount} stock-only, ${onlySoldCount} sold-only, available: ${availableApiCalls}, guide: ${guideFocus}, zeroStockSkip: ${zeroStockSkip})`);
 
     if (itemsToProcess.length === 0) {
-      const reason = filteredItems.length === 0
-        ? `All ${inventoryItems.length} inventory items are up-to-date (fetched within last ${freshnessDays} days). Nothing to sync.`
-        : availableApiCalls <= 0
-          ? `No API calls remaining (${apiCallCeiling}/${apiCallCeiling} used in last 24h). Try again later.`
+      const reason = availableApiCalls <= 0
+        ? `No API calls remaining (${apiCallCeiling}/${apiCallCeiling} used in last 24h). Try again later.`
+        : highPriCount === 0 && medPriCount === 0
+          ? `All ${inventoryItems.length} inventory items are up-to-date. Nothing to sync.`
           : 'No items to process.';
       console.log(`[Price-o-Matic Sync] ${reason}`);
       pomSyncProgress = { active: false, itemsProcessed: 0, itemsTotal: 0, apiCallsAtStart: pomSyncProgress.apiCallsAtStart, itemsNew: 0, itemsRefreshed: 0 };
