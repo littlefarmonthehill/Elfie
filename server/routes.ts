@@ -37,7 +37,7 @@ function maskSettingsSecrets(settings: Record<string, any> | null): Record<strin
 }
 import { storage } from "./storage";
 import { getEffectiveLimits } from "@shared/tierConfig";
-import { seedPlanConfigsIfEmpty, getAllPlanConfigsWithCounts, updatePlanConfig, setPlanSunset, dbPlanToLimits, dbPlanToFeatures } from "./services/planConfigService";
+import { seedPlanConfigsIfEmpty, dbPlanToLimits, dbPlanToFeatures } from "./services/planConfigService";
 import { setupAuth, isAuthenticated, isApproved, isOrgOwner, getOrgId, isSuperAdmin } from "./auth";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, bricklinkCatalogRequest, calculateSuggestedPriceWithSupply } from "./services/bricklink";
 import { getPomIsRunning, setPomIsRunning } from "./services/pom-scheduler";
@@ -47,7 +47,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, planConfigs, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, planConfigs, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -1016,47 +1016,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/platform-admin/plans — all plan configs with org counts (superAdmin only)
-  app.get('/api/platform-admin/plans', isSuperAdmin, async (_req, res) => {
-    try {
-      const plans = await getAllPlanConfigsWithCounts();
-      res.json(plans);
-    } catch (err: any) {
-      console.error("Error fetching plan configs:", err);
-      res.status(500).json({ message: err.message || "Failed to fetch plans" });
-    }
-  });
-
-  // PATCH /api/platform-admin/plans/:planKey — update plan config (locked if orgs are on it)
-  app.patch('/api/platform-admin/plans/:planKey', isSuperAdmin, async (req, res) => {
-    try {
-      const { planKey } = req.params;
-      const fields = req.body;
-      const result = await updatePlanConfig(planKey, fields);
-      if (!result.success) return res.status(403).json({ message: result.error });
-      res.json(result.plan);
-    } catch (err: any) {
-      console.error("Error updating plan config:", err);
-      res.status(500).json({ message: err.message || "Failed to update plan" });
-    }
-  });
-
-  // PATCH /api/platform-admin/plans/:planKey/sunset — toggle sunset flag (always allowed)
-  app.patch('/api/platform-admin/plans/:planKey/sunset', isSuperAdmin, async (req, res) => {
-    try {
-      const { planKey } = req.params;
-      const schema = z.object({ isSunset: z.boolean() });
-      const parsed = schema.safeParse(req.body);
-      if (!parsed.success) return res.status(400).json({ message: "isSunset must be a boolean" });
-      const updated = await setPlanSunset(planKey, parsed.data.isSunset);
-      if (!updated) return res.status(404).json({ message: "Plan not found" });
-      res.json(updated);
-    } catch (err: any) {
-      console.error("Error toggling sunset:", err);
-      res.status(500).json({ message: err.message || "Failed to update plan" });
-    }
-  });
-
   // GET /api/platform-admin/pricing-model — get pay-as-you-grow config
   app.get('/api/platform-admin/pricing-model', isSuperAdmin, async (_req, res) => {
     try {
@@ -1101,59 +1060,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/org/usage — current org's billing-period usage summary
+  // ─── Sales-Percentage Billing Helpers ────────────────────────────────────────
+  // Billing formula: totalDue = plan.basePrice + salesPercentage% × max(0, monthlySales − freeSalesThreshold)
+  // All monetary values in cents.
+  async function getOrgMonthlySalesCents(orgId: string, from: Date, to: Date): Promise<number> {
+    const [row] = await db.select({
+      total: sql<string>`COALESCE(SUM(CASE WHEN order_status NOT IN ('cancelled','purged') THEN order_total::numeric ELSE 0 END), 0)`,
+    }).from(orders).where(and(eq(orders.orgId, orgId), gte(orders.orderDate, from), sql`${orders.orderDate} < ${to}`));
+    return Math.round(parseFloat(row?.total ?? '0') * 100);
+  }
+
+  function calcSalesBilling(plan: { basePrice: number; salesPercentage: number; freeSalesThreshold: number }, monthlySalesCents: number) {
+    const salesOverThreshold = Math.max(0, monthlySalesCents - plan.freeSalesThreshold);
+    const salesFeeCents = Math.round(salesOverThreshold * plan.salesPercentage / 100);
+    return { baseFee: plan.basePrice, salesFee: salesFeeCents, totalDue: plan.basePrice + salesFeeCents };
+  }
+
+  async function getOrgActivePlan(orgId: string) {
+    const [orgRow] = await db.select({ planId: organizations.planId }).from(organizations).where(eq(organizations.id, orgId)).limit(1);
+    const planId = orgRow?.planId ?? 1;
+    const [plan] = await db.select().from(plans).where(eq(plans.id, planId)).limit(1);
+    return plan ?? { id: 1, name: 'Pay As You Grow', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, isActive: true, isSunset: false, createdAt: new Date(), updatedAt: new Date() };
+  }
+
+  // GET /api/org/usage — current org's billing-period usage summary (sales-based)
   app.get('/api/org/usage', isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const { getOrgAiUsageMtd } = await import('./services/ai-usage-tracker');
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      const [inventoryCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(blInventory).where(eq(blInventory.orgId, orgId));
-      const [orderCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orders).where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth)));
-      const [storeCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orgIntegrations).where(eq(orgIntegrations.orgId, orgId));
-      const [scanCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(brickanalyzerScans).where(and(eq(brickanalyzerScans.orgId, orgId), gte(brickanalyzerScans.createdAt, startOfMonth)));
+      const plan = await getOrgActivePlan(orgId);
+      const monthlySalesCents = await getOrgMonthlySalesCents(orgId, startOfMonth, now);
+      const billing = calcSalesBilling(plan, monthlySalesCents);
 
-      const aiRows = await getOrgAiUsageMtd(orgId);
-      let aiCallsTotal = 0;
-      let aiCostTotal = 0;
-      const aiByOperation: Record<string, { requests: number; cost: number }> = {};
-      const BILLING_EXCLUDED_OPS = new Set(['embedding', 'embedding-onboarding']);
-      for (const r of aiRows) {
-        if (BILLING_EXCLUDED_OPS.has(r.operation)) continue;
-        aiCallsTotal += Number(r.requests);
-        aiCostTotal += Number(r.totalCost);
-        aiByOperation[r.operation] = { requests: Number(r.requests), cost: Number(r.totalCost) };
-      }
-
-      const [pm] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
       const [orgRow] = await db.select({
         billingStartDate: organizations.billingStartDate,
-        plan: organizations.plan,
-        trialEndsAt: organizations.trialEndsAt,
         subscriptionStatus: organizations.subscriptionStatus,
+        planId: organizations.planId,
       }).from(organizations).where(eq(organizations.id, orgId)).limit(1);
 
       res.json({
         orgId,
         billingStartDate: orgRow?.billingStartDate ? orgRow.billingStartDate.toISOString() : null,
-        plan: orgRow?.plan ?? 'trial',
-        trialEndsAt: orgRow?.trialEndsAt ? orgRow.trialEndsAt.toISOString() : null,
-        subscriptionStatus: orgRow?.subscriptionStatus ?? 'trial',
+        subscriptionStatus: orgRow?.subscriptionStatus ?? 'active',
         period: { start: startOfMonth.toISOString(), end: now.toISOString() },
-        dimensions: {
-          inventoryLots: { current: Number(inventoryCount.count), base: pm?.baseInventoryLots ?? 5000, bump: pm?.bumpInventoryLots ?? 2500 },
-          ordersPerMonth: { current: Number(orderCount.count), base: pm?.baseOrdersPerMonth ?? 100, bump: pm?.bumpOrdersPerMonth ?? 50 },
-          connectedStores: { current: Number(storeCount.count), base: pm?.baseConnectedStores ?? 2, bump: pm?.bumpConnectedStores ?? 1 },
-          aiCalls: { current: aiCallsTotal, base: pm?.baseAiCalls ?? 200, bump: pm?.bumpAiCalls ?? 100, byOperation: aiByOperation },
-          scans: { current: Number(scanCount.count), base: pm?.baseScans ?? 50, bump: pm?.bumpScans ?? 25 },
-        },
-        pricing: {
-          basePrice: pm?.basePrice ?? 3900,
-          overageBump: pm?.overageBump ?? 500,
-          monthlyCap: pm?.monthlyCap ?? 9900,
-        },
-        aiCostTotal,
+        plan: { id: plan.id, name: plan.name, basePrice: plan.basePrice, salesPercentage: plan.salesPercentage, freeSalesThreshold: plan.freeSalesThreshold },
+        monthlySalesCents,
+        billing,
       });
     } catch (err: any) {
       console.error("Error fetching org usage:", err);
@@ -1161,72 +1115,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/org/billing/history — last 6 complete months of billing data for the current org
+  // GET /api/org/billing/history — all complete months since org billing start, grouped for display
   app.get('/api/org/billing/history', isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const { getOrgAiUsageForMonth } = await import('./services/ai-usage-tracker');
-      const [pm] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
-      const pricing = {
-        basePrice: pm?.basePrice ?? 3900,
-        overageBump: pm?.overageBump ?? 500,
-        monthlyCap: pm?.monthlyCap ?? 9900,
-      };
+      const plan = await getOrgActivePlan(orgId);
 
-      // Current snapshot values (no historical tracking for these)
-      const [invCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(blInventory).where(eq(blInventory.orgId, orgId));
-      const [storeCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orgIntegrations).where(eq(orgIntegrations.orgId, orgId));
-      const inventoryLotsCurrent = Number(invCount.count);
-      const storesCurrent = Number(storeCount.count);
+      const [orgRow] = await db.select({ billingStartDate: organizations.billingStartDate, createdAt: organizations.createdAt })
+        .from(organizations).where(eq(organizations.id, orgId)).limit(1);
 
-      // Build last 6 complete calendar months (not including current month)
       const now = new Date();
-      const months: Array<{
-        label: string;
-        periodStart: string;
-        periodEnd: string;
-        dimensions: Record<string, { current: number; base: number; bump: number }>;
-        pricing: typeof pricing;
-        totalBumps: number;
-        estimatedCost: number;
-      }> = [];
+      const earliest = orgRow?.billingStartDate ?? orgRow?.createdAt ?? new Date(now.getFullYear(), now.getMonth() - 11, 1);
+      // How many full months back from current month?
+      const monthsBack = Math.max(1, (now.getFullYear() - earliest.getFullYear()) * 12 + (now.getMonth() - earliest.getMonth()));
+      const months = [];
 
-      for (let i = 1; i <= 6; i++) {
+      for (let i = 1; i <= Math.min(monthsBack, 36); i++) {
         const mStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const mEnd   = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
-
-        const [orderRow] = await db.select({ count: sql<number>`COUNT(*)::int` })
-          .from(orders)
-          .where(and(eq(orders.orgId, orgId), gte(orders.orderDate, mStart), sql`${orders.orderDate} < ${mEnd}`));
-
-        const [scanRow] = await db.select({ count: sql<number>`COUNT(*)::int` })
-          .from(brickanalyzerScans)
-          .where(and(eq(brickanalyzerScans.orgId, orgId), gte(brickanalyzerScans.createdAt, mStart), sql`${brickanalyzerScans.createdAt} < ${mEnd}`));
-
-        const aiCalls = await getOrgAiUsageForMonth(orgId, mStart, mEnd);
-
-        const dims = {
-          inventoryLots:  { current: inventoryLotsCurrent, base: pm?.baseInventoryLots ?? 5000, bump: pm?.bumpInventoryLots ?? 2500 },
-          ordersPerMonth: { current: Number(orderRow.count), base: pm?.baseOrdersPerMonth ?? 100, bump: pm?.bumpOrdersPerMonth ?? 50 },
-          connectedStores:{ current: storesCurrent, base: pm?.baseConnectedStores ?? 2, bump: pm?.bumpConnectedStores ?? 1 },
-          aiCalls:        { current: aiCalls, base: pm?.baseAiCalls ?? 200, bump: pm?.bumpAiCalls ?? 100 },
-          scans:          { current: Number(scanRow.count), base: pm?.baseScans ?? 50, bump: pm?.bumpScans ?? 25 },
-        };
-
-        let totalBumps = 0;
-        for (const d of Object.values(dims)) {
-          if (d.current > d.base) totalBumps += Math.ceil((d.current - d.base) / d.bump);
-        }
-        const estimatedCost = Math.min(pricing.basePrice + totalBumps * pricing.overageBump, pricing.monthlyCap);
-
+        const monthlySalesCents = await getOrgMonthlySalesCents(orgId, mStart, mEnd);
+        const billing = calcSalesBilling(plan, monthlySalesCents);
         months.push({
           label: mStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+          year: mStart.getFullYear(),
           periodStart: mStart.toISOString(),
           periodEnd: mEnd.toISOString(),
-          dimensions: dims,
-          pricing,
-          totalBumps,
-          estimatedCost,
+          monthlySalesCents,
+          billing,
+          plan: { name: plan.name, basePrice: plan.basePrice, salesPercentage: plan.salesPercentage, freeSalesThreshold: plan.freeSalesThreshold },
         });
       }
 
@@ -1237,53 +1153,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/platform-admin/org-usage/:orgId — admin view of any org's usage
+  // ── Platform Admin: Plans CRUD ──────────────────────────────────────────────
+  app.get('/api/platform-admin/plans', isSuperAdmin, async (_req, res) => {
+    try {
+      const allPlans = await db.select().from(plans).orderBy(asc(plans.id));
+      const orgCounts = await db.select({
+        planId: organizations.planId,
+        count: sql<number>`COUNT(*)::int`,
+      }).from(organizations).groupBy(organizations.planId);
+      const countMap = new Map(orgCounts.map(r => [r.planId, Number(r.count)]));
+      res.json(allPlans.map(p => {
+        const orgCount = countMap.get(p.id) ?? 0;
+        return { ...p, orgCount, locked: orgCount > 0 };
+      }));
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post('/api/platform-admin/plans', isSuperAdmin, async (req, res) => {
+    try {
+      const data = insertPlanSchema.parse(req.body);
+      const [created] = await db.insert(plans).values(data).returning();
+      res.status(201).json(created);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.patch('/api/platform-admin/plans/:id', isSuperAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Check if orgs are on this plan — if so, only sunset/name edits allowed
+      const [orgCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(organizations).where(eq(organizations.planId, id));
+      const hasOrgs = Number(orgCount.count) > 0;
+      const allowed = hasOrgs
+        ? { isSunset: req.body.isSunset, name: req.body.name }  // locked: only sunset+name
+        : req.body;
+      const parsed = insertPlanSchema.partial().parse(allowed);
+      const [updated] = await db.update(plans).set({ ...parsed, updatedAt: new Date() }).where(eq(plans.id, id)).returning();
+      if (!updated) return res.status(404).json({ message: 'Plan not found' });
+      res.json({ ...updated, locked: hasOrgs });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
+  app.delete('/api/platform-admin/plans/:id', isSuperAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [orgCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(organizations).where(eq(organizations.planId, id));
+      if (Number(orgCount.count) > 0) return res.status(409).json({ message: 'Cannot delete a plan with active organizations. Sunset it instead.' });
+      await db.delete(plans).where(eq(plans.id, id));
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // GET /api/platform-admin/org-usage/:orgId — admin view of any org's billing
   app.get('/api/platform-admin/org-usage/:orgId', isSuperAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
-      const { getOrgAiUsageMtd } = await import('./services/ai-usage-tracker');
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      const [inventoryCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(blInventory).where(eq(blInventory.orgId, orgId));
-      const [orderCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orders).where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth)));
-      const [storeCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orgIntegrations).where(eq(orgIntegrations.orgId, orgId));
-      const [scanCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(brickanalyzerScans).where(and(eq(brickanalyzerScans.orgId, orgId), gte(brickanalyzerScans.createdAt, startOfMonth)));
+      const plan = await getOrgActivePlan(orgId);
+      const monthlySalesCents = await getOrgMonthlySalesCents(orgId, startOfMonth, now);
+      const billing = calcSalesBilling(plan, monthlySalesCents);
 
-      const aiRows = await getOrgAiUsageMtd(orgId);
-      let aiCallsTotal = 0;
-      let aiCostTotal = 0;
-      const aiByOperation: Record<string, { requests: number; cost: number }> = {};
-      const BILLING_EXCLUDED_OPS_ADMIN = new Set(['embedding', 'embedding-onboarding']);
-      for (const r of aiRows) {
-        if (BILLING_EXCLUDED_OPS_ADMIN.has(r.operation)) continue;
-        aiCallsTotal += Number(r.requests);
-        aiCostTotal += Number(r.totalCost);
-        aiByOperation[r.operation] = { requests: Number(r.requests), cost: Number(r.totalCost) };
-      }
-
-      const [pm] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
-
-      const [orgInfo] = await db.select({ id: organizations.id, name: organizations.name, billingStartDate: organizations.billingStartDate }).from(organizations).where(eq(organizations.id, orgId)).limit(1);
+      const [orgInfo] = await db.select({ id: organizations.id, name: organizations.name, billingStartDate: organizations.billingStartDate })
+        .from(organizations).where(eq(organizations.id, orgId)).limit(1);
 
       res.json({
         orgId,
         orgName: orgInfo?.name || orgId,
         billingStartDate: orgInfo?.billingStartDate ? orgInfo.billingStartDate.toISOString() : null,
         period: { start: startOfMonth.toISOString(), end: now.toISOString() },
-        dimensions: {
-          inventoryLots: { current: Number(inventoryCount.count), base: pm?.baseInventoryLots ?? 5000, bump: pm?.bumpInventoryLots ?? 2500 },
-          ordersPerMonth: { current: Number(orderCount.count), base: pm?.baseOrdersPerMonth ?? 100, bump: pm?.bumpOrdersPerMonth ?? 50 },
-          connectedStores: { current: Number(storeCount.count), base: pm?.baseConnectedStores ?? 2, bump: pm?.bumpConnectedStores ?? 1 },
-          aiCalls: { current: aiCallsTotal, base: pm?.baseAiCalls ?? 200, bump: pm?.bumpAiCalls ?? 100, byOperation: aiByOperation },
-          scans: { current: Number(scanCount.count), base: pm?.baseScans ?? 50, bump: pm?.bumpScans ?? 25 },
-        },
-        pricing: {
-          basePrice: pm?.basePrice ?? 3900,
-          overageBump: pm?.overageBump ?? 500,
-          monthlyCap: pm?.monthlyCap ?? 9900,
-        },
-        aiCostTotal,
+        plan: { id: plan.id, name: plan.name, basePrice: plan.basePrice, salesPercentage: plan.salesPercentage, freeSalesThreshold: plan.freeSalesThreshold },
+        monthlySalesCents,
+        billing,
       });
     } catch (err: any) {
       console.error("Error fetching org usage:", err);
@@ -1291,55 +1240,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/platform-admin/all-orgs-usage — usage summary for all orgs (billing overview)
+  // GET /api/platform-admin/all-orgs-usage — sales-based billing summary for all orgs
   app.get('/api/platform-admin/all-orgs-usage', isSuperAdmin, async (_req, res) => {
     try {
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-      const allOrgs = await db.select({ id: organizations.id, name: organizations.name }).from(organizations);
-      const [pm] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
-
-      const { getOrgAiUsageMtd } = await import('./services/ai-usage-tracker');
+      const allOrgs = await db.select({ id: organizations.id, name: organizations.name, planId: organizations.planId }).from(organizations);
+      const allPlans = await db.select().from(plans);
+      const planMap = new Map(allPlans.map(p => [p.id, p]));
+      const defaultPlan = { id: 1, name: 'Pay As You Grow', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, isActive: true, isSunset: false, createdAt: new Date(), updatedAt: new Date() };
 
       const orgUsages = await Promise.all(allOrgs.map(async (org) => {
-        const [inventoryCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(blInventory).where(eq(blInventory.orgId, org.id));
-        const [orderCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orders).where(and(eq(orders.orgId, org.id), gte(orders.orderDate, startOfMonth)));
-        const [storeCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orgIntegrations).where(eq(orgIntegrations.orgId, org.id));
-        const [scanCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(brickanalyzerScans).where(and(eq(brickanalyzerScans.orgId, org.id), gte(brickanalyzerScans.createdAt, startOfMonth)));
-
-        const aiRows = await getOrgAiUsageMtd(org.id);
-        let aiCallsTotal = 0;
-        const BILLING_EXCL = new Set(['embedding', 'embedding-onboarding']);
-        for (const r of aiRows) {
-          if (BILLING_EXCL.has(r.operation)) continue;
-          aiCallsTotal += Number(r.requests);
-        }
-
-        const dims = {
-          inventoryLots: Number(inventoryCount.count),
-          ordersPerMonth: Number(orderCount.count),
-          connectedStores: Number(storeCount.count),
-          aiCalls: aiCallsTotal,
-          scans: Number(scanCount.count),
-        };
-
-        const basePrice = pm?.basePrice ?? 3900;
-        const overageBump = pm?.overageBump ?? 500;
-        const monthlyCap = pm?.monthlyCap ?? 9900;
-        let totalBumps = 0;
-        const bumpCalc = (current: number, base: number, bump: number) => current <= base ? 0 : Math.ceil((current - base) / bump);
-        totalBumps += bumpCalc(dims.inventoryLots, pm?.baseInventoryLots ?? 5000, pm?.bumpInventoryLots ?? 2500);
-        totalBumps += bumpCalc(dims.ordersPerMonth, pm?.baseOrdersPerMonth ?? 100, pm?.bumpOrdersPerMonth ?? 50);
-        totalBumps += bumpCalc(dims.connectedStores, pm?.baseConnectedStores ?? 2, pm?.bumpConnectedStores ?? 1);
-        totalBumps += bumpCalc(dims.aiCalls, pm?.baseAiCalls ?? 200, pm?.bumpAiCalls ?? 100);
-        totalBumps += bumpCalc(dims.scans, pm?.baseScans ?? 50, pm?.bumpScans ?? 25);
-        const projectedMonthly = Math.min(basePrice + totalBumps * overageBump, monthlyCap);
-
-        return { orgId: org.id, orgName: org.name, ...dims, totalBumps, projectedMonthly };
+        const plan = planMap.get(org.planId ?? 1) ?? defaultPlan;
+        const monthlySalesCents = await getOrgMonthlySalesCents(org.id, startOfMonth, now);
+        const billing = calcSalesBilling(plan, monthlySalesCents);
+        return { orgId: org.id, orgName: org.name, planName: plan.name, monthlySalesCents, billing };
       }));
 
-      res.json({ orgs: orgUsages, pricing: { basePrice: pm?.basePrice ?? 3900, overageBump: pm?.overageBump ?? 500, monthlyCap: pm?.monthlyCap ?? 9900 } });
+      const totalMRR = orgUsages.reduce((s, o) => s + o.billing.totalDue, 0);
+      res.json({ orgs: orgUsages, summary: { totalMRR, orgCount: orgUsages.length } });
     } catch (err: any) {
       console.error("Error fetching all orgs usage:", err);
       res.status(500).json({ message: err.message });

@@ -92,6 +92,8 @@ export const organizations = pgTable("organizations", {
   // Billing start date — read-only. Auto-set to the date of the org's first inventory sync.
   // Represents when the org became an active customer (trial period is tracked separately).
   billingStartDate: timestamp("billing_start_date"),
+  // Sales-percentage billing plan (references plans.id). Null = no plan assigned.
+  planId: integer("plan_id"),
 });
 
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({
@@ -1624,6 +1626,25 @@ export const planConfigs = pgTable("plan_configs", {
 export const insertPlanConfigSchema = createInsertSchema(planConfigs).omit({ id: true, updatedAt: true });
 export type InsertPlanConfig = z.infer<typeof insertPlanConfigSchema>;
 export type PlanConfig = typeof planConfigs.$inferSelect;
+
+// ── Sales-Percentage Billing Plans ────────────────────────────────────────────
+// Each plan defines a base monthly fee + a % of GMV over a free-sales threshold.
+// Formula: totalDue = basePrice + salesPercentage% × max(0, monthlySales − freeSalesThreshold)
+export const plans = pgTable("plans", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  basePrice: integer("base_price").notNull().default(3900),          // cents, e.g. 3900 = $39
+  salesPercentage: real("sales_percentage").notNull().default(1.9),  // e.g. 1.9 = 1.9%
+  freeSalesThreshold: integer("free_sales_threshold").notNull().default(100000), // cents, e.g. 100000 = $1000
+  isActive: boolean("is_active").notNull().default(true),
+  isSunset: boolean("is_sunset").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertPlanSchema = createInsertSchema(plans).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPlan = z.infer<typeof insertPlanSchema>;
+export type Plan = typeof plans.$inferSelect;
 
 export const pricingModel = pgTable("pricing_model", {
   id: serial("id").primaryKey(),

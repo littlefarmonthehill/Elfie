@@ -937,6 +937,37 @@ export async function runMigrations() {
     `);
     console.log(`[Migration] Phase-44 (reset no_image rows from bad Rebrickable URL format) complete — ${p44.rowCount ?? 0} rows reset to pending.`);
 
+    // Phase-45: Sales-percentage billing plans.
+    // Creates the `plans` table, seeds the default "Pay As You Grow" plan,
+    // adds plan_id to organizations, and attaches all orgs to the default plan.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS plans (
+        id               SERIAL PRIMARY KEY,
+        name             VARCHAR(100) NOT NULL,
+        base_price       INTEGER NOT NULL DEFAULT 3900,
+        sales_percentage REAL NOT NULL DEFAULT 1.9,
+        free_sales_threshold INTEGER NOT NULL DEFAULT 100000,
+        is_active        BOOLEAN NOT NULL DEFAULT true,
+        is_sunset        BOOLEAN NOT NULL DEFAULT false,
+        created_at       TIMESTAMP DEFAULT NOW() NOT NULL,
+        updated_at       TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+    // Seed the default plan if it doesn't exist yet
+    const p45seed = await client.query(`
+      INSERT INTO plans (name, base_price, sales_percentage, free_sales_threshold)
+      SELECT 'Pay As You Grow', 3900, 1.9, 100000
+      WHERE NOT EXISTS (SELECT 1 FROM plans LIMIT 1)
+    `);
+    // Add plan_id column to organizations
+    await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan_id INTEGER REFERENCES plans(id)`);
+    // Attach all orgs to the default plan (id=1) if not already set
+    const p45attach = await client.query(`
+      UPDATE organizations SET plan_id = 1
+      WHERE plan_id IS NULL AND EXISTS (SELECT 1 FROM plans WHERE id = 1)
+    `);
+    console.log(`[Migration] Phase-45 (sales-percentage billing plans) complete — seeded ${p45seed.rowCount ?? 0} plan(s), attached ${p45attach.rowCount ?? 0} org(s).`);
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

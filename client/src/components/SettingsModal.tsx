@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { DimensionWheel, ScoringWheel, type PricingInsight } from "@/components/PriceOMaticDashboard";
@@ -1528,15 +1528,11 @@ function PricingLiveUsageCard() {
     orgs: Array<{
       orgId: string;
       orgName: string;
-      inventoryLots: number;
-      ordersPerMonth: number;
-      connectedStores: number;
-      aiCalls: number;
-      scans: number;
-      totalBumps: number;
-      projectedMonthly: number;
+      planName: string;
+      monthlySalesCents: number;
+      billing: { baseFee: number; salesFee: number; totalDue: number };
     }>;
-    pricing: { basePrice: number; overageBump: number; monthlyCap: number };
+    summary: { totalMRR: number; orgCount: number };
   }>({ queryKey: ['/api/platform-admin/all-orgs-usage'] });
 
   const [selectedOrg, setSelectedOrg] = useState<string>('');
@@ -1544,15 +1540,10 @@ function PricingLiveUsageCard() {
   const { data: orgDetail } = useQuery<{
     orgId: string;
     orgName: string;
-    dimensions: {
-      inventoryLots: { current: number; base: number; bump: number };
-      ordersPerMonth: { current: number; base: number; bump: number };
-      connectedStores: { current: number; base: number; bump: number };
-      aiCalls: { current: number; base: number; bump: number; byOperation?: Record<string, { requests: number; cost: number }> };
-      scans: { current: number; base: number; bump: number };
-    };
-    pricing: { basePrice: number; overageBump: number; monthlyCap: number };
-    aiCostTotal: number;
+    billingStartDate?: string | null;
+    plan: { id: number; name: string; basePrice: number; salesPercentage: number; freeSalesThreshold: number };
+    monthlySalesCents: number;
+    billing: { baseFee: number; salesFee: number; totalDue: number };
   }>({
     queryKey: ['/api/platform-admin/org-usage', selectedOrg],
     enabled: !!selectedOrg,
@@ -1561,14 +1552,13 @@ function PricingLiveUsageCard() {
   if (isLoading) return <div className="sm-card"><div className="px-4 py-3 flex items-center justify-center"><Loader2 className="w-4 h-4 animate-spin text-gray-500" /></div></div>;
   if (!allOrgsUsage) return null;
 
-  const fmtD = (cents: number) => `$${(cents / 100).toFixed(0)}`;
-  const bumpCalc = (c: number, b: number, s: number) => c <= b ? 0 : Math.ceil((c - b) / s);
+  const fmtC = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <div className="sm-card" data-testid="pricing-live-usage-card">
       <div className="sm-card-header">
         <Eye className="h-3.5 w-3.5 text-cyan-400/80" />
-        <span className="text-xs font-semibold text-gray-200">Live Org Usage vs Thresholds</span>
+        <span className="text-xs font-semibold text-gray-200">Live Org Billing</span>
       </div>
       <div className="px-4 py-3 space-y-3">
         <div className="flex items-center gap-2">
@@ -1581,7 +1571,7 @@ function PricingLiveUsageCard() {
           >
             <option value="">Select an org...</option>
             {allOrgsUsage.orgs.map(o => (
-              <option key={o.orgId} value={o.orgId}>{o.orgName} — {fmtD(o.projectedMonthly)}/mo</option>
+              <option key={o.orgId} value={o.orgId}>{o.orgName} — {fmtC(o.billing.totalDue)}/mo</option>
             ))}
           </select>
         </div>
@@ -1591,44 +1581,32 @@ function PricingLiveUsageCard() {
         )}
 
         {orgDetail && (
-          <div className="space-y-2">
-            {[
-              { label: 'Inventory Lots', ...orgDetail.dimensions.inventoryLots },
-              { label: 'Orders/mo', ...orgDetail.dimensions.ordersPerMonth },
-              { label: 'Connected Stores', ...orgDetail.dimensions.connectedStores },
-              { label: 'AI Calls', ...orgDetail.dimensions.aiCalls },
-              { label: 'Scans', ...orgDetail.dimensions.scans },
-            ].map((d) => {
-              const pct = d.base > 0 ? Math.min(100, (d.current / d.base) * 100) : 0;
-              const bumps = bumpCalc(d.current, d.base, d.bump);
-              const isOver = pct >= 100;
-              const barColor = isOver ? 'bg-red-500/70' : pct >= 80 ? 'bg-amber-400/70' : 'bg-green-500/60';
-              return (
-                <div key={d.label} className="space-y-0.5">
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-gray-400">{d.label}</span>
-                    <span className="text-gray-300 tabular-nums">{d.current.toLocaleString()} / {d.base.toLocaleString()}{bumps > 0 ? ` (+${bumps})` : ''}</span>
-                  </div>
-                  <div className="h-1 rounded-full bg-gray-700/50 overflow-hidden">
-                    <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-            {orgDetail.dimensions.aiCalls.byOperation && Object.keys(orgDetail.dimensions.aiCalls.byOperation).length > 0 && (
-              <div className="pt-1 border-t border-gray-700/30">
-                <div className="text-[9px] text-gray-500 mb-0.5">AI by Operation</div>
-                {Object.entries(orgDetail.dimensions.aiCalls.byOperation).map(([op, data]) => (
-                  <div key={op} className="flex items-center justify-between text-[9px] py-0.5">
-                    <span className="text-gray-400">{op}</span>
-                    <span className="text-gray-300 tabular-nums">{data.requests} calls</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div className="pt-1 border-t border-gray-700/30 flex items-center justify-between">
-              <span className="text-[10px] text-gray-400">Projected</span>
-              <span className="text-xs font-bold text-white tabular-nums">{fmtD(allOrgsUsage.orgs.find(o => o.orgId === selectedOrg)?.projectedMonthly ?? allOrgsUsage.pricing.basePrice)}/mo</span>
+          <div className="divide-y divide-white/5 rounded-md border border-gray-700 bg-gray-800/40 overflow-hidden text-[10px]">
+            <div className="flex items-center justify-between px-3 py-1.5">
+              <span className="text-gray-400">Plan</span>
+              <span className="text-gray-300">{orgDetail.plan.name}</span>
+            </div>
+            <div className="flex items-center justify-between px-3 py-1.5">
+              <span className="text-gray-400">Monthly sales</span>
+              <span className="text-gray-300 tabular-nums">{fmtC(orgDetail.monthlySalesCents)}</span>
+            </div>
+            <div className="flex items-center justify-between px-3 py-1.5">
+              <span className="text-gray-400">Free threshold</span>
+              <span className="text-gray-300 tabular-nums">{fmtC(orgDetail.plan.freeSalesThreshold)}</span>
+            </div>
+            <div className="flex items-center justify-between px-3 py-1.5">
+              <span className="text-gray-400">Base fee</span>
+              <span className="text-gray-300 tabular-nums">{fmtC(orgDetail.billing.baseFee)}</span>
+            </div>
+            <div className="flex items-center justify-between px-3 py-1.5">
+              <span className="text-gray-400">Sales fee ({orgDetail.plan.salesPercentage}%)</span>
+              <span className={orgDetail.billing.salesFee > 0 ? 'text-purple-300 tabular-nums' : 'text-gray-500'}>
+                {orgDetail.billing.salesFee > 0 ? `+${fmtC(orgDetail.billing.salesFee)}` : '$0.00'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between px-3 py-2 bg-gray-800/60">
+              <span className="text-gray-300 font-semibold">Total due</span>
+              <span className="text-white font-bold tabular-nums">{fmtC(orgDetail.billing.totalDue)}/mo</span>
             </div>
           </div>
         )}
@@ -1642,15 +1620,11 @@ function BillingOverviewPanel() {
     orgs: Array<{
       orgId: string;
       orgName: string;
-      inventoryLots: number;
-      ordersPerMonth: number;
-      connectedStores: number;
-      aiCalls: number;
-      scans: number;
-      totalBumps: number;
-      projectedMonthly: number;
+      planName: string;
+      monthlySalesCents: number;
+      billing: { baseFee: number; salesFee: number; totalDue: number };
     }>;
-    pricing: { basePrice: number; overageBump: number; monthlyCap: number };
+    summary: { totalMRR: number; orgCount: number };
   }>({ queryKey: ['/api/platform-admin/all-orgs-usage'] });
 
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
@@ -1658,15 +1632,10 @@ function BillingOverviewPanel() {
   const { data: orgDetail, isLoading: detailLoading } = useQuery<{
     orgId: string;
     orgName: string;
-    dimensions: {
-      inventoryLots: { current: number; base: number; bump: number };
-      ordersPerMonth: { current: number; base: number; bump: number };
-      connectedStores: { current: number; base: number; bump: number };
-      aiCalls: { current: number; base: number; bump: number; byOperation?: Record<string, { requests: number; cost: number }> };
-      scans: { current: number; base: number; bump: number };
-    };
-    pricing: { basePrice: number; overageBump: number; monthlyCap: number };
-    aiCostTotal: number;
+    billingStartDate?: string | null;
+    plan: { id: number; name: string; basePrice: number; salesPercentage: number; freeSalesThreshold: number };
+    monthlySalesCents: number;
+    billing: { baseFee: number; salesFee: number; totalDue: number };
   }>({
     queryKey: ['/api/platform-admin/org-usage', selectedOrgId],
     enabled: !!selectedOrgId,
@@ -1675,11 +1644,8 @@ function BillingOverviewPanel() {
   if (isLoading) return <div className="p-4 flex items-center justify-center"><Loader2 className="w-4 h-4 animate-spin text-gray-500" /></div>;
   if (!allOrgsUsage) return <div className="p-4 text-center text-xs text-gray-500">Unable to load billing data.</div>;
 
-  const { orgs, pricing } = allOrgsUsage;
-  const totalMRR = orgs.reduce((sum, o) => sum + o.projectedMonthly, 0);
-  const fmtD = (cents: number) => `$${(cents / 100).toFixed(0)}`;
-  const bumpCalc = (current: number, base: number, bump: number) =>
-    current <= base ? 0 : Math.ceil((current - base) / bump);
+  const { orgs, summary } = allOrgsUsage;
+  const fmtC = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden">
@@ -1691,16 +1657,16 @@ function BillingOverviewPanel() {
         <div className="px-4 py-3 space-y-3">
           <div className="grid grid-cols-3 gap-3">
             <div className="text-center">
-              <div className="text-lg font-bold text-white tabular-nums">{fmtD(totalMRR)}</div>
+              <div className="text-lg font-bold text-white tabular-nums">{fmtC(summary.totalMRR)}</div>
               <div className="text-[10px] text-gray-500">Projected MRR</div>
             </div>
             <div className="text-center">
-              <div className="text-lg font-bold text-white tabular-nums">{orgs.length}</div>
+              <div className="text-lg font-bold text-white tabular-nums">{summary.orgCount}</div>
               <div className="text-[10px] text-gray-500">Active Orgs</div>
             </div>
             <div className="text-center">
-              <div className="text-lg font-bold text-white tabular-nums">{fmtD(pricing.basePrice)}</div>
-              <div className="text-[10px] text-gray-500">Base Price</div>
+              <div className="text-lg font-bold text-white tabular-nums">{fmtC(summary.totalMRR / Math.max(1, summary.orgCount))}</div>
+              <div className="text-[10px] text-gray-500">Avg / Org</div>
             </div>
           </div>
         </div>
@@ -1709,7 +1675,7 @@ function BillingOverviewPanel() {
       <div className="sm-card">
         <div className="sm-card-header">
           <BarChart3 className="h-3.5 w-3.5 text-blue-400/80" />
-          <span className="text-xs font-semibold text-gray-200">Per-Organization Usage</span>
+          <span className="text-xs font-semibold text-gray-200">Per-Organization Billing</span>
         </div>
         <div className="px-4 py-3 space-y-2">
           <div className="rounded-md border border-gray-700 bg-gray-800/40 overflow-hidden">
@@ -1717,11 +1683,10 @@ function BillingOverviewPanel() {
               <thead>
                 <tr className="border-b border-gray-700/60 bg-gray-900/40">
                   <th className="text-left px-3 py-1.5 text-gray-500 font-medium">Organization</th>
-                  <th className="text-center px-2 py-1.5 text-gray-500 font-medium">Lots</th>
-                  <th className="text-center px-2 py-1.5 text-gray-500 font-medium">AI</th>
-                  <th className="text-center px-2 py-1.5 text-gray-500 font-medium">Scans</th>
-                  <th className="text-center px-2 py-1.5 text-gray-500 font-medium">Bumps</th>
-                  <th className="text-right px-3 py-1.5 text-gray-500 font-medium">Est.</th>
+                  <th className="text-left px-2 py-1.5 text-gray-500 font-medium">Plan</th>
+                  <th className="text-right px-2 py-1.5 text-gray-500 font-medium">GMV</th>
+                  <th className="text-right px-2 py-1.5 text-gray-500 font-medium">Sales Fee</th>
+                  <th className="text-right px-3 py-1.5 text-gray-500 font-medium">Total Due</th>
                 </tr>
               </thead>
               <tbody>
@@ -1733,17 +1698,15 @@ function BillingOverviewPanel() {
                     data-testid={`billing-org-row-${o.orgId}`}
                   >
                     <td className="px-3 py-1.5 text-gray-300 font-medium truncate max-w-[120px]">{o.orgName}</td>
-                    <td className="px-2 py-1.5 text-center text-gray-400 tabular-nums">{o.inventoryLots.toLocaleString()}</td>
-                    <td className="px-2 py-1.5 text-center text-gray-400 tabular-nums">{o.aiCalls.toLocaleString()}</td>
-                    <td className="px-2 py-1.5 text-center text-gray-400 tabular-nums">{o.scans}</td>
-                    <td className="px-2 py-1.5 text-center">
-                      {o.totalBumps > 0 ? (
-                        <span className="text-amber-400 font-medium">+{o.totalBumps}</span>
-                      ) : (
-                        <span className="text-gray-600">0</span>
-                      )}
+                    <td className="px-2 py-1.5 text-gray-400 truncate max-w-[80px]">{o.planName}</td>
+                    <td className="px-2 py-1.5 text-right text-gray-400 tabular-nums">{fmtC(o.monthlySalesCents)}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">
+                      {o.billing.salesFee > 0
+                        ? <span className="text-purple-300">+{fmtC(o.billing.salesFee)}</span>
+                        : <span className="text-gray-600">$0.00</span>
+                      }
                     </td>
-                    <td className="px-3 py-1.5 text-right text-gray-200 font-medium tabular-nums">{fmtD(o.projectedMonthly)}</td>
+                    <td className="px-3 py-1.5 text-right text-gray-200 font-semibold tabular-nums">{fmtC(o.billing.totalDue)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1760,47 +1723,40 @@ function BillingOverviewPanel() {
         <div className="sm-card">
           <div className="sm-card-header">
             <Building2 className="h-3.5 w-3.5 text-violet-400/80" />
-            <span className="text-xs font-semibold text-gray-200">{orgDetail.orgName} — Usage Detail</span>
+            <span className="text-xs font-semibold text-gray-200">{orgDetail.orgName} — Billing Detail</span>
           </div>
-          <div className="px-4 py-3 space-y-2">
-            {[
-              { label: 'Inventory Lots', ...orgDetail.dimensions.inventoryLots },
-              { label: 'Orders/mo', ...orgDetail.dimensions.ordersPerMonth },
-              { label: 'Connected Stores', ...orgDetail.dimensions.connectedStores },
-              { label: 'AI Calls', ...orgDetail.dimensions.aiCalls },
-              { label: 'Scans', ...orgDetail.dimensions.scans },
-            ].map((d) => {
-              const pct = d.base > 0 ? Math.min(100, (d.current / d.base) * 100) : 0;
-              const bumps = bumpCalc(d.current, d.base, d.bump);
-              const isOver = pct >= 100;
-              const isWarn = pct >= 80 && !isOver;
-              const barColor = isOver ? 'bg-red-500/70' : isWarn ? 'bg-amber-400/70' : 'bg-green-500/60';
-              return (
-                <div key={d.label} className="space-y-1">
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-gray-400">{d.label}</span>
-                    <span className="text-gray-300 tabular-nums">{d.current.toLocaleString()} / {d.base.toLocaleString()}{bumps > 0 ? ` (+${bumps} bump${bumps > 1 ? 's' : ''})` : ''}</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-gray-700/50 overflow-hidden">
-                    <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-            {orgDetail.dimensions.aiCalls.byOperation && Object.keys(orgDetail.dimensions.aiCalls.byOperation).length > 0 && (
-              <div className="mt-2 pt-2 border-t border-gray-700/30">
-                <div className="text-[10px] text-gray-500 mb-1">AI Usage Breakdown</div>
-                {Object.entries(orgDetail.dimensions.aiCalls.byOperation).map(([op, data]) => (
-                  <div key={op} className="flex items-center justify-between text-[10px] py-0.5">
-                    <span className="text-gray-400">{op}</span>
-                    <span className="text-gray-300 tabular-nums">{data.requests} calls · ${data.cost.toFixed(4)}</span>
-                  </div>
-                ))}
+          <div className="px-4 py-3">
+            <div className="divide-y divide-white/5 rounded-md border border-gray-700 bg-gray-800/40 overflow-hidden text-[10px]">
+              <div className="flex items-center justify-between px-3 py-1.5">
+                <span className="text-gray-400">Plan</span>
+                <span className="text-gray-300">{orgDetail.plan.name}</span>
               </div>
-            )}
-            <div className="pt-2 border-t border-gray-700/30 flex items-center justify-between">
-              <span className="text-[10px] text-gray-400">Projected Monthly</span>
-              <span className="text-xs font-bold text-white tabular-nums">{fmtD(Math.min(orgDetail.pricing.basePrice + (orgs.find(o => o.orgId === selectedOrgId)?.totalBumps ?? 0) * orgDetail.pricing.overageBump, orgDetail.pricing.monthlyCap))}</span>
+              <div className="flex items-center justify-between px-3 py-1.5">
+                <span className="text-gray-400">Monthly GMV</span>
+                <span className="text-gray-300 tabular-nums">{fmtC(orgDetail.monthlySalesCents)}</span>
+              </div>
+              <div className="flex items-center justify-between px-3 py-1.5">
+                <span className="text-gray-400">Free threshold</span>
+                <span className="text-gray-300 tabular-nums">{fmtC(orgDetail.plan.freeSalesThreshold)}</span>
+              </div>
+              <div className="flex items-center justify-between px-3 py-1.5">
+                <span className="text-gray-400">Sales over threshold</span>
+                <span className="text-gray-300 tabular-nums">{fmtC(Math.max(0, orgDetail.monthlySalesCents - orgDetail.plan.freeSalesThreshold))}</span>
+              </div>
+              <div className="flex items-center justify-between px-3 py-1.5">
+                <span className="text-gray-400">Base fee</span>
+                <span className="text-gray-300 tabular-nums">{fmtC(orgDetail.billing.baseFee)}</span>
+              </div>
+              <div className="flex items-center justify-between px-3 py-1.5">
+                <span className="text-gray-400">Sales fee ({orgDetail.plan.salesPercentage}%)</span>
+                <span className={orgDetail.billing.salesFee > 0 ? 'text-purple-300 tabular-nums' : 'text-gray-500'}>
+                  {orgDetail.billing.salesFee > 0 ? `+${fmtC(orgDetail.billing.salesFee)}` : '$0.00'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between px-3 py-2 bg-gray-800/60">
+                <span className="text-gray-200 font-semibold">Total due</span>
+                <span className="text-white font-bold tabular-nums">{fmtC(orgDetail.billing.totalDue)}/mo</span>
+              </div>
             </div>
           </div>
         </div>
@@ -1809,130 +1765,356 @@ function BillingOverviewPanel() {
   );
 }
 
+
+function PlansAndPricingPanel() {
+  type PlanRow = {
+    id: number;
+    name: string;
+    basePrice: number;
+    salesPercentage: number;
+    freeSalesThreshold: number;
+    isActive: boolean;
+    isSunset: boolean;
+    locked: boolean;
+    orgCount: number;
+  };
+
+  const queryClient = useQueryClient();
+  const { data: plans, isLoading } = useQuery<PlanRow[]>({ queryKey: ['/api/platform-admin/plans'] });
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+
+  const defaultForm = { name: '', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000 };
+  const [form, setForm] = useState<typeof defaultForm>(defaultForm);
+
+  const fmtC = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const inputCls = 'w-full bg-gray-900/60 border border-gray-700 rounded px-2 py-1 text-gray-200 outline-none focus:border-gray-500 text-xs tabular-nums';
+
+  const saveMutation = useMutation({
+    mutationFn: async (payload: { id?: number; data: Partial<typeof defaultForm & { isSunset: boolean }> }) => {
+      if (payload.id) {
+        return apiRequest('PATCH', `/api/platform-admin/plans/${payload.id}`, payload.data);
+      } else {
+        return apiRequest('POST', '/api/platform-admin/plans', payload.data);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/plans'] });
+      setEditingId(null);
+      setShowCreate(false);
+      setForm(defaultForm);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => apiRequest('DELETE', `/api/platform-admin/plans/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/plans'] }),
+  });
+
+  const toggleSunset = (plan: PlanRow) => {
+    saveMutation.mutate({ id: plan.id, data: { isSunset: !plan.isSunset } });
+  };
+
+  const startEdit = (plan: PlanRow) => {
+    setShowCreate(false);
+    setEditingId(plan.id);
+    setForm({
+      name: plan.name,
+      basePrice: plan.basePrice,
+      salesPercentage: plan.salesPercentage,
+      freeSalesThreshold: plan.freeSalesThreshold,
+    });
+  };
+
+  const startCreate = () => {
+    setEditingId(null);
+    setForm(defaultForm);
+    setShowCreate(true);
+  };
+
+  const handleSave = () => {
+    const payload = editingId
+      ? { id: editingId, data: { name: form.name, ...(!((plans ?? []).find(p => p.id === editingId)?.locked) ? { basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold } : {}) } }
+      : { data: { name: form.name, basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold } };
+    saveMutation.mutate(payload);
+  };
+
+  const editingPlan = (plans ?? []).find(p => p.id === editingId);
+
+  if (isLoading) {
+    return (
+      <div className="px-3 pt-3 pb-4 flex items-center justify-center">
+        <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden" data-testid="plans-and-pricing-panel">
+      {/* Plans list */}
+      <div className="sm-card">
+        <div className="sm-card-header">
+          <Tag className="h-3.5 w-3.5 text-violet-400/80" />
+          <span className="text-xs font-semibold text-gray-200">Plans</span>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="ml-auto h-6 text-[10px] px-2"
+            onClick={startCreate}
+            data-testid="button-plan-create"
+          >
+            <Plus className="w-3 h-3 mr-1" />
+            New Plan
+          </Button>
+        </div>
+        <div className="px-4 py-3 space-y-2">
+          {(plans ?? []).length === 0 && (
+            <p className="text-[11px] text-gray-500 text-center py-2">No plans defined yet.</p>
+          )}
+          {(plans ?? []).map(plan => (
+            <div
+              key={plan.id}
+              className={`rounded-md border p-3 space-y-2 ${plan.isSunset ? 'border-gray-700/40 bg-gray-800/20 opacity-60' : 'border-gray-700 bg-gray-800/40'}`}
+              data-testid={`plan-row-${plan.id}`}
+            >
+              <div className="flex items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap gap-y-1">
+                    <span className="text-xs font-semibold text-gray-200">{plan.name}</span>
+                    {plan.locked && (
+                      <span className="text-[9px] bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded px-1 py-0.5">
+                        locked ({plan.orgCount} org{plan.orgCount !== 1 ? 's' : ''})
+                      </span>
+                    )}
+                    {plan.isSunset && (
+                      <span className="text-[9px] bg-gray-700/60 text-gray-500 border border-gray-600/40 rounded px-1 py-0.5">sunset</span>
+                    )}
+                    {!plan.isActive && !plan.isSunset && (
+                      <span className="text-[9px] bg-gray-700/60 text-gray-500 border border-gray-600/40 rounded px-1 py-0.5">inactive</span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-gray-400 mt-0.5 tabular-nums">
+                    {fmtC(plan.basePrice)}/mo base · {plan.salesPercentage}% of GMV over {fmtC(plan.freeSalesThreshold)} free threshold
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 text-[10px] px-2"
+                    onClick={() => toggleSunset(plan)}
+                    data-testid={`button-plan-sunset-${plan.id}`}
+                    title={plan.isSunset ? 'Unsunset plan' : 'Sunset plan'}
+                  >
+                    {plan.isSunset ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 text-[10px] px-2"
+                    onClick={() => startEdit(plan)}
+                    data-testid={`button-plan-edit-${plan.id}`}
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </Button>
+                  {plan.orgCount === 0 && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 text-[10px] px-2 text-red-400"
+                      onClick={() => deleteMutation.mutate(plan.id)}
+                      data-testid={`button-plan-delete-${plan.id}`}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Create / Edit form */}
+      {(showCreate || editingId !== null) && (
+        <div className="sm-card">
+          <div className="sm-card-header">
+            {editingId ? <Pencil className="h-3.5 w-3.5 text-blue-400/80" /> : <Plus className="h-3.5 w-3.5 text-green-400/80" />}
+            <span className="text-xs font-semibold text-gray-200">
+              {editingId ? `Edit: ${editingPlan?.name ?? ''}` : 'Create Plan'}
+            </span>
+          </div>
+          <div className="px-4 py-3 space-y-3">
+            {editingPlan?.locked && (
+              <p className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded px-2 py-1.5">
+                This plan has active organizations — only the name can be changed.
+              </p>
+            )}
+            <div className="space-y-2">
+              <div>
+                <label className="block app-label mb-1">Plan Name</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="e.g. Pay As You Grow"
+                  data-testid="input-plan-name"
+                  className="w-full bg-gray-900/60 border border-gray-700 rounded px-2 py-1 text-gray-200 outline-none focus:border-gray-500 text-xs"
+                />
+              </div>
+              {!editingPlan?.locked && (
+                <>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block app-label mb-1">Base Price ($/mo)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={(form.basePrice / 100).toFixed(0)}
+                        onChange={e => setForm(f => ({ ...f, basePrice: Math.round(parseFloat(e.target.value || '0') * 100) }))}
+                        data-testid="input-plan-basePrice"
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className="block app-label mb-1">Sales % (of GMV)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        value={form.salesPercentage}
+                        onChange={e => setForm(f => ({ ...f, salesPercentage: parseFloat(e.target.value || '0') }))}
+                        data-testid="input-plan-salesPercentage"
+                        className={inputCls}
+                      />
+                    </div>
+                    <div>
+                      <label className="block app-label mb-1">Free Threshold ($)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={100}
+                        value={(form.freeSalesThreshold / 100).toFixed(0)}
+                        onChange={e => setForm(f => ({ ...f, freeSalesThreshold: Math.round(parseFloat(e.target.value || '0') * 100) }))}
+                        data-testid="input-plan-freeSalesThreshold"
+                        className={inputCls}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-[10px] text-gray-500 pt-0.5">
+                    Preview: {fmtC(form.basePrice)}/mo base + {form.salesPercentage}% on GMV over {fmtC(form.freeSalesThreshold)}
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <Button
+                size="sm"
+                variant="default"
+                className="text-xs"
+                onClick={handleSave}
+                disabled={saveMutation.isPending || !form.name.trim()}
+                data-testid="button-plan-save"
+              >
+                {saveMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                {editingId ? 'Save Changes' : 'Create Plan'}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-xs"
+                onClick={() => { setEditingId(null); setShowCreate(false); setForm(defaultForm); }}
+                data-testid="button-plan-cancel"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live billing snapshot */}
+      <PricingLiveUsageCard />
+    </div>
+  );
+}
+
 function MyPlanUsagePanel() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const { data: usage, isLoading } = useQuery<{
-    dimensions: {
-      inventoryLots: { current: number; base: number; bump: number };
-      ordersPerMonth: { current: number; base: number; bump: number };
-      connectedStores: { current: number; base: number; bump: number };
-      aiCalls: { current: number; base: number; bump: number; byOperation?: Record<string, { requests: number; cost: number }> };
-      scans: { current: number; base: number; bump: number };
-    };
-    pricing: { basePrice: number; overageBump: number; monthlyCap: number };
-    aiCostTotal: number;
+    orgId: string;
+    billingStartDate?: string | null;
+    subscriptionStatus?: string;
+    period?: { start: string; end: string };
+    plan: { id: number; name: string; basePrice: number; salesPercentage: number; freeSalesThreshold: number };
+    monthlySalesCents: number;
+    billing: { baseFee: number; salesFee: number; totalDue: number };
   }>({ queryKey: ['/api/org/usage'] });
 
-  type MonthSummary = { label: string; periodStart: string; periodEnd: string; estimatedCost: number };
+  type MonthSummary = {
+    label: string;
+    year: number;
+    periodStart: string;
+    periodEnd: string;
+    monthlySalesCents: number;
+    billing: { baseFee: number; salesFee: number; totalDue: number };
+  };
   const { data: historyData } = useQuery<{ months: MonthSummary[] }>({ queryKey: ['/api/org/billing/history'] });
 
   if (isLoading) return <div className="flex items-center justify-center py-8"><Loader2 className="w-4 h-4 animate-spin text-gray-500" /></div>;
   if (!usage) return <div className="text-center py-4 text-xs text-gray-500">Unable to load usage data.</div>;
 
-  const dims = [
-    { key: 'inventory', label: 'Inventory Lots', icon: Package, ...usage.dimensions.inventoryLots },
-    { key: 'orders', label: 'Orders This Month', icon: ShoppingCart, ...usage.dimensions.ordersPerMonth },
-    { key: 'stores', label: 'Connected Stores', icon: Globe, ...usage.dimensions.connectedStores },
-    { key: 'ai', label: 'AI Tools', icon: Sparkles, ...usage.dimensions.aiCalls },
-    { key: 'scans', label: 'BrickSpotter Scans', icon: Eye, ...usage.dimensions.scans },
-  ];
-
-  const bumpCalc = (current: number, base: number, bump: number) =>
-    current <= base ? 0 : Math.ceil((current - base) / bump);
-
-  let totalBumps = 0;
-  for (const d of dims) totalBumps += bumpCalc(d.current, d.base, d.bump);
-
-  const { basePrice, overageBump, monthlyCap } = usage.pricing;
-  const estimated = Math.min(basePrice + totalBumps * overageBump, monthlyCap);
-  const fmtD = (cents: number) => `$${(cents / 100).toFixed(0)}`;
+  const fmtC = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const salesOver = Math.max(0, usage.monthlySalesCents - usage.plan.freeSalesThreshold);
+  const pct = usage.plan.freeSalesThreshold > 0
+    ? Math.min(100, (usage.monthlySalesCents / usage.plan.freeSalesThreshold) * 100)
+    : 0;
+  const barColor = pct >= 100 ? 'bg-purple-500/70' : pct >= 80 ? 'bg-amber-400/70' : 'bg-green-500/60';
 
   return (
     <div className="space-y-4">
-      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Pay As You Grow</h3>
+      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{usage.plan.name}</h3>
 
-      <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-4 space-y-1">
+      {/* Current billing summary */}
+      <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-4 space-y-3" data-testid="section-my-plan-usage">
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-400">Estimated Monthly</span>
-          <span className="text-lg font-bold text-white tabular-nums">{fmtD(estimated)}<span className="text-xs text-gray-500 font-normal">/mo</span></span>
+          <span className="text-xs text-gray-400">This Month's Bill</span>
+          <span className="text-lg font-bold text-white tabular-nums">
+            {fmtC(usage.billing.totalDue)}
+            <span className="text-xs text-gray-500 font-normal">/mo</span>
+          </span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-2 rounded-full bg-gray-700/50 overflow-hidden">
-            <div className="h-full rounded-full bg-gradient-to-r from-green-500/70 to-amber-400/70 transition-all" style={{ width: `${Math.min(100, (estimated / monthlyCap) * 100)}%` }} />
+
+        {/* GMV progress bar */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[10px] text-gray-500">
+            <span>Monthly GMV</span>
+            <span className="tabular-nums">{fmtC(usage.monthlySalesCents)} / {fmtC(usage.plan.freeSalesThreshold)} free</span>
           </div>
-          <span className="text-[9px] text-gray-500 tabular-nums whitespace-nowrap">{fmtD(basePrice)} base + {totalBumps} bump{totalBumps !== 1 ? 's' : ''} / {fmtD(monthlyCap)} cap</span>
+          <div className="h-2 rounded-full bg-gray-700/50 overflow-hidden">
+            <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${Math.min(100, pct)}%` }} />
+          </div>
+        </div>
+
+        {/* Fee breakdown */}
+        <div className="divide-y divide-white/5 rounded-md border border-gray-700/50 overflow-hidden text-[10px]">
+          <div className="flex items-center justify-between px-3 py-1.5">
+            <span className="text-gray-500">Base fee</span>
+            <span className="text-gray-400 tabular-nums">{fmtC(usage.billing.baseFee)}</span>
+          </div>
+          <div className="flex items-center justify-between px-3 py-1.5">
+            <span className="text-gray-500">{usage.plan.salesPercentage}% on {fmtC(salesOver)} over threshold</span>
+            <span className={usage.billing.salesFee > 0 ? 'text-purple-300 tabular-nums' : 'text-gray-600'}>
+              {usage.billing.salesFee > 0 ? `+${fmtC(usage.billing.salesFee)}` : '$0.00'}
+            </span>
+          </div>
         </div>
       </div>
 
-      <div className="grid gap-3" data-testid="section-my-plan-usage">
-        {dims.map((d) => {
-          const pct = d.base > 0 ? Math.min(100, (d.current / d.base) * 100) : 0;
-          const bumps = bumpCalc(d.current, d.base, d.bump);
-          const isOver = pct >= 100;
-          const isWarn = pct >= 80 && !isOver;
-          const barColor = isOver ? 'bg-red-500/70' : isWarn ? 'bg-amber-400/70' : 'bg-green-500/60';
-          const DimIcon = d.icon;
-
-          // Per-tool breakdown for AI Tools dimension
-          const AI_TOOL_NAMES: Record<string, string> = {
-            'elfie-agent': 'E.L.F.I.E.',
-            'business-insight': 'Business Insights',
-            'brickspotter-scan': 'BrickSpotter',
-            'feedback-refine': 'Pricing Feedback',
-          };
-          const TOOL_ORDER = ['elfie-agent', 'business-insight', 'feedback-refine', 'brickspotter-scan'];
-          const byOp = d.key === 'ai' ? (d as any).byOperation as Record<string, { requests: number; cost: number }> | undefined : undefined;
-          const toolEntries = byOp
-            ? [
-                ...TOOL_ORDER.filter(k => byOp[k]).map(k => [k, byOp[k]] as [string, { requests: number; cost: number }]),
-                ...Object.entries(byOp).filter(([k]) => !TOOL_ORDER.includes(k) && k !== 'embedding' && k !== 'embedding-onboarding'),
-              ]
-            : [];
-
-          return (
-            <div key={d.key} className="bg-gray-900/40 border border-gray-800 rounded-lg p-3 space-y-2" data-testid={`usage-dim-${d.key}`}>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-400 flex items-center gap-1.5">
-                  <DimIcon className="w-3.5 h-3.5" />
-                  {d.label}
-                </span>
-                <span className="font-mono text-gray-300">
-                  {d.current.toLocaleString()} / {d.base.toLocaleString()} {d.key === 'ai' ? 'calls' : ''}
-                </span>
-              </div>
-              <div className="h-1.5 rounded-full bg-gray-700/50 overflow-hidden">
-                <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-gray-500">
-                  {isOver ? (
-                    <span className="text-amber-400">+{bumps} bump{bumps > 1 ? 's' : ''} ({fmtD(bumps * overageBump)}/mo)</span>
-                  ) : isWarn ? (
-                    <span className="text-amber-400">Approaching limit ({Math.round(pct)}%)</span>
-                  ) : (
-                    <span>{Math.round(pct)}% of base included</span>
-                  )}
-                </span>
-                <span className="text-[10px] text-gray-600">+{d.bump.toLocaleString()} per bump</span>
-              </div>
-              {/* Per-tool breakdown for AI Tools */}
-              {toolEntries.length > 0 && (
-                <div className="pt-1.5 border-t border-gray-800 space-y-1">
-                  {toolEntries.map(([op, data]) => (
-                    <div key={op} className="flex items-center justify-between text-[10px]">
-                      <span className="text-gray-600">{AI_TOOL_NAMES[op] ?? op}</span>
-                      <span className="text-gray-500 tabular-nums">{data.requests.toLocaleString()} calls</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Billing history + drawer */}
+      {/* Billing history */}
       <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-3 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs text-gray-400">
@@ -1955,7 +2137,7 @@ function MyPlanUsagePanel() {
             {historyData.months.slice(0, 3).map((m) => (
               <div key={m.periodStart} className="flex items-center justify-between text-[10px]">
                 <span className="text-gray-500">{m.label}</span>
-                <span className="text-gray-300 font-mono tabular-nums">${(m.estimatedCost / 100).toFixed(2)}</span>
+                <span className="text-gray-300 font-mono tabular-nums">{fmtC(m.billing.totalDue)}</span>
               </div>
             ))}
             {historyData.months.length > 3 && (
@@ -7622,238 +7804,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
             {activeSection === 'productBacklog' && <ProductBacklogPanel />}
 
             {/* Plans & Pricing */}
-            {activeSection === 'plansAndPricing' && (() => {
-              const fmtDollars = (cents: number) => `$${(cents / 100).toFixed(0)}`;
-              const fmtDollarsDecimal = (cents: number) => `$${(cents / 100).toFixed(2)}`;
-
-              const USAGE_DIMENSIONS: { label: string; icon: string; baseField: string; bumpField: string; unit: string; baseFallback: number; bumpFallback: number }[] = [
-                { label: 'Inventory Lots', icon: 'Package', baseField: 'baseInventoryLots', bumpField: 'bumpInventoryLots', unit: 'lots', baseFallback: 5000, bumpFallback: 2500 },
-                { label: 'Orders / Month', icon: 'ShoppingCart', baseField: 'baseOrdersPerMonth', bumpField: 'bumpOrdersPerMonth', unit: 'orders', baseFallback: 100, bumpFallback: 50 },
-                { label: 'Connected Stores', icon: 'Store', baseField: 'baseConnectedStores', bumpField: 'bumpConnectedStores', unit: 'stores', baseFallback: 2, bumpFallback: 1 },
-                { label: 'E.L.F.I.E. AI Calls / Month', icon: 'Brain', baseField: 'baseAiCalls', bumpField: 'bumpAiCalls', unit: 'calls', baseFallback: 200, bumpFallback: 100 },
-                { label: 'BrickSpotter Scans / Month', icon: 'Scan', baseField: 'baseScans', bumpField: 'bumpScans', unit: 'scans', baseFallback: 50, bumpFallback: 25 },
-              ];
-
-              const INCLUDED_FEATURES = [
-                'Price-o-Matic Repricing',
-                'BrickLink + BrickOwl Sync',
-                'Payment Sync (Stripe)',
-                'E.L.F.I.E. AI Assistant',
-                'BrickSpotter Visual Search',
-                'Image & Semantic Enrichment',
-                'Shipping Label Automation',
-                'Unlimited Team Seats',
-              ];
-
-              const inputCls = "w-full bg-gray-900/60 border border-gray-700 rounded px-2 py-1 text-gray-200 outline-none focus:border-gray-500 text-xs tabular-nums";
-
-              const basePrice = pmVal('basePrice', 3900);
-              const overageBump = pmVal('overageBump', 500);
-              const monthlyCap = pmVal('monthlyCap', 9900);
-              const trialDays = pmVal('trialDays', 14);
-              const maxBumps = monthlyCap > basePrice && overageBump > 0
-                ? Math.floor((monthlyCap - basePrice) / overageBump) : 0;
-
-              return (
-                <div className="p-3 space-y-3" data-testid="pricing-model-panel">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-1.5">
-                      <Tag className="h-3.5 w-3.5 text-yellow-500/70" />
-                      <p className="text-[10px] font-semibold text-gray-100 uppercase tracking-widest">Pay As You Grow</p>
-                    </div>
-                    {pmDirty && (
-                      <button
-                        onClick={() => savePricingModelMutation.mutate(pmDraft)}
-                        disabled={savePricingModelMutation.isPending}
-                        data-testid="button-save-pricing-model"
-                        className="flex items-center gap-1 px-2 py-1 bg-yellow-600/20 border border-yellow-500/30 rounded text-[9px] font-medium text-yellow-400 transition-colors disabled:opacity-50 hover-elevate active-elevate-2"
-                      >
-                        {savePricingModelMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                        Save Changes
-                      </button>
-                    )}
-                  </div>
-
-                  {pricingModelLoading ? (
-                    <div className="flex items-center justify-center h-20">
-                      <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-                    </div>
-                  ) : (
-                    <>
-                      <div className="sm-card">
-                        <div className="sm-card-header">
-                          <DollarSign className="h-3.5 w-3.5 text-green-400/80" />
-                          <span className="text-xs font-semibold text-gray-200">Base Plan</span>
-                        </div>
-                        <div className="px-4 py-3 space-y-3">
-                          <p className="text-[10px] text-gray-400 leading-relaxed">
-                            Every subscriber starts at a flat base price with generous included usage. When they exceed a threshold, an automatic +{fmtDollars(overageBump)}/mo bump is applied per dimension until the monthly cap is reached.
-                          </p>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="block app-label mb-1">Base Price ($/mo)</label>
-                              <input
-                                type="number" min={0} step={1}
-                                value={(basePrice / 100).toFixed(0)}
-                                onChange={e => pmSet('basePrice', Math.round(parseFloat(e.target.value || '0') * 100))}
-                                data-testid="input-pm-basePrice"
-                                className={inputCls}
-                              />
-                            </div>
-                            <div>
-                              <label className="block app-label mb-1">Overage Bump ($/mo)</label>
-                              <input
-                                type="number" min={0} step={1}
-                                value={(overageBump / 100).toFixed(0)}
-                                onChange={e => pmSet('overageBump', Math.round(parseFloat(e.target.value || '0') * 100))}
-                                data-testid="input-pm-overageBump"
-                                className={inputCls}
-                              />
-                            </div>
-                            <div>
-                              <label className="block app-label mb-1">Monthly Cap ($/mo)</label>
-                              <input
-                                type="number" min={0} step={1}
-                                value={(monthlyCap / 100).toFixed(0)}
-                                onChange={e => pmSet('monthlyCap', Math.round(parseFloat(e.target.value || '0') * 100))}
-                                data-testid="input-pm-monthlyCap"
-                                className={inputCls}
-                              />
-                            </div>
-                            <div>
-                              <label className="block app-label mb-1">Free Trial (days)</label>
-                              <input
-                                type="number" min={0}
-                                value={trialDays}
-                                onChange={e => pmSet('trialDays', parseInt(e.target.value, 10) || 0)}
-                                data-testid="input-pm-trialDays"
-                                className={inputCls}
-                              />
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 pt-1">
-                            <div className="flex-1 h-1.5 rounded-full bg-gray-700/50 overflow-hidden">
-                              <div className="h-full rounded-full bg-gradient-to-r from-green-500/70 to-yellow-500/70" style={{ width: `${Math.min(100, (basePrice / (monthlyCap || 1)) * 100)}%` }} />
-                            </div>
-                            <span className="text-[9px] text-gray-500 whitespace-nowrap">
-                              {fmtDollars(basePrice)} base  /  up to {maxBumps} bumps  /  {fmtDollars(monthlyCap)} cap
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="sm-card">
-                        <div className="sm-card-header">
-                          <BarChart3 className="h-3.5 w-3.5 text-blue-400/80" />
-                          <span className="text-xs font-semibold text-gray-200">Usage Dimensions</span>
-                        </div>
-                        <div className="px-4 py-3 space-y-2">
-                          <p className="text-[10px] text-gray-400 leading-relaxed mb-2">
-                            Each dimension has a base allowance included in the {fmtDollars(basePrice)}/mo plan. Exceeding any dimension triggers a +{fmtDollars(overageBump)}/mo bump for that dimension.
-                          </p>
-                          <div className="rounded-md border border-gray-700 bg-gray-800/40 overflow-hidden">
-                            <table className="w-full border-collapse text-[10px]">
-                              <thead>
-                                <tr className="border-b border-gray-700/60 bg-gray-900/40">
-                                  <th className="text-left px-3 py-1.5 text-gray-500 font-medium">Dimension</th>
-                                  <th className="text-center px-2 py-1.5 text-gray-500 font-medium">Base Included</th>
-                                  <th className="text-center px-2 py-1.5 text-gray-500 font-medium">Per Bump (+{fmtDollars(overageBump)})</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {USAGE_DIMENSIONS.map(dim => (
-                                  <tr key={dim.baseField} className="border-b border-gray-700/30">
-                                    <td className="px-3 py-1.5 text-gray-300 font-medium">{dim.label}</td>
-                                    <td className="px-2 py-1.5 text-center">
-                                      <input
-                                        type="number" min={0}
-                                        value={pmVal(dim.baseField, dim.baseFallback)}
-                                        onChange={e => pmSet(dim.baseField, parseInt(e.target.value, 10) || 0)}
-                                        data-testid={`input-pm-${dim.baseField}`}
-                                        className="w-20 bg-gray-900/60 border border-gray-700 rounded px-1.5 py-0.5 text-gray-200 outline-none focus:border-gray-500 text-center text-[10px] tabular-nums"
-                                      />
-                                      <span className="text-[8px] text-gray-600 ml-1">{dim.unit}</span>
-                                    </td>
-                                    <td className="px-2 py-1.5 text-center">
-                                      <span className="text-gray-500 mr-1">+</span>
-                                      <input
-                                        type="number" min={0}
-                                        value={pmVal(dim.bumpField, dim.bumpFallback)}
-                                        onChange={e => pmSet(dim.bumpField, parseInt(e.target.value, 10) || 0)}
-                                        data-testid={`input-pm-${dim.bumpField}`}
-                                        className="w-20 bg-gray-900/60 border border-gray-700 rounded px-1.5 py-0.5 text-gray-200 outline-none focus:border-gray-500 text-center text-[10px] tabular-nums"
-                                      />
-                                      <span className="text-[8px] text-gray-600 ml-1">{dim.unit}</span>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="sm-card">
-                        <div className="sm-card-header">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-violet-400/80" />
-                          <span className="text-xs font-semibold text-gray-200">Included in Every Plan</span>
-                        </div>
-                        <div className="px-4 py-3">
-                          <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                            {INCLUDED_FEATURES.map(feat => (
-                              <div key={feat} className="flex items-center gap-1.5 py-0.5">
-                                <CheckCircle2 className="h-2.5 w-2.5 text-green-500/70 shrink-0" />
-                                <span className="text-[10px] text-gray-300">{feat}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="sm-card">
-                        <div className="sm-card-header">
-                          <BarChart3 className="h-3.5 w-3.5 text-amber-400/80" />
-                          <span className="text-xs font-semibold text-gray-200">Pricing Preview</span>
-                        </div>
-                        <div className="px-4 py-3">
-                          <p className="text-[10px] text-gray-400 mb-2">How the monthly bill scales with usage:</p>
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <div className="w-16 text-right text-[10px] text-gray-500 tabular-nums">{fmtDollars(basePrice)}/mo</div>
-                              <div className="flex-1 h-3 rounded-full bg-gray-700/40 overflow-hidden">
-                                <div className="h-full rounded-full bg-green-500/60" style={{ width: `${(basePrice / (monthlyCap || 1)) * 100}%` }} />
-                              </div>
-                              <span className="text-[9px] text-gray-500 w-20">Base plan</span>
-                            </div>
-                            {[1, 2, 3, Math.max(4, maxBumps)].filter((v, i, a) => v <= maxBumps && a.indexOf(v) === i).map(bumps => {
-                              const total = Math.min(basePrice + bumps * overageBump, monthlyCap);
-                              return (
-                                <div key={bumps} className="flex items-center gap-2">
-                                  <div className="w-16 text-right text-[10px] text-gray-400 tabular-nums">{fmtDollars(total)}/mo</div>
-                                  <div className="flex-1 h-3 rounded-full bg-gray-700/40 overflow-hidden">
-                                    <div className="h-full rounded-full bg-gradient-to-r from-green-500/60 to-yellow-500/60" style={{ width: `${(total / (monthlyCap || 1)) * 100}%` }} />
-                                  </div>
-                                  <span className="text-[9px] text-gray-500 w-20">+{bumps} bump{bumps > 1 ? 's' : ''}</span>
-                                </div>
-                              );
-                            })}
-                            <div className="flex items-center gap-2">
-                              <div className="w-16 text-right text-[10px] text-amber-400 font-semibold tabular-nums">{fmtDollars(monthlyCap)}/mo</div>
-                              <div className="flex-1 h-3 rounded-full bg-gray-700/40 overflow-hidden">
-                                <div className="h-full rounded-full bg-gradient-to-r from-green-500/60 via-yellow-500/60 to-amber-500/60" style={{ width: '100%' }} />
-                              </div>
-                              <span className="text-[9px] text-amber-400 w-20 font-medium">Cap reached</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <PricingLiveUsageCard />
-                    </>
-                  )}
-                </div>
-              );
-            })()}
+            {activeSection === 'plansAndPricing' && <PlansAndPricingPanel />}
 
             {/* Platform General */}
             {activeSection === 'platformGeneral' && (
