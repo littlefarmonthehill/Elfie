@@ -1,7 +1,8 @@
 import { db } from "../db";
-import { organizations, users } from "@shared/schema";
+import { organizations, users, picklistItems } from "@shared/schema";
 import { eq, sql, count } from "drizzle-orm";
 import { checkLimit, type TierFeatures } from "@shared/tierConfig";
+import { getPlanConfigByKey, dbPlanToLimits, dbPlanToFeatures } from "./planConfigService";
 
 export async function getOrgWithLimits(orgId: string) {
   const [org] = await db
@@ -12,13 +13,18 @@ export async function getOrgWithLimits(orgId: string) {
 
   if (!org) return null;
 
-  const isCore = org.plan !== 'trial';
+  const planCfg = await getPlanConfigByKey(org.plan);
+  const baseLimits = planCfg ? dbPlanToLimits(planCfg) : {
+    seats: 1, brickspotterScansPerMonth: 0, automationRules: 0,
+    orderHistoryDays: 30, inventoryItems: 100,
+  };
+
   const limits = {
-    seats: org.seatLimitOverride ?? (isCore ? -1 : 1),
-    brickspotterScansPerMonth: org.brickspotterLimitOverride ?? (isCore ? -1 : 10),
-    automationRules: org.automationLimitOverride ?? (isCore ? -1 : 0),
-    orderHistoryDays: isCore ? -1 : 14,
-    inventoryItems: isCore ? -1 : 500,
+    seats: org.seatLimitOverride ?? baseLimits.seats,
+    brickspotterScansPerMonth: org.brickspotterLimitOverride ?? baseLimits.brickspotterScansPerMonth,
+    automationRules: org.automationLimitOverride ?? baseLimits.automationRules,
+    orderHistoryDays: baseLimits.orderHistoryDays,
+    inventoryItems: baseLimits.inventoryItems,
   };
 
   return { ...org, limits };
@@ -78,7 +84,7 @@ export async function checkAutomationLimit(orgId: string) {
   return { ...result, current: currentRules, limit: orgWithLimits.limits.automationRules };
 }
 
-export async function isFeatureAllowed(orgId: string, feature: keyof TierFeatures): Promise<boolean> {
+export async function isFeatureAllowed(orgId: string, feature: keyof TierFeatures) {
   const [org] = await db
     .select({ plan: organizations.plan })
     .from(organizations)
@@ -86,20 +92,10 @@ export async function isFeatureAllowed(orgId: string, feature: keyof TierFeature
     .limit(1);
 
   if (!org) return false;
-  if (org.plan === 'trial') {
-    const trialFeatures: Record<keyof TierFeatures, boolean> = {
-      brickOwl: false,
-      elfieAiMode: true,
-      elfieCustom: false,
-      elfieLiveSupport: false,
-      priceOMatic: false,
-      easypostAutomation: false,
-      dataEnrichmentImages: true,
-      dataEnrichmentSemantic: false,
-      fullDataEnrichment: false,
-      paymentSync: false,
-    };
-    return trialFeatures[feature] ?? false;
-  }
-  return true;
+
+  const planCfg = await getPlanConfigByKey(org.plan);
+  if (!planCfg) return false;
+
+  const features = dbPlanToFeatures(planCfg);
+  return features[feature] === true;
 }

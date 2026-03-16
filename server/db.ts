@@ -73,11 +73,13 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMP`);
     await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS bl_api_call_limit_override INTEGER`);
 
-    // Seed the default E.L.F.I.E. org.
+    // Seed the default E.L.F.I.E. org. Use UPDATE on conflict so any legacy
+    // plan value ('pro', 'free', 'foundation') gets corrected to 'flagship'.
     await client.query(`
       INSERT INTO organizations (id, name, slug, plan)
-      VALUES ('org_planetbrick', 'E.L.F.I.E.', 'planetbrick', 'core')
-      ON CONFLICT (id) DO NOTHING
+      VALUES ('org_planetbrick', 'E.L.F.I.E.', 'planetbrick', 'flagship')
+      ON CONFLICT (id) DO UPDATE SET
+        plan = CASE WHEN organizations.plan IN ('pro', 'free', 'foundation') THEN 'flagship' ELSE organizations.plan END
     `);
 
     console.log('[Migration] Phase-1 (organizations) complete.');
@@ -934,68 +936,6 @@ export async function runMigrations() {
         AND attempted_at >= '2026-03-16'::date
     `);
     console.log(`[Migration] Phase-44 (reset no_image rows from bad Rebrickable URL format) complete — ${p44.rowCount ?? 0} rows reset to pending.`);
-
-    // Phase-45: Repair sync records poisoned by the old restart-cleanup logic.
-    // Older server versions set lastSyncStatus='error' AND lastSyncTime=epoch (1970-01-01)
-    // for any sync that was in_progress during a server restart.  This caused the dashboard
-    // to show alarming "Inventory sync failed — 55 years ago" banners after every deploy.
-    // Reset those rows to 'interrupted' (neutral pause) and clear the epoch timestamp so
-    // the last real sync time is preserved on the next successful run.
-    const p45 = await client.query(`
-      UPDATE sync_metadata
-      SET last_sync_status = 'interrupted',
-          error_message    = 'Sync paused for server restart — will resume automatically.',
-          last_sync_time   = NULL
-      WHERE last_sync_status = 'error'
-        AND (last_sync_time IS NULL OR last_sync_time <= '1970-01-02'::date)
-    `);
-    console.log(`[Migration] Phase-45 (repair epoch-poisoned sync records) complete — ${p45.rowCount ?? 0} rows repaired.`);
-
-    // Phase-46: Remove flagship special treatment — migrate org_planetbrick to core/active
-    // and sunset the flagship plan_config so it no longer appears in plan selectors.
-    await pool.query(`
-      UPDATE organizations
-      SET plan = 'core',
-          subscription_status = 'active'
-      WHERE id = 'org_planetbrick'
-        AND (plan = 'flagship' OR subscription_status = 'trial')
-    `);
-    await pool.query(`
-      UPDATE plan_configs
-      SET is_sunset = true
-      WHERE plan_key = 'flagship'
-        AND is_sunset = false
-    `);
-    console.log('[Migration] Phase-46 (remove flagship, migrate org_planetbrick to core/active) complete.');
-
-    // Phase-47: Add name column to pricing_model (sales-based plan name)
-    await pool.query(`
-      ALTER TABLE pricing_model ADD COLUMN IF NOT EXISTS name VARCHAR(100) NOT NULL DEFAULT 'Core'
-    `);
-    await pool.query(`UPDATE pricing_model SET name = 'Core' WHERE id = 1 AND name = 'Core'`);
-    console.log('[Migration] Phase-47 (pricing_model name column) complete.');
-
-    // Phase-48: Move all orgs off legacy package plans — everyone is now on Core
-    const p48 = await pool.query(`
-      UPDATE organizations
-      SET plan = 'core'
-      WHERE plan NOT IN ('trial', 'core')
-    `);
-    console.log(`[Migration] Phase-48 (migrate all orgs to core plan) complete — ${p48.rowCount ?? 0} orgs updated.`);
-
-    // Phase-49: Remove all plan_configs rows — packages are gone
-    const p49 = await pool.query(`TRUNCATE TABLE plan_configs`);
-    console.log(`[Migration] Phase-49 (truncate plan_configs table) complete.`);
-
-    // Phase-50: Reset password for bhnorby@gmail.com to known temp value
-    // (production account has a different password than keychain; temp = Elfie2026!)
-    await pool.query(`
-      UPDATE users
-      SET password = $1
-      WHERE email = 'bhnorby@gmail.com'
-        AND password != $1
-    `, ['$2b$10$0UAw7CQZhZVbH09uKIoF0uzM6aHn8kuRmPJrS9yW.H9F9fd67tG9W']);
-    console.log('[Migration] Phase-50 (reset bhnorby password to temp) complete.');
 
     console.log('[Migration] All startup migrations finished successfully.');
 

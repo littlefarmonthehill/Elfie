@@ -2,7 +2,7 @@ import { db } from "../db";
 import { planConfigs, organizations } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { TIER_CONFIG, type PlanType } from "@shared/tierConfig";
-import type { PlanConfig, InsertPlanConfig } from "@shared/schema";
+import type { PlanConfig } from "@shared/schema";
 
 // ── In-memory cache ────────────────────────────────────────────────────────────
 let cache: PlanConfig[] | null = null;
@@ -23,6 +23,7 @@ export async function seedPlanConfigsIfEmpty() {
     { planKey: 'trial', sortOrder: 0, config: TIER_CONFIG.trial },
     { planKey: 'foundation', sortOrder: 1, config: TIER_CONFIG.foundation },
     { planKey: 'core', sortOrder: 2, config: TIER_CONFIG.core },
+    { planKey: 'flagship', sortOrder: 3, config: TIER_CONFIG.flagship },
   ];
 
   for (const { planKey, sortOrder, config } of seeds) {
@@ -57,7 +58,7 @@ export async function seedPlanConfigsIfEmpty() {
     }).onConflictDoNothing();
   }
 
-  console.log("[planConfigService] Seeded 3 plan configs from static tierConfig");
+  console.log("[planConfigService] Seeded 4 plan configs from static tierConfig");
 }
 
 // ── Read all plan configs (cached) ────────────────────────────────────────────
@@ -116,23 +117,6 @@ export async function updatePlanConfig(planKey: string, fields: PlanUpdateFields
 
   invalidatePlanCache();
   return { success: true, plan: updated };
-}
-
-// ── Create a new plan config ───────────────────────────────────────────────────
-export async function createPlanConfig(
-  fields: Omit<InsertPlanConfig, 'updatedAt'>
-): Promise<{ success: boolean; error?: string; plan?: PlanConfig }> {
-  const existing = await db
-    .select({ id: planConfigs.id })
-    .from(planConfigs)
-    .where(eq(planConfigs.planKey, fields.planKey))
-    .limit(1);
-  if (existing.length > 0) {
-    return { success: false, error: `A plan with key "${fields.planKey}" already exists.` };
-  }
-  const [created] = await db.insert(planConfigs).values(fields).returning();
-  invalidatePlanCache();
-  return { success: true, plan: created };
 }
 
 // ── Toggle sunset flag (always allowed, even with orgs on it) ─────────────────

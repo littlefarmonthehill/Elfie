@@ -60,8 +60,8 @@ export const organizations = pgTable("organizations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),
   slug: varchar("slug").unique().notNull(),          // URL-safe lowercase identifier
-  plan: varchar("plan").notNull().default("trial"),   // 'trial' | 'foundation' | 'core'
-  trialEndsAt: timestamp("trial_ends_at"),               // null = no trial expiry (paid plan)
+  plan: varchar("plan").notNull().default("trial"),   // 'trial' | 'foundation' | 'core' | 'flagship'
+  trialEndsAt: timestamp("trial_ends_at"),               // null = no trial expiry (paid or flagship)
   isActive: boolean("is_active").notNull().default(true),
   address: text("address"),
   phone: varchar("phone", { length: 50 }),
@@ -1587,7 +1587,7 @@ export type OrgIntegration = typeof orgIntegrations.$inferSelect;
 // Super admins can edit unlocked plans, sunset any plan, and see org counts.
 export const planConfigs = pgTable("plan_configs", {
   id: serial("id").primaryKey(),
-  planKey: varchar("plan_key", { length: 50 }).notNull().unique(), // 'trial' | 'foundation' | 'core'
+  planKey: varchar("plan_key", { length: 50 }).notNull().unique(), // 'trial' | 'foundation' | 'core' | 'flagship'
   name: varchar("name", { length: 100 }).notNull(),
   tagline: text("tagline"),
   trialDurationDays: integer("trial_duration_days").notNull().default(0),
@@ -1617,7 +1617,7 @@ export const planConfigs = pgTable("plan_configs", {
   featurePaymentSync: boolean("feature_payment_sync").notNull().default(false),
   // Status
   isSunset: boolean("is_sunset").notNull().default(false),
-  sortOrder: integer("sort_order").notNull().default(0), // 0=trial, 1=foundation, 2=core
+  sortOrder: integer("sort_order").notNull().default(0), // 0=trial, 1=foundation, 2=core, 3=flagship
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
@@ -1627,10 +1627,7 @@ export type PlanConfig = typeof planConfigs.$inferSelect;
 
 export const pricingModel = pgTable("pricing_model", {
   id: serial("id").primaryKey(),
-  name: varchar("name", { length: 100 }).notNull().default("Core"),
   basePrice: integer("base_price").notNull().default(3900),
-  salesPercentage: real("sales_percentage").notNull().default(1.9),
-  salesIncludedInBase: integer("sales_included_in_base").notNull().default(100000),
   overageBump: integer("overage_bump").notNull().default(500),
   monthlyCap: integer("monthly_cap").notNull().default(9900),
   trialDays: integer("trial_days").notNull().default(14),

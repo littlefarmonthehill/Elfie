@@ -677,7 +677,6 @@ function SyncStatusLine({ entry }: { entry: SyncStatusEntry }) {
   const isOk = entry.lastSyncStatus === 'success';
   const isErr = entry.lastSyncStatus === 'failed' || entry.lastSyncStatus === 'error';
   const isRunning = entry.lastSyncStatus === 'in_progress';
-  const isInterrupted = entry.lastSyncStatus === 'interrupted';
   const timeStr = formatRelativeTime(entry.lastSyncTime);
   const counts = (entry.recordsAdded || entry.recordsUpdated)
     ? `${entry.recordsAdded} added · ${entry.recordsUpdated} updated`
@@ -688,9 +687,9 @@ function SyncStatusLine({ entry }: { entry: SyncStatusEntry }) {
         {isRunning && <Loader2 className="w-3 h-3 text-blue-400 animate-spin shrink-0" />}
         {isOk && <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />}
         {isErr && <AlertTriangle className="w-3 h-3 text-red-400 shrink-0" />}
-        {(isInterrupted || (!isRunning && !isOk && !isErr)) && <Clock className="w-3 h-3 text-gray-500 shrink-0" />}
-        <span className={`text-[10px] font-medium ${isOk ? 'text-green-500' : isErr ? 'text-red-400' : isRunning ? 'text-blue-400' : isInterrupted ? 'text-gray-400' : 'text-gray-500'}`}>
-          {isRunning ? 'Running…' : isOk ? 'Success' : isErr ? 'Failed' : isInterrupted ? 'Paused' : entry.lastSyncStatus}
+        {!isRunning && !isOk && !isErr && <Clock className="w-3 h-3 text-gray-500 shrink-0" />}
+        <span className={`text-[10px] font-medium ${isOk ? 'text-green-500' : isErr ? 'text-red-400' : isRunning ? 'text-blue-400' : 'text-gray-500'}`}>
+          {isRunning ? 'Running…' : isOk ? 'Success' : isErr ? 'Failed' : entry.lastSyncStatus}
         </span>
         <span className="text-[10px] text-gray-500">{timeStr}</span>
         {counts && <span className="text-[10px] text-gray-600">· {counts}</span>}
@@ -1526,17 +1525,34 @@ function SupportQueuePanel() {
 
 function PricingLiveUsageCard() {
   const { data: allOrgsUsage, isLoading } = useQuery<{
-    orgs: Array<{ orgId: string; orgName: string; grossSalesCents: number; netSalesCents: number; salesFeeCents: number; projectedMonthly: number }>;
-    pricing: { basePrice: number; salesPercentage: number; salesIncludedInBase: number };
+    orgs: Array<{
+      orgId: string;
+      orgName: string;
+      inventoryLots: number;
+      ordersPerMonth: number;
+      connectedStores: number;
+      aiCalls: number;
+      scans: number;
+      totalBumps: number;
+      projectedMonthly: number;
+    }>;
+    pricing: { basePrice: number; overageBump: number; monthlyCap: number };
   }>({ queryKey: ['/api/platform-admin/all-orgs-usage'] });
 
   const [selectedOrg, setSelectedOrg] = useState<string>('');
 
   const { data: orgDetail } = useQuery<{
-    orgId: string; orgName: string;
-    sales: { grossSalesCents: number; adjustmentsCents: number; netSalesCents: number; includedInBaseCents: number; salesOverBaseCents: number; salesPercentage: number; salesFeeCents: number };
-    pricing: { basePrice: number; salesPercentage: number; salesIncludedInBase: number };
-    estimatedTotal: number;
+    orgId: string;
+    orgName: string;
+    dimensions: {
+      inventoryLots: { current: number; base: number; bump: number };
+      ordersPerMonth: { current: number; base: number; bump: number };
+      connectedStores: { current: number; base: number; bump: number };
+      aiCalls: { current: number; base: number; bump: number; byOperation?: Record<string, { requests: number; cost: number }> };
+      scans: { current: number; base: number; bump: number };
+    };
+    pricing: { basePrice: number; overageBump: number; monthlyCap: number };
+    aiCostTotal: number;
   }>({
     queryKey: ['/api/platform-admin/org-usage', selectedOrg],
     enabled: !!selectedOrg,
@@ -1545,13 +1561,14 @@ function PricingLiveUsageCard() {
   if (isLoading) return <div className="sm-card"><div className="px-4 py-3 flex items-center justify-center"><Loader2 className="w-4 h-4 animate-spin text-gray-500" /></div></div>;
   if (!allOrgsUsage) return null;
 
-  const fmtD = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const fmtD = (cents: number) => `$${(cents / 100).toFixed(0)}`;
+  const bumpCalc = (c: number, b: number, s: number) => c <= b ? 0 : Math.ceil((c - b) / s);
 
   return (
     <div className="sm-card" data-testid="pricing-live-usage-card">
       <div className="sm-card-header">
         <Eye className="h-3.5 w-3.5 text-cyan-400/80" />
-        <span className="text-xs font-semibold text-gray-200">Live Org Sales Snapshot</span>
+        <span className="text-xs font-semibold text-gray-200">Live Org Usage vs Thresholds</span>
       </div>
       <div className="px-4 py-3 space-y-3">
         <div className="flex items-center gap-2">
@@ -1576,20 +1593,42 @@ function PricingLiveUsageCard() {
         {orgDetail && (
           <div className="space-y-2">
             {[
-              { label: 'Gross Sales', value: fmtD(orgDetail.sales.grossSalesCents) },
-              { label: 'Adjustments', value: fmtD(orgDetail.sales.adjustmentsCents) },
-              { label: 'Net Sales', value: fmtD(orgDetail.sales.netSalesCents), bold: true },
-              { label: `Included (${fmtD(orgDetail.sales.includedInBaseCents)})`, value: orgDetail.sales.salesOverBaseCents > 0 ? `${fmtD(orgDetail.sales.salesOverBaseCents)} over` : 'Under threshold' },
-              { label: `Sales Fee (${orgDetail.sales.salesPercentage}%)`, value: fmtD(orgDetail.sales.salesFeeCents), amber: orgDetail.sales.salesFeeCents > 0 },
-            ].map((row) => (
-              <div key={row.label} className="flex items-center justify-between text-[10px]">
-                <span className="text-gray-400">{row.label}</span>
-                <span className={`tabular-nums font-mono ${row.bold ? 'text-gray-100 font-semibold' : row.amber ? 'text-amber-400' : 'text-gray-300'}`}>{row.value}</span>
+              { label: 'Inventory Lots', ...orgDetail.dimensions.inventoryLots },
+              { label: 'Orders/mo', ...orgDetail.dimensions.ordersPerMonth },
+              { label: 'Connected Stores', ...orgDetail.dimensions.connectedStores },
+              { label: 'AI Calls', ...orgDetail.dimensions.aiCalls },
+              { label: 'Scans', ...orgDetail.dimensions.scans },
+            ].map((d) => {
+              const pct = d.base > 0 ? Math.min(100, (d.current / d.base) * 100) : 0;
+              const bumps = bumpCalc(d.current, d.base, d.bump);
+              const isOver = pct >= 100;
+              const barColor = isOver ? 'bg-red-500/70' : pct >= 80 ? 'bg-amber-400/70' : 'bg-green-500/60';
+              return (
+                <div key={d.label} className="space-y-0.5">
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="text-gray-400">{d.label}</span>
+                    <span className="text-gray-300 tabular-nums">{d.current.toLocaleString()} / {d.base.toLocaleString()}{bumps > 0 ? ` (+${bumps})` : ''}</span>
+                  </div>
+                  <div className="h-1 rounded-full bg-gray-700/50 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+            {orgDetail.dimensions.aiCalls.byOperation && Object.keys(orgDetail.dimensions.aiCalls.byOperation).length > 0 && (
+              <div className="pt-1 border-t border-gray-700/30">
+                <div className="text-[9px] text-gray-500 mb-0.5">AI by Operation</div>
+                {Object.entries(orgDetail.dimensions.aiCalls.byOperation).map(([op, data]) => (
+                  <div key={op} className="flex items-center justify-between text-[9px] py-0.5">
+                    <span className="text-gray-400">{op}</span>
+                    <span className="text-gray-300 tabular-nums">{data.requests} calls</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
             <div className="pt-1 border-t border-gray-700/30 flex items-center justify-between">
-              <span className="text-[10px] text-gray-400">Estimated Total</span>
-              <span className="text-xs font-bold text-white tabular-nums font-mono">{fmtD(orgDetail.estimatedTotal)}/mo</span>
+              <span className="text-[10px] text-gray-400">Projected</span>
+              <span className="text-xs font-bold text-white tabular-nums">{fmtD(allOrgsUsage.orgs.find(o => o.orgId === selectedOrg)?.projectedMonthly ?? allOrgsUsage.pricing.basePrice)}/mo</span>
             </div>
           </div>
         )}
@@ -1600,19 +1639,34 @@ function PricingLiveUsageCard() {
 
 function BillingOverviewPanel() {
   const { data: allOrgsUsage, isLoading } = useQuery<{
-    orgs: Array<{ orgId: string; orgName: string; grossSalesCents: number; netSalesCents: number; salesFeeCents: number; projectedMonthly: number }>;
-    pricing: { basePrice: number; salesPercentage: number; salesIncludedInBase: number };
+    orgs: Array<{
+      orgId: string;
+      orgName: string;
+      inventoryLots: number;
+      ordersPerMonth: number;
+      connectedStores: number;
+      aiCalls: number;
+      scans: number;
+      totalBumps: number;
+      projectedMonthly: number;
+    }>;
+    pricing: { basePrice: number; overageBump: number; monthlyCap: number };
   }>({ queryKey: ['/api/platform-admin/all-orgs-usage'] });
 
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
 
   const { data: orgDetail, isLoading: detailLoading } = useQuery<{
-    orgId: string; orgName: string; plan: string;
-    sales: { grossSalesCents: number; adjustmentsCents: number; netSalesCents: number; includedInBaseCents: number; salesOverBaseCents: number; salesPercentage: number; salesFeeCents: number };
-    pricing: { basePrice: number; salesPercentage: number; salesIncludedInBase: number };
-    estimatedTotal: number;
-    usage?: { inventoryLots: number; ordersThisMonth: number; aiCallsMtd: number; scansMtd: number };
-    planLimits?: { limitInventoryItems: number; limitOrders: number; limitElfieQueries: number; limitScans: number };
+    orgId: string;
+    orgName: string;
+    dimensions: {
+      inventoryLots: { current: number; base: number; bump: number };
+      ordersPerMonth: { current: number; base: number; bump: number };
+      connectedStores: { current: number; base: number; bump: number };
+      aiCalls: { current: number; base: number; bump: number; byOperation?: Record<string, { requests: number; cost: number }> };
+      scans: { current: number; base: number; bump: number };
+    };
+    pricing: { basePrice: number; overageBump: number; monthlyCap: number };
+    aiCostTotal: number;
   }>({
     queryKey: ['/api/platform-admin/org-usage', selectedOrgId],
     enabled: !!selectedOrgId,
@@ -1623,8 +1677,9 @@ function BillingOverviewPanel() {
 
   const { orgs, pricing } = allOrgsUsage;
   const totalMRR = orgs.reduce((sum, o) => sum + o.projectedMonthly, 0);
-  const totalNetSales = orgs.reduce((sum, o) => sum + o.netSalesCents, 0);
-  const fmtD = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const fmtD = (cents: number) => `$${(cents / 100).toFixed(0)}`;
+  const bumpCalc = (current: number, base: number, bump: number) =>
+    current <= base ? 0 : Math.ceil((current - base) / bump);
 
   return (
     <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden">
@@ -1644,18 +1699,8 @@ function BillingOverviewPanel() {
               <div className="text-[10px] text-gray-500">Active Orgs</div>
             </div>
             <div className="text-center">
-              <div className="text-lg font-bold text-white tabular-nums">{fmtD(totalNetSales)}</div>
-              <div className="text-[10px] text-gray-500">Total Net Sales</div>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-700/30">
-            <div className="text-center">
-              <div className="text-base font-bold text-white tabular-nums">{fmtD(pricing.basePrice)}</div>
+              <div className="text-lg font-bold text-white tabular-nums">{fmtD(pricing.basePrice)}</div>
               <div className="text-[10px] text-gray-500">Base Price</div>
-            </div>
-            <div className="text-center">
-              <div className="text-base font-bold text-white tabular-nums">{pricing.salesPercentage}%</div>
-              <div className="text-[10px] text-gray-500">Sales Fee Rate</div>
             </div>
           </div>
         </div>
@@ -1664,7 +1709,7 @@ function BillingOverviewPanel() {
       <div className="sm-card">
         <div className="sm-card-header">
           <BarChart3 className="h-3.5 w-3.5 text-blue-400/80" />
-          <span className="text-xs font-semibold text-gray-200">Per-Organization Sales</span>
+          <span className="text-xs font-semibold text-gray-200">Per-Organization Usage</span>
         </div>
         <div className="px-4 py-3 space-y-2">
           <div className="rounded-md border border-gray-700 bg-gray-800/40 overflow-hidden">
@@ -1672,8 +1717,10 @@ function BillingOverviewPanel() {
               <thead>
                 <tr className="border-b border-gray-700/60 bg-gray-900/40">
                   <th className="text-left px-3 py-1.5 text-gray-500 font-medium">Organization</th>
-                  <th className="text-right px-2 py-1.5 text-gray-500 font-medium">Net Sales</th>
-                  <th className="text-right px-2 py-1.5 text-gray-500 font-medium">Sales Fee</th>
+                  <th className="text-center px-2 py-1.5 text-gray-500 font-medium">Lots</th>
+                  <th className="text-center px-2 py-1.5 text-gray-500 font-medium">AI</th>
+                  <th className="text-center px-2 py-1.5 text-gray-500 font-medium">Scans</th>
+                  <th className="text-center px-2 py-1.5 text-gray-500 font-medium">Bumps</th>
                   <th className="text-right px-3 py-1.5 text-gray-500 font-medium">Est.</th>
                 </tr>
               </thead>
@@ -1686,15 +1733,17 @@ function BillingOverviewPanel() {
                     data-testid={`billing-org-row-${o.orgId}`}
                   >
                     <td className="px-3 py-1.5 text-gray-300 font-medium truncate max-w-[120px]">{o.orgName}</td>
-                    <td className="px-2 py-1.5 text-right text-gray-400 tabular-nums font-mono">{fmtD(o.netSalesCents)}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums font-mono">
-                      {o.salesFeeCents > 0 ? (
-                        <span className="text-amber-400">+{fmtD(o.salesFeeCents)}</span>
+                    <td className="px-2 py-1.5 text-center text-gray-400 tabular-nums">{o.inventoryLots.toLocaleString()}</td>
+                    <td className="px-2 py-1.5 text-center text-gray-400 tabular-nums">{o.aiCalls.toLocaleString()}</td>
+                    <td className="px-2 py-1.5 text-center text-gray-400 tabular-nums">{o.scans}</td>
+                    <td className="px-2 py-1.5 text-center">
+                      {o.totalBumps > 0 ? (
+                        <span className="text-amber-400 font-medium">+{o.totalBumps}</span>
                       ) : (
-                        <span className="text-gray-600">—</span>
+                        <span className="text-gray-600">0</span>
                       )}
                     </td>
-                    <td className="px-3 py-1.5 text-right text-gray-200 font-medium tabular-nums font-mono">{fmtD(o.projectedMonthly)}</td>
+                    <td className="px-3 py-1.5 text-right text-gray-200 font-medium tabular-nums">{fmtD(o.projectedMonthly)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1711,75 +1760,49 @@ function BillingOverviewPanel() {
         <div className="sm-card">
           <div className="sm-card-header">
             <Building2 className="h-3.5 w-3.5 text-violet-400/80" />
-            <span className="text-xs font-semibold text-gray-200">{orgDetail.orgName} — Detail</span>
-            {orgDetail.plan && (
-              <span className="ml-auto text-[9px] text-gray-500 uppercase tracking-wider">{orgDetail.plan}</span>
-            )}
+            <span className="text-xs font-semibold text-gray-200">{orgDetail.orgName} — Usage Detail</span>
           </div>
-          <div className="px-4 py-3 space-y-3">
-            <div className="space-y-2">
-              {[
-                { label: 'Gross Sales', value: fmtD(orgDetail.sales.grossSalesCents) },
-                { label: 'Adjustments / Refunds', value: fmtD(orgDetail.sales.adjustmentsCents) },
-                { label: 'Net Sales', value: fmtD(orgDetail.sales.netSalesCents), bold: true },
-                { label: `Included in Base (${fmtD(orgDetail.sales.includedInBaseCents)})`, value: orgDetail.sales.salesOverBaseCents > 0 ? `${fmtD(orgDetail.sales.salesOverBaseCents)} over` : 'Under threshold' },
-                { label: `Sales Fee (${orgDetail.sales.salesPercentage}%)`, value: fmtD(orgDetail.sales.salesFeeCents), amber: orgDetail.sales.salesFeeCents > 0 },
-              ].map((row) => (
-                <div key={row.label} className="flex items-center justify-between text-[10px]">
-                  <span className="text-gray-400">{row.label}</span>
-                  <span className={`tabular-nums font-mono ${row.bold ? 'text-gray-100 font-semibold' : (row as any).amber ? 'text-amber-400' : 'text-gray-300'}`}>{row.value}</span>
+          <div className="px-4 py-3 space-y-2">
+            {[
+              { label: 'Inventory Lots', ...orgDetail.dimensions.inventoryLots },
+              { label: 'Orders/mo', ...orgDetail.dimensions.ordersPerMonth },
+              { label: 'Connected Stores', ...orgDetail.dimensions.connectedStores },
+              { label: 'AI Calls', ...orgDetail.dimensions.aiCalls },
+              { label: 'Scans', ...orgDetail.dimensions.scans },
+            ].map((d) => {
+              const pct = d.base > 0 ? Math.min(100, (d.current / d.base) * 100) : 0;
+              const bumps = bumpCalc(d.current, d.base, d.bump);
+              const isOver = pct >= 100;
+              const isWarn = pct >= 80 && !isOver;
+              const barColor = isOver ? 'bg-red-500/70' : isWarn ? 'bg-amber-400/70' : 'bg-green-500/60';
+              return (
+                <div key={d.label} className="space-y-1">
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="text-gray-400">{d.label}</span>
+                    <span className="text-gray-300 tabular-nums">{d.current.toLocaleString()} / {d.base.toLocaleString()}{bumps > 0 ? ` (+${bumps} bump${bumps > 1 ? 's' : ''})` : ''}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-gray-700/50 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+                  </div>
                 </div>
-              ))}
-              <div className="pt-2 border-t border-gray-700/30 flex items-center justify-between">
-                <span className="text-[10px] text-gray-400">Estimated Monthly</span>
-                <span className="text-xs font-bold text-white tabular-nums font-mono">{fmtD(orgDetail.estimatedTotal)}/mo</span>
-              </div>
-            </div>
-
-            {orgDetail.usage && orgDetail.planLimits && (
-              <div className="pt-3 border-t border-gray-700/30 space-y-2.5">
-                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Usage This Month</p>
-                <UsageDimBar icon={Package} label="Inventory lots" value={orgDetail.usage.inventoryLots} limit={orgDetail.planLimits.limitInventoryItems} colorClass="bg-violet-400/50" />
-                <UsageDimBar icon={ShoppingCart} label="Orders" value={orgDetail.usage.ordersThisMonth} limit={orgDetail.planLimits.limitOrders} colorClass="bg-blue-400/50" />
-                <UsageDimBar icon={Brain} label="AI calls" value={orgDetail.usage.aiCallsMtd} limit={orgDetail.planLimits.limitElfieQueries} colorClass="bg-cyan-400/50" />
-                <UsageDimBar icon={Crosshair} label="BrickSpotter scans" value={orgDetail.usage.scansMtd} limit={orgDetail.planLimits.limitScans} colorClass="bg-indigo-400/50" />
+              );
+            })}
+            {orgDetail.dimensions.aiCalls.byOperation && Object.keys(orgDetail.dimensions.aiCalls.byOperation).length > 0 && (
+              <div className="mt-2 pt-2 border-t border-gray-700/30">
+                <div className="text-[10px] text-gray-500 mb-1">AI Usage Breakdown</div>
+                {Object.entries(orgDetail.dimensions.aiCalls.byOperation).map(([op, data]) => (
+                  <div key={op} className="flex items-center justify-between text-[10px] py-0.5">
+                    <span className="text-gray-400">{op}</span>
+                    <span className="text-gray-300 tabular-nums">{data.requests} calls · ${data.cost.toFixed(4)}</span>
+                  </div>
+                ))}
               </div>
             )}
+            <div className="pt-2 border-t border-gray-700/30 flex items-center justify-between">
+              <span className="text-[10px] text-gray-400">Projected Monthly</span>
+              <span className="text-xs font-bold text-white tabular-nums">{fmtD(Math.min(orgDetail.pricing.basePrice + (orgs.find(o => o.orgId === selectedOrgId)?.totalBumps ?? 0) * orgDetail.pricing.overageBump, orgDetail.pricing.monthlyCap))}</span>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function UsageDimBar({ icon: Icon, label, value, limit, colorClass }: {
-  icon: React.ElementType; label: string; value: number; limit: number; colorClass?: string;
-}) {
-  const unlimited = limit <= 0;
-  const pct = unlimited ? 0 : Math.min(100, (value / limit) * 100);
-  const warn = !unlimited && pct >= 80;
-  const bar = warn ? 'bg-amber-400/60' : (colorClass ?? 'bg-blue-400/50');
-  return (
-    <div>
-      <div className="flex items-center justify-between gap-1 mb-1">
-        <span className="flex items-center gap-1.5 text-[10px] text-gray-500">
-          <Icon className="w-3 h-3 shrink-0" />
-          {label}
-        </span>
-        <span className={`text-[10px] tabular-nums font-mono ${warn ? 'text-amber-400 font-medium' : 'text-gray-400'}`}>
-          {value.toLocaleString()}{!unlimited && <span className="text-gray-600"> / {limit.toLocaleString()}</span>}
-          {unlimited && <span className="text-gray-600"> (unlimited)</span>}
-        </span>
-      </div>
-      {!unlimited && (
-        <div className="h-1.5 rounded-full bg-gray-700/50 overflow-hidden">
-          <div className={`h-full rounded-full transition-all duration-500 ${bar}`} style={{ width: `${pct}%` }} />
-        </div>
-      )}
-      {!unlimited && warn && (
-        <div className="flex items-center gap-1 mt-0.5">
-          <AlertTriangle className="w-2.5 h-2.5 text-amber-400/70 shrink-0" />
-          <span className="text-[9px] text-amber-400/70">Approaching limit</span>
         </div>
       )}
     </div>
@@ -1790,13 +1813,15 @@ function MyPlanUsagePanel() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const { data: usage, isLoading } = useQuery<{
-    plan?: string;
-    period: { start: string; end: string };
-    sales: { grossSalesCents: number; adjustmentsCents: number; netSalesCents: number; includedInBaseCents: number; salesOverBaseCents: number; salesPercentage: number; salesFeeCents: number };
-    pricing: { basePrice: number; salesPercentage: number; salesIncludedInBase: number };
-    estimatedTotal: number;
-    usage?: { inventoryLots: number; ordersThisMonth: number; aiCallsMtd: number; scansMtd: number };
-    planLimits?: { limitInventoryItems: number; limitOrders: number; limitElfieQueries: number; limitScans: number };
+    dimensions: {
+      inventoryLots: { current: number; base: number; bump: number };
+      ordersPerMonth: { current: number; base: number; bump: number };
+      connectedStores: { current: number; base: number; bump: number };
+      aiCalls: { current: number; base: number; bump: number; byOperation?: Record<string, { requests: number; cost: number }> };
+      scans: { current: number; base: number; bump: number };
+    };
+    pricing: { basePrice: number; overageBump: number; monthlyCap: number };
+    aiCostTotal: number;
   }>({ queryKey: ['/api/org/usage'] });
 
   type MonthSummary = { label: string; periodStart: string; periodEnd: string; estimatedCost: number };
@@ -1805,74 +1830,109 @@ function MyPlanUsagePanel() {
   if (isLoading) return <div className="flex items-center justify-center py-8"><Loader2 className="w-4 h-4 animate-spin text-gray-500" /></div>;
   if (!usage) return <div className="text-center py-4 text-xs text-gray-500">Unable to load usage data.</div>;
 
-  const { basePrice, salesPercentage, salesIncludedInBase } = usage.pricing;
-  const sales = usage.sales;
-  const hasOverBase = sales.salesOverBaseCents > 0;
-  const salesPct = Math.min(100, salesIncludedInBase > 0 ? (sales.netSalesCents / salesIncludedInBase) * 100 : 0);
-  const approaching = !hasOverBase && salesPct >= 80;
-  const fmtD = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const dims = [
+    { key: 'inventory', label: 'Inventory Lots', icon: Package, ...usage.dimensions.inventoryLots },
+    { key: 'orders', label: 'Orders This Month', icon: ShoppingCart, ...usage.dimensions.ordersPerMonth },
+    { key: 'stores', label: 'Connected Stores', icon: Globe, ...usage.dimensions.connectedStores },
+    { key: 'ai', label: 'AI Tools', icon: Sparkles, ...usage.dimensions.aiCalls },
+    { key: 'scans', label: 'BrickSpotter Scans', icon: Eye, ...usage.dimensions.scans },
+  ];
+
+  const bumpCalc = (current: number, base: number, bump: number) =>
+    current <= base ? 0 : Math.ceil((current - base) / bump);
+
+  let totalBumps = 0;
+  for (const d of dims) totalBumps += bumpCalc(d.current, d.base, d.bump);
+
+  const { basePrice, overageBump, monthlyCap } = usage.pricing;
+  const estimated = Math.min(basePrice + totalBumps * overageBump, monthlyCap);
+  const fmtD = (cents: number) => `$${(cents / 100).toFixed(0)}`;
 
   return (
     <div className="space-y-4">
-      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Sales-Based Billing</h3>
+      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Pay As You Grow</h3>
 
-      <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-4 space-y-3" data-testid="section-my-plan-usage">
+      <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-4 space-y-1">
         <div className="flex items-center justify-between">
           <span className="text-xs text-gray-400">Estimated Monthly</span>
-          <span className={`text-lg font-bold tabular-nums font-mono ${hasOverBase ? 'text-amber-400' : 'text-white'}`}>
-            {fmtD(usage.estimatedTotal)}<span className="text-xs text-gray-500 font-normal">/mo</span>
-          </span>
+          <span className="text-lg font-bold text-white tabular-nums">{fmtD(estimated)}<span className="text-xs text-gray-500 font-normal">/mo</span></span>
         </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-[10px]">
-            <span className="text-gray-500">Net sales this month</span>
-            <span className="text-gray-300 font-mono tabular-nums">{fmtD(sales.netSalesCents)} / {fmtD(salesIncludedInBase)} included</span>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-2 rounded-full bg-gray-700/50 overflow-hidden">
+            <div className="h-full rounded-full bg-gradient-to-r from-green-500/70 to-amber-400/70 transition-all" style={{ width: `${Math.min(100, (estimated / monthlyCap) * 100)}%` }} />
           </div>
-          <div className="h-2 rounded-full bg-gray-700/50 overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all ${hasOverBase ? 'bg-amber-400/70' : approaching ? 'bg-amber-400/50' : 'bg-green-500/60'}`}
-              style={{ width: `${salesPct}%` }}
-            />
-          </div>
-          {approaching && (
-            <div className="flex items-center gap-1 text-[10px] text-amber-400/70">
-              <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
-              Approaching included sales threshold
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-1.5 pt-1 border-t border-gray-800">
-          <div className="flex items-center justify-between text-[10px]">
-            <span className="text-gray-500">Base platform fee</span>
-            <span className="text-gray-300 font-mono">{fmtD(basePrice)}</span>
-          </div>
-          {hasOverBase && (
-            <>
-              <div className="flex items-center justify-between text-[10px]">
-                <span className="text-gray-500">Sales over threshold</span>
-                <span className="text-gray-300 font-mono">{fmtD(sales.salesOverBaseCents)}</span>
-              </div>
-              <div className="flex items-center justify-between text-[10px]">
-                <span className="text-amber-400/80">× {salesPercentage}% sales fee</span>
-                <span className="text-amber-400 font-mono">+{fmtD(sales.salesFeeCents)}</span>
-              </div>
-            </>
-          )}
+          <span className="text-[9px] text-gray-500 tabular-nums whitespace-nowrap">{fmtD(basePrice)} base + {totalBumps} bump{totalBumps !== 1 ? 's' : ''} / {fmtD(monthlyCap)} cap</span>
         </div>
       </div>
 
-      {usage.usage && usage.planLimits && (
-        <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-4 space-y-3" data-testid="section-usage-limits">
-          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Plan Usage</h4>
-          <UsageDimBar icon={Package} label="Inventory lots" value={usage.usage.inventoryLots} limit={usage.planLimits.limitInventoryItems} colorClass="bg-violet-400/60" />
-          <UsageDimBar icon={ShoppingCart} label="Orders this month" value={usage.usage.ordersThisMonth} limit={usage.planLimits.limitOrders} colorClass="bg-blue-400/60" />
-          <UsageDimBar icon={Brain} label="AI calls this month" value={usage.usage.aiCallsMtd} limit={usage.planLimits.limitElfieQueries} colorClass="bg-cyan-400/60" />
-          <UsageDimBar icon={Crosshair} label="BrickSpotter scans (mo)" value={usage.usage.scansMtd} limit={usage.planLimits.limitScans} colorClass="bg-indigo-400/60" />
-        </div>
-      )}
+      <div className="grid gap-3" data-testid="section-my-plan-usage">
+        {dims.map((d) => {
+          const pct = d.base > 0 ? Math.min(100, (d.current / d.base) * 100) : 0;
+          const bumps = bumpCalc(d.current, d.base, d.bump);
+          const isOver = pct >= 100;
+          const isWarn = pct >= 80 && !isOver;
+          const barColor = isOver ? 'bg-red-500/70' : isWarn ? 'bg-amber-400/70' : 'bg-green-500/60';
+          const DimIcon = d.icon;
 
+          // Per-tool breakdown for AI Tools dimension
+          const AI_TOOL_NAMES: Record<string, string> = {
+            'elfie-agent': 'E.L.F.I.E.',
+            'business-insight': 'Business Insights',
+            'brickspotter-scan': 'BrickSpotter',
+            'feedback-refine': 'Pricing Feedback',
+          };
+          const TOOL_ORDER = ['elfie-agent', 'business-insight', 'feedback-refine', 'brickspotter-scan'];
+          const byOp = d.key === 'ai' ? (d as any).byOperation as Record<string, { requests: number; cost: number }> | undefined : undefined;
+          const toolEntries = byOp
+            ? [
+                ...TOOL_ORDER.filter(k => byOp[k]).map(k => [k, byOp[k]] as [string, { requests: number; cost: number }]),
+                ...Object.entries(byOp).filter(([k]) => !TOOL_ORDER.includes(k) && k !== 'embedding' && k !== 'embedding-onboarding'),
+              ]
+            : [];
+
+          return (
+            <div key={d.key} className="bg-gray-900/40 border border-gray-800 rounded-lg p-3 space-y-2" data-testid={`usage-dim-${d.key}`}>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-400 flex items-center gap-1.5">
+                  <DimIcon className="w-3.5 h-3.5" />
+                  {d.label}
+                </span>
+                <span className="font-mono text-gray-300">
+                  {d.current.toLocaleString()} / {d.base.toLocaleString()} {d.key === 'ai' ? 'calls' : ''}
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-gray-700/50 overflow-hidden">
+                <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-gray-500">
+                  {isOver ? (
+                    <span className="text-amber-400">+{bumps} bump{bumps > 1 ? 's' : ''} ({fmtD(bumps * overageBump)}/mo)</span>
+                  ) : isWarn ? (
+                    <span className="text-amber-400">Approaching limit ({Math.round(pct)}%)</span>
+                  ) : (
+                    <span>{Math.round(pct)}% of base included</span>
+                  )}
+                </span>
+                <span className="text-[10px] text-gray-600">+{d.bump.toLocaleString()} per bump</span>
+              </div>
+              {/* Per-tool breakdown for AI Tools */}
+              {toolEntries.length > 0 && (
+                <div className="pt-1.5 border-t border-gray-800 space-y-1">
+                  {toolEntries.map(([op, data]) => (
+                    <div key={op} className="flex items-center justify-between text-[10px]">
+                      <span className="text-gray-600">{AI_TOOL_NAMES[op] ?? op}</span>
+                      <span className="text-gray-500 tabular-nums">{data.requests.toLocaleString()} calls</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Billing history + drawer */}
       <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-3 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs text-gray-400">
@@ -1918,7 +1978,7 @@ function MyPlanUsagePanel() {
             data-testid="button-how-billing-works"
           >
             <Info className="w-3 h-3" />
-            How sales-based billing works
+            How Pay As You Grow billing works
           </button>
         </div>
       </div>
@@ -2744,10 +2804,12 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
   type PricingModelData = {
     id: number;
-    basePrice: number;
-    salesPercentage: number;
-    salesIncludedInBase: number;
-    trialDays: number;
+    basePrice: number; overageBump: number; monthlyCap: number; trialDays: number;
+    baseInventoryLots: number; bumpInventoryLots: number;
+    baseOrdersPerMonth: number; bumpOrdersPerMonth: number;
+    baseConnectedStores: number; bumpConnectedStores: number;
+    baseAiCalls: number; bumpAiCalls: number;
+    baseScans: number; bumpScans: number;
     updatedAt: string;
   };
   const { data: pricingModelData, isLoading: pricingModelLoading } = useQuery<PricingModelData>({
@@ -2769,7 +2831,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     },
     onError: (err: any) => toast({ title: err?.message || 'Failed to save pricing model', variant: 'destructive' }),
   });
-
 
   const clearPomCacheMutation = useMutation({
     mutationFn: async () => {
@@ -6101,7 +6162,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
             {activeSection === 'orgs' && (() => {
               const PLAN_COLORS: Record<string, string> = {
                 trial: 'bg-gray-600/50 text-gray-300 border-gray-600',
+                foundation: 'bg-blue-900/60 text-blue-300 border-blue-700/50',
                 core: 'bg-amber-900/50 text-amber-300 border-amber-700/50',
+                flagship: 'bg-yellow-900/50 text-yellow-300 border-yellow-700/50',
               };
 
               if (activeOrg) {
@@ -6140,8 +6203,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="trial">Free Trial</SelectItem>
+                            <SelectItem value="foundation">Foundation</SelectItem>
                             <SelectItem value="core">Core</SelectItem>
-
+                            <SelectItem value="flagship">Flagship</SelectItem>
                           </SelectContent>
                         </Select>
                         <div className="flex items-center gap-2 text-xs text-gray-400">
@@ -6633,7 +6697,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       const statusIcon = (s: string | null) => {
                         if (s === 'in_progress') return <Loader2 className="h-3 w-3 text-yellow-400 animate-spin shrink-0" />;
                         if (s === 'failed' || s === 'error') return <AlertTriangle className="h-3 w-3 text-red-400 shrink-0" />;
-                        if (s === 'interrupted') return <Clock className="h-3 w-3 text-gray-400 shrink-0" />;
                         if (s === 'partial') return <AlertTriangle className="h-3 w-3 text-orange-400 shrink-0" />;
                         if (s === 'success') return <CheckCircle2 className="h-3 w-3 text-green-500/70 shrink-0" />;
                         return <Clock className="h-3 w-3 text-gray-600 shrink-0" />;
@@ -6655,8 +6718,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                   {s.lastSyncStatus === 'success' && (s.recordsAdded || s.recordsUpdated) ? (
                                     <span className="text-[10px] text-gray-500 font-mono shrink-0">+{s.recordsAdded ?? 0} / ~{s.recordsUpdated ?? 0}</span>
                                   ) : null}
-                                  <span className={`text-[10px] shrink-0 font-mono ${s.lastSyncStatus === 'failed' || s.lastSyncStatus === 'error' ? 'text-red-400/80' : s.lastSyncStatus === 'interrupted' ? 'text-gray-400' : s.lastSyncStatus === 'in_progress' ? 'text-yellow-400' : 'text-gray-500'}`}>
-                                    {s.lastSyncStatus === 'in_progress' ? 'Running' : s.lastSyncStatus === 'interrupted' ? 'Paused' : s.errorMessage ? (s.errorMessage.length > 30 ? s.errorMessage.slice(0, 30) + '…' : s.errorMessage) : fmtTime(s.lastSyncTime)}
+                                  <span className={`text-[10px] shrink-0 font-mono ${s.lastSyncStatus === 'failed' || s.lastSyncStatus === 'error' ? 'text-red-400/80' : s.lastSyncStatus === 'in_progress' ? 'text-yellow-400' : 'text-gray-500'}`}>
+                                    {s.lastSyncStatus === 'in_progress' ? 'Running' : s.errorMessage ? (s.errorMessage.length > 30 ? s.errorMessage.slice(0, 30) + '…' : s.errorMessage) : fmtTime(s.lastSyncTime)}
                                   </span>
                                 </div>
                               ))}
@@ -6843,7 +6906,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   const statusDot = (j: OverviewJob) => {
                     if (j.isRunning) return <Loader2 className="h-3 w-3 text-yellow-400 animate-spin shrink-0" />;
                     if (j.status === 'failed' || j.status === 'error') return <AlertTriangle className="h-3 w-3 text-red-400 shrink-0" />;
-                    if (j.status === 'interrupted') return <Clock className="h-3 w-3 text-gray-400 shrink-0" />;
                     if (j.status === 'partial') return <AlertTriangle className="h-3 w-3 text-orange-400 shrink-0" />;
                     if (!j.enabled) return <Pause className="h-3 w-3 text-gray-600 shrink-0" />;
                     if (j.status === 'success') return <CheckCircle2 className="h-3 w-3 text-green-500/70 shrink-0" />;
@@ -6853,7 +6915,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   const statusText = (j: OverviewJob) => {
                     if (j.isRunning && j.progress && j.progress.total > 0) return `${j.progress.pct}%`;
                     if (j.isRunning) return 'Running';
-                    if (j.status === 'interrupted') return 'Paused';
                     if (j.error) return j.error.length > 40 ? j.error.slice(0, 40) + '…' : j.error;
                     if (!j.enabled) return 'Paused';
                     if (j.status === 'success' || j.status === 'partial' || j.status === 'failed' || j.status === 'error') return fmtTime(j.lastTime);
@@ -7562,7 +7623,16 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
             {/* Plans & Pricing */}
             {activeSection === 'plansAndPricing' && (() => {
-              const fmtDollars = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+              const fmtDollars = (cents: number) => `$${(cents / 100).toFixed(0)}`;
+              const fmtDollarsDecimal = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
+              const USAGE_DIMENSIONS: { label: string; icon: string; baseField: string; bumpField: string; unit: string; baseFallback: number; bumpFallback: number }[] = [
+                { label: 'Inventory Lots', icon: 'Package', baseField: 'baseInventoryLots', bumpField: 'bumpInventoryLots', unit: 'lots', baseFallback: 5000, bumpFallback: 2500 },
+                { label: 'Orders / Month', icon: 'ShoppingCart', baseField: 'baseOrdersPerMonth', bumpField: 'bumpOrdersPerMonth', unit: 'orders', baseFallback: 100, bumpFallback: 50 },
+                { label: 'Connected Stores', icon: 'Store', baseField: 'baseConnectedStores', bumpField: 'bumpConnectedStores', unit: 'stores', baseFallback: 2, bumpFallback: 1 },
+                { label: 'E.L.F.I.E. AI Calls / Month', icon: 'Brain', baseField: 'baseAiCalls', bumpField: 'bumpAiCalls', unit: 'calls', baseFallback: 200, bumpFallback: 100 },
+                { label: 'BrickSpotter Scans / Month', icon: 'Scan', baseField: 'baseScans', bumpField: 'bumpScans', unit: 'scans', baseFallback: 50, bumpFallback: 25 },
+              ];
 
               const INCLUDED_FEATURES = [
                 'Price-o-Matic Repricing',
@@ -7578,22 +7648,18 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
               const inputCls = "w-full bg-gray-900/60 border border-gray-700 rounded px-2 py-1 text-gray-200 outline-none focus:border-gray-500 text-xs tabular-nums";
 
               const basePrice = pmVal('basePrice', 3900);
-              const salesPercentage = pmVal('salesPercentage', 1.9);
-              const salesIncludedInBase = pmVal('salesIncludedInBase', 100000);
+              const overageBump = pmVal('overageBump', 500);
+              const monthlyCap = pmVal('monthlyCap', 9900);
               const trialDays = pmVal('trialDays', 14);
-
-              // Preview: bill at various net sales levels
-              const previewSalesLevels = [0, salesIncludedInBase * 0.5, salesIncludedInBase, salesIncludedInBase * 1.5, salesIncludedInBase * 2];
-              const calcBill = (netSales: number) =>
-                basePrice + Math.max(0, Math.round((netSales - salesIncludedInBase) * salesPercentage / 100));
+              const maxBumps = monthlyCap > basePrice && overageBump > 0
+                ? Math.floor((monthlyCap - basePrice) / overageBump) : 0;
 
               return (
                 <div className="p-3 space-y-3" data-testid="pricing-model-panel">
-
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-1.5">
                       <Tag className="h-3.5 w-3.5 text-yellow-500/70" />
-                      <p className="text-[10px] font-semibold text-gray-100 uppercase tracking-widest">Core Plan — Sales-Based Billing</p>
+                      <p className="text-[10px] font-semibold text-gray-100 uppercase tracking-widest">Pay As You Grow</p>
                     </div>
                     {pmDirty && (
                       <button
@@ -7617,50 +7683,40 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       <div className="sm-card">
                         <div className="sm-card-header">
                           <DollarSign className="h-3.5 w-3.5 text-green-400/80" />
-                          <span className="text-xs font-semibold text-gray-200">Billing Model</span>
+                          <span className="text-xs font-semibold text-gray-200">Base Plan</span>
                         </div>
                         <div className="px-4 py-3 space-y-3">
                           <p className="text-[10px] text-gray-400 leading-relaxed">
-                            Subscribers pay a flat base fee each month. A percentage fee applies only on net sales above the included threshold — aligning our revenue with theirs.
+                            Every subscriber starts at a flat base price with generous included usage. When they exceed a threshold, an automatic +{fmtDollars(overageBump)}/mo bump is applied per dimension until the monthly cap is reached.
                           </p>
-                          <div className="mb-3">
-                            <label className="block app-label mb-1">Plan Name</label>
-                            <input
-                              type="text"
-                              value={pmVal('name', 'Core')}
-                              onChange={e => pmSet('name', e.target.value)}
-                              data-testid="input-pm-name"
-                              className={inputCls}
-                            />
-                          </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div>
                               <label className="block app-label mb-1">Base Price ($/mo)</label>
                               <input
                                 type="number" min={0} step={1}
-                                value={(basePrice / 100).toFixed(2)}
+                                value={(basePrice / 100).toFixed(0)}
                                 onChange={e => pmSet('basePrice', Math.round(parseFloat(e.target.value || '0') * 100))}
                                 data-testid="input-pm-basePrice"
                                 className={inputCls}
                               />
                             </div>
                             <div>
-                              <label className="block app-label mb-1">Sales Fee (%)</label>
+                              <label className="block app-label mb-1">Overage Bump ($/mo)</label>
                               <input
-                                type="number" min={0} max={100} step={0.1}
-                                value={salesPercentage.toFixed(2)}
-                                onChange={e => pmSet('salesPercentage', parseFloat(e.target.value || '0'))}
-                                data-testid="input-pm-salesPercentage"
+                                type="number" min={0} step={1}
+                                value={(overageBump / 100).toFixed(0)}
+                                onChange={e => pmSet('overageBump', Math.round(parseFloat(e.target.value || '0') * 100))}
+                                data-testid="input-pm-overageBump"
                                 className={inputCls}
                               />
                             </div>
                             <div>
-                              <label className="block app-label mb-1">Included Sales ($/mo)</label>
+                              <label className="block app-label mb-1">Monthly Cap ($/mo)</label>
                               <input
-                                type="number" min={0} step={100}
-                                value={(salesIncludedInBase / 100).toFixed(0)}
-                                onChange={e => pmSet('salesIncludedInBase', Math.round(parseFloat(e.target.value || '0') * 100))}
-                                data-testid="input-pm-salesIncludedInBase"
+                                type="number" min={0} step={1}
+                                value={(monthlyCap / 100).toFixed(0)}
+                                onChange={e => pmSet('monthlyCap', Math.round(parseFloat(e.target.value || '0') * 100))}
+                                data-testid="input-pm-monthlyCap"
                                 className={inputCls}
                               />
                             </div>
@@ -7676,40 +7732,64 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             </div>
                           </div>
 
-                          <div className="bg-gray-900/60 rounded-md px-3 py-2 text-[10px] text-gray-400 border border-gray-700/40">
-                            <span className="font-mono text-gray-300">bill = {fmtDollars(basePrice)} + max(0, net_sales − {fmtDollars(salesIncludedInBase)}) × {salesPercentage.toFixed(2)}%</span>
+                          <div className="flex items-center gap-2 pt-1">
+                            <div className="flex-1 h-1.5 rounded-full bg-gray-700/50 overflow-hidden">
+                              <div className="h-full rounded-full bg-gradient-to-r from-green-500/70 to-yellow-500/70" style={{ width: `${Math.min(100, (basePrice / (monthlyCap || 1)) * 100)}%` }} />
+                            </div>
+                            <span className="text-[9px] text-gray-500 whitespace-nowrap">
+                              {fmtDollars(basePrice)} base  /  up to {maxBumps} bumps  /  {fmtDollars(monthlyCap)} cap
+                            </span>
                           </div>
                         </div>
                       </div>
 
                       <div className="sm-card">
                         <div className="sm-card-header">
-                          <BarChart3 className="h-3.5 w-3.5 text-amber-400/80" />
-                          <span className="text-xs font-semibold text-gray-200">Pricing Preview</span>
+                          <BarChart3 className="h-3.5 w-3.5 text-blue-400/80" />
+                          <span className="text-xs font-semibold text-gray-200">Usage Dimensions</span>
                         </div>
-                        <div className="px-4 py-3">
-                          <p className="text-[10px] text-gray-400 mb-3">How the monthly bill scales with net sales:</p>
-                          <div className="space-y-1.5">
-                            {previewSalesLevels.map((netSales) => {
-                              const bill = calcBill(netSales);
-                              const maxBill = calcBill(salesIncludedInBase * 2);
-                              const pct = maxBill > 0 ? Math.min(100, (bill / maxBill) * 100) : 100;
-                              const isOver = netSales > salesIncludedInBase;
-                              return (
-                                <div key={netSales} className="flex items-center gap-2">
-                                  <div className="w-20 text-right text-[10px] text-gray-500 tabular-nums">{fmtDollars(netSales)} sales</div>
-                                  <div className="flex-1 h-3 rounded-full bg-gray-700/40 overflow-hidden">
-                                    <div
-                                      className={`h-full rounded-full ${isOver ? 'bg-gradient-to-r from-green-500/60 to-amber-400/60' : 'bg-green-500/60'}`}
-                                      style={{ width: `${pct}%` }}
-                                    />
-                                  </div>
-                                  <span className={`text-[9px] w-16 tabular-nums font-mono ${isOver ? 'text-amber-400' : 'text-gray-400'}`}>
-                                    {fmtDollars(bill)}/mo
-                                  </span>
-                                </div>
-                              );
-                            })}
+                        <div className="px-4 py-3 space-y-2">
+                          <p className="text-[10px] text-gray-400 leading-relaxed mb-2">
+                            Each dimension has a base allowance included in the {fmtDollars(basePrice)}/mo plan. Exceeding any dimension triggers a +{fmtDollars(overageBump)}/mo bump for that dimension.
+                          </p>
+                          <div className="rounded-md border border-gray-700 bg-gray-800/40 overflow-hidden">
+                            <table className="w-full border-collapse text-[10px]">
+                              <thead>
+                                <tr className="border-b border-gray-700/60 bg-gray-900/40">
+                                  <th className="text-left px-3 py-1.5 text-gray-500 font-medium">Dimension</th>
+                                  <th className="text-center px-2 py-1.5 text-gray-500 font-medium">Base Included</th>
+                                  <th className="text-center px-2 py-1.5 text-gray-500 font-medium">Per Bump (+{fmtDollars(overageBump)})</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {USAGE_DIMENSIONS.map(dim => (
+                                  <tr key={dim.baseField} className="border-b border-gray-700/30">
+                                    <td className="px-3 py-1.5 text-gray-300 font-medium">{dim.label}</td>
+                                    <td className="px-2 py-1.5 text-center">
+                                      <input
+                                        type="number" min={0}
+                                        value={pmVal(dim.baseField, dim.baseFallback)}
+                                        onChange={e => pmSet(dim.baseField, parseInt(e.target.value, 10) || 0)}
+                                        data-testid={`input-pm-${dim.baseField}`}
+                                        className="w-20 bg-gray-900/60 border border-gray-700 rounded px-1.5 py-0.5 text-gray-200 outline-none focus:border-gray-500 text-center text-[10px] tabular-nums"
+                                      />
+                                      <span className="text-[8px] text-gray-600 ml-1">{dim.unit}</span>
+                                    </td>
+                                    <td className="px-2 py-1.5 text-center">
+                                      <span className="text-gray-500 mr-1">+</span>
+                                      <input
+                                        type="number" min={0}
+                                        value={pmVal(dim.bumpField, dim.bumpFallback)}
+                                        onChange={e => pmSet(dim.bumpField, parseInt(e.target.value, 10) || 0)}
+                                        data-testid={`input-pm-${dim.bumpField}`}
+                                        className="w-20 bg-gray-900/60 border border-gray-700 rounded px-1.5 py-0.5 text-gray-200 outline-none focus:border-gray-500 text-center text-[10px] tabular-nums"
+                                      />
+                                      <span className="text-[8px] text-gray-600 ml-1">{dim.unit}</span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
                           </div>
                         </div>
                       </div>
@@ -7731,6 +7811,43 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         </div>
                       </div>
 
+                      <div className="sm-card">
+                        <div className="sm-card-header">
+                          <BarChart3 className="h-3.5 w-3.5 text-amber-400/80" />
+                          <span className="text-xs font-semibold text-gray-200">Pricing Preview</span>
+                        </div>
+                        <div className="px-4 py-3">
+                          <p className="text-[10px] text-gray-400 mb-2">How the monthly bill scales with usage:</p>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 text-right text-[10px] text-gray-500 tabular-nums">{fmtDollars(basePrice)}/mo</div>
+                              <div className="flex-1 h-3 rounded-full bg-gray-700/40 overflow-hidden">
+                                <div className="h-full rounded-full bg-green-500/60" style={{ width: `${(basePrice / (monthlyCap || 1)) * 100}%` }} />
+                              </div>
+                              <span className="text-[9px] text-gray-500 w-20">Base plan</span>
+                            </div>
+                            {[1, 2, 3, Math.max(4, maxBumps)].filter((v, i, a) => v <= maxBumps && a.indexOf(v) === i).map(bumps => {
+                              const total = Math.min(basePrice + bumps * overageBump, monthlyCap);
+                              return (
+                                <div key={bumps} className="flex items-center gap-2">
+                                  <div className="w-16 text-right text-[10px] text-gray-400 tabular-nums">{fmtDollars(total)}/mo</div>
+                                  <div className="flex-1 h-3 rounded-full bg-gray-700/40 overflow-hidden">
+                                    <div className="h-full rounded-full bg-gradient-to-r from-green-500/60 to-yellow-500/60" style={{ width: `${(total / (monthlyCap || 1)) * 100}%` }} />
+                                  </div>
+                                  <span className="text-[9px] text-gray-500 w-20">+{bumps} bump{bumps > 1 ? 's' : ''}</span>
+                                </div>
+                              );
+                            })}
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 text-right text-[10px] text-amber-400 font-semibold tabular-nums">{fmtDollars(monthlyCap)}/mo</div>
+                              <div className="flex-1 h-3 rounded-full bg-gray-700/40 overflow-hidden">
+                                <div className="h-full rounded-full bg-gradient-to-r from-green-500/60 via-yellow-500/60 to-amber-500/60" style={{ width: '100%' }} />
+                              </div>
+                              <span className="text-[9px] text-amber-400 w-20 font-medium">Cap reached</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                       <PricingLiveUsageCard />
                     </>
                   )}
@@ -7965,7 +8082,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   const statusInfo = (status: string | null, enabled: boolean) => {
                     if (status === 'in_progress') return { icon: <Loader2 className="h-4 w-4 text-yellow-400 animate-spin" />, label: 'Running', color: 'text-yellow-400' };
                     if (status === 'failed' || status === 'error') return { icon: <AlertTriangle className="h-4 w-4 text-red-400" />, label: 'Failed', color: 'text-red-400' };
-                    if (status === 'interrupted') return { icon: <Clock className="h-4 w-4 text-gray-400" />, label: 'Paused', color: 'text-gray-400' };
                     if (status === 'partial') return { icon: <AlertTriangle className="h-4 w-4 text-orange-400" />, label: 'Partial', color: 'text-orange-400' };
                     if (!enabled) return { icon: <Pause className="h-4 w-4 text-gray-500" />, label: 'Paused', color: 'text-gray-500' };
                     if (status === 'success') return { icon: <CheckCircle2 className="h-4 w-4 text-green-400" />, label: 'Completed', color: 'text-green-400/80' };

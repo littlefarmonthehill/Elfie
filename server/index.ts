@@ -4,7 +4,6 @@ installLogInterceptor();
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { registerRoutes } from "./routes";
-import { setupAuth } from "./auth";
 import { setupVite, serveStatic, log } from "./vite";
 import { startInventorySyncScheduler } from "./services/inventory-sync-scheduler";
 import { startPomSyncScheduler } from "./services/pom-scheduler";
@@ -65,7 +64,7 @@ process.on('SIGTERM', () => {
       const staleIds = ['bricklink_inventory', 'priceomatic_cache', 'catalog_detail_completion', 'catalog_scan', 'channel_sync', 'bricklink_orders', 'brickowl_orders', 'forum_sync', 'rebrickable_set_parts'];
       for (const id of staleIds) {
         await dbInst.update(syncMeta)
-          .set({ lastSyncStatus: 'interrupted', errorMessage: 'Sync paused for server restart — will resume automatically.', updatedAt: new Date() })
+          .set({ lastSyncStatus: 'error', errorMessage: 'Sync interrupted by server shutdown.', lastSyncTime: new Date(0), updatedAt: new Date() })
           .where(drizzleSql`${syncMeta.id} = ${id} AND ${syncMeta.lastSyncStatus} = 'in_progress'`);
       }
       console.log('[SIGTERM] Stale sync records cleared');
@@ -78,7 +77,7 @@ process.on('SIGTERM', () => {
       const { syncMetadata: syncMeta } = await import('@shared/schema');
       const { sql: drizzleSql } = await import('drizzle-orm');
       await dbInst.update(syncMeta)
-        .set({ lastSyncStatus: 'interrupted', errorMessage: 'Sync paused for server restart — will resume automatically.', updatedAt: new Date() })
+        .set({ lastSyncStatus: 'error', errorMessage: 'Sync interrupted by server shutdown.', lastSyncTime: new Date(0), updatedAt: new Date() })
         .where(drizzleSql`${syncMeta.id} = 'priceomatic_cache' AND ${syncMeta.lastSyncStatus} IN ('in_progress', 'interrupted')`);
       console.log('[SIGTERM] Final POM status check complete');
     } catch (_) {}
@@ -128,22 +127,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// ── Step 1: Register health + ready check BEFORE anything else ───────────────
-// /api/health always returns 200; /api/ready reflects real initialization state.
+// ── Step 1: Register health check BEFORE anything else ──────────────────────
+// This is the ONLY route that works before full initialization.
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
-app.get('/api/ready', (_req, res) => {
-  if (_serverReady) return res.json({ ready: true });
-  res.status(503).json({ ready: false });
-});
 
-// ── Step 2: Auth routes registered IMMEDIATELY ───────────────────────────────
-// Session, Passport, /api/check-email, /api/auth/* and /api/change-password
-// are all live before migrations run so users can always log in.
-await setupAuth(app);
-
-// ── Step 3: 503 for other API routes until server is fully initialized ────────
-// Non-API routes (SPA), the health check, and auth routes above are always
-// allowed through because their handlers are already registered above this gate.
+// ── Step 2: 503 for other API routes until server is fully initialized ────────
+// Non-API routes (SPA) and the health check are always allowed through.
 let _serverReady = false;
 app.use((req, res, next) => {
   if (_serverReady) return next();
@@ -215,8 +204,8 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
         ];
         for (const id of staleIds) {
           await dbInstance.update(syncMeta)
-            .set({ lastSyncStatus: 'interrupted', errorMessage: 'Sync paused for server restart — will resume automatically.', updatedAt: new Date() })
-            .where(drizzleSql`${syncMeta.id} = ${id} AND ${syncMeta.lastSyncStatus} = 'in_progress'`);
+            .set({ lastSyncStatus: 'error', errorMessage: 'Sync interrupted by server restart.', lastSyncTime: new Date(0), updatedAt: new Date() })
+            .where(drizzleSql`${syncMeta.id} = ${id} AND (${syncMeta.lastSyncStatus} = 'in_progress' OR ${syncMeta.lastSyncStatus} = 'interrupted')`);
         }
         console.log('[Startup] Cleared any stale in_progress sync records');
 

@@ -169,7 +169,9 @@ function ChangePlanDropdown({ org }: { org: OrgWithUsage }) {
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
+        <SelectItem value="flagship">Flagship</SelectItem>
         <SelectItem value="trial">Free Trial</SelectItem>
+        <SelectItem value="foundation">Foundation</SelectItem>
         <SelectItem value="core">Core</SelectItem>
       </SelectContent>
     </Select>
