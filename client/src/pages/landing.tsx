@@ -542,6 +542,10 @@ function TVLoginScreen({ onBack }: { onBack: () => void }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim() }),
       });
+      if (res.status === 503) {
+        setError("Server is initializing — please wait a moment and try again.");
+        return;
+      }
       if (!res.ok) throw new Error("check failed");
       const data = await res.json();
       if (data.exists === true) {
@@ -561,7 +565,16 @@ function TVLoginScreen({ onBack }: { onBack: () => void }) {
     setIsLoading(true);
     setError(null);
     try {
-      await apiRequest("POST", "/api/login", { email: email.trim(), password });
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      if (res.status === 503) {
+        setError("Server is initializing — please wait a moment and try again.");
+        return;
+      }
+      if (!res.ok) throw new Error("login failed");
       window.location.href = "/";
     } catch {
       setError("Invalid password");
