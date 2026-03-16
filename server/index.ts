@@ -97,8 +97,6 @@ process.on('SIGINT', () => {
   _originalExit(0);
 });
 process.on('exit', (code) => {
-  // This fires on ANY exit (process.exit, natural end of event loop, etc.)
-  // but NOT on SIGKILL. If this fires, the exit is from code, not OS.
   console.log(`[EXIT] Process exiting with code ${code} — exiting from within code`);
 });
 
@@ -133,11 +131,9 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
       if (logLine.length > 80) {
         logLine = logLine.slice(0, 79) + "…";
       }
-
       log(logLine);
     }
   });
@@ -145,9 +141,21 @@ app.use((req, res, next) => {
   next();
 });
 
+// Track whether migrations have completed so routes can gate on it if needed.
+let _migrationsComplete = false;
+
+// Middleware that returns 503 for API calls that arrive before migrations finish.
+// Health check (/api/health) is allowed through immediately so the deployment
+// health check passes as soon as the port opens.
+app.use((req, res, next) => {
+  if (_migrationsComplete) return next();
+  if (req.path === '/api/health') return next();
+  if (!req.path.startsWith('/api')) return next(); // let Vite/static serve the SPA
+  res.status(503).json({ message: 'Server is starting up, please retry in a moment.' });
+});
+
 (async () => {
   try {
-    await runMigrations();
     const server = await registerRoutes(app);
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -159,77 +167,22 @@ app.use((req, res, next) => {
       }
     });
 
-    // importantly only setup vite in development and after
-    // setting up all the other routes so the catch-all route
-    // doesn't interfere with the other routes
+    // Set up Vite (dev) or static file serving (prod) BEFORE listen so the
+    // SPA is available immediately after the port opens.
     if (app.get("env") === "development") {
       await setupVite(app, server);
     } else {
       serveStatic(app);
     }
 
-    // Warm up the database connection before accepting traffic.
-    // Neon serverless suspends compute after idle periods; this first query
-    // wakes it up so user requests don't hit a slow 1-2s reconnect window
-    // that can destabilize the server.
-    try {
-      await pool.query('SELECT 1');
-      console.log('[DB] Connection warmed up successfully');
-    } catch (warmupErr) {
-      console.error('[DB] Warm-up query failed (continuing anyway):', warmupErr);
-    }
-
-    // Clear any stale in_progress sync records left over from a previous run
-    // that was killed mid-sync (deployment, OOM, crash, etc.).
-    try {
-      const { db: dbInstance } = await import('./db');
-      const { syncMetadata: syncMeta } = await import('@shared/schema');
-      const { sql: drizzleSql } = await import('drizzle-orm');
-      const staleIds = ['bricklink_inventory', 'priceomatic_cache', 'catalog_detail_completion', 'catalog_scan', 'channel_sync', 'bricklink_orders', 'brickowl_orders', 'forum_sync', 'rebrickable_set_parts', 'market_news_sync', 'business_intel_sync'];
-      for (const id of staleIds) {
-        await dbInstance.update(syncMeta)
-          .set({
-            lastSyncStatus: 'error',
-            errorMessage: 'Sync interrupted by server restart.',
-            lastSyncTime: new Date(0),
-            updatedAt: new Date(),
-          })
-          .where(
-            drizzleSql`${syncMeta.id} = ${id} AND (${syncMeta.lastSyncStatus} = 'in_progress' OR ${syncMeta.lastSyncStatus} = 'interrupted')`
-          );
-      }
-      console.log('[Startup] Cleared any stale in_progress sync records');
-
-      // Also mark any brickanalyzer scans that were mid-flight as failed —
-      // they were killed by the restart and will never complete.
-      const { brickanalyzerScans } = await import('@shared/schema');
-      const { eq: drizzleEq } = await import('drizzle-orm');
-      await dbInstance.update(brickanalyzerScans)
-        .set({ status: 'failed', errorMessage: 'Scan interrupted by server restart.', completedAt: new Date() })
-        .where(drizzleEq(brickanalyzerScans.status, 'processing'));
-      console.log('[Startup] Cleared any stale processing brickanalyzer scans');
-    } catch (staleErr: any) {
-      console.error('[Startup] Could not clear stale sync records (non-fatal):', staleErr.message);
-    }
-
-    // ALWAYS serve the app on the port specified in the environment variable PORT
-    // Other ports are firewalled. Default to 5000 if not specified.
-    // this serves both the API and the client.
-    // It is the only port that is not firewalled.
+    // ── Open the port FIRST ──────────────────────────────────────────────────
+    // This ensures the deployment health check passes within its timeout window.
+    // Migrations, DB warm-up, and schedulers all run AFTER listen() fires.
     const port = parseInt(process.env.PORT || '5000', 10);
-    server.listen({
-      port,
-      host: "0.0.0.0",
-    }, () => {
+    server.listen({ port, host: "0.0.0.0" }, () => {
       log(`serving on port ${port}`);
 
-      // Self-ping keeps the autoscale container alive by generating an
-      // EXTERNAL HTTP request so the platform counts it as real traffic
-      // and doesn't scale the instance to zero while background
-      // schedulers (POM, catalog detail, etc.) are running.
-      // Localhost pings (127.0.0.1) don't register with the autoscaler —
-      // only requests arriving via the public domain are counted.
-      // Adaptive interval: 15s when any sync is active, 45s when idle.
+      // Self-ping keeps the autoscale container alive.
       const externalDomain = process.env.REPLIT_DOMAINS?.split(',')[0]?.trim();
       const selfPingUrl = externalDomain
         ? `https://${externalDomain}/api/health`
@@ -251,181 +204,200 @@ app.use((req, res, next) => {
         }
       }, 15_000);
 
-      // Warm up the Python segmentation service immediately so it's ready
-      // before the first Brickanalyzer scan request arrives.
-      startSegmentService();
-
-      // Pre-load CLIP ViT-B/32 so the first Brick Spotter scan doesn't
-      // pay the cold-start cost (downloads ~338MB weights once).
-      warmupClip();
-
-      // Start automatic inventory sync scheduler
-      startInventorySyncScheduler();
-
-      // Start standalone Price-o-Matic sync scheduler (independent of inventory sync)
-      startPomSyncScheduler();
-
-      // Start Catalog Detail Completion scheduler (categories, colors, item details)
-      startCatalogDetailScheduler();
-
-      // Start Inventory Catalog Scan scheduler (gap-finder — no API calls)
-      startCatalogScanScheduler();
-
-      // Start Channel Sync scheduler (Local DB → BrickOwl / other channels)
-      startChannelSyncScheduler();
-
-      // Start Order Sync scheduler (BrickLink + BrickOwl orders on a frequency interval)
-      startOrderSyncScheduler().catch(error => {
-        console.error('Failed to start order sync scheduler:', error);
-      });
-      
-      // Start Universal CLIP Catalog auto-refresh scheduler
-      startUniversalCatalogScheduler();
-
-      // Start Rebrickable set-parts sync scheduler (monthly refresh)
-      startRebrickableSetsScheduler().catch((err: any) => {
-        console.error('Failed to start Rebrickable sets scheduler:', err);
-      });
-
-      // Auto-resume Universal Catalog worker after restarts.
-      // Delayed 90s so the CLIP model has time to load before the first embed request.
-      setTimeout(async () => {
+      // ── Run migrations + all post-boot work asynchronously ─────────────────
+      // The port is already open above; this block must never block it.
+      (async () => {
         try {
-          const {
-            startUniversalWorker,
-            getUniversalCatalogState,
-            isUniversalImporting,
-          } = await import('./services/universal-clip-catalog.js');
+          // 1. Run DB migrations (44 phases — can take several seconds)
+          await runMigrations();
+          _migrationsComplete = true;
 
-          if (isUniversalImporting() || getUniversalCatalogState()?.running) return;
-
-          // Reset items that failed recently (within 3h) — these are almost always
-          // transient failures from the CLIP model still warming up on the previous run.
-          await db.execute(drizzleSqlCount`
-            UPDATE universal_catalog_queue
-            SET status = 'pending', attempted_at = NULL, error_msg = NULL
-            WHERE status = 'failed'
-              AND attempted_at IS NOT NULL
-              AND attempted_at > NOW() - INTERVAL '3 hours'
-          `);
-
-          const [row] = await db.execute<{ cnt: string }>(
-            drizzleSqlCount`SELECT COUNT(*)::text AS cnt FROM universal_catalog_queue WHERE status = 'pending'`
-          ).then(r => r.rows ?? []);
-          const pending = Number(row?.cnt ?? 0);
-
-          if (pending > 0) {
-            console.log(`[Universal Catalog] Auto-resuming — ${pending.toLocaleString()} pending parts to embed`);
-            await startUniversalWorker();
-          } else {
-            console.log('[Universal Catalog] Auto-resume check — nothing pending');
+          // 2. Warm up the DB connection (wakes Neon serverless from idle)
+          try {
+            await pool.query('SELECT 1');
+            console.log('[DB] Connection warmed up successfully');
+          } catch (warmupErr) {
+            console.error('[DB] Warm-up query failed (continuing anyway):', warmupErr);
           }
-        } catch (e: any) {
-          console.error('[Universal Catalog] Auto-resume failed (non-fatal):', e.message);
-        }
-      }, 90_000); // 90s: CLIP model warm-up window
 
-      // Start BrickLink forum sync scheduler
-      startForumSyncScheduler().catch(error => {
-        console.error('Failed to start forum sync scheduler:', error);
-      });
+          // 3. Clear stale in_progress sync records left from a previous crash
+          try {
+            const { db: dbInstance } = await import('./db');
+            const { syncMetadata: syncMeta } = await import('@shared/schema');
+            const { sql: drizzleSql } = await import('drizzle-orm');
+            const staleIds = [
+              'bricklink_inventory', 'priceomatic_cache', 'catalog_detail_completion',
+              'catalog_scan', 'channel_sync', 'bricklink_orders', 'brickowl_orders',
+              'forum_sync', 'rebrickable_set_parts', 'market_news_sync', 'business_intel_sync',
+            ];
+            for (const id of staleIds) {
+              await dbInstance.update(syncMeta)
+                .set({
+                  lastSyncStatus: 'error',
+                  errorMessage: 'Sync interrupted by server restart.',
+                  lastSyncTime: new Date(0),
+                  updatedAt: new Date(),
+                })
+                .where(drizzleSql`${syncMeta.id} = ${id} AND (${syncMeta.lastSyncStatus} = 'in_progress' OR ${syncMeta.lastSyncStatus} = 'interrupted')`);
+            }
+            console.log('[Startup] Cleared any stale in_progress sync records');
 
-      // Start market news sync scheduler
-      startMarketNewsSyncScheduler().catch(error => {
-        console.error('Failed to start market news sync scheduler:', error);
-      });
+            const { brickanalyzerScans } = await import('@shared/schema');
+            const { eq: drizzleEq } = await import('drizzle-orm');
+            await dbInstance.update(brickanalyzerScans)
+              .set({ status: 'failed', errorMessage: 'Scan interrupted by server restart.', completedAt: new Date() })
+              .where(drizzleEq(brickanalyzerScans.status, 'processing'));
+            console.log('[Startup] Cleared any stale processing brickanalyzer scans');
+          } catch (staleErr: any) {
+            console.error('[Startup] Could not clear stale sync records (non-fatal):', staleErr.message);
+          }
 
-      // Start business intelligence scheduler
-      startBusinessIntelScheduler().catch(error => {
-        console.error('Failed to start business intel scheduler:', error);
-      });
-      
-      // Start background embedding worker (async — resets any orphaned 'processing' jobs first)
-      startEmbeddingWorker().catch(error => {
-        console.error('Failed to start embedding worker:', error);
-      });
+          // 4. Start background services & schedulers
+          startSegmentService();
+          warmupClip();
+          startInventorySyncScheduler();
+          startPomSyncScheduler();
+          startCatalogDetailScheduler();
+          startCatalogScanScheduler();
+          startChannelSyncScheduler();
+          startOrderSyncScheduler().catch(error => {
+            console.error('Failed to start order sync scheduler:', error);
+          });
+          startUniversalCatalogScheduler();
+          startRebrickableSetsScheduler().catch((err: any) => {
+            console.error('Failed to start Rebrickable sets scheduler:', err);
+          });
+          startForumSyncScheduler().catch(error => {
+            console.error('Failed to start forum sync scheduler:', error);
+          });
+          startMarketNewsSyncScheduler().catch(error => {
+            console.error('Failed to start market news sync scheduler:', error);
+          });
+          startBusinessIntelScheduler().catch(error => {
+            console.error('Failed to start business intel scheduler:', error);
+          });
+          startEmbeddingWorker().catch(error => {
+            console.error('Failed to start embedding worker:', error);
+          });
 
-      // Auto-resume CLIP visual catalog build if it was interrupted by a restart
-      setTimeout(async () => {
-        try {
-          const { buildCatalogEmbeddings, getActiveBuild } = await import('./services/clip-search.js');
-          if (getActiveBuild()?.running) return; // already running
+          // 5. Auto-resume CLIP visual catalog build (15s delay: segment service warm-up)
+          setTimeout(async () => {
+            try {
+              const { buildCatalogEmbeddings, getActiveBuild } = await import('./services/clip-search.js');
+              if (getActiveBuild()?.running) return;
 
-          // Count inventory items vs catalog embeddings to see if build is incomplete
-          const [invCount] = await db.select({ count: drizzleSqlCount`count(*)` }).from(blInventory);
-          const [embCount] = await db.select({ count: drizzleSqlCount`count(*)` }).from(blCatalogClipEmbeddings)
-            .where(drizzleSqlCount`source = 'catalog'`);
+              const [invCount] = await db.select({ count: drizzleSqlCount`count(*)` }).from(blInventory);
+              const [embCount] = await db.select({ count: drizzleSqlCount`count(*)` }).from(blCatalogClipEmbeddings)
+                .where(drizzleSqlCount`source = 'catalog'`);
 
-          const total = Number((invCount as any).count);
-          const done = Number((embCount as any).count);
+              const total = Number((invCount as any).count);
+              const done = Number((embCount as any).count);
 
-          if (total > 0 && done < total) {
-            console.log(`[CLIP Catalog] Auto-resuming build — ${done}/${total} embedded. Queuing remaining ${total - done} items...`);
-            const rows = await db.select({ itemNo: blInventory.itemNo, colorId: blInventory.colorId }).from(blInventory);
-            const items = rows.map(r => ({ itemNo: r.itemNo, colorId: Number(r.colorId), itemType: 'PART' }));
-            buildCatalogEmbeddings(items, (p) => {
-              if (p.done % 100 === 0 || p.done === p.total) {
-                console.log(`[CLIP Catalog] ${p.done}/${p.total} embedded (${p.errors} errors)`);
+              if (total > 0 && done < total) {
+                console.log(`[CLIP Catalog] Auto-resuming build — ${done}/${total} embedded. Queuing remaining ${total - done} items...`);
+                const rows = await db.select({ itemNo: blInventory.itemNo, colorId: blInventory.colorId }).from(blInventory);
+                const items = rows.map(r => ({ itemNo: r.itemNo, colorId: Number(r.colorId), itemType: 'PART' }));
+                buildCatalogEmbeddings(items, (p) => {
+                  if (p.done % 100 === 0 || p.done === p.total) {
+                    console.log(`[CLIP Catalog] ${p.done}/${p.total} embedded (${p.errors} errors)`);
+                  }
+                }).then((final) => {
+                  console.log(`[CLIP Catalog] Auto-resume complete: ${final.done} embedded, ${final.errors} errors`);
+                }).catch((e) => {
+                  console.error('[CLIP Catalog] Auto-resume failed:', e.message);
+                });
+              } else if (total > 0) {
+                console.log(`[CLIP Catalog] Catalog complete (${done}/${total}) — no resume needed`);
               }
-            }).then((final) => {
-              console.log(`[CLIP Catalog] Auto-resume complete: ${final.done} embedded, ${final.errors} errors`);
-            }).catch((e) => {
-              console.error('[CLIP Catalog] Auto-resume failed:', e.message);
-            });
-          } else if (total > 0) {
-            console.log(`[CLIP Catalog] Catalog complete (${done}/${total}) — no resume needed`);
-          }
-        } catch (e: any) {
-          console.error('[CLIP Catalog] Auto-resume check failed (non-fatal):', e.message);
-        }
-      }, 15000); // 15s delay: let segment service warm up first
-
-      // Auto-resume inventory & orders vector enrichment if items remain unembedded
-      setTimeout(async () => {
-        try {
-          const { createEmbeddingJob } = await import('./services/embedding-worker');
-
-          // Check for an active (pending/processing) job for each type — only create if none exists
-          const activeJobs = await db
-            .select({ jobType: embeddingJobs.jobType })
-            .from(embeddingJobs)
-            .where(inArray(embeddingJobs.status, ['pending', 'processing']));
-          const activeTypes = new Set(activeJobs.map(j => j.jobType));
-
-          // --- Inventory ---
-          if (!activeTypes.has('inventory')) {
-            const invResult = await db.execute(drizzleSqlCount`
-              SELECT COUNT(*) AS count
-              FROM bl_inventory bi
-              LEFT JOIN inventory_embeddings ie ON bi.id = ie.inventory_id
-              WHERE ie.inventory_id IS NULL
-            `);
-            const unembeddedInv = parseInt(String((invResult.rows[0] as any)?.count ?? '0'));
-            if (unembeddedInv > 0) {
-              await createEmbeddingJob('inventory', 'auto-resume-on-start');
-              console.log(`[EmbedResume] Created inventory job — ${unembeddedInv} items need embedding`);
+            } catch (e: any) {
+              console.error('[CLIP Catalog] Auto-resume check failed (non-fatal):', e.message);
             }
-          }
+          }, 15_000);
 
-          // --- Orders ---
-          if (!activeTypes.has('orders')) {
-            const ordResult = await db.execute(drizzleSqlCount`
-              SELECT COUNT(*) AS count
-              FROM orders o
-              LEFT JOIN order_embeddings oe ON o.id = oe.order_id
-              WHERE oe.order_id IS NULL
-            `);
-            const unembeddedOrd = parseInt(String((ordResult.rows[0] as any)?.count ?? '0'));
-            if (unembeddedOrd > 0) {
-              await createEmbeddingJob('orders', 'auto-resume-on-start');
-              console.log(`[EmbedResume] Created orders job — ${unembeddedOrd} orders need embedding`);
+          // 6. Auto-resume inventory & orders vector enrichment (20s delay)
+          setTimeout(async () => {
+            try {
+              const { createEmbeddingJob } = await import('./services/embedding-worker');
+
+              const activeJobs = await db
+                .select({ jobType: embeddingJobs.jobType })
+                .from(embeddingJobs)
+                .where(inArray(embeddingJobs.status, ['pending', 'processing']));
+              const activeTypes = new Set(activeJobs.map(j => j.jobType));
+
+              if (!activeTypes.has('inventory')) {
+                const invResult = await db.execute(drizzleSqlCount`
+                  SELECT COUNT(*) AS count
+                  FROM bl_inventory bi
+                  LEFT JOIN inventory_embeddings ie ON bi.id = ie.inventory_id
+                  WHERE ie.inventory_id IS NULL
+                `);
+                const unembeddedInv = parseInt(String((invResult.rows[0] as any)?.count ?? '0'));
+                if (unembeddedInv > 0) {
+                  await createEmbeddingJob('inventory', 'auto-resume-on-start');
+                  console.log(`[EmbedResume] Created inventory job — ${unembeddedInv} items need embedding`);
+                }
+              }
+
+              if (!activeTypes.has('orders')) {
+                const ordResult = await db.execute(drizzleSqlCount`
+                  SELECT COUNT(*) AS count
+                  FROM orders o
+                  LEFT JOIN order_embeddings oe ON o.id = oe.order_id
+                  WHERE oe.order_id IS NULL
+                `);
+                const unembeddedOrd = parseInt(String((ordResult.rows[0] as any)?.count ?? '0'));
+                if (unembeddedOrd > 0) {
+                  await createEmbeddingJob('orders', 'auto-resume-on-start');
+                  console.log(`[EmbedResume] Created orders job — ${unembeddedOrd} orders need embedding`);
+                }
+              }
+            } catch (e: any) {
+              console.error('[EmbedResume] Auto-resume check failed (non-fatal):', e.message);
             }
-          }
-        } catch (e: any) {
-          console.error('[EmbedResume] Auto-resume check failed (non-fatal):', e.message);
+          }, 20_000);
+
+          // 7. Auto-resume Universal Catalog worker (90s delay: CLIP model warm-up)
+          setTimeout(async () => {
+            try {
+              const {
+                startUniversalWorker,
+                getUniversalCatalogState,
+                isUniversalImporting,
+              } = await import('./services/universal-clip-catalog.js');
+
+              if (isUniversalImporting() || getUniversalCatalogState()?.running) return;
+
+              await db.execute(drizzleSqlCount`
+                UPDATE universal_catalog_queue
+                SET status = 'pending', attempted_at = NULL, error_msg = NULL
+                WHERE status = 'failed'
+                  AND attempted_at IS NOT NULL
+                  AND attempted_at > NOW() - INTERVAL '3 hours'
+              `);
+
+              const [row] = await db.execute<{ cnt: string }>(
+                drizzleSqlCount`SELECT COUNT(*)::text AS cnt FROM universal_catalog_queue WHERE status = 'pending'`
+              ).then(r => r.rows ?? []);
+              const pending = Number(row?.cnt ?? 0);
+
+              if (pending > 0) {
+                console.log(`[Universal Catalog] Auto-resuming — ${pending.toLocaleString()} pending parts to embed`);
+                await startUniversalWorker();
+              } else {
+                console.log('[Universal Catalog] Auto-resume check — nothing pending');
+              }
+            } catch (e: any) {
+              console.error('[Universal Catalog] Auto-resume failed (non-fatal):', e.message);
+            }
+          }, 90_000);
+
+        } catch (bgError: any) {
+          console.error('[Startup] Background init error (non-fatal):', bgError.message);
         }
-      }, 20000); // 20s — after embedding worker has started
+      })();
     });
+
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);
