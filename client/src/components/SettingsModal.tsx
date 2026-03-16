@@ -1522,6 +1522,120 @@ function SupportQueuePanel() {
   );
 }
 
+function PricingLiveUsageCard() {
+  const { data: allOrgsUsage, isLoading } = useQuery<{
+    orgs: Array<{
+      orgId: string;
+      orgName: string;
+      inventoryLots: number;
+      ordersPerMonth: number;
+      connectedStores: number;
+      aiCalls: number;
+      scans: number;
+      totalBumps: number;
+      projectedMonthly: number;
+    }>;
+    pricing: { basePrice: number; overageBump: number; monthlyCap: number };
+  }>({ queryKey: ['/api/platform-admin/all-orgs-usage'] });
+
+  const [selectedOrg, setSelectedOrg] = useState<string>('');
+
+  const { data: orgDetail } = useQuery<{
+    orgId: string;
+    orgName: string;
+    dimensions: {
+      inventoryLots: { current: number; base: number; bump: number };
+      ordersPerMonth: { current: number; base: number; bump: number };
+      connectedStores: { current: number; base: number; bump: number };
+      aiCalls: { current: number; base: number; bump: number; byOperation?: Record<string, { requests: number; cost: number }> };
+      scans: { current: number; base: number; bump: number };
+    };
+    pricing: { basePrice: number; overageBump: number; monthlyCap: number };
+    aiCostTotal: number;
+  }>({
+    queryKey: ['/api/platform-admin/org-usage', selectedOrg],
+    enabled: !!selectedOrg,
+  });
+
+  if (isLoading) return <div className="sm-card"><div className="px-4 py-3 flex items-center justify-center"><Loader2 className="w-4 h-4 animate-spin text-gray-500" /></div></div>;
+  if (!allOrgsUsage) return null;
+
+  const fmtD = (cents: number) => `$${(cents / 100).toFixed(0)}`;
+  const bumpCalc = (c: number, b: number, s: number) => c <= b ? 0 : Math.ceil((c - b) / s);
+
+  return (
+    <div className="sm-card" data-testid="pricing-live-usage-card">
+      <div className="sm-card-header">
+        <Eye className="h-3.5 w-3.5 text-cyan-400/80" />
+        <span className="text-xs font-semibold text-gray-200">Live Org Usage vs Thresholds</span>
+      </div>
+      <div className="px-4 py-3 space-y-3">
+        <div className="flex items-center gap-2">
+          <label className="text-[10px] text-gray-400 whitespace-nowrap">Organization:</label>
+          <select
+            value={selectedOrg}
+            onChange={e => setSelectedOrg(e.target.value)}
+            data-testid="select-pricing-live-org"
+            className="flex-1 bg-gray-900/60 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 outline-none focus:border-gray-500"
+          >
+            <option value="">Select an org...</option>
+            {allOrgsUsage.orgs.map(o => (
+              <option key={o.orgId} value={o.orgId}>{o.orgName} — {fmtD(o.projectedMonthly)}/mo</option>
+            ))}
+          </select>
+        </div>
+
+        {selectedOrg && !orgDetail && (
+          <div className="flex items-center justify-center py-3"><Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500" /></div>
+        )}
+
+        {orgDetail && (
+          <div className="space-y-2">
+            {[
+              { label: 'Inventory Lots', ...orgDetail.dimensions.inventoryLots },
+              { label: 'Orders/mo', ...orgDetail.dimensions.ordersPerMonth },
+              { label: 'Connected Stores', ...orgDetail.dimensions.connectedStores },
+              { label: 'AI Calls', ...orgDetail.dimensions.aiCalls },
+              { label: 'Scans', ...orgDetail.dimensions.scans },
+            ].map((d) => {
+              const pct = d.base > 0 ? Math.min(100, (d.current / d.base) * 100) : 0;
+              const bumps = bumpCalc(d.current, d.base, d.bump);
+              const isOver = pct >= 100;
+              const barColor = isOver ? 'bg-red-500/70' : pct >= 80 ? 'bg-amber-400/70' : 'bg-green-500/60';
+              return (
+                <div key={d.label} className="space-y-0.5">
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="text-gray-400">{d.label}</span>
+                    <span className="text-gray-300 tabular-nums">{d.current.toLocaleString()} / {d.base.toLocaleString()}{bumps > 0 ? ` (+${bumps})` : ''}</span>
+                  </div>
+                  <div className="h-1 rounded-full bg-gray-700/50 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+            {orgDetail.dimensions.aiCalls.byOperation && Object.keys(orgDetail.dimensions.aiCalls.byOperation).length > 0 && (
+              <div className="pt-1 border-t border-gray-700/30">
+                <div className="text-[9px] text-gray-500 mb-0.5">AI by Operation</div>
+                {Object.entries(orgDetail.dimensions.aiCalls.byOperation).map(([op, data]) => (
+                  <div key={op} className="flex items-center justify-between text-[9px] py-0.5">
+                    <span className="text-gray-400">{op}</span>
+                    <span className="text-gray-300 tabular-nums">{data.requests} calls</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="pt-1 border-t border-gray-700/30 flex items-center justify-between">
+              <span className="text-[10px] text-gray-400">Projected</span>
+              <span className="text-xs font-bold text-white tabular-nums">{fmtD(allOrgsUsage.orgs.find(o => o.orgId === selectedOrg)?.projectedMonthly ?? allOrgsUsage.pricing.basePrice)}/mo</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function BillingOverviewPanel() {
   const { data: allOrgsUsage, isLoading } = useQuery<{
     orgs: Array<{
@@ -7911,6 +8025,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           </div>
                         </div>
                       </div>
+                      <PricingLiveUsageCard />
                     </>
                   )}
                 </div>
