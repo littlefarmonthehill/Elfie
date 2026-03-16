@@ -1063,6 +1063,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ─── Sales-Percentage Billing Helpers ────────────────────────────────────────
   // Billing formula: totalDue = plan.basePrice + salesPercentage% × max(0, monthlySales − freeSalesThreshold)
   // All monetary values in cents.
+  // Billing periods run from the customer's signup-date anniversary each month
+  // (e.g. signed up on the 15th → periods run 15th–14th, not 1st–last).
+
+  /** Returns the start of the current billing period for an org based on their signup day. */
+  function getBillingPeriodStart(billingStartDate: Date | null | undefined, now: Date): Date {
+    if (!billingStartDate) {
+      // No signup date recorded — fall back to calendar month start
+      return new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+    const signupDay = billingStartDate.getDate();
+    // Try this month's anniversary
+    let periodStart = new Date(now.getFullYear(), now.getMonth(), signupDay);
+    if (periodStart > now) {
+      // We're before this month's anniversary — use last month's
+      periodStart = new Date(now.getFullYear(), now.getMonth() - 1, signupDay);
+    }
+    return periodStart;
+  }
+
+  /** Returns the start of a billing period N months before the current one. */
+  function getBillingPeriodStartOffset(billingStartDate: Date | null | undefined, now: Date, monthsBack: number): Date {
+    if (!billingStartDate) {
+      return new Date(now.getFullYear(), now.getMonth() - monthsBack, 1);
+    }
+    const signupDay = billingStartDate.getDate();
+    const currentPeriodStart = getBillingPeriodStart(billingStartDate, now);
+    return new Date(currentPeriodStart.getFullYear(), currentPeriodStart.getMonth() - monthsBack, signupDay);
+  }
+
   async function getOrgMonthlySalesCents(orgId: string, from: Date, to: Date): Promise<number> {
     // Items subtotal: sum(quantity * unit_price) for all non-cancelled/purged orders in the period
     const [itemsRow] = await db.select({
@@ -1111,11 +1140,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const orgId = reqOrgId(req);
       const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
       const plan = await getOrgActivePlan(orgId);
-      const monthlySalesCents = await getOrgMonthlySalesCents(orgId, startOfMonth, now);
-      const billing = calcSalesBilling(plan, monthlySalesCents);
 
       const [orgRow] = await db.select({
         billingStartDate: organizations.billingStartDate,
@@ -1123,11 +1149,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         planId: organizations.planId,
       }).from(organizations).where(eq(organizations.id, orgId)).limit(1);
 
+      // Period runs from signup-date anniversary, not calendar month
+      const periodStart = getBillingPeriodStart(orgRow?.billingStartDate, now);
+
+      const monthlySalesCents = await getOrgMonthlySalesCents(orgId, periodStart, now);
+      const billing = calcSalesBilling(plan, monthlySalesCents);
+
       res.json({
         orgId,
         billingStartDate: orgRow?.billingStartDate ? orgRow.billingStartDate.toISOString() : null,
         subscriptionStatus: orgRow?.subscriptionStatus ?? 'active',
-        period: { start: startOfMonth.toISOString(), end: now.toISOString() },
+        period: { start: periodStart.toISOString(), end: now.toISOString() },
         plan: { id: plan.id, name: plan.name, basePrice: plan.basePrice, salesPercentage: plan.salesPercentage, freeSalesThreshold: plan.freeSalesThreshold },
         monthlySalesCents,
         billing,
@@ -1148,14 +1180,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(organizations).where(eq(organizations.id, orgId)).limit(1);
 
       const now = new Date();
-      const earliest = orgRow?.billingStartDate ?? orgRow?.createdAt ?? new Date(now.getFullYear(), now.getMonth() - 11, 1);
-      // How many full months back from current month?
-      const monthsBack = Math.max(1, (now.getFullYear() - earliest.getFullYear()) * 12 + (now.getMonth() - earliest.getMonth()));
+      const billingStartDate = orgRow?.billingStartDate ?? orgRow?.createdAt ?? null;
+      const currentPeriodStart = getBillingPeriodStart(billingStartDate, now);
+
+      // How many full billing periods back from today?
+      const earliest = billingStartDate ?? new Date(now.getFullYear(), now.getMonth() - 11, 1);
+      const monthsBack = Math.max(1, (currentPeriodStart.getFullYear() - earliest.getFullYear()) * 12 + (currentPeriodStart.getMonth() - earliest.getMonth()));
       const months = [];
 
       for (let i = 1; i <= Math.min(monthsBack, 36); i++) {
-        const mStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const mEnd   = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+        // Each period runs anniversary-to-anniversary
+        const mStart = getBillingPeriodStartOffset(billingStartDate, now, i);
+        const mEnd   = getBillingPeriodStartOffset(billingStartDate, now, i - 1);
         const monthlySalesCents = await getOrgMonthlySalesCents(orgId, mStart, mEnd);
         const billing = calcSalesBilling(plan, monthlySalesCents);
         months.push({
@@ -1239,20 +1275,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { orgId } = req.params;
       const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
       const plan = await getOrgActivePlan(orgId);
-      const monthlySalesCents = await getOrgMonthlySalesCents(orgId, startOfMonth, now);
-      const billing = calcSalesBilling(plan, monthlySalesCents);
 
       const [orgInfo] = await db.select({ id: organizations.id, name: organizations.name, billingStartDate: organizations.billingStartDate })
         .from(organizations).where(eq(organizations.id, orgId)).limit(1);
+
+      const periodStart = getBillingPeriodStart(orgInfo?.billingStartDate, now);
+      const monthlySalesCents = await getOrgMonthlySalesCents(orgId, periodStart, now);
+      const billing = calcSalesBilling(plan, monthlySalesCents);
 
       res.json({
         orgId,
         orgName: orgInfo?.name || orgId,
         billingStartDate: orgInfo?.billingStartDate ? orgInfo.billingStartDate.toISOString() : null,
-        period: { start: startOfMonth.toISOString(), end: now.toISOString() },
+        period: { start: periodStart.toISOString(), end: now.toISOString() },
         plan: { id: plan.id, name: plan.name, basePrice: plan.basePrice, salesPercentage: plan.salesPercentage, freeSalesThreshold: plan.freeSalesThreshold },
         monthlySalesCents,
         billing,
@@ -1267,15 +1304,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/platform-admin/all-orgs-usage', isSuperAdmin, async (_req, res) => {
     try {
       const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const allOrgs = await db.select({ id: organizations.id, name: organizations.name, planId: organizations.planId }).from(organizations);
+      const allOrgs = await db.select({ id: organizations.id, name: organizations.name, planId: organizations.planId, billingStartDate: organizations.billingStartDate }).from(organizations);
       const allPlans = await db.select().from(plans);
       const planMap = new Map(allPlans.map(p => [p.id, p]));
       const defaultPlan = { id: 1, name: 'Pay As You Grow', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, isActive: true, isSunset: false, createdAt: new Date(), updatedAt: new Date() };
 
       const orgUsages = await Promise.all(allOrgs.map(async (org) => {
         const plan = planMap.get(org.planId ?? 1) ?? defaultPlan;
-        const monthlySalesCents = await getOrgMonthlySalesCents(org.id, startOfMonth, now);
+        const periodStart = getBillingPeriodStart(org.billingStartDate, now);
+        const monthlySalesCents = await getOrgMonthlySalesCents(org.id, periodStart, now);
         const billing = calcSalesBilling(plan, monthlySalesCents);
         return { orgId: org.id, orgName: org.name, planName: plan.name, monthlySalesCents, billing };
       }));

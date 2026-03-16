@@ -281,7 +281,7 @@ function CurrentBillingTab() {
       <p className="text-xs text-gray-500">
         {isTrial
           ? 'Usage shown is what your bill would look like as a subscriber. Nothing is charged during your trial.'
-          : 'Billing resets on the 1st of each calendar month. Sales are computed from all channels — items total minus discounts.'}
+          : 'Your billing period runs from your signup anniversary date each month. Sales include all channels — items total minus discounts.'}
       </p>
 
       <SalesBillCard usage={usage} />
