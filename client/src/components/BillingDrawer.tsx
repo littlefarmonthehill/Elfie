@@ -8,11 +8,23 @@ import { cn } from "@/lib/utils";
 import {
   CreditCard, Package, ShoppingCart, Globe, Sparkles, ScanSearch,
   ChevronDown, ChevronUp, Printer, AlertTriangle, CheckCircle2,
-  Info, ArrowRight,
+  Info, ArrowRight, TrendingUp, Tag,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-interface DimData { current: number; base: number; bump: number }
+const AI_TOOL_LABELS: Record<string, { label: string; icon: LucideIcon }> = {
+  'elfie-agent':       { label: 'E.L.F.I.E.',         icon: Sparkles  },
+  'business-insight':  { label: 'Business Insights',   icon: TrendingUp },
+  'brickspotter-scan': { label: 'BrickSpotter',         icon: ScanSearch },
+  'feedback-refine':   { label: 'Pricing Feedback',     icon: Tag        },
+};
+
+interface DimData {
+  current: number;
+  base: number;
+  bump: number;
+  byOperation?: Record<string, { requests: number; cost: number }>;
+}
 
 interface MonthUsage {
   label: string;
@@ -106,6 +118,79 @@ function DimensionRow({ label, icon: Icon, current, base, bump, overageBump }: {
   );
 }
 
+function AiToolsRow({ current, base, bump, overageBump, byOperation }: {
+  current: number; base: number; bump: number; overageBump: number;
+  byOperation?: Record<string, { requests: number; cost: number }>;
+}) {
+  const overBase = current > base;
+  const bumps = calcBumps(current, base, bump);
+  const chargeCents = bumps * overageBump;
+  const pct = Math.min(100, base > 0 ? (current / base) * 100 : 0);
+  const approaching = !overBase && pct >= 80;
+  const barColor = overBase ? 'bg-amber-400/60' : approaching ? 'bg-amber-400/70' : 'bg-green-500/50';
+
+  // Sort tools in a consistent display order
+  const TOOL_ORDER = ['elfie-agent', 'business-insight', 'feedback-refine', 'brickspotter-scan'];
+  const toolEntries = byOperation
+    ? [
+        ...TOOL_ORDER.filter(k => byOperation[k]).map(k => [k, byOperation[k]] as [string, { requests: number; cost: number }]),
+        ...Object.entries(byOperation).filter(([k]) => !TOOL_ORDER.includes(k) && k !== 'embedding' && k !== 'embedding-onboarding'),
+      ]
+    : [];
+
+  return (
+    <div className="py-2.5 flex items-start gap-3">
+      <Sparkles className="w-3.5 h-3.5 mt-[3px] text-gray-500 shrink-0" />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <span className="text-sm text-gray-300">AI tools</span>
+          {overBase ? (
+            <span className="text-amber-400 font-mono text-sm font-medium">+${(chargeCents / 100).toFixed(2)}</span>
+          ) : (
+            <span className="text-gray-500 text-xs">included</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-1 rounded-full bg-gray-700/50 overflow-hidden">
+            <div className={cn("h-full rounded-full transition-all", barColor)} style={{ width: `${pct}%` }} />
+          </div>
+          <span className={cn("text-xs tabular-nums whitespace-nowrap shrink-0", overBase ? 'text-amber-400' : 'text-gray-500')}>
+            {current.toLocaleString()} / {base.toLocaleString()} calls
+          </span>
+        </div>
+        {overBase && (
+          <div className="mt-0.5 text-xs text-amber-400/70">
+            {bumps} overage bump{bumps !== 1 ? 's' : ''} × ${(overageBump / 100).toFixed(0)}
+          </div>
+        )}
+        {approaching && (
+          <div className="mt-0.5 flex items-center gap-1 text-xs text-amber-400/70">
+            <AlertTriangle className="w-3 h-3" />Approaching limit
+          </div>
+        )}
+        {/* Per-tool breakdown */}
+        {toolEntries.length > 0 && (
+          <div className="mt-2 space-y-1 pl-0.5 border-l border-white/8">
+            {toolEntries.map(([op, data]) => {
+              const meta = AI_TOOL_LABELS[op];
+              const ToolIcon = meta?.icon ?? Sparkles;
+              return (
+                <div key={op} className="flex items-center justify-between gap-2 pl-2">
+                  <span className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <ToolIcon className="w-3 h-3 shrink-0" />
+                    {meta?.label ?? op}
+                  </span>
+                  <span className="text-xs tabular-nums text-gray-600">{data.requests.toLocaleString()} calls</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function HowWeBillSection({ dimensions, pricing }: {
   dimensions: MonthUsage['dimensions'];
   pricing: MonthUsage['pricing'];
@@ -119,7 +204,7 @@ function HowWeBillSection({ dimensions, pricing }: {
     { key: 'inventoryLots',  icon: Package,      what: 'active listing lots in your BrickLink store' },
     { key: 'ordersPerMonth', icon: ShoppingCart,  what: 'orders received and processed this month' },
     { key: 'connectedStores',icon: Globe,         what: 'selling channels connected to E.L.F.I.E.' },
-    { key: 'aiCalls',        icon: Sparkles,      what: 'E.L.F.I.E. AI agent, Business Insights & analysis calls' },
+    { key: 'aiCalls',        icon: Sparkles,      what: 'calls made by E.L.F.I.E., Business Insights, and Pricing Feedback' },
     { key: 'scans',          icon: ScanSearch,    what: 'BrickSpotter physical part identification scans' },
   ];
 
@@ -261,15 +346,23 @@ function BillCard({
           <span className="text-sm font-mono text-gray-300">${(pricing.basePrice / 100).toFixed(2)}</span>
         </div>
         <div className="divide-y divide-white/5">
-          {DIM_META.map((meta) => (
-            <DimensionRow
-              key={meta.key}
-              label={meta.label}
-              icon={meta.icon}
-              {...dimensions[meta.key]}
-              overageBump={pricing.overageBump}
-            />
-          ))}
+          {DIM_META.map((meta) =>
+            meta.key === 'aiCalls' ? (
+              <AiToolsRow
+                key="aiCalls"
+                {...dimensions.aiCalls}
+                overageBump={pricing.overageBump}
+              />
+            ) : (
+              <DimensionRow
+                key={meta.key}
+                label={meta.label}
+                icon={meta.icon}
+                {...dimensions[meta.key]}
+                overageBump={pricing.overageBump}
+              />
+            )
+          )}
         </div>
       </div>
 

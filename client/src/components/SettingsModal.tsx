@@ -1834,7 +1834,7 @@ function MyPlanUsagePanel() {
     { key: 'inventory', label: 'Inventory Lots', icon: Package, ...usage.dimensions.inventoryLots },
     { key: 'orders', label: 'Orders This Month', icon: ShoppingCart, ...usage.dimensions.ordersPerMonth },
     { key: 'stores', label: 'Connected Stores', icon: Globe, ...usage.dimensions.connectedStores },
-    { key: 'ai', label: 'AI Calls', icon: Sparkles, ...usage.dimensions.aiCalls },
+    { key: 'ai', label: 'AI Tools', icon: Sparkles, ...usage.dimensions.aiCalls },
     { key: 'scans', label: 'BrickSpotter Scans', icon: Eye, ...usage.dimensions.scans },
   ];
 
@@ -1873,6 +1873,23 @@ function MyPlanUsagePanel() {
           const isWarn = pct >= 80 && !isOver;
           const barColor = isOver ? 'bg-red-500/70' : isWarn ? 'bg-amber-400/70' : 'bg-green-500/60';
           const DimIcon = d.icon;
+
+          // Per-tool breakdown for AI Tools dimension
+          const AI_TOOL_NAMES: Record<string, string> = {
+            'elfie-agent': 'E.L.F.I.E.',
+            'business-insight': 'Business Insights',
+            'brickspotter-scan': 'BrickSpotter',
+            'feedback-refine': 'Pricing Feedback',
+          };
+          const TOOL_ORDER = ['elfie-agent', 'business-insight', 'feedback-refine', 'brickspotter-scan'];
+          const byOp = d.key === 'ai' ? (d as any).byOperation as Record<string, { requests: number; cost: number }> | undefined : undefined;
+          const toolEntries = byOp
+            ? [
+                ...TOOL_ORDER.filter(k => byOp[k]).map(k => [k, byOp[k]] as [string, { requests: number; cost: number }]),
+                ...Object.entries(byOp).filter(([k]) => !TOOL_ORDER.includes(k) && k !== 'embedding' && k !== 'embedding-onboarding'),
+              ]
+            : [];
+
           return (
             <div key={d.key} className="bg-gray-900/40 border border-gray-800 rounded-lg p-3 space-y-2" data-testid={`usage-dim-${d.key}`}>
               <div className="flex items-center justify-between text-xs">
@@ -1881,7 +1898,7 @@ function MyPlanUsagePanel() {
                   {d.label}
                 </span>
                 <span className="font-mono text-gray-300">
-                  {d.current.toLocaleString()} / {d.base.toLocaleString()}
+                  {d.current.toLocaleString()} / {d.base.toLocaleString()} {d.key === 'ai' ? 'calls' : ''}
                 </span>
               </div>
               <div className="h-1.5 rounded-full bg-gray-700/50 overflow-hidden">
@@ -1899,6 +1916,17 @@ function MyPlanUsagePanel() {
                 </span>
                 <span className="text-[10px] text-gray-600">+{d.bump.toLocaleString()} per bump</span>
               </div>
+              {/* Per-tool breakdown for AI Tools */}
+              {toolEntries.length > 0 && (
+                <div className="pt-1.5 border-t border-gray-800 space-y-1">
+                  {toolEntries.map(([op, data]) => (
+                    <div key={op} className="flex items-center justify-between text-[10px]">
+                      <span className="text-gray-600">{AI_TOOL_NAMES[op] ?? op}</span>
+                      <span className="text-gray-500 tabular-nums">{data.requests.toLocaleString()} calls</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
