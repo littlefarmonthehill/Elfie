@@ -1126,11 +1126,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const [pm] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
-      const [orgRow] = await db.select({ billingStartDate: organizations.billingStartDate }).from(organizations).where(eq(organizations.id, orgId)).limit(1);
+      const [orgRow] = await db.select({
+        billingStartDate: organizations.billingStartDate,
+        plan: organizations.plan,
+        trialEndsAt: organizations.trialEndsAt,
+        subscriptionStatus: organizations.subscriptionStatus,
+      }).from(organizations).where(eq(organizations.id, orgId)).limit(1);
 
       res.json({
         orgId,
         billingStartDate: orgRow?.billingStartDate ? orgRow.billingStartDate.toISOString() : null,
+        plan: orgRow?.plan ?? 'trial',
+        trialEndsAt: orgRow?.trialEndsAt ? orgRow.trialEndsAt.toISOString() : null,
+        subscriptionStatus: orgRow?.subscriptionStatus ?? 'trial',
         period: { start: startOfMonth.toISOString(), end: now.toISOString() },
         dimensions: {
           inventoryLots: { current: Number(inventoryCount.count), base: pm?.baseInventoryLots ?? 5000, bump: pm?.bumpInventoryLots ?? 2500 },

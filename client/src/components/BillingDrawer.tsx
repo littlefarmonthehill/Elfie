@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import {
   CreditCard, Package, ShoppingCart, Globe, Sparkles, ScanSearch,
   ChevronDown, ChevronUp, Printer, AlertTriangle, CheckCircle2,
-  Info, ArrowRight, TrendingUp, Tag,
+  Info, ArrowRight, TrendingUp, Tag, Clock, Heart,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -44,6 +44,9 @@ interface MonthUsage {
 
 interface OrgUsageData {
   billingStartDate?: string | null;
+  plan?: string;
+  trialEndsAt?: string | null;
+  subscriptionStatus?: string;
   period: { start: string; end: string };
   dimensions: {
     inventoryLots: DimData;
@@ -473,6 +476,133 @@ function BillCard({
   );
 }
 
+function TrialCallout({ plan, trialEndsAt }: { plan?: string; trialEndsAt?: string | null }) {
+  if (plan !== 'trial') return null;
+
+  const now = new Date();
+  const endsAt = trialEndsAt ? new Date(trialEndsAt) : null;
+  const expired = endsAt ? endsAt < now : false;
+  const daysLeft = endsAt && !expired
+    ? Math.ceil((endsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  const deletionDate = endsAt
+    ? new Date(endsAt.getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : null;
+
+  const trialEndLabel = endsAt
+    ? endsAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : null;
+
+  /* ── Expired ─────────────────────────────────────────────────── */
+  if (expired) {
+    return (
+      <div className="rounded-md border border-gray-700/50 bg-gray-800/30 p-4 space-y-3">
+        <div className="flex items-start gap-2.5">
+          <Heart className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-gray-300">Your free trial has ended</p>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              We hope you've seen the value E.L.F.I.E. can bring to your store. We'd love for you to
+              become a customer and keep the momentum going.
+            </p>
+            {deletionDate && (
+              <p className="text-xs text-amber-500/80 leading-relaxed pt-1">
+                Your store data will be kept until <span className="font-medium">{deletionDate}</span>, then
+                permanently removed. Subscribe before then to keep everything intact.
+              </p>
+            )}
+          </div>
+        </div>
+        <Button
+          className="w-full bg-purple-700"
+          size="sm"
+          data-testid="button-trial-expired-subscribe"
+        >
+          Subscribe to keep your data
+        </Button>
+      </div>
+    );
+  }
+
+  /* ── Urgent: ≤3 days ─────────────────────────────────────────── */
+  if (daysLeft !== null && daysLeft <= 3) {
+    return (
+      <div className="rounded-md border border-red-900/40 bg-red-950/20 p-4 space-y-3">
+        <div className="flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-red-200">
+              Trial ends in {daysLeft === 1 ? '1 day' : `${daysLeft} days`}
+            </p>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              Subscribe now to avoid interruption. Your usage data, inventory, and store connections
+              will carry over seamlessly — billing starts when your trial ends{trialEndLabel ? ` on ${trialEndLabel}` : ''}.
+            </p>
+          </div>
+        </div>
+        <Button
+          className="w-full bg-purple-700"
+          size="sm"
+          data-testid="button-trial-urgent-subscribe"
+        >
+          Subscribe now — billing starts {trialEndLabel ?? 'after trial ends'}
+        </Button>
+      </div>
+    );
+  }
+
+  /* ── Warning: 4–7 days ───────────────────────────────────────── */
+  if (daysLeft !== null && daysLeft <= 7) {
+    return (
+      <div className="rounded-md border border-amber-800/30 bg-amber-950/15 p-4 space-y-3">
+        <div className="flex items-start gap-2.5">
+          <Clock className="w-4 h-4 text-amber-400/80 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-amber-200">Trial ending in {daysLeft} days</p>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              Subscribe before your trial ends{trialEndLabel ? ` on ${trialEndLabel}` : ''} to keep your
+              data and avoid any disruption to your store sync and automations.
+            </p>
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          className="w-full border-amber-700/40"
+          size="sm"
+          data-testid="button-trial-warning-subscribe"
+        >
+          Subscribe — billing starts when trial ends
+        </Button>
+      </div>
+    );
+  }
+
+  /* ── Soft: >7 days or no known end date ─────────────────────── */
+  return (
+    <div className="rounded-md border border-blue-800/25 bg-blue-950/10 px-4 py-3 space-y-2">
+      <div className="flex items-start gap-2.5">
+        <Info className="w-3.5 h-3.5 text-blue-400/70 shrink-0 mt-0.5" />
+        <div className="space-y-0.5">
+          <p className="text-xs font-medium text-blue-200/80">
+            You're on a free trial{trialEndLabel ? `, ending ${trialEndLabel}` : ''}
+          </p>
+          <p className="text-xs text-gray-500 leading-relaxed">
+            Usage above shows what your bill would be if you were a subscriber. Billing only starts
+            after your trial ends — nothing is charged during the trial.
+          </p>
+        </div>
+      </div>
+      <button
+        className="text-xs text-blue-400/70 hover:text-blue-300 transition-colors"
+        data-testid="button-trial-soft-subscribe"
+      >
+        Subscribe now and lock in your rate →
+      </button>
+    </div>
+  );
+}
+
 function CurrentBillingTab() {
   const { data: usage, isLoading } = useQuery<OrgUsageData>({ queryKey: ['/api/org/usage'] });
   const [cancelConfirm, setCancelConfirm] = useState(false);
@@ -486,11 +616,15 @@ function CurrentBillingTab() {
 
   const now = new Date();
   const label = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const isTrial = usage.plan === 'trial';
 
   return (
     <div className="space-y-3">
       <p className="text-xs text-gray-500">
-        Usage resets at the start of each calendar month. Charges are estimates based on current usage.
+        {isTrial
+          ? 'Usage shown below is what your bill would look like as a subscriber. Nothing is charged during your trial.'
+          : 'Usage resets at the start of each calendar month. Charges are estimates based on current usage.'
+        }
       </p>
       <BillCard
         label={label}
@@ -503,8 +637,11 @@ function CurrentBillingTab() {
         Monthly cap: ${(usage.pricing.monthlyCap / 100).toFixed(2)} · Overage: ${(usage.pricing.overageBump / 100).toFixed(2)}/bump
       </p>
 
-      {/* Cancel subscription */}
-      <div className="pt-4 border-t border-gray-800">
+      {/* Trial callout — shown for trial orgs; replaces the cancel link */}
+      <TrialCallout plan={usage.plan} trialEndsAt={usage.trialEndsAt} />
+
+      {/* Cancel subscription — only for paying subscribers */}
+      {!isTrial && <div className="pt-4 border-t border-gray-800">
         {!cancelConfirm ? (
           <div className="flex justify-center">
             <button
@@ -544,7 +681,7 @@ function CurrentBillingTab() {
             </div>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
