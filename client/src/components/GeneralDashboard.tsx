@@ -211,6 +211,8 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
 }
 
 interface OrgUsageData {
+  billingStartDate?: string | null;
+  period: { start: string; end: string };
   dimensions: {
     inventoryLots: { current: number; base: number; bump: number };
     ordersPerMonth: { current: number; base: number; bump: number };
@@ -219,6 +221,17 @@ interface OrgUsageData {
     scans: { current: number; base: number; bump: number };
   };
   pricing: { basePrice: number; overageBump: number; monthlyCap: number };
+}
+
+function bumpCount(current: number, base: number, bump: number) {
+  return current <= base ? 0 : Math.ceil((current - base) / bump);
+}
+
+function bumpProgress(current: number, base: number, bump: number): number {
+  if (current <= base) return base > 0 ? (current / base) * 100 : 0;
+  const n = bumpCount(current, base, bump);
+  const floor = base + (n - 1) * bump;
+  return ((current - floor) / bump) * 100;
 }
 
 function UsageSynopsis({ onOpenSettings }: { onOpenSettings?: (section: any) => void }) {
@@ -234,23 +247,28 @@ function UsageSynopsis({ onOpenSettings }: { onOpenSettings?: (section: any) => 
     { label: 'Scans', ...usage.dimensions.scans },
   ];
 
-  const bumpCalc = (current: number, base: number, bump: number) =>
-    current <= base ? 0 : Math.ceil((current - base) / bump);
-
   let totalBumps = 0;
-  const warnings: string[] = [];
+  let anyApproaching = false;
   for (const d of dims) {
-    totalBumps += bumpCalc(d.current, d.base, d.bump);
+    totalBumps += bumpCount(d.current, d.base, d.bump);
     const pct = d.base > 0 ? (d.current / d.base) * 100 : 0;
-    if (pct >= 100) {
-      warnings.push(`${d.label} over limit`);
-    } else if (pct >= 80) {
-      warnings.push(`${d.label} at ${Math.round(pct)}%`);
-    }
+    const inBump = d.current > d.base;
+    const progress = inBump ? bumpProgress(d.current, d.base, d.bump) : pct;
+    if (progress >= 80) anyApproaching = true;
   }
 
   const { basePrice, overageBump, monthlyCap } = usage.pricing;
   const estimated = Math.min(basePrice + totalBumps * overageBump, monthlyCap) / 100;
+  const baseDollars = basePrice / 100;
+  const bumpCostTotal = (totalBumps * overageBump) / 100;
+
+  const memberSince = usage.billingStartDate
+    ? new Date(usage.billingStartDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+    : null;
+
+  const periodStart = usage.period?.start
+    ? new Date(usage.period.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : null;
 
   return (
     <div className="px-3 py-2.5 border-t border-gray-700/30 bg-gray-900/40" data-testid="section-usage-synopsis">
@@ -259,23 +277,49 @@ function UsageSynopsis({ onOpenSettings }: { onOpenSettings?: (section: any) => 
         className="w-full text-left group"
         data-testid="button-usage-details"
       >
-        <div className="flex items-center justify-between gap-2 mb-2">
+        {/* Header row */}
+        <div className="flex items-center justify-between gap-2 mb-1.5">
           <span className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
             <BarChart3 className="w-3 h-3" />
-            Usage This Month
+            My Plan
           </span>
-          <span className="text-[10px] text-gray-400 tabular-nums font-medium">${estimated.toFixed(0)}/mo est.</span>
+          <span className={cn(
+            "text-[10px] tabular-nums font-medium",
+            totalBumps > 0 ? 'text-amber-400' : 'text-gray-400'
+          )}>
+            ${baseDollars.toFixed(0)}{bumpCostTotal > 0 ? ` +$${bumpCostTotal.toFixed(0)}` : ''}/mo
+          </span>
         </div>
+
+        {/* Period annotation */}
+        {periodStart && (
+          <div className="text-[9px] text-gray-600 mb-2 tabular-nums">
+            Resets {periodStart} &nbsp;·&nbsp; {memberSince ? `Since ${memberSince}` : ''}
+          </div>
+        )}
+
+        {/* Usage bars */}
         <div className="space-y-1.5">
-          {dims.map((d) => {
-            const pct = d.base > 0 ? (d.current / d.base) * 100 : 0;
-            return <UsageMiniBar key={d.label} label={d.label} current={d.current} base={d.base} warn={pct >= 80} />;
-          })}
+          {dims.map((d) => (
+            <UsageMiniBar
+              key={d.label}
+              label={d.label}
+              current={d.current}
+              base={d.base}
+              bump={d.bump}
+            />
+          ))}
         </div>
-        {warnings.length > 0 && (
+
+        {/* Summary warning row */}
+        {(totalBumps > 0 || anyApproaching) && (
           <div className="mt-2 flex items-center gap-1.5">
-            <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
-            <span className="text-[10px] text-amber-400">{warnings.join(' · ')}</span>
+            <AlertTriangle className={cn("w-3 h-3 shrink-0", totalBumps > 0 ? 'text-amber-400' : 'text-amber-400/70')} />
+            <span className={cn("text-[10px]", totalBumps > 0 ? 'text-amber-400' : 'text-amber-400/70')}>
+              {totalBumps > 0
+                ? `${totalBumps} overage bump${totalBumps > 1 ? 's' : ''} · $${estimated.toFixed(0)}/mo est.`
+                : 'Approaching limit on some dimensions'}
+            </span>
           </div>
         )}
       </button>
@@ -283,17 +327,59 @@ function UsageSynopsis({ onOpenSettings }: { onOpenSettings?: (section: any) => 
   );
 }
 
-function UsageMiniBar({ label, current, base, warn }: { label: string; current: number; base: number; warn: boolean }) {
-  const pct = base > 0 ? Math.min(100, (current / base) * 100) : 0;
-  const barColor = pct >= 100 ? 'bg-red-500/70' : warn ? 'bg-amber-400/70' : 'bg-green-500/60';
+function UsageMiniBar({ label, current, base, bump }: { label: string; current: number; base: number; bump: number }) {
+  const overBase = current > base;
+  const bumps = bumpCount(current, base, bump);
+  const pctRaw = bumpProgress(current, base, bump);
+  const pct = Math.min(100, pctRaw);
+
+  // approaching = within 20% of the next threshold (either base or next bump boundary)
+  const approaching = pctRaw >= 80;
+
+  // Bar color logic:
+  //   - Under base, healthy:        green
+  //   - Under base, approaching:    amber
+  //   - Over base (bump territory): amber → red when approaching next bump
+  const barColor = overBase
+    ? (approaching ? 'bg-red-500/70' : 'bg-amber-400/60')
+    : (approaching ? 'bg-amber-400/70' : 'bg-green-500/60');
+
+  // Next threshold label for the count display
+  const nextThreshold = overBase ? base + bumps * bump : base;
+
   return (
     <div className="flex items-center gap-2" data-testid={`usage-bar-${label.toLowerCase().replace(/\s+/g, '-')}`}>
-      <span className="text-[10px] text-gray-400 w-20 shrink-0 truncate">{label}</span>
-      <div className="flex-1 h-1.5 rounded-full bg-gray-700/50 overflow-hidden">
-        <div className={cn("h-full rounded-full transition-all", barColor)} style={{ width: `${pct}%` }} />
+      {/* Label + bump badge */}
+      <div className="flex items-center gap-1 w-20 shrink-0 min-w-0">
+        <span className="text-[10px] text-gray-400 truncate leading-none">{label}</span>
+        {overBase && (
+          <span className="text-[8px] font-semibold text-amber-400 leading-none shrink-0">
+            +{bumps}
+          </span>
+        )}
       </div>
-      <span className={cn("text-[9px] tabular-nums shrink-0 w-16 text-right", warn ? 'text-amber-400 font-medium' : 'text-gray-500')}>
-        {current.toLocaleString()}/{base.toLocaleString()}
+
+      {/* Progress bar */}
+      <div className="relative flex-1 h-1.5 rounded-full bg-gray-700/50 overflow-hidden">
+        <div
+          className={cn("h-full rounded-full transition-all duration-500", barColor)}
+          style={{ width: `${pct}%` }}
+        />
+        {/* Approaching-threshold pulse marker at 80% of bar */}
+        {approaching && !overBase && (
+          <div
+            className="absolute top-0 h-full w-px bg-amber-400/60"
+            style={{ left: '80%' }}
+          />
+        )}
+      </div>
+
+      {/* Count: current / next threshold */}
+      <span className={cn(
+        "text-[9px] tabular-nums shrink-0 w-16 text-right leading-none",
+        overBase ? 'text-amber-400 font-medium' : approaching ? 'text-amber-400/80' : 'text-gray-500'
+      )}>
+        {current.toLocaleString()}/{nextThreshold.toLocaleString()}
       </span>
     </div>
   );

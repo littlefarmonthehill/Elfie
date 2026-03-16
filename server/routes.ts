@@ -1126,9 +1126,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const [pm] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
+      const [orgRow] = await db.select({ billingStartDate: organizations.billingStartDate }).from(organizations).where(eq(organizations.id, orgId)).limit(1);
 
       res.json({
         orgId,
+        billingStartDate: orgRow?.billingStartDate ? orgRow.billingStartDate.toISOString() : null,
         period: { start: startOfMonth.toISOString(), end: now.toISOString() },
         dimensions: {
           inventoryLots: { current: Number(inventoryCount.count), base: pm?.baseInventoryLots ?? 5000, bump: pm?.bumpInventoryLots ?? 2500 },
@@ -1176,11 +1178,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const [pm] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
 
-      const [orgInfo] = await db.select({ id: organizations.id, name: organizations.name }).from(organizations).where(eq(organizations.id, orgId)).limit(1);
+      const [orgInfo] = await db.select({ id: organizations.id, name: organizations.name, billingStartDate: organizations.billingStartDate }).from(organizations).where(eq(organizations.id, orgId)).limit(1);
 
       res.json({
         orgId,
         orgName: orgInfo?.name || orgId,
+        billingStartDate: orgInfo?.billingStartDate ? orgInfo.billingStartDate.toISOString() : null,
         period: { start: startOfMonth.toISOString(), end: now.toISOString() },
         dimensions: {
           inventoryLots: { current: Number(inventoryCount.count), base: pm?.baseInventoryLots ?? 5000, bump: pm?.bumpInventoryLots ?? 2500 },

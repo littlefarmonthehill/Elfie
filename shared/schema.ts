@@ -89,6 +89,9 @@ export const organizations = pgTable("organizations", {
   // Per-org feature gate overrides (null = use plan defaults). Keys: elfieAiMode, brickSpotter, pom, warehouseModule, universalCatalog, dataEnrichment
   featureOverrides: jsonb("feature_overrides").$type<Record<string, boolean>>(),
   tosAcceptedAt: timestamp("tos_accepted_at"),
+  // Billing start date — read-only. Auto-set to the date of the org's first inventory sync.
+  // Represents when the org became an active customer (trial period is tracked separately).
+  billingStartDate: timestamp("billing_start_date"),
 });
 
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({

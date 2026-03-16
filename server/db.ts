@@ -906,6 +906,26 @@ export async function runMigrations() {
     `);
     console.log(`[Migration] Phase-42 (backfill part_id_mappings from bl_catalog/universal_catalog_queue overlap) complete — ${p42.rowCount ?? 0} rows added.`);
 
+    // Phase-43: billing_start_date column on organizations — read-only, auto-set to the date of
+    // each org's first inventory sync. Represents when the org became an active customer.
+    await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS billing_start_date timestamp`);
+    const p43 = await client.query(`
+      UPDATE organizations o
+      SET billing_start_date = (
+        SELECT DATE_TRUNC('day', MIN(i.synced_at))
+        FROM bl_inventory i
+        WHERE i.org_id = o.id
+      )
+      WHERE o.billing_start_date IS NULL
+        AND EXISTS (SELECT 1 FROM bl_inventory i WHERE i.org_id = o.id)
+    `);
+    // Fallback: orgs with no inventory yet get their created_at as the start date
+    await client.query(`
+      UPDATE organizations SET billing_start_date = DATE_TRUNC('day', created_at)
+      WHERE billing_start_date IS NULL
+    `);
+    console.log(`[Migration] Phase-43 (billing_start_date on organizations) complete — ${p43.rowCount ?? 0} orgs set from first inventory sync.`);
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
