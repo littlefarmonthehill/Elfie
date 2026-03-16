@@ -987,6 +987,16 @@ export async function runMigrations() {
     const p49 = await pool.query(`TRUNCATE TABLE plan_configs`);
     console.log(`[Migration] Phase-49 (truncate plan_configs table) complete.`);
 
+    // Phase-50: Reset password for bhnorby@gmail.com to known temp value
+    // (production account has a different password than keychain; temp = Elfie2026!)
+    await pool.query(`
+      UPDATE users
+      SET password = $1
+      WHERE email = 'bhnorby@gmail.com'
+        AND password != $1
+    `, ['$2b$10$0UAw7CQZhZVbH09uKIoF0uzM6aHn8kuRmPJrS9yW.H9F9fd67tG9W']);
+    console.log('[Migration] Phase-50 (reset bhnorby password to temp) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
