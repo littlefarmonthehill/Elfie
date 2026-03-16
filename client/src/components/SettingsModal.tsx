@@ -5,7 +5,7 @@ import type { AppSettings, User, Organization, OrgIntegration } from "@shared/sc
 import { DimensionWheel, ScoringWheel, type PricingInsight } from "@/components/PriceOMaticDashboard";
 import { APP_VERSION, APP_NAME } from "@shared/version";
 import { CAPABILITY_STATUS_STYLES, CAPABILITY_STATUS_LABELS, CAPABILITY_STATUS_DOT_COLORS, TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Flag, Zap, Globe, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save, ClipboardPaste, Headphones, MessageCircle, Send, Target, Map, ListTodo, Crosshair, ThumbsUp } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Flag, Zap, Globe, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save, ClipboardPaste, Headphones, MessageCircle, Send, Target, Map, ListTodo, Crosshair, ThumbsUp, BarChart3 } from "lucide-react";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
 import { Badge } from "@/components/ui/badge";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
@@ -1754,8 +1754,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [activeAuditPlatformTab, setActiveAuditPlatformTab] = useState<'enrichment' | 'bricklink' | 'logs' | 'database'>('enrichment');
   const [blBreakdownSort, setBlBreakdownSort] = useState<{ col: string; dir: 'asc' | 'desc' }>({ col: 'total', dir: 'desc' });
   const [showBlSchedulePopup, setShowBlSchedulePopup] = useState(false);
-  const [editingPlanName, setEditingPlanName] = useState<string | null>(null);
-  const [planDraft, setPlanDraft] = useState<Record<string, any>>({});
   const [impersonationSearch, setImpersonationSearch] = useState('');
   const [orgSearch, setOrgSearch] = useState('');
 
@@ -2352,48 +2350,35 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     onError: () => toast({ title: 'Failed to start impersonation', variant: 'destructive' }),
   });
 
-  type PlanConfigWithCount = {
-    id: number; planKey: string; name: string; tagline: string;
-    trialDurationDays: number;
-    priceMonthly: number; priceAnnual: number; priceAnnualMonthly: number;
-    limitSeats: number; limitScans: number; limitAutomationRules: number;
-    limitOrderHistoryDays: number; limitInventoryItems: number;
-    limitOrders: number; limitElfieQueries: number; limitBusinessIntel: number;
-    featureBrickOwl: boolean; featureElfieAi: boolean; featureElfieCustom: boolean; featureElfieLiveSupport: boolean; featurePriceOMatic: boolean;
-    featureEasypost: boolean; featureDataImages: boolean; featureDataSemantic: boolean;
-    featureFullEnrichment: boolean; featurePaymentSync: boolean;
-    isSunset: boolean; sortOrder: number; updatedAt: string; orgCount: number;
-  };
 
-  const { data: planConfigs, isLoading: planConfigsLoading } = useQuery<PlanConfigWithCount[]>({
-    queryKey: ['/api/platform-admin/plans'],
+  type PricingModelData = {
+    id: number;
+    basePrice: number; overageBump: number; monthlyCap: number; trialDays: number;
+    baseInventoryLots: number; bumpInventoryLots: number;
+    baseOrdersPerMonth: number; bumpOrdersPerMonth: number;
+    baseConnectedStores: number; bumpConnectedStores: number;
+    baseAiCalls: number; bumpAiCalls: number;
+    baseScans: number; bumpScans: number;
+    updatedAt: string;
+  };
+  const { data: pricingModelData, isLoading: pricingModelLoading } = useQuery<PricingModelData>({
+    queryKey: ['/api/platform-admin/pricing-model'],
     enabled: open && activeSection === 'plansAndPricing',
   });
+  const [pmDraft, setPmDraft] = useState<Record<string, number>>({});
+  const pmVal = (field: string, fallback: number) => pmDraft.hasOwnProperty(field) ? pmDraft[field] : (pricingModelData as any)?.[field] ?? fallback;
+  const pmSet = (field: string, value: number) => setPmDraft(prev => ({ ...prev, [field]: value }));
+  const pmDirty = Object.keys(pmDraft).length > 0;
 
-
-  const savePlanMutation = useMutation({
-    mutationFn: async ({ planKey, fields }: { planKey: string; fields: Record<string, any> }) =>
-      apiRequest('PATCH', `/api/platform-admin/plans/${planKey}`, fields),
-    onSuccess: (_data: any, variables: { planKey: string }) => {
-      setPlanDraft((prev: any) => {
-        const next = { ...prev };
-        delete next[variables.planKey];
-        return next;
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/plans'] });
-      toast({ title: 'Plan config saved' });
-    },
-    onError: (err: any) => toast({ title: err?.message || 'Failed to save plan', variant: 'destructive' }),
-  });
-
-  const sunsetPlanMutation = useMutation({
-    mutationFn: async ({ planKey, isSunset }: { planKey: string; isSunset: boolean }) =>
-      apiRequest('PATCH', `/api/platform-admin/plans/${planKey}/sunset`, { isSunset }),
+  const savePricingModelMutation = useMutation({
+    mutationFn: async (fields: Record<string, number>) =>
+      apiRequest('PUT', '/api/platform-admin/pricing-model', fields),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/plans'] });
-      toast({ title: 'Sunset flag updated' });
+      setPmDraft({});
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/pricing-model'] });
+      toast({ title: 'Pricing model saved' });
     },
-    onError: () => toast({ title: 'Failed to update sunset', variant: 'destructive' }),
+    onError: (err: any) => toast({ title: err?.message || 'Failed to save pricing model', variant: 'destructive' }),
   });
 
   const checkoutMutation = useMutation({
@@ -7532,310 +7517,232 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
             {/* Plans & Pricing */}
             {activeSection === 'plansAndPricing' && (() => {
-              const fmtCents = (n: number) => (n / 100).toFixed(2);
-              const parseCents = (s: string) => Math.round(parseFloat(s || '0') * 100);
-              const fmtLimit = (n: number) => n === -1 ? '∞' : n.toLocaleString();
+              const fmtDollars = (cents: number) => `$${(cents / 100).toFixed(0)}`;
+              const fmtDollarsDecimal = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
-              type PlanDrafts = Record<string, Record<string, any>>;
-              const getDraft = (planKey: string, field: string, fallback: any) => {
-                const d = (planDraft as any as PlanDrafts)[planKey];
-                return d && d.hasOwnProperty(field) ? d[field] : fallback;
-              };
-              const setDraft = (planKey: string, field: string, value: any) => {
-                setPlanDraft((prev: any) => ({ ...prev, [planKey]: { ...(prev[planKey] || {}), [field]: value } }));
-              };
-
-              const LIMIT_ROWS: { label: string; field: string; unit?: string; type: 'number' }[] = [
-                { label: 'Inventory Items', field: 'limitInventoryItems', type: 'number' },
-                { label: 'Orders/mo', field: 'limitOrders', type: 'number' },
-                { label: 'BrickSpotter Scans/mo', field: 'limitScans', type: 'number' },
-                { label: 'E.L.F.I.E. Queries/mo', field: 'limitElfieQueries', type: 'number' },
-                { label: 'Business Intel Reports/mo', field: 'limitBusinessIntel', type: 'number' },
-                { label: 'Team Seats', field: 'limitSeats', type: 'number' },
-                { label: 'Order History (days)', field: 'limitOrderHistoryDays', type: 'number' },
-                { label: 'Automation Rules', field: 'limitAutomationRules', type: 'number' },
+              const USAGE_DIMENSIONS: { label: string; icon: string; baseField: string; bumpField: string; unit: string; baseFallback: number; bumpFallback: number }[] = [
+                { label: 'Inventory Lots', icon: 'Package', baseField: 'baseInventoryLots', bumpField: 'bumpInventoryLots', unit: 'lots', baseFallback: 5000, bumpFallback: 2500 },
+                { label: 'Orders / Month', icon: 'ShoppingCart', baseField: 'baseOrdersPerMonth', bumpField: 'bumpOrdersPerMonth', unit: 'orders', baseFallback: 100, bumpFallback: 50 },
+                { label: 'Connected Stores', icon: 'Store', baseField: 'baseConnectedStores', bumpField: 'bumpConnectedStores', unit: 'stores', baseFallback: 2, bumpFallback: 1 },
+                { label: 'E.L.F.I.E. AI Calls / Month', icon: 'Brain', baseField: 'baseAiCalls', bumpField: 'bumpAiCalls', unit: 'calls', baseFallback: 200, bumpFallback: 100 },
+                { label: 'BrickSpotter Scans / Month', icon: 'Scan', baseField: 'baseScans', bumpField: 'bumpScans', unit: 'scans', baseFallback: 50, bumpFallback: 25 },
               ];
 
-              const FEATURE_ROWS: { label: string; key: string }[] = [
-                { key: 'featurePaymentSync', label: 'Payment Sync' },
-                { key: 'featurePriceOMatic', label: 'Price-o-Matic' },
-                { key: 'featureBrickOwl', label: 'BrickOwl' },
-                { key: 'featureElfieAi', label: 'E.L.F.I.E. AI (Default)' },
-                { key: 'featureElfieCustom', label: 'E.L.F.I.E. AI (Customized)' },
-                { key: 'featureElfieLiveSupport', label: 'E.L.F.I.E. Live Support' },
-                { key: 'featureDataImages', label: 'Image Enrichment' },
-                { key: 'featureDataSemantic', label: 'Semantic Enrichment' },
-                { key: 'featureFullEnrichment', label: 'Full Enrichment' },
-                { key: 'featureEasypost', label: 'EasyPost' },
+              const INCLUDED_FEATURES = [
+                'Price-o-Matic Repricing',
+                'BrickLink + BrickOwl Sync',
+                'Payment Sync (Stripe)',
+                'E.L.F.I.E. AI Assistant',
+                'BrickSpotter Visual Search',
+                'Image & Semantic Enrichment',
+                'Shipping Label Automation',
+                'Unlimited Team Seats',
               ];
 
-              const plans = planConfigs || [];
-              const anyDirty = Object.keys(planDraft).length > 0;
+              const inputCls = "w-full bg-gray-900/60 border border-gray-700 rounded px-2 py-1 text-gray-200 outline-none focus:border-gray-500 text-xs tabular-nums";
 
-              const inputStyle: React.CSSProperties = { fontSize: '16px', transform: 'scale(0.56)', transformOrigin: 'center', margin: '0 -22%' };
-              const inputCls = "w-full bg-gray-900/60 border border-gray-700 rounded px-1 py-px text-gray-200 outline-none focus:border-gray-500 text-center";
+              const basePrice = pmVal('basePrice', 3900);
+              const overageBump = pmVal('overageBump', 500);
+              const monthlyCap = pmVal('monthlyCap', 9900);
+              const trialDays = pmVal('trialDays', 14);
+              const maxBumps = monthlyCap > basePrice && overageBump > 0
+                ? Math.floor((monthlyCap - basePrice) / overageBump) : 0;
 
               return (
-                <div className="p-3 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
+                <div className="p-3 space-y-3" data-testid="pricing-model-panel">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-1.5">
-                      <Tag className="h-3 w-3 text-yellow-500/70" />
-                      <p className="text-[9px] font-semibold text-gray-100 uppercase tracking-widest">Plans & Pricing</p>
+                      <Tag className="h-3.5 w-3.5 text-yellow-500/70" />
+                      <p className="text-[10px] font-semibold text-gray-100 uppercase tracking-widest">Pay As You Grow</p>
                     </div>
-                    <p className="text-[7px] text-gray-600">-1 = unlimited</p>
+                    {pmDirty && (
+                      <button
+                        onClick={() => savePricingModelMutation.mutate(pmDraft)}
+                        disabled={savePricingModelMutation.isPending}
+                        data-testid="button-save-pricing-model"
+                        className="flex items-center gap-1 px-2 py-1 bg-yellow-600/20 border border-yellow-500/30 rounded text-[9px] font-medium text-yellow-400 transition-colors disabled:opacity-50 hover-elevate active-elevate-2"
+                      >
+                        {savePricingModelMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                        Save Changes
+                      </button>
+                    )}
                   </div>
 
-                  {planConfigsLoading && (
-                    <div className="flex items-center justify-center h-16">
+                  {pricingModelLoading ? (
+                    <div className="flex items-center justify-center h-20">
                       <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
                     </div>
-                  )}
+                  ) : (
+                    <>
+                      <div className="sm-card">
+                        <div className="sm-card-header">
+                          <DollarSign className="h-3.5 w-3.5 text-green-400/80" />
+                          <span className="text-xs font-semibold text-gray-200">Base Plan</span>
+                        </div>
+                        <div className="px-4 py-3 space-y-3">
+                          <p className="text-[10px] text-gray-400 leading-relaxed">
+                            Every subscriber starts at a flat base price with generous included usage. When they exceed a threshold, an automatic +{fmtDollars(overageBump)}/mo bump is applied per dimension until the monthly cap is reached.
+                          </p>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block app-label mb-1">Base Price ($/mo)</label>
+                              <input
+                                type="number" min={0} step={1}
+                                value={(basePrice / 100).toFixed(0)}
+                                onChange={e => pmSet('basePrice', Math.round(parseFloat(e.target.value || '0') * 100))}
+                                data-testid="input-pm-basePrice"
+                                className={inputCls}
+                              />
+                            </div>
+                            <div>
+                              <label className="block app-label mb-1">Overage Bump ($/mo)</label>
+                              <input
+                                type="number" min={0} step={1}
+                                value={(overageBump / 100).toFixed(0)}
+                                onChange={e => pmSet('overageBump', Math.round(parseFloat(e.target.value || '0') * 100))}
+                                data-testid="input-pm-overageBump"
+                                className={inputCls}
+                              />
+                            </div>
+                            <div>
+                              <label className="block app-label mb-1">Monthly Cap ($/mo)</label>
+                              <input
+                                type="number" min={0} step={1}
+                                value={(monthlyCap / 100).toFixed(0)}
+                                onChange={e => pmSet('monthlyCap', Math.round(parseFloat(e.target.value || '0') * 100))}
+                                data-testid="input-pm-monthlyCap"
+                                className={inputCls}
+                              />
+                            </div>
+                            <div>
+                              <label className="block app-label mb-1">Free Trial (days)</label>
+                              <input
+                                type="number" min={0}
+                                value={trialDays}
+                                onChange={e => pmSet('trialDays', parseInt(e.target.value, 10) || 0)}
+                                data-testid="input-pm-trialDays"
+                                className={inputCls}
+                              />
+                            </div>
+                          </div>
 
-                  {plans.length > 0 && (
-                    <div className="rounded-md border border-gray-700 bg-gray-800/40 overflow-x-auto" data-testid="plans-comparison-grid">
-                      <table className="w-full border-collapse" style={{ minWidth: '360px', fontSize: '9px' }}>
-                        <thead>
-                          <tr className="border-b border-gray-700/60">
-                            <th className="text-left px-1.5 py-1 text-gray-500 font-medium w-[90px] sticky left-0 bg-gray-800/90 z-10" />
-                            {plans.map(plan => (
-                              <th key={plan.planKey} className="px-0.5 py-1 text-center align-middle" data-testid={`col-plan-${plan.planKey}`}>
-                                <div className="flex items-center justify-center gap-0.5">
-                                  {(plan.orgCount ?? 0) > 0 && <Lock className="h-[7px] w-[7px] text-blue-400/60 shrink-0" />}
-                                  {editingPlanName === plan.planKey ? (
-                                    <input
-                                      autoFocus
-                                      value={getDraft(plan.planKey, 'name', plan.name)}
-                                      onChange={e => setDraft(plan.planKey, 'name', e.target.value)}
-                                      onBlur={() => setEditingPlanName(null)}
-                                      onKeyDown={e => { if (e.key === 'Enter') setEditingPlanName(null); }}
-                                      data-testid={`input-plan-name-${plan.planKey}`}
-                                      style={inputStyle}
-                                      className={`${inputCls} font-semibold max-w-[55px]`}
-                                    />
-                                  ) : (
-                                    <>
-                                      <span className="text-[8px] font-semibold text-gray-200 leading-tight">{getDraft(plan.planKey, 'name', plan.name)}</span>
-                                      <button
-                                        onClick={() => setEditingPlanName(plan.planKey)}
-                                        data-testid={`button-edit-name-${plan.planKey}`}
-                                        className="text-gray-600 hover:text-gray-300 transition-colors shrink-0"
-                                      >
-                                        <Pencil className="h-[7px] w-[7px]" />
-                                      </button>
-                                    </>
-                                  )}
+                          <div className="flex items-center gap-2 pt-1">
+                            <div className="flex-1 h-1.5 rounded-full bg-gray-700/50 overflow-hidden">
+                              <div className="h-full rounded-full bg-gradient-to-r from-green-500/70 to-yellow-500/70" style={{ width: `${Math.min(100, (basePrice / (monthlyCap || 1)) * 100)}%` }} />
+                            </div>
+                            <span className="text-[9px] text-gray-500 whitespace-nowrap">
+                              {fmtDollars(basePrice)} base  /  up to {maxBumps} bumps  /  {fmtDollars(monthlyCap)} cap
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="sm-card">
+                        <div className="sm-card-header">
+                          <BarChart3 className="h-3.5 w-3.5 text-blue-400/80" />
+                          <span className="text-xs font-semibold text-gray-200">Usage Dimensions</span>
+                        </div>
+                        <div className="px-4 py-3 space-y-2">
+                          <p className="text-[10px] text-gray-400 leading-relaxed mb-2">
+                            Each dimension has a base allowance included in the {fmtDollars(basePrice)}/mo plan. Exceeding any dimension triggers a +{fmtDollars(overageBump)}/mo bump for that dimension.
+                          </p>
+                          <div className="rounded-md border border-gray-700 bg-gray-800/40 overflow-hidden">
+                            <table className="w-full border-collapse text-[10px]">
+                              <thead>
+                                <tr className="border-b border-gray-700/60 bg-gray-900/40">
+                                  <th className="text-left px-3 py-1.5 text-gray-500 font-medium">Dimension</th>
+                                  <th className="text-center px-2 py-1.5 text-gray-500 font-medium">Base Included</th>
+                                  <th className="text-center px-2 py-1.5 text-gray-500 font-medium">Per Bump (+{fmtDollars(overageBump)})</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {USAGE_DIMENSIONS.map(dim => (
+                                  <tr key={dim.baseField} className="border-b border-gray-700/30">
+                                    <td className="px-3 py-1.5 text-gray-300 font-medium">{dim.label}</td>
+                                    <td className="px-2 py-1.5 text-center">
+                                      <input
+                                        type="number" min={0}
+                                        value={pmVal(dim.baseField, dim.baseFallback)}
+                                        onChange={e => pmSet(dim.baseField, parseInt(e.target.value, 10) || 0)}
+                                        data-testid={`input-pm-${dim.baseField}`}
+                                        className="w-20 bg-gray-900/60 border border-gray-700 rounded px-1.5 py-0.5 text-gray-200 outline-none focus:border-gray-500 text-center text-[10px] tabular-nums"
+                                      />
+                                      <span className="text-[8px] text-gray-600 ml-1">{dim.unit}</span>
+                                    </td>
+                                    <td className="px-2 py-1.5 text-center">
+                                      <span className="text-gray-500 mr-1">+</span>
+                                      <input
+                                        type="number" min={0}
+                                        value={pmVal(dim.bumpField, dim.bumpFallback)}
+                                        onChange={e => pmSet(dim.bumpField, parseInt(e.target.value, 10) || 0)}
+                                        data-testid={`input-pm-${dim.bumpField}`}
+                                        className="w-20 bg-gray-900/60 border border-gray-700 rounded px-1.5 py-0.5 text-gray-200 outline-none focus:border-gray-500 text-center text-[10px] tabular-nums"
+                                      />
+                                      <span className="text-[8px] text-gray-600 ml-1">{dim.unit}</span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="sm-card">
+                        <div className="sm-card-header">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-violet-400/80" />
+                          <span className="text-xs font-semibold text-gray-200">Included in Every Plan</span>
+                        </div>
+                        <div className="px-4 py-3">
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                            {INCLUDED_FEATURES.map(feat => (
+                              <div key={feat} className="flex items-center gap-1.5 py-0.5">
+                                <CheckCircle2 className="h-2.5 w-2.5 text-green-500/70 shrink-0" />
+                                <span className="text-[10px] text-gray-300">{feat}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="sm-card">
+                        <div className="sm-card-header">
+                          <BarChart3 className="h-3.5 w-3.5 text-amber-400/80" />
+                          <span className="text-xs font-semibold text-gray-200">Pricing Preview</span>
+                        </div>
+                        <div className="px-4 py-3">
+                          <p className="text-[10px] text-gray-400 mb-2">How the monthly bill scales with usage:</p>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 text-right text-[10px] text-gray-500 tabular-nums">{fmtDollars(basePrice)}/mo</div>
+                              <div className="flex-1 h-3 rounded-full bg-gray-700/40 overflow-hidden">
+                                <div className="h-full rounded-full bg-green-500/60" style={{ width: `${(basePrice / (monthlyCap || 1)) * 100}%` }} />
+                              </div>
+                              <span className="text-[9px] text-gray-500 w-20">Base plan</span>
+                            </div>
+                            {[1, 2, 3, Math.max(4, maxBumps)].filter((v, i, a) => v <= maxBumps && a.indexOf(v) === i).map(bumps => {
+                              const total = Math.min(basePrice + bumps * overageBump, monthlyCap);
+                              return (
+                                <div key={bumps} className="flex items-center gap-2">
+                                  <div className="w-16 text-right text-[10px] text-gray-400 tabular-nums">{fmtDollars(total)}/mo</div>
+                                  <div className="flex-1 h-3 rounded-full bg-gray-700/40 overflow-hidden">
+                                    <div className="h-full rounded-full bg-gradient-to-r from-green-500/60 to-yellow-500/60" style={{ width: `${(total / (monthlyCap || 1)) * 100}%` }} />
+                                  </div>
+                                  <span className="text-[9px] text-gray-500 w-20">+{bumps} bump{bumps > 1 ? 's' : ''}</span>
                                 </div>
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {/* Trial duration row */}
-                          <tr className="border-b border-gray-700/30">
-                            <td className="px-1.5 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Trial days</td>
-                            {plans.map(plan => {
-                              const locked = (plan.orgCount ?? 0) > 0;
-                              const isTrial = plan.planKey === 'trial';
-                              return (
-                                <td key={plan.planKey} className="px-0.5 py-0.5 text-center">
-                                  {isTrial ? (
-                                    locked ? (
-                                      <span className="text-[9px] text-gray-300 font-semibold">{plan.trialDurationDays}</span>
-                                    ) : (
-                                      <input type="number" min={1}
-                                        value={getDraft(plan.planKey, 'trialDurationDays', plan.trialDurationDays)}
-                                        onChange={e => setDraft(plan.planKey, 'trialDurationDays', parseInt(e.target.value, 10) || 0)}
-                                        data-testid={`input-plan-trialDays-${plan.planKey}`}
-                                        style={inputStyle}
-                                        className={inputCls}
-                                      />
-                                    )
-                                  ) : (
-                                    <span className="text-[7px] text-gray-700">—</span>
-                                  )}
-                                </td>
                               );
                             })}
-                          </tr>
-                          {/* Orgs row */}
-                          <tr className="border-b border-gray-700/30">
-                            <td className="px-1.5 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Orgs</td>
-                            {plans.map(plan => (
-                              <td key={plan.planKey} className="px-0.5 py-0.5 text-center">
-                                <span className="inline-flex items-center justify-center rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-400 text-[7px] font-semibold min-w-[12px] px-1 leading-tight" data-testid={`badge-orgcount-${plan.planKey}`}>{plan.orgCount ?? 0}</span>
-                              </td>
-                            ))}
-                          </tr>
-                          {/* Sunset row */}
-                          <tr className="border-b border-gray-700/30">
-                            <td className="px-1.5 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Sunset</td>
-                            {plans.map(plan => (
-                              <td key={plan.planKey} className="px-0.5 py-0.5 text-center">
-                                <Switch
-                                  checked={getDraft(plan.planKey, 'isSunset', plan.isSunset)}
-                                  onCheckedChange={checked => {
-                                    setDraft(plan.planKey, 'isSunset', checked);
-                                    sunsetPlanMutation.mutate({ planKey: plan.planKey, isSunset: checked });
-                                  }}
-                                  data-testid={`switch-sunset-${plan.planKey}`}
-                                  className="scale-[0.4] mx-auto"
-                                />
-                              </td>
-                            ))}
-                          </tr>
-
-                          {/* Pricing section header */}
-                          <tr className="border-b border-gray-700/30 bg-gray-900/30">
-                            <td colSpan={plans.length + 1} className="px-1.5 py-0.5 text-[7px] font-semibold text-gray-400 uppercase tracking-widest">Pricing (USD)</td>
-                          </tr>
-                          {/* Monthly */}
-                          <tr className="border-b border-gray-700/30">
-                            <td className="px-1.5 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Monthly</td>
-                            {plans.map(plan => {
-                              const locked = (plan.orgCount ?? 0) > 0;
-                              return (
-                                <td key={plan.planKey} className="px-0.5 py-0.5 text-center">
-                                  {locked ? (
-                                    <span className="text-[9px] text-gray-300 font-semibold">${fmtCents(plan.priceMonthly)}</span>
-                                  ) : (
-                                    <input type="number" min={0} step={0.01}
-                                      value={fmtCents(getDraft(plan.planKey, 'priceMonthly', plan.priceMonthly))}
-                                      onChange={e => setDraft(plan.planKey, 'priceMonthly', parseCents(e.target.value))}
-                                      data-testid={`input-plan-priceMonthly-${plan.planKey}`}
-                                      style={inputStyle}
-                                      className={inputCls}
-                                    />
-                                  )}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                          {/* Annual */}
-                          <tr className="border-b border-gray-700/30">
-                            <td className="px-1.5 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Annual total</td>
-                            {plans.map(plan => {
-                              const locked = (plan.orgCount ?? 0) > 0;
-                              return (
-                                <td key={plan.planKey} className="px-0.5 py-0.5 text-center">
-                                  {locked ? (
-                                    <span className="text-[9px] text-gray-300 font-semibold">${fmtCents(plan.priceAnnual)}</span>
-                                  ) : (
-                                    <input type="number" min={0} step={0.01}
-                                      value={fmtCents(getDraft(plan.planKey, 'priceAnnual', plan.priceAnnual))}
-                                      onChange={e => setDraft(plan.planKey, 'priceAnnual', parseCents(e.target.value))}
-                                      data-testid={`input-plan-priceAnnual-${plan.planKey}`}
-                                      style={inputStyle}
-                                      className={inputCls}
-                                    />
-                                  )}
-                                </td>
-                              );
-                            })}
-                          </tr>
-                          {/* Annual/Mo */}
-                          <tr className="border-b border-gray-700/30">
-                            <td className="px-1.5 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">Annual/mo</td>
-                            {plans.map(plan => {
-                              const locked = (plan.orgCount ?? 0) > 0;
-                              return (
-                                <td key={plan.planKey} className="px-0.5 py-0.5 text-center">
-                                  {locked ? (
-                                    <span className="text-[9px] text-gray-300 font-semibold">${fmtCents(plan.priceAnnualMonthly)}</span>
-                                  ) : (
-                                    <input type="number" min={0} step={0.01}
-                                      value={fmtCents(getDraft(plan.planKey, 'priceAnnualMonthly', plan.priceAnnualMonthly))}
-                                      onChange={e => setDraft(plan.planKey, 'priceAnnualMonthly', parseCents(e.target.value))}
-                                      data-testid={`input-plan-priceAnnualMonthly-${plan.planKey}`}
-                                      style={inputStyle}
-                                      className={inputCls}
-                                    />
-                                  )}
-                                </td>
-                              );
-                            })}
-                          </tr>
-
-                          {/* Usage limits section header */}
-                          <tr className="border-b border-gray-700/30 bg-gray-900/30">
-                            <td colSpan={plans.length + 1} className="px-1.5 py-0.5 text-[7px] font-semibold text-gray-400 uppercase tracking-widest">Usage Limits</td>
-                          </tr>
-                          {LIMIT_ROWS.map(({ label, field }) => (
-                            <tr key={field} className="border-b border-gray-700/30">
-                              <td className="px-1.5 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">{label}</td>
-                              {plans.map(plan => {
-                                const locked = (plan.orgCount ?? 0) > 0;
-                                const val = getDraft(plan.planKey, field, (plan as any)[field]);
-                                return (
-                                  <td key={plan.planKey} className="px-0.5 py-0.5 text-center">
-                                    {locked ? (
-                                      <span className="text-[9px] text-gray-300 font-semibold">{fmtLimit(val)}</span>
-                                    ) : (
-                                      <input type="number" min={-1}
-                                        value={val}
-                                        onChange={e => setDraft(plan.planKey, field, parseInt(e.target.value, 10) || 0)}
-                                        data-testid={`input-plan-${field}-${plan.planKey}`}
-                                        style={inputStyle}
-                                        className={inputCls}
-                                      />
-                                    )}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))}
-
-                          {/* Features section header */}
-                          <tr className="border-b border-gray-700/30 bg-gray-900/30">
-                            <td colSpan={plans.length + 1} className="px-1.5 py-0.5 text-[7px] font-semibold text-gray-400 uppercase tracking-widest">Features</td>
-                          </tr>
-                          {FEATURE_ROWS.map(({ key, label }) => (
-                            <tr key={key} className="border-b border-gray-700/30">
-                              <td className="px-1.5 py-0.5 text-gray-500 sticky left-0 bg-gray-800/90 z-10">{label}</td>
-                              {plans.map(plan => {
-                                const locked = (plan.orgCount ?? 0) > 0;
-                                const val = getDraft(plan.planKey, key, (plan as any)[key]);
-                                return (
-                                  <td key={plan.planKey} className="px-0.5 py-0.5 text-center">
-                                    {locked ? (
-                                      val ? <CheckCircle2 className="h-2.5 w-2.5 text-green-500/70 mx-auto" /> : <X className="h-2.5 w-2.5 text-gray-700 mx-auto" />
-                                    ) : (
-                                      <Switch
-                                        checked={val}
-                                        onCheckedChange={checked => setDraft(plan.planKey, key, checked)}
-                                        data-testid={`switch-feature-${key}-${plan.planKey}`}
-                                        className="scale-[0.45] mx-auto"
-                                      />
-                                    )}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {/* Save buttons per plan */}
-                  {plans.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1.5 justify-end">
-                      {plans.filter(p => (p.orgCount ?? 0) === 0 && (planDraft as any)[p.planKey]).map(plan => (
-                        <button
-                          key={plan.planKey}
-                          onClick={() => {
-                            const draft = (planDraft as any)[plan.planKey] || {};
-                            const { planKey, orgCount, id, sortOrder, updatedAt, isSunset, ...editableFields } = draft;
-                            savePlanMutation.mutate({ planKey: plan.planKey, fields: editableFields });
-                          }}
-                          disabled={savePlanMutation.isPending}
-                          data-testid={`button-save-plan-${plan.planKey}`}
-                          className="flex items-center gap-1 px-2 py-1 bg-yellow-600/20 hover:bg-yellow-600/30 border border-yellow-500/30 rounded text-[9px] font-medium text-yellow-400 transition-colors disabled:opacity-50"
-                        >
-                          {savePlanMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                          Save {plan.name}
-                        </button>
-                      ))}
-                    </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 text-right text-[10px] text-amber-400 font-semibold tabular-nums">{fmtDollars(monthlyCap)}/mo</div>
+                              <div className="flex-1 h-3 rounded-full bg-gray-700/40 overflow-hidden">
+                                <div className="h-full rounded-full bg-gradient-to-r from-green-500/60 via-yellow-500/60 to-amber-500/60" style={{ width: '100%' }} />
+                              </div>
+                              <span className="text-[9px] text-amber-400 w-20 font-medium">Cap reached</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               );

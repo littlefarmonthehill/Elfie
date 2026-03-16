@@ -1621,6 +1621,26 @@ export const insertPlanConfigSchema = createInsertSchema(planConfigs).omit({ id:
 export type InsertPlanConfig = z.infer<typeof insertPlanConfigSchema>;
 export type PlanConfig = typeof planConfigs.$inferSelect;
 
+export const pricingModel = pgTable("pricing_model", {
+  id: serial("id").primaryKey(),
+  basePrice: integer("base_price").notNull().default(3900),
+  overageBump: integer("overage_bump").notNull().default(500),
+  monthlyCap: integer("monthly_cap").notNull().default(9900),
+  trialDays: integer("trial_days").notNull().default(14),
+  baseInventoryLots: integer("base_inventory_lots").notNull().default(5000),
+  bumpInventoryLots: integer("bump_inventory_lots").notNull().default(2500),
+  baseOrdersPerMonth: integer("base_orders_per_month").notNull().default(100),
+  bumpOrdersPerMonth: integer("bump_orders_per_month").notNull().default(50),
+  baseConnectedStores: integer("base_connected_stores").notNull().default(2),
+  bumpConnectedStores: integer("bump_connected_stores").notNull().default(1),
+  baseAiCalls: integer("base_ai_calls").notNull().default(200),
+  bumpAiCalls: integer("bump_ai_calls").notNull().default(100),
+  baseScans: integer("base_scans").notNull().default(50),
+  bumpScans: integer("bump_scans").notNull().default(25),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type PricingModel = typeof pricingModel.$inferSelect;
+
 export const aiUsageLog = pgTable("ai_usage_log", {
   id: serial("id").primaryKey(),
   service: varchar("service", { length: 30 }).notNull(),

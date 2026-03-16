@@ -47,7 +47,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, planConfigs, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, planConfigs, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -1054,6 +1054,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) {
       console.error("Error toggling sunset:", err);
       res.status(500).json({ message: err.message || "Failed to update plan" });
+    }
+  });
+
+  // GET /api/platform-admin/pricing-model — get pay-as-you-grow config
+  app.get('/api/platform-admin/pricing-model', isSuperAdmin, async (_req, res) => {
+    try {
+      const [row] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
+      res.json(row || null);
+    } catch (err: any) {
+      console.error("Error fetching pricing model:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // PUT /api/platform-admin/pricing-model — update pay-as-you-grow config
+  app.put('/api/platform-admin/pricing-model', isSuperAdmin, async (req, res) => {
+    try {
+      const pricingSchema = z.object({
+        basePrice: z.number().int().min(0).max(100000).optional(),
+        overageBump: z.number().int().min(0).max(10000).optional(),
+        monthlyCap: z.number().int().min(0).max(100000).optional(),
+        trialDays: z.number().int().min(0).max(365).optional(),
+        baseInventoryLots: z.number().int().min(0).max(10000000).optional(),
+        bumpInventoryLots: z.number().int().min(0).max(1000000).optional(),
+        baseOrdersPerMonth: z.number().int().min(0).max(1000000).optional(),
+        bumpOrdersPerMonth: z.number().int().min(0).max(100000).optional(),
+        baseConnectedStores: z.number().int().min(0).max(100).optional(),
+        bumpConnectedStores: z.number().int().min(0).max(50).optional(),
+        baseAiCalls: z.number().int().min(0).max(1000000).optional(),
+        bumpAiCalls: z.number().int().min(0).max(100000).optional(),
+        baseScans: z.number().int().min(0).max(1000000).optional(),
+        bumpScans: z.number().int().min(0).max(100000).optional(),
+      });
+      const parsed = pricingSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid pricing data", errors: parsed.error.flatten().fieldErrors });
+      const updates = parsed.data as Record<string, any>;
+      if (Object.keys(updates).length === 0) return res.status(400).json({ message: 'No valid fields to update' });
+      updates.updatedAt = new Date();
+      await db.update(pricingModel).set(updates).where(eq(pricingModel.id, 1));
+      const [row] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
+      res.json(row);
+    } catch (err: any) {
+      console.error("Error updating pricing model:", err);
+      res.status(500).json({ message: err.message });
     }
   });
 

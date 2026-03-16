@@ -816,6 +816,33 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS tos_accepted_at TIMESTAMP`);
     console.log('[Migration] Phase-36 (tos_accepted_at column) complete.');
 
+    // Phase-37: Pay-as-you-grow pricing model
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS pricing_model (
+        id SERIAL PRIMARY KEY,
+        base_price INTEGER NOT NULL DEFAULT 3900,
+        overage_bump INTEGER NOT NULL DEFAULT 500,
+        monthly_cap INTEGER NOT NULL DEFAULT 9900,
+        trial_days INTEGER NOT NULL DEFAULT 14,
+        base_inventory_lots INTEGER NOT NULL DEFAULT 5000,
+        bump_inventory_lots INTEGER NOT NULL DEFAULT 2500,
+        base_orders_per_month INTEGER NOT NULL DEFAULT 100,
+        bump_orders_per_month INTEGER NOT NULL DEFAULT 50,
+        base_connected_stores INTEGER NOT NULL DEFAULT 2,
+        bump_connected_stores INTEGER NOT NULL DEFAULT 1,
+        base_ai_calls INTEGER NOT NULL DEFAULT 200,
+        bump_ai_calls INTEGER NOT NULL DEFAULT 100,
+        base_scans INTEGER NOT NULL DEFAULT 50,
+        bump_scans INTEGER NOT NULL DEFAULT 25,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+    await client.query(`
+      INSERT INTO pricing_model (id) VALUES (1)
+      ON CONFLICT (id) DO NOTHING
+    `);
+    console.log('[Migration] Phase-37 (pricing_model table) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

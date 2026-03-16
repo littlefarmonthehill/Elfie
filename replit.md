@@ -61,15 +61,20 @@ All 19 tables with `orgId` columns now have indexes. This is critical for multi-
 ### Debug Logging Cleaned
 Removed ~30 debug `console.log` calls with emojis from routes.ts, ChatInterface.tsx, home.tsx, and SettingsModal.tsx. Retained legitimate `console.error` calls and operational diagnostics for the Brickanalyzer CV pipeline, CLIP embedding system, and Platform Sync.
 
-## Platform Admin — Plans & Pricing
+## Platform Admin — Plans & Pricing (Pay As You Grow)
 
-Plan configurations are stored in the `planConfigs` DB table (seeded once from `shared/tierConfig.ts` on first startup). Super admins can edit plan configs via the Platform Admin → Plans & Pricing section in the SettingsModal.
+Pricing uses a single **Pay As You Grow** model instead of multiple tier plans. Stored in the `pricing_model` singleton table (Phase-37 migration, auto-seeded with defaults). Super admins configure it via Platform Admin → Plans & Pricing in SettingsModal.
 
-- **Enforcement**: `server/services/tierEnforcement.ts` reads limits/features from DB via `getPlanConfigByKey()` (5-min cache) instead of static config
-- **Lock rule**: Once any org is on a plan, its config is read-only except for the `isSunset` toggle
-- **Sunset**: Marks a plan so it cannot be offered to new signups; existing customers are unaffected
+- **Base price**: $39/mo flat (configurable). All features included — no feature gating per tier.
+- **Overage bumps**: When a usage dimension exceeds its base threshold, +$5/mo bump per dimension.
+- **Usage dimensions**: Inventory Lots (base 5k), Orders/mo (base 100), Connected Stores (base 2), AI Calls/mo (base 200), BrickSpotter Scans/mo (base 50). Each has configurable base allowance and bump increment.
+- **Monthly cap**: Hard ceiling (default $99/mo) prevents runaway billing.
+- **Unlimited seats**: No per-seat licensing.
+- **Free trial**: Configurable trial period (default 14 days).
+- **API routes**: `GET /api/platform-admin/pricing-model`, `PUT /api/platform-admin/pricing-model` (Zod-validated, superAdmin only)
+- **Schema**: `shared/schema.ts` → `pricingModel` table. Type: `PricingModel`.
+- **Legacy tier system**: `planConfigs` table and `shared/tierConfig.ts` still exist for backward compatibility with existing org assignments. `server/services/tierEnforcement.ts` reads limits/features from DB via `getPlanConfigByKey()` (5-min cache). The admin UI no longer exposes the old tier comparison grid.
 - **Plan service**: `server/services/planConfigService.ts` — `seedPlanConfigsIfEmpty()`, `getAllPlanConfigsWithCounts()`, `updatePlanConfig()`, `setPlanSunset()`
-- **API routes**: `GET /api/platform-admin/plans`, `PATCH /api/platform-admin/plans/:planKey`, `PATCH /api/platform-admin/plans/:planKey/sunset`
 
 ## Platform vs Customer Org Architecture
 
