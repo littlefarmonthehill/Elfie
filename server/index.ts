@@ -128,9 +128,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// ── Step 1: Register health check BEFORE anything else ──────────────────────
-// This is the ONLY route that works before full initialization.
+// ── Step 1: Register health + ready check BEFORE anything else ───────────────
+// /api/health always returns 200; /api/ready reflects real initialization state.
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
+app.get('/api/ready', (_req, res) => {
+  if (_serverReady) return res.json({ ready: true });
+  res.status(503).json({ ready: false });
+});
 
 // ── Step 2: Auth routes registered IMMEDIATELY ───────────────────────────────
 // Session, Passport, /api/check-email, /api/auth/* and /api/change-password
