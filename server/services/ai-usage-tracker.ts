@@ -92,6 +92,26 @@ export async function getUsageLast30d() {
   return result;
 }
 
+export async function getOrgAiUsageMtd(orgId: string) {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const rows = await db.select({
+    operation: aiUsageLog.operation,
+    totalTokens: sql<number>`COALESCE(SUM(${aiUsageLog.totalTokens}), 0)`.as('total_tokens'),
+    totalCost: sql<number>`COALESCE(SUM(${aiUsageLog.estimatedCost}), 0)`.as('total_cost'),
+    requests: sql<number>`COUNT(*)`.as('requests'),
+  })
+    .from(aiUsageLog)
+    .where(and(
+      eq(aiUsageLog.orgId, orgId),
+      gte(aiUsageLog.createdAt, startOfMonth),
+    ))
+    .groupBy(aiUsageLog.operation);
+
+  return rows;
+}
+
 export async function getUsageByOrg(days: number = 30) {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 

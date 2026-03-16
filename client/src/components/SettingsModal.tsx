@@ -1522,6 +1522,279 @@ function SupportQueuePanel() {
   );
 }
 
+function BillingOverviewPanel() {
+  const { data: allOrgsUsage, isLoading } = useQuery<{
+    orgs: Array<{
+      orgId: string;
+      orgName: string;
+      inventoryLots: number;
+      ordersPerMonth: number;
+      connectedStores: number;
+      aiCalls: number;
+      scans: number;
+      totalBumps: number;
+      projectedMonthly: number;
+    }>;
+    pricing: { basePrice: number; overageBump: number; monthlyCap: number };
+  }>({ queryKey: ['/api/platform-admin/all-orgs-usage'] });
+
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+
+  const { data: orgDetail, isLoading: detailLoading } = useQuery<{
+    orgId: string;
+    orgName: string;
+    dimensions: {
+      inventoryLots: { current: number; base: number; bump: number };
+      ordersPerMonth: { current: number; base: number; bump: number };
+      connectedStores: { current: number; base: number; bump: number };
+      aiCalls: { current: number; base: number; bump: number; byOperation?: Record<string, { requests: number; cost: number }> };
+      scans: { current: number; base: number; bump: number };
+    };
+    pricing: { basePrice: number; overageBump: number; monthlyCap: number };
+    aiCostTotal: number;
+  }>({
+    queryKey: ['/api/platform-admin/org-usage', selectedOrgId],
+    enabled: !!selectedOrgId,
+  });
+
+  if (isLoading) return <div className="p-4 flex items-center justify-center"><Loader2 className="w-4 h-4 animate-spin text-gray-500" /></div>;
+  if (!allOrgsUsage) return <div className="p-4 text-center text-xs text-gray-500">Unable to load billing data.</div>;
+
+  const { orgs, pricing } = allOrgsUsage;
+  const totalMRR = orgs.reduce((sum, o) => sum + o.projectedMonthly, 0);
+  const fmtD = (cents: number) => `$${(cents / 100).toFixed(0)}`;
+  const bumpCalc = (current: number, base: number, bump: number) =>
+    current <= base ? 0 : Math.ceil((current - base) / bump);
+
+  return (
+    <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden">
+      <div className="sm-card">
+        <div className="sm-card-header">
+          <CreditCard className="h-3.5 w-3.5 text-green-400/80" />
+          <span className="text-xs font-semibold text-gray-200">Revenue Summary</span>
+        </div>
+        <div className="px-4 py-3 space-y-3">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="text-center">
+              <div className="text-lg font-bold text-white tabular-nums">{fmtD(totalMRR)}</div>
+              <div className="text-[10px] text-gray-500">Projected MRR</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-bold text-white tabular-nums">{orgs.length}</div>
+              <div className="text-[10px] text-gray-500">Active Orgs</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-bold text-white tabular-nums">{fmtD(pricing.basePrice)}</div>
+              <div className="text-[10px] text-gray-500">Base Price</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="sm-card">
+        <div className="sm-card-header">
+          <BarChart3 className="h-3.5 w-3.5 text-blue-400/80" />
+          <span className="text-xs font-semibold text-gray-200">Per-Organization Usage</span>
+        </div>
+        <div className="px-4 py-3 space-y-2">
+          <div className="rounded-md border border-gray-700 bg-gray-800/40 overflow-hidden">
+            <table className="w-full border-collapse text-[10px]">
+              <thead>
+                <tr className="border-b border-gray-700/60 bg-gray-900/40">
+                  <th className="text-left px-3 py-1.5 text-gray-500 font-medium">Organization</th>
+                  <th className="text-center px-2 py-1.5 text-gray-500 font-medium">Lots</th>
+                  <th className="text-center px-2 py-1.5 text-gray-500 font-medium">AI</th>
+                  <th className="text-center px-2 py-1.5 text-gray-500 font-medium">Scans</th>
+                  <th className="text-center px-2 py-1.5 text-gray-500 font-medium">Bumps</th>
+                  <th className="text-right px-3 py-1.5 text-gray-500 font-medium">Est.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orgs.map((o) => (
+                  <tr
+                    key={o.orgId}
+                    onClick={() => setSelectedOrgId(o.orgId === selectedOrgId ? null : o.orgId)}
+                    className={`border-b border-gray-700/30 cursor-pointer transition-colors ${selectedOrgId === o.orgId ? 'bg-blue-500/10' : 'hover:bg-gray-800/60'}`}
+                    data-testid={`billing-org-row-${o.orgId}`}
+                  >
+                    <td className="px-3 py-1.5 text-gray-300 font-medium truncate max-w-[120px]">{o.orgName}</td>
+                    <td className="px-2 py-1.5 text-center text-gray-400 tabular-nums">{o.inventoryLots.toLocaleString()}</td>
+                    <td className="px-2 py-1.5 text-center text-gray-400 tabular-nums">{o.aiCalls.toLocaleString()}</td>
+                    <td className="px-2 py-1.5 text-center text-gray-400 tabular-nums">{o.scans}</td>
+                    <td className="px-2 py-1.5 text-center">
+                      {o.totalBumps > 0 ? (
+                        <span className="text-amber-400 font-medium">+{o.totalBumps}</span>
+                      ) : (
+                        <span className="text-gray-600">0</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5 text-right text-gray-200 font-medium tabular-nums">{fmtD(o.projectedMonthly)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {selectedOrgId && detailLoading && (
+        <div className="flex items-center justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-gray-500" /></div>
+      )}
+
+      {selectedOrgId && orgDetail && (
+        <div className="sm-card">
+          <div className="sm-card-header">
+            <Building2 className="h-3.5 w-3.5 text-violet-400/80" />
+            <span className="text-xs font-semibold text-gray-200">{orgDetail.orgName} — Usage Detail</span>
+          </div>
+          <div className="px-4 py-3 space-y-2">
+            {[
+              { label: 'Inventory Lots', ...orgDetail.dimensions.inventoryLots },
+              { label: 'Orders/mo', ...orgDetail.dimensions.ordersPerMonth },
+              { label: 'Connected Stores', ...orgDetail.dimensions.connectedStores },
+              { label: 'AI Calls', ...orgDetail.dimensions.aiCalls },
+              { label: 'Scans', ...orgDetail.dimensions.scans },
+            ].map((d) => {
+              const pct = d.base > 0 ? Math.min(100, (d.current / d.base) * 100) : 0;
+              const bumps = bumpCalc(d.current, d.base, d.bump);
+              const isOver = pct >= 100;
+              const isWarn = pct >= 80 && !isOver;
+              const barColor = isOver ? 'bg-red-500/70' : isWarn ? 'bg-amber-400/70' : 'bg-green-500/60';
+              return (
+                <div key={d.label} className="space-y-1">
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="text-gray-400">{d.label}</span>
+                    <span className="text-gray-300 tabular-nums">{d.current.toLocaleString()} / {d.base.toLocaleString()}{bumps > 0 ? ` (+${bumps} bump${bumps > 1 ? 's' : ''})` : ''}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-gray-700/50 overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+            {orgDetail.dimensions.aiCalls.byOperation && Object.keys(orgDetail.dimensions.aiCalls.byOperation).length > 0 && (
+              <div className="mt-2 pt-2 border-t border-gray-700/30">
+                <div className="text-[10px] text-gray-500 mb-1">AI Usage Breakdown</div>
+                {Object.entries(orgDetail.dimensions.aiCalls.byOperation).map(([op, data]) => (
+                  <div key={op} className="flex items-center justify-between text-[10px] py-0.5">
+                    <span className="text-gray-400">{op}</span>
+                    <span className="text-gray-300 tabular-nums">{data.requests} calls · ${data.cost.toFixed(4)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="pt-2 border-t border-gray-700/30 flex items-center justify-between">
+              <span className="text-[10px] text-gray-400">Projected Monthly</span>
+              <span className="text-xs font-bold text-white tabular-nums">{fmtD(Math.min(orgDetail.pricing.basePrice + (orgs.find(o => o.orgId === selectedOrgId)?.totalBumps ?? 0) * orgDetail.pricing.overageBump, orgDetail.pricing.monthlyCap))}</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MyPlanUsagePanel() {
+  const { data: usage, isLoading } = useQuery<{
+    dimensions: {
+      inventoryLots: { current: number; base: number; bump: number };
+      ordersPerMonth: { current: number; base: number; bump: number };
+      connectedStores: { current: number; base: number; bump: number };
+      aiCalls: { current: number; base: number; bump: number; byOperation?: Record<string, { requests: number; cost: number }> };
+      scans: { current: number; base: number; bump: number };
+    };
+    pricing: { basePrice: number; overageBump: number; monthlyCap: number };
+    aiCostTotal: number;
+  }>({ queryKey: ['/api/org/usage'] });
+
+  if (isLoading) return <div className="flex items-center justify-center py-8"><Loader2 className="w-4 h-4 animate-spin text-gray-500" /></div>;
+  if (!usage) return <div className="text-center py-4 text-xs text-gray-500">Unable to load usage data.</div>;
+
+  const dims = [
+    { key: 'inventory', label: 'Inventory Lots', icon: Package, ...usage.dimensions.inventoryLots },
+    { key: 'orders', label: 'Orders This Month', icon: ShoppingCart, ...usage.dimensions.ordersPerMonth },
+    { key: 'stores', label: 'Connected Stores', icon: Globe, ...usage.dimensions.connectedStores },
+    { key: 'ai', label: 'AI Calls', icon: Sparkles, ...usage.dimensions.aiCalls },
+    { key: 'scans', label: 'BrickSpotter Scans', icon: Eye, ...usage.dimensions.scans },
+  ];
+
+  const bumpCalc = (current: number, base: number, bump: number) =>
+    current <= base ? 0 : Math.ceil((current - base) / bump);
+
+  let totalBumps = 0;
+  for (const d of dims) totalBumps += bumpCalc(d.current, d.base, d.bump);
+
+  const { basePrice, overageBump, monthlyCap } = usage.pricing;
+  const estimated = Math.min(basePrice + totalBumps * overageBump, monthlyCap);
+  const fmtD = (cents: number) => `$${(cents / 100).toFixed(0)}`;
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Pay As You Grow</h3>
+
+      <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-4 space-y-1">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-400">Estimated Monthly</span>
+          <span className="text-lg font-bold text-white tabular-nums">{fmtD(estimated)}<span className="text-xs text-gray-500 font-normal">/mo</span></span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-2 rounded-full bg-gray-700/50 overflow-hidden">
+            <div className="h-full rounded-full bg-gradient-to-r from-green-500/70 to-amber-400/70 transition-all" style={{ width: `${Math.min(100, (estimated / monthlyCap) * 100)}%` }} />
+          </div>
+          <span className="text-[9px] text-gray-500 tabular-nums whitespace-nowrap">{fmtD(basePrice)} base + {totalBumps} bump{totalBumps !== 1 ? 's' : ''} / {fmtD(monthlyCap)} cap</span>
+        </div>
+      </div>
+
+      <div className="grid gap-3" data-testid="section-my-plan-usage">
+        {dims.map((d) => {
+          const pct = d.base > 0 ? Math.min(100, (d.current / d.base) * 100) : 0;
+          const bumps = bumpCalc(d.current, d.base, d.bump);
+          const isOver = pct >= 100;
+          const isWarn = pct >= 80 && !isOver;
+          const barColor = isOver ? 'bg-red-500/70' : isWarn ? 'bg-amber-400/70' : 'bg-green-500/60';
+          const DimIcon = d.icon;
+          return (
+            <div key={d.key} className="bg-gray-900/40 border border-gray-800 rounded-lg p-3 space-y-2" data-testid={`usage-dim-${d.key}`}>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-400 flex items-center gap-1.5">
+                  <DimIcon className="w-3.5 h-3.5" />
+                  {d.label}
+                </span>
+                <span className="font-mono text-gray-300">
+                  {d.current.toLocaleString()} / {d.base.toLocaleString()}
+                </span>
+              </div>
+              <div className="h-1.5 rounded-full bg-gray-700/50 overflow-hidden">
+                <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-gray-500">
+                  {isOver ? (
+                    <span className="text-amber-400">+{bumps} bump{bumps > 1 ? 's' : ''} ({fmtD(bumps * overageBump)}/mo)</span>
+                  ) : isWarn ? (
+                    <span className="text-amber-400">Approaching limit ({Math.round(pct)}%)</span>
+                  ) : (
+                    <span>{Math.round(pct)}% of base included</span>
+                  )}
+                </span>
+                <span className="text-[10px] text-gray-600">+{d.bump.toLocaleString()} per bump</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-3 space-y-2">
+        <div className="flex items-center gap-1.5 text-xs text-gray-400">
+          <Clock className="w-3.5 h-3.5" />
+          <span>Billing History</span>
+        </div>
+        <p className="text-[10px] text-gray-500">Detailed invoice history will be available once Stripe billing is connected.</p>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsModal({ open, onClose, initialSection, initialPlatformTab, pricingExample, scoringExample }: SettingsModalProps) {
   const { toast } = useToast();
   const { status: installStatus, promptInstall } = useInstallPrompt();
@@ -4012,100 +4285,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   )}
                 </div>
 
-                {/* Usage Meters */}
-                <div className="space-y-4">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Usage & Limits</h3>
-                  
-                  <div className="grid gap-4">
-                    {/* BrickSpotter Scans */}
-                    <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-3 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400 flex items-center gap-1.5">
-                          <Eye className="w-3.5 h-3.5" />
-                          BrickSpotter Scans
-                        </span>
-                        <span className="font-mono text-gray-300">
-                          {org?.brickspotterScansThisMonth ?? 0} / {effectiveLimits.brickspotterScansPerMonth === -1 ? '∞' : effectiveLimits.brickspotterScansPerMonth}
-                        </span>
-                      </div>
-                      <Progress 
-                        value={effectiveLimits.brickspotterScansPerMonth === -1 ? 0 : Math.min(((org?.brickspotterScansThisMonth ?? 0) / effectiveLimits.brickspotterScansPerMonth) * 100, 100)} 
-                        className="h-1.5"
-                      />
-                      <p className="text-[10px] text-gray-500">Resets on {org?.brickspotterScansResetDate ? new Date(org.brickspotterScansResetDate).toLocaleDateString() : '—'}</p>
-                    </div>
-
-                    {/* Team Seats */}
-                    <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-3 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400 flex items-center gap-1.5">
-                          <Users className="w-3.5 h-3.5" />
-                          Team Seats
-                        </span>
-                        <span className="font-mono text-gray-300">
-                          {users?.length ?? 0} / {effectiveLimits.seats === -1 ? '∞' : effectiveLimits.seats}
-                        </span>
-                      </div>
-                      <Progress 
-                        value={effectiveLimits.seats === -1 ? 0 : Math.min(((users?.length ?? 0) / effectiveLimits.seats) * 100, 100)} 
-                        className="h-1.5"
-                      />
-                      <p className="text-[10px] text-gray-500">Manage seats in Team & Roles</p>
-                    </div>
-
-                    {/* Inventory Items — only shown when plan has a limit */}
-                    {effectiveLimits.inventoryItems !== -1 && (
-                      <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-3 space-y-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-gray-400 flex items-center gap-1.5">
-                            <Database className="w-3.5 h-3.5" />
-                            Inventory Items
-                          </span>
-                          <span className="font-mono text-gray-300">
-                            {inventoryCount} / {effectiveLimits.inventoryItems}
-                          </span>
-                        </div>
-                        <Progress
-                          value={Math.min((inventoryCount / effectiveLimits.inventoryItems) * 100, 100)}
-                          className="h-1.5"
-                        />
-                        <p className="text-[10px] text-gray-500">Upgrade to Foundation or Core for unlimited inventory</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Plan Comparison */}
-                <div className="space-y-3">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Plan Comparison</h3>
-                  <div className="border border-gray-700 rounded-lg divide-y divide-gray-700 overflow-hidden">
-                    {[
-                      { feature: 'BrickLink Sync', foundation: true, core: true },
-                      { feature: 'BrickOwl Sync', foundation: false, core: true },
-                      { feature: 'E.L.F.I.E. AI (Default)', foundation: true, core: true },
-                      { feature: 'E.L.F.I.E. AI (Customized)', foundation: false, core: true },
-                      { feature: 'E.L.F.I.E. Live Support', foundation: false, core: true },
-                      { feature: 'Business Insights', foundation: true, core: true },
-                      { feature: 'Price-o-Matic', foundation: false, core: true },
-                      { feature: 'Auto-Shipping Rules', foundation: false, core: true },
-                      { feature: 'Unlimited Scans', foundation: false, core: true },
-                    ].map((f, i) => (
-                      <div key={i} className="flex items-center justify-between p-3 text-xs">
-                        <span className="text-gray-300">{f.feature}</span>
-                        <div className="flex gap-4">
-                          <div className="flex items-center gap-1.5 w-20 justify-end">
-                            <span className="app-label">Fdn</span>
-                            {f.foundation ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <Lock className="w-3.5 h-3.5 text-gray-600" />}
-                          </div>
-                          <div className="flex items-center gap-1.5 w-20 justify-end">
-                            <span className="app-label">Core</span>
-                            {f.core ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <Lock className="w-3.5 h-3.5 text-gray-600" />}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <MyPlanUsagePanel />
               </div>
             )}
 
@@ -7487,18 +7667,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
             )}
 
             {/* Billing Overview */}
-            {activeSection === 'billingOverview' && (
-              <div className="p-4 space-y-4">
-                <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-6 flex flex-col items-center justify-center gap-3 text-center">
-                  <CreditCard className="h-8 w-8 text-gray-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-100">Billing Overview</p>
-                    <p className="sm-description mt-1">Platform-level revenue dashboard — MRR, churn, trial conversions, and per-organization subscription status.</p>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] text-gray-500 border-gray-600">Coming Soon</Badge>
-                </div>
-              </div>
-            )}
+            {activeSection === 'billingOverview' && <BillingOverviewPanel />}
 
             {/* Support Queue */}
             {activeSection === 'supportQueue' && <SupportQueuePanel />}

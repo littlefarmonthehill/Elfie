@@ -591,6 +591,18 @@ export async function generateOrgInsights(orgId: string): Promise<number> {
       max_tokens: 4000,
     });
     responseText = completion.choices[0]?.message?.content || '';
+    if (completion.usage) {
+      const { trackUsage } = await import('./ai-usage-tracker');
+      trackUsage({
+        service: 'openai',
+        model: 'gpt-4o-mini',
+        operation: 'business-insight',
+        inputTokens: completion.usage.prompt_tokens || 0,
+        outputTokens: completion.usage.completion_tokens || 0,
+        totalTokens: completion.usage.total_tokens || 0,
+        orgId,
+      });
+    }
   } catch (err: any) {
     console.error(`[BusinessIntel] OpenAI error for org ${orgId}:`, err.message);
     return 0;

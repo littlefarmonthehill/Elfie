@@ -24,7 +24,7 @@ async function getOpenAIClient(): Promise<OpenAI> {
 /**
  * Generate an embedding vector for text using OpenAI
  */
-export async function generateEmbedding(text: string, orgId?: string | null): Promise<number[]> {
+export async function generateEmbedding(text: string, orgId?: string | null, operation?: string): Promise<number[]> {
   const openai = await getOpenAIClient();
   const model = 'text-embedding-3-small';
   
@@ -37,7 +37,7 @@ export async function generateEmbedding(text: string, orgId?: string | null): Pr
     trackUsage({
       service: 'openai',
       model,
-      operation: 'embedding',
+      operation: operation || 'embedding',
       inputTokens: response.usage.prompt_tokens || 0,
       outputTokens: 0,
       totalTokens: response.usage.total_tokens || 0,
@@ -115,7 +115,7 @@ export function createOrderContent(order: any, items?: any[]): string {
 /**
  * Generate and store embedding for an inventory item
  */
-export async function embedInventoryItem(inventoryId: number) {
+export async function embedInventoryItem(inventoryId: number, operationOverride?: string) {
   try {
     // Get inventory item with catalog data (category name, item name)
     const rows = await db.select({
@@ -151,7 +151,7 @@ export async function embedInventoryItem(inventoryId: number) {
     const content = createInventoryContent(enrichedItem);
     
     // Generate embedding
-    const embedding = await generateEmbedding(content, item.orgId);
+    const embedding = await generateEmbedding(content, item.orgId, operationOverride);
     
     // Check if embedding already exists
     const existing = await db.query.inventoryEmbeddings.findFirst({
@@ -187,7 +187,7 @@ export async function embedInventoryItem(inventoryId: number) {
 /**
  * Generate and store embedding for an order
  */
-export async function embedOrder(orderId: string) {
+export async function embedOrder(orderId: string, operationOverride?: string) {
   try {
     // Get order with items
     const order = await db.query.orders.findFirst({
@@ -203,7 +203,7 @@ export async function embedOrder(orderId: string) {
     const content = createOrderContent(order, order.items);
     
     // Generate embedding
-    const embedding = await generateEmbedding(content, (order as any).orgId);
+    const embedding = await generateEmbedding(content, (order as any).orgId, operationOverride);
     
     // Check if embedding already exists
     const existing = await db.query.orderEmbeddings.findFirst({
@@ -458,11 +458,12 @@ export async function findSimilarItems(inventoryId: number, limit: number = 5) {
 /**
  * Batch embed inventory items
  */
-export async function batchEmbedInventory(inventoryIds: number[]) {
+export async function batchEmbedInventory(inventoryIds: number[], isOnboarding = false) {
+  const operation = isOnboarding ? 'embedding-onboarding' : undefined;
   const results = [];
   
   for (const id of inventoryIds) {
-    const result = await embedInventoryItem(id);
+    const result = await embedInventoryItem(id, operation);
     results.push(result);
     
     // Small delay to avoid rate limits
@@ -475,11 +476,12 @@ export async function batchEmbedInventory(inventoryIds: number[]) {
 /**
  * Batch embed orders
  */
-export async function batchEmbedOrders(orderIds: string[]) {
+export async function batchEmbedOrders(orderIds: string[], isOnboarding = false) {
+  const operation = isOnboarding ? 'embedding-onboarding' : undefined;
   const results = [];
   
   for (const id of orderIds) {
-    const result = await embedOrder(id);
+    const result = await embedOrder(id, operation);
     results.push(result);
     
     // Small delay to avoid rate limits

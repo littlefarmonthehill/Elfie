@@ -6,7 +6,7 @@ import {
   ScanSearch, ArrowRight, Settings, AlertTriangle, Zap,
   TrendingDown, Clock, Activity, CreditCard, ChevronRight,
   ChevronDown, ChevronUp,
-  Sparkles, Globe, Boxes, Megaphone,
+  Sparkles, Globe, Boxes, Megaphone, BarChart3,
 } from "lucide-react";
 import DashboardNotifications from "./DashboardNotifications";
 import { cn } from "@/lib/utils";
@@ -210,6 +210,95 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
   );
 }
 
+interface OrgUsageData {
+  dimensions: {
+    inventoryLots: { current: number; base: number; bump: number };
+    ordersPerMonth: { current: number; base: number; bump: number };
+    connectedStores: { current: number; base: number; bump: number };
+    aiCalls: { current: number; base: number; bump: number };
+    scans: { current: number; base: number; bump: number };
+  };
+  pricing: { basePrice: number; overageBump: number; monthlyCap: number };
+}
+
+function UsageSynopsis({ onOpenSettings }: { onOpenSettings?: (section: any) => void }) {
+  const { data: usage, isLoading } = useQuery<OrgUsageData>({ queryKey: ['/api/org/usage'] });
+
+  if (isLoading || !usage) return null;
+
+  const dims = [
+    { label: 'Inventory', ...usage.dimensions.inventoryLots },
+    { label: 'Orders/mo', ...usage.dimensions.ordersPerMonth },
+    { label: 'Stores', ...usage.dimensions.connectedStores },
+    { label: 'AI Calls', ...usage.dimensions.aiCalls },
+    { label: 'Scans', ...usage.dimensions.scans },
+  ];
+
+  const bumpCalc = (current: number, base: number, bump: number) =>
+    current <= base ? 0 : Math.ceil((current - base) / bump);
+
+  let totalBumps = 0;
+  const warnings: string[] = [];
+  for (const d of dims) {
+    totalBumps += bumpCalc(d.current, d.base, d.bump);
+    const pct = d.base > 0 ? (d.current / d.base) * 100 : 0;
+    if (pct >= 100) {
+      warnings.push(`${d.label} over limit`);
+    } else if (pct >= 80) {
+      warnings.push(`${d.label} at ${Math.round(pct)}%`);
+    }
+  }
+
+  const { basePrice, overageBump, monthlyCap } = usage.pricing;
+  const estimated = Math.min(basePrice + totalBumps * overageBump, monthlyCap) / 100;
+
+  return (
+    <div className="px-3 py-2.5 border-t border-gray-700/30 bg-gray-900/40" data-testid="section-usage-synopsis">
+      <button
+        onClick={() => onOpenSettings?.('billing')}
+        className="w-full text-left group"
+        data-testid="button-usage-details"
+      >
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <span className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <BarChart3 className="w-3 h-3" />
+            Usage This Month
+          </span>
+          <span className="text-[10px] text-gray-400 tabular-nums font-medium">${estimated.toFixed(0)}/mo est.</span>
+        </div>
+        <div className="space-y-1.5">
+          {dims.map((d) => {
+            const pct = d.base > 0 ? (d.current / d.base) * 100 : 0;
+            return <UsageMiniBar key={d.label} label={d.label} current={d.current} base={d.base} warn={pct >= 80} />;
+          })}
+        </div>
+        {warnings.length > 0 && (
+          <div className="mt-2 flex items-center gap-1.5">
+            <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
+            <span className="text-[10px] text-amber-400">{warnings.join(' · ')}</span>
+          </div>
+        )}
+      </button>
+    </div>
+  );
+}
+
+function UsageMiniBar({ label, current, base, warn }: { label: string; current: number; base: number; warn: boolean }) {
+  const pct = base > 0 ? Math.min(100, (current / base) * 100) : 0;
+  const barColor = pct >= 100 ? 'bg-red-500/70' : warn ? 'bg-amber-400/70' : 'bg-green-500/60';
+  return (
+    <div className="flex items-center gap-2" data-testid={`usage-bar-${label.toLowerCase().replace(/\s+/g, '-')}`}>
+      <span className="text-[10px] text-gray-400 w-20 shrink-0 truncate">{label}</span>
+      <div className="flex-1 h-1.5 rounded-full bg-gray-700/50 overflow-hidden">
+        <div className={cn("h-full rounded-full transition-all", barColor)} style={{ width: `${pct}%` }} />
+      </div>
+      <span className={cn("text-[9px] tabular-nums shrink-0 w-16 text-right", warn ? 'text-amber-400 font-medium' : 'text-gray-500')}>
+        {current.toLocaleString()}/{base.toLocaleString()}
+      </span>
+    </div>
+  );
+}
+
 export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings, children }: {
   setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }>;
   billingStatus?: { plan: string; status: string; interval?: string | null; trialEndsAt?: string | null; subscriptionEndsAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number } } | null;
@@ -262,6 +351,8 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
         </div>
         {planLabel && <span className="text-xs text-muted-foreground font-medium">{planLabel}</span>}
       </button>
+
+      <UsageSynopsis onOpenSettings={onOpenSettings} />
 
       <div className="bg-gray-950/60">
         {alerts.length > 0 && (

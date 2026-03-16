@@ -1101,6 +1101,161 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/org/usage — current org's billing-period usage summary
+  app.get('/api/org/usage', isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { getOrgAiUsageMtd } = await import('./services/ai-usage-tracker');
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      const [inventoryCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(blInventory).where(eq(blInventory.orgId, orgId));
+      const [orderCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orders).where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth.toISOString())));
+      const [storeCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orgIntegrations).where(eq(orgIntegrations.orgId, orgId));
+      const [scanCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(brickanalyzerScans).where(and(eq(brickanalyzerScans.orgId, orgId), gte(brickanalyzerScans.createdAt, startOfMonth)));
+
+      const aiRows = await getOrgAiUsageMtd(orgId);
+      let aiCallsTotal = 0;
+      let aiCostTotal = 0;
+      const aiByOperation: Record<string, { requests: number; cost: number }> = {};
+      for (const r of aiRows) {
+        if (r.operation === 'embedding-onboarding') continue;
+        aiCallsTotal += Number(r.requests);
+        aiCostTotal += Number(r.totalCost);
+        aiByOperation[r.operation] = { requests: Number(r.requests), cost: Number(r.totalCost) };
+      }
+
+      const [pm] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
+
+      res.json({
+        orgId,
+        period: { start: startOfMonth.toISOString(), end: now.toISOString() },
+        dimensions: {
+          inventoryLots: { current: Number(inventoryCount.count), base: pm?.baseInventoryLots ?? 5000, bump: pm?.bumpInventoryLots ?? 2500 },
+          ordersPerMonth: { current: Number(orderCount.count), base: pm?.baseOrdersPerMonth ?? 100, bump: pm?.bumpOrdersPerMonth ?? 50 },
+          connectedStores: { current: Number(storeCount.count), base: pm?.baseConnectedStores ?? 2, bump: pm?.bumpConnectedStores ?? 1 },
+          aiCalls: { current: aiCallsTotal, base: pm?.baseAiCalls ?? 200, bump: pm?.bumpAiCalls ?? 100, byOperation: aiByOperation },
+          scans: { current: Number(scanCount.count), base: pm?.baseScans ?? 50, bump: pm?.bumpScans ?? 25 },
+        },
+        pricing: {
+          basePrice: pm?.basePrice ?? 3900,
+          overageBump: pm?.overageBump ?? 500,
+          monthlyCap: pm?.monthlyCap ?? 9900,
+        },
+        aiCostTotal,
+      });
+    } catch (err: any) {
+      console.error("Error fetching org usage:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // GET /api/platform-admin/org-usage/:orgId — admin view of any org's usage
+  app.get('/api/platform-admin/org-usage/:orgId', isSuperAdmin, async (req: any, res) => {
+    try {
+      const { orgId } = req.params;
+      const { getOrgAiUsageMtd } = await import('./services/ai-usage-tracker');
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      const [inventoryCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(blInventory).where(eq(blInventory.orgId, orgId));
+      const [orderCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orders).where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth.toISOString())));
+      const [storeCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orgIntegrations).where(eq(orgIntegrations.orgId, orgId));
+      const [scanCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(brickanalyzerScans).where(and(eq(brickanalyzerScans.orgId, orgId), gte(brickanalyzerScans.createdAt, startOfMonth)));
+
+      const aiRows = await getOrgAiUsageMtd(orgId);
+      let aiCallsTotal = 0;
+      let aiCostTotal = 0;
+      const aiByOperation: Record<string, { requests: number; cost: number }> = {};
+      for (const r of aiRows) {
+        if (r.operation === 'embedding-onboarding') continue;
+        aiCallsTotal += Number(r.requests);
+        aiCostTotal += Number(r.totalCost);
+        aiByOperation[r.operation] = { requests: Number(r.requests), cost: Number(r.totalCost) };
+      }
+
+      const [pm] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
+
+      const [orgInfo] = await db.select({ id: organizations.id, name: organizations.name }).from(organizations).where(eq(organizations.id, orgId)).limit(1);
+
+      res.json({
+        orgId,
+        orgName: orgInfo?.name || orgId,
+        period: { start: startOfMonth.toISOString(), end: now.toISOString() },
+        dimensions: {
+          inventoryLots: { current: Number(inventoryCount.count), base: pm?.baseInventoryLots ?? 5000, bump: pm?.bumpInventoryLots ?? 2500 },
+          ordersPerMonth: { current: Number(orderCount.count), base: pm?.baseOrdersPerMonth ?? 100, bump: pm?.bumpOrdersPerMonth ?? 50 },
+          connectedStores: { current: Number(storeCount.count), base: pm?.baseConnectedStores ?? 2, bump: pm?.bumpConnectedStores ?? 1 },
+          aiCalls: { current: aiCallsTotal, base: pm?.baseAiCalls ?? 200, bump: pm?.bumpAiCalls ?? 100, byOperation: aiByOperation },
+          scans: { current: Number(scanCount.count), base: pm?.baseScans ?? 50, bump: pm?.bumpScans ?? 25 },
+        },
+        pricing: {
+          basePrice: pm?.basePrice ?? 3900,
+          overageBump: pm?.overageBump ?? 500,
+          monthlyCap: pm?.monthlyCap ?? 9900,
+        },
+        aiCostTotal,
+      });
+    } catch (err: any) {
+      console.error("Error fetching org usage:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // GET /api/platform-admin/all-orgs-usage — usage summary for all orgs (billing overview)
+  app.get('/api/platform-admin/all-orgs-usage', isSuperAdmin, async (_req, res) => {
+    try {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      const allOrgs = await db.select({ id: organizations.id, name: organizations.name }).from(organizations);
+      const [pm] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
+
+      const { getOrgAiUsageMtd } = await import('./services/ai-usage-tracker');
+
+      const orgUsages = await Promise.all(allOrgs.map(async (org) => {
+        const [inventoryCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(blInventory).where(eq(blInventory.orgId, org.id));
+        const [orderCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orders).where(and(eq(orders.orgId, org.id), gte(orders.orderDate, startOfMonth.toISOString())));
+        const [storeCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orgIntegrations).where(eq(orgIntegrations.orgId, org.id));
+        const [scanCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(brickanalyzerScans).where(and(eq(brickanalyzerScans.orgId, org.id), gte(brickanalyzerScans.createdAt, startOfMonth)));
+
+        const aiRows = await getOrgAiUsageMtd(org.id);
+        let aiCallsTotal = 0;
+        for (const r of aiRows) {
+          if (r.operation === 'embedding-onboarding') continue;
+          aiCallsTotal += Number(r.requests);
+        }
+
+        const dims = {
+          inventoryLots: Number(inventoryCount.count),
+          ordersPerMonth: Number(orderCount.count),
+          connectedStores: Number(storeCount.count),
+          aiCalls: aiCallsTotal,
+          scans: Number(scanCount.count),
+        };
+
+        const basePrice = pm?.basePrice ?? 3900;
+        const overageBump = pm?.overageBump ?? 500;
+        const monthlyCap = pm?.monthlyCap ?? 9900;
+        let totalBumps = 0;
+        const bumpCalc = (current: number, base: number, bump: number) => current <= base ? 0 : Math.ceil((current - base) / bump);
+        totalBumps += bumpCalc(dims.inventoryLots, pm?.baseInventoryLots ?? 5000, pm?.bumpInventoryLots ?? 2500);
+        totalBumps += bumpCalc(dims.ordersPerMonth, pm?.baseOrdersPerMonth ?? 100, pm?.bumpOrdersPerMonth ?? 50);
+        totalBumps += bumpCalc(dims.connectedStores, pm?.baseConnectedStores ?? 2, pm?.bumpConnectedStores ?? 1);
+        totalBumps += bumpCalc(dims.aiCalls, pm?.baseAiCalls ?? 200, pm?.bumpAiCalls ?? 100);
+        totalBumps += bumpCalc(dims.scans, pm?.baseScans ?? 50, pm?.bumpScans ?? 25);
+        const projectedMonthly = Math.min(basePrice + totalBumps * overageBump, monthlyCap);
+
+        return { orgId: org.id, orgName: org.name, ...dims, totalBumps, projectedMonthly };
+      }));
+
+      res.json({ orgs: orgUsages, pricing: { basePrice: pm?.basePrice ?? 3900, overageBump: pm?.overageBump ?? 500, monthlyCap: pm?.monthlyCap ?? 9900 } });
+    } catch (err: any) {
+      console.error("Error fetching all orgs usage:", err);
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // GET /api/platform-admin/system-health — embedding jobs, sync status, platform vitals
   app.get('/api/platform-admin/system-health', isSuperAdmin, async (_req, res) => {
     try {
@@ -5535,6 +5690,7 @@ Format search_web URLs as markdown links.`;
           systemPrompt,
           messages,
           maxIterations: 5,
+          orgId: reqOrgId(req),
         });
         assistantMessage = agentResult.message;
         bricklinkCatalogItem = agentResult.bricklinkItem;
@@ -6082,6 +6238,16 @@ Format search_web URLs as markdown links.`;
         headers: formData.getHeaders(),
       });
       
+      const { trackUsage } = await import('./services/ai-usage-tracker');
+      trackUsage({
+        service: 'brickognize',
+        model: 'brickognize-v1',
+        operation: 'brickspotter-scan',
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        orgId: reqOrgId(req),
+      });
       res.json(response.data);
     } catch (error: any) {
       console.error('Brickognize identification error:', error.response?.data || error.message);
@@ -6513,6 +6679,22 @@ Format search_web URLs as markdown links.`;
 
             const clipMatches: any[] = []; // CLIP runs post-scan, not per-piece
 
+            const bqCallCount = (figsRes ? 1 : 0) + (partsRes ? 1 : 0);
+            if (bqCallCount > 0) {
+              const { trackUsage } = await import('./services/ai-usage-tracker');
+              for (let bqi = 0; bqi < bqCallCount; bqi++) {
+                trackUsage({
+                  service: 'brickognize',
+                  model: 'brickognize-v1',
+                  operation: 'brickspotter-scan',
+                  inputTokens: 0,
+                  outputTokens: 0,
+                  totalTokens: 0,
+                  orgId,
+                });
+              }
+            }
+
             const figTop  = figsRes?.data?.items?.[0]  ?? null;
             const partTop = partsRes?.data?.items?.[0] ?? null;
             const figScore  = figTop?.score  ?? -1;
@@ -6751,6 +6933,16 @@ Format search_web URLs as markdown links.`;
                       piece.detectionSource = 'elfie';
                       clipFallbackSet.add(piece.cropIndex);
                       clipHits++;
+                      const { trackUsage: trackClipUsage } = await import('./services/ai-usage-tracker');
+                      trackClipUsage({
+                        service: 'clip',
+                        model: 'clip-vit-base-patch32',
+                        operation: 'brickspotter-scan',
+                        inputTokens: 0,
+                        outputTokens: 0,
+                        totalTokens: 0,
+                        orgId,
+                      });
                       console.log(`[Brickanalyzer] CLIP hit crop ${piece.cropIndex}: ${best.itemNo} (${(best.similarity * 100).toFixed(1)}% sim)`);
                     }
                   } catch (clipErr: any) {

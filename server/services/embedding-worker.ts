@@ -107,8 +107,10 @@ async function processNextJob() {
           `);
           
           if (unembeddedItems.rows.length > 0) {
+            const existingCount = await db.execute(sql`SELECT COUNT(*)::int AS cnt FROM inventory_embeddings`);
+            const isOnboarding = (existingCount.rows[0] as any)?.cnt < 10;
             const inventoryIds = unembeddedItems.rows.map((r: any) => r.id);
-            await batchEmbedInventory(inventoryIds);
+            await batchEmbedInventory(inventoryIds, isOnboarding);
             console.log(`  ✓ Embedded ${inventoryIds.length} inventory items (new)`);
             // If we got a full batch there are likely more remaining
             hasMore = unembeddedItems.rows.length >= BATCH;
@@ -160,8 +162,10 @@ async function processNextJob() {
           `);
           
           if (unembeddedOrders.rows.length > 0) {
+            const existingCount = await db.execute(sql`SELECT COUNT(*)::int AS cnt FROM order_embeddings`);
+            const isOnboarding = (existingCount.rows[0] as any)?.cnt < 10;
             const orderIds = unembeddedOrders.rows.map((r: any) => r.id);
-            await batchEmbedOrders(orderIds);
+            await batchEmbedOrders(orderIds, isOnboarding);
             console.log(`  ✓ Embedded ${orderIds.length} orders (new)`);
             hasMore = unembeddedOrders.rows.length >= BATCH;
           } else {
