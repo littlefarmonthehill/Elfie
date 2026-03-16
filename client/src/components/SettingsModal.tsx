@@ -3381,6 +3381,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: TrendingUp },
     { id: 'data' as const, label: 'Store Data', icon: HardDrive },
     { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
+    { id: 'billing' as const, label: 'My Plan', icon: CreditCard },
     { id: 'about' as const, label: 'About & Credits', icon: Info },
     { id: 'legal' as const, label: 'Legal & Terms', icon: FileText },
   ];
@@ -5431,6 +5432,12 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   <EmbeddingsManager searchOnly />
                 </div>
               </div>
+              </div>
+            )}
+
+            {activeSection === 'billing' && (
+              <div className="p-4">
+                <MyPlanUsagePanel />
               </div>
             )}
 

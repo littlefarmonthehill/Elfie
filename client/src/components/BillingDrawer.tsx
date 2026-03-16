@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { ToolDrawer } from "@/components/ui/tool-drawer";
 import { cn } from "@/lib/utils";
 import {
-  CreditCard, Package, ShoppingCart, Globe, Sparkles, ScanSearch,
+  X, CreditCard, Package, ShoppingCart, Globe, Sparkles, ScanSearch,
   ChevronDown, ChevronUp, Printer, AlertTriangle, CheckCircle2,
   Info, ArrowRight, TrendingUp, Tag, Clock, Heart,
 } from "lucide-react";
@@ -808,36 +807,38 @@ export function BillingDrawer({ open, onClose }: { open: boolean; onClose: () =>
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-lg p-0 flex flex-col bg-gray-950 border-white/10"
+        className="w-full sm:max-w-lg flex flex-col gap-0 p-0 bg-gray-950 border-white/10"
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}
         data-testid="sheet-billing-drawer"
       >
-        <ToolDrawer
-          icon={CreditCard}
-          iconColor="text-blue-400"
-          title="Payments & Billing"
-          onClose={onClose}
-          closeTestId="button-close-billing-drawer"
-          contentClassName="flex-1 overflow-hidden p-0 flex flex-col"
-        >
-          <Tabs defaultValue="current" className="flex flex-col flex-1 overflow-hidden">
-            <div className="px-4 pb-0 pt-2 border-b border-white/8 shrink-0">
-              <TabsList className="bg-gray-800/60 h-8 gap-1">
-                <TabsTrigger value="current" className="text-xs h-6" data-testid="tab-current-billing">
-                  Current Billing
-                </TabsTrigger>
-                <TabsTrigger value="history" className="text-xs h-6" data-testid="tab-previous-invoices">
-                  Previous Invoices
-                </TabsTrigger>
-              </TabsList>
-            </div>
-            <TabsContent value="current" className="flex-1 overflow-y-auto px-4 py-4 mt-0">
-              <CurrentBillingTab />
-            </TabsContent>
-            <TabsContent value="history" className="flex-1 overflow-y-auto px-4 py-4 mt-0">
-              <HistoryTab />
-            </TabsContent>
-          </Tabs>
-        </ToolDrawer>
+        <SheetHeader className="flex flex-row items-center justify-between px-4 py-3 border-b border-white/10 gap-2 flex-wrap flex-shrink-0">
+          <div className="flex items-center gap-1.5">
+            <CreditCard className="w-5 h-5 text-blue-400 shrink-0" />
+            <SheetTitle className="text-sm font-semibold text-gray-200">Payments & Billing</SheetTitle>
+          </div>
+          <Button size="icon" variant="ghost" onClick={onClose} data-testid="button-close-billing-drawer">
+            <X className="w-4 h-4" />
+          </Button>
+        </SheetHeader>
+
+        <Tabs defaultValue="current" className="flex flex-col flex-1 overflow-hidden">
+          <div className="px-4 pb-0 pt-2 border-b border-white/8 shrink-0">
+            <TabsList className="bg-gray-800/60 h-8 gap-1">
+              <TabsTrigger value="current" className="text-xs h-6" data-testid="tab-current-billing">
+                Current Billing
+              </TabsTrigger>
+              <TabsTrigger value="history" className="text-xs h-6" data-testid="tab-previous-invoices">
+                Previous Invoices
+              </TabsTrigger>
+            </TabsList>
+          </div>
+          <TabsContent value="current" className="flex-1 overflow-y-auto px-4 py-4 mt-0" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+            <CurrentBillingTab />
+          </TabsContent>
+          <TabsContent value="history" className="flex-1 overflow-y-auto px-4 py-4 mt-0" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+            <HistoryTab />
+          </TabsContent>
+        </Tabs>
       </SheetContent>
     </Sheet>
   );
