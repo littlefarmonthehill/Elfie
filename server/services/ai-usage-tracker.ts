@@ -121,7 +121,7 @@ export async function getOrgAiUsageForMonth(orgId: string, from: Date, to: Date)
       eq(aiUsageLog.orgId, orgId),
       gte(aiUsageLog.createdAt, from),
       sql`${aiUsageLog.createdAt} < ${to}`,
-      sql`${aiUsageLog.operation} != 'embedding-onboarding'`,
+      sql`${aiUsageLog.operation} NOT IN ('embedding', 'embedding-onboarding')`,
     ));
   return Number(row?.requests ?? 0);
 }

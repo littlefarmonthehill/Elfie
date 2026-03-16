@@ -1118,8 +1118,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let aiCallsTotal = 0;
       let aiCostTotal = 0;
       const aiByOperation: Record<string, { requests: number; cost: number }> = {};
+      const BILLING_EXCLUDED_OPS = new Set(['embedding', 'embedding-onboarding']);
       for (const r of aiRows) {
-        if (r.operation === 'embedding-onboarding') continue;
+        if (BILLING_EXCLUDED_OPS.has(r.operation)) continue;
         aiCallsTotal += Number(r.requests);
         aiCostTotal += Number(r.totalCost);
         aiByOperation[r.operation] = { requests: Number(r.requests), cost: Number(r.totalCost) };
@@ -1253,8 +1254,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let aiCallsTotal = 0;
       let aiCostTotal = 0;
       const aiByOperation: Record<string, { requests: number; cost: number }> = {};
+      const BILLING_EXCLUDED_OPS_ADMIN = new Set(['embedding', 'embedding-onboarding']);
       for (const r of aiRows) {
-        if (r.operation === 'embedding-onboarding') continue;
+        if (BILLING_EXCLUDED_OPS_ADMIN.has(r.operation)) continue;
         aiCallsTotal += Number(r.requests);
         aiCostTotal += Number(r.totalCost);
         aiByOperation[r.operation] = { requests: Number(r.requests), cost: Number(r.totalCost) };
@@ -1308,8 +1310,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const aiRows = await getOrgAiUsageMtd(org.id);
         let aiCallsTotal = 0;
+        const BILLING_EXCL = new Set(['embedding', 'embedding-onboarding']);
         for (const r of aiRows) {
-          if (r.operation === 'embedding-onboarding') continue;
+          if (BILLING_EXCL.has(r.operation)) continue;
           aiCallsTotal += Number(r.requests);
         }
 
