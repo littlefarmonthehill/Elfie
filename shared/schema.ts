@@ -60,8 +60,8 @@ export const organizations = pgTable("organizations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),
   slug: varchar("slug").unique().notNull(),          // URL-safe lowercase identifier
-  plan: varchar("plan").notNull().default("trial"),   // 'trial' | 'foundation' | 'core' | 'flagship'
-  trialEndsAt: timestamp("trial_ends_at"),               // null = no trial expiry (paid or flagship)
+  plan: varchar("plan").notNull().default("trial"),   // 'trial' | 'foundation' | 'core'
+  trialEndsAt: timestamp("trial_ends_at"),               // null = no trial expiry (paid plan)
   isActive: boolean("is_active").notNull().default(true),
   address: text("address"),
   phone: varchar("phone", { length: 50 }),
@@ -1587,7 +1587,7 @@ export type OrgIntegration = typeof orgIntegrations.$inferSelect;
 // Super admins can edit unlocked plans, sunset any plan, and see org counts.
 export const planConfigs = pgTable("plan_configs", {
   id: serial("id").primaryKey(),
-  planKey: varchar("plan_key", { length: 50 }).notNull().unique(), // 'trial' | 'foundation' | 'core' | 'flagship'
+  planKey: varchar("plan_key", { length: 50 }).notNull().unique(), // 'trial' | 'foundation' | 'core'
   name: varchar("name", { length: 100 }).notNull(),
   tagline: text("tagline"),
   trialDurationDays: integer("trial_duration_days").notNull().default(0),
@@ -1617,7 +1617,7 @@ export const planConfigs = pgTable("plan_configs", {
   featurePaymentSync: boolean("feature_payment_sync").notNull().default(false),
   // Status
   isSunset: boolean("is_sunset").notNull().default(false),
-  sortOrder: integer("sort_order").notNull().default(0), // 0=trial, 1=foundation, 2=core, 3=flagship
+  sortOrder: integer("sort_order").notNull().default(0), // 0=trial, 1=foundation, 2=core
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

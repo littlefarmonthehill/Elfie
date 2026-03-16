@@ -62,7 +62,6 @@ async function getOrgCallCeiling(orgId: string): Promise<number> {
       .from(organizations)
       .where(eq(organizations.id, orgId))
       .limit(1);
-    if (org?.plan === 'flagship') return -1;
     if (org?.blApiCallLimitOverride != null) return org.blApiCallLimitOverride;
   } catch {
     // fall through to default on error

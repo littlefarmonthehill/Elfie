@@ -23,7 +23,6 @@ export async function seedPlanConfigsIfEmpty() {
     { planKey: 'trial', sortOrder: 0, config: TIER_CONFIG.trial },
     { planKey: 'foundation', sortOrder: 1, config: TIER_CONFIG.foundation },
     { planKey: 'core', sortOrder: 2, config: TIER_CONFIG.core },
-    { planKey: 'flagship', sortOrder: 3, config: TIER_CONFIG.flagship },
   ];
 
   for (const { planKey, sortOrder, config } of seeds) {
@@ -58,7 +57,7 @@ export async function seedPlanConfigsIfEmpty() {
     }).onConflictDoNothing();
   }
 
-  console.log("[planConfigService] Seeded 4 plan configs from static tierConfig");
+  console.log("[planConfigService] Seeded 3 plan configs from static tierConfig");
 }
 
 // ── Read all plan configs (cached) ────────────────────────────────────────────

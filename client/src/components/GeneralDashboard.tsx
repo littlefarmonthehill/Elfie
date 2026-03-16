@@ -322,7 +322,7 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
   onOpenSettings?: (section: any) => void;
   children?: React.ReactNode;
 }) {
-  const planLabels: Record<string, string> = { trial: 'Trial', foundation: 'Foundation', core: 'Core', flagship: 'Flagship' };
+  const planLabels: Record<string, string> = { trial: 'Trial', foundation: 'Foundation', core: 'Core' };
   const planLabel = planLabels[billingStatus?.plan ?? ''] ?? billingStatus?.plan ?? '';
 
   const trialDaysLeft = (() => {

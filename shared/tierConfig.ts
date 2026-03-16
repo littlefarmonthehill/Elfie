@@ -1,4 +1,4 @@
-export type PlanType = 'trial' | 'foundation' | 'core' | 'flagship';
+export type PlanType = 'trial' | 'foundation' | 'core';
 
 export interface TierLimits {
   seats: number;
@@ -136,38 +136,6 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
       monthly: 4999,       // $49.99/mo
       annual: 47988,       // $479.88/yr
       annualMonthly: 3999, // $39.99/mo equivalent
-    },
-  },
-  flagship: {
-    id: 'flagship',
-    name: 'Flagship',
-    tagline: 'For high-volume operations & teams',
-    limits: {
-      seats: -1,
-      brickspotterScansPerMonth: -1,
-      automationRules: -1,
-      orderHistoryDays: -1,
-      inventoryItems: -1,
-      orders: -1,
-      elfieQueries: -1,
-      businessIntel: -1,
-    },
-    features: {
-      brickOwl: true,
-      elfieAiMode: true,
-      elfieCustom: true,
-      elfieLiveSupport: true,
-      priceOMatic: true,
-      easypostAutomation: true,
-      dataEnrichmentImages: true,
-      dataEnrichmentSemantic: true,
-      fullDataEnrichment: true,
-      paymentSync: true,
-    },
-    pricing: {
-      monthly: 9999,       // $99.99/mo
-      annual: 95988,       // $959.88/yr
-      annualMonthly: 7999, // $79.99/mo equivalent
     },
   },
 };

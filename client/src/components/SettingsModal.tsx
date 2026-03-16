@@ -6039,7 +6039,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 trial: 'bg-gray-600/50 text-gray-300 border-gray-600',
                 foundation: 'bg-blue-900/60 text-blue-300 border-blue-700/50',
                 core: 'bg-amber-900/50 text-amber-300 border-amber-700/50',
-                flagship: 'bg-yellow-900/50 text-yellow-300 border-yellow-700/50',
               };
 
               if (activeOrg) {
@@ -6080,7 +6079,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             <SelectItem value="trial">Free Trial</SelectItem>
                             <SelectItem value="foundation">Foundation</SelectItem>
                             <SelectItem value="core">Core</SelectItem>
-                            <SelectItem value="flagship">Flagship</SelectItem>
+
                           </SelectContent>
                         </Select>
                         <div className="flex items-center gap-2 text-xs text-gray-400">

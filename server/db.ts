@@ -73,13 +73,11 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMP`);
     await client.query(`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS bl_api_call_limit_override INTEGER`);
 
-    // Seed the default E.L.F.I.E. org. Use UPDATE on conflict so any legacy
-    // plan value ('pro', 'free', 'foundation') gets corrected to 'flagship'.
+    // Seed the default E.L.F.I.E. org.
     await client.query(`
       INSERT INTO organizations (id, name, slug, plan)
-      VALUES ('org_planetbrick', 'E.L.F.I.E.', 'planetbrick', 'flagship')
-      ON CONFLICT (id) DO UPDATE SET
-        plan = CASE WHEN organizations.plan IN ('pro', 'free', 'foundation') THEN 'flagship' ELSE organizations.plan END
+      VALUES ('org_planetbrick', 'E.L.F.I.E.', 'planetbrick', 'core')
+      ON CONFLICT (id) DO NOTHING
     `);
 
     console.log('[Migration] Phase-1 (organizations) complete.');
@@ -952,6 +950,23 @@ export async function runMigrations() {
         AND (last_sync_time IS NULL OR last_sync_time <= '1970-01-02'::date)
     `);
     console.log(`[Migration] Phase-45 (repair epoch-poisoned sync records) complete — ${p45.rowCount ?? 0} rows repaired.`);
+
+    // Phase-46: Remove flagship special treatment — migrate org_planetbrick to core/active
+    // and sunset the flagship plan_config so it no longer appears in plan selectors.
+    await pool.query(`
+      UPDATE organizations
+      SET plan = 'core',
+          subscription_status = 'active'
+      WHERE id = 'org_planetbrick'
+        AND (plan = 'flagship' OR subscription_status = 'trial')
+    `);
+    await pool.query(`
+      UPDATE plan_configs
+      SET is_sunset = true
+      WHERE plan_key = 'flagship'
+        AND is_sunset = false
+    `);
+    console.log('[Migration] Phase-46 (remove flagship, migrate org_planetbrick to core/active) complete.');
 
     console.log('[Migration] All startup migrations finished successfully.');
 

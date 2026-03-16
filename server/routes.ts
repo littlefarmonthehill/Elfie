@@ -477,7 +477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { plan } = req.body;
-      if (!['trial', 'foundation', 'core', 'flagship'].includes(plan)) {
+      if (!['trial', 'foundation', 'core'].includes(plan)) {
         return res.status(400).json({ message: "Invalid plan" });
       }
       const [updated] = await db.update(organizations).set({ plan, updatedAt: new Date() }).where(eq(organizations.id, id)).returning();
