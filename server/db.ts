@@ -857,6 +857,19 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-38 (backfill sold_quantity + sold_qty_avg_price) complete.');
 
+    // Phase-39: Backfill stock_quantity + stock_qty_avg_price for rows added before Phase-19
+    // Mirror of Phase-38 but for the stock (supply) guide side.
+    await client.query(`
+      UPDATE price_guide_cache
+      SET
+        stock_quantity      = stock_total_lots,
+        stock_qty_avg_price = stock_avg_price::text,
+        stock_fetched_at    = COALESCE(stock_fetched_at, NOW())
+      WHERE stock_avg_price IS NOT NULL
+        AND (stock_quantity IS NULL OR stock_qty_avg_price IS NULL)
+    `);
+    console.log('[Migration] Phase-39 (backfill stock_quantity + stock_qty_avg_price) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
