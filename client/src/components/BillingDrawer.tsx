@@ -138,6 +138,9 @@ function AiToolsRow({ current, base, bump, overageBump, byOperation }: {
       ]
     : [];
 
+  // Static tool list used when no usage data exists yet
+  const ALL_TOOLS = TOOL_ORDER.map(k => ({ key: k, ...AI_TOOL_LABELS[k] }));
+
   const hasToolBreakdown = toolEntries.length > 0;
 
   return (
@@ -189,17 +192,27 @@ function AiToolsRow({ current, base, bump, overageBump, byOperation }: {
             </div>
           </div>
         ) : (
-          /* Fallback: single aggregate bar */
-          <div className="flex items-center gap-2">
-            <div className="flex-1 h-1 rounded-full bg-gray-700/50 overflow-hidden">
-              <div
-                className={cn("h-full rounded-full transition-all", overBase ? 'bg-amber-400/60' : approaching ? 'bg-amber-400/70' : 'bg-green-500/50')}
-                style={{ width: `${pct}%` }}
-              />
+          /* Fallback: single aggregate bar + tool name chips */
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-1 rounded-full bg-gray-700/50 overflow-hidden">
+                <div
+                  className={cn("h-full rounded-full transition-all", overBase ? 'bg-amber-400/60' : approaching ? 'bg-amber-400/70' : 'bg-green-500/50')}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <span className={cn("text-xs tabular-nums whitespace-nowrap shrink-0", overBase ? 'text-amber-400' : 'text-gray-500')}>
+                {current.toLocaleString()} / {base.toLocaleString()} calls
+              </span>
             </div>
-            <span className={cn("text-xs tabular-nums whitespace-nowrap shrink-0", overBase ? 'text-amber-400' : 'text-gray-500')}>
-              {current.toLocaleString()} / {base.toLocaleString()} calls
-            </span>
+            <div className="flex flex-wrap gap-1">
+              {ALL_TOOLS.map(({ key, label, icon: ToolIcon }) => (
+                <span key={key} className="flex items-center gap-1 text-[10px] text-gray-600 bg-gray-800/50 rounded px-1.5 py-0.5">
+                  <ToolIcon className="w-2.5 h-2.5" />
+                  {label}
+                </span>
+              ))}
+            </div>
           </div>
         )}
 
@@ -279,18 +292,36 @@ function HowWeBillSection({ dimensions, pricing }: {
               {/* Dimension rows */}
               {dimRows.map(({ key, icon: Icon, label, unit }) => {
                 const d = dimensions[key];
+                const AI_TOOL_ORDER = ['elfie-agent', 'business-insight', 'feedback-refine', 'brickspotter-scan'];
                 return (
-                  <div key={key} className="grid grid-cols-[1fr_auto_auto] gap-x-4 items-center px-3 py-2">
-                    <span className="flex items-center gap-1.5 text-xs text-gray-400 min-w-0">
-                      <Icon className="w-3 h-3 text-gray-600 shrink-0" />
-                      {label}
-                    </span>
-                    <span className="text-xs text-gray-200 font-medium tabular-nums text-right whitespace-nowrap">
-                      {d.base.toLocaleString()} {unit}
-                    </span>
-                    <span className="text-[11px] text-gray-500 tabular-nums text-right whitespace-nowrap">
-                      +{d.bump.toLocaleString()} {unit}
-                    </span>
+                  <div key={key}>
+                    <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 items-center px-3 py-2">
+                      <span className="flex items-center gap-1.5 text-xs text-gray-400 min-w-0">
+                        <Icon className="w-3 h-3 text-gray-600 shrink-0" />
+                        {label}
+                      </span>
+                      <span className="text-xs text-gray-200 font-medium tabular-nums text-right whitespace-nowrap">
+                        {d.base.toLocaleString()} {unit}
+                      </span>
+                      <span className="text-[11px] text-gray-500 tabular-nums text-right whitespace-nowrap">
+                        +{d.bump.toLocaleString()} {unit}
+                      </span>
+                    </div>
+                    {/* AI tools sub-row — shows which tools count toward the quota */}
+                    {key === 'aiCalls' && (
+                      <div className="px-3 pb-2.5 flex flex-wrap gap-1">
+                        {AI_TOOL_ORDER.map((op) => {
+                          const meta = AI_TOOL_LABELS[op];
+                          const ToolIcon = meta?.icon ?? Sparkles;
+                          return (
+                            <span key={op} className="flex items-center gap-1 text-[10px] text-gray-600 bg-gray-800/60 rounded px-1.5 py-0.5">
+                              <ToolIcon className="w-2.5 h-2.5" />
+                              {meta?.label ?? op}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
