@@ -1336,8 +1336,11 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
         const missingStock = Number(item.missingStockFields) || 0;
         const missingSold = Number(item.missingSoldFields) || 0;
         // Guide focus filtering: stale OR missing data for the focused guide type(s)
-        if (guideFocus === 'stock') return !stockFresh || missingStock > 0;
-        if (guideFocus === 'sold') return !soldFresh || missingSold > 0;
+        // Only treat "missing data" as a reason to fetch if the item was NEVER fetched for that guide.
+        // Items that were fetched and confirmed empty (no sellers) should follow the normal freshness cycle,
+        // not be re-fetched every single sync (which creates an infinite loop burning API budget).
+        if (guideFocus === 'stock') return !stockFresh || (missingStock > 0 && !item.stockFetchedAt);
+        if (guideFocus === 'sold') return !soldFresh || (missingSold > 0 && !item.soldFetchedAt);
         return !soldFresh || !stockFresh; // 'both': candidate if either guide is stale
       })
       .map((item) => {
@@ -1553,7 +1556,12 @@ export async function fetchPriceOMagicData(
       `);
       const r = fullRow.rows[0] as any;
       if (r) {
-        const missingQtyFields = r.stock_quantity == null || r.sold_quantity == null;
+        // Only force re-fetch for the Phase-19 gap: has a price but is missing the quantity fields.
+        // Items with no price AND no quantity are confirmed-empty (no BrickLink sellers) — let the
+        // normal freshness cycle handle those, otherwise we re-fetch them on every single sync.
+        const missingQtyFields =
+          (r.stock_avg_price != null && r.stock_quantity == null) ||
+          (r.sold_avg_price != null && r.sold_quantity == null);
         if (missingQtyFields) {
           console.log(`[Price-o-Matic] Cached entry for ${itemType}/${itemNo}${colorId ? `/${colorId}` : ''}/${newOrUsed} missing qty fields (stock_qty=${r.stock_quantity ?? 'null'}, sold_qty=${r.sold_quantity ?? 'null'}) — forcing re-fetch`);
         } else {
