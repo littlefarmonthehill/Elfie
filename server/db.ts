@@ -890,6 +890,22 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-41 (index part_id_mappings.rebrickable_id) complete.');
 
+    // Phase-42: Backfill part_id_mappings for universal catalog parts where the Rebrickable
+    // part number is identical to the BrickLink part number (many LEGO parts share IDs across
+    // both catalogs). Joins universal_catalog_queue → bl_catalog on exact part_no match.
+    // Zero API calls — runs purely from data already in the DB.
+    const p42 = await client.query(`
+      INSERT INTO part_id_mappings (bl_id, rebrickable_id)
+      SELECT DISTINCT q.part_no, q.part_no
+      FROM   universal_catalog_queue q
+      JOIN   bl_catalog c ON c.item_no = q.part_no AND c.item_type = 'P'
+      WHERE  NOT EXISTS (
+        SELECT 1 FROM part_id_mappings m WHERE m.rebrickable_id = q.part_no
+      )
+      ON CONFLICT DO NOTHING
+    `);
+    console.log(`[Migration] Phase-42 (backfill part_id_mappings from bl_catalog/universal_catalog_queue overlap) complete — ${p42.rowCount ?? 0} rows added.`);
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

@@ -12,7 +12,7 @@
  */
 
 import { db } from '../db';
-import { universalCatalogQueue, blCatalog } from '../../shared/schema';
+import { universalCatalogQueue, blCatalog, partIdMappings } from '../../shared/schema';
 import { sql, eq } from 'drizzle-orm';
 import { embedUrl, isScanActive } from './segmentClient';
 import * as https from 'https';
@@ -186,6 +186,23 @@ export async function importFromRebrickable(): Promise<ImportResult> {
       if (batch.length >= BATCH) await flush();
     }
     await flush();
+
+    // Backfill part_id_mappings for parts where the Rebrickable ID == the BL ID.
+    // Runs after every import so newly added queue rows are covered without a server restart.
+    const mappingResult = await db.execute(sql`
+      INSERT INTO part_id_mappings (bl_id, rebrickable_id)
+      SELECT DISTINCT q.part_no, q.part_no
+      FROM   universal_catalog_queue q
+      JOIN   bl_catalog c ON c.item_no = q.part_no AND c.item_type = 'P'
+      WHERE  NOT EXISTS (
+        SELECT 1 FROM part_id_mappings m WHERE m.rebrickable_id = q.part_no
+      )
+      ON CONFLICT DO NOTHING
+    `);
+    const mappingsAdded = (mappingResult as any).rowCount ?? 0;
+    if (mappingsAdded > 0) {
+      console.log(`[Universal Catalog] Part ID mapping backfill: ${mappingsAdded} new RB↔BL mappings added`);
+    }
 
     const total = imported + skipped;
     _lastImportedAt = Date.now();
