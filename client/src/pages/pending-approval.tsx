@@ -1,12 +1,18 @@
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Clock, LogOut, Sparkles } from "lucide-react";
+import { Clock, LogOut, Sparkles, Building2 } from "lucide-react";
 import logoUrl from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
 import elfieUrl from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
 export default function PendingApproval() {
   const { user } = useAuth();
+
+  const { data: org } = useQuery<{ name: string }>({
+    queryKey: ['/api/org'],
+    retry: false,
+  });
   
   const handleLogout = async () => {
     try {
@@ -92,6 +98,14 @@ export default function PendingApproval() {
                   <p className="text-gray-300 text-[10px] md:text-sm leading-relaxed">
                     Your account is waiting for approval from your company admin.
                   </p>
+                  {org?.name && (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Building2 className="w-3 h-3 md:w-3.5 md:h-3.5 text-cyan-400 flex-shrink-0" />
+                      <p className="text-cyan-300 text-[10px] md:text-sm font-medium" data-testid="text-pending-org-name">
+                        {org.name}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
