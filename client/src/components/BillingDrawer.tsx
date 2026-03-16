@@ -838,7 +838,7 @@ export function BillingDrawer({ open, onClose }: { open: boolean; onClose: () =>
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-lg flex flex-col gap-0 p-0 bg-gray-950 border-white/10"
+        className="w-full sm:max-w-lg flex flex-col gap-0 p-0 bg-gray-950 border-white/10 overflow-hidden"
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
         data-testid="sheet-billing-drawer"
       >
@@ -852,8 +852,8 @@ export function BillingDrawer({ open, onClose }: { open: boolean; onClose: () =>
           </Button>
         </SheetHeader>
 
-        <Tabs defaultValue="current" className="flex flex-col flex-1 overflow-hidden">
-          <div className="px-4 pb-0 pt-2 border-b border-white/8 shrink-0">
+        <Tabs defaultValue="current" className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <div className="px-4 pb-0 pt-2 border-b border-white/8 flex-shrink-0">
             <TabsList className="bg-gray-800/60 h-8 gap-1">
               <TabsTrigger value="current" className="text-xs h-6" data-testid="tab-current-billing">
                 Current Billing
@@ -863,10 +863,10 @@ export function BillingDrawer({ open, onClose }: { open: boolean; onClose: () =>
               </TabsTrigger>
             </TabsList>
           </div>
-          <TabsContent value="current" className="flex-1 overflow-y-auto px-4 py-4 mt-0" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          <TabsContent value="current" className="flex-1 min-h-0 overflow-y-auto px-4 py-4 mt-0" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
             <CurrentBillingTab />
           </TabsContent>
-          <TabsContent value="history" className="flex-1 overflow-y-auto px-4 py-4 mt-0" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          <TabsContent value="history" className="flex-1 min-h-0 overflow-y-auto px-4 py-4 mt-0" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
             <HistoryTab />
           </TabsContent>
         </Tabs>
