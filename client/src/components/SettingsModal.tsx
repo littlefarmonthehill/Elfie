@@ -677,6 +677,7 @@ function SyncStatusLine({ entry }: { entry: SyncStatusEntry }) {
   const isOk = entry.lastSyncStatus === 'success';
   const isErr = entry.lastSyncStatus === 'failed' || entry.lastSyncStatus === 'error';
   const isRunning = entry.lastSyncStatus === 'in_progress';
+  const isInterrupted = entry.lastSyncStatus === 'interrupted';
   const timeStr = formatRelativeTime(entry.lastSyncTime);
   const counts = (entry.recordsAdded || entry.recordsUpdated)
     ? `${entry.recordsAdded} added · ${entry.recordsUpdated} updated`
@@ -687,9 +688,9 @@ function SyncStatusLine({ entry }: { entry: SyncStatusEntry }) {
         {isRunning && <Loader2 className="w-3 h-3 text-blue-400 animate-spin shrink-0" />}
         {isOk && <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />}
         {isErr && <AlertTriangle className="w-3 h-3 text-red-400 shrink-0" />}
-        {!isRunning && !isOk && !isErr && <Clock className="w-3 h-3 text-gray-500 shrink-0" />}
-        <span className={`text-[10px] font-medium ${isOk ? 'text-green-500' : isErr ? 'text-red-400' : isRunning ? 'text-blue-400' : 'text-gray-500'}`}>
-          {isRunning ? 'Running…' : isOk ? 'Success' : isErr ? 'Failed' : entry.lastSyncStatus}
+        {(isInterrupted || (!isRunning && !isOk && !isErr)) && <Clock className="w-3 h-3 text-gray-500 shrink-0" />}
+        <span className={`text-[10px] font-medium ${isOk ? 'text-green-500' : isErr ? 'text-red-400' : isRunning ? 'text-blue-400' : isInterrupted ? 'text-gray-400' : 'text-gray-500'}`}>
+          {isRunning ? 'Running…' : isOk ? 'Success' : isErr ? 'Failed' : isInterrupted ? 'Paused' : entry.lastSyncStatus}
         </span>
         <span className="text-[10px] text-gray-500">{timeStr}</span>
         {counts && <span className="text-[10px] text-gray-600">· {counts}</span>}
@@ -6697,6 +6698,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       const statusIcon = (s: string | null) => {
                         if (s === 'in_progress') return <Loader2 className="h-3 w-3 text-yellow-400 animate-spin shrink-0" />;
                         if (s === 'failed' || s === 'error') return <AlertTriangle className="h-3 w-3 text-red-400 shrink-0" />;
+                        if (s === 'interrupted') return <Clock className="h-3 w-3 text-gray-400 shrink-0" />;
                         if (s === 'partial') return <AlertTriangle className="h-3 w-3 text-orange-400 shrink-0" />;
                         if (s === 'success') return <CheckCircle2 className="h-3 w-3 text-green-500/70 shrink-0" />;
                         return <Clock className="h-3 w-3 text-gray-600 shrink-0" />;
@@ -6718,8 +6720,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                   {s.lastSyncStatus === 'success' && (s.recordsAdded || s.recordsUpdated) ? (
                                     <span className="text-[10px] text-gray-500 font-mono shrink-0">+{s.recordsAdded ?? 0} / ~{s.recordsUpdated ?? 0}</span>
                                   ) : null}
-                                  <span className={`text-[10px] shrink-0 font-mono ${s.lastSyncStatus === 'failed' || s.lastSyncStatus === 'error' ? 'text-red-400/80' : s.lastSyncStatus === 'in_progress' ? 'text-yellow-400' : 'text-gray-500'}`}>
-                                    {s.lastSyncStatus === 'in_progress' ? 'Running' : s.errorMessage ? (s.errorMessage.length > 30 ? s.errorMessage.slice(0, 30) + '…' : s.errorMessage) : fmtTime(s.lastSyncTime)}
+                                  <span className={`text-[10px] shrink-0 font-mono ${s.lastSyncStatus === 'failed' || s.lastSyncStatus === 'error' ? 'text-red-400/80' : s.lastSyncStatus === 'interrupted' ? 'text-gray-400' : s.lastSyncStatus === 'in_progress' ? 'text-yellow-400' : 'text-gray-500'}`}>
+                                    {s.lastSyncStatus === 'in_progress' ? 'Running' : s.lastSyncStatus === 'interrupted' ? 'Paused' : s.errorMessage ? (s.errorMessage.length > 30 ? s.errorMessage.slice(0, 30) + '…' : s.errorMessage) : fmtTime(s.lastSyncTime)}
                                   </span>
                                 </div>
                               ))}
@@ -6906,6 +6908,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   const statusDot = (j: OverviewJob) => {
                     if (j.isRunning) return <Loader2 className="h-3 w-3 text-yellow-400 animate-spin shrink-0" />;
                     if (j.status === 'failed' || j.status === 'error') return <AlertTriangle className="h-3 w-3 text-red-400 shrink-0" />;
+                    if (j.status === 'interrupted') return <Clock className="h-3 w-3 text-gray-400 shrink-0" />;
                     if (j.status === 'partial') return <AlertTriangle className="h-3 w-3 text-orange-400 shrink-0" />;
                     if (!j.enabled) return <Pause className="h-3 w-3 text-gray-600 shrink-0" />;
                     if (j.status === 'success') return <CheckCircle2 className="h-3 w-3 text-green-500/70 shrink-0" />;
@@ -6915,6 +6918,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   const statusText = (j: OverviewJob) => {
                     if (j.isRunning && j.progress && j.progress.total > 0) return `${j.progress.pct}%`;
                     if (j.isRunning) return 'Running';
+                    if (j.status === 'interrupted') return 'Paused';
                     if (j.error) return j.error.length > 40 ? j.error.slice(0, 40) + '…' : j.error;
                     if (!j.enabled) return 'Paused';
                     if (j.status === 'success' || j.status === 'partial' || j.status === 'failed' || j.status === 'error') return fmtTime(j.lastTime);
@@ -8082,6 +8086,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   const statusInfo = (status: string | null, enabled: boolean) => {
                     if (status === 'in_progress') return { icon: <Loader2 className="h-4 w-4 text-yellow-400 animate-spin" />, label: 'Running', color: 'text-yellow-400' };
                     if (status === 'failed' || status === 'error') return { icon: <AlertTriangle className="h-4 w-4 text-red-400" />, label: 'Failed', color: 'text-red-400' };
+                    if (status === 'interrupted') return { icon: <Clock className="h-4 w-4 text-gray-400" />, label: 'Paused', color: 'text-gray-400' };
                     if (status === 'partial') return { icon: <AlertTriangle className="h-4 w-4 text-orange-400" />, label: 'Partial', color: 'text-orange-400' };
                     if (!enabled) return { icon: <Pause className="h-4 w-4 text-gray-500" />, label: 'Paused', color: 'text-gray-500' };
                     if (status === 'success') return { icon: <CheckCircle2 className="h-4 w-4 text-green-400" />, label: 'Completed', color: 'text-green-400/80' };

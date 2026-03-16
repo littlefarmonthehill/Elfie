@@ -937,6 +937,22 @@ export async function runMigrations() {
     `);
     console.log(`[Migration] Phase-44 (reset no_image rows from bad Rebrickable URL format) complete — ${p44.rowCount ?? 0} rows reset to pending.`);
 
+    // Phase-45: Repair sync records poisoned by the old restart-cleanup logic.
+    // Older server versions set lastSyncStatus='error' AND lastSyncTime=epoch (1970-01-01)
+    // for any sync that was in_progress during a server restart.  This caused the dashboard
+    // to show alarming "Inventory sync failed — 55 years ago" banners after every deploy.
+    // Reset those rows to 'interrupted' (neutral pause) and clear the epoch timestamp so
+    // the last real sync time is preserved on the next successful run.
+    const p45 = await client.query(`
+      UPDATE sync_metadata
+      SET last_sync_status = 'interrupted',
+          error_message    = 'Sync paused for server restart — will resume automatically.',
+          last_sync_time   = NULL
+      WHERE last_sync_status = 'error'
+        AND (last_sync_time IS NULL OR last_sync_time <= '1970-01-02'::date)
+    `);
+    console.log(`[Migration] Phase-45 (repair epoch-poisoned sync records) complete — ${p45.rowCount ?? 0} rows repaired.`);
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

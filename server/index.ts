@@ -65,7 +65,7 @@ process.on('SIGTERM', () => {
       const staleIds = ['bricklink_inventory', 'priceomatic_cache', 'catalog_detail_completion', 'catalog_scan', 'channel_sync', 'bricklink_orders', 'brickowl_orders', 'forum_sync', 'rebrickable_set_parts'];
       for (const id of staleIds) {
         await dbInst.update(syncMeta)
-          .set({ lastSyncStatus: 'error', errorMessage: 'Sync interrupted by server shutdown.', lastSyncTime: new Date(0), updatedAt: new Date() })
+          .set({ lastSyncStatus: 'interrupted', errorMessage: 'Sync paused for server restart — will resume automatically.', updatedAt: new Date() })
           .where(drizzleSql`${syncMeta.id} = ${id} AND ${syncMeta.lastSyncStatus} = 'in_progress'`);
       }
       console.log('[SIGTERM] Stale sync records cleared');
@@ -78,7 +78,7 @@ process.on('SIGTERM', () => {
       const { syncMetadata: syncMeta } = await import('@shared/schema');
       const { sql: drizzleSql } = await import('drizzle-orm');
       await dbInst.update(syncMeta)
-        .set({ lastSyncStatus: 'error', errorMessage: 'Sync interrupted by server shutdown.', lastSyncTime: new Date(0), updatedAt: new Date() })
+        .set({ lastSyncStatus: 'interrupted', errorMessage: 'Sync paused for server restart — will resume automatically.', updatedAt: new Date() })
         .where(drizzleSql`${syncMeta.id} = 'priceomatic_cache' AND ${syncMeta.lastSyncStatus} IN ('in_progress', 'interrupted')`);
       console.log('[SIGTERM] Final POM status check complete');
     } catch (_) {}
@@ -215,8 +215,8 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
         ];
         for (const id of staleIds) {
           await dbInstance.update(syncMeta)
-            .set({ lastSyncStatus: 'error', errorMessage: 'Sync interrupted by server restart.', lastSyncTime: new Date(0), updatedAt: new Date() })
-            .where(drizzleSql`${syncMeta.id} = ${id} AND (${syncMeta.lastSyncStatus} = 'in_progress' OR ${syncMeta.lastSyncStatus} = 'interrupted')`);
+            .set({ lastSyncStatus: 'interrupted', errorMessage: 'Sync paused for server restart — will resume automatically.', updatedAt: new Date() })
+            .where(drizzleSql`${syncMeta.id} = ${id} AND ${syncMeta.lastSyncStatus} = 'in_progress'`);
         }
         console.log('[Startup] Cleared any stale in_progress sync records');
 

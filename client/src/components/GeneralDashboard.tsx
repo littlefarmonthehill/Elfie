@@ -564,6 +564,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   const pomFailed = lastPom?.lastSyncStatus === 'failed' || lastPom?.lastSyncStatus === 'error';
   const orderSyncFailed = lastOrderSync?.lastSyncStatus === 'failed' || lastOrderSync?.lastSyncStatus === 'error';
   const channelSyncFailed = lastChannelSync?.lastSyncStatus === 'failed' || lastChannelSync?.lastSyncStatus === 'error';
+  // 'interrupted' means the sync was cleanly paused during a server restart and will auto-resume — never a real failure
   const isScanComplete = latestScan?.status === 'complete';
 
   const allInsightItems: any[] = [
