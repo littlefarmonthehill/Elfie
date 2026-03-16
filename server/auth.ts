@@ -325,6 +325,22 @@ export async function setupAuth(app: Express) {
       res.status(500).json({ message: "Failed to change password" });
     }
   });
+
+  // GET /api/auth/user — must be live immediately so post-login redirect works
+  // even during the server startup / migration window.
+  app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      const freshUser = await storage.getUser(userId);
+      if (!freshUser) return res.status(401).json({ message: "User not found" });
+      const { password: _pw, ...safeUser } = freshUser as any;
+      res.json(safeUser);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
 }
 
 // Authentication middleware - checks if user is logged in
