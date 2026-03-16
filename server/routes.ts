@@ -1110,7 +1110,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
       const [inventoryCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(blInventory).where(eq(blInventory.orgId, orgId));
-      const [orderCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orders).where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth.toISOString())));
+      const [orderCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orders).where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth)));
       const [storeCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orgIntegrations).where(eq(orgIntegrations.orgId, orgId));
       const [scanCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(brickanalyzerScans).where(and(eq(brickanalyzerScans.orgId, orgId), gte(brickanalyzerScans.createdAt, startOfMonth)));
 
@@ -1159,7 +1159,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
       const [inventoryCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(blInventory).where(eq(blInventory.orgId, orgId));
-      const [orderCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orders).where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth.toISOString())));
+      const [orderCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orders).where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth)));
       const [storeCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orgIntegrations).where(eq(orgIntegrations.orgId, orgId));
       const [scanCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(brickanalyzerScans).where(and(eq(brickanalyzerScans.orgId, orgId), gte(brickanalyzerScans.createdAt, startOfMonth)));
 
@@ -1215,7 +1215,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const orgUsages = await Promise.all(allOrgs.map(async (org) => {
         const [inventoryCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(blInventory).where(eq(blInventory.orgId, org.id));
-        const [orderCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orders).where(and(eq(orders.orgId, org.id), gte(orders.orderDate, startOfMonth.toISOString())));
+        const [orderCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orders).where(and(eq(orders.orgId, org.id), gte(orders.orderDate, startOfMonth)));
         const [storeCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orgIntegrations).where(eq(orgIntegrations.orgId, org.id));
         const [scanCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(brickanalyzerScans).where(and(eq(brickanalyzerScans.orgId, org.id), gte(brickanalyzerScans.createdAt, startOfMonth)));
 

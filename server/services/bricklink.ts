@@ -1333,9 +1333,11 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
         if (item.cacheId && !cacheIdsWithQty.has(item.cacheId)) return true;
         const soldFresh = isFresh(item.soldFetchedAt);
         const stockFresh = isFresh(item.stockFetchedAt);
-        // Guide focus filtering: only consider staleness for the focused guide type(s)
-        if (guideFocus === 'stock') return !stockFresh;
-        if (guideFocus === 'sold') return !soldFresh;
+        const missingStock = Number(item.missingStockFields) || 0;
+        const missingSold = Number(item.missingSoldFields) || 0;
+        // Guide focus filtering: stale OR missing data for the focused guide type(s)
+        if (guideFocus === 'stock') return !stockFresh || missingStock > 0;
+        if (guideFocus === 'sold') return !soldFresh || missingSold > 0;
         return !soldFresh || !stockFresh; // 'both': candidate if either guide is stale
       })
       .map((item) => {
