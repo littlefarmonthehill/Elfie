@@ -2,7 +2,7 @@ import { db } from "../db";
 import { planConfigs, organizations } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { TIER_CONFIG, type PlanType } from "@shared/tierConfig";
-import type { PlanConfig } from "@shared/schema";
+import type { PlanConfig, InsertPlanConfig } from "@shared/schema";
 
 // ── In-memory cache ────────────────────────────────────────────────────────────
 let cache: PlanConfig[] | null = null;
@@ -116,6 +116,23 @@ export async function updatePlanConfig(planKey: string, fields: PlanUpdateFields
 
   invalidatePlanCache();
   return { success: true, plan: updated };
+}
+
+// ── Create a new plan config ───────────────────────────────────────────────────
+export async function createPlanConfig(
+  fields: Omit<InsertPlanConfig, 'updatedAt'>
+): Promise<{ success: boolean; error?: string; plan?: PlanConfig }> {
+  const existing = await db
+    .select({ id: planConfigs.id })
+    .from(planConfigs)
+    .where(eq(planConfigs.planKey, fields.planKey))
+    .limit(1);
+  if (existing.length > 0) {
+    return { success: false, error: `A plan with key "${fields.planKey}" already exists.` };
+  }
+  const [created] = await db.insert(planConfigs).values(fields).returning();
+  invalidatePlanCache();
+  return { success: true, plan: created };
 }
 
 // ── Toggle sunset flag (always allowed, even with orgs on it) ─────────────────

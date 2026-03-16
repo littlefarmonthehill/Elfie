@@ -37,7 +37,7 @@ function maskSettingsSecrets(settings: Record<string, any> | null): Record<strin
 }
 import { storage } from "./storage";
 import { getEffectiveLimits } from "@shared/tierConfig";
-import { seedPlanConfigsIfEmpty, getAllPlanConfigsWithCounts, updatePlanConfig, setPlanSunset, dbPlanToLimits, dbPlanToFeatures } from "./services/planConfigService";
+import { seedPlanConfigsIfEmpty, getAllPlanConfigsWithCounts, createPlanConfig, updatePlanConfig, setPlanSunset, dbPlanToLimits, dbPlanToFeatures } from "./services/planConfigService";
 import { isAuthenticated, isApproved, isOrgOwner, getOrgId, isSuperAdmin } from "./auth";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, bricklinkCatalogRequest, calculateSuggestedPriceWithSupply } from "./services/bricklink";
 import { getPomIsRunning, setPomIsRunning } from "./services/pom-scheduler";
@@ -1008,6 +1008,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/platform-admin/plans — create a new plan config
+  app.post('/api/platform-admin/plans', isSuperAdmin, async (req, res) => {
+    try {
+      const result = await createPlanConfig(req.body);
+      if (!result.success) return res.status(400).json({ message: result.error });
+      res.status(201).json(result.plan);
+    } catch (err: any) {
+      console.error("Error creating plan config:", err);
+      res.status(500).json({ message: err.message || "Failed to create plan" });
+    }
+  });
+
   // PATCH /api/platform-admin/plans/:planKey — update plan config (locked if orgs are on it)
   app.patch('/api/platform-admin/plans/:planKey', isSuperAdmin, async (req, res) => {
     try {
@@ -1091,16 +1103,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subscriptionStatus: organizations.subscriptionStatus,
       }).from(organizations).where(eq(organizations.id, orgId)).limit(1);
 
-      const [grossRow] = await db.select({
-        totalDollars: sql<string>`COALESCE(SUM(${orderDetails.quantity}::numeric * ${orderDetails.unitPrice}::numeric), 0)`,
-      }).from(orderDetails)
-        .innerJoin(orders, eq(orderDetails.orderId, orders.id))
-        .where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth)));
+      const orgPlan = orgRow?.plan ?? 'trial';
 
-      const [adjRow] = await db.select({
-        totalDollars: sql<string>`COALESCE(SUM(${orderAdjustments.amount}::numeric), 0)`,
-      }).from(orderAdjustments)
-        .where(and(eq(orderAdjustments.orgId, orgId), gte(orderAdjustments.createdAt, startOfMonth)));
+      const [
+        [grossRow], [adjRow],
+        [invCount], [ordCount], [scanCount],
+        planCfg,
+      ] = await Promise.all([
+        db.select({ totalDollars: sql<string>`COALESCE(SUM(${orderDetails.quantity}::numeric * ${orderDetails.unitPrice}::numeric), 0)` })
+          .from(orderDetails).innerJoin(orders, eq(orderDetails.orderId, orders.id))
+          .where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth))),
+        db.select({ totalDollars: sql<string>`COALESCE(SUM(${orderAdjustments.amount}::numeric), 0)` })
+          .from(orderAdjustments).where(and(eq(orderAdjustments.orgId, orgId), gte(orderAdjustments.createdAt, startOfMonth))),
+        db.select({ count: count() }).from(blInventory)
+          .where(and(eq(blInventory.orgId, orgId), gt(blInventory.quantity, 0))),
+        db.select({ count: count() }).from(orders)
+          .where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth), eq(orders.isTest, false))),
+        db.select({ count: count() }).from(brickanalyzerScans)
+          .where(and(eq(brickanalyzerScans.orgId, orgId), gte(brickanalyzerScans.createdAt, startOfMonth))),
+        db.select({
+          limitInventoryItems: planConfigs.limitInventoryItems,
+          limitOrders: planConfigs.limitOrders,
+          limitElfieQueries: planConfigs.limitElfieQueries,
+          limitScans: planConfigs.limitScans,
+        }).from(planConfigs).where(eq(planConfigs.planKey, orgPlan)).limit(1),
+      ]);
+
+      const { getOrgAiUsageForMonth } = await import('./services/ai-usage-tracker');
+      const aiCallsMtd = await getOrgAiUsageForMonth(orgId, startOfMonth, now);
 
       const grossSalesCents = Math.round(parseFloat(grossRow?.totalDollars ?? '0') * 100);
       const adjustmentsCents = Math.round(parseFloat(adjRow?.totalDollars ?? '0') * 100);
@@ -1112,7 +1142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         orgId,
         billingStartDate: orgRow?.billingStartDate ? orgRow.billingStartDate.toISOString() : null,
-        plan: orgRow?.plan ?? 'trial',
+        plan: orgPlan,
         trialEndsAt: orgRow?.trialEndsAt ? orgRow.trialEndsAt.toISOString() : null,
         subscriptionStatus: orgRow?.subscriptionStatus ?? 'trial',
         period: { start: startOfMonth.toISOString(), end: now.toISOString() },
@@ -1127,6 +1157,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         pricing: { basePrice, salesPercentage, salesIncludedInBase },
         estimatedTotal,
+        usage: {
+          inventoryLots: invCount?.count ?? 0,
+          ordersThisMonth: ordCount?.count ?? 0,
+          aiCallsMtd,
+          scansMtd: scanCount?.count ?? 0,
+        },
+        planLimits: {
+          limitInventoryItems: planCfg[0]?.limitInventoryItems ?? -1,
+          limitOrders: planCfg[0]?.limitOrders ?? -1,
+          limitElfieQueries: planCfg[0]?.limitElfieQueries ?? -1,
+          limitScans: planCfg[0]?.limitScans ?? -1,
+        },
       });
     } catch (err: any) {
       console.error("Error fetching org usage:", err);
@@ -1223,19 +1265,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const salesPercentage = pm?.salesPercentage ?? 1.9;
       const salesIncludedInBase = pm?.salesIncludedInBase ?? 100000;
 
-      const [orgInfo] = await db.select({ id: organizations.id, name: organizations.name, billingStartDate: organizations.billingStartDate })
+      const [orgInfo] = await db.select({ id: organizations.id, name: organizations.name, plan: organizations.plan, billingStartDate: organizations.billingStartDate })
         .from(organizations).where(eq(organizations.id, orgId)).limit(1);
 
-      const [grossRow] = await db.select({
-        totalDollars: sql<string>`COALESCE(SUM(${orderDetails.quantity}::numeric * ${orderDetails.unitPrice}::numeric), 0)`,
-      }).from(orderDetails)
-        .innerJoin(orders, eq(orderDetails.orderId, orders.id))
-        .where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth)));
+      const orgPlan = orgInfo?.plan ?? 'trial';
 
-      const [adjRow] = await db.select({
-        totalDollars: sql<string>`COALESCE(SUM(${orderAdjustments.amount}::numeric), 0)`,
-      }).from(orderAdjustments)
-        .where(and(eq(orderAdjustments.orgId, orgId), gte(orderAdjustments.createdAt, startOfMonth)));
+      const [
+        [grossRow], [adjRow],
+        [invCount], [ordCount], [scanCount],
+        planCfg,
+      ] = await Promise.all([
+        db.select({ totalDollars: sql<string>`COALESCE(SUM(${orderDetails.quantity}::numeric * ${orderDetails.unitPrice}::numeric), 0)` })
+          .from(orderDetails).innerJoin(orders, eq(orderDetails.orderId, orders.id))
+          .where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth))),
+        db.select({ totalDollars: sql<string>`COALESCE(SUM(${orderAdjustments.amount}::numeric), 0)` })
+          .from(orderAdjustments).where(and(eq(orderAdjustments.orgId, orgId), gte(orderAdjustments.createdAt, startOfMonth))),
+        db.select({ count: count() }).from(blInventory)
+          .where(and(eq(blInventory.orgId, orgId), gt(blInventory.quantity, 0))),
+        db.select({ count: count() }).from(orders)
+          .where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth), eq(orders.isTest, false))),
+        db.select({ count: count() }).from(brickanalyzerScans)
+          .where(and(eq(brickanalyzerScans.orgId, orgId), gte(brickanalyzerScans.createdAt, startOfMonth))),
+        db.select({
+          limitInventoryItems: planConfigs.limitInventoryItems,
+          limitOrders: planConfigs.limitOrders,
+          limitElfieQueries: planConfigs.limitElfieQueries,
+          limitScans: planConfigs.limitScans,
+        }).from(planConfigs).where(eq(planConfigs.planKey, orgPlan)).limit(1),
+      ]);
+
+      const { getOrgAiUsageForMonth } = await import('./services/ai-usage-tracker');
+      const aiCallsMtd = await getOrgAiUsageForMonth(orgId, startOfMonth, now);
 
       const grossSalesCents = Math.round(parseFloat(grossRow?.totalDollars ?? '0') * 100);
       const adjustmentsCents = Math.round(parseFloat(adjRow?.totalDollars ?? '0') * 100);
@@ -1247,11 +1307,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         orgId,
         orgName: orgInfo?.name || orgId,
+        plan: orgPlan,
         billingStartDate: orgInfo?.billingStartDate ? orgInfo.billingStartDate.toISOString() : null,
         period: { start: startOfMonth.toISOString(), end: now.toISOString() },
         sales: { grossSalesCents, adjustmentsCents, netSalesCents, includedInBaseCents: salesIncludedInBase, salesOverBaseCents, salesPercentage, salesFeeCents },
         pricing: { basePrice, salesPercentage, salesIncludedInBase },
         estimatedTotal,
+        usage: {
+          inventoryLots: invCount?.count ?? 0,
+          ordersThisMonth: ordCount?.count ?? 0,
+          aiCallsMtd,
+          scansMtd: scanCount?.count ?? 0,
+        },
+        planLimits: {
+          limitInventoryItems: planCfg[0]?.limitInventoryItems ?? -1,
+          limitOrders: planCfg[0]?.limitOrders ?? -1,
+          limitElfieQueries: planCfg[0]?.limitElfieQueries ?? -1,
+          limitScans: planCfg[0]?.limitScans ?? -1,
+        },
       });
     } catch (err: any) {
       console.error("Error fetching org usage:", err);

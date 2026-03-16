@@ -227,6 +227,45 @@ interface OrgUsageData {
   };
   pricing: { basePrice: number; salesPercentage: number; salesIncludedInBase: number };
   estimatedTotal: number;
+  usage?: {
+    inventoryLots: number;
+    ordersThisMonth: number;
+    aiCallsMtd: number;
+    scansMtd: number;
+  };
+  planLimits?: {
+    limitInventoryItems: number;
+    limitOrders: number;
+    limitElfieQueries: number;
+    limitScans: number;
+  };
+}
+
+function UsageDimBar({ icon: Icon, label, value, limit, colorClass }: {
+  icon: React.ElementType; label: string; value: number; limit: number; colorClass?: string;
+}) {
+  const unlimited = limit <= 0;
+  const pct = unlimited ? 0 : Math.min(100, (value / limit) * 100);
+  const warn = !unlimited && pct >= 80;
+  const bar = warn ? 'bg-amber-400/60' : (colorClass ?? 'bg-blue-400/50');
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-1 mb-0.5">
+        <span className="flex items-center gap-1 text-[9px] text-gray-500">
+          <Icon className="w-2.5 h-2.5 shrink-0" />
+          {label}
+        </span>
+        <span className={cn("text-[9px] tabular-nums font-mono", warn ? 'text-amber-400' : 'text-gray-500')}>
+          {value.toLocaleString()}{!unlimited && `/${limit.toLocaleString()}`}
+        </span>
+      </div>
+      {!unlimited && (
+        <div className="h-1 rounded-full bg-gray-700/50 overflow-hidden">
+          <div className={cn("h-full rounded-full transition-all duration-500", bar)} style={{ width: `${pct}%` }} />
+        </div>
+      )}
+    </div>
+  );
 }
 
 function UsageSynopsis({ onOpenSettings: _onOpenSettings }: { onOpenSettings?: (section: any) => void }) {
@@ -247,6 +286,14 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings }: { onOpenSettings?: (
   const monthLabel = usage.period?.start
     ? new Date(usage.period.start).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
     : '';
+
+  const u = usage.usage;
+  const lim = usage.planLimits;
+  const dimWarning = lim && u && (
+    (lim.limitInventoryItems > 0 && u.inventoryLots / lim.limitInventoryItems >= 0.8) ||
+    (lim.limitScans > 0 && u.scansMtd / lim.limitScans >= 0.8) ||
+    (lim.limitElfieQueries > 0 && u.aiCallsMtd / lim.limitElfieQueries >= 0.8)
+  );
 
   return (
     <>
@@ -300,10 +347,21 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings }: { onOpenSettings?: (
               See breakdown <ChevronRight className="w-2.5 h-2.5" />
             </span>
           </div>
-          {approaching && (
+          {(approaching || dimWarning) && (
             <div className="mt-1.5 flex items-center gap-1">
               <AlertTriangle className="w-2.5 h-2.5 text-amber-400/70 shrink-0" />
-              <span className="text-[9px] text-amber-400/70">Approaching included sales threshold</span>
+              <span className="text-[9px] text-amber-400/70">
+                {approaching ? 'Approaching included sales threshold' : 'Approaching a plan limit'}
+              </span>
+            </div>
+          )}
+
+          {u && lim && (
+            <div className="mt-2 pt-2 border-t border-gray-700/20 space-y-1.5">
+              <UsageDimBar icon={Package} label="Inventory lots" value={u.inventoryLots} limit={lim.limitInventoryItems} colorClass="bg-violet-400/50" />
+              <UsageDimBar icon={ShoppingCart} label="Orders (mo)" value={u.ordersThisMonth} limit={lim.limitOrders} colorClass="bg-blue-400/50" />
+              <UsageDimBar icon={Zap} label="AI calls (mo)" value={u.aiCallsMtd} limit={lim.limitElfieQueries} colorClass="bg-cyan-400/50" />
+              <UsageDimBar icon={ScanSearch} label="Scans (mo)" value={u.scansMtd} limit={lim.limitScans} colorClass="bg-indigo-400/50" />
             </div>
           )}
         </button>
