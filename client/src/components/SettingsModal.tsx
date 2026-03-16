@@ -29,12 +29,12 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
-import { TIER_CONFIG, getTierConfig, getEffectiveLimits, checkLimit, formatPrice, type PlanType } from "@shared/tierConfig";
+import { getTierConfig } from "@shared/tierConfig";
 
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
-  initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'billing' | 'about' | 'priceomatic';
+  initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'about' | 'priceomatic';
   initialPlatformTab?: 'platforms' | 'scheduler';
   pricingExample?: PricingInsight;
   scoringExample?: PricingInsight;
@@ -2407,15 +2407,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
   const [showClearPomDialog, setShowClearPomDialog] = useState(false);
 
-  const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly');
-  const [subPlan, setSubPlan] = useState<'foundation' | 'core'>('core');
-  const [subInterval, setSubInterval] = useState<'monthly' | 'annual'>('monthly');
-  const [showCancelSubDialog, setShowCancelSubDialog] = useState(false);
-
-  const { data: inventoryCountData } = useQuery<{ count: number }>({
-    queryKey: ['/api/inventory/count'],
-    enabled: open && activeSection === 'billing',
-  });
 
   type TenantLimitsData = {
     plan: string;
@@ -2500,12 +2491,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
   useEffect(() => { setActiveGeneralTab('info'); }, [activeSection]);
 
-  useEffect(() => {
-    if (activeSection === 'billing' && org) {
-      setSubPlan(org.plan === 'core' ? 'core' : 'foundation');
-      setSubInterval(org.subscriptionInterval === 'annual' ? 'annual' : 'monthly');
-    }
-  }, [activeSection, org?.plan, org?.subscriptionInterval]);
 
   const { data: platformOrgs, isLoading: platformOrgsLoading, isError: platformOrgsError, error: platformOrgsQueryError, refetch: refetchPlatformOrgs } = useQuery<OrgWithUsage[]>({
     queryKey: ['/api/platform-admin/orgs'],
@@ -2845,75 +2830,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       toast({ title: 'Pricing model saved' });
     },
     onError: (err: any) => toast({ title: err?.message || 'Failed to save pricing model', variant: 'destructive' }),
-  });
-
-  const checkoutMutation = useMutation({
-    mutationFn: async ({ plan, interval }: { plan: string; interval: string }) => {
-      const res = await apiRequest('POST', '/api/billing/checkout', { plan, interval });
-      return res as { url: string };
-    },
-    onSuccess: (data) => {
-      if (data?.url) window.location.href = data.url;
-    },
-    onError: (error: any) => {
-      toast({ title: "Billing Error", description: error.message || "Could not start checkout. Make sure Stripe is configured.", variant: "destructive" });
-    },
-  });
-
-  const portalMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest('POST', '/api/billing/portal', {});
-      return res as { url: string };
-    },
-    onSuccess: (data) => {
-      if (data?.url) window.location.href = data.url;
-    },
-    onError: (error: any) => {
-      toast({ title: "Billing Error", description: error.message || "Could not open billing portal. Make sure Stripe is configured.", variant: "destructive" });
-    },
-  });
-
-  const changePlanMutation = useMutation({
-    mutationFn: async ({ plan, interval }: { plan: string; interval: string }) => {
-      return apiRequest('POST', '/api/billing/change-plan', { plan, interval });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/organizations', user?.orgId] });
-      toast({ title: "Plan Updated", description: "Your subscription has been updated. Changes take effect immediately." });
-    },
-    onError: (error: any) => {
-      toast({ title: "Plan Change Failed", description: error.message || "Could not update your plan. Please try again.", variant: "destructive" });
-    },
-  });
-
-  const autoRenewMutation = useMutation({
-    mutationFn: async ({ autoRenew }: { autoRenew: boolean }) => {
-      return apiRequest('PATCH', '/api/billing/auto-renew', { autoRenew });
-    },
-    onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/organizations', user?.orgId] });
-      toast({ title: vars.autoRenew ? "Auto-renew Enabled" : "Auto-renew Disabled", description: vars.autoRenew ? "Your subscription will renew automatically." : "Your subscription will not renew at the end of the current period." });
-    },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Could not update auto-renew setting.", variant: "destructive" });
-    },
-  });
-
-  const cancelSubMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest('DELETE', '/api/billing/subscription', {});
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/organizations', user?.orgId] });
-      setShowCancelSubDialog(false);
-      toast({ title: "Subscription Cancelled", description: "Your subscription has been cancelled. You retain access until the end of your billing period." });
-    },
-    onError: (error: any) => {
-      toast({ title: "Cancellation Failed", description: error.message || "Could not cancel your subscription. Please try again.", variant: "destructive" });
-    },
   });
 
   const clearPomCacheMutation = useMutation({
@@ -3459,18 +3375,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     enabled: !!org?.id && isAdmin,
   });
 
-  const effectiveLimits = getEffectiveLimits(org ?? { plan: 'trial' });
-  const bsCheck = checkLimit(org?.brickspotterScansThisMonth ?? 0, effectiveLimits.brickspotterScansPerMonth, 'BrickSpotter scans');
-  const userCheck = checkLimit(users?.length ?? 0, effectiveLimits.seats, 'team seats');
-  const inventoryCount = inventoryCountData?.count ?? 0;
-  const inventoryCheck = checkLimit(inventoryCount, effectiveLimits.inventoryItems, 'inventory items');
-  const trialDaysRemaining = org?.trialEndsAt
-    ? Math.max(0, Math.ceil((new Date(org.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-    : null;
-
   const navigationItems = [
     { id: 'general' as const, label: 'Organization', icon: Settings },
-    { id: 'billing' as const, label: 'Manage Subscription', icon: CreditCard },
     { id: 'platforms' as const, label: 'Platform Services', icon: Layers },
     { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: TrendingUp },
     { id: 'data' as const, label: 'Store Data', icon: HardDrive },
@@ -4311,175 +4217,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
                 </div>
 
-            )}
-
-            {/* Billing & Plan */}
-            {activeSection === 'billing' && (
-              <div className="space-y-6 min-h-[400px]">
-                {/* Trial Countdown Banner */}
-                {org?.plan === 'trial' && trialDaysRemaining !== null && (
-                  <div className={`rounded-lg p-3 flex items-start gap-3 ${trialDaysRemaining <= 3 ? 'bg-red-500/10 border border-red-500/20' : trialDaysRemaining <= 7 ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-blue-500/10 border border-blue-500/20'}`}>
-                    <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${trialDaysRemaining <= 3 ? 'text-red-400' : trialDaysRemaining <= 7 ? 'text-amber-500' : 'text-blue-400'}`} />
-                    <div className="space-y-1">
-                      <p className={`text-xs font-medium ${trialDaysRemaining <= 3 ? 'text-red-200' : trialDaysRemaining <= 7 ? 'text-amber-200' : 'text-blue-200'}`}>
-                        {trialDaysRemaining === 0 ? 'Your trial has ended' : `${trialDaysRemaining} day${trialDaysRemaining === 1 ? '' : 's'} left in your free trial`}
-                      </p>
-                      <p className="text-[11px] text-gray-400">Subscribe to keep your data and unlock the full platform.</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Limit Nudge Banners */}
-                {(bsCheck.nudgeLevel === 'warning' || bsCheck.nudgeLevel === 'critical' || userCheck.nudgeLevel === 'warning' || userCheck.nudgeLevel === 'critical' || inventoryCheck.nudgeLevel === 'warning' || inventoryCheck.nudgeLevel === 'critical') && (
-                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 flex items-start gap-3">
-                    <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <p className="text-xs font-medium text-amber-200">Approaching Plan Limits</p>
-                      <p className="text-[11px] text-amber-500/80 leading-relaxed">
-                        {bsCheck.message} {userCheck.message} {inventoryCheck.message}
-                      </p>
-                      {(org?.plan === 'foundation' || org?.plan === 'trial') && (
-                        <button
-                          onClick={() => checkoutMutation.mutate({ plan: 'core', interval: billingInterval })}
-                          disabled={checkoutMutation.isPending}
-                          className="text-[11px] font-bold text-amber-400 hover:text-amber-300 underline underline-offset-2"
-                        >
-                          Upgrade to Core for unlimited access
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Current Plan Card */}
-                <div className="sm-card p-4 space-y-4">
-                  {org?.plan === 'flagship' ? (
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-100">Current Plan</h3>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-lg font-bold text-white">Flagship</span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wider bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                            House Account
-                          </span>
-                        </div>
-                      </div>
-                      <p className="sm-description">Unlimited — no billing required</p>
-                    </div>
-                  ) : org?.plan === 'trial' ? (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-100">Current Plan</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-lg font-bold text-white">Free Trial</span>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wider ${trialDaysRemaining !== null && trialDaysRemaining <= 3 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'}`}>
-                              {trialDaysRemaining !== null ? `${trialDaysRemaining}d left` : 'Trial'}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs">
-                          <button
-                            onClick={() => setBillingInterval('monthly')}
-                            className={`px-2 py-0.5 rounded text-xs ${billingInterval === 'monthly' ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300'}`}
-                            data-testid="button-billing-monthly"
-                          >Monthly</button>
-                          <button
-                            onClick={() => setBillingInterval('annual')}
-                            className={`px-2 py-0.5 rounded text-xs ${billingInterval === 'annual' ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300'}`}
-                            data-testid="button-billing-annual"
-                          >Annual <span className="text-green-400">−17%</span></button>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          className="flex-1 bg-purple-600"
-                          onClick={() => checkoutMutation.mutate({ plan: 'core', interval: billingInterval })}
-                          disabled={checkoutMutation.isPending}
-                          data-testid="button-upgrade-core"
-                        >
-                          <Sparkles className="w-4 h-4 mr-2" />
-                          {checkoutMutation.isPending ? 'Redirecting...' : 'Subscribe to Core'}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="flex-1 border-gray-600"
-                          onClick={() => checkoutMutation.mutate({ plan: 'foundation', interval: billingInterval })}
-                          disabled={checkoutMutation.isPending}
-                          data-testid="button-upgrade-foundation"
-                        >
-                          {checkoutMutation.isPending ? 'Redirecting...' : 'Subscribe to Foundation'}
-                        </Button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-100">Current Plan</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-lg font-bold text-white capitalize">{org?.plan ?? 'Foundation'}</span>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium uppercase tracking-wider ${
-                              org?.subscriptionStatus === 'active' ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
-                              org?.subscriptionStatus === 'trial' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
-                              'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                            }`}>
-                              {org?.subscriptionStatus ?? 'Trial'}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="sm-description mb-1">
-                            {org?.plan === 'foundation' ? 'Upgrade Billing' : 'Billing Interval'}
-                          </p>
-                          {org?.plan === 'foundation' ? (
-                            <div className="flex items-center gap-1 text-xs">
-                              <button
-                                onClick={() => setBillingInterval('monthly')}
-                                className={`px-2 py-0.5 rounded text-xs ${billingInterval === 'monthly' ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300'}`}
-                                data-testid="button-billing-monthly"
-                              >Monthly</button>
-                              <button
-                                onClick={() => setBillingInterval('annual')}
-                                className={`px-2 py-0.5 rounded text-xs ${billingInterval === 'annual' ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300'}`}
-                                data-testid="button-billing-annual"
-                              >Annual <span className="text-green-400">−17%</span></button>
-                            </div>
-                          ) : (
-                            <p className="text-sm font-medium text-gray-100 capitalize">{org?.subscriptionInterval ?? 'Monthly'}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex gap-3">
-                        {org?.plan === 'foundation' ? (
-                          <Button 
-                            className="flex-1 bg-purple-600"
-                            onClick={() => checkoutMutation.mutate({ plan: 'core', interval: billingInterval })}
-                            disabled={checkoutMutation.isPending}
-                            data-testid="button-upgrade-core"
-                          >
-                            <Sparkles className="w-4 h-4 mr-2" />
-                            {checkoutMutation.isPending ? 'Redirecting...' : 'Upgrade to Core'}
-                          </Button>
-                        ) : (
-                          <Button 
-                            variant="outline" 
-                            className="flex-1 border-gray-600"
-                            onClick={() => portalMutation.mutate()}
-                            disabled={portalMutation.isPending}
-                            data-testid="button-manage-subscription"
-                          >
-                            {portalMutation.isPending ? 'Opening...' : 'Manage Subscription'}
-                          </Button>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                <MyPlanUsagePanel />
-              </div>
             )}
 
             {/* Platform Connections */}

@@ -416,6 +416,7 @@ function BillCard({
 
 function CurrentBillingTab() {
   const { data: usage, isLoading } = useQuery<OrgUsageData>({ queryKey: ['/api/org/usage'] });
+  const [cancelConfirm, setCancelConfirm] = useState(false);
 
   if (isLoading) {
     return <div className="flex items-center justify-center py-16 text-gray-500 text-sm">Loading…</div>;
@@ -442,6 +443,49 @@ function CurrentBillingTab() {
       <p className="text-xs text-gray-600 text-center">
         Monthly cap: ${(usage.pricing.monthlyCap / 100).toFixed(2)} · Overage: ${(usage.pricing.overageBump / 100).toFixed(2)}/bump
       </p>
+
+      {/* Cancel subscription */}
+      <div className="pt-4 border-t border-gray-800">
+        {!cancelConfirm ? (
+          <div className="flex justify-center">
+            <button
+              onClick={() => setCancelConfirm(true)}
+              className="text-xs text-gray-600 hover:text-red-400 transition-colors"
+              data-testid="button-cancel-subscription-prompt"
+            >
+              Cancel subscription
+            </button>
+          </div>
+        ) : (
+          <div className="rounded-md border border-red-900/40 bg-red-950/20 p-4 space-y-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-red-200">Cancel your subscription?</p>
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  Your access will remain active until the end of your current billing period. After that, your account will revert to read-only mode and inventory sync will stop.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 justify-end">
+              <button
+                onClick={() => setCancelConfirm(false)}
+                className="text-xs text-gray-500 hover:text-gray-300 transition-colors px-2 py-1"
+                data-testid="button-cancel-subscription-nevermind"
+              >
+                Never mind
+              </button>
+              <Button
+                variant="destructive"
+                size="sm"
+                data-testid="button-cancel-subscription-confirm"
+              >
+                Yes, cancel subscription
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
