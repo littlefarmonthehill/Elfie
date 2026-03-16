@@ -7517,7 +7517,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
               const inputCls = "w-full bg-gray-900/60 border border-gray-700 rounded px-2 py-1 text-gray-200 outline-none focus:border-gray-500 text-xs tabular-nums";
 
               const basePrice = pmVal('basePrice', 3900);
-              const salesPercentage = pmVal('salesPercentage', 2.5);
+              const salesPercentage = pmVal('salesPercentage', 1.9);
               const salesIncludedInBase = pmVal('salesIncludedInBase', 100000);
               const trialDays = pmVal('trialDays', 14);
 

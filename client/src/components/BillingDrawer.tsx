@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   X, CreditCard, ShoppingCart, TrendingUp, CheckCircle2,
   ChevronDown, ChevronUp, Printer, AlertTriangle,
-  Info, ArrowRight, Clock, Heart,
+  Info, ArrowRight, Clock, Heart, Calendar,
 } from "lucide-react";
 
 interface SalesData {
@@ -540,37 +540,40 @@ function CurrentBillingTab() {
   );
 }
 
-function InvoiceRow({ month }: { month: MonthInvoice }) {
+function InvoiceRow({ month, compact = false }: { month: MonthInvoice; compact?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const hasOverBase = month.sales.salesOverBaseCents > 0;
 
   return (
-    <div className="rounded-md border border-white/8 bg-gray-800/30 overflow-hidden">
+    <div className={compact ? '' : 'rounded-md border border-white/8 bg-gray-800/30 overflow-hidden'}>
       <div
-        className="flex items-center gap-3 px-4 py-3 cursor-pointer hover-elevate"
+        className={cn(
+          "flex items-center gap-3 px-4 cursor-pointer hover-elevate",
+          compact ? "py-2.5 bg-gray-900/20" : "py-3",
+        )}
         onClick={() => setExpanded((e) => !e)}
         data-testid={`invoice-row-${month.periodStart}`}
       >
-        <CheckCircle2 className="w-4 h-4 text-green-500/70 shrink-0" />
+        <CheckCircle2 className="w-3.5 h-3.5 text-green-500/60 shrink-0" />
         <div className="flex-1 min-w-0">
-          <div className="text-sm text-gray-200 font-medium">{month.label}</div>
+          <div className={cn("font-medium text-gray-200", compact ? "text-xs" : "text-sm")}>{month.label}</div>
           {hasOverBase && (
-            <div className="text-xs text-amber-400/80 mt-0.5">
-              {fmtDollars(month.sales.netSalesCents)} net sales · {fmtDollars(month.sales.salesFeeCents)} fee
+            <div className="text-[10px] text-amber-400/70 mt-0.5">
+              {fmtDollars(month.sales.netSalesCents)} net · +{fmtDollars(month.sales.salesFeeCents)} fee
             </div>
           )}
         </div>
-        <span className={cn("font-mono text-sm font-semibold tabular-nums shrink-0", hasOverBase ? 'text-amber-400' : 'text-gray-200')}>
+        <span className={cn("font-mono font-semibold tabular-nums shrink-0", compact ? "text-xs" : "text-sm", hasOverBase ? 'text-amber-400' : 'text-gray-200')}>
           {fmtDollars(month.estimatedCost)}
         </span>
         {expanded ? (
-          <ChevronUp className="w-4 h-4 text-gray-500 shrink-0" />
+          <ChevronUp className="w-3.5 h-3.5 text-gray-500 shrink-0" />
         ) : (
-          <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />
+          <ChevronDown className="w-3.5 h-3.5 text-gray-500 shrink-0" />
         )}
       </div>
       {expanded && (
-        <div className="border-t border-white/8 px-4 pb-4 pt-3">
+        <div className={cn("border-t border-white/8 px-4 pb-4 pt-3", compact ? "bg-gray-900/30" : "")}>
           <BillCard
             label={month.label}
             periodStart={month.periodStart}
@@ -579,6 +582,59 @@ function InvoiceRow({ month }: { month: MonthInvoice }) {
             pricing={month.pricing}
             printable
           />
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface YearGroup {
+  year: number;
+  months: MonthInvoice[];
+  totalNetSalesCents: number;
+  totalSalesFeeCents: number;
+  totalBilled: number;
+}
+
+function YearSection({ group, defaultOpen }: { group: YearGroup; defaultOpen: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const hasFees = group.totalSalesFeeCents > 0;
+
+  return (
+    <div className="rounded-md border border-white/8 overflow-hidden">
+      {/* Year header — clickable to expand/collapse */}
+      <button
+        className="w-full flex items-center justify-between gap-3 px-4 py-2.5 bg-gray-800/40 hover-elevate"
+        onClick={() => setOpen((o) => !o)}
+        data-testid={`year-section-${group.year}`}
+      >
+        <div className="flex items-center gap-2">
+          <Calendar className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+          <span className="text-sm font-semibold text-gray-200">{group.year}</span>
+          <span className="text-[10px] text-gray-500">{group.months.length} month{group.months.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <div className={cn("text-sm font-semibold tabular-nums font-mono", hasFees ? 'text-amber-400' : 'text-gray-200')}>
+              {fmtDollars(group.totalBilled)}
+            </div>
+            <div className="text-[10px] text-gray-600 tabular-nums">
+              {fmtDollars(group.totalNetSalesCents)} sales
+            </div>
+          </div>
+          {open ? (
+            <ChevronUp className="w-4 h-4 text-gray-500 shrink-0" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />
+          )}
+        </div>
+      </button>
+
+      {open && (
+        <div className="divide-y divide-white/5">
+          {group.months.map((m) => (
+            <InvoiceRow key={m.periodStart} month={m} compact />
+          ))}
         </div>
       )}
     </div>
@@ -604,13 +660,54 @@ function HistoryTab() {
     );
   }
 
+  // Group months by year
+  const yearMap = new Map<number, MonthInvoice[]>();
+  for (const m of months) {
+    const yr = new Date(m.periodStart).getFullYear();
+    if (!yearMap.has(yr)) yearMap.set(yr, []);
+    yearMap.get(yr)!.push(m);
+  }
+  const groups: YearGroup[] = Array.from(yearMap.entries())
+    .sort(([a], [b]) => b - a)
+    .map(([year, mons]) => ({
+      year,
+      months: mons,
+      totalNetSalesCents: mons.reduce((s, m) => s + m.sales.netSalesCents, 0),
+      totalSalesFeeCents: mons.reduce((s, m) => s + m.sales.salesFeeCents, 0),
+      totalBilled: mons.reduce((s, m) => s + m.estimatedCost, 0),
+    }));
+
+  const allTimeNetSales = groups.reduce((s, g) => s + g.totalNetSalesCents, 0);
+  const allTimeBilled = groups.reduce((s, g) => s + g.totalBilled, 0);
+  const allTimeFees = groups.reduce((s, g) => s + g.totalSalesFeeCents, 0);
+  const mostRecentYear = groups[0]?.year ?? 0;
+
   return (
-    <div className="space-y-2">
-      <p className="text-xs text-gray-500 mb-3">
-        Click any month to expand the full breakdown.
+    <div className="space-y-3">
+      {/* All-time summary */}
+      <div className="rounded-md border border-white/8 bg-gray-800/20 px-4 py-3 grid grid-cols-3 gap-3">
+        <div className="text-center">
+          <div className="text-sm font-bold text-white tabular-nums font-mono">{fmtDollars(allTimeBilled)}</div>
+          <div className="text-[10px] text-gray-500 mt-0.5">Total Paid</div>
+        </div>
+        <div className="text-center border-x border-white/8">
+          <div className="text-sm font-bold text-white tabular-nums font-mono">{fmtDollars(allTimeNetSales)}</div>
+          <div className="text-[10px] text-gray-500 mt-0.5">Total Net Sales</div>
+        </div>
+        <div className="text-center">
+          <div className={cn("text-sm font-bold tabular-nums font-mono", allTimeFees > 0 ? 'text-amber-400' : 'text-gray-300')}>
+            {fmtDollars(allTimeFees)}
+          </div>
+          <div className="text-[10px] text-gray-500 mt-0.5">Sales Fees</div>
+        </div>
+      </div>
+
+      <p className="text-xs text-gray-600">
+        {months.length} months of history · click any year or month to expand
       </p>
-      {months.map((m) => (
-        <InvoiceRow key={m.periodStart} month={m} />
+
+      {groups.map((g) => (
+        <YearSection key={g.year} group={g} defaultOpen={g.year === mostRecentYear} />
       ))}
     </div>
   );

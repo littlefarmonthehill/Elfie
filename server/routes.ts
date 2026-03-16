@@ -1081,7 +1081,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const [pm] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
       const basePrice = pm?.basePrice ?? 3900;
-      const salesPercentage = pm?.salesPercentage ?? 2.5;
+      const salesPercentage = pm?.salesPercentage ?? 1.9;
       const salesIncludedInBase = pm?.salesIncludedInBase ?? 100000;
 
       const [orgRow] = await db.select({
@@ -1134,50 +1134,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/org/billing/history — last 6 complete months of billing data (sales-based)
+  // GET /api/org/billing/history — full billing history, grouped by month (sales-based)
   app.get('/api/org/billing/history', isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
       const [pm] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
       const basePrice = pm?.basePrice ?? 3900;
-      const salesPercentage = pm?.salesPercentage ?? 2.5;
+      const salesPercentage = pm?.salesPercentage ?? 1.9;
       const salesIncludedInBase = pm?.salesIncludedInBase ?? 100000;
       const pricing = { basePrice, salesPercentage, salesIncludedInBase };
 
-      const now = new Date();
-      const months = [];
+      const startOfThisMonth = new Date();
+      startOfThisMonth.setDate(1);
+      startOfThisMonth.setHours(0, 0, 0, 0);
 
-      for (let i = 1; i <= 6; i++) {
-        const mStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const mEnd   = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+      // Gross sales aggregated by calendar month (all history, excluding current month)
+      const grossRows = await db.select({
+        month: sql<string>`DATE_TRUNC('month', ${orders.orderDate})::text`,
+        totalDollars: sql<string>`COALESCE(SUM(${orderDetails.quantity}::numeric * ${orderDetails.unitPrice}::numeric), 0)`,
+      }).from(orderDetails)
+        .innerJoin(orders, eq(orderDetails.orderId, orders.id))
+        .where(and(
+          eq(orders.orgId, orgId),
+          sql`${orders.orderDate} < ${startOfThisMonth}`,
+          sql`${orders.orderDate} IS NOT NULL`,
+        ))
+        .groupBy(sql`DATE_TRUNC('month', ${orders.orderDate})`)
+        .orderBy(sql`DATE_TRUNC('month', ${orders.orderDate}) DESC`);
 
-        const [grossRow] = await db.select({
-          totalDollars: sql<string>`COALESCE(SUM(${orderDetails.quantity}::numeric * ${orderDetails.unitPrice}::numeric), 0)`,
-        }).from(orderDetails)
-          .innerJoin(orders, eq(orderDetails.orderId, orders.id))
-          .where(and(eq(orders.orgId, orgId), gte(orders.orderDate, mStart), sql`${orders.orderDate} < ${mEnd}`));
+      // Adjustments bucketed by their parent order's month
+      const adjRows = await db.select({
+        month: sql<string>`DATE_TRUNC('month', ${orders.orderDate})::text`,
+        totalDollars: sql<string>`COALESCE(SUM(${orderAdjustments.amount}::numeric), 0)`,
+      }).from(orderAdjustments)
+        .innerJoin(orders, eq(orderAdjustments.orderId, orders.id))
+        .where(and(
+          eq(orderAdjustments.orgId, orgId),
+          sql`${orders.orderDate} < ${startOfThisMonth}`,
+          sql`${orders.orderDate} IS NOT NULL`,
+        ))
+        .groupBy(sql`DATE_TRUNC('month', ${orders.orderDate})`);
 
-        const [adjRow] = await db.select({
-          totalDollars: sql<string>`COALESCE(SUM(${orderAdjustments.amount}::numeric), 0)`,
-        }).from(orderAdjustments)
-          .where(and(eq(orderAdjustments.orgId, orgId), gte(orderAdjustments.createdAt, mStart), sql`${orderAdjustments.createdAt} < ${mEnd}`));
+      // Build a lookup map for adjustments
+      const adjByMonth = new Map<string, number>();
+      for (const row of adjRows) {
+        const key = row.month.slice(0, 7); // "YYYY-MM"
+        adjByMonth.set(key, Math.round(parseFloat(row.totalDollars) * 100));
+      }
 
-        const grossSalesCents = Math.round(parseFloat(grossRow?.totalDollars ?? '0') * 100);
-        const adjustmentsCents = Math.round(parseFloat(adjRow?.totalDollars ?? '0') * 100);
+      const months = grossRows.map((row) => {
+        const monthKey = row.month.slice(0, 7); // "YYYY-MM"
+        const mStart = new Date(row.month);
+        const mEnd = new Date(mStart.getFullYear(), mStart.getMonth() + 1, 1);
+
+        const grossSalesCents = Math.round(parseFloat(row.totalDollars) * 100);
+        const adjustmentsCents = adjByMonth.get(monthKey) ?? 0;
         const netSalesCents = grossSalesCents + adjustmentsCents;
         const salesOverBaseCents = Math.max(0, netSalesCents - salesIncludedInBase);
         const salesFeeCents = Math.round(salesOverBaseCents * salesPercentage / 100);
         const estimatedCost = basePrice + salesFeeCents;
 
-        months.push({
+        return {
           label: mStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
           periodStart: mStart.toISOString(),
           periodEnd: mEnd.toISOString(),
           sales: { grossSalesCents, adjustmentsCents, netSalesCents, includedInBaseCents: salesIncludedInBase, salesOverBaseCents, salesPercentage, salesFeeCents },
           pricing,
           estimatedCost,
-        });
-      }
+        };
+      });
 
       res.json({ months });
     } catch (err: any) {
@@ -1195,7 +1220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const [pm] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
       const basePrice = pm?.basePrice ?? 3900;
-      const salesPercentage = pm?.salesPercentage ?? 2.5;
+      const salesPercentage = pm?.salesPercentage ?? 1.9;
       const salesIncludedInBase = pm?.salesIncludedInBase ?? 100000;
 
       const [orgInfo] = await db.select({ id: organizations.id, name: organizations.name, billingStartDate: organizations.billingStartDate })
@@ -1243,7 +1268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allOrgs = await db.select({ id: organizations.id, name: organizations.name }).from(organizations);
       const [pm] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
       const basePrice = pm?.basePrice ?? 3900;
-      const salesPercentage = pm?.salesPercentage ?? 2.5;
+      const salesPercentage = pm?.salesPercentage ?? 1.9;
       const salesIncludedInBase = pm?.salesIncludedInBase ?? 100000;
 
       const orgUsages = await Promise.all(allOrgs.map(async (org) => {
