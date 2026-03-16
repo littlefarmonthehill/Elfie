@@ -4,6 +4,7 @@ installLogInterceptor();
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { registerRoutes } from "./routes";
+import { setupAuth } from "./auth";
 import { setupVite, serveStatic, log } from "./vite";
 import { startInventorySyncScheduler } from "./services/inventory-sync-scheduler";
 import { startPomSyncScheduler } from "./services/pom-scheduler";
@@ -131,8 +132,14 @@ app.use((req, res, next) => {
 // This is the ONLY route that works before full initialization.
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
-// ── Step 2: 503 for other API routes until server is fully initialized ────────
-// Non-API routes (SPA) and the health check are always allowed through.
+// ── Step 2: Auth routes registered IMMEDIATELY ───────────────────────────────
+// Session, Passport, /api/check-email, /api/auth/* and /api/change-password
+// are all live before migrations run so users can always log in.
+await setupAuth(app);
+
+// ── Step 3: 503 for other API routes until server is fully initialized ────────
+// Non-API routes (SPA), the health check, and auth routes above are always
+// allowed through because their handlers are already registered above this gate.
 let _serverReady = false;
 app.use((req, res, next) => {
   if (_serverReady) return next();

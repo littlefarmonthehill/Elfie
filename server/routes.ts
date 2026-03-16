@@ -38,7 +38,7 @@ function maskSettingsSecrets(settings: Record<string, any> | null): Record<strin
 import { storage } from "./storage";
 import { getEffectiveLimits } from "@shared/tierConfig";
 import { seedPlanConfigsIfEmpty, getAllPlanConfigsWithCounts, updatePlanConfig, setPlanSunset, dbPlanToLimits, dbPlanToFeatures } from "./services/planConfigService";
-import { setupAuth, isAuthenticated, isApproved, isOrgOwner, getOrgId, isSuperAdmin } from "./auth";
+import { isAuthenticated, isApproved, isOrgOwner, getOrgId, isSuperAdmin } from "./auth";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, bricklinkCatalogRequest, calculateSuggestedPriceWithSupply } from "./services/bricklink";
 import { getPomIsRunning, setPomIsRunning } from "./services/pom-scheduler";
 import { syncLock } from "./services/sync-lock";
@@ -152,9 +152,6 @@ export async function getPlatformBrickLinkCredentials(): Promise<{
 export async function registerRoutes(app: Express): Promise<Server> {
   // Seed plan configs from static tierConfig.ts on first run (idempotent)
   await seedPlanConfigsIfEmpty();
-
-  // Auth middleware setup - Email/Password Authentication
-  await setupAuth(app);
 
   app.get('/api/health', (_req, res) => { res.json({ ok: true }); });
 
