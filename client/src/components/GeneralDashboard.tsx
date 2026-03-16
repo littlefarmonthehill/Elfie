@@ -299,36 +299,42 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings }: { onOpenSettings?: (
             />
           </div>
 
-          {/* Bottom: cap message or est total */}
-          <div className="flex items-center justify-between gap-2">
-            {atCap ? (
-              <span className="text-[10px] font-semibold text-amber-400 flex items-center gap-1">
-                <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
-                Monthly cap reached
-              </span>
-            ) : (
-              <span className={cn("text-[10px] font-semibold tabular-nums font-mono",
-                totalBumps > 0 ? 'text-amber-400' : 'text-gray-300'
-              )}>
-                ~${(estimated / 100).toFixed(2)}/mo
-              </span>
-            )}
-            <span className="flex items-center gap-0.5 text-[9px] text-gray-600">
-              See breakdown <ChevronRight className="w-2.5 h-2.5" />
-            </span>
-          </div>
-
-          {atCap && (
-            <div className="mt-1 text-[9px] text-gray-500">
-              See billing details for the breakdown
+          {atCap ? (
+            /* Cap reached — show the hard limit and a reassurance */
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-semibold text-amber-400 font-mono tabular-nums">
+                  ${(monthlyCap / 100).toFixed(2)}/mo cap reached
+                </span>
+                <span className="flex items-center gap-0.5 text-[9px] text-gray-600">
+                  See breakdown <ChevronRight className="w-2.5 h-2.5" />
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 rounded-md bg-green-500/10 border border-green-500/20 px-2 py-1">
+                <CheckCircle className="w-2.5 h-2.5 text-green-400 shrink-0" />
+                <span className="text-[9px] text-green-400">No further charges this billing cycle</span>
+              </div>
             </div>
-          )}
-
-          {anyApproaching && totalBumps === 0 && (
-            <div className="mt-1.5 flex items-center gap-1">
-              <AlertTriangle className="w-2.5 h-2.5 text-amber-400/70 shrink-0" />
-              <span className="text-[9px] text-amber-400/70">Approaching limit on some tools</span>
-            </div>
+          ) : (
+            /* Under cap — show estimated total */
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <span className={cn("text-[10px] font-semibold tabular-nums font-mono",
+                  totalBumps > 0 ? 'text-amber-400' : 'text-gray-300'
+                )}>
+                  ~${(estimated / 100).toFixed(2)}/mo
+                </span>
+                <span className="flex items-center gap-0.5 text-[9px] text-gray-600">
+                  See breakdown <ChevronRight className="w-2.5 h-2.5" />
+                </span>
+              </div>
+              {anyApproaching && totalBumps === 0 && (
+                <div className="mt-1.5 flex items-center gap-1">
+                  <AlertTriangle className="w-2.5 h-2.5 text-amber-400/70 shrink-0" />
+                  <span className="text-[9px] text-amber-400/70">Approaching limit on some tools</span>
+                </div>
+              )}
+            </>
           )}
         </button>
       </div>
