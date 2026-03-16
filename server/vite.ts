@@ -94,8 +94,11 @@ export function serveStatic(app: Express) {
   // Catch-all: serve index.html for SPA routes.
   // Pass /api/* to the next handler so API routes registered after this
   // middleware (i.e. by registerRoutes) still work correctly.
+  // IMPORTANT: use req.originalUrl (not req.path) — Express can strip req.path
+  // to "/" when mounting at "*", causing every /api/* request to receive
+  // index.html instead of being forwarded to the actual route handler.
   app.use("*", (req, res, next) => {
-    if (req.path.startsWith("/api")) return next();
+    if (req.originalUrl.startsWith("/api")) return next();
     res.set({
       "Cache-Control": "no-cache, no-store, must-revalidate",
       "Pragma": "no-cache",
