@@ -968,6 +968,25 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-46 (remove flagship, migrate org_planetbrick to core/active) complete.');
 
+    // Phase-47: Add name column to pricing_model (sales-based plan name)
+    await pool.query(`
+      ALTER TABLE pricing_model ADD COLUMN IF NOT EXISTS name VARCHAR(100) NOT NULL DEFAULT 'Core'
+    `);
+    await pool.query(`UPDATE pricing_model SET name = 'Core' WHERE id = 1 AND name = 'Core'`);
+    console.log('[Migration] Phase-47 (pricing_model name column) complete.');
+
+    // Phase-48: Move all orgs off legacy package plans — everyone is now on Core
+    const p48 = await pool.query(`
+      UPDATE organizations
+      SET plan = 'core'
+      WHERE plan NOT IN ('trial', 'core')
+    `);
+    console.log(`[Migration] Phase-48 (migrate all orgs to core plan) complete — ${p48.rowCount ?? 0} orgs updated.`);
+
+    // Phase-49: Remove all plan_configs rows — packages are gone
+    const p49 = await pool.query(`TRUNCATE TABLE plan_configs`);
+    console.log(`[Migration] Phase-49 (truncate plan_configs table) complete.`);
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

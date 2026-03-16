@@ -37,7 +37,6 @@ function maskSettingsSecrets(settings: Record<string, any> | null): Record<strin
 }
 import { storage } from "./storage";
 import { getEffectiveLimits } from "@shared/tierConfig";
-import { seedPlanConfigsIfEmpty, getAllPlanConfigsWithCounts, createPlanConfig, updatePlanConfig, setPlanSunset, dbPlanToLimits, dbPlanToFeatures } from "./services/planConfigService";
 import { isAuthenticated, isApproved, isOrgOwner, getOrgId, isSuperAdmin } from "./auth";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, bricklinkCatalogRequest, calculateSuggestedPriceWithSupply } from "./services/bricklink";
 import { getPomIsRunning, setPomIsRunning } from "./services/pom-scheduler";
@@ -47,7 +46,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, planConfigs, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -150,9 +149,6 @@ export async function getPlatformBrickLinkCredentials(): Promise<{
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Seed plan configs from static tierConfig.ts on first run (idempotent)
-  await seedPlanConfigsIfEmpty();
-
   app.get('/api/health', (_req, res) => { res.json({ ok: true }); });
 
   // ── Public static documents ────────────────────────────────────────────────
@@ -477,7 +473,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const { plan } = req.body;
-      if (!['trial', 'foundation', 'core'].includes(plan)) {
+      if (!['trial', 'core'].includes(plan)) {
         return res.status(400).json({ message: "Invalid plan" });
       }
       const [updated] = await db.update(organizations).set({ plan, updatedAt: new Date() }).where(eq(organizations.id, id)).returning();
@@ -997,59 +993,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/platform-admin/plans — all plan configs with org counts (superAdmin only)
-  app.get('/api/platform-admin/plans', isSuperAdmin, async (_req, res) => {
-    try {
-      const plans = await getAllPlanConfigsWithCounts();
-      res.json(plans);
-    } catch (err: any) {
-      console.error("Error fetching plan configs:", err);
-      res.status(500).json({ message: err.message || "Failed to fetch plans" });
-    }
-  });
-
-  // POST /api/platform-admin/plans — create a new plan config
-  app.post('/api/platform-admin/plans', isSuperAdmin, async (req, res) => {
-    try {
-      const result = await createPlanConfig(req.body);
-      if (!result.success) return res.status(400).json({ message: result.error });
-      res.status(201).json(result.plan);
-    } catch (err: any) {
-      console.error("Error creating plan config:", err);
-      res.status(500).json({ message: err.message || "Failed to create plan" });
-    }
-  });
-
-  // PATCH /api/platform-admin/plans/:planKey — update plan config (locked if orgs are on it)
-  app.patch('/api/platform-admin/plans/:planKey', isSuperAdmin, async (req, res) => {
-    try {
-      const { planKey } = req.params;
-      const fields = req.body;
-      const result = await updatePlanConfig(planKey, fields);
-      if (!result.success) return res.status(403).json({ message: result.error });
-      res.json(result.plan);
-    } catch (err: any) {
-      console.error("Error updating plan config:", err);
-      res.status(500).json({ message: err.message || "Failed to update plan" });
-    }
-  });
-
-  // PATCH /api/platform-admin/plans/:planKey/sunset — toggle sunset flag (always allowed)
-  app.patch('/api/platform-admin/plans/:planKey/sunset', isSuperAdmin, async (req, res) => {
-    try {
-      const { planKey } = req.params;
-      const schema = z.object({ isSunset: z.boolean() });
-      const parsed = schema.safeParse(req.body);
-      if (!parsed.success) return res.status(400).json({ message: "isSunset must be a boolean" });
-      const updated = await setPlanSunset(planKey, parsed.data.isSunset);
-      if (!updated) return res.status(404).json({ message: "Plan not found" });
-      res.json(updated);
-    } catch (err: any) {
-      console.error("Error toggling sunset:", err);
-      res.status(500).json({ message: err.message || "Failed to update plan" });
-    }
-  });
-
   // GET /api/platform-admin/pricing-model — get pay-as-you-grow config
   app.get('/api/platform-admin/pricing-model', isSuperAdmin, async (_req, res) => {
     try {
@@ -1108,7 +1051,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [
         [grossRow], [adjRow],
         [invCount], [ordCount], [scanCount],
-        planCfg,
       ] = await Promise.all([
         db.select({ totalDollars: sql<string>`COALESCE(SUM(${orderDetails.quantity}::numeric * ${orderDetails.unitPrice}::numeric), 0)` })
           .from(orderDetails).innerJoin(orders, eq(orderDetails.orderId, orders.id))
@@ -1121,12 +1063,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth), eq(orders.isTest, false))),
         db.select({ count: count() }).from(brickanalyzerScans)
           .where(and(eq(brickanalyzerScans.orgId, orgId), gte(brickanalyzerScans.createdAt, startOfMonth))),
-        db.select({
-          limitInventoryItems: planConfigs.limitInventoryItems,
-          limitOrders: planConfigs.limitOrders,
-          limitElfieQueries: planConfigs.limitElfieQueries,
-          limitScans: planConfigs.limitScans,
-        }).from(planConfigs).where(eq(planConfigs.planKey, orgPlan)).limit(1),
       ]);
 
       const { getOrgAiUsageForMonth } = await import('./services/ai-usage-tracker');
@@ -1163,12 +1099,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           aiCallsMtd,
           scansMtd: scanCount?.count ?? 0,
         },
-        planLimits: {
-          limitInventoryItems: planCfg[0]?.limitInventoryItems ?? -1,
-          limitOrders: planCfg[0]?.limitOrders ?? -1,
-          limitElfieQueries: planCfg[0]?.limitElfieQueries ?? -1,
-          limitScans: planCfg[0]?.limitScans ?? -1,
-        },
+        planLimits: { limitInventoryItems: -1, limitOrders: -1, limitElfieQueries: -1, limitScans: -1 },
       });
     } catch (err: any) {
       console.error("Error fetching org usage:", err);
@@ -1273,7 +1204,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [
         [grossRow], [adjRow],
         [invCount], [ordCount], [scanCount],
-        planCfg,
       ] = await Promise.all([
         db.select({ totalDollars: sql<string>`COALESCE(SUM(${orderDetails.quantity}::numeric * ${orderDetails.unitPrice}::numeric), 0)` })
           .from(orderDetails).innerJoin(orders, eq(orderDetails.orderId, orders.id))
@@ -1286,12 +1216,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth), eq(orders.isTest, false))),
         db.select({ count: count() }).from(brickanalyzerScans)
           .where(and(eq(brickanalyzerScans.orgId, orgId), gte(brickanalyzerScans.createdAt, startOfMonth))),
-        db.select({
-          limitInventoryItems: planConfigs.limitInventoryItems,
-          limitOrders: planConfigs.limitOrders,
-          limitElfieQueries: planConfigs.limitElfieQueries,
-          limitScans: planConfigs.limitScans,
-        }).from(planConfigs).where(eq(planConfigs.planKey, orgPlan)).limit(1),
       ]);
 
       const { getOrgAiUsageForMonth } = await import('./services/ai-usage-tracker');
@@ -1319,12 +1243,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           aiCallsMtd,
           scansMtd: scanCount?.count ?? 0,
         },
-        planLimits: {
-          limitInventoryItems: planCfg[0]?.limitInventoryItems ?? -1,
-          limitOrders: planCfg[0]?.limitOrders ?? -1,
-          limitElfieQueries: planCfg[0]?.limitElfieQueries ?? -1,
-          limitScans: planCfg[0]?.limitScans ?? -1,
-        },
+        planLimits: { limitInventoryItems: -1, limitOrders: -1, limitElfieQueries: -1, limitScans: -1 },
       });
     } catch (err: any) {
       console.error("Error fetching org usage:", err);
@@ -1996,7 +1915,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       part_id_mappings:              'Cross-reference table mapping BrickLink part numbers to Rebrickable part numbers',
       part_price_history:            'Historical BrickLink price guide snapshots per part/color for trend analysis',
       picklist_items:                'Active pick queue — items assigned to pickers for order fulfillment',
-      plan_configs:                  'Subscription plan tier definitions including pricing, feature flags, and usage limits',
+      pricing_model:                 'Sales-based billing configuration — base price, sales percentage threshold, and usage bump rates',
       price_guide_cache:             'Cached BrickLink price guide data per part/color to reduce API calls',
       restore_jobs:                  'Database restore job tracking — status, progress, and error logs for backup restoration',
       sessions:                      'User authentication sessions (Replit OIDC)',
@@ -2247,11 +2166,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (typeof overrides.elfieLiveSupport === 'boolean') {
         if (!overrides.elfieLiveSupport) return res.status(403).json({ message: "Live support is not available on your current plan" });
       } else {
-        const [planConfig] = await db.select().from(planConfigs).where(eq(planConfigs.planKey, org.plan ?? 'trial')).limit(1);
-        if (planConfig) {
-          const features = dbPlanToFeatures(planConfig);
-          if (!features.elfieLiveSupport) return res.status(403).json({ message: "Live support is not available on your current plan" });
-        }
+        const allowed = await isFeatureAllowed(orgId, 'elfieLiveSupport');
+        if (!allowed) return res.status(403).json({ message: "Live support is not available on your current plan" });
       }
       const { sessionId, subject } = req.body;
       if (!sessionId) return res.status(400).json({ message: "sessionId required" });
@@ -3055,7 +2971,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const orgId = reqOrgId(req);
       const { plan, interval } = req.body;
-      if (!['foundation', 'core'].includes(plan)) return res.status(400).json({ message: "Invalid plan" });
+      if (plan !== 'core') return res.status(400).json({ message: "Invalid plan" });
       if (!['monthly', 'annual'].includes(interval)) return res.status(400).json({ message: "Invalid interval" });
 
       const successUrl = `${req.protocol}://${req.get('host')}/settings?tab=billing&session_id={CHECKOUT_SESSION_ID}`;
@@ -3156,7 +3072,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const orgId = reqOrgId(req);
       const { plan, interval } = req.body;
-      if (!['foundation', 'core'].includes(plan)) return res.status(400).json({ message: "Invalid plan" });
+      if (plan !== 'core') return res.status(400).json({ message: "Invalid plan" });
       if (!['monthly', 'annual'].includes(interval)) return res.status(400).json({ message: "Invalid interval" });
       const result = await changePlan(orgId, plan, interval);
       res.json(result);
@@ -3328,7 +3244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user.role !== 'admin') return res.status(403).json({ message: "Admin access required" });
       const { id } = req.params;
       const update: Record<string, any> = {};
-      if (req.body.plan && ['free', 'pro', 'enterprise'].includes(req.body.plan)) update.plan = req.body.plan;
+      if (req.body.plan && ['trial', 'core'].includes(req.body.plan)) update.plan = req.body.plan;
       if (typeof req.body.isActive === 'boolean') update.isActive = req.body.isActive;
       if (req.body.name && typeof req.body.name === 'string') update.name = req.body.name.trim();
       if (Object.keys(update).length === 0) return res.status(400).json({ message: "No valid fields to update" });

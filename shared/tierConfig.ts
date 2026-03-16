@@ -1,4 +1,4 @@
-export type PlanType = 'trial' | 'foundation' | 'core';
+export type PlanType = 'trial' | 'core';
 
 export interface TierLimits {
   seats: number;
@@ -25,9 +25,9 @@ export interface TierFeatures {
 }
 
 export interface TierPricing {
-  monthly: number; // in cents
-  annual: number;  // in cents (total per year)
-  annualMonthly: number; // monthly equivalent when billed annually
+  monthly: number;
+  annual: number;
+  annualMonthly: number;
 }
 
 export interface TierConfig {
@@ -39,6 +39,30 @@ export interface TierConfig {
   features: TierFeatures;
   pricing: TierPricing;
 }
+
+const ALL_FEATURES: TierFeatures = {
+  brickOwl: true,
+  elfieAiMode: true,
+  elfieCustom: true,
+  elfieLiveSupport: true,
+  priceOMatic: true,
+  easypostAutomation: true,
+  dataEnrichmentImages: true,
+  dataEnrichmentSemantic: true,
+  fullDataEnrichment: true,
+  paymentSync: true,
+};
+
+const UNLIMITED_LIMITS: TierLimits = {
+  seats: -1,
+  brickspotterScansPerMonth: -1,
+  automationRules: -1,
+  orderHistoryDays: -1,
+  inventoryItems: -1,
+  orders: -1,
+  elfieQueries: -1,
+  businessIntel: -1,
+};
 
 export const TIER_CONFIG: Record<PlanType, TierConfig> = {
   trial: {
@@ -74,74 +98,22 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
       annualMonthly: 0,
     },
   },
-  foundation: {
-    id: 'foundation',
-    name: 'Foundation',
-    tagline: 'For solo sellers getting started',
-    limits: {
-      seats: 2,
-      brickspotterScansPerMonth: 50,
-      automationRules: 3,
-      orderHistoryDays: 90,
-      inventoryItems: 5000,
-      orders: 150,
-      elfieQueries: 100,
-      businessIntel: 5,
-    },
-    features: {
-      brickOwl: false,
-      elfieAiMode: true,
-      elfieCustom: false,
-      elfieLiveSupport: false,
-      priceOMatic: true,
-      easypostAutomation: false,
-      dataEnrichmentImages: true,
-      dataEnrichmentSemantic: true,
-      fullDataEnrichment: false,
-      paymentSync: true,
-    },
-    pricing: {
-      monthly: 1999,       // $19.99/mo
-      annual: 19188,       // $191.88/yr
-      annualMonthly: 1599, // $15.99/mo equivalent
-    },
-  },
   core: {
     id: 'core',
     name: 'Core',
-    tagline: 'For growing brick businesses',
-    limits: {
-      seats: 5,
-      brickspotterScansPerMonth: 250,
-      automationRules: 10,
-      orderHistoryDays: 365,
-      inventoryItems: 50000,
-      orders: 1000,
-      elfieQueries: 500,
-      businessIntel: 25,
-    },
-    features: {
-      brickOwl: true,
-      elfieAiMode: true,
-      elfieCustom: true,
-      elfieLiveSupport: true,
-      priceOMatic: true,
-      easypostAutomation: true,
-      dataEnrichmentImages: true,
-      dataEnrichmentSemantic: true,
-      fullDataEnrichment: true,
-      paymentSync: true,
-    },
+    tagline: 'Pay As You Grow — sales-based billing',
+    limits: UNLIMITED_LIMITS,
+    features: ALL_FEATURES,
     pricing: {
-      monthly: 4999,       // $49.99/mo
-      annual: 47988,       // $479.88/yr
-      annualMonthly: 3999, // $39.99/mo equivalent
+      monthly: 0,
+      annual: 0,
+      annualMonthly: 0,
     },
   },
 };
 
 export function getTierConfig(plan: string): TierConfig {
-  return TIER_CONFIG[(plan as PlanType)] ?? TIER_CONFIG.foundation;
+  return TIER_CONFIG[(plan as PlanType)] ?? TIER_CONFIG.core;
 }
 
 export interface OrgLimits {
@@ -185,7 +157,7 @@ export interface LimitCheckResult {
   nudgeLevel: NudgeLevel;
   message: string | null;
   current: number;
-  limit: number; // -1 = unlimited
+  limit: number;
 }
 
 export function checkLimit(current: number, limit: number, resourceName: string): LimitCheckResult {
@@ -199,7 +171,7 @@ export function checkLimit(current: number, limit: number, resourceName: string)
     return {
       allowed: false,
       nudgeLevel: 'blocked',
-      message: `You've reached your ${resourceName} limit (${limit}). Upgrade to Core for more.`,
+      message: `You've reached your ${resourceName} limit (${limit}).`,
       current,
       limit,
     };
@@ -219,7 +191,7 @@ export function checkLimit(current: number, limit: number, resourceName: string)
     return {
       allowed: true,
       nudgeLevel: 'warning',
-      message: `You've used ${current} of ${limit} ${resourceName}. Consider upgrading to Core for more.`,
+      message: `You've used ${current} of ${limit} ${resourceName}.`,
       current,
       limit,
     };
@@ -230,10 +202,4 @@ export function checkLimit(current: number, limit: number, resourceName: string)
 
 export function formatPrice(cents: number): string {
   return `$${(cents / 100).toFixed(0)}`;
-}
-
-export function getAnnualSavings(plan: PlanType): number {
-  const tier = TIER_CONFIG[plan];
-  const annualIfMonthly = tier.pricing.monthly * 12;
-  return annualIfMonthly - tier.pricing.annual;
 }

@@ -1627,6 +1627,7 @@ export type PlanConfig = typeof planConfigs.$inferSelect;
 
 export const pricingModel = pgTable("pricing_model", {
   id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull().default("Core"),
   basePrice: integer("base_price").notNull().default(3900),
   salesPercentage: real("sales_percentage").notNull().default(1.9),
   salesIncludedInBase: integer("sales_included_in_base").notNull().default(100000),

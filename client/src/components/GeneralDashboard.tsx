@@ -289,11 +289,6 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings }: { onOpenSettings?: (
 
   const u = usage.usage;
   const lim = usage.planLimits;
-  const dimWarning = lim && u && (
-    (lim.limitInventoryItems > 0 && u.inventoryLots / lim.limitInventoryItems >= 0.8) ||
-    (lim.limitScans > 0 && u.scansMtd / lim.limitScans >= 0.8) ||
-    (lim.limitElfieQueries > 0 && u.aiCallsMtd / lim.limitElfieQueries >= 0.8)
-  );
 
   return (
     <>
@@ -347,12 +342,10 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings }: { onOpenSettings?: (
               See breakdown <ChevronRight className="w-2.5 h-2.5" />
             </span>
           </div>
-          {(approaching || dimWarning) && (
+          {approaching && (
             <div className="mt-1.5 flex items-center gap-1">
               <AlertTriangle className="w-2.5 h-2.5 text-amber-400/70 shrink-0" />
-              <span className="text-[9px] text-amber-400/70">
-                {approaching ? 'Approaching included sales threshold' : 'Approaching a plan limit'}
-              </span>
+              <span className="text-[9px] text-amber-400/70">Approaching included sales threshold</span>
             </div>
           )}
 
@@ -380,7 +373,7 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
   onOpenSettings?: (section: any) => void;
   children?: React.ReactNode;
 }) {
-  const planLabels: Record<string, string> = { trial: 'Trial', foundation: 'Foundation', core: 'Core' };
+  const planLabels: Record<string, string> = { trial: 'Trial', core: 'Core' };
   const planLabel = planLabels[billingStatus?.plan ?? ''] ?? billingStatus?.plan ?? '';
 
   const trialDaysLeft = (() => {

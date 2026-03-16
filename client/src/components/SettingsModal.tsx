@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { AppSettings, User, Organization, OrgIntegration, PlanConfig } from "@shared/schema";
+import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { DimensionWheel, ScoringWheel, type PricingInsight } from "@/components/PriceOMaticDashboard";
 import { BillingDrawer } from "@/components/BillingDrawer";
 import { APP_VERSION, APP_NAME } from "@shared/version";
 import { CAPABILITY_STATUS_STYLES, CAPABILITY_STATUS_LABELS, CAPABILITY_STATUS_DOT_COLORS, TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Flag, Zap, Globe, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save, ClipboardPaste, Headphones, MessageCircle, Send, Target, Map, ListTodo, Crosshair, ThumbsUp, BarChart3, Archive, Infinity } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Flag, Zap, Globe, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save, ClipboardPaste, Headphones, MessageCircle, Send, Target, Map, ListTodo, Crosshair, ThumbsUp, BarChart3 } from "lucide-react";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
 import { Badge } from "@/components/ui/badge";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
@@ -2162,9 +2162,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [showBlSchedulePopup, setShowBlSchedulePopup] = useState(false);
   const [impersonationSearch, setImpersonationSearch] = useState('');
   const [orgSearch, setOrgSearch] = useState('');
-  const [editingPlanKey, setEditingPlanKey] = useState<string | null>(null);
-  const [planEdits, setPlanEdits] = useState<Record<string, any>>({});
-  const [planFormTab, setPlanFormTab] = useState<'basic' | 'pricing' | 'limits' | 'features'>('basic');
 
   // Sync activeSection whenever the modal opens with a specific initialSection.
   // useState only uses its initial value on first mount, so without this effect
@@ -2773,39 +2770,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     onError: (err: any) => toast({ title: err?.message || 'Failed to save pricing model', variant: 'destructive' }),
   });
 
-  type PlanWithCount = PlanConfig & { orgCount: number };
-  const { data: plansList } = useQuery<PlanWithCount[]>({
-    queryKey: ['/api/platform-admin/plans'],
-    enabled: open && activeSection === 'plansAndPricing',
-  });
-  const createPlanMutation = useMutation({
-    mutationFn: (data: any) => apiRequest('POST', '/api/platform-admin/plans', data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/plans'] });
-      setEditingPlanKey(null); setPlanEdits({});
-      toast({ title: 'Plan created' });
-    },
-    onError: (err: any) => toast({ title: err?.message || 'Failed to create plan', variant: 'destructive' }),
-  });
-  const updatePlanConfigMutation = useMutation({
-    mutationFn: ({ planKey, data }: { planKey: string; data: any }) =>
-      apiRequest('PATCH', `/api/platform-admin/plans/${planKey}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/plans'] });
-      setEditingPlanKey(null); setPlanEdits({});
-      toast({ title: 'Plan updated' });
-    },
-    onError: (err: any) => toast({ title: err?.message || 'Plans with active customers cannot be edited', variant: 'destructive' }),
-  });
-  const sunsetPlanMutation = useMutation({
-    mutationFn: ({ planKey, isSunset }: { planKey: string; isSunset: boolean }) =>
-      apiRequest('PATCH', `/api/platform-admin/plans/${planKey}/sunset`, { isSunset }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/plans'] });
-      toast({ title: 'Plan status updated' });
-    },
-    onError: (err: any) => toast({ title: err?.message || 'Failed', variant: 'destructive' }),
-  });
 
   const clearPomCacheMutation = useMutation({
     mutationFn: async () => {
@@ -6137,7 +6101,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
             {activeSection === 'orgs' && (() => {
               const PLAN_COLORS: Record<string, string> = {
                 trial: 'bg-gray-600/50 text-gray-300 border-gray-600',
-                foundation: 'bg-blue-900/60 text-blue-300 border-blue-700/50',
                 core: 'bg-amber-900/50 text-amber-300 border-amber-700/50',
               };
 
@@ -6177,7 +6140,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="trial">Free Trial</SelectItem>
-                            <SelectItem value="foundation">Foundation</SelectItem>
                             <SelectItem value="core">Core</SelectItem>
 
                           </SelectContent>
@@ -7625,227 +7587,13 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
               const calcBill = (netSales: number) =>
                 basePrice + Math.max(0, Math.round((netSales - salesIncludedInBase) * salesPercentage / 100));
 
-              const isNew = editingPlanKey === '__new__';
-              const editingPlan = isNew ? null : plansList?.find(p => p.planKey === editingPlanKey);
-              const planFieldVal = (field: string, fallback: any) =>
-                planEdits.hasOwnProperty(field) ? planEdits[field] : (editingPlan as any)?.[field] ?? fallback;
-              const planSet = (field: string, val: any) => setPlanEdits(prev => ({ ...prev, [field]: val }));
-
-              const handleSavePlan = () => {
-                if (isNew) {
-                  createPlanMutation.mutate(planEdits);
-                } else if (editingPlanKey) {
-                  updatePlanConfigMutation.mutate({ planKey: editingPlanKey, data: planEdits });
-                }
-              };
-
-              const PLAN_LIMIT_FIELDS: Array<{ key: string; label: string }> = [
-                { key: 'limitSeats', label: 'Seats' },
-                { key: 'limitScans', label: 'Scans/mo' },
-                { key: 'limitAutomationRules', label: 'Automation Rules' },
-                { key: 'limitOrderHistoryDays', label: 'Order History (days)' },
-                { key: 'limitInventoryItems', label: 'Inventory Lots' },
-                { key: 'limitOrders', label: 'Orders/mo' },
-                { key: 'limitElfieQueries', label: 'AI Calls/mo' },
-                { key: 'limitBusinessIntel', label: 'Business Intel Reports' },
-              ];
-              const PLAN_FEATURE_FIELDS: Array<{ key: string; label: string }> = [
-                { key: 'featureBrickOwl', label: 'BrickOwl Sync' },
-                { key: 'featureElfieAi', label: 'E.L.F.I.E. AI Assistant' },
-                { key: 'featureElfieCustom', label: 'E.L.F.I.E. Custom Persona' },
-                { key: 'featureElfieLiveSupport', label: 'E.L.F.I.E. Live Support' },
-                { key: 'featurePriceOMatic', label: 'Price-o-Matic Repricing' },
-                { key: 'featureEasypost', label: 'EasyPost Shipping Labels' },
-                { key: 'featureDataImages', label: 'Image Enrichment' },
-                { key: 'featureDataSemantic', label: 'Semantic Search' },
-                { key: 'featureFullEnrichment', label: 'Full Catalog Enrichment' },
-                { key: 'featurePaymentSync', label: 'Payment Sync (Stripe)' },
-              ];
-
               return (
                 <div className="p-3 space-y-3" data-testid="pricing-model-panel">
-
-                  {/* Plan Packages */}
-                  <div className="sm-card" data-testid="plan-packages-card">
-                    <div className="sm-card-header">
-                      <Blocks className="h-3.5 w-3.5 text-blue-400/80" />
-                      <span className="text-xs font-semibold text-gray-200">Plan Packages</span>
-                      <button
-                        onClick={() => { setEditingPlanKey('__new__'); setPlanEdits({}); setPlanFormTab('basic'); }}
-                        className="ml-auto flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
-                        data-testid="button-create-plan"
-                      >
-                        <Plus className="h-3 w-3" /> New Plan
-                      </button>
-                    </div>
-
-                    {/* Plan list */}
-                    <div className="divide-y divide-gray-700/30">
-                      {(plansList ?? []).map((p) => {
-                        const locked = p.orgCount > 0;
-                        const isEditing = editingPlanKey === p.planKey;
-                        return (
-                          <div key={p.planKey} className="px-4 py-2.5 flex items-center gap-2" data-testid={`plan-row-${p.planKey}`}>
-                            {locked ? <Lock className="h-3 w-3 shrink-0 text-gray-600" /> : <div className="w-3 shrink-0" />}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5 flex-wrap gap-y-0.5">
-                                <span className="text-xs font-medium text-gray-200">{p.name}</span>
-                                <span className="text-[9px] text-gray-600 font-mono">{p.planKey}</span>
-                                {p.isSunset && <span className="text-[9px] text-gray-500 border border-gray-700 rounded px-1">sunset</span>}
-                              </div>
-                              <span className="text-[10px] text-gray-500">{p.orgCount} org{p.orgCount !== 1 ? 's' : ''} · {fmtDollars(p.priceMonthly)}/mo</span>
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <button
-                                onClick={() => sunsetPlanMutation.mutate({ planKey: p.planKey, isSunset: !p.isSunset })}
-                                title={p.isSunset ? 'Restore plan' : 'Sunset plan'}
-                                className={`p-1 rounded transition-colors ${p.isSunset ? 'text-amber-400/70 hover:text-amber-300' : 'text-gray-600 hover:text-gray-400'}`}
-                                data-testid={`button-sunset-plan-${p.planKey}`}
-                              >
-                                {p.isSunset ? <Infinity className="h-3 w-3" /> : <Archive className="h-3 w-3" />}
-                              </button>
-                              <button
-                                onClick={() => {
-                                  if (isEditing) { setEditingPlanKey(null); setPlanEdits({}); }
-                                  else { setEditingPlanKey(p.planKey); setPlanEdits({}); setPlanFormTab('basic'); }
-                                }}
-                                className={`text-[9px] px-1.5 py-0.5 rounded border transition-colors ${isEditing ? 'text-gray-300 border-gray-600 bg-gray-700/60' : 'text-gray-500 border-gray-700 hover:text-gray-300 hover:border-gray-600'}`}
-                                data-testid={`button-edit-plan-${p.planKey}`}
-                              >
-                                {isEditing ? 'Close' : 'Edit'}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Edit / Create form */}
-                    {editingPlanKey && (
-                      <div className="border-t border-gray-700/40 px-4 py-3 space-y-3" data-testid="plan-edit-form">
-                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                          {isNew ? 'New Plan' : `Editing: ${editingPlan?.name ?? editingPlanKey}`}
-                          {!isNew && editingPlan && editingPlan.orgCount > 0 && (
-                            <span className="ml-2 text-amber-400/70 normal-case">(locked — {editingPlan.orgCount} org{editingPlan.orgCount !== 1 ? 's' : ''} on this plan)</span>
-                          )}
-                        </p>
-
-                        {/* Tabs */}
-                        <div className="flex gap-0.5 flex-wrap">
-                          {(['basic', 'pricing', 'limits', 'features'] as const).map(tab => (
-                            <button
-                              key={tab}
-                              onClick={() => setPlanFormTab(tab)}
-                              className={`px-2.5 py-1 text-[9px] rounded font-medium capitalize transition-colors ${planFormTab === tab ? 'bg-blue-600/30 text-blue-300 border border-blue-500/30' : 'text-gray-500 hover:text-gray-300'}`}
-                              data-testid={`button-plan-tab-${tab}`}
-                            >{tab}</button>
-                          ))}
-                        </div>
-
-                        {planFormTab === 'basic' && (
-                          <div className="space-y-2">
-                            {[
-                              { key: 'planKey', label: 'Plan Key', type: 'text', locked: !isNew },
-                              { key: 'name', label: 'Display Name', type: 'text' },
-                              { key: 'tagline', label: 'Tagline', type: 'text' },
-                              { key: 'sortOrder', label: 'Sort Order', type: 'number' },
-                              { key: 'trialDurationDays', label: 'Trial Days', type: 'number' },
-                            ].map(f => (
-                              <div key={f.key} className="flex items-center gap-2">
-                                <label className="text-[10px] text-gray-500 w-28 shrink-0">{f.label}</label>
-                                <input
-                                  type={f.type}
-                                  value={planFieldVal(f.key, '')}
-                                  disabled={(f as any).locked}
-                                  onChange={e => planSet(f.key, f.type === 'number' ? Number(e.target.value) : e.target.value)}
-                                  className={`${inputCls} flex-1 ${(f as any).locked ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                  data-testid={`input-plan-${f.key}`}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {planFormTab === 'pricing' && (
-                          <div className="space-y-2">
-                            {[
-                              { key: 'priceMonthly', label: 'Monthly (cents)' },
-                              { key: 'priceAnnual', label: 'Annual (cents)' },
-                              { key: 'priceAnnualMonthly', label: 'Annual Monthly (cents)' },
-                            ].map(f => (
-                              <div key={f.key} className="flex items-center gap-2">
-                                <label className="text-[10px] text-gray-500 w-28 shrink-0">{f.label}</label>
-                                <input
-                                  type="number"
-                                  value={planFieldVal(f.key, 0)}
-                                  onChange={e => planSet(f.key, Number(e.target.value))}
-                                  className={`${inputCls} flex-1`}
-                                  data-testid={`input-plan-${f.key}`}
-                                />
-                                <span className="text-[10px] text-gray-600 font-mono shrink-0">{fmtDollars(planFieldVal(f.key, 0))}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {planFormTab === 'limits' && (
-                          <div className="space-y-2">
-                            <p className="text-[9px] text-gray-600">Use −1 for unlimited.</p>
-                            {PLAN_LIMIT_FIELDS.map(f => (
-                              <div key={f.key} className="flex items-center gap-2">
-                                <label className="text-[10px] text-gray-500 w-36 shrink-0">{f.label}</label>
-                                <input
-                                  type="number"
-                                  value={planFieldVal(f.key, -1)}
-                                  onChange={e => planSet(f.key, Number(e.target.value))}
-                                  className={`${inputCls} flex-1`}
-                                  data-testid={`input-plan-${f.key}`}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {planFormTab === 'features' && (
-                          <div className="space-y-1.5">
-                            {PLAN_FEATURE_FIELDS.map(f => (
-                              <label key={f.key} className="flex items-center gap-2 cursor-pointer group" data-testid={`toggle-plan-${f.key}`}>
-                                <input
-                                  type="checkbox"
-                                  checked={!!planFieldVal(f.key, false)}
-                                  onChange={e => planSet(f.key, e.target.checked)}
-                                  className="w-3 h-3 rounded border-gray-600 bg-gray-800 accent-blue-500"
-                                />
-                                <span className="text-[10px] text-gray-400 group-hover:text-gray-200 transition-colors">{f.label}</span>
-                              </label>
-                            ))}
-                          </div>
-                        )}
-
-                        <div className="flex items-center gap-2 pt-1">
-                          <button
-                            onClick={handleSavePlan}
-                            disabled={createPlanMutation.isPending || updatePlanConfigMutation.isPending}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600/20 border border-blue-500/30 rounded text-[10px] text-blue-300 font-medium hover-elevate active-elevate-2 disabled:opacity-50 transition-colors"
-                            data-testid="button-save-plan"
-                          >
-                            {(createPlanMutation.isPending || updatePlanConfigMutation.isPending) ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                            {isNew ? 'Create Plan' : 'Save Changes'}
-                          </button>
-                          <button
-                            onClick={() => { setEditingPlanKey(null); setPlanEdits({}); }}
-                            className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
-                            data-testid="button-cancel-plan-edit"
-                          >Cancel</button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
 
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-1.5">
                       <Tag className="h-3.5 w-3.5 text-yellow-500/70" />
-                      <p className="text-[10px] font-semibold text-gray-100 uppercase tracking-widest">Sales-Based Billing</p>
+                      <p className="text-[10px] font-semibold text-gray-100 uppercase tracking-widest">Core Plan — Sales-Based Billing</p>
                     </div>
                     {pmDirty && (
                       <button
@@ -7875,6 +7623,16 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           <p className="text-[10px] text-gray-400 leading-relaxed">
                             Subscribers pay a flat base fee each month. A percentage fee applies only on net sales above the included threshold — aligning our revenue with theirs.
                           </p>
+                          <div className="mb-3">
+                            <label className="block app-label mb-1">Plan Name</label>
+                            <input
+                              type="text"
+                              value={pmVal('name', 'Core')}
+                              onChange={e => pmSet('name', e.target.value)}
+                              data-testid="input-pm-name"
+                              className={inputCls}
+                            />
+                          </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div>
                               <label className="block app-label mb-1">Base Price ($/mo)</label>
