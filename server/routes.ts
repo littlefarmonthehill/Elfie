@@ -1094,31 +1094,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   async function getOrgMonthlySalesCents(orgId: string, from: Date, to: Date): Promise<number> {
     // Items subtotal: sum(quantity * unit_price) for all non-cancelled/purged orders in the period
-    const [itemsRow] = await db.select({
-      total: sql<string>`COALESCE(SUM(od.quantity * od.unit_price::numeric), 0)`,
-    }).from(orderDetails.as('od'))
-      .innerJoin(orders, and(
-        eq(orders.id, sql`od.order_id`),
-        eq(orders.orgId, orgId),
-        sql`${orders.orderStatus} NOT IN ('cancelled','purged')`,
-        gte(orders.orderDate, from),
-        sql`${orders.orderDate} < ${to}`,
-      ));
+    const itemsResult = await db.execute(sql`
+      SELECT COALESCE(SUM(od.quantity * od.unit_price::numeric), 0) AS total
+      FROM order_details od
+      JOIN orders o ON o.id = od.order_id
+      WHERE o.org_id = ${orgId}
+        AND o.order_status NOT IN ('cancelled', 'purged')
+        AND o.order_date >= ${from}
+        AND o.order_date < ${to}
+    `);
+    const itemsCents = Math.round(parseFloat((itemsResult.rows[0] as any)?.total ?? '0') * 100);
 
     // Discount adjustments: sum all discount-type adjustments for those orders (amounts are negative for deductions)
-    const [discountRow] = await db.select({
-      total: sql<string>`COALESCE(SUM(oa.amount::numeric), 0)`,
-    }).from(orderAdjustments.as('oa'))
-      .innerJoin(orders, and(
-        eq(orders.id, sql`oa.order_id`),
-        eq(orders.orgId, orgId),
-        sql`${orders.orderStatus} NOT IN ('cancelled','purged')`,
-        gte(orders.orderDate, from),
-        sql`${orders.orderDate} < ${to}`,
-      )).where(sql`oa.type = 'discount'`);
+    const discountResult = await db.execute(sql`
+      SELECT COALESCE(SUM(oa.amount::numeric), 0) AS total
+      FROM order_adjustments oa
+      JOIN orders o ON o.id = oa.order_id
+      WHERE o.org_id = ${orgId}
+        AND o.order_status NOT IN ('cancelled', 'purged')
+        AND o.order_date >= ${from}
+        AND o.order_date < ${to}
+        AND oa.type = 'discount'
+    `);
+    const discountCents = Math.round(parseFloat((discountResult.rows[0] as any)?.total ?? '0') * 100);
 
-    const itemsCents = Math.round(parseFloat(itemsRow?.total ?? '0') * 100);
-    const discountCents = Math.round(parseFloat(discountRow?.total ?? '0') * 100); // already negative
     return Math.max(0, itemsCents + discountCents);
   }
 
