@@ -59,7 +59,7 @@ const DIM_META: { key: keyof MonthUsage['dimensions']; label: string; icon: Luci
   { key: 'inventoryLots',  label: 'Inventory lots',       icon: Package,       unit: 'lots' },
   { key: 'ordersPerMonth', label: 'Orders this month',    icon: ShoppingCart,  unit: 'orders' },
   { key: 'connectedStores',label: 'Connected stores',     icon: Globe,         unit: 'stores' },
-  { key: 'aiCalls',        label: 'AI calls',             icon: Sparkles,      unit: 'calls' },
+  { key: 'aiCalls',        label: 'AI Tools',             icon: Sparkles,      unit: 'calls' },
   { key: 'scans',          label: 'BrickSpotter scans',   icon: ScanSearch,    unit: 'scans' },
 ];
 
@@ -127,9 +127,7 @@ function AiToolsRow({ current, base, bump, overageBump, byOperation }: {
   const chargeCents = bumps * overageBump;
   const pct = Math.min(100, base > 0 ? (current / base) * 100 : 0);
   const approaching = !overBase && pct >= 80;
-  const barColor = overBase ? 'bg-amber-400/60' : approaching ? 'bg-amber-400/70' : 'bg-green-500/50';
 
-  // Sort tools in a consistent display order
   const TOOL_ORDER = ['elfie-agent', 'business-insight', 'feedback-refine', 'brickspotter-scan'];
   const toolEntries = byOperation
     ? [
@@ -138,52 +136,79 @@ function AiToolsRow({ current, base, bump, overageBump, byOperation }: {
       ]
     : [];
 
+  const hasToolBreakdown = toolEntries.length > 0;
+
   return (
     <div className="py-2.5 flex items-start gap-3">
       <Sparkles className="w-3.5 h-3.5 mt-[3px] text-gray-500 shrink-0" />
       <div className="flex-1 min-w-0">
+        {/* Section header: label + pool total + charge */}
         <div className="flex items-center justify-between gap-2 mb-1">
-          <span className="text-sm text-gray-300">AI tools</span>
+          <span className="text-sm text-gray-300">AI Tools</span>
           {overBase ? (
             <span className="text-amber-400 font-mono text-sm font-medium">+${(chargeCents / 100).toFixed(2)}</span>
           ) : (
             <span className="text-gray-500 text-xs">included</span>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-1 rounded-full bg-gray-700/50 overflow-hidden">
-            <div className={cn("h-full rounded-full transition-all", barColor)} style={{ width: `${pct}%` }} />
+
+        {hasToolBreakdown ? (
+          /* Per-tool bars — each shows its share of the shared pool */
+          <div className="space-y-1.5 mt-1">
+            {toolEntries.map(([op, data]) => {
+              const meta = AI_TOOL_LABELS[op];
+              const ToolIcon = meta?.icon ?? Sparkles;
+              const toolPct = Math.min(100, base > 0 ? (data.requests / base) * 100 : 0);
+              const toolOverBase = current > base && data.requests > 0;
+              const barCol = toolOverBase ? 'bg-amber-400/60' : toolPct >= 80 ? 'bg-amber-400/70' : 'bg-green-500/50';
+              return (
+                <div key={op}>
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <span className="flex items-center gap-1.5 text-xs text-gray-400">
+                      <ToolIcon className="w-3 h-3 shrink-0 text-gray-500" />
+                      {meta?.label ?? op}
+                    </span>
+                    <span className="text-xs tabular-nums text-gray-600">{data.requests.toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1 rounded-full bg-gray-700/50 overflow-hidden">
+                      <div className={cn("h-full rounded-full transition-all", barCol)} style={{ width: `${toolPct}%` }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {/* Shared pool summary line */}
+            <div className="flex items-center justify-between pt-0.5">
+              <span className="text-[10px] text-gray-600">Shared pool</span>
+              <span className={cn("text-[10px] tabular-nums", overBase ? 'text-amber-400' : 'text-gray-600')}>
+                {current.toLocaleString()} / {base.toLocaleString()} calls
+              </span>
+            </div>
           </div>
-          <span className={cn("text-xs tabular-nums whitespace-nowrap shrink-0", overBase ? 'text-amber-400' : 'text-gray-500')}>
-            {current.toLocaleString()} / {base.toLocaleString()} calls
-          </span>
-        </div>
+        ) : (
+          /* Fallback: single aggregate bar */
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-1 rounded-full bg-gray-700/50 overflow-hidden">
+              <div
+                className={cn("h-full rounded-full transition-all", overBase ? 'bg-amber-400/60' : approaching ? 'bg-amber-400/70' : 'bg-green-500/50')}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <span className={cn("text-xs tabular-nums whitespace-nowrap shrink-0", overBase ? 'text-amber-400' : 'text-gray-500')}>
+              {current.toLocaleString()} / {base.toLocaleString()} calls
+            </span>
+          </div>
+        )}
+
         {overBase && (
           <div className="mt-0.5 text-xs text-amber-400/70">
             {bumps} overage bump{bumps !== 1 ? 's' : ''} × ${(overageBump / 100).toFixed(0)}
           </div>
         )}
-        {approaching && (
+        {approaching && !hasToolBreakdown && (
           <div className="mt-0.5 flex items-center gap-1 text-xs text-amber-400/70">
             <AlertTriangle className="w-3 h-3" />Approaching limit
-          </div>
-        )}
-        {/* Per-tool breakdown */}
-        {toolEntries.length > 0 && (
-          <div className="mt-2 space-y-1 pl-0.5 border-l border-white/8">
-            {toolEntries.map(([op, data]) => {
-              const meta = AI_TOOL_LABELS[op];
-              const ToolIcon = meta?.icon ?? Sparkles;
-              return (
-                <div key={op} className="flex items-center justify-between gap-2 pl-2">
-                  <span className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <ToolIcon className="w-3 h-3 shrink-0" />
-                    {meta?.label ?? op}
-                  </span>
-                  <span className="text-xs tabular-nums text-gray-600">{data.requests.toLocaleString()} calls</span>
-                </div>
-              );
-            })}
           </div>
         )}
       </div>
@@ -196,16 +221,16 @@ function HowWeBillSection({ dimensions, pricing }: {
   pricing: MonthUsage['pricing'];
 }) {
   const [open, setOpen] = useState(false);
-  const base = pricing.basePrice / 100;
-  const bump = pricing.overageBump / 100;
-  const cap  = pricing.monthlyCap / 100;
+  const baseDollars = pricing.basePrice / 100;
+  const bumpDollars = pricing.overageBump / 100;
+  const capDollars  = pricing.monthlyCap / 100;
 
-  const dimExplainers: { key: keyof MonthUsage['dimensions']; icon: LucideIcon; what: string }[] = [
-    { key: 'inventoryLots',  icon: Package,      what: 'active listing lots in your BrickLink store' },
-    { key: 'ordersPerMonth', icon: ShoppingCart,  what: 'orders received and processed this month' },
-    { key: 'connectedStores',icon: Globe,         what: 'selling channels connected to E.L.F.I.E.' },
-    { key: 'aiCalls',        icon: Sparkles,      what: 'calls made by E.L.F.I.E., Business Insights, and Pricing Feedback' },
-    { key: 'scans',          icon: ScanSearch,    what: 'BrickSpotter physical part identification scans' },
+  const dimRows: { key: keyof MonthUsage['dimensions']; icon: LucideIcon; label: string; unit: string }[] = [
+    { key: 'inventoryLots',  icon: Package,     label: 'Inventory lots',     unit: 'lots'   },
+    { key: 'ordersPerMonth', icon: ShoppingCart, label: 'Orders / month',     unit: 'orders' },
+    { key: 'connectedStores',icon: Globe,        label: 'Connected stores',   unit: 'stores' },
+    { key: 'aiCalls',        icon: Sparkles,     label: 'AI Tool calls',      unit: 'calls'  },
+    { key: 'scans',          icon: ScanSearch,   label: 'BrickSpotter scans', unit: 'scans'  },
   ];
 
   return (
@@ -225,25 +250,44 @@ function HowWeBillSection({ dimensions, pricing }: {
       {open && (
         <div className="px-3 pb-4 space-y-4 border-t border-white/6 pt-3">
 
-          {/* What's included at the base price */}
+          {/* What's included table */}
           <div>
             <p className="text-xs font-semibold text-gray-300 mb-2">
-              What <span className="text-white">${base.toFixed(2)}/mo</span> includes
+              What <span className="text-white">${baseDollars.toFixed(2)}/mo</span> includes
             </p>
             <div className="rounded-md border border-white/8 bg-gray-900/50 overflow-hidden divide-y divide-white/5">
-              {dimExplainers.map(({ key, icon: Icon, what }) => {
+
+              {/* All-features row */}
+              <div className="flex items-center gap-2.5 px-3 py-2">
+                <CheckCircle2 className="w-3 h-3 text-green-400/70 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs text-gray-300 font-medium">All platform features</span>
+                  <span className="text-xs text-gray-500"> — no feature gates or tiers</span>
+                </div>
+                <span className="text-[10px] text-green-500/60 whitespace-nowrap shrink-0 font-medium">Fully unlocked</span>
+              </div>
+
+              {/* Column headers */}
+              <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 px-3 py-1 bg-gray-900/30">
+                <span className="text-[10px] text-gray-600 uppercase tracking-wider">Dimension</span>
+                <span className="text-[10px] text-gray-600 uppercase tracking-wider text-right whitespace-nowrap">Free up to</span>
+                <span className="text-[10px] text-gray-600 uppercase tracking-wider text-right whitespace-nowrap">Then per +${bumpDollars.toFixed(0)}</span>
+              </div>
+
+              {/* Dimension rows */}
+              {dimRows.map(({ key, icon: Icon, label, unit }) => {
                 const d = dimensions[key];
                 return (
-                  <div key={key} className="flex items-center gap-2.5 px-3 py-2">
-                    <Icon className="w-3 h-3 text-green-400/60 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs text-gray-300 font-medium">
-                        {d.base.toLocaleString()}
-                      </span>
-                      <span className="text-xs text-gray-500"> {what}</span>
-                    </div>
-                    <span className="text-[10px] text-gray-600 whitespace-nowrap shrink-0">
-                      +{d.bump.toLocaleString()} per bump
+                  <div key={key} className="grid grid-cols-[1fr_auto_auto] gap-x-4 items-center px-3 py-2">
+                    <span className="flex items-center gap-1.5 text-xs text-gray-400 min-w-0">
+                      <Icon className="w-3 h-3 text-gray-600 shrink-0" />
+                      {label}
+                    </span>
+                    <span className="text-xs text-gray-200 font-medium tabular-nums text-right whitespace-nowrap">
+                      {d.base.toLocaleString()} {unit}
+                    </span>
+                    <span className="text-[11px] text-gray-500 tabular-nums text-right whitespace-nowrap">
+                      +{d.bump.toLocaleString()} {unit}
                     </span>
                   </div>
                 );
@@ -251,24 +295,39 @@ function HowWeBillSection({ dimensions, pricing }: {
             </div>
           </div>
 
-          {/* Overage bumps */}
+          {/* "When will I be charged?" quick reference */}
           <div className="space-y-1.5">
-            <p className="text-xs font-semibold text-gray-300">Need more?</p>
+            <p className="text-xs font-semibold text-gray-300">When does my bill go up?</p>
             <p className="text-xs text-gray-500 leading-relaxed">
-              When usage in any dimension exceeds its included limit, we add a{' '}
-              <span className="text-gray-300 font-medium">${bump.toFixed(2)} bump</span> for each
-              additional block used. Bumps are calculated per dimension — exceeding inventory and AI
-              calls in the same month adds two bumps. Usage resets to zero each calendar month.
+              Each dimension is tracked independently. As soon as usage in one dimension crosses its threshold,
+              a <span className="text-gray-300 font-medium">${bumpDollars.toFixed(2)} bump</span> is added.
+              Every additional full block over that costs another ${bumpDollars.toFixed(2)}.
             </p>
+            {/* Quick per-dimension trigger summary */}
+            <div className="rounded-md border border-white/6 bg-gray-900/40 divide-y divide-white/5 overflow-hidden mt-2">
+              {dimRows.map(({ key, icon: Icon, label, unit }) => {
+                const d = dimensions[key];
+                const t1 = d.base + 1;
+                const t2 = d.base + d.bump + 1;
+                return (
+                  <div key={key} className="flex items-center gap-2 px-3 py-1.5">
+                    <Icon className="w-3 h-3 text-gray-600 shrink-0" />
+                    <span className="text-[11px] text-gray-500 flex-1">{label}</span>
+                    <span className="text-[11px] text-gray-600 tabular-nums text-right whitespace-nowrap">
+                      {t1.toLocaleString()}+ {unit} → +${bumpDollars.toFixed(2)} · {t2.toLocaleString()}+ → +${(bumpDollars * 2).toFixed(2)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* Cap */}
-          <div className="flex items-start gap-2 rounded-md border border-green-500/15 bg-green-500/5 px-3 py-2">
+          <div className="flex items-start gap-2 rounded-md border border-green-500/15 bg-green-500/5 px-3 py-2.5">
             <CheckCircle2 className="w-3.5 h-3.5 text-green-400/70 shrink-0 mt-0.5" />
             <p className="text-xs text-gray-400 leading-relaxed">
-              <span className="text-green-400 font-medium">Monthly cap: ${cap.toFixed(2)}</span> — your bill
-              will never exceed this, no matter how many bumps occur. Once you hit the cap, all
-              additional usage is free for that month.
+              <span className="text-green-400 font-medium">Monthly cap: ${capDollars.toFixed(2)}</span> — your bill
+              will never exceed this amount. Once you hit the cap, all additional usage that month is free.
             </p>
           </div>
 
@@ -278,17 +337,17 @@ function HowWeBillSection({ dimensions, pricing }: {
             <div className="text-xs text-gray-500 space-y-0.5">
               <div className="flex items-center gap-1.5">
                 <ArrowRight className="w-2.5 h-2.5 text-gray-600 shrink-0" />
-                <span>You have {(dimensions.inventoryLots.base + dimensions.inventoryLots.bump).toLocaleString()} inventory lots (base is {dimensions.inventoryLots.base.toLocaleString()})</span>
+                <span>You have {(dimensions.inventoryLots.base + dimensions.inventoryLots.bump).toLocaleString()} inventory lots (threshold is {dimensions.inventoryLots.base.toLocaleString()})</span>
               </div>
               <div className="flex items-center gap-1.5 pl-4">
-                <span className="text-gray-600">→ {dimensions.inventoryLots.bump.toLocaleString()} over the limit = 1 bump = +${bump.toFixed(2)}</span>
+                <span className="text-gray-600">→ {dimensions.inventoryLots.bump.toLocaleString()} over = 1 bump = +${bumpDollars.toFixed(2)}</span>
               </div>
               <div className="flex items-center gap-1.5 mt-1">
                 <ArrowRight className="w-2.5 h-2.5 text-gray-600 shrink-0" />
                 <span>Everything else within base limits</span>
               </div>
               <div className="flex items-center gap-1.5 pl-4">
-                <span className="text-gray-600">→ Total: ${base.toFixed(2)} + ${bump.toFixed(2)} = ${(base + bump).toFixed(2)}/mo</span>
+                <span className="text-gray-600">→ Total: ${baseDollars.toFixed(2)} + ${bumpDollars.toFixed(2)} = ${(baseDollars + bumpDollars).toFixed(2)}/mo</span>
               </div>
             </div>
           </div>
