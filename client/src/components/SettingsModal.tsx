@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { DimensionWheel, ScoringWheel, type PricingInsight } from "@/components/PriceOMaticDashboard";
+import { BillingDrawer } from "@/components/BillingDrawer";
 import { APP_VERSION, APP_NAME } from "@shared/version";
 import { CAPABILITY_STATUS_STYLES, CAPABILITY_STATUS_LABELS, CAPABILITY_STATUS_DOT_COLORS, TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
 import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Flag, Zap, Globe, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save, ClipboardPaste, Headphones, MessageCircle, Send, Target, Map, ListTodo, Crosshair, ThumbsUp, BarChart3 } from "lucide-react";
@@ -1809,6 +1810,8 @@ function BillingOverviewPanel() {
 }
 
 function MyPlanUsagePanel() {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   const { data: usage, isLoading } = useQuery<{
     dimensions: {
       inventoryLots: { current: number; base: number; bump: number };
@@ -1820,6 +1823,9 @@ function MyPlanUsagePanel() {
     pricing: { basePrice: number; overageBump: number; monthlyCap: number };
     aiCostTotal: number;
   }>({ queryKey: ['/api/org/usage'] });
+
+  type MonthSummary = { label: string; periodStart: string; periodEnd: string; estimatedCost: number };
+  const { data: historyData } = useQuery<{ months: MonthSummary[] }>({ queryKey: ['/api/org/billing/history'] });
 
   if (isLoading) return <div className="flex items-center justify-center py-8"><Loader2 className="w-4 h-4 animate-spin text-gray-500" /></div>;
   if (!usage) return <div className="text-center py-4 text-xs text-gray-500">Unable to load usage data.</div>;
@@ -1898,13 +1904,58 @@ function MyPlanUsagePanel() {
         })}
       </div>
 
+      {/* Billing history + drawer */}
       <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-3 space-y-2">
-        <div className="flex items-center gap-1.5 text-xs text-gray-400">
-          <Clock className="w-3.5 h-3.5" />
-          <span>Billing History</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+            <Clock className="w-3.5 h-3.5" />
+            <span>Previous Invoices</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-[10px] h-6 px-2 text-blue-400 hover:text-blue-300"
+            onClick={() => setDrawerOpen(true)}
+            data-testid="button-open-billing-drawer"
+          >
+            View full breakdown
+          </Button>
         </div>
-        <p className="text-[10px] text-gray-500">Detailed invoice history will be available once Stripe billing is connected.</p>
+
+        {historyData && historyData.months.length > 0 ? (
+          <div className="space-y-1 mt-1">
+            {historyData.months.slice(0, 3).map((m) => (
+              <div key={m.periodStart} className="flex items-center justify-between text-[10px]">
+                <span className="text-gray-500">{m.label}</span>
+                <span className="text-gray-300 font-mono tabular-nums">${(m.estimatedCost / 100).toFixed(2)}</span>
+              </div>
+            ))}
+            {historyData.months.length > 3 && (
+              <button
+                className="text-[10px] text-blue-400/70 hover:text-blue-300 mt-1"
+                onClick={() => setDrawerOpen(true)}
+              >
+                + {historyData.months.length - 3} more months — view all
+              </button>
+            )}
+          </div>
+        ) : (
+          <p className="text-[10px] text-gray-600">No previous invoices yet — history appears after your first billing period.</p>
+        )}
+
+        <div className="pt-1 border-t border-gray-800 mt-2">
+          <button
+            className="text-[10px] text-gray-500 hover:text-gray-300 flex items-center gap-1"
+            onClick={() => setDrawerOpen(true)}
+            data-testid="button-how-billing-works"
+          >
+            <Info className="w-3 h-3" />
+            How Pay As You Grow billing works
+          </button>
+        </div>
       </div>
+
+      <BillingDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </div>
   );
 }

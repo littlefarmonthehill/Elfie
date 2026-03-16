@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import {
   CreditCard, Package, ShoppingCart, Globe, Sparkles, ScanSearch,
   ChevronDown, ChevronUp, Printer, AlertTriangle, CheckCircle2,
+  Info, ArrowRight,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -105,6 +106,112 @@ function DimensionRow({ label, icon: Icon, current, base, bump, overageBump }: {
   );
 }
 
+function HowWeBillSection({ dimensions, pricing }: {
+  dimensions: MonthUsage['dimensions'];
+  pricing: MonthUsage['pricing'];
+}) {
+  const [open, setOpen] = useState(false);
+  const base = pricing.basePrice / 100;
+  const bump = pricing.overageBump / 100;
+  const cap  = pricing.monthlyCap / 100;
+
+  const dimExplainers: { key: keyof MonthUsage['dimensions']; icon: LucideIcon; what: string }[] = [
+    { key: 'inventoryLots',  icon: Package,      what: 'active listing lots in your BrickLink store' },
+    { key: 'ordersPerMonth', icon: ShoppingCart,  what: 'orders received and processed this month' },
+    { key: 'connectedStores',icon: Globe,         what: 'selling channels connected to E.L.F.I.E.' },
+    { key: 'aiCalls',        icon: Sparkles,      what: 'E.L.F.I.E. AI agent, Business Insights & analysis calls' },
+    { key: 'scans',          icon: ScanSearch,    what: 'BrickSpotter physical part identification scans' },
+  ];
+
+  return (
+    <div className="mt-3 rounded-md border border-white/8 bg-gray-800/20 overflow-hidden">
+      <button
+        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left"
+        onClick={() => setOpen((o) => !o)}
+        data-testid="button-how-we-bill-toggle"
+      >
+        <span className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
+          <Info className="w-3.5 h-3.5 text-blue-400/70 shrink-0" />
+          How your bill is calculated
+        </span>
+        {open ? <ChevronUp className="w-3.5 h-3.5 text-gray-600 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-600 shrink-0" />}
+      </button>
+
+      {open && (
+        <div className="px-3 pb-4 space-y-4 border-t border-white/6 pt-3">
+
+          {/* Model overview */}
+          <div>
+            <p className="text-xs font-semibold text-gray-300 mb-1.5">Pay As You Grow</p>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Your plan starts at a flat <span className="text-gray-300 font-medium">${base.toFixed(2)}/mo</span> base fee that
+              covers all five usage dimensions up to their included limits. If you exceed any limit, we
+              add a small <span className="text-gray-300 font-medium">${bump.toFixed(2)} bump</span> per
+              overage unit — one bump per dimension, per period. Your bill can never exceed{' '}
+              <span className="text-gray-300 font-medium">${cap.toFixed(2)}/mo</span> regardless of how
+              many bumps occur.
+            </p>
+          </div>
+
+          {/* How bumps work */}
+          <div>
+            <p className="text-xs font-semibold text-gray-300 mb-1.5">How bumps work</p>
+            <p className="text-xs text-gray-500 leading-relaxed mb-2">
+              Each dimension has a <em>base limit</em> and a <em>bump size</em>. Every time your usage
+              crosses another bump-sized unit above the base, one bump charge is added. Usage resets
+              to zero at the start of each calendar month.
+            </p>
+            <div className="space-y-1.5">
+              {dimExplainers.map(({ key, icon: Icon, what }) => {
+                const d = dimensions[key];
+                return (
+                  <div key={key} className="flex items-start gap-2">
+                    <Icon className="w-3 h-3 mt-0.5 text-gray-600 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-xs text-gray-400">
+                        {what.charAt(0).toUpperCase() + what.slice(1)}
+                      </span>
+                      <span className="text-xs text-gray-600">
+                        {' '}— first {d.base.toLocaleString()} included, then +${bump.toFixed(0)}/bump per {d.bump.toLocaleString()} additional
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Example */}
+          <div className="rounded border border-white/6 bg-gray-900/40 px-3 py-2.5">
+            <p className="text-xs font-semibold text-gray-400 mb-1.5">Example</p>
+            <div className="text-xs text-gray-500 space-y-0.5">
+              <div className="flex items-center gap-1.5">
+                <ArrowRight className="w-2.5 h-2.5 text-gray-600 shrink-0" />
+                <span>You have {(dimensions.inventoryLots.base + dimensions.inventoryLots.bump).toLocaleString()} inventory lots (base is {dimensions.inventoryLots.base.toLocaleString()})</span>
+              </div>
+              <div className="flex items-center gap-1.5 pl-4">
+                <span className="text-gray-600">→ {dimensions.inventoryLots.bump.toLocaleString()} over the limit = 1 bump = +${bump.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center gap-1.5 mt-1">
+                <ArrowRight className="w-2.5 h-2.5 text-gray-600 shrink-0" />
+                <span>Everything else within base limits</span>
+              </div>
+              <div className="flex items-center gap-1.5 pl-4">
+                <span className="text-gray-600">→ Total: ${base.toFixed(2)} + ${bump.toFixed(2)} = ${(base + bump).toFixed(2)}/mo</span>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-[10px] text-gray-600 leading-relaxed">
+            Usage counts are updated in real time. The estimated total on this bill reflects usage
+            as of the period shown. Unused capacity does not roll over to the next month.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BillCard({
   label, periodStart, periodEnd, dimensions, pricing, printable,
 }: {
@@ -134,6 +241,7 @@ function BillCard({
   const end   = new Date(periodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
+    <>
     <div className={cn("rounded-md border border-white/8 bg-gray-800/40", printable && "print:border-gray-300 print:bg-white")}>
       {/* Period header */}
       <div className="px-4 py-3 border-b border-white/8 flex items-center justify-between gap-2">
@@ -200,6 +308,10 @@ function BillCard({
         </span>
       </div>
     </div>
+
+    {/* Billing explanation — lives beneath each bill card */}
+    <HowWeBillSection dimensions={dimensions} pricing={pricing} />
+  </>
   );
 }
 
