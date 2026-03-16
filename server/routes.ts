@@ -1049,24 +1049,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // PUT /api/platform-admin/pricing-model — update pay-as-you-grow config
+  // PUT /api/platform-admin/pricing-model — update sales-based billing config
   app.put('/api/platform-admin/pricing-model', isSuperAdmin, async (req, res) => {
     try {
       const pricingSchema = z.object({
         basePrice: z.number().int().min(0).max(100000).optional(),
-        overageBump: z.number().int().min(0).max(10000).optional(),
-        monthlyCap: z.number().int().min(0).max(100000).optional(),
+        salesPercentage: z.number().min(0).max(100).optional(),
+        salesIncludedInBase: z.number().int().min(0).max(100000000).optional(),
         trialDays: z.number().int().min(0).max(365).optional(),
-        baseInventoryLots: z.number().int().min(0).max(10000000).optional(),
-        bumpInventoryLots: z.number().int().min(0).max(1000000).optional(),
-        baseOrdersPerMonth: z.number().int().min(0).max(1000000).optional(),
-        bumpOrdersPerMonth: z.number().int().min(0).max(100000).optional(),
-        baseConnectedStores: z.number().int().min(0).max(100).optional(),
-        bumpConnectedStores: z.number().int().min(0).max(50).optional(),
-        baseAiCalls: z.number().int().min(0).max(1000000).optional(),
-        bumpAiCalls: z.number().int().min(0).max(100000).optional(),
-        baseScans: z.number().int().min(0).max(1000000).optional(),
-        bumpScans: z.number().int().min(0).max(100000).optional(),
       });
       const parsed = pricingSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ message: "Invalid pricing data", errors: parsed.error.flatten().fieldErrors });
@@ -1082,38 +1072,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/org/usage — current org's billing-period usage summary
+  // GET /api/org/usage — current org's billing-period usage summary (sales-based model)
   app.get('/api/org/usage', isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const { getOrgAiUsageMtd } = await import('./services/ai-usage-tracker');
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      const [inventoryCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(blInventory).where(eq(blInventory.orgId, orgId));
-      const [orderCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orders).where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth)));
-      const [storeCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orgIntegrations).where(eq(orgIntegrations.orgId, orgId));
-      const [scanCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(brickanalyzerScans).where(and(eq(brickanalyzerScans.orgId, orgId), gte(brickanalyzerScans.createdAt, startOfMonth)));
-
-      const aiRows = await getOrgAiUsageMtd(orgId);
-      let aiCallsTotal = 0;
-      let aiCostTotal = 0;
-      const aiByOperation: Record<string, { requests: number; cost: number }> = {};
-      const BILLING_EXCLUDED_OPS = new Set(['embedding', 'embedding-onboarding']);
-      for (const r of aiRows) {
-        if (BILLING_EXCLUDED_OPS.has(r.operation)) continue;
-        aiCallsTotal += Number(r.requests);
-        aiCostTotal += Number(r.totalCost);
-        aiByOperation[r.operation] = { requests: Number(r.requests), cost: Number(r.totalCost) };
-      }
-
       const [pm] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
+      const basePrice = pm?.basePrice ?? 3900;
+      const salesPercentage = pm?.salesPercentage ?? 2.5;
+      const salesIncludedInBase = pm?.salesIncludedInBase ?? 100000;
+
       const [orgRow] = await db.select({
         billingStartDate: organizations.billingStartDate,
         plan: organizations.plan,
         trialEndsAt: organizations.trialEndsAt,
         subscriptionStatus: organizations.subscriptionStatus,
       }).from(organizations).where(eq(organizations.id, orgId)).limit(1);
+
+      const [grossRow] = await db.select({
+        totalDollars: sql<string>`COALESCE(SUM(${orderDetails.quantity}::numeric * ${orderDetails.unitPrice}::numeric), 0)`,
+      }).from(orderDetails)
+        .innerJoin(orders, eq(orderDetails.orderId, orders.id))
+        .where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth)));
+
+      const [adjRow] = await db.select({
+        totalDollars: sql<string>`COALESCE(SUM(${orderAdjustments.amount}::numeric), 0)`,
+      }).from(orderAdjustments)
+        .where(and(eq(orderAdjustments.orgId, orgId), gte(orderAdjustments.createdAt, startOfMonth)));
+
+      const grossSalesCents = Math.round(parseFloat(grossRow?.totalDollars ?? '0') * 100);
+      const adjustmentsCents = Math.round(parseFloat(adjRow?.totalDollars ?? '0') * 100);
+      const netSalesCents = grossSalesCents + adjustmentsCents;
+      const salesOverBaseCents = Math.max(0, netSalesCents - salesIncludedInBase);
+      const salesFeeCents = Math.round(salesOverBaseCents * salesPercentage / 100);
+      const estimatedTotal = basePrice + salesFeeCents;
 
       res.json({
         orgId,
@@ -1122,19 +1116,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         trialEndsAt: orgRow?.trialEndsAt ? orgRow.trialEndsAt.toISOString() : null,
         subscriptionStatus: orgRow?.subscriptionStatus ?? 'trial',
         period: { start: startOfMonth.toISOString(), end: now.toISOString() },
-        dimensions: {
-          inventoryLots: { current: Number(inventoryCount.count), base: pm?.baseInventoryLots ?? 5000, bump: pm?.bumpInventoryLots ?? 2500 },
-          ordersPerMonth: { current: Number(orderCount.count), base: pm?.baseOrdersPerMonth ?? 100, bump: pm?.bumpOrdersPerMonth ?? 50 },
-          connectedStores: { current: Number(storeCount.count), base: pm?.baseConnectedStores ?? 2, bump: pm?.bumpConnectedStores ?? 1 },
-          aiCalls: { current: aiCallsTotal, base: pm?.baseAiCalls ?? 200, bump: pm?.bumpAiCalls ?? 100, byOperation: aiByOperation },
-          scans: { current: Number(scanCount.count), base: pm?.baseScans ?? 50, bump: pm?.bumpScans ?? 25 },
+        sales: {
+          grossSalesCents,
+          adjustmentsCents,
+          netSalesCents,
+          includedInBaseCents: salesIncludedInBase,
+          salesOverBaseCents,
+          salesPercentage,
+          salesFeeCents,
         },
-        pricing: {
-          basePrice: pm?.basePrice ?? 3900,
-          overageBump: pm?.overageBump ?? 500,
-          monthlyCap: pm?.monthlyCap ?? 9900,
-        },
-        aiCostTotal,
+        pricing: { basePrice, salesPercentage, salesIncludedInBase },
+        estimatedTotal,
       });
     } catch (err: any) {
       console.error("Error fetching org usage:", err);
@@ -1142,71 +1134,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/org/billing/history — last 6 complete months of billing data for the current org
+  // GET /api/org/billing/history — last 6 complete months of billing data (sales-based)
   app.get('/api/org/billing/history', isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const { getOrgAiUsageForMonth } = await import('./services/ai-usage-tracker');
       const [pm] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
-      const pricing = {
-        basePrice: pm?.basePrice ?? 3900,
-        overageBump: pm?.overageBump ?? 500,
-        monthlyCap: pm?.monthlyCap ?? 9900,
-      };
+      const basePrice = pm?.basePrice ?? 3900;
+      const salesPercentage = pm?.salesPercentage ?? 2.5;
+      const salesIncludedInBase = pm?.salesIncludedInBase ?? 100000;
+      const pricing = { basePrice, salesPercentage, salesIncludedInBase };
 
-      // Current snapshot values (no historical tracking for these)
-      const [invCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(blInventory).where(eq(blInventory.orgId, orgId));
-      const [storeCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orgIntegrations).where(eq(orgIntegrations.orgId, orgId));
-      const inventoryLotsCurrent = Number(invCount.count);
-      const storesCurrent = Number(storeCount.count);
-
-      // Build last 6 complete calendar months (not including current month)
       const now = new Date();
-      const months: Array<{
-        label: string;
-        periodStart: string;
-        periodEnd: string;
-        dimensions: Record<string, { current: number; base: number; bump: number }>;
-        pricing: typeof pricing;
-        totalBumps: number;
-        estimatedCost: number;
-      }> = [];
+      const months = [];
 
       for (let i = 1; i <= 6; i++) {
         const mStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
         const mEnd   = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
 
-        const [orderRow] = await db.select({ count: sql<number>`COUNT(*)::int` })
-          .from(orders)
+        const [grossRow] = await db.select({
+          totalDollars: sql<string>`COALESCE(SUM(${orderDetails.quantity}::numeric * ${orderDetails.unitPrice}::numeric), 0)`,
+        }).from(orderDetails)
+          .innerJoin(orders, eq(orderDetails.orderId, orders.id))
           .where(and(eq(orders.orgId, orgId), gte(orders.orderDate, mStart), sql`${orders.orderDate} < ${mEnd}`));
 
-        const [scanRow] = await db.select({ count: sql<number>`COUNT(*)::int` })
-          .from(brickanalyzerScans)
-          .where(and(eq(brickanalyzerScans.orgId, orgId), gte(brickanalyzerScans.createdAt, mStart), sql`${brickanalyzerScans.createdAt} < ${mEnd}`));
+        const [adjRow] = await db.select({
+          totalDollars: sql<string>`COALESCE(SUM(${orderAdjustments.amount}::numeric), 0)`,
+        }).from(orderAdjustments)
+          .where(and(eq(orderAdjustments.orgId, orgId), gte(orderAdjustments.createdAt, mStart), sql`${orderAdjustments.createdAt} < ${mEnd}`));
 
-        const aiCalls = await getOrgAiUsageForMonth(orgId, mStart, mEnd);
-
-        const dims = {
-          inventoryLots:  { current: inventoryLotsCurrent, base: pm?.baseInventoryLots ?? 5000, bump: pm?.bumpInventoryLots ?? 2500 },
-          ordersPerMonth: { current: Number(orderRow.count), base: pm?.baseOrdersPerMonth ?? 100, bump: pm?.bumpOrdersPerMonth ?? 50 },
-          connectedStores:{ current: storesCurrent, base: pm?.baseConnectedStores ?? 2, bump: pm?.bumpConnectedStores ?? 1 },
-          aiCalls:        { current: aiCalls, base: pm?.baseAiCalls ?? 200, bump: pm?.bumpAiCalls ?? 100 },
-          scans:          { current: Number(scanRow.count), base: pm?.baseScans ?? 50, bump: pm?.bumpScans ?? 25 },
-        };
-
-        let totalBumps = 0;
-        for (const d of Object.values(dims)) {
-          if (d.current > d.base) totalBumps += Math.ceil((d.current - d.base) / d.bump);
-        }
-        const estimatedCost = Math.min(pricing.basePrice + totalBumps * pricing.overageBump, pricing.monthlyCap);
+        const grossSalesCents = Math.round(parseFloat(grossRow?.totalDollars ?? '0') * 100);
+        const adjustmentsCents = Math.round(parseFloat(adjRow?.totalDollars ?? '0') * 100);
+        const netSalesCents = grossSalesCents + adjustmentsCents;
+        const salesOverBaseCents = Math.max(0, netSalesCents - salesIncludedInBase);
+        const salesFeeCents = Math.round(salesOverBaseCents * salesPercentage / 100);
+        const estimatedCost = basePrice + salesFeeCents;
 
         months.push({
           label: mStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
           periodStart: mStart.toISOString(),
           periodEnd: mEnd.toISOString(),
-          dimensions: dims,
+          sales: { grossSalesCents, adjustmentsCents, netSalesCents, includedInBaseCents: salesIncludedInBase, salesOverBaseCents, salesPercentage, salesFeeCents },
           pricing,
-          totalBumps,
           estimatedCost,
         });
       }
@@ -1218,53 +1186,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/platform-admin/org-usage/:orgId — admin view of any org's usage
+  // GET /api/platform-admin/org-usage/:orgId — admin view of any org's usage (sales-based)
   app.get('/api/platform-admin/org-usage/:orgId', isSuperAdmin, async (req: any, res) => {
     try {
       const { orgId } = req.params;
-      const { getOrgAiUsageMtd } = await import('./services/ai-usage-tracker');
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      const [inventoryCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(blInventory).where(eq(blInventory.orgId, orgId));
-      const [orderCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orders).where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth)));
-      const [storeCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orgIntegrations).where(eq(orgIntegrations.orgId, orgId));
-      const [scanCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(brickanalyzerScans).where(and(eq(brickanalyzerScans.orgId, orgId), gte(brickanalyzerScans.createdAt, startOfMonth)));
-
-      const aiRows = await getOrgAiUsageMtd(orgId);
-      let aiCallsTotal = 0;
-      let aiCostTotal = 0;
-      const aiByOperation: Record<string, { requests: number; cost: number }> = {};
-      const BILLING_EXCLUDED_OPS_ADMIN = new Set(['embedding', 'embedding-onboarding']);
-      for (const r of aiRows) {
-        if (BILLING_EXCLUDED_OPS_ADMIN.has(r.operation)) continue;
-        aiCallsTotal += Number(r.requests);
-        aiCostTotal += Number(r.totalCost);
-        aiByOperation[r.operation] = { requests: Number(r.requests), cost: Number(r.totalCost) };
-      }
-
       const [pm] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
+      const basePrice = pm?.basePrice ?? 3900;
+      const salesPercentage = pm?.salesPercentage ?? 2.5;
+      const salesIncludedInBase = pm?.salesIncludedInBase ?? 100000;
 
-      const [orgInfo] = await db.select({ id: organizations.id, name: organizations.name, billingStartDate: organizations.billingStartDate }).from(organizations).where(eq(organizations.id, orgId)).limit(1);
+      const [orgInfo] = await db.select({ id: organizations.id, name: organizations.name, billingStartDate: organizations.billingStartDate })
+        .from(organizations).where(eq(organizations.id, orgId)).limit(1);
+
+      const [grossRow] = await db.select({
+        totalDollars: sql<string>`COALESCE(SUM(${orderDetails.quantity}::numeric * ${orderDetails.unitPrice}::numeric), 0)`,
+      }).from(orderDetails)
+        .innerJoin(orders, eq(orderDetails.orderId, orders.id))
+        .where(and(eq(orders.orgId, orgId), gte(orders.orderDate, startOfMonth)));
+
+      const [adjRow] = await db.select({
+        totalDollars: sql<string>`COALESCE(SUM(${orderAdjustments.amount}::numeric), 0)`,
+      }).from(orderAdjustments)
+        .where(and(eq(orderAdjustments.orgId, orgId), gte(orderAdjustments.createdAt, startOfMonth)));
+
+      const grossSalesCents = Math.round(parseFloat(grossRow?.totalDollars ?? '0') * 100);
+      const adjustmentsCents = Math.round(parseFloat(adjRow?.totalDollars ?? '0') * 100);
+      const netSalesCents = grossSalesCents + adjustmentsCents;
+      const salesOverBaseCents = Math.max(0, netSalesCents - salesIncludedInBase);
+      const salesFeeCents = Math.round(salesOverBaseCents * salesPercentage / 100);
+      const estimatedTotal = basePrice + salesFeeCents;
 
       res.json({
         orgId,
         orgName: orgInfo?.name || orgId,
         billingStartDate: orgInfo?.billingStartDate ? orgInfo.billingStartDate.toISOString() : null,
         period: { start: startOfMonth.toISOString(), end: now.toISOString() },
-        dimensions: {
-          inventoryLots: { current: Number(inventoryCount.count), base: pm?.baseInventoryLots ?? 5000, bump: pm?.bumpInventoryLots ?? 2500 },
-          ordersPerMonth: { current: Number(orderCount.count), base: pm?.baseOrdersPerMonth ?? 100, bump: pm?.bumpOrdersPerMonth ?? 50 },
-          connectedStores: { current: Number(storeCount.count), base: pm?.baseConnectedStores ?? 2, bump: pm?.bumpConnectedStores ?? 1 },
-          aiCalls: { current: aiCallsTotal, base: pm?.baseAiCalls ?? 200, bump: pm?.bumpAiCalls ?? 100, byOperation: aiByOperation },
-          scans: { current: Number(scanCount.count), base: pm?.baseScans ?? 50, bump: pm?.bumpScans ?? 25 },
-        },
-        pricing: {
-          basePrice: pm?.basePrice ?? 3900,
-          overageBump: pm?.overageBump ?? 500,
-          monthlyCap: pm?.monthlyCap ?? 9900,
-        },
-        aiCostTotal,
+        sales: { grossSalesCents, adjustmentsCents, netSalesCents, includedInBaseCents: salesIncludedInBase, salesOverBaseCents, salesPercentage, salesFeeCents },
+        pricing: { basePrice, salesPercentage, salesIncludedInBase },
+        estimatedTotal,
       });
     } catch (err: any) {
       console.error("Error fetching org usage:", err);
@@ -1272,7 +1234,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/platform-admin/all-orgs-usage — usage summary for all orgs (billing overview)
+  // GET /api/platform-admin/all-orgs-usage — sales-based billing summary for all orgs
   app.get('/api/platform-admin/all-orgs-usage', isSuperAdmin, async (_req, res) => {
     try {
       const now = new Date();
@@ -1280,47 +1242,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const allOrgs = await db.select({ id: organizations.id, name: organizations.name }).from(organizations);
       const [pm] = await db.select().from(pricingModel).where(eq(pricingModel.id, 1)).limit(1);
-
-      const { getOrgAiUsageMtd } = await import('./services/ai-usage-tracker');
+      const basePrice = pm?.basePrice ?? 3900;
+      const salesPercentage = pm?.salesPercentage ?? 2.5;
+      const salesIncludedInBase = pm?.salesIncludedInBase ?? 100000;
 
       const orgUsages = await Promise.all(allOrgs.map(async (org) => {
-        const [inventoryCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(blInventory).where(eq(blInventory.orgId, org.id));
-        const [orderCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orders).where(and(eq(orders.orgId, org.id), gte(orders.orderDate, startOfMonth)));
-        const [storeCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(orgIntegrations).where(eq(orgIntegrations.orgId, org.id));
-        const [scanCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(brickanalyzerScans).where(and(eq(brickanalyzerScans.orgId, org.id), gte(brickanalyzerScans.createdAt, startOfMonth)));
+        const [grossRow] = await db.select({
+          totalDollars: sql<string>`COALESCE(SUM(${orderDetails.quantity}::numeric * ${orderDetails.unitPrice}::numeric), 0)`,
+        }).from(orderDetails)
+          .innerJoin(orders, eq(orderDetails.orderId, orders.id))
+          .where(and(eq(orders.orgId, org.id), gte(orders.orderDate, startOfMonth)));
 
-        const aiRows = await getOrgAiUsageMtd(org.id);
-        let aiCallsTotal = 0;
-        const BILLING_EXCL = new Set(['embedding', 'embedding-onboarding']);
-        for (const r of aiRows) {
-          if (BILLING_EXCL.has(r.operation)) continue;
-          aiCallsTotal += Number(r.requests);
-        }
+        const [adjRow] = await db.select({
+          totalDollars: sql<string>`COALESCE(SUM(${orderAdjustments.amount}::numeric), 0)`,
+        }).from(orderAdjustments)
+          .where(and(eq(orderAdjustments.orgId, org.id), gte(orderAdjustments.createdAt, startOfMonth)));
 
-        const dims = {
-          inventoryLots: Number(inventoryCount.count),
-          ordersPerMonth: Number(orderCount.count),
-          connectedStores: Number(storeCount.count),
-          aiCalls: aiCallsTotal,
-          scans: Number(scanCount.count),
-        };
+        const grossSalesCents = Math.round(parseFloat(grossRow?.totalDollars ?? '0') * 100);
+        const adjustmentsCents = Math.round(parseFloat(adjRow?.totalDollars ?? '0') * 100);
+        const netSalesCents = grossSalesCents + adjustmentsCents;
+        const salesOverBaseCents = Math.max(0, netSalesCents - salesIncludedInBase);
+        const salesFeeCents = Math.round(salesOverBaseCents * salesPercentage / 100);
+        const projectedMonthly = basePrice + salesFeeCents;
 
-        const basePrice = pm?.basePrice ?? 3900;
-        const overageBump = pm?.overageBump ?? 500;
-        const monthlyCap = pm?.monthlyCap ?? 9900;
-        let totalBumps = 0;
-        const bumpCalc = (current: number, base: number, bump: number) => current <= base ? 0 : Math.ceil((current - base) / bump);
-        totalBumps += bumpCalc(dims.inventoryLots, pm?.baseInventoryLots ?? 5000, pm?.bumpInventoryLots ?? 2500);
-        totalBumps += bumpCalc(dims.ordersPerMonth, pm?.baseOrdersPerMonth ?? 100, pm?.bumpOrdersPerMonth ?? 50);
-        totalBumps += bumpCalc(dims.connectedStores, pm?.baseConnectedStores ?? 2, pm?.bumpConnectedStores ?? 1);
-        totalBumps += bumpCalc(dims.aiCalls, pm?.baseAiCalls ?? 200, pm?.bumpAiCalls ?? 100);
-        totalBumps += bumpCalc(dims.scans, pm?.baseScans ?? 50, pm?.bumpScans ?? 25);
-        const projectedMonthly = Math.min(basePrice + totalBumps * overageBump, monthlyCap);
-
-        return { orgId: org.id, orgName: org.name, ...dims, totalBumps, projectedMonthly };
+        return { orgId: org.id, orgName: org.name, grossSalesCents, netSalesCents, salesFeeCents, projectedMonthly };
       }));
 
-      res.json({ orgs: orgUsages, pricing: { basePrice: pm?.basePrice ?? 3900, overageBump: pm?.overageBump ?? 500, monthlyCap: pm?.monthlyCap ?? 9900 } });
+      res.json({ orgs: orgUsages, pricing: { basePrice, salesPercentage, salesIncludedInBase } });
     } catch (err: any) {
       console.error("Error fetching all orgs usage:", err);
       res.status(500).json({ message: err.message });

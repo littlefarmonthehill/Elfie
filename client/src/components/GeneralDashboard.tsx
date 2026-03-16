@@ -213,15 +213,20 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
 
 interface OrgUsageData {
   billingStartDate?: string | null;
+  plan?: string;
+  trialEndsAt?: string | null;
   period: { start: string; end: string };
-  dimensions: {
-    inventoryLots: { current: number; base: number; bump: number };
-    ordersPerMonth: { current: number; base: number; bump: number };
-    connectedStores: { current: number; base: number; bump: number };
-    aiCalls: { current: number; base: number; bump: number };
-    scans: { current: number; base: number; bump: number };
+  sales: {
+    grossSalesCents: number;
+    adjustmentsCents: number;
+    netSalesCents: number;
+    includedInBaseCents: number;
+    salesOverBaseCents: number;
+    salesPercentage: number;
+    salesFeeCents: number;
   };
-  pricing: { basePrice: number; overageBump: number; monthlyCap: number };
+  pricing: { basePrice: number; salesPercentage: number; salesIncludedInBase: number };
+  estimatedTotal: number;
 }
 
 function UsageSynopsis({ onOpenSettings: _onOpenSettings }: { onOpenSettings?: (section: any) => void }) {
@@ -230,26 +235,18 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings }: { onOpenSettings?: (
 
   if (isLoading || !usage) return null;
 
-  const dims = Object.values(usage.dimensions);
-  let totalBumps = 0;
-  for (const d of dims) {
-    if (d.current > d.base) totalBumps += Math.ceil((d.current - d.base) / d.bump);
-  }
-
-  const { basePrice, overageBump, monthlyCap } = usage.pricing;
-  const overageTotal = totalBumps * overageBump;
-  const estimated = Math.min(basePrice + overageTotal, monthlyCap);
-  const atCap = estimated >= monthlyCap;
-  const capPct = Math.min(100, (estimated / monthlyCap) * 100);
+  const { basePrice } = usage.pricing;
+  const sales = usage.sales;
+  const hasOverBase = sales.salesOverBaseCents > 0;
+  const estimatedTotal = usage.estimatedTotal;
+  const salesPct = Math.min(100, sales.includedInBaseCents > 0
+    ? (sales.netSalesCents / sales.includedInBaseCents) * 100
+    : 0);
+  const approaching = !hasOverBase && salesPct >= 80;
 
   const monthLabel = usage.period?.start
     ? new Date(usage.period.start).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
     : '';
-
-  const anyApproaching = dims.some((d) => {
-    const pct = d.base > 0 ? (d.current / d.base) * 100 : 0;
-    return pct >= 80 && d.current <= d.base;
-  });
 
   return (
     <>
@@ -259,7 +256,6 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings }: { onOpenSettings?: (
           className="w-full text-left"
           data-testid="button-usage-details"
         >
-          {/* Header */}
           <div className="flex items-center justify-between gap-2 mb-2">
             <span className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
               <CreditCard className="w-3 h-3" />
@@ -268,73 +264,47 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings }: { onOpenSettings?: (
             <span className="text-[9px] text-gray-600">{monthLabel}</span>
           </div>
 
-          {/* Cost rows */}
           <div className="space-y-1 mb-2">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10px] text-gray-400">Base fee</span>
               <span className="text-[10px] text-gray-300 font-mono tabular-nums">${(basePrice / 100).toFixed(2)}</span>
             </div>
-            {totalBumps > 0 && (
+            {hasOverBase && (
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] text-amber-400/80">
-                  Overages ({totalBumps} bump{totalBumps !== 1 ? 's' : ''})
+                  Sales fee ({sales.salesPercentage}% on ${((sales.salesOverBaseCents) / 100).toFixed(0)} over)
                 </span>
-                {/* Never show a dollar figure above the cap — just the bump count */}
-                {!atCap && (
-                  <span className="text-[10px] text-amber-400 font-mono tabular-nums">
-                    +${(overageTotal / 100).toFixed(2)}
-                  </span>
-                )}
+                <span className="text-[10px] text-amber-400 font-mono tabular-nums">
+                  +${(sales.salesFeeCents / 100).toFixed(2)}
+                </span>
               </div>
             )}
           </div>
 
-          {/* Total bar — shows pct of monthly cap */}
           <div className="h-1.5 rounded-full bg-gray-700/50 overflow-hidden mb-1.5">
             <div
               className={cn("h-full rounded-full transition-all duration-500",
-                atCap ? 'bg-amber-500/80' : totalBumps > 0 ? 'bg-amber-400/70' : anyApproaching ? 'bg-amber-400/50' : 'bg-green-500/60'
+                hasOverBase ? 'bg-amber-400/70' : approaching ? 'bg-amber-400/50' : 'bg-green-500/60'
               )}
-              style={{ width: `${capPct}%` }}
+              style={{ width: `${salesPct}%` }}
             />
           </div>
 
-          {atCap ? (
-            /* Cap reached — show the hard limit and a reassurance */
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] font-semibold text-amber-400 font-mono tabular-nums">
-                  ${(monthlyCap / 100).toFixed(2)}/mo cap reached
-                </span>
-                <span className="flex items-center gap-0.5 text-[9px] text-gray-600">
-                  See breakdown <ChevronRight className="w-2.5 h-2.5" />
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 rounded-md bg-green-500/10 border border-green-500/20 px-2 py-1">
-                <CheckCircle className="w-2.5 h-2.5 text-green-400 shrink-0" />
-                <span className="text-[9px] text-green-400">No further charges this billing cycle</span>
-              </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className={cn("text-[10px] font-semibold tabular-nums font-mono",
+              hasOverBase ? 'text-amber-400' : 'text-gray-300'
+            )}>
+              ~${(estimatedTotal / 100).toFixed(2)}/mo
+            </span>
+            <span className="flex items-center gap-0.5 text-[9px] text-gray-600">
+              See breakdown <ChevronRight className="w-2.5 h-2.5" />
+            </span>
+          </div>
+          {approaching && (
+            <div className="mt-1.5 flex items-center gap-1">
+              <AlertTriangle className="w-2.5 h-2.5 text-amber-400/70 shrink-0" />
+              <span className="text-[9px] text-amber-400/70">Approaching included sales threshold</span>
             </div>
-          ) : (
-            /* Under cap — show estimated total */
-            <>
-              <div className="flex items-center justify-between gap-2">
-                <span className={cn("text-[10px] font-semibold tabular-nums font-mono",
-                  totalBumps > 0 ? 'text-amber-400' : 'text-gray-300'
-                )}>
-                  ~${(estimated / 100).toFixed(2)}/mo
-                </span>
-                <span className="flex items-center gap-0.5 text-[9px] text-gray-600">
-                  See breakdown <ChevronRight className="w-2.5 h-2.5" />
-                </span>
-              </div>
-              {anyApproaching && totalBumps === 0 && (
-                <div className="mt-1.5 flex items-center gap-1">
-                  <AlertTriangle className="w-2.5 h-2.5 text-amber-400/70 shrink-0" />
-                  <span className="text-[9px] text-amber-400/70">Approaching limit on some tools</span>
-                </div>
-              )}
-            </>
           )}
         </button>
       </div>
