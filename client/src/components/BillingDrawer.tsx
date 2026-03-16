@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   X, CreditCard, ShoppingCart, ChevronDown, ChevronUp, Printer,
-  AlertTriangle, CheckCircle2, Info, ArrowRight, Clock, Heart, TrendingUp,
+  AlertTriangle, CheckCircle2, Info, Clock, TrendingUp,
 } from "lucide-react";
 
 // ─── API response types ───────────────────────────────────────────────────────
@@ -55,107 +55,12 @@ function salesLabel(cents_: number) {
   return `$${(cents_ / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-// ─── How We Bill explainer ────────────────────────────────────────────────────
-
-function HowWeBillSection({ plan }: { plan: PlanInfo | Omit<PlanInfo, "id"> }) {
-  const [open, setOpen] = useState(false);
-  const base = plan.basePrice / 100;
-  const pct  = plan.salesPercentage;
-  const threshold = plan.freeSalesThreshold / 100;
-
-  const exampleSales = threshold + 500;
-  const exampleOver  = exampleSales - threshold;
-  const exampleFee   = Math.round(exampleOver * pct / 100) / 1; // cents → dollars
-  const exampleTotal = base + exampleFee;
-
-  return (
-    <div className="mt-3 rounded-md border border-white/8 bg-gray-800/20 overflow-hidden">
-      <button
-        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left"
-        onClick={() => setOpen((o) => !o)}
-        data-testid="button-how-we-bill-toggle"
-      >
-        <span className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
-          <Info className="w-3.5 h-3.5 text-blue-400/70 shrink-0" />
-          How your bill is calculated
-        </span>
-        {open ? <ChevronUp className="w-3.5 h-3.5 text-gray-600 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-600 shrink-0" />}
-      </button>
-
-      {open && (
-        <div className="px-3 pb-4 space-y-4 border-t border-white/6 pt-3">
-
-          {/* Formula */}
-          <div>
-            <p className="text-xs font-semibold text-gray-300 mb-2">The formula</p>
-            <div className="rounded-md border border-white/8 bg-gray-900/50 px-3 py-2.5 font-mono text-xs text-gray-300 leading-relaxed">
-              Monthly bill =
-              <span className="text-blue-300"> ${base.toFixed(2)}</span> base
-              {" "}+ <span className="text-purple-300">{pct}%</span> × max(0, sales − <span className="text-green-300">${threshold.toLocaleString()}</span>)
-            </div>
-          </div>
-
-          {/* What's included */}
-          <div>
-            <p className="text-xs font-semibold text-gray-300 mb-2">What <span className="text-white">${base.toFixed(2)}/mo</span> includes</p>
-            <div className="rounded-md border border-white/8 bg-gray-900/50 px-3 py-2.5">
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-3 h-3 text-green-400/70 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <span className="text-xs text-gray-300 font-medium">All platform features</span>
-                  <span className="text-xs text-gray-500"> — no feature gates or tiers</span>
-                </div>
-                <span className="text-[10px] text-green-500/60 whitespace-nowrap shrink-0 font-medium">Fully unlocked</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Free threshold */}
-          <div className="flex items-start gap-2 rounded-md border border-green-500/15 bg-green-500/5 px-3 py-2.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-green-400/70 shrink-0 mt-0.5" />
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Your first <span className="text-green-400 font-medium">${threshold.toLocaleString()}</span> in monthly
-              sales is always free — the {pct}% rate only applies to the portion above that threshold.
-            </p>
-          </div>
-
-          {/* Example */}
-          <div className="rounded border border-white/6 bg-gray-900/40 px-3 py-2.5">
-            <p className="text-xs font-semibold text-gray-400 mb-1.5">Example</p>
-            <div className="text-xs text-gray-500 space-y-0.5">
-              <div className="flex items-center gap-1.5">
-                <ArrowRight className="w-2.5 h-2.5 text-gray-600 shrink-0" />
-                <span>You sell <span className="text-gray-300">${exampleSales.toLocaleString()}</span> in parts this month</span>
-              </div>
-              <div className="flex items-center gap-1.5 pl-4">
-                <span className="text-gray-600">→ ${exampleSales.toLocaleString()} − ${threshold.toLocaleString()} = ${exampleOver.toLocaleString()} over threshold</span>
-              </div>
-              <div className="flex items-center gap-1.5 pl-4">
-                <span className="text-gray-600">→ {pct}% × ${exampleOver.toLocaleString()} = <span className="text-purple-300">${exampleFee.toFixed(2)}</span> sales fee</span>
-              </div>
-              <div className="flex items-center gap-1.5 pl-4">
-                <span className="text-gray-600">→ Total: <span className="text-gray-300">${base.toFixed(2)}</span> + <span className="text-purple-300">${exampleFee.toFixed(2)}</span> = <span className="text-white font-medium">${exampleTotal.toFixed(2)}/mo</span></span>
-              </div>
-            </div>
-          </div>
-
-          <p className="text-[10px] text-gray-600 leading-relaxed">
-            Sales are counted from completed, non-cancelled BrickLink orders. The estimated total reflects
-            sales recorded as of the period shown. Billing resets on the 1st of each calendar month.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Current billing card ─────────────────────────────────────────────────────
 
 function SalesBillCard({ usage }: { usage: OrgUsageData }) {
-  const { plan, monthlySalesCents, billing, period } = usage;
-  const { baseFee, salesFee, totalDue } = billing;
-  const hasSalesFee = salesFee > 0;
+  const { plan, monthlySalesCents, period } = usage;
   const salesOverThreshold = Math.max(0, monthlySalesCents - plan.freeSalesThreshold);
+  const aboveThreshold = monthlySalesCents > plan.freeSalesThreshold;
 
   const start = new Date(period.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const end   = new Date(period.end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -169,60 +74,29 @@ function SalesBillCard({ usage }: { usage: OrgUsageData }) {
           <div className="text-sm font-semibold text-gray-200">{monthLabel}</div>
           <div className="text-xs text-gray-500 mt-0.5">{start} – {end}</div>
         </div>
-        <div className={cn("text-lg font-bold tabular-nums font-mono", hasSalesFee ? 'text-purple-300' : 'text-gray-100')}>
-          {cents(totalDue)}
-        </div>
+        <div className="text-xs text-gray-500">{plan.name}</div>
       </div>
 
-      {/* Sales row */}
-      <div className="px-4 pt-3 pb-0">
-        <div className="flex items-center justify-between mb-3">
+      {/* Sales */}
+      <div className="px-4 py-4">
+        <div className="flex items-center justify-between mb-1.5">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Sales This Period</span>
         </div>
-        <div className="flex items-center gap-3 rounded-md bg-gray-900/40 border border-white/6 px-3 py-2.5 mb-3">
+        <div className="flex items-center gap-3 rounded-md bg-gray-900/40 border border-white/6 px-3 py-3">
           <ShoppingCart className="w-4 h-4 text-gray-500 shrink-0" />
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-gray-200 font-mono">{salesLabel(monthlySalesCents)}</div>
+            <div className="text-xl font-bold text-gray-100 font-mono tabular-nums">{salesLabel(monthlySalesCents)}</div>
             <div className="text-xs text-gray-500 mt-0.5">
-              {monthlySalesCents <= plan.freeSalesThreshold
-                ? `Within your ${salesLabel(plan.freeSalesThreshold)} free threshold`
-                : `${salesLabel(salesOverThreshold)} above your ${salesLabel(plan.freeSalesThreshold)} free threshold`
+              {aboveThreshold
+                ? `${salesLabel(salesOverThreshold)} above your ${salesLabel(plan.freeSalesThreshold)} free threshold`
+                : `Within your ${salesLabel(plan.freeSalesThreshold)} free threshold`
               }
             </div>
           </div>
-          {hasSalesFee && (
+          {aboveThreshold && (
             <TrendingUp className="w-4 h-4 text-purple-400/70 shrink-0" />
           )}
         </div>
-
-        {/* Billing breakdown */}
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Billing Breakdown</span>
-        </div>
-        <div className="divide-y divide-white/5 rounded-md border border-white/6 bg-gray-900/40 overflow-hidden mb-3">
-          <div className="flex items-center justify-between px-3 py-2">
-            <span className="text-xs text-gray-400">Base platform fee</span>
-            <span className="text-xs font-mono text-gray-300">{cents(baseFee)}</span>
-          </div>
-          <div className="flex items-center justify-between px-3 py-2">
-            <div className="flex-1 min-w-0">
-              <span className="text-xs text-gray-400">
-                Sales fee ({plan.salesPercentage}% of {salesLabel(salesOverThreshold)})
-              </span>
-            </div>
-            <span className={cn("text-xs font-mono tabular-nums", hasSalesFee ? 'text-purple-300 font-semibold' : 'text-gray-500')}>
-              {hasSalesFee ? `+${cents(salesFee)}` : '$0.00'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Total footer */}
-      <div className="px-4 py-3 border-t border-white/10 flex items-center justify-between bg-gray-800/60 rounded-b-md">
-        <span className="text-sm font-semibold text-gray-200">Total</span>
-        <span className={cn("text-base font-bold tabular-nums font-mono", hasSalesFee ? 'text-purple-300' : 'text-gray-100')}>
-          {cents(totalDue)}
-        </span>
       </div>
     </div>
   );
@@ -407,11 +281,10 @@ function CurrentBillingTab() {
       <p className="text-xs text-gray-500">
         {isTrial
           ? 'Usage shown is what your bill would look like as a subscriber. Nothing is charged during your trial.'
-          : 'Billing resets on the 1st of each calendar month. Your fee is based on completed BrickLink sales.'}
+          : 'Billing resets on the 1st of each calendar month. Sales are computed from all channels — items total minus discounts.'}
       </p>
 
       <SalesBillCard usage={usage} />
-      <HowWeBillSection plan={usage.plan} />
       <TrialCallout status={usage.subscriptionStatus} billingStartDate={usage.billingStartDate} />
 
       {!isTrial && (

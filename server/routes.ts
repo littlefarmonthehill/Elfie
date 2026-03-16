@@ -1064,10 +1064,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Billing formula: totalDue = plan.basePrice + salesPercentage% × max(0, monthlySales − freeSalesThreshold)
   // All monetary values in cents.
   async function getOrgMonthlySalesCents(orgId: string, from: Date, to: Date): Promise<number> {
-    const [row] = await db.select({
-      total: sql<string>`COALESCE(SUM(CASE WHEN order_status NOT IN ('cancelled','purged') THEN order_total::numeric ELSE 0 END), 0)`,
-    }).from(orders).where(and(eq(orders.orgId, orgId), gte(orders.orderDate, from), sql`${orders.orderDate} < ${to}`));
-    return Math.round(parseFloat(row?.total ?? '0') * 100);
+    // Items subtotal: sum(quantity * unit_price) for all non-cancelled/purged orders in the period
+    const [itemsRow] = await db.select({
+      total: sql<string>`COALESCE(SUM(od.quantity * od.unit_price::numeric), 0)`,
+    }).from(orderDetails.as('od'))
+      .innerJoin(orders, and(
+        eq(orders.id, sql`od.order_id`),
+        eq(orders.orgId, orgId),
+        sql`${orders.orderStatus} NOT IN ('cancelled','purged')`,
+        gte(orders.orderDate, from),
+        sql`${orders.orderDate} < ${to}`,
+      ));
+
+    // Discount adjustments: sum all discount-type adjustments for those orders (amounts are negative for deductions)
+    const [discountRow] = await db.select({
+      total: sql<string>`COALESCE(SUM(oa.amount::numeric), 0)`,
+    }).from(orderAdjustments.as('oa'))
+      .innerJoin(orders, and(
+        eq(orders.id, sql`oa.order_id`),
+        eq(orders.orgId, orgId),
+        sql`${orders.orderStatus} NOT IN ('cancelled','purged')`,
+        gte(orders.orderDate, from),
+        sql`${orders.orderDate} < ${to}`,
+      )).where(sql`oa.type = 'discount'`);
+
+    const itemsCents = Math.round(parseFloat(itemsRow?.total ?? '0') * 100);
+    const discountCents = Math.round(parseFloat(discountRow?.total ?? '0') * 100); // already negative
+    return Math.max(0, itemsCents + discountCents);
   }
 
   function calcSalesBilling(plan: { basePrice: number; salesPercentage: number; freeSalesThreshold: number }, monthlySalesCents: number) {
