@@ -926,6 +926,17 @@ export async function runMigrations() {
     `);
     console.log(`[Migration] Phase-43 (billing_start_date on organizations) complete — ${p43.rowCount ?? 0} orgs set from first inventory sync.`);
 
+    // Phase-44: Reset no_image rows queued since 2026-03-16 back to pending.
+    // These were marked no_image with an incorrect Rebrickable CDN URL format
+    // (missing the _{colorId} suffix). Fixed in universal-clip-catalog.ts — retry them.
+    const p44 = await client.query(`
+      UPDATE universal_catalog_queue
+      SET status = 'pending', attempted_at = NULL, error_msg = 'reset-phase-44-url-fix'
+      WHERE status = 'no_image'
+        AND attempted_at >= '2026-03-16'::date
+    `);
+    console.log(`[Migration] Phase-44 (reset no_image rows from bad Rebrickable URL format) complete — ${p44.rowCount ?? 0} rows reset to pending.`);
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

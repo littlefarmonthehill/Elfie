@@ -65,11 +65,12 @@ function partImageUrls(rbId: string, blId: string | null): string[] {
   }
 
   // Rebrickable CDN — publicly accessible, no auth, uses Rebrickable's own numbering.
-  // Try a few common color IDs: 15 (white) and 71 (light grey) tend to be photographed
-  // for most parts. Color 0 is "not a real color" in Rebrickable's system.
-  urls.push(`https://cdn.rebrickable.com/media/parts/photos/15/${rbId}.jpg`);
-  urls.push(`https://cdn.rebrickable.com/media/parts/photos/71/${rbId}.jpg`);
-  urls.push(`https://cdn.rebrickable.com/media/parts/photos/1/${rbId}.jpg`);
+  // URL format: /media/parts/photos/{colorId}/{partNo}_{colorId}.jpg
+  // Try the most commonly photographed colors: 71 (light bluish gray), 15 (white),
+  // 72 (dark bluish gray), 4 (yellow), 5 (red), 1 (blue), 11 (black).
+  for (const colorId of [71, 15, 72, 4, 5, 1, 11]) {
+    urls.push(`https://cdn.rebrickable.com/media/parts/photos/${colorId}/${rbId}_${colorId}.jpg`);
+  }
 
   return urls;
 }
