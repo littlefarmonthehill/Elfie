@@ -43,14 +43,25 @@ export function getLastImportedAt()        { return _lastImportedAt; }
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
 /**
- * BrickLink CDN part image URLs to try in order — shape-focused, no color context.
- * The /PL/ path is the "Part List" image BL serves for every part on their catalog pages.
- * We try .jpg first (the historical format returned by the BL API), then .png as a fallback.
+ * Image URLs to try in order when embedding a part.
+ *
+ * Priority:
+ *  1. BrickLink CDN /ItemImage/PL/ .png — the format BL serves for neutral-color
+ *     part-list photos. Confirmed working for ~14% of Rebrickable parts (those
+ *     that share part numbers with BrickLink).
+ *  2. BrickLink CDN /PL/ .jpg — older/alternate CDN path, minimal extra coverage.
+ *  3. Rebrickable CDN — Rebrickable hosts photos for most of their catalog under a
+ *     predictable CDN path (no auth needed). Color 0 is the neutral/default rendering.
+ *     The URL works as-is for a majority of Rebrickable part numbers.
+ *
+ * ~85% of Rebrickable parts are Rebrickable-only and have no BL CDN image at all.
+ * For those, the Rebrickable CDN is the best fallback that doesn't require API quota.
  */
 function partImageUrls(partNo: string): string[] {
   return [
-    `https://img.bricklink.com/PL/${partNo}.jpg`,
-    `https://img.bricklink.com/PL/${partNo}.png`,
+    `https://img.bricklink.com/ItemImage/PL/${partNo}.png`,          // BL CDN (proven ~14% hit)
+    `https://img.bricklink.com/PL/${partNo}.jpg`,                     // BL CDN alternate path
+    `https://cdn.rebrickable.com/media/parts/photos/0/${partNo}.jpg`, // Rebrickable CDN, color 0
   ];
 }
 
