@@ -239,6 +239,7 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings }: { onOpenSettings?: (
   const { basePrice, overageBump, monthlyCap } = usage.pricing;
   const overageTotal = totalBumps * overageBump;
   const estimated = Math.min(basePrice + overageTotal, monthlyCap);
+  const atCap = estimated >= monthlyCap;
   const capPct = Math.min(100, (estimated / monthlyCap) * 100);
 
   const monthLabel = usage.period?.start
@@ -278,9 +279,12 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings }: { onOpenSettings?: (
                 <span className="text-[10px] text-amber-400/80">
                   Overages ({totalBumps} bump{totalBumps !== 1 ? 's' : ''})
                 </span>
-                <span className="text-[10px] text-amber-400 font-mono tabular-nums">
-                  +${(overageTotal / 100).toFixed(2)}
-                </span>
+                {/* Never show a dollar figure above the cap — just the bump count */}
+                {!atCap && (
+                  <span className="text-[10px] text-amber-400 font-mono tabular-nums">
+                    +${(overageTotal / 100).toFixed(2)}
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -289,23 +293,36 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings }: { onOpenSettings?: (
           <div className="h-1.5 rounded-full bg-gray-700/50 overflow-hidden mb-1.5">
             <div
               className={cn("h-full rounded-full transition-all duration-500",
-                totalBumps > 0 ? 'bg-amber-400/70' : anyApproaching ? 'bg-amber-400/50' : 'bg-green-500/60'
+                atCap ? 'bg-amber-500/80' : totalBumps > 0 ? 'bg-amber-400/70' : anyApproaching ? 'bg-amber-400/50' : 'bg-green-500/60'
               )}
               style={{ width: `${capPct}%` }}
             />
           </div>
 
-          {/* Bottom: est total + arrow */}
+          {/* Bottom: cap message or est total */}
           <div className="flex items-center justify-between gap-2">
-            <span className={cn("text-[10px] font-semibold tabular-nums font-mono",
-              totalBumps > 0 ? 'text-amber-400' : 'text-gray-300'
-            )}>
-              ~${(estimated / 100).toFixed(2)}/mo
-            </span>
+            {atCap ? (
+              <span className="text-[10px] font-semibold text-amber-400 flex items-center gap-1">
+                <AlertTriangle className="w-2.5 h-2.5 shrink-0" />
+                Monthly cap reached
+              </span>
+            ) : (
+              <span className={cn("text-[10px] font-semibold tabular-nums font-mono",
+                totalBumps > 0 ? 'text-amber-400' : 'text-gray-300'
+              )}>
+                ~${(estimated / 100).toFixed(2)}/mo
+              </span>
+            )}
             <span className="flex items-center gap-0.5 text-[9px] text-gray-600">
               See breakdown <ChevronRight className="w-2.5 h-2.5" />
             </span>
           </div>
+
+          {atCap && (
+            <div className="mt-1 text-[9px] text-gray-500">
+              See billing details for the breakdown
+            </div>
+          )}
 
           {anyApproaching && totalBumps === 0 && (
             <div className="mt-1.5 flex items-center gap-1">
