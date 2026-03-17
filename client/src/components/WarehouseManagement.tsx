@@ -42,6 +42,7 @@ import {
   FileText,
   CheckCircle2,
   AlertCircle,
+  MoveRight,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeSVG } from "qrcode.react";
@@ -96,6 +97,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   // Lot locations dialog state
   const [lotDialogOpen, setLotDialogOpen] = useState(false);
   const [selectedLot, setSelectedLot] = useState<any>(null);
+
+  // Bin detail / move state
+  const [binDetailOpen, setBinDetailOpen] = useState(false);
+  const [binDetailBin, setBinDetailBin] = useState<any>(null);
+  const [binDetailSelected, setBinDetailSelected] = useState<Set<number>>(new Set());
+  const [binMoveStep, setBinMoveStep] = useState<'select' | 'move'>('select');
+  const [binMoveType, setBinMoveType] = useState<'existing' | 'new'>('existing');
+  const [binMoveExistingId, setBinMoveExistingId] = useState('');
+  const [binMoveNewName, setBinMoveNewName] = useState('');
+  const [binMovePending, setBinMovePending] = useState(false);
   const [addLocBinId, setAddLocBinId] = useState<string>("");
   const [addLocQty, setAddLocQty] = useState<string>("");
   const [addLocBagLabel, setAddLocBagLabel] = useState<string>("");
@@ -555,6 +566,64 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   };
 
   const filteredList = getFilteredList();
+
+  // Bin detail: lots stored in the open bin, derived from the already-fetched locations
+  const binDetailLots = binDetailBin
+    ? locations.filter((l: any) => l.binId === binDetailBin.id)
+    : [];
+
+  const resetBinDetail = () => {
+    setBinDetailBin(null);
+    setBinDetailSelected(new Set());
+    setBinMoveStep('select');
+    setBinMoveType('existing');
+    setBinMoveExistingId('');
+    setBinMoveNewName('');
+  };
+
+  const openBinDetail = (bin: any) => {
+    setBinDetailBin(bin);
+    const allIds = new Set<number>(
+      locations.filter((l: any) => l.binId === bin.id).map((l: any) => l.id)
+    );
+    setBinDetailSelected(allIds);
+    setBinMoveStep('select');
+    setBinMoveType('existing');
+    setBinMoveExistingId('');
+    setBinMoveNewName('');
+    setBinDetailOpen(true);
+  };
+
+  const handleMoveLots = async () => {
+    if (binDetailSelected.size === 0) return;
+    setBinMovePending(true);
+    try {
+      let targetBinId: number;
+      if (binMoveType === 'new') {
+        const newBin: any = await apiRequest('POST', '/api/warehouse/bins', { name: binMoveNewName.trim() });
+        targetBinId = newBin.id;
+      } else {
+        targetBinId = parseInt(binMoveExistingId);
+      }
+      const toLots = binDetailLots.filter((l: any) => binDetailSelected.has(l.id));
+      await Promise.all(toLots.map((loc: any) =>
+        apiRequest('PUT', `/api/warehouse/locations/${loc.id}`, {
+          inventoryId: loc.inventoryId, binId: targetBinId,
+          quantity: loc.quantity ?? null, bagLabel: loc.bagLabel ?? null, notes: loc.notes ?? null,
+        })
+      ));
+      invalidateWarehouse();
+      const destName = binMoveType === 'new' ? binMoveNewName.trim()
+        : bins.find((b: any) => b.id === targetBinId)?.name ?? 'bin';
+      toast({ title: `${toLots.length} lot${toLots.length !== 1 ? 's' : ''} moved to ${destName}` });
+      setBinDetailOpen(false);
+      resetBinDetail();
+    } catch {
+      toast({ title: 'Failed to move lots', variant: 'destructive' });
+    } finally {
+      setBinMovePending(false);
+    }
+  };
 
   // Bulk bin preview
   const bulkPreviewCount = (() => {
@@ -1019,6 +1088,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     setShowAddLocation(false);
                     setAddLocBinId(""); setAddLocQty(""); setAddLocBagLabel("");
                     setEditingLocationId(null);
+                  } else if (activeView === 'bins') {
+                    openBinDetail(item);
                   } else {
                     toggleItemSelection(item.id);
                   }
@@ -1062,7 +1133,15 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                         {item.binNames.length > 2 ? ` +${item.binNames.length - 2} more` : ''}
                       </span>
                     )}
-                    {activeView === 'bins' && item.shelfName && <span>Shelf: {item.shelfName}</span>}
+                    {activeView === 'bins' && (
+                      <span className="flex items-center gap-2">
+                        {item.shelfName && <span>Shelf: {item.shelfName}</span>}
+                        {item.itemCount > 0
+                          ? <span className="text-green-400 font-medium">{item.itemCount} lot{item.itemCount !== 1 ? 's' : ''}</span>
+                          : <span className="text-muted-foreground/60 italic">empty</span>
+                        }
+                      </span>
+                    )}
                     {activeView === 'shelves' && item.aisleName && <span>Aisle: {item.aisleName}</span>}
                   </div>
                 </div>
@@ -1655,6 +1734,139 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bin Detail / Move Dialog */}
+      <Dialog open={binDetailOpen} onOpenChange={open => { setBinDetailOpen(open); if (!open) resetBinDetail(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Archive className="h-4 w-4 text-green-400" />
+              {binDetailBin?.name}
+              {binMoveStep === 'move' && <span className="text-muted-foreground font-normal text-sm">— Move lots</span>}
+            </DialogTitle>
+            <DialogDescription>
+              {binMoveStep === 'select'
+                ? `${binDetailLots.length} lot${binDetailLots.length !== 1 ? 's' : ''} stored here. Select which to move.`
+                : `Moving ${binDetailSelected.size} lot${binDetailSelected.size !== 1 ? 's' : ''} — choose a destination.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {binMoveStep === 'select' ? (
+            <div className="space-y-3">
+              {binDetailLots.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-6 italic">This bin is empty.</p>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">Check the lots you want to move</p>
+                    <div className="flex gap-2 text-[10px] text-muted-foreground">
+                      <button className="hover:text-foreground underline underline-offset-2"
+                        onClick={() => setBinDetailSelected(new Set(binDetailLots.map((l: any) => l.id)))}>all</button>
+                      <button className="hover:text-foreground underline underline-offset-2"
+                        onClick={() => setBinDetailSelected(new Set())}>none</button>
+                    </div>
+                  </div>
+                  <div className="bg-muted/30 rounded-md p-2 max-h-60 overflow-y-auto space-y-0.5">
+                    {binDetailLots.map((loc: any) => {
+                      const checked = binDetailSelected.has(loc.id);
+                      return (
+                        <label key={loc.id}
+                          className={`flex items-center gap-2 px-1.5 py-1 rounded cursor-pointer select-none hover-elevate ${checked ? '' : 'opacity-40'}`}>
+                          <input type="checkbox" checked={checked} className="h-3.5 w-3.5 rounded shrink-0"
+                            onChange={() => setBinDetailSelected(prev => {
+                              const next = new Set(prev);
+                              next.has(loc.id) ? next.delete(loc.id) : next.add(loc.id);
+                              return next;
+                            })} />
+                          <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{loc.itemNo}</span>
+                          <span className="text-[11px] text-muted-foreground truncate flex-1">{loc.itemName || '—'}</span>
+                          {loc.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{loc.colorName}</span>}
+                          {loc.quantity != null && <span className="text-[10px] text-muted-foreground shrink-0">×{loc.quantity}</span>}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      className="flex-1"
+                      disabled={binDetailSelected.size === 0}
+                      onClick={() => setBinMoveStep('move')}
+                      data-testid="button-bin-move-next"
+                    >
+                      <MoveRight className="h-4 w-4 mr-1.5" />
+                      Move {binDetailSelected.size > 0 ? binDetailSelected.size : ''} selected lot{binDetailSelected.size !== 1 ? 's' : ''}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Destination type toggle */}
+              <div className="flex gap-2">
+                {(['existing', 'new'] as const).map(t => (
+                  <button key={t}
+                    onClick={() => { setBinMoveType(t); setBinMoveExistingId(''); setBinMoveNewName(''); }}
+                    className={`flex-1 rounded-md border py-2 px-3 text-xs text-left transition-colors ${binMoveType === t ? 'border-primary bg-primary/10 text-primary' : 'border-border hover-elevate'}`}
+                    data-testid={`button-move-type-${t}`}
+                  >
+                    <div className="font-semibold capitalize">{t === 'existing' ? 'Existing bin' : 'New bin'}</div>
+                    <div className={`mt-0.5 ${binMoveType === t ? 'text-primary/70' : 'text-muted-foreground'}`}>
+                      {t === 'existing' ? 'Pick a bin that already exists' : 'Create a new bin and move there'}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {binMoveType === 'existing' ? (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Destination bin</Label>
+                  <Select value={binMoveExistingId} onValueChange={setBinMoveExistingId}>
+                    <SelectTrigger data-testid="select-move-bin-target">
+                      <SelectValue placeholder="Select a bin…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[...bins].filter((b: any) => b.id !== binDetailBin?.id).sort(alphaNumericSort).map((b: any) => (
+                        <SelectItem key={b.id} value={String(b.id)}>
+                          {b.name}{b.itemCount > 0 ? ` (${b.itemCount} lots)` : ' (empty)'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">New bin name</Label>
+                  <Input
+                    placeholder="e.g. BIN-42"
+                    value={binMoveNewName}
+                    onChange={e => setBinMoveNewName(e.target.value)}
+                    className="text-xs"
+                    data-testid="input-move-new-bin-name"
+                  />
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" size="sm" onClick={() => setBinMoveStep('select')} data-testid="button-bin-move-back">
+                  Back
+                </Button>
+                <Button
+                  className="flex-1"
+                  disabled={binMovePending || (binMoveType === 'existing' ? !binMoveExistingId : !binMoveNewName.trim())}
+                  onClick={handleMoveLots}
+                  data-testid="button-bin-move-confirm"
+                >
+                  {binMovePending
+                    ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Moving…</>
+                    : <><MoveRight className="h-4 w-4 mr-1.5" />Move {binDetailSelected.size} lot{binDetailSelected.size !== 1 ? 's' : ''}</>
+                  }
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
