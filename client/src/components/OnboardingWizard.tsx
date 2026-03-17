@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, ArrowRight, Building2, Link, CreditCard, Sparkles, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2 } from "lucide-react";
+import { CheckCircle2, ArrowRight, Building2, Link, Sparkles, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2 } from "lucide-react";
 import { TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
 import type { Organization } from "@shared/schema";
@@ -19,7 +19,6 @@ interface Props {
 const STEPS = [
   { id: 1, label: "Company", icon: Building2 },
   { id: 2, label: "BrickLink", icon: Link },
-  { id: 3, label: "Payments", icon: CreditCard },
 ];
 
 export default function OnboardingWizard({ org, onComplete }: Props) {
@@ -43,11 +42,6 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
   const [blPasteStatus, setBlPasteStatus] = useState<PasteStatus>("idle");
   const [blParsedTokens, setBlParsedTokens] = useState<{ tokenValue: string; tokenSecret: string }[]>([]);
   const [blOcrProcessing, setBlOcrProcessing] = useState(false);
-
-  // Step 3 — Payments
-  const [paypalClientId, setPaypalClientId] = useState("");
-  const [paypalClientSecret, setPaypalClientSecret] = useState("");
-  const [stripeSecretKey, setStripeSecretKey] = useState("");
 
   const saveOrgMutation = useMutation({
     mutationFn: (data: Record<string, any>) => apiRequest("PATCH", "/api/org", data),
@@ -80,17 +74,6 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
     setStep(3);
   };
 
-  const handleStep3 = async (skip = false) => {
-    if (!skip && (paypalClientId || paypalClientSecret || stripeSecretKey)) {
-      await saveSettingsMutation.mutateAsync({
-        paypalClientId: paypalClientId || null,
-        paypalClientSecret: paypalClientSecret || null,
-        stripeSecretKey: stripeSecretKey || null,
-      });
-    }
-    setStep(4);
-  };
-
   const handleFinish = async () => {
     await saveOrgMutation.mutateAsync({ onboardingCompleted: true });
     onComplete();
@@ -108,7 +91,7 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
             <Sparkles className="w-5 h-5 text-lego-yellow" />
             <span className="text-sm font-semibold uppercase tracking-widest text-gray-400">Setup Wizard</span>
           </div>
-          {step < 4 ? (
+          {step < 3 ? (
             <h1 className="text-2xl font-bold text-white">Let's get you set up</h1>
           ) : (
             <h1 className="text-2xl font-bold text-white">You're ready to go</h1>
@@ -116,7 +99,7 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
         </div>
 
         {/* Step indicator */}
-        {step < 4 && (
+        {step < 3 && (
           <div className="flex items-center justify-center gap-0 mb-8">
             {STEPS.map((s, i) => (
               <div key={s.id} className="flex items-center">
@@ -394,47 +377,8 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
             </>
           )}
 
-          {/* Step 3: Payments */}
+          {/* Step 3: Done */}
           {step === 3 && (
-            <>
-              <div>
-                <h2 className="text-lg font-semibold text-white mb-1">Connect payment platforms</h2>
-                <p className="text-sm text-gray-400">Used to automatically match refunds and fees to orders. Both are optional — you can add them later in Settings.</p>
-              </div>
-              <div className="space-y-4">
-                <div className="space-y-2 pb-4 border-b border-gray-800">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">PayPal</p>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-gray-500">Client ID</Label>
-                    <Input value={paypalClientId} onChange={(e) => setPaypalClientId(e.target.value)} placeholder="PayPal Client ID" className="bg-gray-800 border-gray-700 text-white text-sm" data-testid="input-onboard-paypal-id" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-gray-500">Client Secret</Label>
-                    <Input type="password" value={paypalClientSecret} onChange={(e) => setPaypalClientSecret(e.target.value)} placeholder="PayPal Client Secret" className="bg-gray-800 border-gray-700 text-white text-sm" data-testid="input-onboard-paypal-secret" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Stripe</p>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-gray-500">Secret Key</Label>
-                    <Input type="password" value={stripeSecretKey} onChange={(e) => setStripeSecretKey(e.target.value)} placeholder="sk_live_... or sk_test_..." className="bg-gray-800 border-gray-700 text-white text-sm" data-testid="input-onboard-stripe-key" />
-                  </div>
-                </div>
-              </div>
-              <div className="pt-2 flex justify-between">
-                <Button variant="ghost" onClick={() => handleStep3(true)} className="text-gray-500" data-testid="button-onboard-skip-3">
-                  Skip for now
-                </Button>
-                <Button onClick={() => handleStep3(false)} disabled={isSaving} data-testid="button-onboard-next-3">
-                  {isSaving ? "Saving…" : "Continue"}
-                  <ArrowRight className="w-4 h-4 ml-1" />
-                </Button>
-              </div>
-            </>
-          )}
-
-          {/* Step 4: Done */}
-          {step === 4 && (
             <>
               <div className="text-center py-4">
                 <div className="w-16 h-16 rounded-full bg-green-500/10 border-2 border-green-500/30 flex items-center justify-center mx-auto mb-4">
@@ -490,7 +434,7 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
           )}
         </div>
 
-        {step < 4 && (
+        {step < 3 && (
           <p className="text-center text-[11px] text-gray-600 mt-4">
             All credentials are stored securely and can be updated any time in Settings.
           </p>

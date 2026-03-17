@@ -456,7 +456,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     staleTime: 0,
   });
 
-  const { data: appSettings } = useQuery<{ elfieMode?: string; bricklinkConsumerKey?: string | null; paypalClientId?: string | null; stripeSecretKey?: string | null; paypalConnectedViaEnv?: boolean; stripeConnectedViaEnv?: boolean; pomUnderpricedScore?: number; blApiCallLimit?: number }>({
+  const { data: appSettings } = useQuery<{ elfieMode?: string; bricklinkConsumerKey?: string | null; pomUnderpricedScore?: number; blApiCallLimit?: number }>({
     queryKey: ['/api/settings'],
   });
 
@@ -498,8 +498,6 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   if (orgData?.onboardingCompleted) {
     if (!orgData?.address) setupItems.push({ id: 'address', label: 'Add business address', section: 'general' });
     if (!appSettings?.bricklinkConsumerKey) setupItems.push({ id: 'bricklink', label: 'Connect BrickLink', section: 'platforms' });
-    if (!appSettings?.paypalClientId && !appSettings?.paypalConnectedViaEnv) setupItems.push({ id: 'paypal', label: 'Connect PayPal', section: 'platforms' });
-    if (!appSettings?.stripeSecretKey && !appSettings?.stripeConnectedViaEnv) setupItems.push({ id: 'stripe', label: 'Connect Stripe', section: 'platforms' });
   }
 
   const pendingOrders = fulfillmentStats?.unfulfilled ?? dashboardOrders?.pending?.length ?? 0;

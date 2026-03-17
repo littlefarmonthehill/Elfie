@@ -10,11 +10,9 @@ const SECRET_FIELDS = [
   'bricklinkTokenValue',
   'bricklinkTokenSecret',
   'brickowlApiKey',
+  'stripeSecretKey',
   'easypostApiKey',
   'easypostTestApiKey',
-  'paypalClientId',
-  'paypalClientSecret',
-  'stripeSecretKey',
   'shipstationApiKey',
   'shipstationApiSecret',
 ] as const;
@@ -4834,8 +4832,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const masked = maskSettingsSecrets(settings as any);
       res.json({
         ...masked,
-        paypalConnectedViaEnv: !settings?.paypalClientId && !!process.env.PAYPAL_CLIENT_ID,
-        stripeConnectedViaEnv: !settings?.stripeSecretKey && !!process.env.STRIPE_SECRET_KEY,
         brickowlConnectedViaEnv: !settings?.brickowlApiKey && !!process.env.BRICKOWL_API_KEY,
       });
     } catch (error) {

@@ -2412,11 +2412,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   // BrickOwl Settings
   const [brickowlApiKey, setBrickowlApiKey] = useState("");
 
-  // PayPal Settings
-  const [paypalClientId, setPaypalClientId] = useState("");
-  const [paypalClientSecret, setPaypalClientSecret] = useState("");
-  const [paypalEnvironment, setPaypalEnvironment] = useState<'sandbox' | 'live'>('live');
-  // Stripe Settings
+  // Stripe Settings (platform billing)
   const [stripeSecretKey, setStripeSecretKey] = useState("");
   const [stripeEnvironment, setStripeEnvironment] = useState<'test' | 'live'>('live');
 
@@ -3233,9 +3229,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setBricklinkTokenValue(unmask(settings.bricklinkTokenValue));
       setBricklinkTokenSecret(unmask(settings.bricklinkTokenSecret));
       setBrickowlApiKey(unmask(settings.brickowlApiKey));
-      setPaypalClientId(unmask(settings.paypalClientId));
-      setPaypalClientSecret(unmask(settings.paypalClientSecret));
-      setPaypalEnvironment((settings.paypalEnvironment as 'sandbox' | 'live') || 'live');
       setStripeSecretKey(unmask(settings.stripeSecretKey));
       setStripeEnvironment((settings.stripeEnvironment as 'test' | 'live') || 'live');
       setEasypostApiKey(unmask(settings.easypostApiKey));
@@ -3768,7 +3761,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
   const sectionTitle = activeSection === 'platforms' && activePlatform !== null
     ? (() => {
-        const hardcoded: Record<string, string> = { bricklink: 'BrickLink', brickowl: 'BrickOwl', paypal: 'PayPal', stripe: 'Stripe', easypost: 'EasyPost' };
+        const hardcoded: Record<string, string> = { bricklink: 'BrickLink', brickowl: 'BrickOwl', easypost: 'EasyPost' };
         if (hardcoded[activePlatform]) return hardcoded[activePlatform];
         const dyn = orgIntegrationsList.find(i => String(i.id) === activePlatform);
         return dyn ? (dyn.displayName || dyn.channel) : 'Channel';
@@ -4596,8 +4589,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     </div>
                     {[
                       { key: 'bricklink', label: 'BrickLink', connected: !!bricklinkConsumerKey || !!(settings as any)?.has_bricklinkConsumerKey, badge: 'Read only', badgeColor: 'text-blue-400 border-blue-500/20 bg-blue-500/10' },
-                      { key: 'paypal',    label: 'PayPal',    connected: !!(paypalClientId || (settings as any)?.has_paypalClientId || (settings as any)?.paypalConnectedViaEnv), badge: 'Read only', badgeColor: 'text-blue-400 border-blue-500/20 bg-blue-500/10' },
-                      { key: 'stripe',    label: 'Stripe',    connected: !!(stripeSecretKey || (settings as any)?.has_stripeSecretKey || (settings as any)?.stripeConnectedViaEnv), badge: 'Read only', badgeColor: 'text-blue-400 border-blue-500/20 bg-blue-500/10' },
                     ].map(p => (
                       <button key={p.key} onClick={() => setActivePlatform(p.key)}
                         className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors group"
@@ -4682,7 +4673,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         <Plus className="w-3 h-3" /> Add
                       </Button>
                     </div>
-                    <p className="px-4 pb-1 text-[10px] text-gray-600">PayPal and Stripe are in Core Integrations above.</p>
                     {orgIntegrationsList.filter(i => i.type === 'payment').length === 0 && addIntegrationType !== 'payment' && (
                       <p className="mx-2 text-[11px] text-gray-600 border border-gray-700/50 rounded-lg px-4 py-2.5">No additional payment vendors configured.</p>
                     )}
@@ -4940,47 +4930,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   </div>
                 )}
 
-                {/* ── DETAIL: PayPal ────────────────────────────────────────── */}
-                {activePlatform === 'paypal' && (
-                  <div className="p-4 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-blue-500/10 text-blue-400 border-blue-500/20">Read only</span>
-                      <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0" /></TooltipTrigger><TooltipContent side="right" className="max-w-xs text-xs">Pulls PayPal transaction data (refunds, fees) and matches them to orders. Requires a PayPal REST API app with Transaction Search permission.</TooltipContent></Tooltip>
-                    </div>
-                    <div className="space-y-2 pb-2 border-b border-gray-700">
-                      <Label className="text-xs text-gray-200">Environment</Label>
-                      <div className="flex gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="paypal-env" value="live" checked={paypalEnvironment === 'live'} onChange={() => { setPaypalEnvironment('live'); updateSettingsMutation.mutate({ paypalEnvironment: 'live' }); }} className="text-purple-500 focus:ring-purple-500" data-testid="radio-paypal-live" /><span className="text-xs text-gray-300">Live</span></label>
-                        <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="paypal-env" value="sandbox" checked={paypalEnvironment === 'sandbox'} onChange={() => { setPaypalEnvironment('sandbox'); updateSettingsMutation.mutate({ paypalEnvironment: 'sandbox' }); }} className="text-purple-500 focus:ring-purple-500" data-testid="radio-paypal-sandbox" /><span className="text-xs text-gray-300">Sandbox</span></label>
-                      </div>
-                      {paypalEnvironment === 'sandbox' && <p className="text-xs text-yellow-500/80">Sandbox mode — test credentials only</p>}
-                      {paypalEnvironment === 'live' && <p className="text-xs text-green-500/80">Live mode — real PayPal transactions</p>}
-                    </div>
-                    <div className="space-y-2"><Label htmlFor="paypal-client-id" className="text-xs text-gray-200">Client ID</Label><Input id="paypal-client-id" placeholder={(settings as any)?.has_paypalClientId ? "Key saved — leave blank to keep" : "Enter PayPal Client ID"} className="text-xs" value={paypalClientId} onChange={(e) => setPaypalClientId(e.target.value)} onBlur={() => { if (paypalClientId) updateSettingsMutation.mutate({ paypalClientId }); }} data-testid="input-paypal-client-id" /></div>
-                    <div className="space-y-2"><Label htmlFor="paypal-client-secret" className="text-xs text-gray-200">Client Secret</Label><Input id="paypal-client-secret" type="password" placeholder={(settings as any)?.has_paypalClientSecret ? "Key saved — leave blank to keep" : "Enter PayPal Client Secret"} className="text-xs" value={paypalClientSecret} onChange={(e) => setPaypalClientSecret(e.target.value)} onBlur={() => { if (paypalClientSecret) updateSettingsMutation.mutate({ paypalClientSecret }); }} data-testid="input-paypal-client-secret" /></div>
-                  </div>
-                )}
-
-                {/* ── DETAIL: Stripe ────────────────────────────────────────── */}
-                {activePlatform === 'stripe' && (
-                  <div className="p-4 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-blue-500/10 text-blue-400 border-blue-500/20">Read only</span>
-                      <Tooltip><TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 shrink-0" /></TooltipTrigger><TooltipContent side="right" className="max-w-xs text-xs">Pulls Stripe transaction data (refunds, processing fees) and matches them to orders. Use a restricted key with read access to Charges and Refunds.</TooltipContent></Tooltip>
-                    </div>
-                    <div className="space-y-2 pb-2 border-b border-gray-700">
-                      <Label className="text-xs text-gray-200">Environment</Label>
-                      <div className="flex gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="stripe-env" value="live" checked={stripeEnvironment === 'live'} onChange={() => { setStripeEnvironment('live'); updateSettingsMutation.mutate({ stripeEnvironment: 'live' }); }} className="text-purple-500 focus:ring-purple-500" data-testid="radio-stripe-live" /><span className="text-xs text-gray-300">Live</span></label>
-                        <label className="flex items-center gap-2 cursor-pointer"><input type="radio" name="stripe-env" value="test" checked={stripeEnvironment === 'test'} onChange={() => { setStripeEnvironment('test'); updateSettingsMutation.mutate({ stripeEnvironment: 'test' }); }} className="text-purple-500 focus:ring-purple-500" data-testid="radio-stripe-test" /><span className="text-xs text-gray-300">Test</span></label>
-                      </div>
-                      {stripeEnvironment === 'test' && <p className="text-xs text-yellow-500/80">Test mode — use a <code className="font-mono">sk_test_</code> key</p>}
-                      {stripeEnvironment === 'live' && <p className="text-xs text-green-500/80">Live mode — use a <code className="font-mono">sk_live_</code> or restricted key</p>}
-                    </div>
-                    <div className="space-y-2"><Label htmlFor="stripe-secret-key" className="text-xs text-gray-200">Secret Key</Label><Input id="stripe-secret-key" type="password" placeholder={(settings as any)?.has_stripeSecretKey ? "Key saved — leave blank to keep" : (stripeEnvironment === 'test' ? 'sk_test_...' : 'sk_live_... or rk_live_...')} className="text-xs" value={stripeSecretKey} onChange={(e) => setStripeSecretKey(e.target.value)} onBlur={() => { if (stripeSecretKey) updateSettingsMutation.mutate({ stripeSecretKey }); }} data-testid="input-stripe-secret-key" /></div>
-                  </div>
-                )}
-
                 {/* ── DETAIL: EasyPost ─────────────────────────────────────── */}
                 {activePlatform === 'easypost' && (
                   <div className="p-4 space-y-3">
@@ -5017,7 +4966,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 )}
 
                 {/* ── DETAIL: Dynamic org integration ─────────────────────── */}
-                {activePlatform !== null && !['bricklink','brickowl','paypal','stripe','easypost'].includes(activePlatform) && (() => {
+                {activePlatform !== null && !['bricklink','brickowl','easypost'].includes(activePlatform) && (() => {
                   const integration = orgIntegrationsList.find(i => String(i.id) === activePlatform);
                   if (!integration) return null;
                   return (
@@ -5252,7 +5201,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               </PopoverTrigger>
                               <PopoverContent side="bottom" className="sm-popover-lg">
                                 <p className="font-semibold text-gray-200">Orders Sync</p>
-                                <p className="text-gray-400">Pulls new and updated orders from BrickLink and BrickOwl into the local database. Also syncs order line items, generates AI embeddings for semantic search, and matches Stripe and PayPal refunds and merchant fees to orders.</p>
+                                <p className="text-gray-400">Pulls new and updated orders from BrickLink and BrickOwl into the local database. Also syncs order line items and generates AI embeddings for semantic search.</p>
                                 <p className="text-gray-400">After each order is processed, sold quantities are deducted from local inventory — keeping all channel inventory counts in sync automatically.</p>
                                 <p className="sm-description">Runs on a short interval (e.g. every 15–30 min) to keep order data fresh throughout the day.</p>
                               </PopoverContent>

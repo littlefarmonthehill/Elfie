@@ -491,11 +491,7 @@ export const appSettings = pgTable("app_settings", {
   easypostApiKey: text("easypost_api_key"),
   easypostTestApiKey: text("easypost_test_api_key"),
   easypostKeyMode: text("easypost_key_mode").default('test').notNull(), // 'test' or 'production'
-  // PayPal Credentials (used for transaction sync + refund matching)
-  paypalClientId: text("paypal_client_id"),
-  paypalClientSecret: text("paypal_client_secret"),
-  paypalEnvironment: text("paypal_environment").default('live').notNull(), // 'sandbox' or 'live'
-  // Stripe Credentials (used for transaction sync + refund/fee matching)
+  // Stripe Credentials (platform billing — subscriptions, checkout, billing portal)
   stripeSecretKey: text("stripe_secret_key"),
   stripeEnvironment: text("stripe_environment").default('live').notNull(), // 'test' or 'live'
   // International Shipping / Customs

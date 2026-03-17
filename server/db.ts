@@ -993,6 +993,36 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-47 (remove Stripe/PayPal refund adjustments) complete.');
 
+    // ── Phase-48: Remove merchant fees + drop PayPal/Stripe columns ──────────
+    // Merchant fee records from Stripe/PayPal are no longer collected — returns
+    // come straight from BrickLink. Remove historical merchant_fee adjustments
+    // and drop the now-unused credential columns from app_settings.
+    await client.query(`
+      DELETE FROM order_adjustments
+      WHERE type = 'merchant_fee'
+        AND payment_method IN ('stripe', 'paypal')
+    `);
+    for (const col of [
+      'paypal_client_id', 'paypal_client_secret', 'paypal_environment',
+    ]) {
+      await client.query(`
+        ALTER TABLE app_settings DROP COLUMN IF EXISTS ${col}
+      `);
+    }
+    console.log('[Migration] Phase-48 (merchant fees + PayPal/Stripe columns removed) complete.');
+
+    // ── Phase-49: Restore Stripe billing columns ─────────────────────────────
+    // stripe_secret_key and stripe_environment are still needed for the platform
+    // admin billing integration (subscriptions, checkout, billing portal).
+    // They were accidentally dropped by an early Phase-48 run that included them
+    // in the DROP list before the scope was narrowed to PayPal-only.
+    await client.query(`
+      ALTER TABLE app_settings
+        ADD COLUMN IF NOT EXISTS stripe_secret_key TEXT,
+        ADD COLUMN IF NOT EXISTS stripe_environment TEXT NOT NULL DEFAULT 'live'
+    `);
+    console.log('[Migration] Phase-49 (restore Stripe billing columns) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

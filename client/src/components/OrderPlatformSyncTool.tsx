@@ -43,8 +43,6 @@ export default function OrderPlatformSyncTool() {
   function buildSyncDescription(r: {
     bricklink?: { success: boolean; skipped: boolean; ordersAdded: number; error: string | null };
     brickowl?:  { success: boolean; skipped: boolean; ordersAdded: number; error: string | null };
-    stripe:     { success: boolean; skipped: boolean; refunds: number; fees: number; error: string | null };
-    paypal:     { success: boolean; skipped: boolean; refunds: number; fees: number; error: string | null };
   }): string {
     const parts: string[] = [];
 
@@ -56,20 +54,6 @@ export default function OrderPlatformSyncTool() {
       parts.push(`${totalOrders} order${totalOrders !== 1 ? "s" : ""} synced`);
     } else if (!r.bricklink?.skipped || !r.brickowl?.skipped) {
       parts.push("No new orders");
-    }
-
-    if (r.stripe.success) {
-      const fin = r.stripe.refunds + r.stripe.fees;
-      parts.push(fin > 0 ? `Stripe: ${r.stripe.refunds}r ${r.stripe.fees}f` : "Stripe up-to-date");
-    } else if (r.stripe.error) {
-      parts.push(`Stripe error`);
-    }
-
-    if (r.paypal.success) {
-      const fin = r.paypal.refunds + r.paypal.fees;
-      parts.push(fin > 0 ? `PayPal: ${r.paypal.refunds}r ${r.paypal.fees}f` : "PayPal up-to-date");
-    } else if (!r.paypal.skipped && r.paypal.error) {
-      parts.push("PayPal: permission error — enable Transaction Search in PayPal Developer Dashboard");
     }
 
     return parts.join(" · ") || "Sync complete";
@@ -394,7 +378,7 @@ export default function OrderPlatformSyncTool() {
                 <li>• Syncs orders from BrickLink and BrickOwl</li>
                 <li>• Only fetches orders modified since last sync</li>
                 <li>• Automatically adjusts inventory when order status changes</li>
-                <li>• Every sync (channel or Sync All) also pulls Stripe &amp; PayPal refunds and fees</li>
+
                 <li>• Requires API credentials configured in Settings</li>
               </ul>
             </div>
