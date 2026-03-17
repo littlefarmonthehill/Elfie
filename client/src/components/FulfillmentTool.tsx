@@ -391,7 +391,6 @@ export default function FulfillmentTool() {
   const handlePrintPicklist = async () => {
     if (selectedOrders.size === 0) return;
     const { default: jsPDF } = await import('jspdf');
-    const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     const items = allPicklistItems.filter(item => selectedOrders.has(item.orderId));
     const chanPrefix = (item: PicklistBinItem) => item.marketplace === 'BrickOwl' ? 'BO' : 'BL';
     const condLabel = (c: string | null) => c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
@@ -410,16 +409,7 @@ export default function FulfillmentTool() {
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Picklist \u2014 ${date}`, MARGIN, MARGIN + 5);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`${sortedItems.length} item${sortedItems.length !== 1 ? 's' : ''}`, MARGIN, MARGIN + 11);
-
-    let y = MARGIN + 17;
+    let y = MARGIN;
 
     for (const item of sortedItems) {
       const hasRemarks = !!(item.remarks);

@@ -267,8 +267,6 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
 
   const handlePrint = async () => {
     const { default: jsPDF } = await import('jspdf');
-    const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const filterLabel = filter === 'to_pull' ? 'To Pull' : 'All Items';
     const chanPrefix = (item: BinPicklistItem) => item.marketplace === 'BrickOwl' ? 'BO' : 'BL';
     const condLabel = (c: string | null) => c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
 
@@ -287,16 +285,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Picklist \u2014 ${date}`, MARGIN, MARGIN + 5);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`${filterLabel} \u00b7 ${sortedItems.length} item${sortedItems.length !== 1 ? 's' : ''}`, MARGIN, MARGIN + 11);
-
-    let y = MARGIN + 17;
+    let y = MARGIN;
 
     for (const item of sortedItems) {
       const hasComment = !!(item.comment);
