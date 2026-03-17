@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2 } from "lucide-react";
 import { printPackingSlips } from "./PackingSlip";
+import PdfViewer from "./PdfViewer";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, PRIORITY_REGEX, toggleSetItem } from "@/lib/item-utils";
 import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult, OrderItem } from "./InlineShippingCard";
@@ -218,6 +219,10 @@ export default function FulfillmentTool() {
   const [isShippingAll, setIsShippingAll] = useState(false);
   const [batchResults, setBatchResults] = useState<BatchResult[]>([]);
 
+  // PDF viewer state
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const closePdf = () => { if (pdfUrl) { URL.revokeObjectURL(pdfUrl); setPdfUrl(null); } };
+
   // End of Day SCAN form state
   const [scanFormUrl, setScanFormUrl] = useState<string | null>(null);
 
@@ -372,7 +377,8 @@ export default function FulfillmentTool() {
       });
       
       const data = await response.json();
-      await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined);
+      const url = await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined);
+      setPdfUrl(url);
     } catch (error) {
       console.error('Error fetching packing slip data:', error);
       toast({
@@ -462,9 +468,7 @@ export default function FulfillmentTool() {
     }
 
     const blob = doc.output('blob');
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank', 'noopener');
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    setPdfUrl(URL.createObjectURL(blob));
   };
 
   const handlePrintLotLabels = (orderIds: string[]) => {
@@ -633,6 +637,7 @@ export default function FulfillmentTool() {
 
   return (
     <>
+      {pdfUrl && <PdfViewer url={pdfUrl} onClose={closePdf} />}
       {/* ── Single-column layout: tiles at top, tabbed content below ── */}
       <div className="space-y-4">
 

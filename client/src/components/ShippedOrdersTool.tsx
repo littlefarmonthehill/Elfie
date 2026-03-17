@@ -15,6 +15,7 @@ import { Search, Package, Loader2, Printer, Tag, FileText, ChevronDown, RotateCc
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { printPackingSlips } from "./PackingSlip";
+import PdfViewer from "./PdfViewer";
 import DateRangeSelector, { DateRangeValue } from "./DateRangeSelector";
 
 type ShippedOrder = {
@@ -44,6 +45,8 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
   const [eodPending, setEodPending] = useState<string | null>(null); // orderId being fetched
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const closePdf = () => { if (pdfUrl) { URL.revokeObjectURL(pdfUrl); setPdfUrl(null); } };
 
   const returnToQueueMutation = useMutation({
     mutationFn: async (orderId: string) =>
@@ -112,7 +115,8 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
         body: JSON.stringify({ orderIds: [orderId] }),
       });
       const data = await response.json();
-      await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined);
+      const url = await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined);
+      setPdfUrl(url);
     } catch (error) {
       console.error('Error fetching packing slip data:', error);
       toast({
@@ -172,6 +176,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
 
   return (
     <>
+      {pdfUrl && <PdfViewer url={pdfUrl} onClose={closePdf} />}
       <div className="space-y-4">
         <div className="flex justify-center" data-testid="shipped-date-range">
           <DateRangeSelector value={dateRange} onChange={setDateRange} compact scaled />

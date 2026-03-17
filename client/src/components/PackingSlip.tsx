@@ -86,7 +86,7 @@ async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: stri
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 
-export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBranding): Promise<void> {
+export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBranding): Promise<string> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
   const logo = await loadLogoInfo(org?.logoUrl);
   let logoW = 0;
@@ -234,9 +234,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
   });
 
   const blob = doc.output('blob');
-  const url = URL.createObjectURL(blob);
-  window.open(url, '_blank', 'noopener');
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  return URL.createObjectURL(blob);
 }
 
 export default function PackingSlip({ orders }: PackingSlipProps) {
