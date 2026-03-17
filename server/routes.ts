@@ -9975,7 +9975,7 @@ Format search_web URLs as markdown links.`;
           itemNo: blInventory.itemNo,
           itemType: blInventory.itemType,
           itemName: blCatalog.itemName,
-          categoryName: blCatalog.categoryName,
+          categoryName: blCategories.name,
           colorName: blCatalog.colorName,
           quantity: blInventory.quantity,
           unitPrice: blInventory.unitPrice,
@@ -9989,6 +9989,7 @@ Format search_web URLs as markdown links.`;
           eq(blInventory.itemType, blCatalog.itemType),
           sql`CASE WHEN ${blInventory.colorId} = 0 THEN -1 ELSE ${blInventory.colorId} END = ${blCatalog.colorId}`,
         ))
+        .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
         .where(and(eq(blInventory.orgId, orgId), eq(blInventory.id, itemId)))
         .limit(1);
 
