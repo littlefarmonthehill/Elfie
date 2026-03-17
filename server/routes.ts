@@ -7382,6 +7382,34 @@ Format search_web URLs as markdown links.`;
           80 + Math.round(enrichIdx / filteredIdentified.length * 17),
         );
 
+        // Enrich bl_catalog with BL CDN image URL for every identified piece — no extra API calls.
+        // This means ALL items in a scan frame are enriched, not just ones the user taps.
+        // COALESCE keeps any higher-quality image already written by the catalog-detail scheduler.
+        if (piece.partNo && blItemType) {
+          try {
+            const typeCode = blItemType === 'MINIFIG' ? 'MN' : blItemType === 'SET' ? 'SN' : 'PN';
+            const effectiveColorId = blItemType === 'PART' ? (colorId ?? 0) : 0;
+            const cdnImageUrl = `https://img.bricklink.com/ItemImage/${typeCode}/${effectiveColorId}/${piece.partNo}.png`;
+            await db.insert(blCatalog).values({
+              itemNo: piece.partNo,
+              itemType: blItemType,
+              colorId: effectiveColorId,
+              itemName: piece.partName || null,
+              imageUrl: cdnImageUrl,
+              thumbnailUrl: cdnImageUrl,
+            }).onConflictDoUpdate({
+              target: [blCatalog.itemNo, blCatalog.itemType, blCatalog.colorId],
+              set: {
+                itemName: sql`COALESCE(bl_catalog.item_name, EXCLUDED.item_name)`,
+                imageUrl: sql`COALESCE(bl_catalog.image_url, EXCLUDED.image_url)`,
+                thumbnailUrl: sql`COALESCE(bl_catalog.thumbnail_url, EXCLUDED.thumbnail_url)`,
+              },
+            });
+          } catch (blCatalogImgErr: any) {
+            console.warn(`[Brickanalyzer] bl_catalog CDN write failed for ${blItemType}/${piece.partNo}:`, blCatalogImgErr.message);
+          }
+        }
+
         const detectionSource = clipFallbackSet.has(piece.cropIndex) ? 'elfie' : 'brickognize';
         return {
           partNo: piece.partNo || '',
