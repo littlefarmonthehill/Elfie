@@ -107,6 +107,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [binMoveExistingId, setBinMoveExistingId] = useState('');
   const [binMoveNewName, setBinMoveNewName] = useState('');
   const [binMovePending, setBinMovePending] = useState(false);
+  const [binMoveQties, setBinMoveQties] = useState<Map<number, string>>(new Map());
   const [addLocBinId, setAddLocBinId] = useState<string>("");
   const [addLocQty, setAddLocQty] = useState<string>("");
   const [addLocBagLabel, setAddLocBagLabel] = useState<string>("");
@@ -586,18 +587,21 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     setBinMoveType('existing');
     setBinMoveExistingId('');
     setBinMoveNewName('');
+    setBinMoveQties(new Map());
   };
 
   const openBinDetail = (bin: any) => {
+    const lots = locations.filter((l: any) => l.binId === bin.id);
     setBinDetailBin(bin);
-    const allIds = new Set<number>(
-      locations.filter((l: any) => l.binId === bin.id).map((l: any) => l.id)
-    );
-    setBinDetailSelected(allIds);
+    setBinDetailSelected(new Set<number>(lots.map((l: any) => l.id)));
     setBinMoveStep('select');
     setBinMoveType('existing');
     setBinMoveExistingId('');
     setBinMoveNewName('');
+    // Pre-fill quantities from existing location records
+    const qMap = new Map<number, string>();
+    lots.forEach((l: any) => { if (l.quantity != null) qMap.set(l.id, String(l.quantity)); });
+    setBinMoveQties(qMap);
     setBinDetailOpen(true);
   };
 
@@ -613,12 +617,14 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         targetBinId = parseInt(binMoveExistingId);
       }
       const toLots = binDetailLots.filter((l: any) => binDetailSelected.has(l.id));
-      await Promise.all(toLots.map((loc: any) =>
-        apiRequest('PUT', `/api/warehouse/locations/${loc.id}`, {
+      await Promise.all(toLots.map((loc: any) => {
+        const qtyStr = binMoveQties.get(loc.id);
+        const quantity = qtyStr ? (parseInt(qtyStr) || null) : null;
+        return apiRequest('PUT', `/api/warehouse/locations/${loc.id}`, {
           inventoryId: loc.inventoryId, binId: targetBinId,
-          quantity: loc.quantity ?? null, bagLabel: loc.bagLabel ?? null, notes: loc.notes ?? null,
-        })
-      ));
+          quantity, bagLabel: loc.bagLabel ?? null, notes: loc.notes ?? null,
+        });
+      }));
       invalidateWarehouse();
       const destName = binMoveType === 'new' ? binMoveNewName.trim()
         : bins.find((b: any) => b.id === targetBinId)?.name ?? 'bin';
@@ -1880,7 +1886,24 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                           <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{loc.itemNo}</span>
                           <span className="text-[11px] text-muted-foreground truncate flex-1">{loc.itemName || '—'}</span>
                           {loc.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{loc.colorName}</span>}
-                          {loc.quantity != null && <span className="text-[10px] text-muted-foreground shrink-0">×{loc.quantity}</span>}
+                          {checked && (
+                            <input
+                              type="number"
+                              min={1}
+                              placeholder="qty"
+                              value={binMoveQties.get(loc.id) ?? ''}
+                              onChange={e => {
+                                const v = e.target.value;
+                                setBinMoveQties(prev => { const m = new Map(prev); if (v) m.set(loc.id, v); else m.delete(loc.id); return m; });
+                              }}
+                              onClick={e => e.stopPropagation()}
+                              className="h-5 w-16 text-[10px] rounded border border-border bg-background px-1 shrink-0"
+                              data-testid={`input-move-qty-${loc.id}`}
+                            />
+                          )}
+                          {!checked && loc.quantity != null && (
+                            <span className="text-[10px] text-muted-foreground shrink-0">×{loc.quantity}</span>
+                          )}
                         </label>
                       );
                     })}
