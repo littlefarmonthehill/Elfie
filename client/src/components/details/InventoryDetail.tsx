@@ -530,7 +530,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
               </DialogHeader>
               <div className="w-full aspect-square bg-gray-900 rounded-lg flex items-center justify-center p-4">
                 <PartImage
-                  imageUrl={data.imageUrl}
+                  imageUrl={null}
                   partNumber={data.itemNo}
                   colorId={data.colorId ?? null}
                   itemType={itemType}
