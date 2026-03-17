@@ -846,16 +846,17 @@ export async function runMigrations() {
     // Phase-38: Backfill sold_quantity + sold_qty_avg_price for rows added before Phase-19
     // 9,491 rows have sold_avg_price but were synced before the qty columns existed.
     // Use sold_total_lots (best available proxy) and sold_avg_price (reasonable fallback).
-    await client.query(`
+    // Always stamp sold_fetched_at = NOW() so backfilled rows aren't immediately stale.
+    const p38 = await client.query(`
       UPDATE price_guide_cache
       SET
-        sold_quantity     = sold_total_lots,
+        sold_quantity      = sold_total_lots,
         sold_qty_avg_price = sold_avg_price::text,
-        sold_fetched_at   = COALESCE(sold_fetched_at, NOW())
+        sold_fetched_at    = NOW()
       WHERE sold_avg_price IS NOT NULL
         AND (sold_quantity IS NULL OR sold_qty_avg_price IS NULL)
     `);
-    console.log('[Migration] Phase-38 (backfill sold_quantity + sold_qty_avg_price) complete.');
+    console.log(`[Migration] Phase-38 (backfill sold_quantity + sold_qty_avg_price) complete — ${p38.rowCount ?? 0} rows updated.`);
 
     // Phase-39: Backfill stock_quantity + stock_qty_avg_price for rows added before Phase-19
     // Mirror of Phase-38 but for the stock (supply) guide side.
