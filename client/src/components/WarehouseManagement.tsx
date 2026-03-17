@@ -116,7 +116,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
   // Print labels state
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
-  const [printLabelSize, setPrintLabelSize] = useState<'avery5160' | 'avery5163' | 'avery5164'>('avery5163');
+  const [printLabelSize, setPrintLabelSize] = useState<'avery5160' | 'avery5163' | 'avery5164' | 'dymo30252' | 'dymo30336'>('avery5163');
 
   // Bulk bin state
   const [bulkPrefix, setBulkPrefix] = useState("BIN-");
@@ -684,6 +684,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     colGap: string; rowGap: string;
     qr: number; font: string; sub: string;
     previewH: string; previewQr: number;
+    mode: 'sheet' | 'dymo';
   }> = {
     avery5160: {
       name: 'Avery 5160 / 8160', desc: '1" × 2⅝"', perSheet: 30,
@@ -691,7 +692,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       pageMarginV: '0.5in', pageMarginH: '0.1875in',
       colGap: '0.125in', rowGap: '0in',
       qr: 48, font: '9px', sub: '7px',
-      previewH: 'h-10', previewQr: 32,
+      previewH: 'h-10', previewQr: 32, mode: 'sheet',
     },
     avery5163: {
       name: 'Avery 5163 / 8163', desc: '2" × 4"', perSheet: 10,
@@ -699,7 +700,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       pageMarginV: '0.5in', pageMarginH: '0.15625in',
       colGap: '0.1875in', rowGap: '0in',
       qr: 88, font: '14px', sub: '10px',
-      previewH: 'h-16', previewQr: 52,
+      previewH: 'h-16', previewQr: 52, mode: 'sheet',
     },
     avery5164: {
       name: 'Avery 5164 / 8164', desc: '3⅓" × 4"', perSheet: 6,
@@ -707,7 +708,23 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       pageMarginV: '0.5in', pageMarginH: '0.15625in',
       colGap: '0.1875in', rowGap: '0in',
       qr: 140, font: '18px', sub: '13px',
-      previewH: 'h-24', previewQr: 72,
+      previewH: 'h-24', previewQr: 72, mode: 'sheet',
+    },
+    dymo30252: {
+      name: 'Dymo 30252', desc: '1⅛" × 3½"', perSheet: 1,
+      w: '3.5in', h: '1.125in', cols: 1,
+      pageMarginV: '0.06in', pageMarginH: '0.06in',
+      colGap: '0in', rowGap: '0in',
+      qr: 62, font: '11px', sub: '8px',
+      previewH: 'h-10', previewQr: 40, mode: 'dymo',
+    },
+    dymo30336: {
+      name: 'Dymo 30336', desc: '1" × 2⅛"', perSheet: 1,
+      w: '2.125in', h: '1in', cols: 1,
+      pageMarginV: '0.05in', pageMarginH: '0.05in',
+      colGap: '0in', rowGap: '0in',
+      qr: 48, font: '9px', sub: '7px',
+      previewH: 'h-10', previewQr: 32, mode: 'dymo',
     },
   };
 
@@ -715,67 +732,69 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     if (printItems.length === 0) return;
     const origin = window.location.origin;
     const tmpl = LABEL_TEMPLATES[printLabelSize];
-    const labelHtml = printItems.map((item: any) => {
-      const qrData = getLabelQrData(item);
-      const sub = getLabelSubtext(item);
-      const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
-      return `
-        <div class="label">
+    const isDymo = tmpl.mode === 'dymo';
+
+    const commonCss = `
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: 'Helvetica Neue', Arial, sans-serif; background: white; }
+      .qr { display: block; flex-shrink: 0; }
+      .info { flex: 1; min-width: 0; overflow: hidden; }
+      .main { font-size: ${tmpl.font}; font-weight: 700; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .sub { font-size: ${tmpl.sub}; color: #555; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }`;
+
+    const waitScript = `<script>
+      window.addEventListener('load', function() {
+        var images = Array.from(document.images);
+        Promise.all(images.map(function(img) {
+          return img.complete ? Promise.resolve() : new Promise(function(resolve) { img.onload = resolve; img.onerror = resolve; });
+        })).then(function() { window.print(); });
+      });
+    <\/script>`;
+
+    let html: string;
+
+    if (isDymo) {
+      const labelHtml = printItems.map((item: any, i: number) => {
+        const qrData = getLabelQrData(item);
+        const sub = getLabelSubtext(item);
+        const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
+        const breakStyle = i < printItems.length - 1 ? ' style="page-break-after:always;"' : '';
+        return `<div class="label"${breakStyle}>
           <img class="qr" src="${qrUrl}" width="${tmpl.qr}" height="${tmpl.qr}" />
           <div class="info">
             <div class="main">${item.name}</div>
             ${sub ? `<div class="sub">${sub}</div>` : ''}
           </div>
         </div>`;
-    }).join('');
+      }).join('');
 
-    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: 'Helvetica Neue', Arial, sans-serif; background: white; }
-      @page {
-        size: letter;
-        margin: ${tmpl.pageMarginV} ${tmpl.pageMarginH};
-      }
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(${tmpl.cols}, ${tmpl.w});
-        column-gap: ${tmpl.colGap};
-        row-gap: ${tmpl.rowGap};
-      }
-      .label {
-        width: ${tmpl.w}; height: ${tmpl.h};
-        border: 1px solid #ccc;
-        border-radius: 3px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 6px;
-        page-break-inside: avoid;
-        background: white;
-        overflow: hidden;
-      }
-      .qr { display: block; flex-shrink: 0; }
-      .info { flex: 1; min-width: 0; overflow: hidden; }
-      .main { font-size: ${tmpl.font}; font-weight: 700; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .sub { font-size: ${tmpl.sub}; color: #555; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
-    </style>
-    <script>
-      window.addEventListener('load', function() {
-        var images = Array.from(document.images);
-        Promise.all(
-          images.map(function(img) {
-            return img.complete ? Promise.resolve() : new Promise(function(resolve) {
-              img.onload = resolve;
-              img.onerror = resolve;
-            });
-          })
-        ).then(function() { window.print(); });
-      });
-    <\/script>
-    </head><body>
-    <div class="grid">${labelHtml}</div>
-    </body></html>`;
+      html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+        ${commonCss}
+        @page { size: ${tmpl.w} ${tmpl.h}; margin: ${tmpl.pageMarginV}; }
+        .label { width: 100%; height: 100%; display: flex; align-items: center; gap: 5px; overflow: hidden; }
+      </style>${waitScript}</head><body>${labelHtml}</body></html>`;
+    } else {
+      const labelHtml = printItems.map((item: any) => {
+        const qrData = getLabelQrData(item);
+        const sub = getLabelSubtext(item);
+        const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
+        return `<div class="label">
+          <img class="qr" src="${qrUrl}" width="${tmpl.qr}" height="${tmpl.qr}" />
+          <div class="info">
+            <div class="main">${item.name}</div>
+            ${sub ? `<div class="sub">${sub}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+
+      html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+        ${commonCss}
+        @page { size: letter; margin: ${tmpl.pageMarginV} ${tmpl.pageMarginH}; }
+        .grid { display: grid; grid-template-columns: repeat(${tmpl.cols}, ${tmpl.w}); column-gap: ${tmpl.colGap}; row-gap: ${tmpl.rowGap}; }
+        .label { width: ${tmpl.w}; height: ${tmpl.h}; border: 1px solid #ccc; border-radius: 3px; display: flex; align-items: center; gap: 6px; padding: 6px; page-break-inside: avoid; background: white; overflow: hidden; }
+      </style>${waitScript}</head><body><div class="grid">${labelHtml}</div></body></html>`;
+    }
 
     const win = window.open('', '_blank', 'width=800,height=600');
     if (win) {
@@ -1202,6 +1221,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             <div>
               <Label className="text-xs mb-2 block">Label template</Label>
               <div className="flex flex-col gap-1.5">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Sheet labels (Avery)</p>
                 {(['avery5160', 'avery5163', 'avery5164'] as const).map(key => {
                   const t = LABEL_TEMPLATES[key];
                   return (
@@ -1214,6 +1234,24 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                       <div>
                         <div className="font-semibold">{t.name}</div>
                         <div className={`mt-0.5 ${printLabelSize === key ? 'text-primary/70' : 'text-muted-foreground'}`}>{t.desc} — {t.cols} across, {t.perSheet} per sheet</div>
+                      </div>
+                      <div className={`text-[10px] font-mono shrink-0 ${printLabelSize === key ? 'text-primary/60' : 'text-muted-foreground'}`}>{t.w} × {t.h}</div>
+                    </button>
+                  );
+                })}
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mt-1">Dymo label maker</p>
+                {(['dymo30252', 'dymo30336'] as const).map(key => {
+                  const t = LABEL_TEMPLATES[key];
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setPrintLabelSize(key)}
+                      className={`rounded-md border py-2 px-3 text-xs text-left transition-colors flex items-center justify-between gap-3 ${printLabelSize === key ? 'border-primary bg-primary/10 text-primary' : 'border-border hover-elevate'}`}
+                      data-testid={`button-label-size-${key}`}
+                    >
+                      <div>
+                        <div className="font-semibold">{t.name}</div>
+                        <div className={`mt-0.5 ${printLabelSize === key ? 'text-primary/70' : 'text-muted-foreground'}`}>{t.desc} — one label at a time</div>
                       </div>
                       <div className={`text-[10px] font-mono shrink-0 ${printLabelSize === key ? 'text-primary/60' : 'text-muted-foreground'}`}>{t.w} × {t.h}</div>
                     </button>
