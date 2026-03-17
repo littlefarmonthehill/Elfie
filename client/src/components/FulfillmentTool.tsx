@@ -712,30 +712,30 @@ export default function FulfillmentTool() {
           </div>
         )}
 
-        {/* ── Tab switcher: Fulfillment | Shipping — full width ── */}
-        <div className="flex justify-center gap-1 border-b border-gray-700">
+        {/* ── Tab switcher: Fulfillment | Shipping ── */}
+        <div className="flex border-b border-gray-700">
           <button
             onClick={() => setActiveTab('picklist')}
-            className={`flex items-center gap-1.5 px-5 py-2.5 text-base font-semibold border-b-2 transition-colors ${
+            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border-b-2 -mb-px transition-colors ${
               activeTab === 'picklist'
                 ? 'border-orange-500 text-orange-400'
                 : 'border-transparent text-gray-400 hover:text-gray-200'
             }`}
             data-testid="tab-picklist"
           >
-            <ClipboardList className="w-4 h-4" />
+            <ClipboardList className="w-3.5 h-3.5" />
             Fulfillment
           </button>
           <button
             onClick={() => setActiveTab('shipping')}
-            className={`flex items-center gap-1.5 px-5 py-2.5 text-base font-semibold border-b-2 transition-colors ${
+            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border-b-2 -mb-px transition-colors ${
               activeTab === 'shipping'
                 ? 'border-purple-500 text-purple-400'
                 : 'border-transparent text-gray-400 hover:text-gray-200'
             }`}
             data-testid="tab-shipping"
           >
-            <Truck className="w-4 h-4" />
+            <Truck className="w-3.5 h-3.5" />
             Shipping
           </button>
         </div>

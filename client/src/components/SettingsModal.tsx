@@ -3684,7 +3684,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   <button
                     key={tab}
                     onClick={() => setActiveGeneralTab(tab)}
-                    className={`px-4 py-2.5 text-[11px] font-semibold transition-colors border-b-2 -mb-px ${activeGeneralTab === tab ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
+                    className={`px-4 py-2 text-xs font-semibold transition-colors border-b-2 -mb-px ${activeGeneralTab === tab ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
                     data-testid={`tab-general-${tab}`}
                   >
                     {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -4238,7 +4238,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       <button
                         key={tab}
                         onClick={() => setActivePlatformInnerTab(tab)}
-                        className={`flex-1 py-2.5 text-xs font-semibold transition-colors border-b-2 -mb-px ${activePlatformInnerTab === tab ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
+                        className={`flex-1 py-2 text-xs font-semibold transition-colors border-b-2 -mb-px ${activePlatformInnerTab === tab ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
                         data-testid={`tab-platform-services-${tab}`}
                       >
                         {tab === 'platforms' ? 'Platforms' : 'Scheduler'}
@@ -6138,7 +6138,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           <button
                             key={tab}
                             onClick={() => setActiveOrgTab(tab)}
-                            className={`flex-1 py-2.5 text-[11px] font-semibold transition-colors border-b-2 -mb-px ${activeOrgTab === tab ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
+                            className={`flex-1 py-2 text-xs font-semibold transition-colors border-b-2 -mb-px ${activeOrgTab === tab ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
                             data-testid={`tab-${tab}-${org.id}`}
                           >
                             {tab === 'billing' ? 'Billing / Payments' : tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -6559,7 +6559,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         <button
                           key={tab.id}
                           onClick={() => setActiveAuditOrgTab(tab.id)}
-                          className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold transition-colors border-b-2 -mb-px ${activeAuditOrgTab === tab.id ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
+                          className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold transition-colors border-b-2 -mb-px ${activeAuditOrgTab === tab.id ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
                           data-testid={`audit-org-tab-${tab.id}`}
                         >
                           {tab.label}
@@ -6734,7 +6734,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         <button
                           key={tab.id}
                           onClick={() => setActiveAuditPlatformTab(tab.id)}
-                          className={`flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold transition-colors border-b-2 -mb-px ${activeAuditPlatformTab === tab.id ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
+                          className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold transition-colors border-b-2 -mb-px ${activeAuditPlatformTab === tab.id ? 'text-yellow-400 border-yellow-500' : 'text-gray-400 border-transparent hover:text-gray-100'}`}
                           data-testid={`audit-platform-tab-${tab.id}`}
                         >
                           {tab.label}

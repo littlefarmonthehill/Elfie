@@ -2654,7 +2654,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                         <button
                           key={tab}
                           onClick={() => setOverlayTab(tab)}
-                          className={`flex-1 py-2.5 text-[11px] font-semibold uppercase tracking-wider transition-colors border-b-2 ${
+                          className={`flex-1 py-2 text-xs font-semibold transition-colors border-b-2 -mb-px ${
                             overlayTab === tab
                               ? 'border-lego-blue text-white'
                               : 'border-transparent text-gray-500 hover:text-gray-300'
