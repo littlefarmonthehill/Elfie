@@ -250,13 +250,24 @@ export default function Home() {
       // No session storage — look up the first matching inventory lot by part number + color
       // (used when opening from Brickspotter heatmap)
       try {
-        const searchParams = new URLSearchParams({ itemNo, limit: '50' });
-        if (colorId) searchParams.set('colorId', colorId);
-        const searchRes = await fetch(`/api/inventory/search?${searchParams}`);
-        if (searchRes.ok) {
-          const lots = await searchRes.json();
+        // First try with color filter (more precise)
+        if (colorId) {
+          const searchParams = new URLSearchParams({ itemNo, colorId, limit: '50' });
+          const searchRes = await fetch(`/api/inventory/search?${searchParams}`);
+          if (searchRes.ok) {
+            const lots = await searchRes.json();
+            if (Array.isArray(lots) && lots.length > 0) {
+              await handleDashboardItemClick('inventory', lots[0].id, initialTab);
+              return;
+            }
+          }
+        }
+        // Fall back to part number only (handles color mismatches, minifigs, stickers, etc.)
+        const fallbackParams = new URLSearchParams({ itemNo, limit: '50' });
+        const fallbackRes = await fetch(`/api/inventory/search?${fallbackParams}`);
+        if (fallbackRes.ok) {
+          const lots = await fallbackRes.json();
           if (Array.isArray(lots) && lots.length > 0) {
-            // Re-run as a normal inventory item using the real DB id
             await handleDashboardItemClick('inventory', lots[0].id, initialTab);
             return;
           }
