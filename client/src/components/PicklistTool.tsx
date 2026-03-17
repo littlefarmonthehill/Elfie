@@ -5,7 +5,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Package, Loader2, List, Layers, ChevronDown, ChevronRight, ScanLine, Camera, X, CheckCircle2, AlertCircle } from "lucide-react";
-import { resolvePartImageUrl } from "@/lib/part-image";
 
 type WarehouseLocation = {
   aisle: { id: number; name: string };
@@ -266,89 +265,97 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
 
   const partKey = (item: BinPicklistItem) => item.partNumber || item.sku || '';
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
+    const { default: jsPDF } = await import('jspdf');
     const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     const filterLabel = filter === 'to_pull' ? 'To Pull' : 'All Items';
+    const chanPrefix = (item: BinPicklistItem) => item.marketplace === 'BrickOwl' ? 'BO' : 'BL';
+    const condLabel = (c: string | null) => c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
 
-    let body = '';
-
-    const chanPrefix = (item: BinPicklistItem) =>
-      item.marketplace === 'BrickOwl' ? 'BO' : 'BL';
-    const condLabel = (c: string | null) =>
-      c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
-
-    // Printed picklist: every individual order line is its own single <tr> — never splits
-    body = [...flatItems].sort((a, b) => {
+    const sortedItems = [...flatItems].sort((a, b) => {
       const pk = partKey(a).localeCompare(partKey(b), undefined, { numeric: true });
       if (pk !== 0) return pk;
       const ck = (a.colorName || '').localeCompare(b.colorName || '');
       if (ck !== 0) return ck;
       return (a.condition || '').localeCompare(b.condition || '');
-    }).map(item => {
-      const header = [
-        `<span class="part-no">${item.partNumber || item.sku}</span>`,
-        item.colorName ? `<span class="color">${item.colorName}</span>` : '',
-        item.condition ? `<span class="cond">${condLabel(item.condition)}</span>` : '',
-        item.itemName ? `<span class="desc">${item.itemName}</span>` : '',
-      ].filter(Boolean).join(' · ');
-      // Strip any existing BL/BO prefix before adding ours
+    });
+
+    const PAGE_W = 215.9;
+    const PAGE_H = 279.4;
+    const MARGIN = 8;
+    const CONTENT_W = PAGE_W - 2 * MARGIN;
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Picklist \u2014 ${date}`, MARGIN, MARGIN + 5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`${filterLabel} \u00b7 ${sortedItems.length} item${sortedItems.length !== 1 ? 's' : ''}`, MARGIN, MARGIN + 11);
+
+    let y = MARGIN + 17;
+
+    for (const item of sortedItems) {
+      const hasComment = !!(item.comment);
+      const itemH = 3 + 5 + 4 + (hasComment ? 4 : 0) + 2;
+      if (y + itemH > PAGE_H - MARGIN) { doc.addPage(); y = MARGIN; }
+
+      doc.setDrawColor(187, 187, 187);
+      doc.setLineWidth(0.25);
+      doc.line(MARGIN, y, MARGIN + 20, y);
+      y += 3;
+
+      const partStr = partKey(item);
+      const restParts = [
+        item.colorName,
+        item.condition ? condLabel(item.condition) : null,
+        item.itemName,
+      ].filter(Boolean) as string[];
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text(partStr, MARGIN, y);
+      const partW = doc.getTextWidth(partStr);
+
+      if (restParts.length > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(70, 70, 70);
+        let restStr = ' \u00b7 ' + restParts.join(' \u00b7 ');
+        const maxW = CONTENT_W - partW;
+        while (doc.getTextWidth(restStr) > maxW && restStr.length > 4) restStr = restStr.slice(0, -1);
+        if (restStr.length < (' \u00b7 ' + restParts.join(' \u00b7 ')).length) restStr = restStr.slice(0, -3) + '\u2026';
+        doc.text(restStr, MARGIN + partW, y);
+      }
+      y += 5;
+
       const rawOrder = (item.orderNumber || '').replace(/^(BL|BO)/i, '');
-      const meta = [
+      const metaParts = [
         `Qty ${item.quantity}`,
         `${chanPrefix(item)}${rawOrder}`,
-        item.inventoryId ? `Lot ${item.inventoryId}` : '',
-      ].filter(Boolean).join(' · ');
-      const notesLine = [
-        item.comment ? `<span class="note-comment">&#x1F4AC; ${item.comment}</span>` : '',
-      ].filter(Boolean).join(' &nbsp;');
-      // resolvePartImageUrl may return a relative proxy URL (/api/images/proxy?url=...)
-      // The print window is a blank tab so relative URLs resolve against about:blank.
-      // Prefix with the app origin so Rebrickable images load correctly when printing.
-      const rawImgSrc = resolvePartImageUrl(item.imageUrl, item.partNumber);
-      const imgSrc = rawImgSrc?.startsWith('/')
-        ? `${window.location.origin}${rawImgSrc}`
-        : rawImgSrc;
-      const imgTag = imgSrc
-        ? `<img class="thumb" src="${imgSrc}" alt="" onerror="this.style.display='none'" />`
-        : `<div class="thumb-placeholder"></div>`;
-      const notesRow = notesLine ? `<div class="notes">${notesLine}</div>` : '';
-      return `<tr class="item-row"><td><div class="cut-wrap"><div class="cut-tick"></div></div><div class="item-body">${imgTag}<div class="item-text"><div class="item-header">${header}</div><div class="meta">${meta}</div>${notesRow}</div></div></td></tr>`;
-    }).join('');
+        item.inventoryId ? `Lot ${item.inventoryId}` : null,
+      ].filter(Boolean) as string[];
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(120, 120, 120);
+      doc.text(metaParts.join(' \u00b7 '), MARGIN, y);
+      y += 4;
 
-    const html = `<!DOCTYPE html><html><head><title>Picklist — ${date}</title>
-<style>
-  body { font-family: monospace; font-size: 14px; margin: 2px; color: #000; }
-  h2 { font-size: 16px; margin: 0 0 4px; }
-  .sub { font-size: 11px; color: #555; margin-bottom: 10px; }
-  table { width: 100%; border-collapse: collapse; }
-  td { padding: 0; vertical-align: top; }
-  .part-no { font-weight: bold; }
-  .color { color: #333; }
-  .cond { color: #333; }
-  .desc { color: #555; }
-  .meta { color: #555; font-size: 12px; margin-top: 2px; }
-  .notes { font-size: 11px; margin-top: 3px; line-height: 1.4; }
-  .note-remarks { color: #444; }
-  .note-comment { color: #0055aa; }
-  .item-row { page-break-inside: avoid; break-inside: avoid; }
-  .cut-wrap { padding: 8px 0; }
-  .cut-tick { width: 22px; border-top: 1px solid #bbb; }
-  .item-body { display: flex; align-items: flex-start; gap: 6px; }
-  .thumb { max-height: 36px; max-width: 36px; width: auto; height: auto; object-fit: contain; flex-shrink: 0; }
-  .thumb-placeholder { width: 36px; flex-shrink: 0; }
-  .item-text { flex: 1; }
-  @media print { @page { margin: 0.05in; } }
-</style></head><body>
-<table>${body}</table>
-</body></html>`;
-
-    const w = window.open('', '_blank');
-    if (w) {
-      w.document.write(html);
-      w.document.close();
-      w.addEventListener('afterprint', () => w.close());
-      w.print();
+      if (item.comment) {
+        doc.setFontSize(7.5);
+        doc.setTextColor(0, 85, 170);
+        doc.text(item.comment, MARGIN, y);
+        y += 3.5;
+      }
+      y += 2;
     }
+
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
   };
 
   // ── Derived data ──
