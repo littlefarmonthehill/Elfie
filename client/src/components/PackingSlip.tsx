@@ -36,6 +36,7 @@ type PackingSlipOrder = {
     quantity: number;
     colorName: string | null;
     condition: string | null;
+    comment: string | null;
   }>;
 };
 
@@ -173,11 +174,14 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
       const color = item.colorName ? `${item.colorName} ` : '';
       const part  = item.bricklinkPartNumber ? ` (${item.bricklinkPartNumber})` : '';
       const name  = `LEGO ${color}${base}${part}`;
-      const meta  = [
+      const metaParts = [
         item.colorName ? `Color: ${item.colorName}`     : '',
         item.condition ? `Condition: ${item.condition}` : '',
-      ].filter(Boolean).join(', ');
-      return [meta ? `${name}\n${meta}` : name, String(item.quantity)];
+      ].filter(Boolean);
+      const meta = metaParts.length > 0 ? metaParts.join(', ') : '';
+      const comment = item.comment?.trim() || '';
+      const line2 = [meta, comment].filter(Boolean).join('  ·  ');
+      return [line2 ? `${name}\n${line2}` : name, String(item.quantity)];
     });
 
     autoTable(doc, {

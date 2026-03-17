@@ -13597,6 +13597,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
             ELSE NULL
           END
         )`,
+        comment: blInventory.description,
       })
         .from(orderDetails)
         .leftJoin(blInventory, eq(sql`CAST(${blInventory.id} AS TEXT)`, orderDetails.sku))
