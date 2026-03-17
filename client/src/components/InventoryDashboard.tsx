@@ -3,7 +3,7 @@ import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import { InfoIcon, Package, Sparkles, RefreshCw, Info, ScanSearch, Globe, Boxes, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { InfoIcon, Package, Sparkles, RefreshCw, Info, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import { Input } from "@/components/ui/input";
 import {
@@ -25,8 +25,8 @@ interface InventoryStats {
 
 interface InventoryDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string, initialTab?: string) => void;
-  activeDrawer: 'priceomatic' | 'warehouse' | 'platformsync' | 'brickanalyzer' | null;
-  onDrawerChange: (drawer: 'priceomatic' | 'warehouse' | 'platformsync' | 'brickanalyzer' | null) => void;
+  activeDrawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | null;
+  onDrawerChange: (drawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | null) => void;
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing' | 'priceomatic') => void;
 }
 
@@ -249,30 +249,6 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               </div>
               <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="listomatic-action-stats">
                 <span className="text-[9px] text-green-400/70">Sync across channels</span>
-              </div>
-            </button>
-
-            {/* Warehouse */}
-            <button
-              onClick={() => onDrawerChange('warehouse')}
-              data-testid="tool-warehouse"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-teal-500/50 bg-gradient-to-br from-teal-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
-              style={{ '--tool-glow-color': 'rgba(20,184,166,0.35)' } as React.CSSProperties}
-            >
-              <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-teal-900/70 p-1.5 ring-1 ring-teal-500/45 shadow-[0_0_10px_rgba(20,184,166,0.22)]">
-                  <Boxes className={cn("w-3.5 h-3.5 text-teal-200", "md:w-5 md:h-5")} />
-                </div>
-                <span className={cn("text-xs font-bold text-teal-100 leading-tight flex-1", "md:text-sm")}>Warehouse</span>
-              </div>
-              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="warehouse-action-stats">
-                {(toolStats?.warehouseUnassigned ?? 0) > 0 ? (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-600/30">
-                    {toolStats!.warehouseUnassigned} unassigned
-                  </span>
-                ) : toolStats ? (
-                  <span className="text-[9px] text-green-400/70">All organized</span>
-                ) : null}
               </div>
             </button>
 

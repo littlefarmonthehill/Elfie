@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Package, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut, ArrowLeft, RotateCw, AlertCircle, Mail, Sparkles, Warehouse, ListChecks, ScanSearch, Truck, PackageCheck, SlidersHorizontal, Info } from "lucide-react";
+import { Package, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut, ArrowLeft, RotateCw, AlertCircle, Mail, Sparkles, ListChecks, ScanSearch, Truck, PackageCheck, SlidersHorizontal, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -26,7 +26,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { ToolDrawer } from "@/components/ui/tool-drawer";
 import PriceOMaticDashboard, { type PricingInsight } from "@/components/PriceOMaticDashboard";
-import WarehouseManagement from "@/components/WarehouseManagement";
 import ListomaticPriority from "@/components/ListomaticPriority";
 import BrickanalyzerTool from "@/components/BrickanalyzerTool";
 import FulfillmentTool from "@/components/FulfillmentTool";
@@ -79,7 +78,7 @@ export default function Home() {
     forum: { count: number; posts: Array<{ title: string; excerpt: string; username: string; postedAt: string; threadUrl: string }> };
     news: { count: number; articles: Array<{ title: string; snippet: string; url: string; source: string; query: string; fetchedAt: string }> };
   } | null>(null);
-  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'warehouse' | 'platformsync' | 'brickanalyzer' | null>(null);
+  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'platformsync' | 'brickanalyzer' | null>(null);
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'shipped' | null>(null);
   const [activeMarketingDrawer, setActiveMarketingDrawer] = useState<MarketingDrawer>(null);
   const [activeSalesDrawer, setActiveSalesDrawer] = useState<SalesDrawer>(null);
@@ -384,13 +383,6 @@ export default function Home() {
           </Button>
         }>
           <PriceOMaticDashboard onItemClick={(type, id) => handleDashboardItemClick(type, id, 'pricing')} onOpenSettings={openSettings} />
-        </ToolDrawer>
-      );
-    }
-    if (activeInventoryDrawer === 'warehouse') {
-      return (
-        <ToolDrawer icon={Warehouse} iconColor="text-blue-400" title="Warehouse Management" onClose={closeActiveDrawer}>
-          <WarehouseManagement onItemClick={handleDashboardItemClick} />
         </ToolDrawer>
       );
     }
@@ -1081,7 +1073,6 @@ export default function Home() {
               <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-gray-800">
                 <DrawerTitle className="flex items-center gap-2 text-sm font-semibold text-gray-100 flex-1">
                   {activeInventoryDrawer === 'priceomatic' && <><Sparkles className="w-4 h-4 text-purple-400 flex-shrink-0" /> Price-o-Matic</>}
-                  {activeInventoryDrawer === 'warehouse' && <><Warehouse className="w-4 h-4 text-blue-400 flex-shrink-0" /> Warehouse Management</>}
                   {activeInventoryDrawer === 'platformsync' && <><ListChecks className="w-4 h-4 text-green-400 flex-shrink-0" /> List-o-Matic</>}
                   {activeInventoryDrawer === 'brickanalyzer' && <><ScanSearch className="w-4 h-4 text-lego-yellow flex-shrink-0" /> Brick Spotter 3000</>}
                   {activeOrdersDrawer === 'fulfillment' && <><Truck className="w-4 h-4 text-orange-400 flex-shrink-0" /> Fulfillment & Shipping</>}
@@ -1097,7 +1088,6 @@ export default function Home() {
             </DrawerHeader>
             <div className="flex-1 overflow-y-auto px-4 pt-3 min-h-0">
               {activeInventoryDrawer === 'priceomatic' && <PriceOMaticDashboard onItemClick={(type, id) => handleDashboardItemClick(type, id, 'pricing')} onOpenSettings={(section, pricingExample, scoringExample) => { setSettingsInitialSection(section as any); setSettingsPricingExample(pricingExample); setSettingsScoringExample(scoringExample); setSettingsOpen(true); }} />}
-              {activeInventoryDrawer === 'warehouse' && <WarehouseManagement onItemClick={handleDashboardItemClick} />}
               {activeInventoryDrawer === 'platformsync' && <ListomaticPriority />}
               {activeInventoryDrawer === 'brickanalyzer' && <BrickanalyzerTool onItemClick={(type, id, tab) => handleDashboardItemClick(type, id, tab)} />}
               {activeOrdersDrawer === 'fulfillment' && <FulfillmentTool />}
