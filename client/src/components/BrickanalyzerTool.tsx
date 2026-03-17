@@ -522,7 +522,11 @@ const MINIFIG_PART_CATEGORY_IDS = new Set([
   19,   // Minifigure, Weapon
 ]);
 
-const BrickanalyzerTool = forwardRef((_, ref) => {
+interface BrickanalyzerToolProps {
+  onItemClick?: (type: 'inventory', id: string, tab?: string) => void;
+}
+
+const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, ref) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uiState, setUiState] = useState<UIState>("idle");
@@ -1113,8 +1117,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
   const [expandedCardTab, setExpandedCardTab] = useState<Record<string, 'matches' | 'inventory'>>({});
   // Focused crop index for heatmap dialog — highlights one box when opening from card header
   const [heatmapCropFocus, setHeatmapCropFocus] = useState<number | null>(null);
-  // Popup info card on the heatmap — toggled by tapping the price badge
-  const [heatmapPopupCropIndex, setHeatmapPopupCropIndex] = useState<number | null>(null);
   // Heatmap price toggles — defaults overridden by saved user preferences once loaded
   const [heatmapCondition, setHeatmapCondition] = useState<'new' | 'used'>('new');
   const [heatmapSource, setHeatmapSource] = useState<'peak' | 'sold' | 'listed'>('peak');
@@ -2270,7 +2272,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setHeatmapCropFocus(null);
-                                setHeatmapPopupCropIndex(null);
                                 setFocusedDetailCropIndex(r.cropIndex ?? null);
                               }}
                               style={{
@@ -2307,13 +2308,14 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                   <span style={mkCorner(c, 'auto', 0, 'auto', 0)} />
                                 </>);
                               })()}
-                              {/* Price badge — tapping toggles the info popup */}
+                              {/* Price badge — tapping opens item details drawer on pricing tab */}
                               <button
                                 onMouseDown={e => e.stopPropagation()}
                                 onClick={e => {
                                   e.stopPropagation();
-                                  const ci = r.cropIndex ?? null;
-                                  setHeatmapPopupCropIndex(prev => prev === ci ? null : ci);
+                                  if (onItemClick && r.partNo) {
+                                    onItemClick('inventory', `bricklink-${r.partNo}`, 'pricing');
+                                  }
                                 }}
                                 data-testid={`heatmap-price-badge-${r.cropIndex ?? i}`}
                                 style={{
@@ -2325,9 +2327,7 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                   left: '50%',
                                   transform: 'translateX(-50%)',
                                   zIndex: 20,
-                                  cursor: 'pointer',
-                                  outline: heatmapPopupCropIndex === (r.cropIndex ?? null) ? `2px solid ${ts.corner}` : 'none',
-                                  outlineOffset: 1,
+                                  cursor: onItemClick && r.partNo ? 'pointer' : 'default',
                                 }}
                                 className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm leading-tight whitespace-nowrap shadow-lg"
                               >
@@ -2362,121 +2362,6 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                     Identified by E.L.F.I.E. visual search
                                   </TooltipContent>
                                 </Tooltip>
-                              )}
-                              {/* ── Heatmap price info popup ───────────────────── */}
-                              {heatmapPopupCropIndex === (r.cropIndex ?? null) && (
-                                <div
-                                  onMouseDown={e => e.stopPropagation()}
-                                  onClick={e => e.stopPropagation()}
-                                  onTouchStart={e => e.stopPropagation()}
-                                  onTouchMove={e => e.stopPropagation()}
-                                  onTouchEnd={e => e.stopPropagation()}
-                                  data-testid={`heatmap-popup-${r.cropIndex ?? i}`}
-                                  style={{
-                                    position: 'absolute',
-                                    // Show above bbox if piece is in the lower half of image, else below price badge
-                                    ...((r.bboxY ?? 0) > 42
-                                      ? { bottom: 'calc(100% + 4px)' }
-                                      : { top: 'calc(100% + 22px)' }),
-                                    // Horizontal: clamp so popup never bleeds off the image edge.
-                                    // Anchor left if piece is near the left edge, right if near the right, center otherwise.
-                                    ...((() => {
-                                      const cx = (r.bboxX ?? 0) + (r.bboxW ?? 0) / 2;
-                                      if (cx < 35) return { left: 0, right: 'auto', transform: 'none' };
-                                      if (cx > 65) return { right: 0, left: 'auto', transform: 'none' };
-                                      return { left: '50%', transform: 'translateX(-50%)' };
-                                    })()),
-                                    zIndex: 200,
-                                    width: 264,
-                                    pointerEvents: 'auto',
-                                  }}
-                                  className="rounded-xl shadow-2xl shadow-black border border-white/20 bg-gray-950 overflow-hidden"
-                                >
-                                  {/* Close button */}
-                                  <button
-                                    data-testid={`heatmap-popup-close-${r.cropIndex ?? i}`}
-                                    onClick={(e) => { e.stopPropagation(); setHeatmapPopupCropIndex(null); }}
-                                    onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); setHeatmapPopupCropIndex(null); }}
-                                    className="absolute top-1.5 right-1.5 z-10 w-6 h-6 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors"
-                                    style={{ zIndex: 210 }}
-                                  >
-                                    <X className="w-3.5 h-3.5" />
-                                  </button>
-                                  {/* Part header */}
-                                  <div className="px-3.5 pt-3 pb-2.5 border-b border-white/10 pr-9">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <span className="text-white font-bold text-sm font-mono tracking-wide">{r.partNo}</span>
-                                      {r.colorId != null && r.colorRgb && (
-                                        <span
-                                          style={{
-                                            background: `#${r.colorRgb}`,
-                                            width: 12, height: 12,
-                                            borderRadius: 3,
-                                            display: 'inline-block',
-                                            border: '1px solid rgba(255,255,255,0.30)',
-                                            flexShrink: 0,
-                                          }}
-                                        />
-                                      )}
-                                    </div>
-                                    <div className="text-gray-100 text-[13px] leading-snug font-medium">{r.partName}</div>
-                                    {r.colorName && r.colorId !== 0 && r.colorId != null && (
-                                      <div className="text-gray-400 text-[11px] mt-0.5">{r.colorName}</div>
-                                    )}
-                                  </div>
-                                  {/* Price rows — scrollable, updates with heatmap filter toggles */}
-                                  {(() => {
-                                    const activeLabel =
-                                      heatmapSource === 'peak' ? null
-                                      : heatmapSource === 'sold'
-                                        ? (heatmapMetric === 'max' ? 'Sold Max' : 'Sold Avg')
-                                        : (heatmapMetric === 'max' ? 'List Max' : 'List Avg');
-                                    const activeCol = heatmapCondition; // 'new' | 'used'
-                                    return (
-                                      <div className="px-2.5 py-2 space-y-0" style={{ maxHeight: 200, overflowY: 'auto', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', overscrollBehavior: 'contain' } as React.CSSProperties}>
-                                        {/* Column headers — sticky, active column underlined */}
-                                        <div className="grid grid-cols-[1fr_70px_70px] text-[10px] font-bold uppercase tracking-widest pb-1.5 border-b border-white/[0.07] bg-gray-950" style={{ position: 'sticky', top: 0, zIndex: 1 }}>
-                                          <span className="text-gray-600 px-1"></span>
-                                          <span className={`text-center ${activeCol === 'new' ? 'text-blue-300 underline decoration-2 underline-offset-2' : 'text-blue-500'}`}>New</span>
-                                          <span className={`text-center ${activeCol === 'used' ? 'text-orange-300 underline decoration-2 underline-offset-2' : 'text-orange-500'}`}>Used</span>
-                                        </div>
-                                        {([
-                                          { label: 'Sold Avg', n: r.marketSoldAvgNew,  u: r.marketSoldAvgUsed,  color: 'text-amber-300' },
-                                          { label: 'Sold Max', n: r.marketSoldMaxNew,  u: r.marketSoldMaxUsed,  color: 'text-amber-200' },
-                                          { label: 'List Avg', n: r.stockAvgPriceN,    u: r.stockAvgPriceU,    color: 'text-sky-300'   },
-                                          { label: 'List Max', n: r.stockMaxPriceN,    u: r.stockMaxPriceU,    color: 'text-sky-200'   },
-                                          ...(r.ourPriceNew != null || r.ourPriceUsed != null
-                                            ? [{ label: 'My Price', n: r.ourPriceNew, u: r.ourPriceUsed, color: 'text-purple-300' }]
-                                            : []),
-                                          ...(r.suggestedPriceNew != null || r.suggestedPriceUsed != null
-                                            ? [{ label: 'Suggested', n: r.suggestedPriceNew, u: r.suggestedPriceUsed, color: 'text-emerald-300' }]
-                                            : []),
-                                        ] as { label: string; n: number | null | undefined; u: number | null | undefined; color: string }[]).map(row => {
-                                          const nStr = row.n != null && (row.n as number) > 0 ? `$${(row.n as number).toFixed(2)}` : '—';
-                                          const uStr = row.u != null && (row.u as number) > 0 ? `$${(row.u as number).toFixed(2)}` : '—';
-                                          if (nStr === '—' && uStr === '—') return null;
-                                          const isActiveRow = row.label === activeLabel;
-                                          const nActive = isActiveRow && activeCol === 'new';
-                                          const uActive = isActiveRow && activeCol === 'used';
-                                          return (
-                                            <div
-                                              key={row.label}
-                                              className={`grid grid-cols-[1fr_70px_70px] py-[4px] border-b border-white/[0.05] last:border-0 ${isActiveRow ? 'bg-white/[0.06] rounded' : ''}`}
-                                            >
-                                              <span className={`text-[11px] px-1 flex items-center font-semibold ${isActiveRow ? 'text-white' : 'text-gray-400'}`}>{row.label}</span>
-                                              <span className={`text-center text-[13px] font-mono font-bold tabular-nums ${nStr === '—' ? 'text-gray-600' : row.color} ${nActive ? 'bg-white/10 rounded' : ''}`}>{nStr}</span>
-                                              <span className={`text-center text-[13px] font-mono font-bold tabular-nums ${uStr === '—' ? 'text-gray-600' : row.color} ${uActive ? 'bg-white/10 rounded' : ''}`}>{uStr}</span>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    );
-                                  })()}
-                                  {/* Tap-to-dismiss hint */}
-                                  <div className="px-3 py-1.5 border-t border-white/[0.06] text-center text-[10px] text-gray-500">
-                                    tap price to dismiss
-                                  </div>
-                                </div>
                               )}
                               {overlayDismissKey && (
                                 <button
