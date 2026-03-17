@@ -46,7 +46,7 @@ interface PackingSlipProps {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MARGIN   = 6.35;         // 0.25 in → mm (industry-minimum for laser printers)
+const MARGIN   = 4;            // ~0.16 in → mm (minimal page margin)
 const PAGE_W   = 215.9;        // letter width mm
 const PAGE_H   = 279.4;        // letter height mm
 const CONTENT_W = PAGE_W - 2 * MARGIN;  // 203.2 mm
@@ -101,31 +101,39 @@ export function openLoadingWindow(): Window | null {
 }
 
 /**
- * Navigate `preOpenedWin` (or open a new window) to the blob URL, then
- * auto-print and close on afterprint.
+ * Navigate `preOpenedWin` (or open a new window) to the blob URL.
+ * doc.autoPrint() embedded in the PDF triggers the print dialog automatically.
+ * The window closes once the print dialog is dismissed (afterprint event).
  */
 export function openPdfAndPrint(blobUrl: string, preOpenedWin?: Window | null): void {
+  // If no pre-opened window, open one now (may be blocked if not in a user gesture)
   const win = preOpenedWin ?? window.open(blobUrl, '_blank', 'noopener');
   if (!win) return;
-  let printed = false;
-  const doPrint = () => {
-    if (printed) return;
-    printed = true;
-    win.addEventListener('afterprint', () => {
-      win.close();
-      URL.revokeObjectURL(blobUrl);
-    }, { once: true });
-    try { win.print(); } catch { /* cross-origin guard */ }
+
+  let closed = false;
+  const doClose = () => {
+    if (closed) return;
+    closed = true;
+    try { win.close(); } catch { /* ignore */ }
+    try { URL.revokeObjectURL(blobUrl); } catch { /* ignore */ }
   };
+
+  // afterprint fires when the print dialog is dismissed (printed or cancelled)
+  win.addEventListener('afterprint', doClose, { once: true });
+
+  // Focus-based fallback: when the print dialog closes the PDF window regains
+  // focus. We only activate this AFTER we know the dialog has opened (blur).
+  const onBlur = () => win.addEventListener('focus', doClose, { once: true });
+  win.addEventListener('blur', onBlur, { once: true });
+
   if (preOpenedWin) {
-    // Window already open with a loading page — navigate it to the PDF
+    // Navigate the pre-opened loading window to the PDF blob.
+    // doc.autoPrint() inside the PDF will trigger the dialog automatically.
     preOpenedWin.location.href = blobUrl;
-    preOpenedWin.addEventListener('load', doPrint, { once: true });
-  } else {
-    win.addEventListener('load', doPrint, { once: true });
   }
-  // Fallback: some browsers don't fire load for blob PDF URLs
-  setTimeout(doPrint, 1200);
+  // Belt-and-suspenders: call win.print() after a delay to ensure the PDF
+  // renderer has had time to initialise before we invoke print from JS.
+  setTimeout(() => { try { win.print(); } catch { /* cross-origin guard */ } }, 2000);
 }
 
 // ─── Main export ─────────────────────────────────────────────────────────────
@@ -280,6 +288,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     }
   });
 
+  doc.autoPrint();
   const blob = doc.output('blob');
   const url = URL.createObjectURL(blob);
   openPdfAndPrint(url, preOpenedWin);

@@ -283,7 +283,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
 
     const PAGE_W = 215.9;
     const PAGE_H = 279.4;
-    const MARGIN = 6.35; // 0.25 in — industry-minimum for laser printers
+    const MARGIN = 4; // ~0.16 in — minimal page margin
     const CONTENT_W = PAGE_W - 2 * MARGIN;
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
@@ -292,7 +292,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
 
     for (const item of sortedItems) {
       const hasComment = !!(item.comment);
-      const itemH = 3 + 6 + 5 + (hasComment ? 4.5 : 0) + 2;
+      const itemH = 3 + 6 + 5 + (hasComment ? 4.5 : 0) + 6;
       if (y + itemH > PAGE_H - MARGIN) { doc.addPage(); y = MARGIN; }
 
       doc.setDrawColor(187, 187, 187);
@@ -342,9 +342,10 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
         doc.text(item.comment, MARGIN, y);
         y += 4.5;
       }
-      y += 2;
+      y += 6;
     }
 
+    doc.autoPrint();
     const blob = doc.output('blob');
     const url = URL.createObjectURL(blob);
     openPdfAndPrint(url, printWin);
