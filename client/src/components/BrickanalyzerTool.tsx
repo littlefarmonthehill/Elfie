@@ -522,11 +522,7 @@ const MINIFIG_PART_CATEGORY_IDS = new Set([
   19,   // Minifigure, Weapon
 ]);
 
-interface BrickanalyzerToolProps {
-  onItemClick?: (type: 'inventory', id: string, tab?: string) => void;
-}
-
-const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, ref) => {
+const BrickanalyzerTool = forwardRef((_, ref) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uiState, setUiState] = useState<UIState>("idle");
@@ -2308,14 +2304,12 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                                   <span style={mkCorner(c, 'auto', 0, 'auto', 0)} />
                                 </>);
                               })()}
-                              {/* Price badge — tapping opens item details drawer on pricing tab */}
+                              {/* Price badge — tapping opens the Brickspotter detail overlay on pricing tab */}
                               <button
                                 onMouseDown={e => e.stopPropagation()}
                                 onClick={e => {
                                   e.stopPropagation();
-                                  if (onItemClick && r.partNo) {
-                                    onItemClick('inventory', `bricklink-${r.partNo}`, 'pricing');
-                                  }
+                                  setFocusedDetailCropIndex(r.cropIndex ?? null);
                                 }}
                                 data-testid={`heatmap-price-badge-${r.cropIndex ?? i}`}
                                 style={{
@@ -2327,7 +2321,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                                   left: '50%',
                                   transform: 'translateX(-50%)',
                                   zIndex: 20,
-                                  cursor: onItemClick && r.partNo ? 'pointer' : 'default',
+                                  cursor: 'pointer',
                                 }}
                                 className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm leading-tight whitespace-nowrap shadow-lg"
                               >

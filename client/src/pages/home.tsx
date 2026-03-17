@@ -416,7 +416,7 @@ export default function Home() {
     if (activeInventoryDrawer === 'brickanalyzer') {
       return (
         <ToolDrawer icon={ScanSearch} iconColor="text-lego-yellow" title="Brick Spotter 3000" onClose={closeActiveDrawer}>
-          <BrickanalyzerTool onItemClick={(type, id, tab) => handleDashboardItemClick(type, id, tab)} />
+          <BrickanalyzerTool />
         </ToolDrawer>
       );
     }
@@ -1107,7 +1107,7 @@ export default function Home() {
               {activeInventoryDrawer === 'priceomatic' && <PriceOMaticDashboard onItemClick={(type, id) => handleDashboardItemClick(type, id, 'pricing')} onOpenSettings={(section, pricingExample, scoringExample) => { setSettingsInitialSection(section as any); setSettingsPricingExample(pricingExample); setSettingsScoringExample(scoringExample); setSettingsOpen(true); }} />}
               {activeInventoryDrawer === 'warehouse' && <WarehouseManagement onItemClick={handleDashboardItemClick} />}
               {activeInventoryDrawer === 'platformsync' && <ListomaticPriority />}
-              {activeInventoryDrawer === 'brickanalyzer' && <BrickanalyzerTool onItemClick={(type, id, tab) => handleDashboardItemClick(type, id, tab)} />}
+              {activeInventoryDrawer === 'brickanalyzer' && <BrickanalyzerTool />}
               {activeOrdersDrawer === 'fulfillment' && <FulfillmentTool />}
               {activeOrdersDrawer === 'shipped' && <ShippedOrdersTool onItemClick={(type, id) => { closeActiveDrawer(); handleDashboardItemClick(type, id); }} />}
               {activeMarketingDrawer && <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} renderDrawerOnly />}
