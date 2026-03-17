@@ -116,8 +116,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
   // CSV Import state
   const [importCsvOpen, setImportCsvOpen] = useState(false);
+  const [importMode, setImportMode] = useState<'structure' | 'assignments'>('structure');
   const [importCsvText, setImportCsvText] = useState("");
-  const [importResult, setImportResult] = useState<{ created: { aisles: number; shelves: number; bins: number; skipped: number }; errors: string[] } | null>(null);
+  const [importResult, setImportResult] = useState<{ created?: { aisles: number; shelves: number; bins: number; skipped: number }; stats?: { assigned: number; skipped: number; notFound: number }; errors: string[] } | null>(null);
 
   const { data: warehouseSettings, isLoading: settingsLoading } = useQuery<{ depth: number }>({
     queryKey: ['/api/warehouse/settings'],
@@ -284,6 +285,19 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     },
     onError: () => toast({ title: "Import failed", variant: "destructive" }),
   });
+
+  const importLotAssignmentsMutation = useMutation({
+    mutationFn: (csvText: string) => apiRequest('POST', '/api/warehouse/import/lot-assignments', { csvText }),
+    onSuccess: async (res: any) => {
+      const data = await res.json();
+      setImportResult(data);
+      invalidateWarehouse();
+      queryClient.invalidateQueries({ queryKey: ['/api/warehouse/locations'] });
+    },
+    onError: () => toast({ title: "Import failed", variant: "destructive" }),
+  });
+
+  const resetImportDialog = () => { setImportResult(null); setImportCsvText(""); };
 
   const handleSelectAll = () => {
     const allIds = new Set(filteredList.map((item: any) => item.id));
@@ -1306,61 +1320,73 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       </Dialog>
 
       {/* ── Import CSV Dialog ── */}
-      <Dialog open={importCsvOpen} onOpenChange={o => { setImportCsvOpen(o); if (!o) { setImportResult(null); setImportCsvText(""); } }}>
-        <DialogContent className="max-w-2xl">
+      <Dialog open={importCsvOpen} onOpenChange={o => { setImportCsvOpen(o); if (!o) resetImportDialog(); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Upload className="h-4 w-4" />
-              Import Warehouse Structure from CSV
+              Import from CSV
             </DialogTitle>
             <DialogDescription>
-              Paste a CSV to create bins, shelves, and aisles in bulk. Existing names are skipped.
+              Import your warehouse layout or assign your inventory lots to bins.
             </DialogDescription>
           </DialogHeader>
 
+          {/* Mode toggle */}
+          {!importResult && (
+            <div className="flex rounded-md overflow-hidden border border-border">
+              <button
+                onClick={() => { setImportMode('structure'); resetImportDialog(); }}
+                className={`flex-1 py-2 text-xs font-medium transition-colors ${importMode === 'structure' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50'}`}
+                data-testid="button-import-mode-structure"
+              >
+                Warehouse Structure
+              </button>
+              <button
+                onClick={() => { setImportMode('assignments'); resetImportDialog(); }}
+                className={`flex-1 py-2 text-xs font-medium transition-colors border-l border-border ${importMode === 'assignments' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50'}`}
+                data-testid="button-import-mode-assignments"
+              >
+                Lot Assignments
+              </button>
+            </div>
+          )}
+
           {!importResult ? (
             <div className="space-y-4">
-              {/* Format guide */}
-              <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" />Format guide</p>
-                <div className="space-y-1">
-                  {depth === 1 && (
-                    <div>
-                      <p className="text-[10px] text-muted-foreground mb-1">Bins only — one column named <code className="bg-muted px-1 rounded">bin</code></p>
-                      <pre className="text-[10px] font-mono text-green-400 bg-black/30 p-2 rounded whitespace-pre-wrap">
-{`bin
-BIN-01
-BIN-02
-BIN-03`}
-                      </pre>
-                    </div>
-                  )}
-                  {depth === 2 && (
-                    <div>
-                      <p className="text-[10px] text-muted-foreground mb-1">Shelves + Bins — columns <code className="bg-muted px-1 rounded">shelf</code> and <code className="bg-muted px-1 rounded">bin</code></p>
-                      <pre className="text-[10px] font-mono text-green-400 bg-black/30 p-2 rounded whitespace-pre-wrap">
-{`shelf,bin
-Shelf-A,BIN-A1
-Shelf-A,BIN-A2
-Shelf-B,BIN-B1`}
-                      </pre>
-                    </div>
-                  )}
-                  {depth === 3 && (
-                    <div>
-                      <p className="text-[10px] text-muted-foreground mb-1">Full warehouse — columns <code className="bg-muted px-1 rounded">aisle</code>, <code className="bg-muted px-1 rounded">shelf</code>, and <code className="bg-muted px-1 rounded">bin</code></p>
-                      <pre className="text-[10px] font-mono text-green-400 bg-black/30 p-2 rounded whitespace-pre-wrap">
-{`aisle,shelf,bin
-A,Shelf-A1,BIN-A1-01
-A,Shelf-A1,BIN-A1-02
-A,Shelf-A2,BIN-A2-01
-B,Shelf-B1,BIN-B1-01`}
-                      </pre>
-                    </div>
-                  )}
-                  <p className="text-[10px] text-muted-foreground pt-1">Column order doesn't matter. Blank cells mean "no parent at that level".</p>
+
+              {/* ── Structure mode ── */}
+              {importMode === 'structure' && (
+                <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" />Format — creates bins, shelves, aisles</p>
+                  <div className="space-y-1">
+                    {depth === 1 && <pre className="text-[10px] font-mono text-green-400 bg-black/30 p-2 rounded">{`bin\nBIN-01\nBIN-02\nBIN-03`}</pre>}
+                    {depth === 2 && <pre className="text-[10px] font-mono text-green-400 bg-black/30 p-2 rounded">{`shelf,bin\nShelf-A,BIN-A1\nShelf-A,BIN-A2\nShelf-B,BIN-B1`}</pre>}
+                    {depth === 3 && <pre className="text-[10px] font-mono text-green-400 bg-black/30 p-2 rounded">{`aisle,shelf,bin\nA,Shelf-A1,BIN-A1-01\nA,Shelf-A1,BIN-A1-02\nB,Shelf-B1,BIN-B1-01`}</pre>}
+                    <p className="text-[10px] text-muted-foreground pt-1">Column order doesn't matter. Existing names are skipped.</p>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* ── Lot assignments mode ── */}
+              {importMode === 'assignments' && (
+                <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" />Format — assigns inventory lots to bins</p>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground mb-1">Required columns: <code className="bg-muted px-1 rounded">part_number</code> and <code className="bg-muted px-1 rounded">bin</code></p>
+                      <p className="text-[10px] text-muted-foreground mb-1.5">Optional: <code className="bg-muted px-1 rounded">color_id</code> <code className="bg-muted px-1 rounded">condition</code> (N/U) <code className="bg-muted px-1 rounded">qty</code></p>
+                      <pre className="text-[10px] font-mono text-green-400 bg-black/30 p-2 rounded">{`part_number,color_id,condition,bin,qty\n3001,5,N,BIN-A1,50\n3002,11,U,BIN-A2,12\n3003,,N,BIN-B1,`}</pre>
+                    </div>
+                    <div className="space-y-1 text-[10px] text-muted-foreground">
+                      <p>• <code className="bg-muted px-1 rounded">part_number</code> must match a BrickLink item number in your inventory (e.g. <code>3001</code>)</p>
+                      <p>• If <code className="bg-muted px-1 rounded">color_id</code> or <code className="bg-muted px-1 rounded">condition</code> are blank, all matching lots get assigned</p>
+                      <p>• Existing assignments are skipped automatically</p>
+                      <p>• Also accepted: <code className="bg-muted px-1 rounded">part</code>, <code className="bg-muted px-1 rounded">item_no</code>, <code className="bg-muted px-1 rounded">sku</code> for the part column</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* CSV textarea */}
               <div className="space-y-1.5">
@@ -1368,8 +1394,8 @@ B,Shelf-B1,BIN-B1-01`}
                 <textarea
                   value={importCsvText}
                   onChange={e => setImportCsvText(e.target.value)}
-                  rows={10}
-                  placeholder="aisle,shelf,bin&#10;A,Shelf-A1,BIN-A1-01&#10;..."
+                  rows={9}
+                  placeholder={importMode === 'structure' ? 'bin\nBIN-01\nBIN-02\n...' : 'part_number,bin\n3001,BIN-A1\n3002,BIN-A2\n...'}
                   className="w-full rounded-md border border-border bg-background text-xs font-mono p-2 resize-y focus:outline-none focus:ring-1 focus:ring-ring"
                   data-testid="textarea-import-csv"
                 />
@@ -1382,11 +1408,17 @@ B,Shelf-B1,BIN-B1-01`}
 
               <Button
                 className="w-full"
-                disabled={importCsvMutation.isPending || importCsvText.trim().split('\n').filter(Boolean).length < 2}
-                onClick={() => importCsvMutation.mutate(importCsvText)}
+                disabled={
+                  (importMode === 'structure' ? importCsvMutation.isPending : importLotAssignmentsMutation.isPending) ||
+                  importCsvText.trim().split('\n').filter(Boolean).length < 2
+                }
+                onClick={() => {
+                  if (importMode === 'structure') importCsvMutation.mutate(importCsvText);
+                  else importLotAssignmentsMutation.mutate(importCsvText);
+                }}
                 data-testid="button-import-csv-submit"
               >
-                {importCsvMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {(importCsvMutation.isPending || importLotAssignmentsMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Import
               </Button>
             </div>
@@ -1399,10 +1431,17 @@ B,Shelf-B1,BIN-B1-01`}
                   Import complete
                 </div>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted-foreground">
-                  {depth >= 3 && <span>Aisles created: <span className="font-semibold text-foreground">{importResult.created.aisles}</span></span>}
-                  {depth >= 2 && <span>Shelves created: <span className="font-semibold text-foreground">{importResult.created.shelves}</span></span>}
-                  <span>Bins created: <span className="font-semibold text-foreground">{importResult.created.bins}</span></span>
-                  <span>Rows skipped: <span className="font-semibold text-foreground">{importResult.created.skipped}</span></span>
+                  {importResult.created && <>
+                    {depth >= 3 && <span>Aisles created: <span className="font-semibold text-foreground">{importResult.created.aisles}</span></span>}
+                    {depth >= 2 && <span>Shelves created: <span className="font-semibold text-foreground">{importResult.created.shelves}</span></span>}
+                    <span>Bins created: <span className="font-semibold text-foreground">{importResult.created.bins}</span></span>
+                    <span>Rows skipped: <span className="font-semibold text-foreground">{importResult.created.skipped}</span></span>
+                  </>}
+                  {importResult.stats && <>
+                    <span>Lots assigned: <span className="font-semibold text-foreground">{importResult.stats.assigned}</span></span>
+                    {importResult.stats.skipped > 0 && <span>Already assigned: <span className="font-semibold text-foreground">{importResult.stats.skipped}</span></span>}
+                    {importResult.stats.notFound > 0 && <span className="text-yellow-500">Not found: <span className="font-semibold">{importResult.stats.notFound}</span></span>}
+                  </>}
                 </div>
               </div>
 
@@ -1419,7 +1458,7 @@ B,Shelf-B1,BIN-B1-01`}
               )}
 
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => { setImportResult(null); setImportCsvText(""); }}>
+                <Button variant="outline" className="flex-1" onClick={resetImportDialog}>
                   Import Another
                 </Button>
                 <Button className="flex-1" onClick={() => setImportCsvOpen(false)}>

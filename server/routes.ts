@@ -12617,6 +12617,108 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
+  // ── Warehouse Lot-Assignment CSV Import ──
+  // Maps existing inventory lots to bins via CSV.
+  // Required columns: part_number (itemNo), bin (bin name)
+  // Optional columns: color_id (int), condition ("N"/"U"), qty (int)
+  // If multiple inventory rows match, all are assigned to the bin.
+  app.post("/api/warehouse/import/lot-assignments", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { csvText } = req.body;
+      if (!csvText || typeof csvText !== 'string') {
+        return res.status(400).json({ error: "csvText is required" });
+      }
+
+      const lines = csvText.split(/\r?\n/).map((l: string) => l.trim()).filter(Boolean);
+      if (lines.length < 2) return res.status(400).json({ error: "CSV must have a header row and at least one data row" });
+
+      const headers = lines[0].split(',').map((h: string) => h.trim().toLowerCase().replace(/[\s_-]/g, '_'));
+      const partIdx = ['part_number', 'part', 'item_no', 'itemno', 'sku'].map(k => headers.indexOf(k)).find(i => i >= 0) ?? -1;
+      const binIdx = headers.indexOf('bin');
+      const colorIdx = ['color_id', 'colorid', 'color'].map(k => headers.indexOf(k)).find(i => i >= 0) ?? -1;
+      const condIdx = ['condition', 'new_or_used', 'newused', 'cond'].map(k => headers.indexOf(k)).find(i => i >= 0) ?? -1;
+      const qtyIdx = ['qty', 'quantity'].map(k => headers.indexOf(k)).find(i => i >= 0) ?? -1;
+
+      if (partIdx === -1) return res.status(400).json({ error: "CSV must have a 'part_number' column (also accepted: part, item_no, sku)" });
+      if (binIdx === -1) return res.status(400).json({ error: "CSV must have a 'bin' column" });
+
+      // Pre-load all org bins (name → id cache)
+      const orgBins = await db.select({ id: whBins.id, name: whBins.name }).from(whBins).where(eq(whBins.orgId, orgId));
+      const binCache = new Map(orgBins.map(b => [b.name.toLowerCase(), b.id]));
+
+      // Pre-load all existing assignments to avoid duplicates
+      const existingAssignments = await db
+        .select({ inventoryId: inventoryLocations.inventoryId, binId: inventoryLocations.binId })
+        .from(inventoryLocations)
+        .where(eq(inventoryLocations.orgId, orgId));
+      const assignedSet = new Set(existingAssignments.map(a => `${a.inventoryId}:${a.binId}`));
+
+      const stats = { assigned: 0, skipped: 0, notFound: 0 };
+      const errors: string[] = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map((c: string) => c.trim());
+        const partNumber = cols[partIdx] || '';
+        const binName = cols[binIdx] || '';
+        if (!partNumber || !binName) { stats.skipped++; continue; }
+
+        const binId = binCache.get(binName.toLowerCase());
+        if (!binId) {
+          errors.push(`Row ${i + 1}: bin "${binName}" not found`);
+          stats.notFound++;
+          continue;
+        }
+
+        const rawCondition = condIdx >= 0 ? (cols[condIdx] || '').toUpperCase() : '';
+        const condition = rawCondition === 'N' || rawCondition === 'U' ? rawCondition : null;
+
+        // Execute and then filter in-memory for optional color/condition
+        const inventoryRows = await db
+          .select({ id: blInventory.id, colorId: blInventory.colorId, newOrUsed: blInventory.newOrUsed })
+          .from(blInventory)
+          .where(and(eq(blInventory.orgId, orgId), eq(blInventory.itemNo, partNumber)));
+
+        if (inventoryRows.length === 0) {
+          errors.push(`Row ${i + 1}: part "${partNumber}" not found in inventory`);
+          stats.notFound++;
+          continue;
+        }
+
+        // Apply optional filters
+        let filtered = inventoryRows;
+        if (colorIdx >= 0 && cols[colorIdx]) {
+          const colorId = parseInt(cols[colorIdx]);
+          if (!isNaN(colorId)) filtered = filtered.filter(r => r.colorId === colorId);
+        }
+        if (condition) {
+          filtered = filtered.filter(r => r.newOrUsed === condition);
+        }
+        if (filtered.length === 0) filtered = inventoryRows; // Fallback: assign all without filter
+
+        const qty = qtyIdx >= 0 ? parseInt(cols[qtyIdx]) || null : null;
+
+        // Create assignments for all matched rows
+        for (const inv of filtered) {
+          const key = `${inv.id}:${binId}`;
+          if (assignedSet.has(key)) { stats.skipped++; continue; }
+          try {
+            await db.insert(inventoryLocations).values({ inventoryId: inv.id, binId, orgId, quantity: qty });
+            assignedSet.add(key);
+            stats.assigned++;
+          } catch (rowErr) {
+            errors.push(`Row ${i + 1} (${partNumber} → ${binName}): ${rowErr instanceof Error ? rowErr.message : 'error'}`);
+          }
+        }
+      }
+
+      res.json({ ok: true, stats, errors });
+    } catch (error) {
+      console.error("Error importing lot assignments:", error);
+      res.status(500).json({ error: "Failed to import lot assignments" });
+    }
+  });
+
   // Picklist Routes
   
   // Get picklist stats (unique bins still to pull)
