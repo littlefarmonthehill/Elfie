@@ -1,4 +1,6 @@
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import planetLogo from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
 import { cleanItemName } from "@/lib/item-utils";
 
 // ─── Org branding ─────────────────────────────────────────────────────────────
@@ -44,18 +46,48 @@ interface PackingSlipProps {
   orders: PackingSlipOrder[];
 }
 
-// ─── Page geometry (all mm) ───────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-const PW   = 215.9;   // letter width
-const PH   = 279.4;   // letter height
-const ML   = 15;      // left margin
-const MR   = 15;      // right margin
-const MT   = 12;      // top margin
-const MB   = 14;      // bottom margin
-const CW   = PW - ML - MR;   // content width
-const YMAX = PH - MB;         // lowest y before page break
+const MARGIN    = 7.62;               // 0.3 in → mm
+const PAGE_W    = 215.9;              // letter width mm
+const PAGE_H    = 279.4;              // letter height mm
+const CONTENT_W = PAGE_W - 2 * MARGIN;
+const LOGO_H    = 28;                 // target logo height mm
 
-// ─── Hidden-print helper ──────────────────────────────────────────────────────
+// Picklist
+const MX        = 4;
+const MY        = 1;
+const PL_CONT_W = PAGE_W - 2 * MX;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function channelLabel(order: PackingSlipOrder): string {
+  return order.marketplace === 'BrickOwl' ? 'BrickOwl' : 'BrickLink';
+}
+
+async function loadLogoInfo(
+  orgLogoUrl?: string | null,
+): Promise<{ dataUrl: string; w: number; h: number } | null> {
+  // Prefer org logo; fall back to bundled PlanetBrick asset
+  const src = orgLogoUrl || planetLogo;
+  try {
+    const response = await fetch(src);
+    const blob = await response.blob();
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload  = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    const img = new Image();
+    await new Promise<void>((resolve) => { img.onload = () => resolve(); img.src = dataUrl; });
+    return { dataUrl, w: img.naturalWidth, h: img.naturalHeight };
+  } catch {
+    return null;
+  }
+}
+
+// ─── Hidden print helper ──────────────────────────────────────────────────────
 
 function isIOS(): boolean {
   return (
@@ -101,7 +133,7 @@ export function hiddenPrint(blob: Blob, _filename = 'document.pdf'): void {
   iframe.src = url;
 }
 
-// ─── Picklist (jsPDF, manual drawing) ────────────────────────────────────────
+// ─── Picklist ─────────────────────────────────────────────────────────────────
 
 export interface PicklistItem {
   partNumber?: string | null;
@@ -123,10 +155,6 @@ const partKey    = (item: PicklistItem) => item.partNumber || item.sku || '';
 export function printPicklist(items: PicklistItem[]): void {
   if (items.length === 0) return;
 
-  const MX        = 4;
-  const MY        = 1;
-  const PAGE_H    = 279.4;
-  const CONTENT_W = PW - 2 * MX;
   const PANEL_H     = PAGE_H / 2;
   const panelTop    = (p: 0 | 1) => p * PANEL_H + MY;
   const panelBottom = (p: 0 | 1) => (p + 1) * PANEL_H - MY;
@@ -139,7 +167,7 @@ export function printPicklist(items: PicklistItem[]): void {
     if (panel === 0) {
       doc.setDrawColor(170, 170, 170);
       doc.setLineWidth(0.3);
-      doc.line(MX, PANEL_H, MX + CONTENT_W, PANEL_H);
+      doc.line(MX, PANEL_H, MX + PL_CONT_W, PANEL_H);
       panel = 1;
     } else {
       doc.addPage();
@@ -175,7 +203,7 @@ export function printPicklist(items: PicklistItem[]): void {
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(70, 70, 70);
       let restStr = ' \u00b7 ' + restParts.join(' \u00b7 ');
-      const maxW = CONTENT_W - partW;
+      const maxW = PL_CONT_W - partW;
       while (doc.getTextWidth(restStr) > maxW && restStr.length > 4) restStr = restStr.slice(0, -1);
       if (restStr.length < (' \u00b7 ' + restParts.join(' \u00b7 ')).length) restStr = restStr.slice(0, -3) + '\u2026';
       doc.text(restStr, MX + partW, y);
@@ -206,333 +234,168 @@ export function printPicklist(items: PicklistItem[]): void {
   hiddenPrint(doc.output('blob'), 'picklist.pdf');
 }
 
-// ─── Logo loader ──────────────────────────────────────────────────────────────
-
-async function loadLogoDataUrl(src?: string | null): Promise<string> {
-  if (!src) return '';
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      try {
-        const c = document.createElement('canvas');
-        c.width  = img.naturalWidth  || img.width;
-        c.height = img.naturalHeight || img.height;
-        const ctx = c.getContext('2d');
-        if (!ctx) { resolve(''); return; }
-        ctx.drawImage(img, 0, 0);
-        resolve(c.toDataURL('image/png'));
-      } catch { resolve(''); }
-    };
-    img.onerror = () => resolve('');
-    img.src = src;
-  });
-}
-
-// ─── Packing slips (jsPDF manual drawing) ────────────────────────────────────
-//
-// Every visual element is drawn with jsPDF primitives — no autoTable — so
-// there is zero internal state drift across orders. PDF blob → hiddenPrint
-// means no browser URL / page-number headers appear in the output.
-
-function channelLabel(order: PackingSlipOrder) {
-  return order.marketplace === 'BrickOwl' ? 'BrickOwl' : 'BrickLink';
-}
-
-// Draw the dark "PACKING SLIP" label bar, return new y
-function drawLabelBar(doc: jsPDF, y: number, orderLabel: string): number {
-  const BAR_H = 6;
-  doc.setFillColor(70, 70, 70);
-  doc.rect(ML, y, CW, BAR_H, 'F');
-
-  doc.setFontSize(7.5);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(255, 255, 255);
-  doc.text('PACKING SLIP', ML + 2, y + 4.2);
-
-  doc.setFont('helvetica', 'normal');
-  const labelW = doc.getTextWidth(orderLabel);
-  doc.text(orderLabel, ML + CW - 2 - labelW, y + 4.2);
-
-  doc.setTextColor(0, 0, 0);
-  return y + BAR_H + 4;
-}
-
-// Draw the full first-page header (logo, company, order info, ship-to)
-// Returns the y after the header
-function drawFullHeader(
-  doc: jsPDF,
-  order: PackingSlipOrder,
-  companyName: string,
-  addrLines: string[],
-  logoDataUrl: string,
-  pageLabel: string,
-): number {
-  let y = MT;
-
-  y = drawLabelBar(doc, y, pageLabel);
-
-  // ── company block (left) + logo (right) ──────────────────────────────────
-  const LOGO_H  = 18;
-  const LOGO_W  = 50;
-  const COL_MID = ML + CW / 2;
-
-  if (logoDataUrl) {
-    try {
-      doc.addImage(logoDataUrl, 'PNG', ML + CW - LOGO_W, y, LOGO_W, LOGO_H);
-    } catch { /* ignore if image fails */ }
-  }
-
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 0, 0);
-  doc.text(companyName, ML, y + 5);
-
-  doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(80, 80, 80);
-  let addrY = y + 10;
-  for (const line of addrLines) {
-    doc.text(line, ML, addrY);
-    addrY += 4;
-  }
-
-  y += Math.max(LOGO_H, addrY - MT) + 2;
-
-  // ── thin divider ──────────────────────────────────────────────────────────
-  doc.setDrawColor(160, 160, 160);
-  doc.setLineWidth(0.25);
-  doc.line(ML, y, ML + CW, y);
-  y += 5;
-
-  // ── order meta (right column) + ship-to (left column) ────────────────────
-  const shipTo = order.shipTo;
-  const street1  = shipTo.street1 || (shipTo as any).address1 || '';
-  const street2  = shipTo.street2 || (shipTo as any).address2 || '';
-  const cityLine = [shipTo.city, shipTo.state, shipTo.postalCode].filter(Boolean).join(' ');
-  const showCtry = !!(shipTo.country && shipTo.country !== 'US');
-  const chan = channelLabel(order);
-
-  // right: order meta
-  const metaRightX = ML + CW;
-  const metaRows: [string, string][] = [
-    [`${chan} Order #`, order.orderNumber],
-    ['Date', order.orderDate ? new Date(order.orderDate).toLocaleDateString() : ''],
-  ];
-  doc.setFontSize(8.5);
-  let metaY = y;
-  for (const [label, val] of metaRows) {
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(80, 80, 80);
-    const lw = doc.getTextWidth(label + ': ');
-    doc.text(label + ':', metaRightX - doc.getTextWidth(val) - lw - 2, metaY);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(0, 0, 0);
-    doc.text(val, metaRightX - doc.getTextWidth(val), metaY);
-    metaY += 5;
-  }
-
-  // left: ship-to
-  const shipLines: string[] = [];
-  if (shipTo.name)    shipLines.push(shipTo.name);
-  if (shipTo.company) shipLines.push(shipTo.company);
-  if (street1)        shipLines.push(street1);
-  if (street2)        shipLines.push(street2);
-  if (cityLine)       shipLines.push(cityLine);
-  if (showCtry && shipTo.country) shipLines.push(shipTo.country);
-
-  doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(80, 80, 80);
-  doc.text('Ship To:', ML, y);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(0, 0, 0);
-  let shipY = y + 4.5;
-  if (shipLines.length === 0) {
-    doc.setTextColor(150, 150, 150);
-    doc.text('Address not available', ML, shipY);
-    doc.setTextColor(0, 0, 0);
-    shipY += 4.5;
-  }
-  for (const line of shipLines) {
-    doc.text(line, ML, shipY);
-    shipY += 4.5;
-  }
-
-  y = Math.max(metaY, shipY) + 3;
-
-  // ── thin divider before items ──────────────────────────────────────────────
-  doc.setDrawColor(160, 160, 160);
-  doc.setLineWidth(0.25);
-  doc.line(ML, y, ML + CW, y);
-  y += 1;
-
-  return y;
-}
-
-// Draw the items table header row, return new y
-function drawTableHeader(doc: jsPDF, y: number): number {
-  const ROW_H = 6;
-  doc.setFillColor(50, 50, 50);
-  doc.rect(ML, y, CW, ROW_H, 'F');
-
-  doc.setFontSize(7.5);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(255, 255, 255);
-  doc.text('DESCRIPTION', ML + 2, y + 4.2);
-  doc.text('QTY', ML + CW - 2, y + 4.2, { align: 'right' });
-
-  doc.setTextColor(0, 0, 0);
-  return y + ROW_H;
-}
-
-// Estimate height needed for one item row (mm)
-function itemRowHeight(
-  doc: jsPDF,
-  item: PackingSlipOrder['items'][0],
-  maxNameW: number,
-): number {
-  const base     = cleanItemName(item.name, item.bricklinkPartNumber);
-  const color    = item.colorName ? `${item.colorName} ` : '';
-  const part     = item.bricklinkPartNumber ? ` (${item.bricklinkPartNumber})` : '';
-  const fullName = `LEGO ${color}${base}${part}`;
-
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  const lines = doc.splitTextToSize(fullName, maxNameW);
-  let h = lines.length * 4.2 + 2; // name lines
-  const hasMeta    = !!(item.colorName || item.condition);
-  const hasComment = !!(item.comment?.trim());
-  if (hasMeta || hasComment) h += 4;     // meta/comment line
-  h += 3;                                // bottom padding
-  return Math.max(h, 9);
-}
-
-// Draw one item row, return new y
-function drawItemRow(
-  doc: jsPDF,
-  y: number,
-  item: PackingSlipOrder['items'][0],
-  nameColW: number,
-  shade: boolean,
-): number {
-  const base     = cleanItemName(item.name, item.bricklinkPartNumber);
-  const color    = item.colorName ? `${item.colorName} ` : '';
-  const part     = item.bricklinkPartNumber ? ` (${item.bricklinkPartNumber})` : '';
-  const fullName = `LEGO ${color}${base}${part}`;
-
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  const nameLines = doc.splitTextToSize(fullName, nameColW);
-
-  const metaParts = [
-    item.colorName  ? `Color: ${item.colorName}`  : '',
-    item.condition  ? `Cond: ${item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}` : '',
-  ].filter(Boolean).join('  ·  ');
-  const comment = item.comment?.trim() || '';
-  const line2   = [metaParts, comment].filter(Boolean).join('  ·  ');
-
-  const rowH = itemRowHeight(doc, item, nameColW);
-
-  if (shade) {
-    doc.setFillColor(248, 248, 248);
-    doc.rect(ML, y, CW, rowH, 'F');
-  }
-
-  // name
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(0, 0, 0);
-  doc.text(nameLines, ML + 2, y + 4);
-
-  // meta / comment
-  if (line2) {
-    doc.setFontSize(8);
-    doc.setTextColor(100, 100, 100);
-    const metaY = y + nameLines.length * 4.2 + 2;
-    doc.text(line2, ML + 2, metaY + 1.5);
-    doc.setTextColor(0, 0, 0);
-  }
-
-  // qty
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 0, 0);
-  doc.text(String(item.quantity), ML + CW - 2, y + 5, { align: 'right' });
-
-  // bottom border
-  doc.setDrawColor(220, 220, 220);
-  doc.setLineWidth(0.15);
-  doc.line(ML, y + rowH, ML + CW, y + rowH);
-
-  return y + rowH;
-}
-
-// ─── Main export ──────────────────────────────────────────────────────────────
+// ─── Packing slips (jsPDF + autoTable → hiddenPrint) ──────────────────────────
 
 export async function printPackingSlips(
   orders: PackingSlipOrder[],
   org?: OrgBranding,
 ): Promise<void> {
-  if (orders.length === 0) return;
+  const doc  = new jsPDF({ unit: 'mm', format: 'letter', orientation: 'portrait' });
+  const logo = await loadLogoInfo(org?.logoUrl);
+  const logoW = logo ? LOGO_H * (logo.w / logo.h) : 0;
 
-  const companyName    = org?.name    || 'Your Company';
-  const companyAddress = org?.address || '';
-  const addrLines = companyAddress.split('\n').map(l => l.trim()).filter(Boolean);
-  const logoDataUrl = await loadLogoDataUrl(org?.logoUrl);
+  const companyName    = org?.name    || 'PlanetBrick.com';
+  const companyAddress = org?.address || 'PO Box 202\nLanesboro, MN 55949';
+  const addressLines   = companyAddress.split('\n').map(l => l.trim()).filter(Boolean);
 
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
-  const NAME_COL_W = CW - 16; // leave 16mm for qty column
-
-  let firstOrder = true;
-
-  for (const order of orders) {
-    // ── new page for every order after the first ──────────────────────────
-    if (!firstOrder) doc.addPage();
-    firstOrder = false;
-
-    const totalItems = order.items.length;
-    const chan       = channelLabel(order);
-    const pageLabel  = `${chan} Order ${order.orderNumber}`;
-
-    // ── draw full first-page header ──────────────────────────────────────
-    let y = drawFullHeader(doc, order, companyName, addrLines, logoDataUrl, pageLabel);
-    y = drawTableHeader(doc, y);
-
-    // ── draw items, inserting new pages as needed ─────────────────────────
-    let pageNum    = 1;
-    let rowShade   = false;
-
-    for (let i = 0; i < totalItems; i++) {
-      const item  = order.items[i];
-      const rowH  = itemRowHeight(doc, item, NAME_COL_W);
-
-      // need a new page?
-      if (y + rowH > YMAX) {
-        doc.addPage();
-        pageNum++;
-        const contLabel = `${pageLabel}  ·  Page ${pageNum}`;
-        y = MT;
-        y = drawLabelBar(doc, y, contLabel);
-        y = drawTableHeader(doc, y);
-        rowShade = false;
-      }
-
-      y = drawItemRow(doc, y, item, NAME_COL_W, rowShade);
-      rowShade = !rowShade;
+  orders.forEach((order, orderIdx) => {
+    if (orderIdx > 0) {
+      doc.addPage();
+      // Reset autoTable's internal cursor state so it starts fresh on the new
+      // page instead of drifting from the previous order's final Y position.
+      (doc as any).autoTable = { previous: {} };
+      doc.setPage(doc.internal.getNumberOfPages());
     }
 
-    if (totalItems === 0) {
+    const orderStartPage = doc.internal.getNumberOfPages();
+
+    let y = MARGIN;
+
+    // ── PACKING SLIP label bar ─────────────────────────────────────────────
+    const BAR_H = 7;
+    doc.setFillColor(119, 119, 119);
+    doc.rect(MARGIN, y, CONTENT_W, BAR_H, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PACKING SLIP', MARGIN + 3, y + BAR_H - 1.8);
+    y += BAR_H + 4;
+
+    // ── Company info (left) + logo (right) ────────────────────────────────
+    const headerTopY = y;
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(19);
+    doc.setFont('helvetica', 'bold');
+    doc.text(companyName, MARGIN, y + 6.5);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(51, 51, 51);
+    let addrY = y + 13.5;
+    addressLines.forEach(line => { doc.text(line, MARGIN, addrY); addrY += 6; });
+
+    if (logo && logoW > 0) {
+      doc.addImage(logo.dataUrl, 'PNG', MARGIN + CONTENT_W - logoW, headerTopY, logoW, LOGO_H);
+    }
+
+    y += Math.max(LOGO_H, 23) + 3;
+
+    // ── Divider ───────────────────────────────────────────────────────────
+    doc.setDrawColor(170, 170, 170);
+    doc.setLineWidth(0.2);
+    doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
+    y += 5;
+
+    // ── Ship To (left) + Order meta (right) ───────────────────────────────
+    const infoTopY = y;
+    const { shipTo } = order;
+    const street1  = shipTo.street1 || (shipTo as any).address1 || '';
+    const street2  = shipTo.street2 || (shipTo as any).address2 || '';
+    const cityLine = [shipTo.city, shipTo.state, shipTo.postalCode].filter(Boolean).join(' ');
+    const showCtry = shipTo.country && shipTo.country !== 'US';
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('Ship To', MARGIN, y + 5);
+
+    doc.setFont('helvetica', 'normal');
+    const addrLines2 = [
+      shipTo.name, shipTo.company, street1, street2, cityLine,
+      showCtry ? shipTo.country : undefined,
+    ].filter(Boolean) as string[];
+
+    let shipAddrY = y + 11;
+    addrLines2.forEach(line => { doc.text(line, MARGIN, shipAddrY); shipAddrY += 5.5; });
+
+    const metaX = MARGIN + CONTENT_W;
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(85, 85, 85);
+    doc.text(`${channelLabel(order)} Order #`, metaX - 48, infoTopY + 5,  { align: 'right' });
+    doc.text('Date',                           metaX - 48, infoTopY + 11, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+    doc.text(order.orderNumber, metaX, infoTopY + 5,  { align: 'right' });
+    const dateStr = order.orderDate ? new Date(order.orderDate).toLocaleDateString() : '';
+    doc.text(dateStr, metaX, infoTopY + 11, { align: 'right' });
+
+    y = Math.max(shipAddrY, infoTopY + 18) + 3;
+
+    // ── Items table ───────────────────────────────────────────────────────
+    const rows = order.items.map(item => {
+      const base    = cleanItemName(item.name, item.bricklinkPartNumber);
+      const color   = item.colorName ? `${item.colorName} ` : '';
+      const part    = item.bricklinkPartNumber ? ` (${item.bricklinkPartNumber})` : '';
+      const name    = `LEGO ${color}${base}${part}`;
+      const meta    = [
+        item.colorName ? `Color: ${item.colorName}`     : '',
+        item.condition ? `Condition: ${item.condition}` : '',
+      ].filter(Boolean).join(', ');
+      const comment = item.comment?.trim() || '';
+      const line2   = [meta, comment].filter(Boolean).join('  \u00b7  ');
+      return [line2 ? `${name}\n${line2}` : name, String(item.quantity)];
+    });
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: MARGIN, right: MARGIN },
+      head: [['Description', 'Qty']],
+      body: rows,
+      styles: {
+        fontSize:    11,
+        cellPadding: { top: 3.5, right: 3.5, bottom: 3.5, left: 3.5 },
+        textColor:   [0, 0, 0],
+        lineColor:   [220, 220, 220],
+        lineWidth:   0.1,
+        overflow:    'linebreak',
+      },
+      headStyles: {
+        fillColor:   [255, 255, 255],
+        textColor:   [0, 0, 0],
+        fontStyle:   'bold',
+        fontSize:    10,
+        lineColor:   [85, 85, 85],
+        lineWidth:   { bottom: 0.4 },
+      },
+      columnStyles: {
+        0: { cellWidth: 'auto' },
+        1: { cellWidth: 18, halign: 'right', fontStyle: 'bold' },
+      },
+      alternateRowStyles: false,
+    });
+
+    // ── Footer: Page X of Y on every page for this order ──────────────────
+    const orderEndPage   = doc.internal.getNumberOfPages();
+    const orderPageTotal = orderEndPage - orderStartPage + 1;
+    const footerLabel    = `${channelLabel(order)} Order # ${order.orderNumber}`;
+
+    for (let p = orderStartPage; p <= orderEndPage; p++) {
+      doc.setPage(p);
+      const pageInOrder = p - orderStartPage + 1;
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(150, 150, 150);
-      doc.text('No items', ML + 2, y + 6);
+      doc.setTextColor(102, 102, 102);
+      doc.text(
+        `${footerLabel}  \u00b7  Page ${pageInOrder} of ${orderPageTotal}`,
+        MARGIN + CONTENT_W,
+        PAGE_H - MARGIN,
+        { align: 'right' },
+      );
     }
-  }
+  });
 
   const filename = orders.length === 1
     ? `packing-slip-${orders[0].orderNumber}.pdf`
     : `packing-slips-${new Date().toISOString().slice(0, 10)}.pdf`;
-
   hiddenPrint(doc.output('blob'), filename);
 }
 
