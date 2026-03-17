@@ -1745,7 +1745,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
               disabled={isLoading}
             >
               <Lightbulb className="h-3 w-3" />
-              <span>Feature Request</span>
+              <span>Idea/Request</span>
             </button>
           )}
           <button
