@@ -311,6 +311,15 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
   onOpenSettings?: (section: any) => void;
   children?: React.ReactNode;
 }) {
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem('systemPulseCollapsed') === 'true'; } catch { return false; }
+  });
+  const toggleCollapse = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    try { localStorage.setItem('systemPulseCollapsed', String(next)); } catch {}
+  };
+
   const planLabels: Record<string, string> = { trial: 'Trial', foundation: 'Foundation', core: 'Core', flagship: 'Flagship' };
   const planLabel = planLabels[billingStatus?.plan ?? ''] ?? billingStatus?.plan ?? '';
 
@@ -346,38 +355,45 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
   return (
     <div className="rounded-lg border border-gray-500/30 overflow-hidden" data-testid="section-system-pulse">
       <button
-        onClick={() => onOpenSettings?.('billing')}
+        onClick={toggleCollapse}
         className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-gradient-to-r from-gray-800/60 to-gray-900/80 hover-elevate active-elevate-2 transition-all"
       >
         <div className="flex items-center gap-2.5">
           <CreditCard className="w-4 h-4 text-gray-400 shrink-0" />
           <span className="text-sm font-bold text-foreground uppercase tracking-wide">Your Plan</span>
         </div>
-        {planLabel && <span className="text-xs text-muted-foreground font-medium">{planLabel}</span>}
+        <div className="flex items-center gap-2">
+          {planLabel && <span className="text-xs text-muted-foreground font-medium">{planLabel}</span>}
+          {collapsed ? <ChevronDown className="w-3.5 h-3.5 text-gray-500" /> : <ChevronUp className="w-3.5 h-3.5 text-gray-500" />}
+        </div>
       </button>
 
-      <UsageSynopsis onOpenSettings={onOpenSettings} />
+      {!collapsed && (
+        <>
+          <UsageSynopsis onOpenSettings={onOpenSettings} />
 
-      <div className="bg-gray-950/60">
-        {alerts.length > 0 && (
-          <div className="px-3 pt-3 space-y-2">
-            <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Attention</h4>
-            {alerts.map((a) => (
-              <AlertRow key={a.id} icon={a.icon} iconColor={a.iconColor} label={a.label} sub={a.sub} severity={a.severity} onClick={a.onClick} />
-            ))}
-          </div>
-        )}
+          <div className="bg-gray-950/60">
+            {alerts.length > 0 && (
+              <div className="px-3 pt-3 space-y-2">
+                <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Attention</h4>
+                {alerts.map((a) => (
+                  <AlertRow key={a.id} icon={a.icon} iconColor={a.iconColor} label={a.label} sub={a.sub} severity={a.severity} onClick={a.onClick} />
+                ))}
+              </div>
+            )}
 
-        <div className="px-3 py-2.5">
-          <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Communications</h4>
-          {children ?? (
-            <div className="flex items-center gap-1.5">
-              <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
-              <span className="text-xs text-muted-foreground">No new notifications</span>
+            <div className="px-3 py-2.5">
+              <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Communications</h4>
+              {children ?? (
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                  <span className="text-xs text-muted-foreground">No new notifications</span>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
