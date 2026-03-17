@@ -432,12 +432,14 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     (a.itemNo || a.name || '').localeCompare(b.itemNo || b.name || '', undefined, { numeric: true, sensitivity: 'base' });
 
   // Fill Bin: preview the next N unassigned lots sorted by part number
+  const fillBinSorted = [...unassignedInventory].sort((a, b) =>
+    (a.itemNo || '').localeCompare(b.itemNo || '', undefined, { numeric: true, sensitivity: 'base' })
+  );
   const fillBinPreview = (() => {
-    const count = Math.min(Math.max(parseInt(fillBinCount) || 20, 1), 200);
-    return [...unassignedInventory]
-      .sort((a, b) => (a.itemNo || '').localeCompare(b.itemNo || '', undefined, { numeric: true, sensitivity: 'base' }))
-      .slice(0, count);
+    const count = Math.min(Math.max(parseInt(fillBinCount) || 20, 1), fillBinSorted.length);
+    return fillBinSorted.slice(0, count);
   })();
+  const fillBinHasMore = fillBinPreview.length < fillBinSorted.length;
 
   // Which preview items are actually checked (all minus explicitly deselected)
   const fillBinSelectedItems = fillBinPreview.filter(item => !fillBinDeselected.has(item.id));
@@ -1470,9 +1472,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 <Input
                   type="number"
                   min={1}
-                  max={200}
                   value={fillBinCount}
-                  onChange={e => { setFillBinCount(e.target.value); setFillBinDeselected(new Set()); }}
+                  onChange={e => setFillBinCount(e.target.value)}
                   data-testid="input-fill-bin-count"
                 />
               </div>
@@ -1495,7 +1496,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               </div>
 
               {fillBinPreview.length > 0 && (
-                <div className="bg-muted/30 rounded-md p-2 max-h-44 overflow-y-auto space-y-0.5" data-testid="fill-bin-preview">
+                <div className="bg-muted/30 rounded-md p-2 max-h-52 overflow-y-auto space-y-0.5" data-testid="fill-bin-preview">
                   {fillBinPreview.map((item: any) => {
                     const checked = !fillBinDeselected.has(item.id);
                     return (
@@ -1516,6 +1517,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     );
                   })}
                 </div>
+              )}
+              {fillBinHasMore && (
+                <button
+                  onClick={() => setFillBinCount(String(parseInt(fillBinCount) + 20))}
+                  className="w-full text-[11px] text-muted-foreground hover:text-foreground py-1 flex items-center justify-center gap-1.5 border border-dashed border-border rounded-md"
+                  data-testid="button-fill-bin-load-more"
+                >
+                  <Plus className="h-3 w-3" />
+                  Load 20 more ({fillBinSorted.length - fillBinPreview.length} remaining)
+                </button>
               )}
             </div>
 
