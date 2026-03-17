@@ -58,9 +58,10 @@ function salesLabel(cents_: number) {
 // ─── Current billing card ─────────────────────────────────────────────────────
 
 function SalesBillCard({ usage }: { usage: OrgUsageData }) {
-  const { plan, monthlySalesCents, period } = usage;
+  const { plan, monthlySalesCents, billing, period } = usage;
   const salesOverThreshold = Math.max(0, monthlySalesCents - plan.freeSalesThreshold);
   const aboveThreshold = monthlySalesCents > plan.freeSalesThreshold;
+  const hasSalesFee = billing.salesFee > 0;
 
   const start = new Date(period.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const end   = new Date(period.end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -78,7 +79,7 @@ function SalesBillCard({ usage }: { usage: OrgUsageData }) {
       </div>
 
       {/* Sales */}
-      <div className="px-4 py-4">
+      <div className="px-4 pt-4 pb-3">
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Sales This Period</span>
         </div>
@@ -96,6 +97,28 @@ function SalesBillCard({ usage }: { usage: OrgUsageData }) {
           {aboveThreshold && (
             <TrendingUp className="w-4 h-4 text-purple-400/70 shrink-0" />
           )}
+        </div>
+      </div>
+
+      {/* Billing breakdown */}
+      <div className="px-4 pb-4">
+        <div className="divide-y divide-white/5 rounded-md border border-white/6 bg-gray-900/40 overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2">
+            <span className="text-xs text-gray-400">Base platform fee</span>
+            <span className="text-xs font-mono text-gray-300">{cents(billing.baseFee)}</span>
+          </div>
+          <div className="flex items-center justify-between px-3 py-2">
+            <span className="text-xs text-gray-400">Sales fee ({plan.salesPercentage}%)</span>
+            <span className={cn("text-xs font-mono", hasSalesFee ? 'text-purple-300' : 'text-gray-500')}>
+              {hasSalesFee ? `+${cents(billing.salesFee)}` : '$0.00'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between px-3 py-2 bg-gray-800/60">
+            <span className="text-xs font-semibold text-gray-200">Estimated total</span>
+            <span className={cn("text-sm font-mono font-bold", hasSalesFee ? 'text-purple-300' : 'text-gray-100')}>
+              {cents(billing.totalDue)}
+            </span>
+          </div>
         </div>
       </div>
     </div>
