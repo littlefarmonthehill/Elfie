@@ -2314,12 +2314,25 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                                   <span style={mkCorner(c, 'auto', 0, 'auto', 0)} />
                                 </>);
                               })()}
-                              {/* Price badge — opens the scan detail panel overlay */}
+                              {/* Price badge — opens the small POM price popup */}
                               <button
                                 onMouseDown={e => e.stopPropagation()}
                                 onClick={e => {
                                   e.stopPropagation();
-                                  setFocusedDetailCropIndex(r.cropIndex ?? null);
+                                  if (r.partNo) {
+                                    setPricePopupTarget({
+                                      partNo: r.partNo,
+                                      itemType: r.itemType ?? 'PART',
+                                      colorId: r.colorId ?? null,
+                                      colorName: r.colorName || '',
+                                      myQtyNew: r.ourQtyNew,
+                                      myPriceNew: r.ourPriceNew,
+                                      myQtyUsed: r.ourQtyUsed,
+                                      myPriceUsed: r.ourPriceUsed,
+                                    });
+                                  } else {
+                                    setFocusedDetailCropIndex(r.cropIndex ?? null);
+                                  }
                                 }}
                                 data-testid={`heatmap-price-badge-${r.cropIndex ?? i}`}
                                 style={{
