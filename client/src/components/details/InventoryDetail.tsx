@@ -295,6 +295,7 @@ function ItemBusinessInsightsDialog({ itemId, itemName, open, onOpenChange }: { 
 
 export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings, initialTab }: InventoryDetailProps) {
   const [activeTab, setActiveTab] = useState(initialTab ?? "overview");
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
@@ -502,7 +503,12 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
       {/* Header - Always visible with fixed height */}
       <div className="flex-shrink-0 bg-gradient-to-r from-lego-blue/15 via-lego-blue/5 to-transparent border border-lego-blue/30 rounded-lg p-3 mb-3">
         <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 w-24 h-24 bg-gray-900 rounded-lg border border-gray-700 p-1.5 flex items-center justify-center">
+          <button
+            className="flex-shrink-0 w-24 h-24 bg-gray-900 rounded-lg border border-gray-700 p-1.5 flex items-center justify-center cursor-zoom-in hover:border-gray-500 transition-colors"
+            onClick={() => data.itemNo && setLightboxOpen(true)}
+            title="Tap to enlarge"
+            data-testid="button-enlarge-image"
+          >
             {data.itemNo ? (
               <PartImage
                 imageUrl={data.imageUrl}
@@ -514,7 +520,29 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
             ) : (
               <Package className="w-12 h-12 text-gray-600" />
             )}
-          </div>
+          </button>
+
+          {/* Lightbox */}
+          <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
+            <DialogContent className="max-w-sm p-4 flex flex-col items-center gap-3 bg-gray-950 border-gray-700">
+              <DialogHeader className="w-full">
+                <DialogTitle className="text-sm font-mono text-lego-blue">{data.itemNo}</DialogTitle>
+              </DialogHeader>
+              <div className="w-full aspect-square bg-gray-900 rounded-lg flex items-center justify-center p-4">
+                <PartImage
+                  imageUrl={data.imageUrl}
+                  partNumber={data.itemNo}
+                  colorId={data.colorId ?? null}
+                  itemType={itemType}
+                  className="w-full h-full object-contain"
+                  fallbackClassName="w-24 h-24 text-gray-600"
+                />
+              </div>
+              {data.colorName && (
+                <p className="text-xs text-gray-400">{data.colorName}</p>
+              )}
+            </DialogContent>
+          </Dialog>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <h3 className="text-sm font-black text-lego-blue font-mono" data-testid="text-item-number">{data.itemNo}</h3>
