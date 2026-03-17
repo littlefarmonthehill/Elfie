@@ -88,21 +88,36 @@ async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: stri
 // ─── Print helper ────────────────────────────────────────────────────────────
 
 /**
- * Print a PDF blob using a hidden off-screen iframe.
- * On every platform — including iOS Safari — iframe.contentWindow.print()
- * opens the native print / AirPrint dialog directly with no share sheet.
+ * iOS Safari requires the iframe to be "visible" (i.e. not visibility:hidden)
+ * for it to actually rasterize the PDF and produce non-blank prints.
+ * We detect iOS so we can use opacity:0 instead of visibility:hidden.
  */
+function isIOS(): boolean {
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
+}
+
 export function hiddenPrint(blob: Blob, _filename = 'document.pdf'): void {
-  // ── All platforms: hidden iframe → direct print dialog ───────────────────
-  // Works on: iOS Safari (AirPrint), macOS Safari/Chrome/Firefox,
-  //            Windows Chrome/Firefox/Edge, Android Chrome, etc.
   const url = URL.createObjectURL(blob);
   const iframe = document.createElement('iframe');
   iframe.setAttribute('aria-hidden', 'true');
-  // Position completely off-screen at full letter size so the PDF viewer renders correctly.
-  // visibility:hidden makes it invisible but still lets it load and print.
-  iframe.style.cssText =
-    'position:fixed;top:-2400px;left:-2400px;width:816px;height:1056px;border:none;visibility:hidden;';
+  const ios = isIOS();
+
+  if (ios) {
+    // iOS: opacity:0 covers the viewport but lets iOS render the PDF fully.
+    // visibility:hidden blocks iOS from rasterizing the PDF → blank prints.
+    // pointer-events:none + z-index:-1 keep the page fully interactive.
+    iframe.style.cssText =
+      'position:fixed;top:0;left:0;width:100%;height:100%;border:none;' +
+      'opacity:0;pointer-events:none;z-index:-1;';
+  } else {
+    // Desktop / Android: off-screen at letter size, no layout impact.
+    iframe.style.cssText =
+      'position:fixed;top:-2400px;left:-2400px;width:816px;height:1056px;' +
+      'border:none;visibility:hidden;';
+  }
   document.body.appendChild(iframe);
 
   const cleanup = () => {
@@ -118,14 +133,16 @@ export function hiddenPrint(blob: Blob, _filename = 'document.pdf'): void {
       iframe.contentWindow?.focus();
       iframe.contentWindow?.print();
     } catch { /* cross-origin guard — shouldn't happen with blob URLs */ }
-    // Clean up when the print dialog is dismissed
-    iframe.contentWindow?.addEventListener('afterprint', cleanup, { once: true });
+    if (!ios) {
+      // afterprint is unreliable on iOS; the 120 s safety-net handles cleanup there.
+      iframe.contentWindow?.addEventListener('afterprint', cleanup, { once: true });
+    }
   };
 
   iframe.addEventListener('load', doPrint, { once: true });
-  // Fallback: some browsers don't fire load for PDF blob URLs in iframes
+  // Fallback: some browsers don't fire load for PDF blob URLs in iframes.
   setTimeout(doPrint, 1500);
-  // Safety net: always clean up eventually
+  // Safety net: always clean up eventually.
   setTimeout(cleanup, 120_000);
 
   iframe.src = url;
