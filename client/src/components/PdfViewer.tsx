@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { X, Printer } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface PdfViewerProps {
@@ -9,32 +9,38 @@ interface PdfViewerProps {
 
 export default function PdfViewer({ url, onClose }: PdfViewerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const closedRef = useRef(false);
 
   useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
-  const handlePrint = () => {
-    iframeRef.current?.contentWindow?.print();
+  const handleLoad = () => {
+    const win = iframeRef.current?.contentWindow;
+    if (!win) return;
+
+    closedRef.current = false;
+
+    const afterPrint = () => {
+      if (closedRef.current) return;
+      closedRef.current = true;
+      onClose();
+    };
+
+    win.addEventListener("afterprint", afterPrint, { once: true });
+    window.addEventListener("afterprint", afterPrint, { once: true });
+
+    setTimeout(() => {
+      try { win.print(); } catch { /* cross-origin guard */ }
+    }, 400);
   };
 
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col bg-black/90">
       <div className="flex items-center justify-between px-4 py-2 bg-gray-900 border-b border-gray-700 shrink-0">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handlePrint}
-          className="gap-1.5 text-xs"
-          data-testid="button-pdf-print"
-        >
-          <Printer className="w-3.5 h-3.5" />
-          Print
-        </Button>
+        <span className="text-xs text-gray-400">Print dialog opening…</span>
         <Button
           size="sm"
           variant="ghost"
@@ -51,6 +57,7 @@ export default function PdfViewer({ url, onClose }: PdfViewerProps) {
         src={url}
         className="flex-1 w-full border-0"
         title="PDF Preview"
+        onLoad={handleLoad}
       />
     </div>
   );

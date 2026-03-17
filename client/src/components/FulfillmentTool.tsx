@@ -392,7 +392,10 @@ export default function FulfillmentTool() {
   const handlePrintPicklist = async () => {
     if (selectedOrders.size === 0) return;
     const { default: jsPDF } = await import('jspdf');
-    const items = allPicklistItems.filter(item => selectedOrders.has(item.orderId));
+    // Always fetch fresh picklist data so recently-added orders are included
+    const freshBins = await queryClient.fetchQuery<PicklistBin[]>({ queryKey: ['/api/picklist'] });
+    const freshItems: PicklistBinItem[] = freshBins.flatMap(b => b.items);
+    const items = freshItems.filter(item => selectedOrders.has(item.orderId));
     const chanPrefix = (item: PicklistBinItem) => item.marketplace === 'BrickOwl' ? 'BO' : 'BL';
     const condLabel = (c: string | null) => c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
     const partKey = (item: PicklistBinItem) => item.partNumber || item.sku || '';

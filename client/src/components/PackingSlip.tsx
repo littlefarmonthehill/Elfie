@@ -101,6 +101,9 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
   orders.forEach((order, idx) => {
     if (idx > 0) doc.addPage();
     const orderStartPage = doc.internal.getNumberOfPages();
+    // Explicitly switch to this order's starting page so any prior footer
+    // loop (which calls setPage) doesn't leave the cursor on the wrong page.
+    doc.setPage(orderStartPage);
     let y = MARGIN;
 
     // ── Company info (left) + logo (right) ──────────────────────────────────
