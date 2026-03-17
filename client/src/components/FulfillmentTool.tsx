@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2 } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, PanelLeftOpen, X } from "lucide-react";
 import { printPackingSlips, printPicklist } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, PRIORITY_REGEX, toggleSetItem } from "@/lib/item-utils";
@@ -209,6 +209,7 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
 export default function FulfillmentTool() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'picklist' | 'shipping'>('picklist');
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const actionRowRef = useRef<HTMLDivElement>(null);
   const shipBtnRef = useRef<HTMLButtonElement>(null);
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
@@ -565,21 +566,139 @@ export default function FulfillmentTool() {
 
   return (
     <>
-      {/* ── Single-column layout: tiles at top, tabbed content below ── */}
+      {/* ── Left drawer: order selection ── */}
+      {drawerOpen && (
+        <div
+          className="fixed inset-0 z-40 flex"
+          onClick={() => setDrawerOpen(false)}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/60" />
+
+          {/* Panel */}
+          <div
+            className="relative z-50 flex flex-col w-80 max-w-[90vw] h-full bg-gray-900 border-r border-gray-700 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Drawer header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 shrink-0">
+              <div className="flex items-center gap-3">
+                <h2 className="text-sm font-bold text-gray-200">Orders</h2>
+                {sortedOrders.length > 0 && (
+                  <span className="text-xs text-gray-400 tabular-nums">
+                    {selectedOrders.size} of {sortedOrders.length} selected
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {sortedOrders.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSelectAll}
+                    data-testid="button-select-all"
+                  >
+                    {selectedOrders.size === sortedOrders.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                )}
+                <button
+                  onClick={() => setDrawerOpen(false)}
+                  className="text-gray-500 hover:text-gray-200 transition-colors"
+                  data-testid="button-drawer-close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Order tiles — scrollable */}
+            <div className="flex-1 overflow-y-auto p-3">
+              {sortedOrders.length === 0 ? (
+                <div className="flex items-center justify-center h-40">
+                  <div className="text-center text-gray-500">
+                    <Truck className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm">No orders awaiting fulfillment</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {sortedOrders.map((order) => {
+                    const isSelected = selectedOrders.has(order.id);
+                    const lotCount = data?.items.filter(i => i.orderId === order.id).length ?? 0;
+                    const isPriority = !!(order.requestedShippingService &&
+                      PRIORITY_REGEX.test(order.requestedShippingService));
+                    const formattedDate = order.orderDate
+                      ? new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      : null;
+                    const fullName: string = (order.shipTo as any)?.name || order.customerUsername || '';
+                    const lastName = fullName.trim().split(' ').pop() || '';
+                    const isPickComplete = !!picklistOrderStatus[order.id];
+                    return (
+                      <div
+                        key={order.id}
+                        onClick={() => handleOrderToggle(order.id)}
+                        className={`relative border rounded-lg p-2 cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'bg-purple-500/20 border-purple-500'
+                            : 'bg-gray-800/50 border-gray-700 hover-elevate'
+                        }`}
+                        data-testid={`order-${order.orderNumber}`}
+                      >
+                        {isPriority && (
+                          <div className="absolute -top-2 -right-2 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center shadow-md z-10">
+                            <Star className="w-3 h-3 fill-white text-white" />
+                          </div>
+                        )}
+                        {isPickComplete && (
+                          <div className="absolute -top-2 -left-2 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shadow-md z-10">
+                            <CheckCircle2 className="w-3 h-3 text-white fill-green-500" />
+                          </div>
+                        )}
+                        <p className={`text-[9px] font-mono font-semibold leading-tight ${isSelected ? 'text-purple-300' : 'text-white'}`}>
+                          {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
+                        </p>
+                        {(lastName || order.marketplace) && (
+                          <p className="text-[10px] text-gray-300 truncate mt-0.5">
+                            {lastName || order.marketplace}
+                          </p>
+                        )}
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-[10px] text-gray-400">{formattedDate}</span>
+                          {lotCount > 0 && (
+                            <span className="w-[18px] h-[18px] rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] font-bold text-white tabular-nums shrink-0">
+                              {lotCount}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Main layout ── */}
       <div className="space-y-2">
 
-        {/* Controls row */}
+        {/* Top bar: drawer trigger + split controls */}
         <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-700">
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleSelectAll}
-              data-testid="button-select-all"
-            >
-              {selectedOrders.size === sortedOrders.length ? 'Deselect All' : 'Select All'}
-            </Button>
-          </div>
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-gray-800 border border-gray-700 text-sm text-gray-300 hover-elevate transition-colors"
+            data-testid="button-open-orders-drawer"
+          >
+            <PanelLeftOpen className="w-4 h-4 text-gray-400" />
+            <span className="font-medium">Orders</span>
+            {sortedOrders.length > 0 && (
+              <span className="text-xs tabular-nums text-gray-400">
+                {selectedOrders.size}/{sortedOrders.length}
+              </span>
+            )}
+          </button>
+
           <div className="flex gap-2 flex-wrap">
             {isSplitMode && (
               <>
@@ -604,73 +723,6 @@ export default function FulfillmentTool() {
             )}
           </div>
         </div>
-
-        {/* Orders tiles */}
-        <div>
-          <h3 className="text-sm lg:text-lg font-bold text-gray-300 mb-1">Orders</h3>
-          {sortedOrders.length === 0 ? (
-            <div className="flex items-center justify-center h-40">
-              <div className="text-center text-gray-500">
-                <Truck className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">No orders awaiting fulfillment</p>
-              </div>
-            </div>
-          ) : (
-          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-8 pt-1 px-2">
-              {sortedOrders.map((order) => {
-                const isSelected = selectedOrders.has(order.id);
-                const lotCount = data?.items.filter(i => i.orderId === order.id).length ?? 0;
-                const isPriority = !!(order.requestedShippingService &&
-                  PRIORITY_REGEX.test(order.requestedShippingService));
-                const formattedDate = order.orderDate
-                  ? new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                  : null;
-                const fullName: string = (order.shipTo as any)?.name || order.customerUsername || '';
-                const lastName = fullName.trim().split(' ').pop() || '';
-                const isPickComplete = !!picklistOrderStatus[order.id];
-                return (
-                  <div
-                    key={order.id}
-                    onClick={() => handleOrderToggle(order.id)}
-                    className={`relative border rounded-lg p-2 lg:p-3 cursor-pointer transition-colors ${
-                      isSelected
-                        ? 'bg-purple-500/20 border-purple-500'
-                        : 'bg-gray-800/50 border-gray-700 hover-elevate'
-                    }`}
-                    data-testid={`order-${order.orderNumber}`}
-                  >
-                    {isPriority && (
-                      <div className="absolute -top-2 -right-2 w-5 h-5 lg:w-6 lg:h-6 bg-red-600 rounded-full flex items-center justify-center shadow-md z-10">
-                        <Star className="w-3 h-3 lg:w-3.5 lg:h-3.5 fill-white text-white" />
-                      </div>
-                    )}
-                    {isPickComplete && (
-                      <div className="absolute -top-2 -left-2 w-5 h-5 lg:w-6 lg:h-6 bg-green-500 rounded-full flex items-center justify-center shadow-md z-10">
-                        <CheckCircle2 className="w-3 h-3 lg:w-3.5 lg:h-3.5 text-white fill-green-500" />
-                      </div>
-                    )}
-                    <p className={`text-[9px] lg:text-xs font-mono font-semibold leading-tight ${isSelected ? 'text-purple-300' : 'text-white'}`}>
-                      {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
-                    </p>
-                    {(lastName || order.marketplace) && (
-                      <p className="text-[10px] lg:text-sm text-gray-300 truncate mt-0.5">
-                        {lastName || order.marketplace}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between mt-1 lg:mt-2">
-                      <span className="text-[10px] lg:text-xs text-gray-400">{formattedDate}</span>
-                      {lotCount > 0 && (
-                        <span className="w-[18px] h-[18px] lg:w-6 lg:h-6 rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] lg:text-[11px] font-bold text-white tabular-nums shrink-0">
-                          {lotCount}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          </div>
 
         {/* ── Tab switcher: Fulfillment | Shipping ── */}
         <div className="flex justify-center gap-1 border-b border-gray-700">
