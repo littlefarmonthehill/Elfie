@@ -9565,18 +9565,81 @@ Format search_web URLs as markdown links.`;
       const { itemType, itemNo } = req.params;
       const colorId = req.query.colorId !== undefined ? parseInt(req.query.colorId as string) : undefined;
 
+      const itemTypeMap: Record<string, string> = {
+        PART: 'PART', MINIFIG: 'MINIFIG', SET: 'SET', BOOK: 'BOOK', GEAR: 'GEAR', CATALOG: 'CATALOG', INSTRUCTION: 'INSTRUCTION',
+      };
       const itemTypePrefix: Record<string, string> = {
         PART: 'P', MINIFIG: 'M', SET: 'S', BOOK: 'B', GEAR: 'G', CATALOG: 'C', INSTRUCTION: 'I',
       };
       const blUrlPrefix = itemTypePrefix[itemType?.toUpperCase()] ?? 'P';
+      const apiItemType = itemTypeMap[itemType?.toUpperCase()] ?? itemType?.toUpperCase();
 
-      // Fetch from BL price guide (returns from 6-month cache or hits BL API if stale/missing)
-      // fetchPriceOMagicData also upserts into bl_catalog automatically
+      // Step 1: Check bl_catalog for existing enriched data (name + image from enrichment scheduler)
+      const catalogRow = await db.select()
+        .from(blCatalog)
+        .where(and(
+          eq(blCatalog.itemNo, itemNo),
+          eq(blCatalog.itemType, itemType),
+          colorId != null ? eq(blCatalog.colorId, colorId) : eq(blCatalog.colorId, 0)
+        ))
+        .limit(1);
+      let catalog = catalogRow[0];
+
+      // Step 2: If no bl_catalog row, or image is missing, fetch from BL API — same as catalog-detail-scheduler
+      // This enriches non-inventory items on first lookup and caches result in bl_catalog for future calls
+      if (!catalog?.imageUrl) {
+        try {
+          const { data } = await bricklinkCatalogRequest(`/items/${apiItemType}/${itemNo}`, undefined, orgId);
+          if (data) {
+            const rawImage = data.image_url as string | null | undefined;
+            const rawThumb = data.thumbnail_url as string | null | undefined;
+            // Normalize protocol-relative URLs (BL API returns //img.bricklink.com/...)
+            const imageUrl = rawImage?.startsWith('//') ? `https:${rawImage}` : (rawImage ?? null);
+            const thumbnailUrl = rawThumb?.startsWith('//') ? `https:${rawThumb}` : (rawThumb ?? null);
+
+            await db.insert(blCatalog).values({
+              itemNo,
+              itemType,
+              colorId: colorId ?? 0,
+              itemName: data.name || null,
+              categoryId: data.category_id || null,
+              blCatalogWeight: data.weight ? String(data.weight) : null,
+              yearReleased: data.year_released || null,
+              imageUrl,
+              thumbnailUrl,
+            }).onConflictDoUpdate({
+              target: [blCatalog.itemNo, blCatalog.itemType, blCatalog.colorId],
+              set: {
+                itemName: sql`COALESCE(EXCLUDED.item_name, bl_catalog.item_name)`,
+                categoryId: sql`COALESCE(EXCLUDED.category_id, bl_catalog.category_id)`,
+                imageUrl: sql`COALESCE(EXCLUDED.image_url, bl_catalog.image_url)`,
+                thumbnailUrl: sql`COALESCE(EXCLUDED.thumbnail_url, bl_catalog.thumbnail_url)`,
+                yearReleased: sql`COALESCE(EXCLUDED.year_released, bl_catalog.year_released)`,
+                updatedAt: sql`NOW()`,
+              },
+            });
+
+            // Re-read to pick up what was just written
+            const refreshed = await db.select().from(blCatalog)
+              .where(and(
+                eq(blCatalog.itemNo, itemNo),
+                eq(blCatalog.itemType, itemType),
+                colorId != null ? eq(blCatalog.colorId, colorId) : eq(blCatalog.colorId, 0)
+              ))
+              .limit(1);
+            catalog = refreshed[0] ?? catalog;
+          }
+        } catch (blErr: any) {
+          console.warn(`[catalog/lookup] BL API item detail fetch failed for ${itemType}/${itemNo}:`, blErr.message);
+        }
+      }
+
+      // Step 3: Get price data from cache (fast, color-specific)
       const pomData = await fetchPriceOMagicData(
         itemNo, itemType, colorId, 'N', 15, null, false, undefined, undefined, orgId
       );
 
-      // Get color name + rgb
+      // Step 4: Get color name + rgb from bl_colors
       let colorName: string | null = null;
       let colorRgb: string | null = null;
       if (colorId != null && colorId > 0) {
@@ -9590,23 +9653,15 @@ Format search_web URLs as markdown links.`;
         }
       }
 
-      // bl_catalog may have a Rebrickable LDraw render (higher quality than BL thumbnail)
-      const catalogRow = await db.select()
-        .from(blCatalog)
-        .where(and(
-          eq(blCatalog.itemNo, itemNo),
-          eq(blCatalog.itemType, itemType),
-          colorId != null ? eq(blCatalog.colorId, colorId) : eq(blCatalog.colorId, 0)
-        ))
-        .limit(1);
-      const catalog = catalogRow[0];
+      const resolvedImageUrl = catalog?.imageUrl ?? pomData.imageUrl ?? null;
+      const resolvedThumbnailUrl = catalog?.thumbnailUrl ?? pomData.thumbnailUrl ?? null;
 
       const responseData = {
         id: `catalog-${itemType}-${itemNo}__c${colorId ?? 0}`,
         itemNo,
-        itemName: pomData.itemName ?? catalog?.itemName ?? itemNo,
+        itemName: catalog?.itemName ?? pomData.itemName ?? itemNo,
         itemType,
-        categoryId: pomData.categoryId ?? catalog?.categoryId ?? null,
+        categoryId: catalog?.categoryId ?? pomData.categoryId ?? null,
         categoryName: null,
         colorId: colorId ?? null,
         colorName: catalog?.colorName ?? colorName ?? null,
@@ -9617,11 +9672,10 @@ Format search_web URLs as markdown links.`;
         myCost: null,
         description: null,
         remarks: null,
-        myWeight: pomData.weight ? String(pomData.weight) : null,
+        myWeight: catalog?.blCatalogWeight ? String(catalog.blCatalogWeight) : (pomData.weight ? String(pomData.weight) : null),
         isBrickLinkCatalog: true,
-        // Prefer Rebrickable LDraw render from bl_catalog, then BL API image
-        imageUrl: catalog?.imageUrl ?? pomData.imageUrl ?? null,
-        thumbnailUrl: catalog?.thumbnailUrl ?? pomData.thumbnailUrl ?? null,
+        imageUrl: resolvedImageUrl,
+        thumbnailUrl: resolvedThumbnailUrl,
         bricklinkUrl: `https://www.bricklink.com/v2/catalog/catalogitem.page?${blUrlPrefix}=${itemNo}`,
         loadingPriceOMagic: false,
         priceOMagic: {
@@ -9634,12 +9688,13 @@ Format search_web URLs as markdown links.`;
           soldMaxPrice: pomData.soldMaxPrice ?? null,
           soldTotalLots: pomData.soldTotalLots ?? null,
           suggestedPrice: pomData.suggestedPrice ?? null,
-          itemName: pomData.itemName ?? catalog?.itemName ?? null,
-          imageUrl: catalog?.imageUrl ?? pomData.imageUrl ?? null,
-          thumbnailUrl: catalog?.thumbnailUrl ?? pomData.thumbnailUrl ?? null,
+          itemName: catalog?.itemName ?? pomData.itemName ?? null,
+          imageUrl: resolvedImageUrl,
+          thumbnailUrl: resolvedThumbnailUrl,
         },
       };
 
+      console.log(`[catalog/lookup] ${itemType}/${itemNo} colorId=${colorId} → imageUrl=${resolvedImageUrl ?? 'null'}`);
       res.json(responseData);
     } catch (error) {
       console.error("[catalog/lookup] Error:", error);
