@@ -647,7 +647,21 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       .sub { font-size: ${dims.sub}; color: #555; margin-top: 3px; }
       @page { margin: 0.25in; }
       @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
-    </style></head><body onload="window.print(); window.close();">
+    </style>
+    <script>
+      window.addEventListener('load', function() {
+        var images = Array.from(document.images);
+        Promise.all(
+          images.map(function(img) {
+            return img.complete ? Promise.resolve() : new Promise(function(resolve) {
+              img.onload = resolve;
+              img.onerror = resolve;
+            });
+          })
+        ).then(function() { window.print(); });
+      });
+    <\/script>
+    </head><body>
     <div class="grid">${labelHtml}</div>
     </body></html>`;
 
