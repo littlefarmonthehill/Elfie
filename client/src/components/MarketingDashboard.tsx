@@ -10,7 +10,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import MetricCard from "./MetricCard";
-import DateRangeSelector, { DateRangeValue } from "./DateRangeSelector";
+import DateRangeSelector, { DateRangeValue, CollapsibleDatePicker } from "./DateRangeSelector";
 
 interface CustomerStats {
   most_recent_order_id: string;
@@ -320,13 +320,14 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
   const [newDateRange, setNewDateRange] = useState<DateRangeValue>('mtd');
   const [repeatDateRange, setRepeatDateRange] = useState<DateRangeValue>('mtd');
   const [topDateRange, setTopDateRange] = useState<DateRangeValue>('mtd');
+  const [localDateRange, setLocalDateRange] = useState<DateRangeValue>(parentDateRange);
 
   const dateRange = renderDrawerOnly
     ? (activeDrawer === 'engage-new' ? newDateRange
       : activeDrawer === 'engage-repeat' ? repeatDateRange
       : activeDrawer === 'engage-top' ? topDateRange
       : parentDateRange)
-    : parentDateRange;
+    : localDateRange;
 
   const { data: rawStats = [], isLoading } = useQuery<CustomerStats[]>({
     queryKey: ['/api/orders/customer-stats', dateRange],
@@ -464,11 +465,17 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
         {/* ── Customer Overview ── */}
         <div className={cn("relative bg-gradient-to-b from-yellow-950/20 to-gray-900/85 border border-yellow-500/40 rounded-lg shadow-[0_0_22px_rgba(234,179,8,0.10)]", "p-2.5")} data-testid="section-customer-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-yellow-400/50 to-transparent" />
-          <div className={cn("flex items-center gap-2", "mb-2")}>
+          <div className="flex items-center gap-2 mb-2">
             <div className="p-1.5 rounded-md bg-yellow-900/60 ring-1 ring-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.22)] shrink-0">
               <Users className={cn("w-3 h-3 text-yellow-200", "md:w-4 md:h-4")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-yellow-200 uppercase tracking-wide shrink-0", "md:text-sm lg:text-base")}>Customers</h3>
+            <h3 className={cn("text-xs font-semibold text-yellow-200 uppercase tracking-wide min-w-0", "md:text-sm lg:text-base")}>Customers</h3>
+            <CollapsibleDatePicker
+              value={localDateRange}
+              onChange={setLocalDateRange}
+              accentClass="text-yellow-400/70 hover:text-yellow-300"
+              testId="button-customers-date-picker"
+            />
           </div>
           <div className={cn("grid grid-cols-3 gap-1.5", "mb-2")} data-testid="section-customer-counts">
             <MetricCard label="Total" value={String(totalCustomers)} color="yellow" data-testid="metric-total-customers" />

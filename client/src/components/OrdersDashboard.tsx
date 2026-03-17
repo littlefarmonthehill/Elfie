@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ShoppingCart, Truck, PackageCheck,
@@ -11,7 +12,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import MetricCard from "./MetricCard";
-import { DateRangeValue } from "./DateRangeSelector";
+import { DateRangeValue, CollapsibleDatePicker } from "./DateRangeSelector";
 
 interface OrderStats {
   totalOrders: number;
@@ -30,7 +31,9 @@ interface OrdersDashboardProps {
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing') => void;
 }
 
-export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange = 'mtd', onOpenSettings }: OrdersDashboardProps) {
+export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange: initialDateRange = 'mtd', onOpenSettings }: OrdersDashboardProps) {
+  const [dateRange, setDateRange] = useState<DateRangeValue>(initialDateRange);
+
   const { data: stats, isLoading: statsLoading } = useQuery<OrderStats>({
     queryKey: ['/api/orders/stats', dateRange],
     queryFn: async () => {
@@ -97,11 +100,17 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
         {/* ── Orders Info ── */}
         <div className={cn("relative bg-gradient-to-b from-orange-950/25 to-gray-900/85 border border-orange-500/40 rounded-lg shadow-[0_0_22px_rgba(249,115,22,0.12)] overflow-hidden", "p-2.5")} data-testid="section-orders-overview">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-400/50 to-transparent" />
-          <div className={cn("flex flex-wrap items-center gap-2", "mb-2")}>
-            <div className="p-1.5 rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)]">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-1.5 rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0">
               <ShoppingCart className={cn("w-3 h-3 text-orange-200", "md:w-4 md:h-4")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-orange-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Orders</h3>
+            <h3 className={cn("text-xs font-semibold text-orange-200 uppercase tracking-wide min-w-0", "md:text-sm lg:text-base")}>Orders</h3>
+            <CollapsibleDatePicker
+              value={dateRange}
+              onChange={setDateRange}
+              accentClass="text-orange-400/70 hover:text-orange-300"
+              testId="button-orders-date-picker"
+            />
           </div>
           <div className={cn("grid grid-cols-3 gap-1.5", "mb-1.5")} data-testid="section-orders-counts">
             <MetricCard label="Total" value={stats ? formatNumber(stats.totalOrders) : '—'} color="orange" data-testid="metric-total-orders" />

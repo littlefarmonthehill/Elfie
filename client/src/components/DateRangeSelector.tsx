@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { Calendar, ChevronDown, ChevronUp } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export type DateRangeValue = 'mtd' | 'lastmonth' | '3months' | '1year' | 'prevyear' | 'all';
 
@@ -9,6 +11,15 @@ interface DateRangeSelectorProps {
   compact?: boolean;
   scaled?: boolean;
 }
+
+export const RANGE_SHORT_LABELS: Record<DateRangeValue, string> = {
+  mtd: 'MTD',
+  lastmonth: 'Prev',
+  '3months': '3M',
+  '1year': '1Y',
+  prevyear: 'PY',
+  all: 'All',
+};
 
 const fullLabels: { label: string; short: string; value: DateRangeValue }[] = [
   { label: 'This Month',  short: 'MTD',   value: 'mtd' },
@@ -88,6 +99,56 @@ export default function DateRangeSelector({ value, onChange, className = "", com
           {isMobile ? option.short : option.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+interface CollapsibleDatePickerProps {
+  value: DateRangeValue;
+  onChange: (value: DateRangeValue) => void;
+  accentClass?: string;
+  testId?: string;
+}
+
+export function CollapsibleDatePicker({
+  value,
+  onChange,
+  accentClass = 'text-gray-400 hover:text-gray-200',
+  testId,
+}: CollapsibleDatePickerProps) {
+  const [open, setOpen] = useState(false);
+
+  const handleChange = (v: DateRangeValue) => {
+    onChange(v);
+    setOpen(false);
+  };
+
+  return (
+    <div className="ml-auto flex items-center gap-1.5 shrink-0">
+      {open && (
+        <DateRangeSelector
+          value={value}
+          onChange={handleChange}
+          compact
+          scaled
+        />
+      )}
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "flex items-center gap-0.5 transition-colors duration-150 select-none",
+          "text-[9px] font-bold uppercase tracking-wider",
+          accentClass,
+        )}
+        data-testid={testId ?? 'button-toggle-date-picker'}
+      >
+        <Calendar className="w-3 h-3 shrink-0" />
+        <span className="leading-none">{RANGE_SHORT_LABELS[value]}</span>
+        {open
+          ? <ChevronUp className="w-2.5 h-2.5 shrink-0" />
+          : <ChevronDown className="w-2.5 h-2.5 shrink-0" />
+        }
+      </button>
     </div>
   );
 }
