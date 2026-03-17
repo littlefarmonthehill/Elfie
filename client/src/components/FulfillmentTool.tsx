@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2 } from "lucide-react";
-import { printPackingSlips, printPicklist, openLoadingWindow } from "./PackingSlip";
+import { printPackingSlips, printPicklist } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, PRIORITY_REGEX, toggleSetItem } from "@/lib/item-utils";
 import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult, OrderItem } from "./InlineShippingCard";
@@ -363,8 +363,6 @@ export default function FulfillmentTool() {
 
   const handlePrintPackingSlips = async (orderIds: string[]) => {
     if (orderIds.length === 0) return;
-    // Open the window NOW (within the user gesture) to bypass popup blockers
-    const printWin = openLoadingWindow();
     try {
       const response = await fetch('/api/fulfillment/packing-slip', {
         method: 'POST',
@@ -372,9 +370,8 @@ export default function FulfillmentTool() {
         body: JSON.stringify({ orderIds }),
       });
       const data = await response.json();
-      await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined, printWin);
+      await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined);
     } catch (error) {
-      printWin?.close();
       console.error('Error fetching packing slip data:', error);
       toast({
         title: "Error",
@@ -386,9 +383,7 @@ export default function FulfillmentTool() {
 
   const handlePrintPicklist = async () => {
     if (selectedOrders.size === 0) return;
-    const printWin = openLoadingWindow();
     try {
-      // Always fetch fresh data so recently-added orders are included
       const freshBins = await queryClient.fetchQuery<PicklistBin[]>({ queryKey: ['/api/picklist'] });
       const freshItems: PicklistBinItem[] = freshBins.flatMap(b => b.items);
       const items = freshItems
@@ -397,10 +392,8 @@ export default function FulfillmentTool() {
           const pk = (a.partNumber || a.sku || '').localeCompare(b.partNumber || b.sku || '', undefined, { numeric: true });
           return pk !== 0 ? pk : (a.colorName || '').localeCompare(b.colorName || '');
         });
-      // Map remarks → comment so printPicklist can use a single field name
-      printPicklist(items.map(item => ({ ...item, comment: item.remarks })), printWin);
+      printPicklist(items.map(item => ({ ...item, comment: item.remarks })));
     } catch (error) {
-      printWin?.close();
       console.error('Error fetching picklist data:', error);
       toast({ title: "Error", description: "Failed to generate picklist. Please try again.", variant: "destructive" });
     }

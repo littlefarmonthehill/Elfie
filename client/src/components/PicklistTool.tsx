@@ -5,7 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Package, Loader2, List, Layers, ChevronDown, ChevronRight, ScanLine, Camera, X, CheckCircle2, AlertCircle } from "lucide-react";
-import { openLoadingWindow, printPicklist } from "./PackingSlip";
+import { printPicklist } from "./PackingSlip";
 
 type WarehouseLocation = {
   aisle: { id: number; name: string };
@@ -267,15 +267,13 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   const partKey = (item: BinPicklistItem) => item.partNumber || item.sku || '';
 
   const handlePrint = () => {
-    const printWin = openLoadingWindow();
     const sortedItems = [...flatItems].sort((a, b) => {
       const pk = partKey(a).localeCompare(partKey(b), undefined, { numeric: true });
       if (pk !== 0) return pk;
       const ck = (a.colorName || '').localeCompare(b.colorName || '');
       return ck !== 0 ? ck : (a.condition || '').localeCompare(b.condition || '');
     });
-    // BinPicklistItem has both 'comment' (buyer note) and 'remarks' — pass directly
-    printPicklist(sortedItems, printWin);
+    printPicklist(sortedItems);
   };
 
   // ── Derived data ──

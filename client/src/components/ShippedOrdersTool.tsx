@@ -14,7 +14,7 @@ import {
 import { Search, Package, Loader2, Printer, Tag, FileText, ChevronDown, RotateCcw, ScanLine, FlaskConical } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import { printPackingSlips, openLoadingWindow } from "./PackingSlip";
+import { printPackingSlips } from "./PackingSlip";
 import DateRangeSelector, { DateRangeValue } from "./DateRangeSelector";
 
 type ShippedOrder = {
@@ -105,8 +105,6 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
   });
 
   const handlePrintPackingSlip = async (orderId: string) => {
-    // Open the window NOW (within the user gesture) to bypass popup blockers
-    const printWin = openLoadingWindow();
     try {
       const response = await fetch('/api/fulfillment/packing-slip', {
         method: 'POST',
@@ -114,9 +112,8 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
         body: JSON.stringify({ orderIds: [orderId] }),
       });
       const data = await response.json();
-      await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined, printWin);
+      await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined);
     } catch (error) {
-      printWin?.close();
       console.error('Error fetching packing slip data:', error);
       toast({
         title: "Error",

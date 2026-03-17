@@ -86,51 +86,59 @@ async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: stri
 
 // ─── Print helper ────────────────────────────────────────────────────────────
 
-/** Open a loading placeholder window before async work to avoid popup blocker. */
-export function openLoadingWindow(): Window | null {
-  const win = window.open('', '_blank', 'noopener');
-  if (win) {
-    win.document.write(
-      '<html><body style="margin:0;background:#f8f8f8;font-family:sans-serif;' +
-      'display:flex;align-items:center;justify-content:center;height:100vh;' +
-      'color:#888;font-size:14px">Preparing document\u2026</body></html>'
-    );
-    win.document.close();
-  }
-  return win;
-}
-
 /**
- * Navigate `preOpenedWin` (or open a new window) to the blob URL.
- * doc.autoPrint() embedded in the PDF triggers the print dialog automatically.
- * The window closes once the print dialog is dismissed (afterprint event).
+ * Print a PDF Blob without ever showing the PDF to the user.
+ *
+ * • iOS / Android  → Web Share API  (`navigator.share({ files })`)
+ *   triggers the native share/AirPrint sheet immediately.  No window opens.
+ *
+ * • Desktop        → hidden off-screen iframe.  The PDF renders invisibly,
+ *   the OS print dialog appears, then the iframe is removed silently.
  */
-export function openPdfAndPrint(blobUrl: string, preOpenedWin?: Window | null): void {
-  const win = preOpenedWin ?? window.open(blobUrl, '_blank', 'noopener');
-  if (!win) return;
+export function hiddenPrint(blob: Blob, filename = 'document.pdf'): void {
+  const file = new File([blob], filename, { type: 'application/pdf' });
 
-  let closed = false;
-  const doClose = () => {
-    if (closed) return;
-    closed = true;
-    try { win.close(); } catch { /* ignore */ }
-    try { URL.revokeObjectURL(blobUrl); } catch { /* ignore */ }
+  // ── Mobile / iOS: native share sheet (includes AirPrint) ─────────────────
+  if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
+    navigator.share({ files: [file], title: filename.replace(/\.pdf$/i, '') })
+      .catch(() => { /* user cancelled or share not supported — ignore */ });
+    return;
+  }
+
+  // ── Desktop: hidden iframe ────────────────────────────────────────────────
+  const url = URL.createObjectURL(blob);
+  const iframe = document.createElement('iframe');
+  iframe.setAttribute('aria-hidden', 'true');
+  // Position completely off-screen at full letter size so the PDF viewer renders correctly.
+  // visibility:hidden makes it invisible but still lets it load and print.
+  iframe.style.cssText =
+    'position:fixed;top:-2400px;left:-2400px;width:816px;height:1056px;border:none;visibility:hidden;';
+  document.body.appendChild(iframe);
+
+  const cleanup = () => {
+    try { document.body.removeChild(iframe); } catch { /* already removed */ }
+    try { URL.revokeObjectURL(url); } catch { /* already revoked */ }
   };
 
-  // afterprint fires when the print dialog is dismissed (printed or cancelled).
-  // This is the primary close mechanism.
-  win.addEventListener('afterprint', doClose, { once: true });
+  let printed = false;
+  const doPrint = () => {
+    if (printed) return;
+    printed = true;
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch { /* cross-origin guard — shouldn't happen with blob URLs */ }
+    // Clean up when the print dialog is dismissed
+    iframe.contentWindow?.addEventListener('afterprint', cleanup, { once: true });
+  };
 
-  if (preOpenedWin) {
-    // Add the load listener BEFORE navigating so we don't miss the event.
-    preOpenedWin.addEventListener('load', () => {
-      try { preOpenedWin.print(); } catch { /* cross-origin guard */ }
-    }, { once: true });
-    preOpenedWin.location.href = blobUrl;
-  }
-  // Belt-and-suspenders: call print() after a generous delay in case the
-  // load event doesn't fire (some browsers skip it for PDF blob URLs).
-  setTimeout(() => { try { win.print(); } catch { /* cross-origin guard */ } }, 2500);
+  iframe.addEventListener('load', doPrint, { once: true });
+  // Fallback: some browsers don't fire load for PDF blob URLs in iframes
+  setTimeout(doPrint, 1500);
+  // Safety net: always clean up eventually
+  setTimeout(cleanup, 120_000);
+
+  iframe.src = url;
 }
 
 // ─── Picklist PDF ─────────────────────────────────────────────────────────────
@@ -153,8 +161,8 @@ const chanPrefix = (item: PicklistItem) => item.marketplace === 'BrickOwl' ? 'BO
 const condLabel  = (c: string | null | undefined) => c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
 const partKey    = (item: PicklistItem) => item.partNumber || item.sku || '';
 
-export function printPicklist(items: PicklistItem[], preOpenedWin?: Window | null): void {
-  if (items.length === 0) { preOpenedWin?.close(); return; }
+export function printPicklist(items: PicklistItem[]): void {
+  if (items.length === 0) return;
 
   const CONTENT_W = PAGE_W - 2 * MARGIN;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
@@ -219,16 +227,12 @@ export function printPicklist(items: PicklistItem[], preOpenedWin?: Window | nul
     y += 6;
   }
 
-  doc.autoPrint();
-  const blob = doc.output('blob');
-  const url  = URL.createObjectURL(blob);
-  openPdfAndPrint(url, preOpenedWin);
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  hiddenPrint(doc.output('blob'), 'picklist.pdf');
 }
 
 // ─── Packing-slip PDF ────────────────────────────────────────────────────────
 
-export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBranding, preOpenedWin?: Window | null): Promise<void> {
+export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBranding): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
   const logo = await loadLogoInfo(org?.logoUrl);
   let logoW = 0;
@@ -378,11 +382,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     }
   });
 
-  doc.autoPrint();
-  const blob = doc.output('blob');
-  const url = URL.createObjectURL(blob);
-  openPdfAndPrint(url, preOpenedWin);
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  hiddenPrint(doc.output('blob'), 'packing-slips.pdf');
 }
 
 export default function PackingSlip({ orders }: PackingSlipProps) {
