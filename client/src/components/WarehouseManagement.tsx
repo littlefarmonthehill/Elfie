@@ -271,6 +271,21 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     onSuccess: () => { invalidateWarehouse(); },
   });
 
+  const deleteAisleMutation = useMutation({
+    mutationFn: (id: number) => apiRequest('DELETE', `/api/warehouse/aisles/${id}`),
+    onSuccess: () => { invalidateWarehouse(); },
+  });
+
+  const deleteShelfMutation = useMutation({
+    mutationFn: (id: number) => apiRequest('DELETE', `/api/warehouse/shelves/${id}`),
+    onSuccess: () => { invalidateWarehouse(); },
+  });
+
+  const deleteBinMutation = useMutation({
+    mutationFn: (id: number) => apiRequest('DELETE', `/api/warehouse/bins/${id}`),
+    onSuccess: () => { invalidateWarehouse(); },
+  });
+
   const updateAisleMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) =>
       apiRequest('PUT', `/api/warehouse/aisles/${id}`, data),
@@ -395,6 +410,19 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       toast({ title: `${count} ${count !== 1 ? 'shelves' : 'shelf'} assigned` });
       setSelectedItems(new Set()); setBulkAisleId("");
     }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedItems.size === 0) return;
+    const count = selectedItems.size;
+    const label = activeView === 'bins' ? 'bin' : activeView === 'shelves' ? 'shelf' : 'aisle';
+    await Promise.all(Array.from(selectedItems).map(id => {
+      if (activeView === 'bins') return deleteBinMutation.mutateAsync(id);
+      if (activeView === 'shelves') return deleteShelfMutation.mutateAsync(id);
+      if (activeView === 'aisles') return deleteAisleMutation.mutateAsync(id);
+    }));
+    toast({ title: `${count} ${label}${count !== 1 ? (label === 'shelf' ? 'ves' : 's') : ''} deleted` });
+    setSelectedItems(new Set());
   };
 
   const alphaNumericSort = (a: any, b: any) =>
@@ -828,18 +856,30 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   </SelectContent>
                 </Select>
               )}
-              <Button size="sm" onClick={handleBulkAssign} className="text-xs h-7">Assign</Button>
+              {activeView === 'lots' && <Button size="sm" onClick={handleBulkAssign} className="text-xs h-7">Assign</Button>}
               {(activeView === 'bins' || activeView === 'shelves' || activeView === 'aisles') && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs h-7 gap-1"
-                  onClick={() => setPrintDialogOpen(true)}
-                  data-testid="button-print-labels"
-                >
-                  <Printer className="h-3 w-3" />
-                  Print Labels
-                </Button>
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-7 gap-1"
+                    onClick={() => setPrintDialogOpen(true)}
+                    data-testid="button-print-labels"
+                  >
+                    <Printer className="h-3 w-3" />
+                    Print Labels
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="text-xs h-7 gap-1"
+                    onClick={handleBulkDelete}
+                    data-testid="button-bulk-delete"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    Delete {selectedItems.size}
+                  </Button>
+                </>
               )}
               <Button size="sm" variant="ghost" onClick={() => setSelectedItems(new Set())} className="text-xs h-7">Clear</Button>
             </div>
@@ -910,15 +950,31 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   </div>
                 </div>
                 {(activeView === 'bins' || activeView === 'shelves' || activeView === 'aisles') && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6 shrink-0"
-                    onClick={e => { e.stopPropagation(); handleEdit(activeView === 'aisles' ? 'aisle' : activeView === 'shelves' ? 'shelf' : 'bin', item); }}
-                    data-testid={`button-edit-${activeView}-${item.id}`}
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </Button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6"
+                      onClick={e => { e.stopPropagation(); handleEdit(activeView === 'aisles' ? 'aisle' : activeView === 'shelves' ? 'shelf' : 'bin', item); }}
+                      data-testid={`button-edit-${activeView}-${item.id}`}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6 text-destructive hover:text-destructive"
+                      onClick={e => {
+                        e.stopPropagation();
+                        if (activeView === 'bins') deleteBinMutation.mutate(item.id);
+                        else if (activeView === 'shelves') deleteShelfMutation.mutate(item.id);
+                        else if (activeView === 'aisles') deleteAisleMutation.mutate(item.id);
+                      }}
+                      data-testid={`button-delete-${activeView}-${item.id}`}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                 )}
               </div>
             ))}
