@@ -635,7 +635,7 @@ export default function FulfillmentTool() {
   return (
     <>
       {/* ── Single-column layout: tiles at top, tabbed content below ── */}
-      <div className="space-y-4">
+      <div className="space-y-2">
 
         {/* Controls row */}
         <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-700">
@@ -676,7 +676,7 @@ export default function FulfillmentTool() {
 
         {/* Orders tiles */}
         <div>
-          <h3 className="text-sm lg:text-lg font-bold text-gray-300 mb-3">Orders</h3>
+          <h3 className="text-sm lg:text-lg font-bold text-gray-300 mb-1">Orders</h3>
           {sortedOrders.length === 0 ? (
             <div className="flex items-center justify-center h-40">
               <div className="text-center text-gray-500">
@@ -685,7 +685,7 @@ export default function FulfillmentTool() {
               </div>
             </div>
           ) : (
-          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-5 pt-3 px-2">
+          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-8 pt-1 px-2">
               {sortedOrders.map((order) => {
                 const isSelected = selectedOrders.has(order.id);
                 const lotCount = data?.items.filter(i => i.orderId === order.id).length ?? 0;
