@@ -4365,17 +4365,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch order items
       const items = await db.select().from(orderDetails).where(eq(orderDetails.orderId, orderId));
 
-      // Look up BrickLink part numbers (item_no) for items that have a bricklinkInventoryId
-      const blInventoryIds = items
-        .map(i => i.bricklinkInventoryId)
-        .filter((id): id is number => id !== null && id !== undefined);
-      const inventoryItemNoMap: Record<number, string> = {};
-      if (blInventoryIds.length > 0) {
+      // Look up BrickLink part numbers for items missing the stored item_no
+      // (backfill for older order records synced before item_no was added)
+      const missingItemNoIds = items
+        .filter(i => !i.itemNo && i.bricklinkInventoryId != null)
+        .map(i => i.bricklinkInventoryId as number);
+      const fallbackItemNoMap: Record<number, string> = {};
+      if (missingItemNoIds.length > 0) {
         const blItems = await db
           .select({ id: blInventory.id, itemNo: blInventory.itemNo })
           .from(blInventory)
-          .where(inArray(blInventory.id, blInventoryIds));
-        for (const bi of blItems) inventoryItemNoMap[bi.id] = bi.itemNo;
+          .where(inArray(blInventory.id, missingItemNoIds));
+        for (const bi of blItems) fallbackItemNoMap[bi.id] = bi.itemNo;
       }
 
       // Fetch adjustments (refunds, credits)
@@ -4444,7 +4445,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         weight: order.weight ? Number(order.weight) : null,
         weightUnits: order.weightUnits || 'oz',
         items: items.map(item => ({
-          partNumber: (item.bricklinkInventoryId && inventoryItemNoMap[item.bricklinkInventoryId])
+          partNumber: item.itemNo
+            || (item.bricklinkInventoryId ? fallbackItemNoMap[item.bricklinkInventoryId] : undefined)
             || item.sku
             || '',
           name: item.name,

@@ -1023,6 +1023,21 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-49 (restore Stripe billing columns) complete.');
 
+    // ── Phase-50: Add item_no to order_details + backfill from bl_inventory ──
+    // Stores the BrickLink part number (e.g. "3001") directly on each order
+    // line item so it's available even after a lot is removed from inventory.
+    await client.query(`
+      ALTER TABLE order_details ADD COLUMN IF NOT EXISTS item_no TEXT
+    `);
+    await client.query(`
+      UPDATE order_details od
+      SET item_no = bi.item_no
+      FROM bl_inventory bi
+      WHERE bi.id = od.bricklink_inventory_id
+        AND od.item_no IS NULL
+    `);
+    console.log('[Migration] Phase-50 (item_no on order_details) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

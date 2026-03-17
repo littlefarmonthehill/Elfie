@@ -333,6 +333,7 @@ export const orderDetails = pgTable("order_details", {
   customField2: text("custom_field_2"), // ShipStation custom field 2
   customField3: text("custom_field_3"), // ShipStation custom field 3
   bricklinkInventoryId: integer("bricklink_inventory_id"), // BrickLink inventory ID (from options/description)
+  itemNo: text("item_no"), // BrickLink part/item number (e.g. "3001")
   colorId: integer("color_id"), // BrickLink color ID (from options/description)
   condition: text("condition"), // New/Used (from options/description)
   fulfilled: boolean("fulfilled").default(false).notNull(), // Track fulfillment status

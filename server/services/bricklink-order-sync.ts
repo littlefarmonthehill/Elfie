@@ -511,6 +511,7 @@ async function processBrickLinkOrder(
         orderId,
         lineItemKey,
         sku: item.inventory_id ? item.inventory_id.toString() : null,  // BrickLink inventory ID
+        itemNo: item.item?.no || null,
         name: item.item?.name || `${item.item?.no || ''} - unknown`,
         quantity: item.quantity,
         unitPrice: item.unit_price ? item.unit_price.toString() : '0',
