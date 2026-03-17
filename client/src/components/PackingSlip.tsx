@@ -47,7 +47,7 @@ interface PackingSlipProps {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const MX        = 4;            // left / right margin mm
-const MY        = 1;            // top  / bottom margin mm
+const MY        = 0;            // top margin mm — as narrow as possible
 const PAGE_W    = 215.9;        // letter width mm
 const PAGE_H    = 279.4;        // letter height mm
 const CONTENT_W = PAGE_W - 2 * MX;
@@ -68,6 +68,13 @@ async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: stri
         const w = img.naturalWidth || img.width;
         const h = img.naturalHeight || img.height;
         if (!w || !h) { resolve(null); return; }
+        // data: URLs are already same-origin — hand them straight to jsPDF,
+        // no canvas needed (avoids tainted-canvas / crossOrigin complications).
+        if (orgLogoUrl.startsWith('data:')) {
+          resolve({ dataUrl: orgLogoUrl, w, h });
+          return;
+        }
+        // External URLs: draw through canvas so jsPDF gets a PNG data URL.
         const canvas = document.createElement('canvas');
         canvas.width = w;
         canvas.height = h;
@@ -80,7 +87,6 @@ async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: stri
       }
     };
     img.onerror = () => resolve(null);
-    img.crossOrigin = 'anonymous';
     img.src = orgLogoUrl;
   });
 }
@@ -378,7 +384,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
       doc.text(
         `${footerLabel}  \u00b7  Page ${pageInOrder} of ${orderPageTotal}`,
         MX + CONTENT_W,
-        PAGE_H - MY,
+        PAGE_H - 2,
         { align: 'right' },
       );
     }
