@@ -80,6 +80,7 @@ async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: stri
       }
     };
     img.onerror = () => resolve(null);
+    img.crossOrigin = 'anonymous';
     img.src = orgLogoUrl;
   });
 }
@@ -154,8 +155,9 @@ export function printPicklist(items: PicklistItem[]): void {
   if (items.length === 0) return;
 
   const PANEL_H     = PAGE_H / 2;
-  const panelTop    = (p: 0 | 1) => p * PANEL_H + MY;
-  const panelBottom = (p: 0 | 1) => (p + 1) * PANEL_H - MY;
+  const PL_MY       = 0;            // no top/bottom margin — as narrow as possible
+  const panelTop    = (p: 0 | 1) => p * PANEL_H + PL_MY;
+  const panelBottom = (p: 0 | 1) => (p + 1) * PANEL_H - PL_MY;
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
   let panel: 0 | 1 = 0;
@@ -176,7 +178,8 @@ export function printPicklist(items: PicklistItem[]): void {
 
   for (const item of items) {
     const hasComment = !!(item.comment);
-    const itemH = 3 + 6 + 5 + (hasComment ? 4.5 : 0) + 6;
+    // Heights match the larger font sizes below
+    const itemH = 3 + 7 + 6 + (hasComment ? 5.5 : 0) + 6;
     if (y + itemH > panelBottom(panel)) advancePanel();
 
     doc.setDrawColor(187, 187, 187);
@@ -191,7 +194,7 @@ export function printPicklist(items: PicklistItem[]): void {
       item.itemName,
     ].filter(Boolean) as string[];
 
-    doc.setFontSize(11);
+    doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
     doc.text(partStr, MX, y);
@@ -206,7 +209,7 @@ export function printPicklist(items: PicklistItem[]): void {
       if (restStr.length < (' \u00b7 ' + restParts.join(' \u00b7 ')).length) restStr = restStr.slice(0, -3) + '\u2026';
       doc.text(restStr, MX + partW, y);
     }
-    y += 6;
+    y += 7;
 
     const rawOrder  = (item.orderNumber || '').replace(/^(BL|BO)/i, '');
     const metaParts = [
@@ -215,16 +218,16 @@ export function printPicklist(items: PicklistItem[]): void {
       item.inventoryId ? `Lot ${item.inventoryId}` : null,
     ].filter(Boolean) as string[];
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
+    doc.setFontSize(11);
     doc.setTextColor(120, 120, 120);
     doc.text(metaParts.join(' \u00b7 '), MX, y);
-    y += 5;
+    y += 6;
 
     if (item.comment) {
-      doc.setFontSize(8.5);
+      doc.setFontSize(10);
       doc.setTextColor(0, 85, 170);
       doc.text(item.comment, MX, y);
-      y += 4.5;
+      y += 5.5;
     }
     y += 6;
   }
