@@ -1047,6 +1047,17 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-51 (warehouse_depth on organizations) complete.');
 
+    // ── Phase-52: trial_duration_days for foundation + core ───────────────────
+    // Backfill the 14-day free trial for subscribable plans seeded before this
+    // was added to TIER_CONFIG.
+    await client.query(`
+      UPDATE plan_configs
+        SET trial_duration_days = 14
+      WHERE plan_key IN ('foundation', 'core')
+        AND trial_duration_days = 0
+    `);
+    console.log('[Migration] Phase-52 (trial_duration_days for foundation/core) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

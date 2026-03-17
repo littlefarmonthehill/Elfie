@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, ArrowRight, Building2, Link, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2, Archive, Layers, MapPin, Upload, FileText, ChevronRight, AlertCircle, Package, Globe } from "lucide-react";
+import { CheckCircle2, ArrowRight, Building2, Link, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2, Archive, Layers, MapPin, Upload, FileText, ChevronRight, AlertCircle, Package, Globe, CreditCard, Lock, BadgeCheck, CalendarClock, ToggleLeft } from "lucide-react";
 import { TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
 import type { Organization } from "@shared/schema";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
+import { TIER_CONFIG } from "@shared/tierConfig";
 
 interface Props {
   org: Organization;
@@ -22,6 +23,7 @@ const STEPS = [
   { id: 2, label: "BrickLink", icon: Link },
   { id: 3, label: "Warehouse", icon: Archive },
   { id: 4, label: "BrickOwl", icon: Globe },
+  { id: 5, label: "Subscribe", icon: CreditCard },
 ];
 
 const DEPTH_OPTIONS = [
@@ -35,7 +37,8 @@ const STEP_MESSAGES: Record<number, string> = {
   2: "BrickLink is the engine that drives everything. Connect your API keys and I'll automatically sync your inventory, orders, and pricing — all in one place.",
   3: "Now let's map out your storage. Choose how your warehouse is laid out — once I know the structure, I can guide you to any part the moment an order comes in.",
   4: "Do you sell on BrickOwl too? I can keep both stores in sync automatically. This is completely optional — you can add it any time from Settings.",
-  5: "You're all set! Come find me in the sidebar whenever you need help managing inventory, filling orders, or just want to know what's going on.",
+  5: "You're currently on a free trial. When you're ready, pick a plan and subscribe — your first 14 days on a paid plan are also free, so there's nothing to lose.",
+  6: "You're all set! Come find me in the sidebar whenever you need help managing inventory, filling orders, or just want to know what's going on.",
 };
 
 function ElfieSpeechBubble({ step, large = false }: { step: number; large?: boolean }) {
@@ -102,6 +105,10 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
   // Step 4 — BrickOwl
   const [boApiKey, setBoApiKey] = useState("");
   const [channelSyncMode, setChannelSyncMode] = useState<'full_control' | 'quantity_only'>('full_control');
+
+  // Step 5 — Subscribe
+  const [selectedPlan, setSelectedPlan] = useState<'foundation' | 'core' | null>(null);
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly');
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [csvText, setCsvText] = useState("");
   const [csvResult, setCsvResult] = useState<{ created: { aisles: number; shelves: number; bins: number; skipped: number }; errors: string[] } | null>(null);
@@ -143,6 +150,17 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
     },
   });
 
+  const checkoutMutation = useMutation({
+    mutationFn: async ({ plan, interval }: { plan: string; interval: string }) => {
+      await apiRequest("PATCH", "/api/org", { onboardingCompleted: true });
+      const res = await apiRequest("POST", "/api/billing/checkout", { plan, interval, context: "onboarding" });
+      return res.json();
+    },
+    onSuccess: (data: { url?: string }) => {
+      if (data?.url) window.location.href = data.url;
+    },
+  });
+
   const handleStep1 = async () => {
     const data: Record<string, any> = { name: name.trim() || org.name, address, phone, website };
     if (tosAccepted && !org.tosAcceptedAt) {
@@ -181,6 +199,8 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
     setStep(5);
   };
 
+  const handleStep5Skip = () => setStep(6);
+
   const handleFinish = async () => {
     await saveOrgMutation.mutateAsync({ onboardingCompleted: true });
     onComplete();
@@ -193,11 +213,11 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
     <div className="fixed inset-0 z-50 bg-gray-950 flex flex-col items-center justify-center p-4 overflow-y-auto">
       <div className="w-full max-w-lg py-8">
 
-        {/* ELFIE speech bubble — steps 1–4 */}
-        {step < 5 && <ElfieSpeechBubble step={step} />}
+        {/* ELFIE speech bubble — steps 1–5 */}
+        {step < 6 && <ElfieSpeechBubble step={step} />}
 
         {/* Step indicator */}
-        {step < 5 && (
+        {step < 6 && (
           <div className="flex items-center justify-center gap-0 mb-6">
             {STEPS.map((s, i) => (
               <div key={s.id} className="flex items-center">
@@ -768,8 +788,159 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
             </>
           )}
 
-          {/* ── Step 5: Done ── */}
+          {/* ── Step 5: Subscribe ── */}
           {step === 5 && (
+            <>
+              <div>
+                <h2 className="text-lg font-semibold text-white mb-1">Choose your plan</h2>
+                <p className="text-sm text-gray-400">
+                  You're on a free trial — subscribe now to keep going after it ends.
+                  Every paid plan includes a 14-day free trial, so you won't be charged right away.
+                </p>
+              </div>
+
+              {/* Billing interval toggle */}
+              <div className="flex items-center justify-center">
+                <div className="flex items-center bg-gray-800 border border-gray-700 rounded-lg p-0.5 gap-0.5">
+                  <button
+                    onClick={() => setBillingInterval('monthly')}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${billingInterval === 'monthly' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+                    data-testid="button-interval-monthly"
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    onClick={() => setBillingInterval('annual')}
+                    className={`relative px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${billingInterval === 'annual' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+                    data-testid="button-interval-annual"
+                  >
+                    Annual
+                    <span className="absolute -top-2.5 -right-1 text-[9px] font-bold bg-green-500 text-white px-1 py-0.5 rounded">SAVE 20%</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Plan cards */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Foundation */}
+                <button
+                  onClick={() => setSelectedPlan('foundation')}
+                  className={`relative flex flex-col text-left rounded-lg border p-3.5 transition-colors ${selectedPlan === 'foundation' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
+                  data-testid="button-plan-foundation"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-white">Foundation</span>
+                    {selectedPlan === 'foundation' && <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />}
+                  </div>
+                  <div className="mb-0.5">
+                    <span className="text-xl font-bold text-white">{billingInterval === 'monthly' ? '$19.99' : '$15.99'}</span>
+                    <span className="text-xs text-gray-500">/mo</span>
+                  </div>
+                  {billingInterval === 'annual' && <p className="text-[10px] text-green-400 mb-1">$191.88 billed annually</p>}
+                  <p className="text-[10px] text-gray-500 mb-3">{TIER_CONFIG.foundation.tagline}</p>
+                  <ul className="space-y-1.5 text-[10px] text-gray-400">
+                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />2 team seats</li>
+                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />50 BrickSpotter scans/mo</li>
+                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />Price-O-Matic repricing</li>
+                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />3 automation rules</li>
+                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />90-day order history</li>
+                  </ul>
+                </button>
+
+                {/* Core */}
+                <button
+                  onClick={() => setSelectedPlan('core')}
+                  className={`relative flex flex-col text-left rounded-lg border p-3.5 transition-colors ${selectedPlan === 'core' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
+                  data-testid="button-plan-core"
+                >
+                  <span className="absolute -top-2.5 left-3 text-[9px] font-bold bg-yellow-500 text-gray-900 px-2 py-0.5 rounded-full">MOST POPULAR</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-white">Core</span>
+                    {selectedPlan === 'core' && <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />}
+                  </div>
+                  <div className="mb-0.5">
+                    <span className="text-xl font-bold text-white">{billingInterval === 'monthly' ? '$49.99' : '$39.99'}</span>
+                    <span className="text-xs text-gray-500">/mo</span>
+                  </div>
+                  {billingInterval === 'annual' && <p className="text-[10px] text-green-400 mb-1">$479.88 billed annually</p>}
+                  <p className="text-[10px] text-gray-500 mb-3">{TIER_CONFIG.core.tagline}</p>
+                  <ul className="space-y-1.5 text-[10px] text-gray-400">
+                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />5 team seats</li>
+                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />250 BrickSpotter scans/mo</li>
+                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />ELFIE AI assistant</li>
+                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />BrickOwl channel sync</li>
+                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />10 automation rules</li>
+                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />Full data enrichment</li>
+                  </ul>
+                </button>
+              </div>
+
+              {/* Free trial callout */}
+              {selectedPlan ? (
+                <div className="flex items-start gap-2.5 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2.5">
+                  <CalendarClock className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-medium text-green-400">14-day free trial included</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      Enter your card now and your first charge will be{' '}
+                      {billingInterval === 'monthly'
+                        ? `$${selectedPlan === 'foundation' ? '19.99' : '49.99'}/month`
+                        : `$${selectedPlan === 'foundation' ? '191.88' : '479.88'}/year`}{' '}
+                      — billed 14 days from today. Cancel before then and you won't pay a thing.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2.5 bg-gray-800/40 border border-gray-700 rounded-lg px-3 py-2.5">
+                  <ToggleLeft className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-gray-500 leading-relaxed">
+                    Select a plan above to see trial and pricing details. You can also skip now and subscribe from the <span className="text-gray-400 font-medium">My Plan</span> section any time.
+                  </p>
+                </div>
+              )}
+
+              {/* Trust signals */}
+              <div className="flex items-center justify-center gap-5 text-[10px] text-gray-600">
+                <span className="flex items-center gap-1"><Lock className="w-2.5 h-2.5" />Secured by Stripe</span>
+                <span className="flex items-center gap-1"><BadgeCheck className="w-2.5 h-2.5" />Cancel anytime</span>
+                <span className="flex items-center gap-1"><CheckCircle2 className="w-2.5 h-2.5" />No setup fees</span>
+              </div>
+
+              {/* Action buttons */}
+              <div className="pt-1 flex justify-between items-center gap-3 flex-wrap">
+                <Button variant="ghost" onClick={handleStep5Skip} className="text-gray-500" data-testid="button-onboard-skip-5">
+                  I'll subscribe later
+                </Button>
+                <Button
+                  onClick={() => selectedPlan && checkoutMutation.mutate({ plan: selectedPlan, interval: billingInterval })}
+                  disabled={!selectedPlan || checkoutMutation.isPending}
+                  data-testid="button-onboard-subscribe"
+                >
+                  {checkoutMutation.isPending ? (
+                    <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Redirecting to Stripe…</>
+                  ) : selectedPlan ? (
+                    <>Subscribe to {selectedPlan === 'foundation' ? 'Foundation' : 'Core'}<ArrowRight className="w-4 h-4 ml-1" /></>
+                  ) : (
+                    'Select a plan above'
+                  )}
+                </Button>
+              </div>
+
+              {/* Legal disclosure */}
+              {selectedPlan && (
+                <p className="text-center text-[10px] text-gray-600 leading-relaxed">
+                  By subscribing, you authorize E.L.F.I.E. to charge{' '}
+                  {billingInterval === 'monthly'
+                    ? `$${selectedPlan === 'foundation' ? '19.99' : '49.99'}/month`
+                    : `$${selectedPlan === 'foundation' ? '191.88' : '479.88'}/year`}{' '}
+                  after your 14-day free trial. You can cancel at any time before the trial ends.
+                </p>
+              )}
+            </>
+          )}
+
+          {/* ── Step 6: Done ── */}
+          {step === 6 && (
             <>
               {/* ELFIE centered + speech bubble */}
               <div className="flex flex-col items-center gap-4 py-2">
@@ -779,7 +950,7 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                   className="w-32 h-32 object-contain drop-shadow-2xl"
                 />
                 <div className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-4 text-center max-w-sm">
-                  <p className="text-base text-gray-200 leading-snug">{STEP_MESSAGES[5]}</p>
+                  <p className="text-base text-gray-200 leading-snug">{STEP_MESSAGES[6]}</p>
                 </div>
                 <div className="flex items-center gap-2 text-green-400">
                   <CheckCircle2 className="w-5 h-5" />
@@ -826,7 +997,7 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
           )}
         </div>
 
-        {step < 5 && (
+        {step < 6 && step !== 5 && (
           <p className="text-center text-[11px] text-gray-600 mt-4">
             All settings can be updated any time in the Warehouse or Settings tabs.
           </p>

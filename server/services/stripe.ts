@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { db } from "../db";
 import { organizations } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { getPlanConfigByKey } from "./planConfigService";
 
 function getStripeClient(): Stripe {
   if (!process.env.STRIPE_SECRET_KEY) {
@@ -32,6 +33,10 @@ export async function createCheckoutSession(orgId: string, plan: string, interva
 
   const priceId = getPriceId(plan, interval);
 
+  // Include a free trial period if the plan config specifies one
+  const planConfig = await getPlanConfigByKey(plan);
+  const trialDays = planConfig?.trialDurationDays ?? 0;
+
   const session = await stripe.checkout.sessions.create({
     customer: org.stripeCustomerId || undefined,
     payment_method_types: ["card"],
@@ -42,6 +47,7 @@ export async function createCheckoutSession(orgId: string, plan: string, interva
       },
     ],
     mode: "subscription",
+    subscription_data: trialDays > 0 ? { trial_period_days: trialDays } : undefined,
     success_url: successUrl,
     cancel_url: cancelUrl,
     metadata: {

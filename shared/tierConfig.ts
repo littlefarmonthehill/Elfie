@@ -78,6 +78,7 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
     id: 'foundation',
     name: 'Foundation',
     tagline: 'For solo sellers getting started',
+    trialDurationDays: 14,
     limits: {
       seats: 2,
       brickspotterScansPerMonth: 50,
@@ -110,6 +111,7 @@ export const TIER_CONFIG: Record<PlanType, TierConfig> = {
     id: 'core',
     name: 'Core',
     tagline: 'For growing brick businesses',
+    trialDurationDays: 14,
     limits: {
       seats: 5,
       brickspotterScansPerMonth: 250,

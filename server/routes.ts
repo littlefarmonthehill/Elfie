@@ -3090,12 +3090,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/billing/checkout', isAuthenticated, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const { plan, interval } = req.body;
+      const { plan, interval, context } = req.body;
       if (!['foundation', 'core'].includes(plan)) return res.status(400).json({ message: "Invalid plan" });
       if (!['monthly', 'annual'].includes(interval)) return res.status(400).json({ message: "Invalid interval" });
 
-      const successUrl = `${req.protocol}://${req.get('host')}/settings?tab=billing&session_id={CHECKOUT_SESSION_ID}`;
-      const cancelUrl = `${req.protocol}://${req.get('host')}/settings?tab=billing`;
+      const isOnboarding = context === 'onboarding';
+      const successUrl = isOnboarding
+        ? `${req.protocol}://${req.get('host')}/?subscribed=true&plan=${plan}`
+        : `${req.protocol}://${req.get('host')}/settings?tab=billing&session_id={CHECKOUT_SESSION_ID}`;
+      const cancelUrl = isOnboarding
+        ? `${req.protocol}://${req.get('host')}/`
+        : `${req.protocol}://${req.get('host')}/settings?tab=billing`;
 
       const session = await createCheckoutSession(orgId, plan, interval, successUrl, cancelUrl);
       res.json({ url: session.url });
