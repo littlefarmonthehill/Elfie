@@ -12385,6 +12385,37 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
+  // Get all locations for a single inventory item
+  app.get("/api/warehouse/locations/inventory/:inventoryId", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const inventoryId = parseInt(req.params.inventoryId);
+      const locs = await db
+        .select({
+          id: inventoryLocations.id,
+          inventoryId: inventoryLocations.inventoryId,
+          binId: inventoryLocations.binId,
+          binName: whBins.name,
+          shelfId: whShelves.id,
+          shelfName: whShelves.name,
+          aisleId: whAisles.id,
+          aisleName: whAisles.name,
+          quantity: inventoryLocations.quantity,
+          bagLabel: inventoryLocations.bagLabel,
+          notes: inventoryLocations.notes,
+        })
+        .from(inventoryLocations)
+        .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))
+        .leftJoin(whShelves, eq(whBins.shelfId, whShelves.id))
+        .leftJoin(whAisles, eq(whShelves.aisleId, whAisles.id))
+        .where(and(eq(inventoryLocations.orgId, orgId), eq(inventoryLocations.inventoryId, inventoryId)));
+      res.json(locs);
+    } catch (error) {
+      console.error("Error fetching item locations:", error);
+      res.status(500).json({ error: "Failed to fetch item locations" });
+    }
+  });
+
   // Update inventory location
   app.put("/api/warehouse/locations/:id", isApproved, async (req, res) => {
     try {

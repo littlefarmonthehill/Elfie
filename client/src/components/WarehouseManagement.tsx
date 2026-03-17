@@ -32,6 +32,9 @@ import {
   ChevronRight,
   Pencil,
   Trash2,
+  X,
+  ExternalLink,
+  SplitSquareHorizontal,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -82,6 +85,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [showDepthSetup, setShowDepthSetup] = useState(false);
 
+  // Lot locations dialog state
+  const [lotDialogOpen, setLotDialogOpen] = useState(false);
+  const [selectedLot, setSelectedLot] = useState<any>(null);
+  const [addLocBinId, setAddLocBinId] = useState<string>("");
+  const [addLocQty, setAddLocQty] = useState<string>("");
+  const [addLocBagLabel, setAddLocBagLabel] = useState<string>("");
+  const [showAddLocation, setShowAddLocation] = useState(false);
+  const [editingLocationId, setEditingLocationId] = useState<number | null>(null);
+  const [editLocQty, setEditLocQty] = useState<string>("");
+
   // Bulk bin state
   const [bulkPrefix, setBulkPrefix] = useState("BIN-");
   const [bulkStart, setBulkStart] = useState("1");
@@ -103,6 +116,17 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const { data: inventoryStats } = useQuery<any>({ queryKey: ['/api/inventory/stats'] });
   const { data: locations = [] } = useQuery<any[]>({ queryKey: ['/api/warehouse/locations'] });
 
+  // Fetch all locations for the selected lot
+  const { data: lotLocations = [], isLoading: lotLocationsLoading } = useQuery<any[]>({
+    queryKey: ['/api/warehouse/locations/inventory', selectedLot?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/warehouse/locations/inventory/${selectedLot.id}`);
+      if (!res.ok) throw new Error('Failed');
+      return res.json();
+    },
+    enabled: !!selectedLot?.id && lotDialogOpen,
+  });
+
   const assignedLots = locations.length;
   const totalLots = inventoryStats?.totalLots || 0;
   const unassignedLots = totalLots - assignedLots;
@@ -119,6 +143,48 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     queryClient.invalidateQueries({ queryKey: ['/api/warehouse/unassigned/inventory'] });
     queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
   };
+
+  const invalidateLotLocations = (inventoryId: number) => {
+    queryClient.invalidateQueries({ queryKey: ['/api/warehouse/locations/inventory', inventoryId] });
+    queryClient.invalidateQueries({ queryKey: ['/api/warehouse/locations'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/warehouse/unassigned/inventory'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
+  };
+
+  const addLocationMutation = useMutation({
+    mutationFn: (data: { inventoryId: number; binId: number; quantity?: number; bagLabel?: string }) =>
+      apiRequest('POST', '/api/warehouse/assign/inventory', data),
+    onSuccess: (_, vars) => {
+      invalidateLotLocations(vars.inventoryId);
+      invalidateWarehouse();
+      setShowAddLocation(false);
+      setAddLocBinId(""); setAddLocQty(""); setAddLocBagLabel("");
+      toast({ title: "Location added" });
+    },
+    onError: () => toast({ title: "Failed to add location", variant: "destructive" }),
+  });
+
+  const updateLocationMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) =>
+      apiRequest('PUT', `/api/warehouse/locations/${id}`, data),
+    onSuccess: () => {
+      if (selectedLot) invalidateLotLocations(selectedLot.id);
+      invalidateWarehouse();
+      setEditingLocationId(null);
+      toast({ title: "Location updated" });
+    },
+    onError: () => toast({ title: "Failed to update location", variant: "destructive" }),
+  });
+
+  const deleteLocationMutation = useMutation({
+    mutationFn: (id: number) => apiRequest('DELETE', `/api/warehouse/locations/${id}`),
+    onSuccess: () => {
+      if (selectedLot) invalidateLotLocations(selectedLot.id);
+      invalidateWarehouse();
+      toast({ title: "Location removed" });
+    },
+    onError: () => toast({ title: "Failed to remove location", variant: "destructive" }),
+  });
 
   const updateDepthMutation = useMutation({
     mutationFn: (d: number) => apiRequest('PATCH', '/api/warehouse/settings', { depth: d }),
@@ -272,9 +338,19 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const getFilteredList = () => {
     if (!activeView) return [];
     if (activeView === 'lots') {
-      const assignedMap = new Map();
+      // Group all locations per inventory item (multi-location aware)
+      const assignedMap = new Map<number, any>();
       locations.forEach((loc: any) => {
-        assignedMap.set(loc.inventoryId, { id: loc.inventoryId, itemNo: loc.itemNo, itemName: loc.itemName, colorName: loc.colorName, newOrUsed: loc.newOrUsed, quantity: loc.quantity, binName: loc.binName, assigned: true });
+        if (!assignedMap.has(loc.inventoryId)) {
+          assignedMap.set(loc.inventoryId, {
+            id: loc.inventoryId, itemNo: loc.itemNo, itemName: loc.itemName,
+            colorName: loc.colorName, newOrUsed: loc.newOrUsed,
+            binNames: [], locationCount: 0, assigned: true,
+          });
+        }
+        const entry = assignedMap.get(loc.inventoryId)!;
+        entry.locationCount += 1;
+        if (loc.binName) entry.binNames.push(loc.binName);
       });
       const assigned = Array.from(assignedMap.values());
       const unassigned = unassignedInventory.map((item: any) => ({ ...item, assigned: false }));
@@ -557,8 +633,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 key={item.id}
                 className="flex items-center gap-2 p-2 rounded-md hover-elevate cursor-pointer"
                 onClick={() => {
-                  if (activeView === 'lots' && item.assigned && onItemClick) {
-                    onItemClick('inventory', item.id);
+                  if (activeView === 'lots' && item.assigned) {
+                    setSelectedLot(item);
+                    setLotDialogOpen(true);
+                    setShowAddLocation(false);
+                    setAddLocBinId(""); setAddLocQty(""); setAddLocBagLabel("");
+                    setEditingLocationId(null);
                   } else {
                     toggleItemSelection(item.id);
                   }
@@ -588,11 +668,20 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     <Badge className={`text-[9px] px-1 py-0 no-default-active-elevate ${item.assigned ? 'bg-green-500/20 text-green-400' : 'bg-muted/40 text-muted-foreground'}`}>
                       {item.assigned ? 'Assigned' : 'Unassigned'}
                     </Badge>
+                    {activeView === 'lots' && item.locationCount > 1 && (
+                      <Badge className="text-[9px] px-1 py-0 bg-purple-500/20 text-purple-300 no-default-active-elevate">
+                        <SplitSquareHorizontal className="h-2.5 w-2.5 mr-0.5" />{item.locationCount} bins
+                      </Badge>
+                    )}
                   </div>
                   <div className="text-[10px] text-muted-foreground mt-0.5">
                     {activeView === 'lots' && item.itemName && <span className="truncate block">{item.itemName}</span>}
-                    {activeView === 'lots' && item.binName && <span>Bin: {item.binName}</span>}
-                    {activeView === 'lots' && item.quantity != null && <span> · Qty: {item.quantity}</span>}
+                    {activeView === 'lots' && item.assigned && item.binNames?.length > 0 && (
+                      <span>
+                        {item.binNames.slice(0, 2).join(', ')}
+                        {item.binNames.length > 2 ? ` +${item.binNames.length - 2} more` : ''}
+                      </span>
+                    )}
                     {activeView === 'bins' && item.shelfName && <span>Shelf: {item.shelfName}</span>}
                     {activeView === 'shelves' && item.aisleName && <span>Aisle: {item.aisleName}</span>}
                   </div>
@@ -613,6 +702,185 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           </div>
         </Card>
       )}
+
+      {/* Lot Locations Dialog */}
+      <Dialog open={lotDialogOpen} onOpenChange={open => { setLotDialogOpen(open); if (!open) setSelectedLot(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              Bin Locations
+            </DialogTitle>
+            {selectedLot && (
+              <DialogDescription className="text-left">
+                <span className="font-mono text-xs">{selectedLot.itemNo}</span>
+                {selectedLot.colorName && <span className="text-xs"> · {selectedLot.colorName}</span>}
+                {selectedLot.itemName && <span className="text-xs text-muted-foreground block truncate">{selectedLot.itemName}</span>}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+
+          <div className="space-y-3">
+            {/* Current locations */}
+            {lotLocationsLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : lotLocations.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">No bin assignments yet.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {lotLocations.map((loc: any) => {
+                  const address = [loc.aisleName, loc.shelfName, loc.binName].filter(Boolean).join(' → ');
+                  const isEditing = editingLocationId === loc.id;
+                  return (
+                    <div key={loc.id} className="flex items-center gap-2 p-2 rounded-md border border-border bg-muted/20">
+                      <Archive className="h-3.5 w-3.5 text-green-400 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium">{address || loc.binName || '—'}</p>
+                        {loc.bagLabel && <p className="text-[10px] text-muted-foreground">Label: {loc.bagLabel}</p>}
+                        {isEditing ? (
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            <Input
+                              type="number"
+                              placeholder="Qty"
+                              value={editLocQty}
+                              onChange={e => setEditLocQty(e.target.value)}
+                              className="h-6 text-xs w-20"
+                            />
+                            <Button
+                              size="sm"
+                              className="h-6 text-[10px] px-2"
+                              disabled={updateLocationMutation.isPending}
+                              onClick={() => updateLocationMutation.mutate({
+                                id: loc.id,
+                                data: { inventoryId: loc.inventoryId, binId: loc.binId, quantity: editLocQty ? parseInt(editLocQty) : null },
+                              })}
+                            >
+                              Save
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2" onClick={() => setEditingLocationId(null)}>
+                              Cancel
+                            </Button>
+                          </div>
+                        ) : (
+                          loc.quantity != null && <p className="text-[10px] text-muted-foreground">Qty: {loc.quantity}</p>
+                        )}
+                      </div>
+                      {!isEditing && (
+                        <div className="flex gap-1 shrink-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            onClick={() => { setEditingLocationId(loc.id); setEditLocQty(loc.quantity != null ? String(loc.quantity) : ''); }}
+                            data-testid={`button-edit-location-${loc.id}`}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 text-red-400"
+                            disabled={deleteLocationMutation.isPending}
+                            onClick={() => deleteLocationMutation.mutate(loc.id)}
+                            data-testid={`button-delete-location-${loc.id}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Add another location */}
+            {showAddLocation ? (
+              <div className="border border-dashed border-border rounded-md p-3 space-y-2.5">
+                <p className="text-xs font-medium">Add Another Bin</p>
+                <Select value={addLocBinId} onValueChange={setAddLocBinId}>
+                  <SelectTrigger className="h-8 text-xs" data-testid="select-add-loc-bin">
+                    <SelectValue placeholder="Select bin…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {bins.map((b: any) => (
+                      <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[10px]">Qty in this bin <span className="text-muted-foreground">(optional)</span></Label>
+                    <Input
+                      type="number"
+                      placeholder="e.g. 150"
+                      value={addLocQty}
+                      onChange={e => setAddLocQty(e.target.value)}
+                      className="h-8 text-xs"
+                      data-testid="input-add-loc-qty"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px]">Bag label <span className="text-muted-foreground">(optional)</span></Label>
+                    <Input
+                      placeholder="e.g. Bag-3"
+                      value={addLocBagLabel}
+                      onChange={e => setAddLocBagLabel(e.target.value)}
+                      className="h-8 text-xs"
+                      data-testid="input-add-loc-label"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="flex-1"
+                    disabled={!addLocBinId || addLocationMutation.isPending}
+                    onClick={() => addLocationMutation.mutate({
+                      inventoryId: selectedLot!.id,
+                      binId: parseInt(addLocBinId),
+                      quantity: addLocQty ? parseInt(addLocQty) : undefined,
+                      bagLabel: addLocBagLabel || undefined,
+                    })}
+                    data-testid="button-add-location-confirm"
+                  >
+                    {addLocationMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Plus className="h-3.5 w-3.5 mr-1" />}
+                    Add
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setShowAddLocation(false)}>Cancel</Button>
+                </div>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setShowAddLocation(true)}
+                data-testid="button-add-location"
+              >
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                Add Another Bin
+              </Button>
+            )}
+
+            {/* Link to full inventory detail */}
+            {onItemClick && selectedLot && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-xs text-muted-foreground"
+                onClick={() => { setLotDialogOpen(false); onItemClick('inventory', selectedLot.id); }}
+                data-testid="button-open-inventory-detail"
+              >
+                <ExternalLink className="h-3 w-3 mr-1.5" />
+                Open part detail
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
