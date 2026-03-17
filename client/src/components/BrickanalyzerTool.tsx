@@ -2269,10 +2269,16 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                               role="button"
                               tabIndex={0}
                               onMouseDown={(e) => e.stopPropagation()}
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.stopPropagation();
                                 setHeatmapCropFocus(null);
-                                setFocusedDetailCropIndex(r.cropIndex ?? null);
+                                if (onItemClick && r.partNo) {
+                                  sessionStorage.setItem(`bl-itemtype-${r.partNo}`, r.itemType ?? 'PART');
+                                  const colorSuffix = r.colorId != null ? `__c${r.colorId}` : '';
+                                  await onItemClick('inventory', `bricklink-${r.partNo}${colorSuffix}` as any, 'pricing');
+                                } else {
+                                  setFocusedDetailCropIndex(r.cropIndex ?? null);
+                                }
                               }}
                               style={{
                                 position: 'absolute',
@@ -2308,20 +2314,12 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                                   <span style={mkCorner(c, 'auto', 0, 'auto', 0)} />
                                 </>);
                               })()}
-                              {/* Price badge — opens Inventory Detail drawer on pricing tab via part number lookup */}
+                              {/* Price badge — opens the scan detail panel overlay */}
                               <button
                                 onMouseDown={e => e.stopPropagation()}
-                                onClick={async e => {
+                                onClick={e => {
                                   e.stopPropagation();
-                                  if (onItemClick && r.partNo) {
-                                    // Store itemType so handleDashboardItemClick knows which
-                                    // BrickLink item type to use for the catalog lookup API call
-                                    sessionStorage.setItem(`bl-itemtype-${r.partNo}`, r.itemType ?? 'PART');
-                                    const colorSuffix = r.colorId != null ? `__c${r.colorId}` : '';
-                                    await onItemClick('inventory', `bricklink-${r.partNo}${colorSuffix}` as any, 'pricing');
-                                  } else {
-                                    setFocusedDetailCropIndex(r.cropIndex ?? null);
-                                  }
+                                  setFocusedDetailCropIndex(r.cropIndex ?? null);
                                 }}
                                 data-testid={`heatmap-price-badge-${r.cropIndex ?? i}`}
                                 style={{
