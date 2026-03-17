@@ -60,8 +60,8 @@ async function checkInterruptedResume(attempt = 1) {
       console.log('[POM] Auto-resume skipped — sync already running');
       return;
     }
-    if (syncLock.isRunning()) {
-      const blocker = syncLock.getActive().join(', ');
+    if (syncLock.isBlockedFor('Price-o-Matic')) {
+      const blocker = syncLock.getBlockersFor('Price-o-Matic').join(', ');
       if (attempt < MAX_RESUME_ATTEMPTS) {
         console.log(`[POM] Auto-resume blocked by: ${blocker} — retrying in ${RESUME_RETRY_MS / 1000}s (attempt ${attempt}/${MAX_RESUME_ATTEMPTS})`);
         setTimeout(() => checkInterruptedResume(attempt + 1), RESUME_RETRY_MS);
@@ -138,8 +138,8 @@ async function checkAndRunPomSync() {
       return;
     }
 
-    if (syncLock.isRunning()) {
-      const blocker = syncLock.getActive().join(', ');
+    if (syncLock.isBlockedFor('Price-o-Matic')) {
+      const blocker = syncLock.getBlockersFor('Price-o-Matic').join(', ');
       console.log(`[POM] Sync blocked by: ${blocker} — will retry next minute`);
       recordSyncIssue({
         syncType: SYNC_TYPE,

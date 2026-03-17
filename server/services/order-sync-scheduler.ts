@@ -78,9 +78,9 @@ async function checkAndRunSync() {
       retry.count = 0; // Fresh run, reset retries
     }
 
-    if (syncLock.isRunning()) {
-      const blocker = syncLock.getActive().join(', ');
-      console.log(`⏭️ Order sync skipped — another sync is holding the lock: ${blocker}`);
+    if (syncLock.isBlockedFor('Order Sync')) {
+      const blocker = syncLock.getBlockersFor('Order Sync').join(', ');
+      console.log(`⏭️ Order sync skipped — incompatible sync is running: ${blocker}`);
       recordSyncIssue({
         syncType: SYNC_TYPE,
         platform: 'scheduler',

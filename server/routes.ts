@@ -1653,7 +1653,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (getPomIsRunning()) return res.status(409).json({ message: 'Price-o-Matic is already running' });
           const { syncPriceOMagicCache } = await import('./services/bricklink.js');
           const { syncLock } = await import('./services/sync-lock.js');
-          if (syncLock.isRunning()) return res.status(409).json({ message: `Blocked by: ${syncLock.getActive().join(', ')}` });
+          if (syncLock.isBlockedFor('Price-o-Matic')) return res.status(409).json({ message: `Blocked by: ${syncLock.getBlockersFor('Price-o-Matic').join(', ')}` });
           const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, PLATFORM_ORG_ID)).limit(1);
           const batchSize = settings?.pomScheduleBatchSize ?? 1500;
           const { setPomIsRunning } = await import('./services/pom-scheduler.js');
@@ -11040,9 +11040,9 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   app.post("/api/sync/priceomatic", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      // Fast in-memory check — blocks if ANY sync is already running
-      if (syncLock.isRunning()) {
-        const blocker = syncLock.getActive().join(', ');
+      // Fast in-memory check — blocks if an incompatible sync is already running
+      if (syncLock.isBlockedFor('Price-o-Matic')) {
+        const blocker = syncLock.getBlockersFor('Price-o-Matic').join(', ');
         return res.status(409).json({
           success: false,
           error: `Cannot start Price-o-Matic: ${blocker} is already running. Please wait for it to complete.`,
