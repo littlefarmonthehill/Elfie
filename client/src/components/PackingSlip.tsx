@@ -261,8 +261,13 @@ export function printPicklist(items: PicklistItem[]): void {
 
 // ─── Packing-slip PDF ────────────────────────────────────────────────────────
 
+// Half-letter height — each packing slip gets its own half-letter page so that
+// "2 pages per sheet" on letter paper places 2 slips side-by-side at 100% scale
+// (no shrinking). autoTable naturally wraps overflow onto additional half-letter pages.
+const SLIP_H = PAGE_H / 2; // 139.7 mm
+
 export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBranding): Promise<void> {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [PAGE_W, SLIP_H] });
   const logo = await loadLogoInfo(org?.logoUrl);
   let logoW = 0;
   if (logo && logo.w > 0 && logo.h > 0) {
@@ -274,140 +279,146 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
   const addressLines = companyAddress.split('\n').map(l => l.trim()).filter(Boolean);
 
   orders.forEach((order, idx) => {
-    if (idx > 0) doc.addPage();
-    const orderStartPage = doc.internal.getNumberOfPages();
-    // Explicitly switch to this order's starting page so any prior footer
-    // loop (which calls setPage) doesn't leave the cursor on the wrong page.
-    doc.setPage(orderStartPage);
-    let y = MY;
+    try {
+      if (idx > 0) {
+        // addPage always appends to the end, but we explicitly move to the last
+        // rendered page first so jsPDF's internal cursor is unambiguous.
+        doc.setPage(doc.internal.getNumberOfPages());
+        doc.addPage();
+      }
+      const orderStartPage = doc.internal.getNumberOfPages();
+      doc.setPage(orderStartPage);
+      let y = MY;
 
-    // ── Company info (left) + logo (right) ──────────────────────────────────
-    const headerTopY = y;
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(19);
-    doc.setFont('helvetica', 'bold');
-    doc.text(companyName, MX, y + 5);
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(51, 51, 51);
-    let addrLineY = y + 12;
-    addressLines.forEach(line => {
-      doc.text(line, MX, addrLineY);
-      addrLineY += 6;
-    });
-
-    if (logo && logoW > 0) {
-      doc.addImage(logo.dataUrl, 'PNG', MX + CONTENT_W - logoW, headerTopY, logoW, LOGO_H);
-    }
-
-    y += Math.max(LOGO_H, 23) + 3;
-
-    // ── Divider ─────────────────────────────────────────────────────────────
-    doc.setDrawColor(170, 170, 170);
-    doc.setLineWidth(0.2);
-    doc.line(MX, y, MX + CONTENT_W, y);
-    y += 5;
-
-    // ── Ship To (left) + Order meta (right) ─────────────────────────────────
-    const infoTopY = y;
-    const { shipTo } = order;
-    const street1  = shipTo.street1 || (shipTo as any).address1 || '';
-    const street2  = shipTo.street2 || (shipTo as any).address2 || '';
-    const cityLine = [shipTo.city, shipTo.state, shipTo.postalCode].filter(Boolean).join(' ');
-    const showCtry = shipTo.country && shipTo.country !== 'US';
-
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 0);
-    doc.text('Ship To', MX, y + 5);
-
-    doc.setFont('helvetica', 'normal');
-    const shipAddrLines = [
-      shipTo.name, shipTo.company, street1, street2, cityLine,
-      showCtry ? shipTo.country : undefined,
-    ].filter(Boolean) as string[];
-
-    let shipAddrY = y + 11;
-    shipAddrLines.forEach(line => { doc.text(line, MX, shipAddrY); shipAddrY += 5.5; });
-
-    // Order meta — right-aligned
-    const metaX = MX + CONTENT_W;
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(85, 85, 85);
-    doc.text(`${channelLabel(order)} Order #`, metaX - 48, infoTopY + 5,  { align: 'right' });
-    doc.text('Date',                           metaX - 48, infoTopY + 11, { align: 'right' });
-
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(0, 0, 0);
-    doc.text(order.orderNumber, metaX, infoTopY + 5,  { align: 'right' });
-    const dateStr = order.orderDate ? new Date(order.orderDate).toLocaleDateString() : '';
-    doc.text(dateStr, metaX, infoTopY + 11, { align: 'right' });
-
-    y = Math.max(shipAddrY, infoTopY + 18) + 3;
-
-    // ── Items table ─────────────────────────────────────────────────────────
-    // autoTable repeats the Description/Qty header on every page automatically.
-    const rows = order.items.map(item => {
-      const base  = cleanItemName(item.name, item.bricklinkPartNumber);
-      const color = item.colorName ? `${item.colorName} ` : '';
-      const part  = item.bricklinkPartNumber ? ` (${item.bricklinkPartNumber})` : '';
-      const name  = `LEGO ${color}${base}${part}`;
-      const metaParts = [
-        item.colorName ? `Color: ${item.colorName}`     : '',
-        item.condition ? `Condition: ${item.condition}` : '',
-      ].filter(Boolean);
-      const meta = metaParts.length > 0 ? metaParts.join(', ') : '';
-      const comment = item.comment?.trim() || '';
-      const line2 = [meta, comment].filter(Boolean).join('  ·  ');
-      return [line2 ? `${name}\n${line2}` : name, String(item.quantity)];
-    });
-
-    autoTable(doc, {
-      startY: y,
-      margin: { left: MX, right: MX },
-      head: [['Description', 'Qty']],
-      body: rows,
-      styles: {
-        fontSize: 11,
-        cellPadding: { top: 3.5, right: 3.5, bottom: 3.5, left: 3.5 },
-        textColor:   [0, 0, 0],
-        lineColor:   [220, 220, 220],
-        lineWidth:   0.1,
-        overflow:    'linebreak',
-      },
-      headStyles: {
-        fillColor:   [255, 255, 255],
-        textColor:   [0, 0, 0],
-        fontStyle:   'bold',
-        fontSize:    10,
-        lineColor:   [85, 85, 85],
-        lineWidth:   { bottom: 0.4 },
-      },
-      columnStyles: {
-        0: { cellWidth: 'auto' },
-        1: { cellWidth: 18, halign: 'right', fontStyle: 'bold' },
-      },
-      alternateRowStyles: false,
-    });
-
-    // ── Footers: stamp every page for this order with order # + Page X of Y.
-    // We do this AFTER autotable finishes so we know the final page count.
-    const orderEndPage  = doc.internal.getNumberOfPages();
-    const orderPageTotal = orderEndPage - orderStartPage + 1;
-    const footerLabel   = `${channelLabel(order)} Order # ${order.orderNumber}`;
-
-    for (let p = orderStartPage; p <= orderEndPage; p++) {
-      doc.setPage(p);
-      const pageInOrder = p - orderStartPage + 1;
-      doc.setFontSize(9);
+      // ── Company info (left) + logo (right) ────────────────────────────────
+      const headerTopY = y;
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(19);
+      doc.setFont('helvetica', 'bold');
+      doc.text(companyName, MX, y + 5);
+      doc.setFontSize(11);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(102, 102, 102);
-      doc.text(
-        `${footerLabel}  ·  Page ${pageInOrder} of ${orderPageTotal}`,
-        MX + CONTENT_W,
-        PAGE_H - MY,
-        { align: 'right' },
-      );
+      doc.setTextColor(51, 51, 51);
+      let addrLineY = y + 12;
+      addressLines.forEach(line => {
+        doc.text(line, MX, addrLineY);
+        addrLineY += 6;
+      });
+
+      if (logo && logoW > 0) {
+        doc.addImage(logo.dataUrl, 'PNG', MX + CONTENT_W - logoW, headerTopY, logoW, LOGO_H);
+      }
+
+      y += Math.max(LOGO_H, 23) + 3;
+
+      // ── Divider ───────────────────────────────────────────────────────────
+      doc.setDrawColor(170, 170, 170);
+      doc.setLineWidth(0.2);
+      doc.line(MX, y, MX + CONTENT_W, y);
+      y += 5;
+
+      // ── Ship To (left) + Order meta (right) ───────────────────────────────
+      const infoTopY = y;
+      const { shipTo } = order;
+      const street1  = shipTo.street1 || (shipTo as any).address1 || '';
+      const street2  = shipTo.street2 || (shipTo as any).address2 || '';
+      const cityLine = [shipTo.city, shipTo.state, shipTo.postalCode].filter(Boolean).join(' ');
+      const showCtry = shipTo.country && shipTo.country !== 'US';
+
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('Ship To', MX, y + 5);
+
+      doc.setFont('helvetica', 'normal');
+      const shipAddrLines = [
+        shipTo.name, shipTo.company, street1, street2, cityLine,
+        showCtry ? shipTo.country : undefined,
+      ].filter(Boolean) as string[];
+
+      let shipAddrY = y + 11;
+      shipAddrLines.forEach(line => { doc.text(line, MX, shipAddrY); shipAddrY += 5.5; });
+
+      // Order meta — right-aligned
+      const metaX = MX + CONTENT_W;
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(85, 85, 85);
+      doc.text(`${channelLabel(order)} Order #`, metaX - 48, infoTopY + 5,  { align: 'right' });
+      doc.text('Date',                           metaX - 48, infoTopY + 11, { align: 'right' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0, 0, 0);
+      doc.text(order.orderNumber, metaX, infoTopY + 5,  { align: 'right' });
+      const dateStr = order.orderDate ? new Date(order.orderDate).toLocaleDateString() : '';
+      doc.text(dateStr, metaX, infoTopY + 11, { align: 'right' });
+
+      y = Math.max(shipAddrY, infoTopY + 18) + 3;
+
+      // ── Items table ───────────────────────────────────────────────────────
+      const rows = order.items.map(item => {
+        const base  = cleanItemName(item.name, item.bricklinkPartNumber);
+        const color = item.colorName ? `${item.colorName} ` : '';
+        const part  = item.bricklinkPartNumber ? ` (${item.bricklinkPartNumber})` : '';
+        const name  = `LEGO ${color}${base}${part}`;
+        const metaParts = [
+          item.colorName ? `Color: ${item.colorName}`     : '',
+          item.condition ? `Condition: ${item.condition}` : '',
+        ].filter(Boolean);
+        const meta = metaParts.length > 0 ? metaParts.join(', ') : '';
+        const comment = item.comment?.trim() || '';
+        const line2 = [meta, comment].filter(Boolean).join('  ·  ');
+        return [line2 ? `${name}\n${line2}` : name, String(item.quantity)];
+      });
+
+      autoTable(doc, {
+        startY: y,
+        margin: { left: MX, right: MX },
+        head: [['Description', 'Qty']],
+        body: rows,
+        styles: {
+          fontSize: 11,
+          cellPadding: { top: 3.5, right: 3.5, bottom: 3.5, left: 3.5 },
+          textColor:   [0, 0, 0],
+          lineColor:   [220, 220, 220],
+          lineWidth:   0.1,
+          overflow:    'linebreak',
+        },
+        headStyles: {
+          fillColor:   [255, 255, 255],
+          textColor:   [0, 0, 0],
+          fontStyle:   'bold',
+          fontSize:    10,
+          lineColor:   [85, 85, 85],
+          lineWidth:   { bottom: 0.4 },
+        },
+        columnStyles: {
+          0: { cellWidth: 'auto' },
+          1: { cellWidth: 18, halign: 'right', fontStyle: 'bold' },
+        },
+        alternateRowStyles: false,
+      });
+
+      // ── Footers: stamp every page for this order with order # + Page X of Y.
+      // We do this AFTER autotable finishes so we know the final page count.
+      const orderEndPage  = doc.internal.getNumberOfPages();
+      const orderPageTotal = orderEndPage - orderStartPage + 1;
+      const footerLabel   = `${channelLabel(order)} Order # ${order.orderNumber}`;
+
+      for (let p = orderStartPage; p <= orderEndPage; p++) {
+        doc.setPage(p);
+        const pageInOrder = p - orderStartPage + 1;
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(102, 102, 102);
+        doc.text(
+          `${footerLabel}  ·  Page ${pageInOrder} of ${orderPageTotal}`,
+          MX + CONTENT_W,
+          SLIP_H - MY,
+          { align: 'right' },
+        );
+      }
+    } catch (err) {
+      console.error(`[printPackingSlips] Failed to render order ${order.orderNumber}:`, err);
     }
   });
 
