@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -135,6 +135,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [fillBinSearch, setFillBinSearch] = useState("");
   const [fillBinTrackQty, setFillBinTrackQty] = useState(false);
   const [fillBinQties, setFillBinQties] = useState<Map<number, string>>(new Map());
+  const fillBinListRef = useRef<HTMLDivElement>(null);
 
   // CSV Import state
   const [importCsvOpen, setImportCsvOpen] = useState(false);
@@ -1682,7 +1683,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               </div>
 
               {fillBinPreview.length > 0 && (
-                <div className="bg-muted/30 rounded-md p-2 max-h-52 overflow-y-auto space-y-0.5" data-testid="fill-bin-preview">
+                <div ref={fillBinListRef} className="bg-muted/30 rounded-md p-2 max-h-52 overflow-y-auto space-y-0.5" data-testid="fill-bin-preview">
                   {fillBinPreview.map((item: any) => {
                     const checked = !fillBinDeselected.has(item.id);
                     return (
@@ -1721,7 +1722,18 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               )}
               {fillBinHasMore && (
                 <button
-                  onClick={() => setFillBinCount(String(parseInt(fillBinCount) + 20))}
+                  onClick={() => {
+                    const prevLen = fillBinPreview.length;
+                    setFillBinCount(String(parseInt(fillBinCount) + 20));
+                    // After React re-renders with more items, scroll so the first new item is visible
+                    setTimeout(() => {
+                      if (fillBinListRef.current) {
+                        const children = fillBinListRef.current.children;
+                        const target = children[prevLen] as HTMLElement | undefined;
+                        if (target) target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                      }
+                    }, 30);
+                  }}
                   className="w-full text-[11px] text-muted-foreground hover:text-foreground py-1 flex items-center justify-center gap-1.5 border border-dashed border-border rounded-md"
                   data-testid="button-fill-bin-load-more"
                 >
