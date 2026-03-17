@@ -12252,7 +12252,8 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
         .leftJoin(inventoryLocations, eq(blInventory.id, inventoryLocations.inventoryId))
         .where(and(eq(blInventory.orgId, orgId), sql`${inventoryLocations.id} IS NULL`))
-        .limit(1000); // Limit to avoid performance issues
+        .orderBy(asc(blInventory.itemNo))
+        .limit(2000);
 
       res.json(unassignedItems);
     } catch (error) {

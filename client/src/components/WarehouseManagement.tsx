@@ -114,6 +114,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [bulkPad, setBulkPad] = useState("2");
   const [bulkShelfForBins, setBulkShelfForBins] = useState<string>("");
 
+  // Fill Bin dialog state
+  const [fillBinDialogOpen, setFillBinDialogOpen] = useState(false);
+  const [fillBinTargetId, setFillBinTargetId] = useState<string>("");
+  const [fillBinCount, setFillBinCount] = useState("20");
+  const [fillBinPending, setFillBinPending] = useState(false);
+
   // CSV Import state
   const [importCsvOpen, setImportCsvOpen] = useState(false);
   const [importMode, setImportMode] = useState<'structure' | 'assignments'>('structure');
@@ -393,6 +399,32 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
   const alphaNumericSort = (a: any, b: any) =>
     (a.itemNo || a.name || '').localeCompare(b.itemNo || b.name || '', undefined, { numeric: true, sensitivity: 'base' });
+
+  // Fill Bin: preview the next N unassigned lots sorted by part number
+  const fillBinPreview = (() => {
+    const count = Math.min(Math.max(parseInt(fillBinCount) || 20, 1), 200);
+    return [...unassignedInventory]
+      .sort((a, b) => (a.itemNo || '').localeCompare(b.itemNo || '', undefined, { numeric: true, sensitivity: 'base' }))
+      .slice(0, count);
+  })();
+
+  const handleFillBin = async () => {
+    if (!fillBinTargetId || fillBinPreview.length === 0) return;
+    const binId = parseInt(fillBinTargetId);
+    setFillBinPending(true);
+    try {
+      await Promise.all(fillBinPreview.map(item =>
+        assignInventoryMutation.mutateAsync({ inventoryId: item.id, binId })
+      ));
+      invalidateWarehouse();
+      const binName = bins.find((b: any) => b.id === binId)?.name ?? 'bin';
+      toast({ title: `${fillBinPreview.length} lots assigned to ${binName}`, description: `${unassignedInventory.length - fillBinPreview.length} unassigned lots remaining.` });
+      setFillBinDialogOpen(false);
+      setFillBinTargetId("");
+    } finally {
+      setFillBinPending(false);
+    }
+  };
 
   const getFilteredList = () => {
     if (!activeView) return [];
@@ -722,6 +754,13 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     Print All
                   </Button>
                 </>
+              )}
+              {activeView === 'lots' && unassignedInventory.length > 0 && (
+                <Button size="sm" variant="outline" onClick={() => setFillBinDialogOpen(true)}
+                  className="text-[10px] md:text-xs" data-testid="button-fill-bin">
+                  <Zap className="w-3 h-3 mr-1" />
+                  Fill a Bin
+                </Button>
               )}
               {activeView === 'bins' && (
                 <Button size="sm" variant="outline" onClick={() => setBulkDialogOpen(true)}
@@ -1272,6 +1311,94 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             >
               {bulkCreateBinsMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Zap className="h-4 w-4 mr-2" />}
               Create {bulkPreviewCount} Bins
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Fill Bin Dialog */}
+      <Dialog open={fillBinDialogOpen} onOpenChange={open => { setFillBinDialogOpen(open); if (!open) setFillBinTargetId(""); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-yellow-400" />
+              Fill a Bin
+            </DialogTitle>
+            <DialogDescription>
+              Assign the next N unassigned lots (sorted by part number) to a bin — the same way you physically fill it.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-1">
+            {/* Bin selector */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Which bin are you filling?</Label>
+              <Select value={fillBinTargetId} onValueChange={setFillBinTargetId}>
+                <SelectTrigger data-testid="select-fill-bin-target">
+                  <SelectValue placeholder="Select a bin…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {[...bins].sort(alphaNumericSort).map((b: any) => (
+                    <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Count input */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">How many lots to assign?</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={1}
+                  max={200}
+                  value={fillBinCount}
+                  onChange={e => setFillBinCount(e.target.value)}
+                  className="w-24"
+                  data-testid="input-fill-bin-count"
+                />
+                <span className="text-xs text-muted-foreground">
+                  of {unassignedInventory.length} unassigned lots remaining
+                </span>
+              </div>
+            </div>
+
+            {/* Preview */}
+            {fillBinPreview.length > 0 ? (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Preview — part numbers {fillBinPreview[0].itemNo} → {fillBinPreview[fillBinPreview.length - 1].itemNo}
+                </p>
+                <div className="bg-muted/30 rounded-md p-2.5 max-h-40 overflow-y-auto space-y-1" data-testid="fill-bin-preview">
+                  {fillBinPreview.map((item: any) => (
+                    <div key={item.id} className="flex items-center justify-between text-xs gap-2">
+                      <span className="font-mono font-medium shrink-0">{item.itemNo}</span>
+                      <span className="text-muted-foreground truncate">{item.itemName || '—'}</span>
+                      {item.colorName && <span className="text-muted-foreground shrink-0 text-[10px]">{item.colorName}</span>}
+                    </div>
+                  ))}
+                </div>
+                {fillBinPreview.length < parseInt(fillBinCount) && (
+                  <p className="text-[10px] text-muted-foreground">Only {fillBinPreview.length} unassigned lots available — all will be assigned.</p>
+                )}
+              </div>
+            ) : (
+              <div className="bg-muted/30 rounded-md p-3 text-center text-xs text-muted-foreground">
+                No unassigned lots left to assign.
+              </div>
+            )}
+
+            <Button
+              className="w-full"
+              disabled={!fillBinTargetId || fillBinPreview.length === 0 || fillBinPending}
+              onClick={handleFillBin}
+              data-testid="button-fill-bin-confirm"
+            >
+              {fillBinPending
+                ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Assigning…</>
+                : <><Zap className="h-4 w-4 mr-2" />Assign {fillBinPreview.length} Lots to {bins.find((b: any) => b.id === parseInt(fillBinTargetId))?.name ?? 'Bin'}</>
+              }
             </Button>
           </div>
         </DialogContent>
