@@ -233,11 +233,10 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     }
   });
 
-  // Trigger browser download — no popup, no print dialog quirks.
-  const filename = orders.length === 1
-    ? `packing-slip-${orders[0].orderNumber}.pdf`
-    : `packing-slips-${new Date().toISOString().slice(0, 10)}.pdf`;
-  doc.save(filename);
+  const blob = doc.output('blob');
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank', 'noopener');
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
 export default function PackingSlip({ orders }: PackingSlipProps) {
