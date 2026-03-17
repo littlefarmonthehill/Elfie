@@ -74,6 +74,7 @@ export interface BrickLinkOrderSyncResult {
   orderDetailsAdded: number;
   totalOrders: number;
   errors: string[];
+  needsInventorySync?: boolean;
 }
 
 // Sync lock to prevent concurrent syncs
@@ -152,9 +153,10 @@ export async function syncBrickLinkOrders(
         const orderId = `bl-${order.order_id}`;
         const existing = existingMap.get(orderId);
         if (!existing) return true; // New order - process it
-        // Protect locally-shipped orders: BrickLink may lag behind (e.g. if the update
-        // to BrickLink failed or hasn't propagated yet). Never let a sync demote shipped.
-        if (existing === 'shipped') return false;
+        // Allow shipped orders through if BrickLink signals a return via payment status.
+        // BrickLink keeps order status as COMPLETED on returns — only payment.status changes.
+        const isPaymentReturned = order.payment?.status === 'Returned';
+        if (existing === 'shipped') return isPaymentReturned; // Only let through if it's a return
         const newStatus = mapPlatformStatus('bricklink', order.status);
         if (existing !== newStatus) return true; // Status changed - process it
         return false; // Already synced, same status - skip
@@ -181,6 +183,17 @@ export async function syncBrickLinkOrders(
       }
     }
     
+    // If any returns were detected, trigger a BrickLink inventory sync so our
+    // local quantities reflect what the seller restored on BrickLink's side.
+    if (result.needsInventorySync) {
+      console.log(`↩️ Return(s) detected — triggering BrickLink inventory sync to pull restored quantities...`);
+      import('./bricklink').then(({ syncBricklinkInventory }) => {
+        syncBricklinkInventory(true, ORG_ID).catch((err: any) => {
+          console.error('⚠️ Post-return inventory sync failed:', err.message);
+        });
+      });
+    }
+
     // Update sync metadata
     await db.insert(syncMetadata).values({
       id: syncId,
@@ -267,8 +280,11 @@ async function processBrickLinkOrder(
     }
   }
   
-  // Map BrickLink status to normalized status
-  const normalizedStatus = mapPlatformStatus('bricklink', blOrder.status);
+  // Map BrickLink status to normalized status.
+  // BrickLink keeps order status as COMPLETED on returns — the return is signalled
+  // by payment.status === 'Returned'. Detect that here before anything else.
+  const isReturn = blOrder.payment?.status === 'Returned';
+  const normalizedStatus = isReturn ? 'returned' : mapPlatformStatus('bricklink', blOrder.status);
   
   // Fetch full order details (includes cost breakdown with shipping/tax)
   // The order list endpoint only returns summary data without cost details
@@ -360,12 +376,20 @@ async function processBrickLinkOrder(
     const effectiveStatusChange = existingOrder.orderStatus !== updatedStatus;
     if (effectiveStatusChange) {
       console.log(`📦 Order ${orderId} status changed: ${existingOrder.orderStatus} → ${updatedStatus}`);
-      
-      // Trigger inventory adjustment asynchronously
-      adjustInventoryForOrder(orderId).catch(error => {
-        console.error(`⚠️ Inventory adjustment failed for order ${orderId}:`, error);
-        result.errors.push(`Inventory adjustment failed for ${orderId}: ${error.message}`);
-      });
+
+      if (isReturn) {
+        // For returns, BrickLink has the seller restore inventory directly on their platform.
+        // Skip our own inventory adjustment to avoid double-counting.
+        // Instead, flag that an inventory sync should run after this order is processed.
+        console.log(`↩️ Order ${orderId} is a return — skipping inventory adjustment, inventory sync will run after.`);
+        result.needsInventorySync = true;
+      } else {
+        // Trigger inventory adjustment asynchronously
+        adjustInventoryForOrder(orderId).catch(error => {
+          console.error(`⚠️ Inventory adjustment failed for order ${orderId}:`, error);
+          result.errors.push(`Inventory adjustment failed for ${orderId}: ${error.message}`);
+        });
+      }
     }
   } else {
     // Insert new order
