@@ -387,11 +387,10 @@ export async function printPackingSlips(
     }
   });
 
-  // Download the PDF — no popup, no browser print dialog quirks.
   const filename = orders.length === 1
     ? `packing-slip-${orders[0].orderNumber}.pdf`
     : `packing-slips-${new Date().toISOString().slice(0, 10)}.pdf`;
-  doc.save(filename);
+  hiddenPrint(doc.output('blob'), filename);
 }
 
 export default function PackingSlip({ orders }: PackingSlipProps) {
