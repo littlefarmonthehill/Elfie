@@ -235,7 +235,14 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     mutationFn: (data: any) => apiRequest('POST', '/api/warehouse/bins/bulk', data),
     onSuccess: (data: any) => {
       invalidateWarehouse();
-      toast({ title: `${data.created} bins created` });
+      const skipped = data.skipped ?? 0;
+      if (data.created === 0) {
+        toast({ title: `All ${skipped} bins already exist`, description: "Nothing was created — those bin names are already in use on this shelf." });
+      } else if (skipped > 0) {
+        toast({ title: `${data.created} bins created`, description: `${skipped} bin${skipped === 1 ? '' : 's'} skipped — already existed.` });
+      } else {
+        toast({ title: `${data.created} bins created` });
+      }
       setBulkDialogOpen(false);
     },
   });
@@ -1247,7 +1254,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             )}
             {bulkPreviewCount > 0 && (
               <div className="bg-muted/30 rounded-md p-3 text-xs space-y-1">
-                <p className="font-medium">Preview — {bulkPreviewCount} bins will be created</p>
+                <p className="font-medium">Preview — up to {bulkPreviewCount} bins (existing names on this shelf are skipped)</p>
                 <p className="text-muted-foreground font-mono">{bulkPreviewNames.join(', ')}</p>
               </div>
             )}

@@ -12513,13 +12513,37 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         return res.status(400).json({ error: "Invalid range (max 500 bins at once)" });
       }
       const pad = parseInt(padLength) || 0;
-      const rows = [];
+      const resolvedShelfId = shelfId ? parseInt(shelfId) : null;
+
+      // Build the full list of names we want to create
+      const candidates: string[] = [];
       for (let i = from; i <= to; i++) {
         const num = pad > 0 ? String(i).padStart(pad, '0') : String(i);
-        rows.push({ name: `${prefix}${num}`, shelfId: shelfId ? parseInt(shelfId) : null, orgId });
+        candidates.push(`${prefix}${num}`);
       }
+
+      // Fetch existing bins for this org (and shelf if provided) that match any candidate name
+      const existingQuery = db
+        .select({ name: whBins.name })
+        .from(whBins)
+        .where(
+          resolvedShelfId != null
+            ? and(eq(whBins.orgId, orgId), eq(whBins.shelfId, resolvedShelfId), inArray(whBins.name, candidates))
+            : and(eq(whBins.orgId, orgId), isNull(whBins.shelfId), inArray(whBins.name, candidates))
+        );
+      const existing = await existingQuery;
+      const existingNames = new Set(existing.map((b: { name: string }) => b.name.toLowerCase()));
+
+      const rows = candidates
+        .filter(name => !existingNames.has(name.toLowerCase()))
+        .map(name => ({ name, shelfId: resolvedShelfId, orgId }));
+
+      if (rows.length === 0) {
+        return res.json({ created: 0, skipped: candidates.length, bins: [] });
+      }
+
       const created = await db.insert(whBins).values(rows).returning();
-      res.json({ created: created.length, bins: created });
+      res.json({ created: created.length, skipped: candidates.length - created.length, bins: created });
     } catch (error) {
       console.error("Error bulk creating bins:", error);
       res.status(500).json({ error: "Failed to bulk create bins" });
