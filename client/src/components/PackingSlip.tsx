@@ -46,10 +46,11 @@ interface PackingSlipProps {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MARGIN   = 4;            // ~0.16 in → mm (minimal page margin)
+const MX       = 4;            // left / right margin mm (~0.16 in)
+const MY       = 1;            // top  / bottom margin mm — as narrow as possible
 const PAGE_W   = 215.9;        // letter width mm
 const PAGE_H   = 279.4;        // letter height mm
-const CONTENT_W = PAGE_W - 2 * MARGIN;  // 203.2 mm
+const CONTENT_W = PAGE_W - 2 * MX;     // 207.9 mm
 const LOGO_H   = 28;           // target logo height in mm
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -173,19 +174,18 @@ const partKey    = (item: PicklistItem) => item.partNumber || item.sku || '';
 export function printPicklist(items: PicklistItem[]): void {
   if (items.length === 0) return;
 
-  const CONTENT_W = PAGE_W - 2 * MARGIN;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
-  let y = MARGIN;
+  let y = MY;
 
   for (const item of items) {
     const hasComment = !!(item.comment);
     const itemH = 3 + 6 + 5 + (hasComment ? 4.5 : 0) + 6;
-    if (y + itemH > PAGE_H - MARGIN) { doc.addPage(); y = MARGIN; }
+    if (y + itemH > PAGE_H - MY) { doc.addPage(); y = MY; }
 
     // ── Separator line ───────────────────────────────────────────────────────
     doc.setDrawColor(187, 187, 187);
     doc.setLineWidth(0.25);
-    doc.line(MARGIN, y, MARGIN + 20, y);
+    doc.line(MX, y, MX + 20, y);
     y += 3;
 
     // ── Part number (bold) · colour · condition · name ───────────────────────
@@ -199,7 +199,7 @@ export function printPicklist(items: PicklistItem[]): void {
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text(partStr, MARGIN, y);
+    doc.text(partStr, MX, y);
     const partW = doc.getTextWidth(partStr);
 
     if (restParts.length > 0) {
@@ -209,7 +209,7 @@ export function printPicklist(items: PicklistItem[]): void {
       const maxW = CONTENT_W - partW;
       while (doc.getTextWidth(restStr) > maxW && restStr.length > 4) restStr = restStr.slice(0, -1);
       if (restStr.length < (' \u00b7 ' + restParts.join(' \u00b7 ')).length) restStr = restStr.slice(0, -3) + '\u2026';
-      doc.text(restStr, MARGIN + partW, y);
+      doc.text(restStr, MX + partW, y);
     }
     y += 6;
 
@@ -223,14 +223,14 @@ export function printPicklist(items: PicklistItem[]): void {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(120, 120, 120);
-    doc.text(metaParts.join(' \u00b7 '), MARGIN, y);
+    doc.text(metaParts.join(' \u00b7 '), MX, y);
     y += 5;
 
     // ── Buyer comment ────────────────────────────────────────────────────────
     if (item.comment) {
       doc.setFontSize(8.5);
       doc.setTextColor(0, 85, 170);
-      doc.text(item.comment, MARGIN, y);
+      doc.text(item.comment, MX, y);
       y += 4.5;
     }
     y += 6;
@@ -259,25 +259,25 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     // Explicitly switch to this order's starting page so any prior footer
     // loop (which calls setPage) doesn't leave the cursor on the wrong page.
     doc.setPage(orderStartPage);
-    let y = MARGIN;
+    let y = MY;
 
     // ── Company info (left) + logo (right) ──────────────────────────────────
     const headerTopY = y;
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(19);
     doc.setFont('helvetica', 'bold');
-    doc.text(companyName, MARGIN, y + 5);
+    doc.text(companyName, MX, y + 5);
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(51, 51, 51);
     let addrLineY = y + 12;
     addressLines.forEach(line => {
-      doc.text(line, MARGIN, addrLineY);
+      doc.text(line, MX, addrLineY);
       addrLineY += 6;
     });
 
     if (logo && logoW > 0) {
-      doc.addImage(logo.dataUrl, 'PNG', MARGIN + CONTENT_W - logoW, headerTopY, logoW, LOGO_H);
+      doc.addImage(logo.dataUrl, 'PNG', MX + CONTENT_W - logoW, headerTopY, logoW, LOGO_H);
     }
 
     y += Math.max(LOGO_H, 23) + 3;
@@ -285,7 +285,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     // ── Divider ─────────────────────────────────────────────────────────────
     doc.setDrawColor(170, 170, 170);
     doc.setLineWidth(0.2);
-    doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
+    doc.line(MX, y, MX + CONTENT_W, y);
     y += 5;
 
     // ── Ship To (left) + Order meta (right) ─────────────────────────────────
@@ -299,7 +299,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 0, 0);
-    doc.text('Ship To', MARGIN, y + 5);
+    doc.text('Ship To', MX, y + 5);
 
     doc.setFont('helvetica', 'normal');
     const shipAddrLines = [
@@ -308,10 +308,10 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     ].filter(Boolean) as string[];
 
     let shipAddrY = y + 11;
-    shipAddrLines.forEach(line => { doc.text(line, MARGIN, shipAddrY); shipAddrY += 5.5; });
+    shipAddrLines.forEach(line => { doc.text(line, MX, shipAddrY); shipAddrY += 5.5; });
 
     // Order meta — right-aligned
-    const metaX = MARGIN + CONTENT_W;
+    const metaX = MX + CONTENT_W;
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(85, 85, 85);
     doc.text(`${channelLabel(order)} Order #`, metaX - 48, infoTopY + 5,  { align: 'right' });
@@ -344,7 +344,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
 
     autoTable(doc, {
       startY: y,
-      margin: { left: MARGIN, right: MARGIN },
+      margin: { left: MX, right: MX },
       head: [['Description', 'Qty']],
       body: rows,
       styles: {
@@ -384,8 +384,8 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
       doc.setTextColor(102, 102, 102);
       doc.text(
         `${footerLabel}  ·  Page ${pageInOrder} of ${orderPageTotal}`,
-        MARGIN + CONTENT_W,
-        PAGE_H - MARGIN,
+        MX + CONTENT_W,
+        PAGE_H - MY,
         { align: 'right' },
       );
     }
