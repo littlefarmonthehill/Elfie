@@ -57,26 +57,30 @@ function channelLabel(order: PackingSlipOrder): string {
   return order.marketplace === 'BrickOwl' ? 'BrickOwl' : 'BrickLink';
 }
 
-async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: string; w: number; h: number; format: string } | null> {
-  try {
-    if (!orgLogoUrl) return null;
-    const dataUrl = orgLogoUrl;
-
-    // Derive jsPDF-compatible format from the data URL mime type
-    const mimeMatch = dataUrl.match(/^data:image\/([a-zA-Z0-9+]+);base64,/);
-    const mime = mimeMatch?.[1]?.toLowerCase() ?? 'png';
-    const format = mime === 'jpg' || mime === 'jpeg' ? 'JPEG' : mime === 'webp' ? 'WEBP' : 'PNG';
-
+async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: string; w: number; h: number } | null> {
+  if (!orgLogoUrl) return null;
+  return new Promise((resolve) => {
     const img = new Image();
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error('Logo image failed to load'));
-      img.src = dataUrl;
-    });
-    return { dataUrl, w: img.naturalWidth, h: img.naturalHeight, format };
-  } catch {
-    return null;
-  }
+    img.onload = () => {
+      try {
+        const w = img.naturalWidth || img.width;
+        const h = img.naturalHeight || img.height;
+        if (!w || !h) { resolve(null); return; }
+        // Draw through a canvas to force full decode and produce a clean PNG
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { resolve(null); return; }
+        ctx.drawImage(img, 0, 0);
+        resolve({ dataUrl: canvas.toDataURL('image/png'), w, h });
+      } catch {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = orgLogoUrl;
+  });
 }
 
 // ─── Main export ─────────────────────────────────────────────────────────────
@@ -114,7 +118,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     });
 
     if (logo && logoW > 0) {
-      doc.addImage(logo.dataUrl, logo.format as any, MARGIN + CONTENT_W - logoW, headerTopY, logoW, LOGO_H);
+      doc.addImage(logo.dataUrl, 'PNG', MARGIN + CONTENT_W - logoW, headerTopY, logoW, LOGO_H);
     }
 
     y += Math.max(LOGO_H, 23) + 3;
