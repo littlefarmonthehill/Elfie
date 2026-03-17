@@ -106,7 +106,6 @@ export function openLoadingWindow(): Window | null {
  * The window closes once the print dialog is dismissed (afterprint event).
  */
 export function openPdfAndPrint(blobUrl: string, preOpenedWin?: Window | null): void {
-  // If no pre-opened window, open one now (may be blocked if not in a user gesture)
   const win = preOpenedWin ?? window.open(blobUrl, '_blank', 'noopener');
   if (!win) return;
 
@@ -118,22 +117,20 @@ export function openPdfAndPrint(blobUrl: string, preOpenedWin?: Window | null): 
     try { URL.revokeObjectURL(blobUrl); } catch { /* ignore */ }
   };
 
-  // afterprint fires when the print dialog is dismissed (printed or cancelled)
+  // afterprint fires when the print dialog is dismissed (printed or cancelled).
+  // This is the primary close mechanism.
   win.addEventListener('afterprint', doClose, { once: true });
 
-  // Focus-based fallback: when the print dialog closes the PDF window regains
-  // focus. We only activate this AFTER we know the dialog has opened (blur).
-  const onBlur = () => win.addEventListener('focus', doClose, { once: true });
-  win.addEventListener('blur', onBlur, { once: true });
-
   if (preOpenedWin) {
-    // Navigate the pre-opened loading window to the PDF blob.
-    // doc.autoPrint() inside the PDF will trigger the dialog automatically.
+    // Add the load listener BEFORE navigating so we don't miss the event.
+    preOpenedWin.addEventListener('load', () => {
+      try { preOpenedWin.print(); } catch { /* cross-origin guard */ }
+    }, { once: true });
     preOpenedWin.location.href = blobUrl;
   }
-  // Belt-and-suspenders: call win.print() after a delay to ensure the PDF
-  // renderer has had time to initialise before we invoke print from JS.
-  setTimeout(() => { try { win.print(); } catch { /* cross-origin guard */ } }, 2000);
+  // Belt-and-suspenders: call print() after a generous delay in case the
+  // load event doesn't fire (some browsers skip it for PDF blob URLs).
+  setTimeout(() => { try { win.print(); } catch { /* cross-origin guard */ } }, 2500);
 }
 
 // ─── Main export ─────────────────────────────────────────────────────────────
