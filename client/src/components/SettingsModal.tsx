@@ -3699,24 +3699,26 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
               <div className="sm-card p-3">
                 <div className="flex items-center gap-3">
                   {/* Logo upload area */}
-                  <div className="relative flex-shrink-0">
-                    <div className="w-16 h-16 rounded-lg bg-gray-700 border border-gray-600 overflow-hidden flex items-center justify-center">
+                  <div className="flex-shrink-0 flex flex-col items-center gap-1">
+                    <button
+                      onClick={() => document.getElementById('logo-upload')?.click()}
+                      className="w-16 h-16 rounded-lg bg-gray-700 border border-gray-600 overflow-hidden flex items-center justify-center hover:border-gray-400 hover:bg-gray-600 transition-colors cursor-pointer"
+                      title="Upload logo"
+                      data-testid="button-upload-logo"
+                      disabled={logoUploadMutation.isPending}
+                    >
                       {logoUploadMutation.isPending ? (
                         <Loader2 className="h-5 w-5 text-gray-400 animate-spin" />
                       ) : org?.logoUrl ? (
                         <img src={org.logoUrl} alt="Org logo" className="w-full h-full object-cover" />
                       ) : (
-                        <ImageIcon className="h-6 w-6 text-gray-500" />
+                        <div className="flex flex-col items-center gap-1">
+                          <Upload className="h-4 w-4 text-gray-400" />
+                          <span className="text-[9px] text-gray-400">Logo</span>
+                        </div>
                       )}
-                    </div>
-                    <button
-                      onClick={() => document.getElementById('logo-upload')?.click()}
-                      className="absolute -bottom-1.5 -right-1.5 bg-gray-600 border border-gray-500 rounded-full p-1 cursor-pointer hover:bg-gray-500"
-                      title="Upload logo"
-                      data-testid="button-upload-logo"
-                    >
-                      <Upload className="h-2.5 w-2.5 text-gray-300" />
                     </button>
+                    <span className="text-[9px] text-gray-500">Click to upload</span>
                     <input
                       id="logo-upload"
                       type="file"
