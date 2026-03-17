@@ -40,7 +40,7 @@ interface SettingsModalProps {
   scoringExample?: PricingInsight;
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -1217,6 +1217,91 @@ function ProductRoadmapPanel() {
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MaintenancePanel() {
+  const { toast } = useToast();
+  const [dryRunResult, setDryRunResult] = useState<{ ordersToDelete: number; orderDetailsToDelete: number; sampleIds: string[] } | null>(null);
+  const [done, setDone] = useState(false);
+
+  const dryRun = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/platform-admin/cleanup-shipstation-duplicate-orders'),
+    onSuccess: (data: any) => setDryRunResult(data),
+    onError: () => toast({ title: 'Dry run failed', variant: 'destructive' }),
+  });
+
+  const execute = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/platform-admin/cleanup-shipstation-duplicate-orders?confirm=true'),
+    onSuccess: (data: any) => {
+      setDone(true);
+      toast({ title: `Deleted ${data.ordersDeleted} duplicate orders` });
+    },
+    onError: () => toast({ title: 'Cleanup failed', variant: 'destructive' }),
+  });
+
+  return (
+    <div className="px-3 pt-3 pb-4 space-y-4">
+      <div>
+        <h3 className="text-sm font-semibold text-gray-100 mb-0.5">ShipStation Duplicate Order Cleanup</h3>
+        <p className="text-xs text-gray-400">
+          Removes ShipStation-synced duplicate BL orders (bare numeric IDs) where a proper <code className="bg-gray-800 px-1 rounded">bl-XXXXXX</code> record already exists.
+        </p>
+      </div>
+
+      {done ? (
+        <div className="flex items-center gap-2 text-green-400 text-sm font-medium">
+          <CheckCircle2 className="h-4 w-4" />
+          Cleanup complete — duplicate orders removed.
+        </div>
+      ) : !dryRunResult ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => dryRun.mutate()}
+          disabled={dryRun.isPending}
+          data-testid="button-dryrun-cleanup"
+        >
+          {dryRun.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Wrench className="h-4 w-4 mr-2" />}
+          Run Dry Run
+        </Button>
+      ) : (
+        <div className="space-y-3">
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-md p-3 space-y-2">
+            <div className="flex items-center gap-2 text-amber-400 font-semibold text-xs">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Review before confirming
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Orders to delete</p>
+                <p className="font-bold text-lg text-gray-100">{dryRunResult.ordersToDelete.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Line items to delete</p>
+                <p className="font-bold text-lg text-gray-100">{dryRunResult.orderDetailsToDelete.toLocaleString()}</p>
+              </div>
+            </div>
+            <p className="text-[10px] text-gray-500">Sample IDs: {dryRunResult.sampleIds.slice(0, 4).join(', ')}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setDryRunResult(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => execute.mutate()}
+              disabled={execute.isPending}
+              data-testid="button-confirm-cleanup"
+            >
+              {execute.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Delete {dryRunResult.ordersToDelete.toLocaleString()} Orders
+            </Button>
+          </div>
         </div>
       )}
     </div>
@@ -3750,6 +3835,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
         { id: 'apiKeys' as const, label: 'Platform Services', icon: Key },
         { id: 'platformScheduler' as const, label: 'Data Enrichment', icon: Calendar },
         { id: 'auditLog' as const, label: 'Platform Health', icon: ClipboardList },
+        { id: 'maintenance' as const, label: 'Maintenance', icon: Wrench },
       ],
     },
   ];
@@ -7854,6 +7940,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
             {/* Backlog */}
             {activeSection === 'productBacklog' && <ProductBacklogPanel />}
+
+            {/* Maintenance */}
+            {activeSection === 'maintenance' && <MaintenancePanel />}
 
             {/* Plans & Pricing */}
             {activeSection === 'plansAndPricing' && <PlansAndPricingPanel />}
