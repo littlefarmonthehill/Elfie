@@ -468,7 +468,6 @@ function PomPriceDialog({ target, onClose }: { target: { partNo: string; itemTyp
     { label: 'Sold Max', id: 'sold-max', nVal: nData?.soldMaxPrice,  uVal: uData?.soldMaxPrice  },
     { label: 'List Avg', id: 'list-avg', nVal: nData?.stockAvgPrice, uVal: uData?.stockAvgPrice },
     { label: 'List Max', id: 'list-max', nVal: nData?.stockMaxPrice, uVal: uData?.stockMaxPrice },
-    { label: 'Suggested', id: 'suggested', nVal: nData?.suggestedPrice, uVal: uData?.suggestedPrice },
   ];
 
   return (
@@ -477,6 +476,11 @@ function PomPriceDialog({ target, onClose }: { target: { partNo: string; itemTyp
         {/* Header */}
         <div className="px-4 pt-4 pb-3 border-b border-gray-800">
           <div className="text-sm font-bold text-white font-mono">{target.partNo}</div>
+          {(nData?.itemName || uData?.itemName) && (
+            <div className="text-sm font-semibold text-white mt-0.5 leading-snug">
+              {nData?.itemName ?? uData?.itemName}
+            </div>
+          )}
           {target.colorName && <div className="text-xs text-gray-400 mt-0.5">{target.colorName}</div>}
         </div>
 
