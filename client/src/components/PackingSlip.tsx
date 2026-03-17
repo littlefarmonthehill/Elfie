@@ -1,6 +1,4 @@
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import planetLogo from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
 import { cleanItemName } from "@/lib/item-utils";
 
 // ─── Org branding ─────────────────────────────────────────────────────────────
@@ -48,16 +46,15 @@ interface PackingSlipProps {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MARGIN    = 7.62;               // 0.3 in → mm
-const PAGE_W    = 215.9;              // letter width mm
-const PAGE_H    = 279.4;              // letter height mm
-const CONTENT_W = PAGE_W - 2 * MARGIN;
-const LOGO_H    = 28;                 // target logo height mm
-
-// Picklist
 const MX        = 4;
 const MY        = 1;
-const PL_CONT_W = PAGE_W - 2 * MX;
+const PAGE_W    = 215.9;
+const PAGE_H    = 279.4;
+const CONTENT_W = PAGE_W - 2 * MX;
+
+// How many items fit per page (browser handles actual breaks, these control chunking)
+const FIRST_PAGE_ITEMS = 9;
+const CONT_PAGE_ITEMS  = 20;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -65,29 +62,30 @@ function channelLabel(order: PackingSlipOrder): string {
   return order.marketplace === 'BrickOwl' ? 'BrickOwl' : 'BrickLink';
 }
 
-async function loadLogoInfo(
+async function loadLogoDataUrl(
   orgLogoUrl?: string | null,
-): Promise<{ dataUrl: string; w: number; h: number } | null> {
-  // Prefer org logo; fall back to bundled PlanetBrick asset
-  const src = orgLogoUrl || planetLogo;
-  try {
-    const response = await fetch(src);
-    const blob = await response.blob();
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload  = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+): Promise<string> {
+  const src = orgLogoUrl || null;
+  if (!src) return '';
+  return new Promise((resolve) => {
     const img = new Image();
-    await new Promise<void>((resolve) => { img.onload = () => resolve(); img.src = dataUrl; });
-    return { dataUrl, w: img.naturalWidth, h: img.naturalHeight };
-  } catch {
-    return null;
-  }
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width  = img.naturalWidth  || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { resolve(''); return; }
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch { resolve(''); }
+    };
+    img.onerror = () => resolve('');
+    img.src = src;
+  });
 }
 
-// ─── Hidden print helper (used by picklist) ───────────────────────────────────
+// ─── Hidden-print helper ──────────────────────────────────────────────────────
 
 function isIOS(): boolean {
   return (
@@ -133,7 +131,7 @@ export function hiddenPrint(blob: Blob, _filename = 'document.pdf'): void {
   iframe.src = url;
 }
 
-// ─── Picklist ─────────────────────────────────────────────────────────────────
+// ─── Picklist (jsPDF, manual drawing) ────────────────────────────────────────
 
 export interface PicklistItem {
   partNumber?: string | null;
@@ -167,7 +165,7 @@ export function printPicklist(items: PicklistItem[]): void {
     if (panel === 0) {
       doc.setDrawColor(170, 170, 170);
       doc.setLineWidth(0.3);
-      doc.line(MX, PANEL_H, MX + PL_CONT_W, PANEL_H);
+      doc.line(MX, PANEL_H, MX + CONTENT_W, PANEL_H);
       panel = 1;
     } else {
       doc.addPage();
@@ -203,7 +201,7 @@ export function printPicklist(items: PicklistItem[]): void {
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(70, 70, 70);
       let restStr = ' \u00b7 ' + restParts.join(' \u00b7 ');
-      const maxW = PL_CONT_W - partW;
+      const maxW = CONTENT_W - partW;
       while (doc.getTextWidth(restStr) > maxW && restStr.length > 4) restStr = restStr.slice(0, -1);
       if (restStr.length < (' \u00b7 ' + restParts.join(' \u00b7 ')).length) restStr = restStr.slice(0, -3) + '\u2026';
       doc.text(restStr, MX + partW, y);
@@ -234,163 +232,193 @@ export function printPicklist(items: PicklistItem[]): void {
   hiddenPrint(doc.output('blob'), 'picklist.pdf');
 }
 
-// ─── Packing slips (Feb 28 approach: jsPDF + autoTable → PDF download) ────────
+// ─── Packing slips (HTML → hiddenPrint) ──────────────────────────────────────
+//
+// HTML/CSS is used here because the browser's native layout engine handles
+// multi-order page breaks perfectly via `page-break-after: always` on each
+// .page div. jsPDF autoTable breaks multi-order due to internal state drift
+// across forEach iterations.
+
+function buildPackingSlipHTML(
+  orders: PackingSlipOrder[],
+  opts: { companyName: string; companyAddress: string; logoDataUrl: string },
+): string {
+  const { companyName, companyAddress, logoDataUrl } = opts;
+  const addrLines = companyAddress.split('\n').map(l => l.trim()).filter(Boolean);
+
+  const allPageDivs: string[] = [];
+
+  orders.forEach((order, orderIdx) => {
+    const { shipTo } = order;
+    const street1  = shipTo.street1 || (shipTo as any).address1 || '';
+    const street2  = shipTo.street2 || (shipTo as any).address2 || '';
+    const cityLine = [shipTo.city, shipTo.state, shipTo.postalCode].filter(Boolean).join(' ');
+    const showCtry = !!(shipTo.country && shipTo.country !== 'US');
+    const chanLabel = channelLabel(order);
+
+    const chunks: typeof order.items[] = [];
+    if (order.items.length > 0) {
+      chunks.push(order.items.slice(0, FIRST_PAGE_ITEMS));
+      for (let i = FIRST_PAGE_ITEMS; i < order.items.length; i += CONT_PAGE_ITEMS) {
+        chunks.push(order.items.slice(i, i + CONT_PAGE_ITEMS));
+      }
+    } else {
+      chunks.push([]);
+    }
+
+    const totalChunks = chunks.length;
+    const isLastOrder = orderIdx === orders.length - 1;
+
+    chunks.forEach((chunk, chunkIdx) => {
+      const isLastPage     = isLastOrder && chunkIdx === chunks.length - 1;
+      const isContinuation = chunkIdx > 0;
+      const pageLabel      = totalChunks > 1
+        ? `${chanLabel} Order ${order.orderNumber} &nbsp;&middot;&nbsp; Page ${chunkIdx + 1} of ${totalChunks}`
+        : `${chanLabel} Order ${order.orderNumber}`;
+
+      const barHTML = `
+        <div class="slip-label-bar">
+          <span class="bar-left">Packing Slip</span>
+          <span class="bar-right">${pageLabel}</span>
+        </div>`;
+
+      const shipToHTML = [
+        shipTo.name    ? `<div>${shipTo.name}</div>`    : '',
+        shipTo.company ? `<div>${shipTo.company}</div>` : '',
+        street1        ? `<div>${street1}</div>`         : '',
+        street2        ? `<div>${street2}</div>`         : '',
+        cityLine       ? `<div>${cityLine}</div>`        : '',
+        showCtry       ? `<div>${shipTo.country}</div>`  : '',
+        (!shipTo.name && !street1 && !cityLine)
+          ? '<div class="missing-addr">Address not available</div>' : '',
+      ].join('');
+
+      const fullHeaderHTML = isContinuation ? '' : `
+        <div class="header">
+          <div class="header-left">
+            <div class="company-name">${companyName}</div>
+            ${addrLines.map(l => `<div class="company-addr">${l}</div>`).join('')}
+          </div>
+          <div class="header-right">
+            ${logoDataUrl
+              ? `<img src="${logoDataUrl}" alt="${companyName}" class="logo" />`
+              : `<div class="logo-fallback">${companyName.toUpperCase()}</div>`}
+          </div>
+        </div>
+        <div class="info-row">
+          <div class="ship-to">
+            <span class="section-label">Ship To</span>
+            ${shipToHTML}
+          </div>
+          <div class="order-meta">
+            <table>
+              <tr><td class="ml">${chanLabel} Order #</td><td class="mv">${order.orderNumber}</td></tr>
+              <tr><td class="ml">Date</td><td class="mv">${order.orderDate ? new Date(order.orderDate).toLocaleDateString() : ''}</td></tr>
+            </table>
+          </div>
+        </div>`;
+
+      const rowsHTML = chunk.map(item => {
+        const base    = cleanItemName(item.name, item.bricklinkPartNumber);
+        const color   = item.colorName ? `${item.colorName} ` : '';
+        const part    = item.bricklinkPartNumber ? ` (${item.bricklinkPartNumber})` : '';
+        const name    = `LEGO ${color}${base}${part}`;
+        const metaParts = [
+          item.colorName ? `Color: ${item.colorName}` : '',
+          item.condition ? `Condition: ${item.condition}` : '',
+        ].filter(Boolean).join(', ');
+        const comment = item.comment?.trim() || '';
+        const line2   = [metaParts, comment].filter(Boolean).join(' \u00b7 ');
+        return `
+          <tr>
+            <td class="item-desc">
+              <div class="item-name">${name}</div>
+              ${line2 ? `<div class="item-meta">${line2}</div>` : ''}
+            </td>
+            <td class="item-qty">${item.quantity}</td>
+          </tr>`;
+      }).join('');
+
+      allPageDivs.push(`
+        <div class="page${isLastPage ? ' last' : ''}">
+          ${barHTML}
+          ${fullHeaderHTML}
+          <table class="items">
+            <thead>
+              <tr>
+                <th class="th-desc">Description</th>
+                <th class="th-qty">Qty</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHTML}</tbody>
+          </table>
+        </div>`);
+    });
+  });
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Packing Slips</title>
+  <style>
+    @page { size: letter portrait; margin: 0; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: white; color: black; font-family: Arial, sans-serif; font-size: 11px; padding: 0 0.5in; }
+    .page { width: 100%; padding-top: 0.5in; padding-bottom: 0.5in; page-break-after: always; break-after: page; }
+    .page.last { page-break-after: auto; break-after: auto; }
+
+    .slip-label-bar { background: #555; color: white; display: flex; justify-content: space-between; align-items: center; font-size: 9px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; padding: 3px 8px; margin-bottom: 8px; }
+    .bar-right { font-weight: normal; letter-spacing: 0.5px; }
+
+    .header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 6px; border-bottom: 1px solid #aaa; margin-bottom: 8px; }
+    .header-left { flex: 1; }
+    .company-name { font-weight: bold; font-size: 18px; margin-bottom: 2px; }
+    .company-addr { font-size: 10px; color: #333; }
+    .header-right { text-align: right; }
+    .logo { height: 80px; width: auto; max-width: 200px; }
+    .logo-fallback { font-size: 20px; font-weight: 900; color: #1a3a8f; }
+
+    .info-row { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
+    .ship-to { font-size: 11px; line-height: 1.5; flex: 1; }
+    .section-label { font-weight: bold; display: block; margin-bottom: 2px; }
+    .missing-addr { color: #999; font-style: italic; }
+    .order-meta { text-align: right; font-size: 11px; }
+    .order-meta table { border-collapse: collapse; }
+    .order-meta td { padding: 1px 0 1px 10px; white-space: nowrap; }
+    .ml { font-weight: bold; color: #555; text-align: right; }
+    .mv { text-align: right; }
+
+    .items { width: 100%; border-collapse: collapse; margin-top: 2px; }
+    .items thead tr { background: #333; color: white; }
+    .th-desc { text-align: left; padding: 4px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .th-qty  { text-align: right; padding: 4px 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; width: 40px; }
+    .items tbody tr { break-inside: avoid; page-break-inside: avoid; }
+    .items tbody tr td { padding: 5px 6px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+    .items tbody tr:last-child td { border-bottom: none; }
+    .item-desc { text-align: left; }
+    .item-qty  { text-align: right; font-weight: bold; white-space: nowrap; width: 40px; }
+    .item-name { font-size: 11px; line-height: 1.4; }
+    .item-meta { font-size: 10px; color: #555; margin-top: 2px; }
+  </style>
+</head>
+<body>
+  ${allPageDivs.join('')}
+</body>
+</html>`;
+}
 
 export async function printPackingSlips(
   orders: PackingSlipOrder[],
   org?: OrgBranding,
 ): Promise<void> {
-  const doc  = new jsPDF({ unit: 'mm', format: 'letter', orientation: 'portrait' });
-  const logo = await loadLogoInfo(org?.logoUrl);
-  const logoW = logo ? LOGO_H * (logo.w / logo.h) : 0;
+  const companyName    = org?.name    || 'Your Company';
+  const companyAddress = org?.address || '';
+  const logoDataUrl    = await loadLogoDataUrl(org?.logoUrl);
 
-  const companyName    = org?.name    || 'PlanetBrick.com';
-  const companyAddress = org?.address || 'PO Box 202\nLanesboro, MN 55949';
-  const addressLines   = companyAddress.split('\n').map(l => l.trim()).filter(Boolean);
-
-  orders.forEach((order, orderIdx) => {
-    if (orderIdx > 0) doc.addPage();
-
-    const orderStartPage = doc.internal.getNumberOfPages();
-
-    let y = MARGIN;
-
-    // ── PACKING SLIP label bar ─────────────────────────────────────────────
-    const BAR_H = 7;
-    doc.setFillColor(119, 119, 119);
-    doc.rect(MARGIN, y, CONTENT_W, BAR_H, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(9.5);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PACKING SLIP', MARGIN + 3, y + BAR_H - 1.8);
-    y += BAR_H + 4;
-
-    // ── Company info (left) + logo (right) ────────────────────────────────
-    const headerTopY = y;
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(19);
-    doc.setFont('helvetica', 'bold');
-    doc.text(companyName, MARGIN, y + 6.5);
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(51, 51, 51);
-    let addrY = y + 13.5;
-    addressLines.forEach(line => { doc.text(line, MARGIN, addrY); addrY += 6; });
-
-    if (logo && logoW > 0) {
-      doc.addImage(logo.dataUrl, 'PNG', MARGIN + CONTENT_W - logoW, headerTopY, logoW, LOGO_H);
-    }
-
-    y += Math.max(LOGO_H, 23) + 3;
-
-    // ── Divider ───────────────────────────────────────────────────────────
-    doc.setDrawColor(170, 170, 170);
-    doc.setLineWidth(0.2);
-    doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
-    y += 5;
-
-    // ── Ship To (left) + Order meta (right) ───────────────────────────────
-    const infoTopY = y;
-    const { shipTo } = order;
-    const street1  = shipTo.street1 || (shipTo as any).address1 || '';
-    const street2  = shipTo.street2 || (shipTo as any).address2 || '';
-    const cityLine = [shipTo.city, shipTo.state, shipTo.postalCode].filter(Boolean).join(' ');
-    const showCtry = shipTo.country && shipTo.country !== 'US';
-
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 0);
-    doc.text('Ship To', MARGIN, y + 5);
-
-    doc.setFont('helvetica', 'normal');
-    const addrLines2 = [
-      shipTo.name, shipTo.company, street1, street2, cityLine,
-      showCtry ? shipTo.country : undefined,
-    ].filter(Boolean) as string[];
-
-    let shipAddrY = y + 11;
-    addrLines2.forEach(line => { doc.text(line, MARGIN, shipAddrY); shipAddrY += 5.5; });
-
-    const metaX = MARGIN + CONTENT_W;
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(85, 85, 85);
-    doc.text(`${channelLabel(order)} Order #`, metaX - 48, infoTopY + 5,  { align: 'right' });
-    doc.text('Date',                           metaX - 48, infoTopY + 11, { align: 'right' });
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(0, 0, 0);
-    doc.text(order.orderNumber, metaX, infoTopY + 5,  { align: 'right' });
-    const dateStr = order.orderDate ? new Date(order.orderDate).toLocaleDateString() : '';
-    doc.text(dateStr, metaX, infoTopY + 11, { align: 'right' });
-
-    y = Math.max(shipAddrY, infoTopY + 18) + 3;
-
-    // ── Items table ───────────────────────────────────────────────────────
-    const rows = order.items.map(item => {
-      const base    = cleanItemName(item.name, item.bricklinkPartNumber);
-      const color   = item.colorName ? `${item.colorName} ` : '';
-      const part    = item.bricklinkPartNumber ? ` (${item.bricklinkPartNumber})` : '';
-      const name    = `LEGO ${color}${base}${part}`;
-      const meta    = [
-        item.colorName ? `Color: ${item.colorName}`     : '',
-        item.condition ? `Condition: ${item.condition}` : '',
-      ].filter(Boolean).join(', ');
-      const comment = item.comment?.trim() || '';
-      const line2   = [meta, comment].filter(Boolean).join('  \u00b7  ');
-      return [line2 ? `${name}\n${line2}` : name, String(item.quantity)];
-    });
-
-    autoTable(doc, {
-      startY: y,
-      margin: { left: MARGIN, right: MARGIN },
-      head: [['Description', 'Qty']],
-      body: rows,
-      styles: {
-        fontSize:    11,
-        cellPadding: { top: 3.5, right: 3.5, bottom: 3.5, left: 3.5 },
-        textColor:   [0, 0, 0],
-        lineColor:   [220, 220, 220],
-        lineWidth:   0.1,
-        overflow:    'linebreak',
-      },
-      headStyles: {
-        fillColor:   [255, 255, 255],
-        textColor:   [0, 0, 0],
-        fontStyle:   'bold',
-        fontSize:    10,
-        lineColor:   [85, 85, 85],
-        lineWidth:   { bottom: 0.4 },
-      },
-      columnStyles: {
-        0: { cellWidth: 'auto' },
-        1: { cellWidth: 18, halign: 'right', fontStyle: 'bold' },
-      },
-      alternateRowStyles: false,
-    });
-
-    // ── Footer: Page X of Y on every page for this order ──────────────────
-    const orderEndPage   = doc.internal.getNumberOfPages();
-    const orderPageTotal = orderEndPage - orderStartPage + 1;
-    const footerLabel    = `${channelLabel(order)} Order # ${order.orderNumber}`;
-
-    for (let p = orderStartPage; p <= orderEndPage; p++) {
-      doc.setPage(p);
-      const pageInOrder = p - orderStartPage + 1;
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(102, 102, 102);
-      doc.text(
-        `${footerLabel}  \u00b7  Page ${pageInOrder} of ${orderPageTotal}`,
-        MARGIN + CONTENT_W,
-        PAGE_H - MARGIN,
-        { align: 'right' },
-      );
-    }
-  });
-
-  const filename = orders.length === 1
-    ? `packing-slip-${orders[0].orderNumber}.pdf`
-    : `packing-slips-${new Date().toISOString().slice(0, 10)}.pdf`;
-  hiddenPrint(doc.output('blob'), filename);
+  const html = buildPackingSlipHTML(orders, { companyName, companyAddress, logoDataUrl });
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  hiddenPrint(blob, 'packing-slips.html');
 }
 
 export default function PackingSlip({ orders }: PackingSlipProps) {
