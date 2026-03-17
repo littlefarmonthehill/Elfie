@@ -212,6 +212,7 @@ export default function FulfillmentTool() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const actionRowRef = useRef<HTMLDivElement>(null);
   const shipBtnRef = useRef<HTMLButtonElement>(null);
+  const swipeTouchStartX = useRef<number>(0);
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   // Batch shipping state
   const [readyToShip, setReadyToShip] = useState<Map<string, ShippingReadyState>>(new Map());
@@ -579,6 +580,11 @@ export default function FulfillmentTool() {
           <div
             className="relative z-50 flex flex-col w-80 max-w-[90vw] h-full bg-gray-900 border-r border-gray-700 shadow-2xl"
             onClick={e => e.stopPropagation()}
+            onTouchStart={e => { swipeTouchStartX.current = e.touches[0].clientX; }}
+            onTouchEnd={e => {
+              const dx = swipeTouchStartX.current - e.changedTouches[0].clientX;
+              if (dx > 50) setDrawerOpen(false);
+            }}
           >
             {/* Drawer header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 shrink-0">
@@ -680,54 +686,33 @@ export default function FulfillmentTool() {
         </div>
       )}
 
-      {/* ── Main layout: pull tab + content ── */}
-      <div className="flex gap-0">
+      {/* ── Main layout ── */}
+      <div>
 
-        {/* Vertical pull tab */}
-        <button
-          onClick={() => setDrawerOpen(o => !o)}
-          className="shrink-0 flex flex-col items-center justify-start pt-3 gap-2 w-6 bg-gray-800/50 border-r border-gray-700 hover:bg-gray-700/50 transition-colors cursor-pointer"
-          data-testid="button-open-orders-drawer"
-          title="Toggle order selection"
-        >
-          <ChevronRight className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${drawerOpen ? 'rotate-180' : ''}`} />
-          {sortedOrders.length > 0 && (
-            <span
-              className="text-[9px] text-gray-500 tabular-nums font-medium select-none"
-              style={{ writingMode: 'vertical-rl' }}
+        {/* Split mode bar — full width, only visible when splitting */}
+        {isSplitMode && (
+          <div className="flex items-center justify-end gap-2 pb-2 border-b border-gray-700">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleCancelSplit}
+              data-testid="button-cancel-split"
             >
-              {selectedOrders.size}/{sortedOrders.length}
-            </span>
-          )}
-        </button>
+              Cancel Split
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleConfirmSplit}
+              disabled={selectedItemsForSplit.size === 0}
+              data-testid="button-confirm-split"
+            >
+              <Scissors className="w-3.5 h-3.5 mr-1.5" />
+              Confirm Split ({selectedItemsForSplit.size})
+            </Button>
+          </div>
+        )}
 
-        {/* Content */}
-        <div className="flex-1 min-w-0 space-y-2 pl-2">
-
-          {/* Split mode bar — only visible when splitting */}
-          {isSplitMode && (
-            <div className="flex items-center justify-end gap-2 pb-2 border-b border-gray-700">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleCancelSplit}
-                data-testid="button-cancel-split"
-              >
-                Cancel Split
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleConfirmSplit}
-                disabled={selectedItemsForSplit.size === 0}
-                data-testid="button-confirm-split"
-              >
-                <Scissors className="w-3.5 h-3.5 mr-1.5" />
-                Confirm Split ({selectedItemsForSplit.size})
-              </Button>
-            </div>
-          )}
-
-        {/* ── Tab switcher: Fulfillment | Shipping ── */}
+        {/* ── Tab switcher: Fulfillment | Shipping — full width ── */}
         <div className="flex justify-center gap-1 border-b border-gray-700">
           <button
             onClick={() => setActiveTab('picklist')}
@@ -755,7 +740,7 @@ export default function FulfillmentTool() {
           </button>
         </div>
 
-        {/* ── Tab-specific action bar ── */}
+        {/* ── Tab-specific action bar — full width ── */}
         {!isSplitMode && activeTab === 'picklist' && (
           <div className="flex items-center justify-center gap-1 px-1 py-1.5 border-b border-gray-700/60 overflow-x-auto scrollbar-hide">
             <Button
@@ -859,6 +844,31 @@ export default function FulfillmentTool() {
             )}
           </div>
         )}
+
+        {/* ── Pull tab + tab content ── */}
+        <div className="flex gap-0">
+
+          {/* Vertical pull tab — sits flush against the tab content */}
+          <button
+            onClick={() => setDrawerOpen(o => !o)}
+            className="shrink-0 flex flex-col items-center justify-start pt-3 gap-2 w-6 bg-gray-800/50 border-r border-gray-700 hover:bg-gray-700/50 transition-colors cursor-pointer"
+            data-testid="button-open-orders-drawer"
+            title="Toggle order selection"
+          >
+            <ChevronRight className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${drawerOpen ? 'rotate-180' : ''}`} />
+            {sortedOrders.length > 0 && (
+              <span
+                className="text-[9px] text-gray-500 tabular-nums font-medium select-none"
+                style={{ writingMode: 'vertical-rl' }}
+              >
+                {selectedOrders.size}/{sortedOrders.length}
+              </span>
+            )}
+          </button>
+
+          {/* Tab content */}
+          <div className="flex-1 min-w-0 pl-2">
+
 
         {/* ── Tab content ── */}
         {activeTab === 'picklist' ? (
@@ -980,8 +990,9 @@ export default function FulfillmentTool() {
           </div>
         )}
 
-        </div> {/* end flex-1 content */}
-      </div> {/* end flex pull-tab + content */}
+          </div> {/* end flex-1 tab content */}
+        </div> {/* end pull-tab row */}
+      </div> {/* end main layout */}
 
       {/* Ship Confirmation Dialog */}
       <Dialog open={showShipConfirmDialog} onOpenChange={setShowShipConfirmDialog}>
