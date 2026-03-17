@@ -9521,11 +9521,17 @@ Format search_web URLs as markdown links.`;
   app.get("/api/inventory/search", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const { itemNo, limit = 10 } = req.query;
+      const { itemNo, colorId, limit = 10 } = req.query;
 
       if (!itemNo || typeof itemNo !== 'string') {
         return res.status(400).json({ error: "itemNo is required" });
       }
+
+      const parsedColorId = colorId ? parseInt(colorId as string) : null;
+
+      const whereClause = parsedColorId != null
+        ? and(eq(blInventory.orgId, orgId), eq(blInventory.itemNo, itemNo), eq(blInventory.colorId, parsedColorId))
+        : and(eq(blInventory.orgId, orgId), eq(blInventory.itemNo, itemNo));
 
       const inventoryLots = await db
         .select({
@@ -9540,7 +9546,7 @@ Format search_web URLs as markdown links.`;
         .from(blInventory)
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
-        .where(and(eq(blInventory.orgId, orgId), eq(blInventory.itemNo, itemNo)))
+        .where(whereClause)
         .limit(parseInt(limit as string) || 10);
 
       res.json(inventoryLots);

@@ -2308,13 +2308,14 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                                   <span style={mkCorner(c, 'auto', 0, 'auto', 0)} />
                                 </>);
                               })()}
-                              {/* Price badge — opens Inventory Detail drawer (pricing tab) if in inventory, else falls back to Brickspotter overlay */}
+                              {/* Price badge — opens Inventory Detail drawer on pricing tab via part number lookup */}
                               <button
                                 onMouseDown={e => e.stopPropagation()}
                                 onClick={e => {
                                   e.stopPropagation();
-                                  if (onItemClick && r.inventoryId != null) {
-                                    onItemClick('inventory', r.inventoryId, 'pricing');
+                                  if (onItemClick && r.partNo) {
+                                    const colorSuffix = r.colorId != null ? `__c${r.colorId}` : '';
+                                    onItemClick('inventory', `bricklink-${r.partNo}${colorSuffix}` as any, 'pricing');
                                   } else {
                                     setFocusedDetailCropIndex(r.cropIndex ?? null);
                                   }

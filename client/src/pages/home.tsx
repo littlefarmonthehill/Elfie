@@ -179,7 +179,10 @@ export default function Home() {
 
     // Handle BrickLink catalog items
     if (isBrickLinkCatalog && type === 'inventory') {
-      const itemNo = String(id).replace('bricklink-', '');
+      const raw = String(id).replace('bricklink-', '');
+      const colorMatch = raw.match(/__c(\d+)$/);
+      const itemNo = colorMatch ? raw.slice(0, raw.length - colorMatch[0].length) : raw;
+      const colorId = colorMatch ? colorMatch[1] : null;
       const catalogItemKey = `bricklink-item-${itemNo}`;
       const storedData = sessionStorage.getItem(catalogItemKey);
       
@@ -241,7 +244,26 @@ export default function Home() {
             initialTab,
           }
         });
+        return;
       }
+
+      // No session storage — look up the first matching inventory lot by part number + color
+      // (used when opening from Brickspotter heatmap)
+      try {
+        const searchParams = new URLSearchParams({ itemNo, limit: '50' });
+        if (colorId) searchParams.set('colorId', colorId);
+        const searchRes = await fetch(`/api/inventory/search?${searchParams}`);
+        if (searchRes.ok) {
+          const lots = await searchRes.json();
+          if (Array.isArray(lots) && lots.length > 0) {
+            // Re-run as a normal inventory item using the real DB id
+            await handleDashboardItemClick('inventory', lots[0].id, initialTab);
+            return;
+          }
+        }
+      } catch { /* ignore, close modal below */ }
+      // Part not in inventory — close the loading modal
+      setDetailModal({ open: false, data: null });
       return;
     }
 
