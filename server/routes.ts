@@ -4365,6 +4365,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch order items
       const items = await db.select().from(orderDetails).where(eq(orderDetails.orderId, orderId));
 
+      // Look up BrickLink part numbers (item_no) for items that have a bricklinkInventoryId
+      const blInventoryIds = items
+        .map(i => i.bricklinkInventoryId)
+        .filter((id): id is number => id !== null && id !== undefined);
+      const inventoryItemNoMap: Record<number, string> = {};
+      if (blInventoryIds.length > 0) {
+        const blItems = await db
+          .select({ id: blInventory.id, itemNo: blInventory.itemNo })
+          .from(blInventory)
+          .where(inArray(blInventory.id, blInventoryIds));
+        for (const bi of blItems) inventoryItemNoMap[bi.id] = bi.itemNo;
+      }
+
       // Fetch adjustments (refunds, credits)
       const adjustments = await db
         .select()
@@ -4431,7 +4444,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         weight: order.weight ? Number(order.weight) : null,
         weightUnits: order.weightUnits || 'oz',
         items: items.map(item => ({
-          partNumber: item.sku || '',
+          partNumber: (item.bricklinkInventoryId && inventoryItemNoMap[item.bricklinkInventoryId])
+            || item.sku
+            || '',
           name: item.name,
           quantity: item.quantity,
           price: Number(item.unitPrice) || 0,
