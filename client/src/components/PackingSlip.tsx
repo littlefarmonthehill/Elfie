@@ -133,7 +133,100 @@ export function openPdfAndPrint(blobUrl: string, preOpenedWin?: Window | null): 
   setTimeout(() => { try { win.print(); } catch { /* cross-origin guard */ } }, 2500);
 }
 
-// ─── Main export ─────────────────────────────────────────────────────────────
+// ─── Picklist PDF ─────────────────────────────────────────────────────────────
+
+/** Normalised item shape accepted by printPicklist — callers map their own types here. */
+export interface PicklistItem {
+  partNumber?: string | null;
+  sku?: string | null;
+  colorName?: string | null;
+  condition?: string | null;
+  itemName?: string | null;
+  quantity: number;
+  orderNumber?: string | null;
+  marketplace?: string | null;
+  inventoryId?: number | null;
+  comment?: string | null;   // buyer note / remark
+}
+
+const chanPrefix = (item: PicklistItem) => item.marketplace === 'BrickOwl' ? 'BO' : 'BL';
+const condLabel  = (c: string | null | undefined) => c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
+const partKey    = (item: PicklistItem) => item.partNumber || item.sku || '';
+
+export function printPicklist(items: PicklistItem[], preOpenedWin?: Window | null): void {
+  if (items.length === 0) { preOpenedWin?.close(); return; }
+
+  const CONTENT_W = PAGE_W - 2 * MARGIN;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+  let y = MARGIN;
+
+  for (const item of items) {
+    const hasComment = !!(item.comment);
+    const itemH = 3 + 6 + 5 + (hasComment ? 4.5 : 0) + 6;
+    if (y + itemH > PAGE_H - MARGIN) { doc.addPage(); y = MARGIN; }
+
+    // ── Separator line ───────────────────────────────────────────────────────
+    doc.setDrawColor(187, 187, 187);
+    doc.setLineWidth(0.25);
+    doc.line(MARGIN, y, MARGIN + 20, y);
+    y += 3;
+
+    // ── Part number (bold) · colour · condition · name ───────────────────────
+    const partStr   = partKey(item);
+    const restParts = [
+      item.colorName,
+      item.condition ? condLabel(item.condition) : null,
+      item.itemName,
+    ].filter(Boolean) as string[];
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text(partStr, MARGIN, y);
+    const partW = doc.getTextWidth(partStr);
+
+    if (restParts.length > 0) {
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(70, 70, 70);
+      let restStr = ' \u00b7 ' + restParts.join(' \u00b7 ');
+      const maxW = CONTENT_W - partW;
+      while (doc.getTextWidth(restStr) > maxW && restStr.length > 4) restStr = restStr.slice(0, -1);
+      if (restStr.length < (' \u00b7 ' + restParts.join(' \u00b7 ')).length) restStr = restStr.slice(0, -3) + '\u2026';
+      doc.text(restStr, MARGIN + partW, y);
+    }
+    y += 6;
+
+    // ── Qty · order number · lot number ─────────────────────────────────────
+    const rawOrder  = (item.orderNumber || '').replace(/^(BL|BO)/i, '');
+    const metaParts = [
+      `Qty ${item.quantity}`,
+      `${chanPrefix(item)}${rawOrder}`,
+      item.inventoryId ? `Lot ${item.inventoryId}` : null,
+    ].filter(Boolean) as string[];
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(120, 120, 120);
+    doc.text(metaParts.join(' \u00b7 '), MARGIN, y);
+    y += 5;
+
+    // ── Buyer comment ────────────────────────────────────────────────────────
+    if (item.comment) {
+      doc.setFontSize(8.5);
+      doc.setTextColor(0, 85, 170);
+      doc.text(item.comment, MARGIN, y);
+      y += 4.5;
+    }
+    y += 6;
+  }
+
+  doc.autoPrint();
+  const blob = doc.output('blob');
+  const url  = URL.createObjectURL(blob);
+  openPdfAndPrint(url, preOpenedWin);
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+// ─── Packing-slip PDF ────────────────────────────────────────────────────────
 
 export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBranding, preOpenedWin?: Window | null): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });

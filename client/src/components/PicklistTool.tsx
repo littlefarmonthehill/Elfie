@@ -5,7 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Package, Loader2, List, Layers, ChevronDown, ChevronRight, ScanLine, Camera, X, CheckCircle2, AlertCircle } from "lucide-react";
-import { openLoadingWindow, openPdfAndPrint } from "./PackingSlip";
+import { openLoadingWindow, printPicklist } from "./PackingSlip";
 
 type WarehouseLocation = {
   aisle: { id: number; name: string };
@@ -266,90 +266,16 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
 
   const partKey = (item: BinPicklistItem) => item.partNumber || item.sku || '';
 
-  const handlePrint = async () => {
-    // Open the window NOW (within the user gesture) to bypass popup blockers
+  const handlePrint = () => {
     const printWin = openLoadingWindow();
-    const { default: jsPDF } = await import('jspdf');
-    const chanPrefix = (item: BinPicklistItem) => item.marketplace === 'BrickOwl' ? 'BO' : 'BL';
-    const condLabel = (c: string | null) => c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
-
     const sortedItems = [...flatItems].sort((a, b) => {
       const pk = partKey(a).localeCompare(partKey(b), undefined, { numeric: true });
       if (pk !== 0) return pk;
       const ck = (a.colorName || '').localeCompare(b.colorName || '');
-      if (ck !== 0) return ck;
-      return (a.condition || '').localeCompare(b.condition || '');
+      return ck !== 0 ? ck : (a.condition || '').localeCompare(b.condition || '');
     });
-
-    const PAGE_W = 215.9;
-    const PAGE_H = 279.4;
-    const MARGIN = 4; // ~0.16 in — minimal page margin
-    const CONTENT_W = PAGE_W - 2 * MARGIN;
-
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
-
-    let y = MARGIN;
-
-    for (const item of sortedItems) {
-      const hasComment = !!(item.comment);
-      const itemH = 3 + 6 + 5 + (hasComment ? 4.5 : 0) + 6;
-      if (y + itemH > PAGE_H - MARGIN) { doc.addPage(); y = MARGIN; }
-
-      doc.setDrawColor(187, 187, 187);
-      doc.setLineWidth(0.25);
-      doc.line(MARGIN, y, MARGIN + 20, y);
-      y += 3;
-
-      const partStr = partKey(item);
-      const restParts = [
-        item.colorName,
-        item.condition ? condLabel(item.condition) : null,
-        item.itemName,
-      ].filter(Boolean) as string[];
-
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(0, 0, 0);
-      doc.text(partStr, MARGIN, y);
-      const partW = doc.getTextWidth(partStr);
-
-      if (restParts.length > 0) {
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(70, 70, 70);
-        let restStr = ' \u00b7 ' + restParts.join(' \u00b7 ');
-        const maxW = CONTENT_W - partW;
-        while (doc.getTextWidth(restStr) > maxW && restStr.length > 4) restStr = restStr.slice(0, -1);
-        if (restStr.length < (' \u00b7 ' + restParts.join(' \u00b7 ')).length) restStr = restStr.slice(0, -3) + '\u2026';
-        doc.text(restStr, MARGIN + partW, y);
-      }
-      y += 6;
-
-      const rawOrder = (item.orderNumber || '').replace(/^(BL|BO)/i, '');
-      const metaParts = [
-        `Qty ${item.quantity}`,
-        `${chanPrefix(item)}${rawOrder}`,
-        item.inventoryId ? `Lot ${item.inventoryId}` : null,
-      ].filter(Boolean) as string[];
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(120, 120, 120);
-      doc.text(metaParts.join(' \u00b7 '), MARGIN, y);
-      y += 5;
-
-      if (item.comment) {
-        doc.setFontSize(8.5);
-        doc.setTextColor(0, 85, 170);
-        doc.text(item.comment, MARGIN, y);
-        y += 4.5;
-      }
-      y += 6;
-    }
-
-    doc.autoPrint();
-    const blob = doc.output('blob');
-    const url = URL.createObjectURL(blob);
-    openPdfAndPrint(url, printWin);
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    // BinPicklistItem has both 'comment' (buyer note) and 'remarks' — pass directly
+    printPicklist(sortedItems, printWin);
   };
 
   // ── Derived data ──

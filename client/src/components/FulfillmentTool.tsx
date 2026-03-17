@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2 } from "lucide-react";
-import { printPackingSlips, openPdfAndPrint, openLoadingWindow } from "./PackingSlip";
+import { printPackingSlips, printPicklist, openLoadingWindow } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, PRIORITY_REGEX, toggleSetItem } from "@/lib/item-utils";
 import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult, OrderItem } from "./InlineShippingCard";
@@ -386,90 +386,24 @@ export default function FulfillmentTool() {
 
   const handlePrintPicklist = async () => {
     if (selectedOrders.size === 0) return;
-    // Open the window NOW (within the user gesture) to bypass popup blockers
     const printWin = openLoadingWindow();
-    const { default: jsPDF } = await import('jspdf');
-    // Always fetch fresh picklist data so recently-added orders are included
-    const freshBins = await queryClient.fetchQuery<PicklistBin[]>({ queryKey: ['/api/picklist'] });
-    const freshItems: PicklistBinItem[] = freshBins.flatMap(b => b.items);
-    const items = freshItems.filter(item => selectedOrders.has(item.orderId));
-    const chanPrefix = (item: PicklistBinItem) => item.marketplace === 'BrickOwl' ? 'BO' : 'BL';
-    const condLabel = (c: string | null) => c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
-    const partKey = (item: PicklistBinItem) => item.partNumber || item.sku || '';
-
-    const sortedItems = [...items].sort((a, b) => {
-      const pk = partKey(a).localeCompare(partKey(b), undefined, { numeric: true });
-      if (pk !== 0) return pk;
-      return (a.colorName || '').localeCompare(b.colorName || '');
-    });
-
-    const PAGE_W = 215.9;
-    const PAGE_H = 279.4;
-    const MARGIN = 4; // ~0.16 in — minimal page margin
-    const CONTENT_W = PAGE_W - 2 * MARGIN;
-
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
-
-    let y = MARGIN;
-
-    for (const item of sortedItems) {
-      const hasRemarks = !!(item.remarks);
-      const itemH = 3 + 6 + 5 + (hasRemarks ? 4.5 : 0) + 6;
-      if (y + itemH > PAGE_H - MARGIN) { doc.addPage(); y = MARGIN; }
-
-      doc.setDrawColor(187, 187, 187);
-      doc.setLineWidth(0.25);
-      doc.line(MARGIN, y, MARGIN + 20, y);
-      y += 3;
-
-      const partStr = partKey(item);
-      const restParts = [
-        item.colorName,
-        item.condition ? condLabel(item.condition) : null,
-        item.itemName,
-      ].filter(Boolean) as string[];
-
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(0, 0, 0);
-      doc.text(partStr, MARGIN, y);
-      const partW = doc.getTextWidth(partStr);
-
-      if (restParts.length > 0) {
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(70, 70, 70);
-        let restStr = ' \u00b7 ' + restParts.join(' \u00b7 ');
-        const maxW = CONTENT_W - partW;
-        while (doc.getTextWidth(restStr) > maxW && restStr.length > 4) restStr = restStr.slice(0, -1);
-        if (restStr.length < (' \u00b7 ' + restParts.join(' \u00b7 ')).length) restStr = restStr.slice(0, -3) + '\u2026';
-        doc.text(restStr, MARGIN + partW, y);
-      }
-      y += 6;
-
-      const rawOrder = (item.orderNumber || '').replace(/^(BL|BO)/i, '');
-      const metaParts = [
-        `Qty ${item.quantity}`,
-        `${chanPrefix(item)}${rawOrder}`,
-        item.inventoryId ? `Lot ${item.inventoryId}` : null,
-      ].filter(Boolean) as string[];
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(120, 120, 120);
-      doc.text(metaParts.join(' \u00b7 '), MARGIN, y);
-      y += 5;
-
-      if (item.remarks) {
-        doc.setFontSize(8.5);
-        doc.setTextColor(0, 85, 170);
-        doc.text(item.remarks, MARGIN, y);
-        y += 4.5;
-      }
-      y += 6;
+    try {
+      // Always fetch fresh data so recently-added orders are included
+      const freshBins = await queryClient.fetchQuery<PicklistBin[]>({ queryKey: ['/api/picklist'] });
+      const freshItems: PicklistBinItem[] = freshBins.flatMap(b => b.items);
+      const items = freshItems
+        .filter(item => selectedOrders.has(item.orderId))
+        .sort((a, b) => {
+          const pk = (a.partNumber || a.sku || '').localeCompare(b.partNumber || b.sku || '', undefined, { numeric: true });
+          return pk !== 0 ? pk : (a.colorName || '').localeCompare(b.colorName || '');
+        });
+      // Map remarks → comment so printPicklist can use a single field name
+      printPicklist(items.map(item => ({ ...item, comment: item.remarks })), printWin);
+    } catch (error) {
+      printWin?.close();
+      console.error('Error fetching picklist data:', error);
+      toast({ title: "Error", description: "Failed to generate picklist. Please try again.", variant: "destructive" });
     }
-
-    doc.autoPrint();
-    const blob = doc.output('blob');
-    openPdfAndPrint(URL.createObjectURL(blob), printWin);
   };
 
   const handlePrintLotLabels = (orderIds: string[]) => {
