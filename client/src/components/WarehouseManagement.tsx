@@ -133,6 +133,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [fillBinDeselected, setFillBinDeselected] = useState<Set<number>>(new Set());
   const [fillBinManualAdds, setFillBinManualAdds] = useState<Map<number, any>>(new Map());
   const [fillBinSearch, setFillBinSearch] = useState("");
+  const [fillBinTrackQty, setFillBinTrackQty] = useState(false);
+  const [fillBinQties, setFillBinQties] = useState<Map<number, string>>(new Map());
 
   // CSV Import state
   const [importCsvOpen, setImportCsvOpen] = useState(false);
@@ -268,7 +270,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   });
 
   const assignInventoryMutation = useMutation({
-    mutationFn: (data: { inventoryId: number; binId: number }) =>
+    mutationFn: (data: { inventoryId: number; binId: number; quantity?: number }) =>
       apiRequest('POST', '/api/warehouse/assign/inventory', data),
     onSuccess: () => { invalidateWarehouse(); },
   });
@@ -499,6 +501,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     setFillBinDeselected(new Set());
     setFillBinManualAdds(new Map());
     setFillBinSearch("");
+    setFillBinTrackQty(false);
+    setFillBinQties(new Map());
   };
 
   const handleFillBin = async () => {
@@ -506,9 +510,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     const binId = parseInt(fillBinTargetId);
     setFillBinPending(true);
     try {
-      await Promise.all(fillBinToAssign.map(item =>
-        assignInventoryMutation.mutateAsync({ inventoryId: item.id, binId })
-      ));
+      await Promise.all(fillBinToAssign.map(item => {
+        const qtyStr = fillBinQties.get(item.id);
+        const quantity = fillBinTrackQty && qtyStr ? (parseInt(qtyStr) || undefined) : undefined;
+        return assignInventoryMutation.mutateAsync({ inventoryId: item.id, binId, ...(quantity !== undefined ? { quantity } : {}) });
+      }));
       invalidateWarehouse();
       const binName = bins.find((b: any) => b.id === binId)?.name ?? 'bin';
       toast({ title: `${fillBinToAssign.length} lots assigned to ${binName}`, description: `${unassignedInventory.length - fillBinToAssign.length} unassigned lots remaining.` });
@@ -1610,6 +1616,17 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               </div>
             </div>
 
+            {/* Quantity tracking toggle */}
+            <label className="flex items-center gap-2 cursor-pointer select-none w-fit" data-testid="toggle-fill-bin-track-qty">
+              <input
+                type="checkbox"
+                checked={fillBinTrackQty}
+                onChange={e => setFillBinTrackQty(e.target.checked)}
+                className="h-3.5 w-3.5 rounded shrink-0"
+              />
+              <span className="text-xs text-muted-foreground">Track quantities per bin <span className="text-muted-foreground/60">(split inventory count)</span></span>
+            </label>
+
             {/* Checklist — queue items */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -1644,6 +1661,21 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                         <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
                         <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
                         {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
+                        {fillBinTrackQty && checked && (
+                          <input
+                            type="number"
+                            min={1}
+                            placeholder={item.quantity ? `of ${item.quantity}` : 'qty'}
+                            value={fillBinQties.get(item.id) ?? ''}
+                            onChange={e => {
+                              const v = e.target.value;
+                              setFillBinQties(prev => { const m = new Map(prev); if (v) m.set(item.id, v); else m.delete(item.id); return m; });
+                            }}
+                            onClick={e => e.stopPropagation()}
+                            className="h-5 w-16 text-[10px] rounded border border-border bg-background px-1 shrink-0"
+                            data-testid={`input-fill-bin-qty-${item.id}`}
+                          />
+                        )}
                       </label>
                     );
                   })}
@@ -1671,6 +1703,20 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                       <span className="font-mono text-xs font-medium shrink-0 w-20 truncate">{item.itemNo}</span>
                       <span className="text-[11px] text-muted-foreground truncate flex-1">{item.itemName || '—'}</span>
                       {item.colorName && <span className="text-[10px] text-muted-foreground shrink-0">{item.colorName}</span>}
+                      {fillBinTrackQty && (
+                        <input
+                          type="number"
+                          min={1}
+                          placeholder={item.quantity ? `of ${item.quantity}` : 'qty'}
+                          value={fillBinQties.get(item.id) ?? ''}
+                          onChange={e => {
+                            const v = e.target.value;
+                            setFillBinQties(prev => { const m = new Map(prev); if (v) m.set(item.id, v); else m.delete(item.id); return m; });
+                          }}
+                          className="h-5 w-16 text-[10px] rounded border border-border bg-background px-1 shrink-0"
+                          data-testid={`input-fill-bin-qty-manual-${item.id}`}
+                        />
+                      )}
                       <button
                         onClick={() => removeFillBinManual(item.id)}
                         className="h-4 w-4 shrink-0 text-muted-foreground hover:text-destructive"
@@ -1721,6 +1767,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               <p className="text-xs text-muted-foreground">
                 <span className="font-semibold text-foreground">{fillBinToAssign.length}</span> lots will be assigned
                 {fillBinManualAdds.size > 0 && <span className="text-blue-400"> (+{fillBinManualAdds.size} added manually)</span>}
+                {fillBinTrackQty && fillBinQties.size > 0 && <span className="text-muted-foreground"> · {fillBinQties.size} with quantities</span>}
               </p>
               <Button
                 disabled={!fillBinTargetId || fillBinToAssign.length === 0 || fillBinPending}
