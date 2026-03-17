@@ -419,125 +419,123 @@ function PomPriceDialog({ target, onClose }: { target: { partNo: string; itemTyp
   const source    = target.source    ?? 'peak';
   const metric    = target.metric    ?? 'max';
   const blType    = target.itemType === 'MINIFIG' ? 'MINIFIG' : 'PART';
-  const blCond    = condition === 'new' ? 'N' : 'U';
   const buildUrl  = (cond: 'N' | 'U') => {
     const p = new URLSearchParams({ new_or_used: cond });
     if (target.colorId != null) p.set('color_id', String(target.colorId));
     return `/api/inventory/price-guide/${encodeURIComponent(target.partNo)}/${blType}?${p}`;
   };
 
-  const { data, isLoading } = useQuery<any>({
-    queryKey: ['pom-detail', target.partNo, blType, target.colorId, blCond],
-    queryFn: async () => { const r = await fetch(buildUrl(blCond), { credentials: 'include' }); if (!r.ok) throw new Error('Failed'); return r.json(); },
+  const { data: nData, isLoading: nLoading } = useQuery<any>({
+    queryKey: ['pom-detail', target.partNo, blType, target.colorId, 'N'],
+    queryFn: async () => { const r = await fetch(buildUrl('N'), { credentials: 'include' }); if (!r.ok) throw new Error('Failed'); return r.json(); },
     staleTime: 5 * 60 * 1000,
   });
-  const oppCond = blCond === 'N' ? 'U' : 'N';
-  const { data: oppData } = useQuery<any>({
-    queryKey: ['pom-detail', target.partNo, blType, target.colorId, oppCond],
-    queryFn: async () => { const r = await fetch(buildUrl(oppCond), { credentials: 'include' }); if (!r.ok) throw new Error('Failed'); return r.json(); },
+  const { data: uData, isLoading: uLoading } = useQuery<any>({
+    queryKey: ['pom-detail', target.partNo, blType, target.colorId, 'U'],
+    queryFn: async () => { const r = await fetch(buildUrl('U'), { credentials: 'include' }); if (!r.ok) throw new Error('Failed'); return r.json(); },
     staleTime: 5 * 60 * 1000,
-    enabled: source === 'peak',
   });
 
   const fmt = (v: number | null | undefined) => v != null ? `$${Number(v).toFixed(2)}` : '—';
+  const isLoading = nLoading || uLoading;
 
-  let focusedPrice: number | null = null;
-  let sourceLabel = '';
-  let metricLabel = '';
+  // Which row is "active" based on heatmap context
+  const activeRow = source === 'peak'
+    ? 'sold-max'
+    : source === 'sold'
+      ? (metric === 'max' ? 'sold-max' : 'sold-avg')
+      : (metric === 'max' ? 'list-max' : 'list-avg');
 
-  if (source === 'peak') {
-    focusedPrice = Math.max(data?.soldMaxPrice ?? 0, data?.stockAvgPrice ?? 0, oppData?.soldMaxPrice ?? 0, oppData?.stockAvgPrice ?? 0) || null;
-    sourceLabel = 'Peak';
-  } else if (source === 'sold') {
-    focusedPrice = metric === 'max' ? (data?.soldMaxPrice ?? null) : (data?.soldAvgPrice ?? null);
-    sourceLabel = 'Sold';
-    metricLabel = metric === 'max' ? 'Max' : 'Avg';
-  } else {
-    focusedPrice = metric === 'max' ? (data?.stockMaxPrice ?? null) : (data?.stockAvgPrice ?? null);
-    sourceLabel = 'Listed';
-    metricLabel = metric === 'max' ? 'Max' : 'Avg';
-  }
+  const hasMyNew  = (target.myQtyNew  ?? 0) > 0 || target.myPriceNew  != null;
+  const hasMyUsed = (target.myQtyUsed ?? 0) > 0 || target.myPriceUsed != null;
+  const hasMyInventory = hasMyNew || hasMyUsed;
 
-  const condLabel  = condition === 'new' ? 'New' : 'Used';
-  const myPrice    = condition === 'new' ? target.myPriceNew  : target.myPriceUsed;
-  const myQty      = condition === 'new' ? target.myQtyNew    : target.myQtyUsed;
-  const hasMyPrice = myPrice != null || (myQty ?? 0) > 0;
-  const contextTag = [condLabel, sourceLabel, metricLabel].filter(Boolean).join(' · ');
+  // Cell value colour: active col gets bright colour, inactive gets muted
+  const val = (v: number | null | undefined, col: 'new' | 'used', row: string) => {
+    const isActiveCol = col === condition;
+    const isActiveRow = row === activeRow;
+    const color = isActiveCol && isActiveRow
+      ? (col === 'new' ? 'text-blue-300 font-bold' : 'text-orange-300 font-bold')
+      : isActiveCol
+        ? (col === 'new' ? 'text-blue-400/70' : 'text-orange-400/70')
+        : 'text-gray-400';
+    return <span className={`font-mono text-sm ${color}`}>{fmt(v)}</span>;
+  };
+
+  type Row = { label: string; id: string; nVal: number | null | undefined; uVal: number | null | undefined };
+  const rows: Row[] = [
+    { label: 'Sold Avg', id: 'sold-avg', nVal: nData?.soldAvgPrice,  uVal: uData?.soldAvgPrice  },
+    { label: 'Sold Max', id: 'sold-max', nVal: nData?.soldMaxPrice,  uVal: uData?.soldMaxPrice  },
+    { label: 'List Avg', id: 'list-avg', nVal: nData?.stockAvgPrice, uVal: uData?.stockAvgPrice },
+    { label: 'List Max', id: 'list-max', nVal: nData?.stockMaxPrice, uVal: uData?.stockMaxPrice },
+    { label: 'Suggested', id: 'suggested', nVal: nData?.suggestedPrice, uVal: uData?.suggestedPrice },
+  ];
 
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-[220px] bg-gray-900 border-gray-700 text-white p-0">
-        <div className="p-3 space-y-2.5">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <div className="text-xs font-bold text-white font-mono leading-tight">{target.partNo}</div>
-              {target.colorName && <div className="text-[10px] text-gray-400 leading-tight">{target.colorName}</div>}
-            </div>
-            <div className="text-[9px] text-gray-500 text-right leading-tight shrink-0">{contextTag}</div>
+      <DialogContent className="max-w-[320px] bg-gray-950 border-gray-700 text-white p-0 overflow-hidden">
+        {/* Header */}
+        <div className="px-4 pt-4 pb-3 border-b border-gray-800">
+          <div className="text-sm font-bold text-white font-mono">{target.partNo}</div>
+          {target.colorName && <div className="text-xs text-gray-400 mt-0.5">{target.colorName}</div>}
+        </div>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-10 gap-2 text-gray-400 text-sm">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading…
           </div>
-
-          {isLoading ? (
-            <div className="flex items-center justify-center py-4 gap-2 text-gray-400 text-xs">
-              <Loader2 className="w-3 h-3 animate-spin" /> Loading…
+        ) : (
+          <>
+            {/* Column headers */}
+            <div className="grid grid-cols-3 px-4 pt-3 pb-1">
+              <div />
+              <div className={`text-xs font-bold text-center pb-1 ${condition === 'new' ? 'text-blue-400 border-b-2 border-blue-400' : 'text-gray-500'}`}>NEW</div>
+              <div className={`text-xs font-bold text-center pb-1 ${condition === 'used' ? 'text-orange-400 border-b-2 border-orange-400' : 'text-gray-500'}`}>USED</div>
             </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="text-center py-1">
-                <div className="text-3xl font-mono font-bold text-white">{fmt(focusedPrice)}</div>
-                <div className="text-[9px] text-gray-500 mt-0.5">{contextTag}</div>
-              </div>
 
-              <div className="border-t border-gray-800 pt-2 space-y-1">
-                {source === 'peak' && (
-                  <>
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-gray-500">Sold max</span>
-                      <span className="text-gray-300 font-mono">{fmt(data?.soldMaxPrice)}</span>
-                    </div>
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-gray-500">Listed avg</span>
-                      <span className="text-gray-300 font-mono">{fmt(data?.stockAvgPrice)}</span>
-                    </div>
-                  </>
-                )}
-                {source === 'sold' && (
-                  <>
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-gray-500">{metric === 'max' ? 'Sold avg' : 'Sold max'}</span>
-                      <span className="text-gray-300 font-mono">{fmt(metric === 'max' ? data?.soldAvgPrice : data?.soldMaxPrice)}</span>
-                    </div>
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-gray-500">Sold qty</span>
-                      <span className="text-gray-300 font-mono">{data?.soldQuantity ?? '—'}</span>
-                    </div>
-                  </>
-                )}
-                {source === 'listed' && (
-                  <>
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-gray-500">{metric === 'max' ? 'Listed avg' : 'Listed max'}</span>
-                      <span className="text-gray-300 font-mono">{fmt(metric === 'max' ? data?.stockAvgPrice : data?.stockMaxPrice)}</span>
-                    </div>
-                    <div className="flex justify-between text-[10px]">
-                      <span className="text-gray-500">Lots</span>
-                      <span className="text-gray-300 font-mono">{data?.stockTotalLots ?? '—'}</span>
-                    </div>
-                  </>
-                )}
-              </div>
+            {/* Price rows */}
+            <div className="px-4 pb-1 space-y-0">
+              {rows.map(row => (
+                <div
+                  key={row.id}
+                  className={`grid grid-cols-3 py-2 border-b border-gray-800/60 ${row.id === activeRow ? 'bg-white/[0.03] rounded' : ''}`}
+                >
+                  <span className={`text-xs ${row.id === activeRow ? 'text-gray-200' : 'text-gray-500'}`}>{row.label}</span>
+                  <div className="text-center">{val(row.nVal, 'new', row.id)}</div>
+                  <div className="text-center">{val(row.uVal, 'used', row.id)}</div>
+                </div>
+              ))}
 
-              {hasMyPrice && (
-                <div className="border-t border-gray-800 pt-2 flex justify-between items-center">
-                  <span className="text-[10px] text-emerald-400">My price</span>
-                  <div className="text-right">
-                    <div className="text-xs font-mono font-bold text-emerald-300">{myPrice != null ? `$${myPrice.toFixed(2)}` : '—'}</div>
-                    {(myQty ?? 0) > 0 && <div className="text-[9px] text-gray-500">×{myQty} in stock</div>}
+              {/* My price row */}
+              {hasMyInventory && (
+                <div className="grid grid-cols-3 py-2">
+                  <span className="text-xs text-emerald-400">My Price</span>
+                  <div className="text-center">
+                    {hasMyNew ? (
+                      <div>
+                        <div className="font-mono text-sm text-emerald-300 font-bold">{fmt(target.myPriceNew)}</div>
+                        {(target.myQtyNew ?? 0) > 0 && <div className="text-[9px] text-gray-600">×{target.myQtyNew}</div>}
+                      </div>
+                    ) : <span className="text-gray-700 text-sm">—</span>}
+                  </div>
+                  <div className="text-center">
+                    {hasMyUsed ? (
+                      <div>
+                        <div className="font-mono text-sm text-emerald-300 font-bold">{fmt(target.myPriceUsed)}</div>
+                        {(target.myQtyUsed ?? 0) > 0 && <div className="text-[9px] text-gray-600">×{target.myQtyUsed}</div>}
+                      </div>
+                    ) : <span className="text-gray-700 text-sm">—</span>}
                   </div>
                 </div>
               )}
             </div>
-          )}
-        </div>
+
+            {/* Footer */}
+            <div className="px-4 py-2.5 text-center text-[10px] text-gray-600 border-t border-gray-800">
+              tap price to dismiss
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
