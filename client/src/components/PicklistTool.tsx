@@ -289,7 +289,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
 
     for (const item of sortedItems) {
       const hasComment = !!(item.comment);
-      const itemH = 3 + 5 + 4 + (hasComment ? 4 : 0) + 2;
+      const itemH = 3 + 6 + 5 + (hasComment ? 4.5 : 0) + 2;
       if (y + itemH > PAGE_H - MARGIN) { doc.addPage(); y = MARGIN; }
 
       doc.setDrawColor(187, 187, 187);
@@ -304,7 +304,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
         item.itemName,
       ].filter(Boolean) as string[];
 
-      doc.setFontSize(9);
+      doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
       doc.text(partStr, MARGIN, y);
@@ -319,7 +319,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
         if (restStr.length < (' \u00b7 ' + restParts.join(' \u00b7 ')).length) restStr = restStr.slice(0, -3) + '\u2026';
         doc.text(restStr, MARGIN + partW, y);
       }
-      y += 5;
+      y += 6;
 
       const rawOrder = (item.orderNumber || '').replace(/^(BL|BO)/i, '');
       const metaParts = [
@@ -328,16 +328,16 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
         item.inventoryId ? `Lot ${item.inventoryId}` : null,
       ].filter(Boolean) as string[];
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
+      doc.setFontSize(9);
       doc.setTextColor(120, 120, 120);
       doc.text(metaParts.join(' \u00b7 '), MARGIN, y);
-      y += 4;
+      y += 5;
 
       if (item.comment) {
-        doc.setFontSize(7.5);
+        doc.setFontSize(8.5);
         doc.setTextColor(0, 85, 170);
         doc.text(item.comment, MARGIN, y);
-        y += 3.5;
+        y += 4.5;
       }
       y += 2;
     }
