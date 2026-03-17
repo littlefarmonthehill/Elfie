@@ -981,6 +981,18 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-46 (password reset tokens) complete.');
 
+    // ── Phase-47: Remove Stripe/PayPal refund adjustments ────────────────────
+    // Returns are now detected directly from BrickLink (payment.status === 'Returned')
+    // and recorded with payment_method='bricklink'. Old Stripe/PayPal refund records
+    // must be removed to prevent double-counting when the BrickLink order sync runs.
+    // Merchant fee records (type='merchant_fee') are kept as historical data.
+    await client.query(`
+      DELETE FROM order_adjustments
+      WHERE type = 'refund'
+        AND payment_method IN ('stripe', 'paypal')
+    `);
+    console.log('[Migration] Phase-47 (remove Stripe/PayPal refund adjustments) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

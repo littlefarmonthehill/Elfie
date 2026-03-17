@@ -15,8 +15,6 @@ export interface PlatformSyncOptions {
 export interface PlatformSyncResult {
   bricklink: { success: boolean; skipped: boolean; ordersAdded: number; error: string | null };
   brickowl:  { success: boolean; skipped: boolean; ordersAdded: number; error: string | null };
-  stripe:    { success: boolean; skipped: boolean; refunds: number; fees: number; error: string | null };
-  paypal:    { success: boolean; skipped: boolean; refunds: number; fees: number; error: string | null };
 }
 
 /** True while an order sync is in progress (delegates to global lock). */
@@ -25,8 +23,7 @@ export function getOrderSyncIsRunning() {
 }
 
 /**
- * Single shared function that runs order sync for one or all platforms,
- * then always runs financial syncs (Stripe + PayPal).
+ * Single shared function that runs order sync for one or all platforms.
  * All entry points (manual routes + scheduler) call this.
  */
 export async function runPlatformOrderSync(
@@ -38,8 +35,6 @@ export async function runPlatformOrderSync(
   const result: PlatformSyncResult = {
     bricklink: { success: false, skipped: false, ordersAdded: 0, error: null },
     brickowl:  { success: false, skipped: false, ordersAdded: 0, error: null },
-    stripe:    { success: false, skipped: false, refunds: 0, fees: 0, error: null },
-    paypal:    { success: false, skipped: false, refunds: 0, fees: 0, error: null },
   };
 
   if (!syncLock.acquire('Order Sync')) {
@@ -129,44 +124,6 @@ export async function runPlatformOrderSync(
     } catch (err) {
       console.error("✗ Embedding failed (non-fatal):", err);
     }
-  }
-
-  // ── Stripe ─────────────────────────────────────────────────────────────────
-  // Refund detection is now handled directly by the BrickLink order sync via
-  // payment.status === 'Returned'. Stripe sync is fees-only.
-  if (process.env.STRIPE_SECRET_KEY) {
-    try {
-      console.log("💳 Syncing Stripe fees...");
-      const { syncStripeFees } = await import("./stripe-refunds");
-      const feeRes = await syncStripeFees(90);
-      result.stripe.success = true;
-      result.stripe.fees = feeRes.matched;
-      console.log(`✅ Stripe: ${feeRes.matched} fees matched`);
-    } catch (err: any) {
-      result.stripe.error = err.message;
-      console.error("❌ Stripe sync failed (non-fatal):", err.message);
-    }
-  } else {
-    result.stripe.skipped = true;
-  }
-
-  // ── PayPal ─────────────────────────────────────────────────────────────────
-  // Refund detection is now handled directly by the BrickLink order sync via
-  // payment.status === 'Returned'. PayPal sync is fees-only.
-  if (process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET) {
-    try {
-      console.log("🅿️ Syncing PayPal fees...");
-      const { syncPayPalFees } = await import("./paypal-sync");
-      const feeRes = await syncPayPalFees(90);
-      result.paypal.success = true;
-      result.paypal.fees = feeRes.matched;
-      console.log(`✅ PayPal: ${feeRes.matched} fees matched`);
-    } catch (err: any) {
-      result.paypal.error = err.message;
-      console.error("❌ PayPal sync failed (non-fatal):", err.message);
-    }
-  } else {
-    result.paypal.skipped = true;
   }
 
   // ── Stuck inventory check (scheduler-only) ─────────────────────────────────
