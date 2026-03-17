@@ -4664,64 +4664,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       </div>
                     )}
 
-                    {/* Payments */}
-                    <div className="px-4 pt-3 pb-1 flex items-center justify-between">
-                      <span className="app-label">Payments</span>
-                      <Button size="sm" variant="ghost" className="h-6 text-xs gap-1 text-gray-400 -mr-1"
-                        data-testid="button-add-payment-vendor"
-                        onClick={() => { setAddIntegrationType('payment'); setAddIntChannel('square'); setAddIntDisplayName('Square'); setAddIntApiKey(''); }}>
-                        <Plus className="w-3 h-3" /> Add
-                      </Button>
-                    </div>
-                    {orgIntegrationsList.filter(i => i.type === 'payment').length === 0 && addIntegrationType !== 'payment' && (
-                      <p className="mx-2 text-[11px] text-gray-600 border border-gray-700/50 rounded-lg px-4 py-2.5">No additional payment vendors configured.</p>
-                    )}
-                    {orgIntegrationsList.filter(i => i.type === 'payment').map(integration => (
-                      <button key={integration.id} onClick={() => { setActivePlatform(String(integration.id)); setEditingIntId(integration.id); setEditIntDisplayName(integration.displayName || ''); setEditIntApiKey(''); }}
-                        className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 transition-colors group"
-                        data-testid={`nav-platform-${integration.id}`}
-                      >
-                        <div className="w-2 h-2 rounded-full flex-shrink-0 bg-green-400" />
-                        <span className="flex-1 text-left">{integration.displayName || integration.channel}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded border bg-gray-800 text-gray-500 border-gray-700 shrink-0">{integration.channel}</span>
-                        <ChevronRight className="h-4 w-4 text-gray-600 flex-shrink-0" />
-                      </button>
-                    ))}
-                    {addIntegrationType === 'payment' && (
-                      <div className="mx-2 my-1 border border-dashed border-gray-600 rounded-lg px-4 py-3 space-y-3 bg-gray-800/20">
-                        <p className="text-xs font-medium text-gray-100">Add Payment Vendor</p>
-                        <div className="space-y-2">
-                          <Label className="text-xs text-gray-200">Platform</Label>
-                          <Select value={addIntChannel} onValueChange={(v) => { setAddIntChannel(v); const n: Record<string,string> = { square: 'Square', venmo: 'Venmo', zelle: 'Zelle', cashapp: 'Cash App', authorize_net: 'Authorize.net', braintree: 'Braintree', other: 'Other' }; setAddIntDisplayName(n[v] || ''); }}>
-                            <SelectTrigger className="text-xs h-8" data-testid="select-add-payment-vendor"><SelectValue placeholder="Select platform..." /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="square">Square</SelectItem>
-                              <SelectItem value="venmo">Venmo</SelectItem>
-                              <SelectItem value="zelle">Zelle</SelectItem>
-                              <SelectItem value="cashapp">Cash App</SelectItem>
-                              <SelectItem value="authorize_net">Authorize.net</SelectItem>
-                              <SelectItem value="braintree">Braintree</SelectItem>
-                              <SelectItem value="other">Other</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-xs text-gray-200">Display Name</Label>
-                          <Input className="text-xs" placeholder="e.g. Square Payments" value={addIntDisplayName} onChange={(e) => setAddIntDisplayName(e.target.value)} data-testid="input-add-display-name" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-xs text-gray-200">API Key</Label>
-                          <Input type="password" className="text-xs" placeholder="Enter API key" value={addIntApiKey} onChange={(e) => setAddIntApiKey(e.target.value)} data-testid="input-add-api-key" />
-                        </div>
-                        <div className="flex gap-2">
-                          <Button size="sm" className="text-xs" disabled={!addIntChannel || !addIntDisplayName || createIntegrationMutation.isPending} onClick={() => createIntegrationMutation.mutate({ channel: addIntChannel, type: 'payment', displayName: addIntDisplayName, credentials: { apiKey: addIntApiKey } })} data-testid="button-save-add-integration">
-                            {createIntegrationMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Add'}
-                          </Button>
-                          <Button size="sm" variant="ghost" className="text-xs" onClick={() => setAddIntegrationType(null)} data-testid="button-cancel-add-integration">Cancel</Button>
-                        </div>
-                      </div>
-                    )}
-
                     {/* Shipping */}
                     <div className="px-4 pt-3 pb-1 flex items-center justify-between">
                       <span className="app-label">Shipping</span>
