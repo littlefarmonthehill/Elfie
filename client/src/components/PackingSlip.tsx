@@ -57,18 +57,23 @@ function channelLabel(order: PackingSlipOrder): string {
   return order.marketplace === 'BrickOwl' ? 'BrickOwl' : 'BrickLink';
 }
 
-async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: string; w: number; h: number } | null> {
+async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: string; w: number; h: number; format: string } | null> {
   try {
-    let dataUrl: string;
-    if (orgLogoUrl) {
-      // org logo is already a base64 data URL — use it directly
-      dataUrl = orgLogoUrl;
-    } else {
-      return null;
-    }
+    if (!orgLogoUrl) return null;
+    const dataUrl = orgLogoUrl;
+
+    // Derive jsPDF-compatible format from the data URL mime type
+    const mimeMatch = dataUrl.match(/^data:image\/([a-zA-Z0-9+]+);base64,/);
+    const mime = mimeMatch?.[1]?.toLowerCase() ?? 'png';
+    const format = mime === 'jpg' || mime === 'jpeg' ? 'JPEG' : mime === 'webp' ? 'WEBP' : 'PNG';
+
     const img = new Image();
-    await new Promise<void>((resolve) => { img.onload = () => resolve(); img.src = dataUrl; });
-    return { dataUrl, w: img.naturalWidth, h: img.naturalHeight };
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('Logo image failed to load'));
+      img.src = dataUrl;
+    });
+    return { dataUrl, w: img.naturalWidth, h: img.naturalHeight, format };
   } catch {
     return null;
   }
@@ -109,7 +114,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     });
 
     if (logo && logoW > 0) {
-      doc.addImage(logo.dataUrl, 'PNG', MARGIN + CONTENT_W - logoW, headerTopY, logoW, LOGO_H);
+      doc.addImage(logo.dataUrl, logo.format as any, MARGIN + CONTENT_W - logoW, headerTopY, logoW, LOGO_H);
     }
 
     y += Math.max(LOGO_H, 23) + 3;
