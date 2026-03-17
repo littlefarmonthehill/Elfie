@@ -87,25 +87,34 @@ async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: stri
 // ─── Print helper ────────────────────────────────────────────────────────────
 
 /**
- * Print a PDF Blob without ever showing the PDF to the user.
- *
- * • iOS / Android  → Web Share API  (`navigator.share({ files })`)
- *   triggers the native share/AirPrint sheet immediately.  No window opens.
- *
- * • Desktop        → hidden off-screen iframe.  The PDF renders invisibly,
- *   the OS print dialog appears, then the iframe is removed silently.
+ * Detect iOS Safari specifically.
+ * — Regular iOS: navigator.userAgent contains iPad/iPhone/iPod.
+ * — iPadOS 13+ spoofs macOS UA but reports maxTouchPoints > 1.
+ * We need to isolate iOS because only iOS lacks a direct PDF print path;
+ * Android, Windows, Mac etc. all support the hidden-iframe print approach.
  */
+function isIOS(): boolean {
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
+}
+
 export function hiddenPrint(blob: Blob, filename = 'document.pdf'): void {
   const file = new File([blob], filename, { type: 'application/pdf' });
 
-  // ── Mobile / iOS: native share sheet (includes AirPrint) ─────────────────
-  if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
+  // ── iOS only: native share sheet is the sole PDF-print API available ─────
+  // Android, desktop Chrome/Firefox/Safari all support the iframe path below
+  // which goes straight to the print dialog without a share sheet.
+  if (isIOS() && typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
     navigator.share({ files: [file], title: filename.replace(/\.pdf$/i, '') })
-      .catch(() => { /* user cancelled or share not supported — ignore */ });
+      .catch(() => { /* user cancelled — ignore */ });
     return;
   }
 
-  // ── Desktop: hidden iframe ────────────────────────────────────────────────
+  // ── All other platforms: hidden iframe → direct print dialog ─────────────
+  // Works on: Windows Chrome/Firefox/Edge, macOS Safari/Chrome/Firefox,
+  //            Android Chrome, and any Chromium-based browser.
   const url = URL.createObjectURL(blob);
   const iframe = document.createElement('iframe');
   iframe.setAttribute('aria-hidden', 'true');
