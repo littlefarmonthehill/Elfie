@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Package, Loader2, List, Layers, ChevronDown, ChevronRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Package, Loader2, List, Layers, ChevronDown, ChevronRight, ScanLine, Camera, X, CheckCircle2, AlertCircle } from "lucide-react";
 import { resolvePartImageUrl } from "@/lib/part-image";
 
 type WarehouseLocation = {
@@ -81,12 +82,45 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   const [filter, setFilter] = useState<Filter>('all');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
+  // ── Scan-to-pick state ──
+  const [scanMode, setScanMode] = useState(false);
+  const [scanInput, setScanInput] = useState('');
+  const [autoPull, setAutoPull] = useState(false);
+  const [scannedBinId, setScannedBinId] = useState<number | null>(null);
+  const [scanFeedback, setScanFeedback] = useState<{ ok: boolean; message: string } | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const scanInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const toggleGroup = (key: string) =>
     setExpandedGroups(prev => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
+
+  // Auto-focus scan input when scan mode activates
+  useEffect(() => {
+    if (scanMode) setTimeout(() => scanInputRef.current?.focus(), 100);
+    else { setCameraOpen(false); setScanFeedback(null); setScanInput(''); }
+  }, [scanMode]);
+
+  // Stop camera when closed
+  useEffect(() => {
+    if (!cameraOpen) {
+      cameraStreamRef.current?.getTracks().forEach(t => t.stop());
+      cameraStreamRef.current = null;
+    }
+  }, [cameraOpen]);
+
+  // Clean up camera on unmount
+  useEffect(() => () => {
+    cameraStreamRef.current?.getTracks().forEach(t => t.stop());
+    if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+  }, []);
 
   const { data: picklistData = [], isLoading } = useQuery<BinPicklist[]>({
     queryKey: ['/api/picklist', filter],
@@ -130,6 +164,105 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
       }),
     getFilter,
   ));
+
+  // ── Scan processing ──
+  const processScan = useCallback((raw: string, picklist: BinPicklist[]) => {
+    const value = raw.trim();
+    if (!value) return;
+
+    // Parse QR payload: "BIN:BIN-A1", "SHELF:SH-3", "AISLE:A", or bare bin name
+    const colonIdx = value.indexOf(':');
+    const type = colonIdx > -1 ? value.slice(0, colonIdx).toUpperCase() : 'BIN';
+    const name = colonIdx > -1 ? value.slice(colonIdx + 1) : value;
+
+    let matchedBin: BinPicklist | null = null;
+
+    if (type === 'BIN') {
+      matchedBin = picklist.find(b =>
+        b.warehouseLocation?.bin.name.toLowerCase() === name.toLowerCase()
+      ) ?? null;
+    } else if (type === 'SHELF') {
+      // Find first bin on this shelf
+      matchedBin = picklist.find(b =>
+        b.warehouseLocation?.shelf.name.toLowerCase() === name.toLowerCase()
+      ) ?? null;
+    } else if (type === 'AISLE') {
+      matchedBin = picklist.find(b =>
+        b.warehouseLocation?.aisle.name.toLowerCase() === name.toLowerCase()
+      ) ?? null;
+    }
+
+    if (!matchedBin) {
+      setScanFeedback({ ok: false, message: `"${name}" not found in picklist` });
+      setTimeout(() => setScanFeedback(null), 3000);
+      return;
+    }
+
+    // Switch to by_bin view and highlight
+    setViewMode('by_bin');
+    setScannedBinId(matchedBin.binId);
+    setScanFeedback({ ok: true, message: `Found: ${matchedBin.warehouseLocation?.bin.name || name}` });
+
+    // Scroll to the bin after a tick (allow re-render)
+    setTimeout(() => {
+      const binEl = document.querySelector(`[data-bin-scan-id="${matchedBin!.binId}"]`);
+      binEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
+
+    // Auto-pull if enabled
+    if (autoPull && matchedBin.binId && !matchedBin.pulled) {
+      pullBinMutation.mutate({ binId: matchedBin.binId, pulled: true });
+    }
+
+    // Clear highlight after 4s
+    if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+    highlightTimeoutRef.current = setTimeout(() => {
+      setScannedBinId(null);
+      setScanFeedback(null);
+    }, 4000);
+  }, [autoPull, pullBinMutation]);
+
+  // ── Camera scanning via BarcodeDetector API ──
+  const startCamera = useCallback(async () => {
+    setCameraError(null);
+    if (!('BarcodeDetector' in window)) {
+      setCameraError('Your browser does not support camera QR scanning. Use a hardware scanner or type the bin code instead.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      cameraStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+      // @ts-ignore — BarcodeDetector not in TS types yet
+      const detector = new (window as any).BarcodeDetector({ formats: ['qr_code', 'code_128', 'code_39'] });
+      const scan = async () => {
+        if (!cameraStreamRef.current) return;
+        try {
+          if (videoRef.current && videoRef.current.readyState >= 2) {
+            const codes = await detector.detect(videoRef.current);
+            if (codes.length > 0) {
+              const val = codes[0].rawValue;
+              processScan(val, picklistData);
+              // Brief pause before next scan
+              setTimeout(scan, 2000);
+              return;
+            }
+          }
+        } catch {}
+        if (cameraStreamRef.current) requestAnimationFrame(scan);
+      };
+      requestAnimationFrame(scan);
+    } catch (err: any) {
+      setCameraError(err.name === 'NotAllowedError' ? 'Camera permission denied.' : 'Could not access camera.');
+    }
+  }, [picklistData, processScan]);
+
+  useEffect(() => {
+    if (cameraOpen) startCamera();
+  }, [cameraOpen, startCamera]);
 
   const partKey = (item: BinPicklistItem) => item.partNumber || item.sku || '';
 
@@ -315,6 +448,125 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
             <Package className="h-3 w-3" />
             To Pick
           </button>
+
+          {/* Separator */}
+          <div className="w-px h-5 bg-gray-700 shrink-0" />
+
+          {/* Scan Mode toggle */}
+          <button
+            onClick={() => setScanMode(s => !s)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+              scanMode
+                ? 'bg-yellow-500/20 border border-yellow-500/50 text-yellow-300'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700'
+            }`}
+            data-testid="button-scan-mode"
+          >
+            <ScanLine className="w-3.5 h-3.5" />
+            {scanMode ? 'Scanning…' : 'Scan'}
+          </button>
+        </div>
+      )}
+
+      {/* ── Scan mode bar ── */}
+      {scanMode && !noOrdersSelected && (
+        <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/5 p-3 space-y-2.5">
+          <div className="flex items-center gap-2">
+            <ScanLine className="h-4 w-4 text-yellow-400 shrink-0" />
+            <span className="text-xs font-semibold text-yellow-300">Scan Mode Active</span>
+            <span className="text-[10px] text-gray-500 ml-1">Point scanner at a bin label or type a bin name</span>
+            <button
+              className="ml-auto text-gray-500 hover:text-gray-300 transition-colors"
+              onClick={() => setScanMode(false)}
+              data-testid="button-scan-close"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          {/* Input + camera button */}
+          <div className="flex gap-2">
+            <Input
+              ref={scanInputRef}
+              value={scanInput}
+              onChange={e => setScanInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  processScan(scanInput, picklistData);
+                  setScanInput('');
+                }
+              }}
+              placeholder="BIN:BIN-A1 or just BIN-A1…"
+              className="flex-1 h-8 text-xs bg-gray-900 border-gray-600 text-white placeholder:text-gray-600 font-mono"
+              data-testid="input-scan"
+            />
+            <button
+              onClick={() => setCameraOpen(o => !o)}
+              className={`flex items-center gap-1 px-3 rounded-md text-xs border transition-colors ${
+                cameraOpen
+                  ? 'bg-yellow-500/20 border-yellow-500/40 text-yellow-300'
+                  : 'bg-gray-800 border-gray-600 text-gray-400 hover:bg-gray-700'
+              }`}
+              data-testid="button-camera-scan"
+            >
+              <Camera className="h-3.5 w-3.5" />
+              Camera
+            </button>
+          </div>
+
+          {/* Auto-pull toggle */}
+          <label className="flex items-center gap-2 cursor-pointer select-none w-fit">
+            <div
+              onClick={() => setAutoPull(p => !p)}
+              className={`w-8 h-4 rounded-full transition-colors relative ${autoPull ? 'bg-yellow-500' : 'bg-gray-600'}`}
+            >
+              <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${autoPull ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </div>
+            <span className="text-[10px] text-gray-400">Auto-mark bin as pulled on scan</span>
+          </label>
+
+          {/* Camera view */}
+          {cameraOpen && (
+            <div className="rounded-md overflow-hidden border border-gray-700 bg-black relative">
+              {cameraError ? (
+                <div className="flex items-center gap-2 p-4 text-xs text-red-400">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  {cameraError}
+                </div>
+              ) : (
+                <>
+                  <video
+                    ref={videoRef}
+                    className="w-full max-h-48 object-cover"
+                    muted
+                    playsInline
+                    autoPlay
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-40 h-40 border-2 border-yellow-400/60 rounded-md" />
+                  </div>
+                  <p className="absolute bottom-1 left-0 right-0 text-center text-[10px] text-yellow-400/80">
+                    Point at a QR code
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Scan feedback */}
+          {scanFeedback && (
+            <div className={`flex items-center gap-2 text-xs rounded px-2 py-1.5 ${
+              scanFeedback.ok
+                ? 'bg-green-500/10 border border-green-500/30 text-green-400'
+                : 'bg-red-500/10 border border-red-500/30 text-red-400'
+            }`}>
+              {scanFeedback.ok
+                ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                : <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              }
+              {scanFeedback.message}
+            </div>
+          )}
         </div>
       )}
 
@@ -504,10 +756,16 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                           const binName = bin.warehouseLocation?.bin.name || 'Unassigned';
                           const binDescription = bin.warehouseLocation?.bin.description;
 
+                          const isHighlighted = scannedBinId !== null && bin.binId === scannedBinId;
                           return (
-                            <div key={binKey} className="space-y-1" data-testid={`bin-${binKey}`}>
+                            <div
+                              key={binKey}
+                              className={`space-y-1 rounded-lg transition-all duration-300 ${isHighlighted ? 'ring-2 ring-yellow-400 ring-offset-1 ring-offset-transparent' : ''}`}
+                              data-testid={`bin-${binKey}`}
+                              data-bin-scan-id={bin.binId}
+                            >
                               {/* Bin row */}
-                              <div className="flex items-center gap-3 app-card px-3 py-2">
+                              <div className={`flex items-center gap-3 app-card px-3 py-2 transition-colors ${isHighlighted ? 'bg-yellow-500/10' : ''}`}>
                                 <Checkbox
                                   data-testid={`checkbox-pull-bin-${binKey}`}
                                   checked={bin.pulled}
