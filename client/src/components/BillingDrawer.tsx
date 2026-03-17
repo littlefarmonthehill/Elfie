@@ -435,23 +435,21 @@ export function BillingDrawer({ open, onClose }: { open: boolean; onClose: () =>
         </SheetHeader>
 
         <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-          <div className="px-4 py-2 border-b border-white/8 flex-shrink-0">
-            <div className="tool-seg-bar">
-              <button
-                onClick={() => setBillingTab('current')}
-                className={`tool-seg ${billingTab === 'current' ? 'bg-gray-700 text-gray-100' : 'tool-seg-off'}`}
-                data-testid="tab-current-billing"
-              >
-                Current Billing
-              </button>
-              <button
-                onClick={() => setBillingTab('history')}
-                className={`tool-seg ${billingTab === 'history' ? 'bg-gray-700 text-gray-100' : 'tool-seg-off'}`}
-                data-testid="tab-previous-invoices"
-              >
-                Invoice History
-              </button>
-            </div>
+          <div className="tool-tab-bar flex-shrink-0">
+            <button
+              onClick={() => setBillingTab('current')}
+              className={`tool-tab ${billingTab === 'current' ? 'text-orange-400 border-orange-500' : 'tool-tab-off'}`}
+              data-testid="tab-current-billing"
+            >
+              Current Billing
+            </button>
+            <button
+              onClick={() => setBillingTab('history')}
+              className={`tool-tab ${billingTab === 'history' ? 'text-orange-400 border-orange-500' : 'tool-tab-off'}`}
+              data-testid="tab-previous-invoices"
+            >
+              Invoice History
+            </button>
           </div>
           {billingTab === 'current' && (
             <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>

@@ -3469,18 +3469,14 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                     {isExpanded && (
                       <div className="border-t border-purple-500/10">
                         {/* Sub-tab bar */}
-                        <div className="flex border-b border-purple-500/10 px-2 sm:px-8 pt-1.5 gap-1" onClick={e => e.stopPropagation()}>
+                        <div className="tool-tab-bar" onClick={e => e.stopPropagation()}>
                           {(['matches', 'inventory'] as const).map(tab => {
                             const activeTab = expandedCardTab[key] ?? 'matches';
                             return (
                               <button
                                 key={tab}
                                 onClick={e => { e.stopPropagation(); setExpandedCardTab(prev => ({ ...prev, [key]: tab })); }}
-                                className={`px-3 py-1.5 text-[10px] sm:text-sm font-medium rounded-t-md transition-colors border-b-2 -mb-px ${
-                                  activeTab === tab
-                                    ? 'border-purple-400 text-purple-300'
-                                    : 'border-transparent text-gray-500 hover:text-gray-300'
-                                }`}
+                                className={`tool-tab ${activeTab === tab ? 'border-purple-400 text-purple-300' : 'tool-tab-off'}`}
                               >
                                 {tab === 'matches' ? 'Best Matches' : 'My Inventory'}
                               </button>
