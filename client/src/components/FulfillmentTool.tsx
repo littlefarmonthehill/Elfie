@@ -611,8 +611,8 @@ export default function FulfillmentTool() {
               </div>
             </div>
 
-            {/* Order tiles — scrollable */}
-            <div className="flex-1 overflow-y-auto p-3">
+            {/* Order list — scrollable */}
+            <div className="flex-1 overflow-y-auto">
               {sortedOrders.length === 0 ? (
                 <div className="flex items-center justify-center h-40">
                   <div className="text-center text-gray-500">
@@ -621,7 +621,7 @@ export default function FulfillmentTool() {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col divide-y divide-gray-800">
                   {sortedOrders.map((order) => {
                     const isSelected = selectedOrders.has(order.id);
                     const lotCount = data?.items.filter(i => i.orderId === order.id).length ?? 0;
@@ -637,35 +637,35 @@ export default function FulfillmentTool() {
                       <div
                         key={order.id}
                         onClick={() => handleOrderToggle(order.id)}
-                        className={`relative border rounded-lg p-2 cursor-pointer transition-colors ${
+                        className={`flex items-center gap-3 px-2 py-2 cursor-pointer transition-colors ${
                           isSelected
-                            ? 'bg-purple-500/20 border-purple-500'
-                            : 'bg-gray-800/50 border-gray-700 hover-elevate'
+                            ? 'bg-purple-500/15'
+                            : 'hover:bg-gray-800/60'
                         }`}
                         data-testid={`order-${order.orderNumber}`}
                       >
-                        {isPriority && (
-                          <div className="absolute -top-2 -right-2 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center shadow-md z-10">
-                            <Star className="w-3 h-3 fill-white text-white" />
+                        {/* Selection indicator */}
+                        <div className={`shrink-0 w-2 h-2 rounded-full ${isSelected ? 'bg-purple-400' : 'bg-gray-700'}`} />
+
+                        {/* Order info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`font-mono text-xs font-semibold ${isSelected ? 'text-purple-300' : 'text-white'}`}>
+                              {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
+                            </span>
+                            {isPriority && <Star className="w-3 h-3 fill-red-500 text-red-500 shrink-0" />}
+                            {isPickComplete && <CheckCircle2 className="w-3 h-3 text-green-400 fill-green-400 shrink-0" />}
                           </div>
-                        )}
-                        {isPickComplete && (
-                          <div className="absolute -top-2 -left-2 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shadow-md z-10">
-                            <CheckCircle2 className="w-3 h-3 text-white fill-green-500" />
-                          </div>
-                        )}
-                        <p className={`text-[9px] font-mono font-semibold leading-tight ${isSelected ? 'text-purple-300' : 'text-white'}`}>
-                          {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
-                        </p>
-                        {(lastName || order.marketplace) && (
-                          <p className="text-[10px] text-gray-300 truncate mt-0.5">
-                            {lastName || order.marketplace}
-                          </p>
-                        )}
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-[10px] text-gray-400">{formattedDate}</span>
+                          {(lastName || order.marketplace) && (
+                            <p className="text-[11px] text-gray-400 truncate leading-tight">{lastName || order.marketplace}</p>
+                          )}
+                        </div>
+
+                        {/* Right side: date + lot count */}
+                        <div className="shrink-0 flex items-center gap-2 text-right">
+                          {formattedDate && <span className="text-[10px] text-gray-500">{formattedDate}</span>}
                           {lotCount > 0 && (
-                            <span className="w-[18px] h-[18px] rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] font-bold text-white tabular-nums shrink-0">
+                            <span className="w-5 h-5 rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] font-bold text-white tabular-nums">
                               {lotCount}
                             </span>
                           )}
