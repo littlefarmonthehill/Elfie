@@ -2314,11 +2314,31 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                                 onClick={async e => {
                                   e.stopPropagation();
                                   if (onItemClick && r.partNo) {
+                                    // Always seed session storage with scan pricing data so the
+                                    // drawer can show something even when the part isn't in inventory
+                                    const catalogKey = `bricklink-item-${r.partNo}`;
+                                    sessionStorage.setItem(catalogKey, JSON.stringify({
+                                      itemNo: r.partNo,
+                                      itemName: r.partName || r.partNo,
+                                      itemType: r.itemType || 'PART',
+                                      colorId: r.colorId,
+                                      colorName: r.colorName,
+                                      yearReleased: null,
+                                      weight: null,
+                                      stockAvgPrice: r.stockAvgPriceN ?? r.stockAvgPriceU ?? null,
+                                      stockMinPrice: null,
+                                      stockMaxPrice: r.stockMaxPriceN ?? r.stockMaxPriceU ?? null,
+                                      stockTotalLots: null,
+                                      soldAvgPrice: r.marketSoldAvgNew ?? r.marketSoldAvgUsed ?? null,
+                                      soldMinPrice: null,
+                                      soldMaxPrice: r.marketSoldMaxNew ?? r.marketSoldMaxUsed ?? null,
+                                      soldTotalLots: null,
+                                      suggestedPrice: r.suggestedPriceNew ?? r.suggestedPriceUsed ?? null,
+                                      imageUrl: null,
+                                      thumbnailUrl: r.thumbnailUrl ?? null,
+                                    }));
                                     const colorSuffix = r.colorId != null ? `__c${r.colorId}` : '';
-                                    const found = await onItemClick('inventory', `bricklink-${r.partNo}${colorSuffix}` as any, 'pricing');
-                                    if (found === false) {
-                                      setFocusedDetailCropIndex(r.cropIndex ?? null);
-                                    }
+                                    await onItemClick('inventory', `bricklink-${r.partNo}${colorSuffix}` as any, 'pricing');
                                   } else {
                                     setFocusedDetailCropIndex(r.cropIndex ?? null);
                                   }

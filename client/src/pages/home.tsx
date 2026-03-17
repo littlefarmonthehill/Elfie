@@ -171,45 +171,65 @@ export default function Home() {
     // Check if this is a BrickLink catalog item (used by Brickspotter heatmap badges)
     const isBrickLinkCatalog = String(id).startsWith('bricklink-');
 
-    // Handle BrickLink catalog items — resolve to a real inventory ID BEFORE showing any modal
+    // Handle BrickLink catalog items (used by Brickspotter heatmap badges)
+    // Strategy: try real inventory first (full drawer), fall back to scan-data catalog view
     if (isBrickLinkCatalog && type === 'inventory') {
       const raw = String(id).replace('bricklink-', '');
       const colorMatch = raw.match(/__c(\d+)$/);
       const itemNo = colorMatch ? raw.slice(0, raw.length - colorMatch[0].length) : raw;
       const colorId = colorMatch ? colorMatch[1] : null;
+
+      // 1. Try inventory search with exact color first
+      try {
+        if (colorId) {
+          const searchParams = new URLSearchParams({ itemNo, colorId, limit: '50' });
+          const searchRes = await fetch(`/api/inventory/search?${searchParams}`);
+          if (searchRes.ok) {
+            const lots = await searchRes.json();
+            if (Array.isArray(lots) && lots.length > 0) {
+              return handleDashboardItemClick('inventory', lots[0].id, initialTab);
+            }
+          }
+        }
+        // 2. Try part-only fallback (color mismatch / minifigs / stickers)
+        const fallbackParams = new URLSearchParams({ itemNo, limit: '50' });
+        const fallbackRes = await fetch(`/api/inventory/search?${fallbackParams}`);
+        if (fallbackRes.ok) {
+          const lots = await fallbackRes.json();
+          if (Array.isArray(lots) && lots.length > 0) {
+            return handleDashboardItemClick('inventory', lots[0].id, initialTab);
+          }
+        }
+      } catch { /* ignore, fall through to catalog view */ }
+
+      // 3. Not in inventory — show catalog/scan view from session storage (always the drawer)
       const catalogItemKey = `bricklink-item-${itemNo}`;
       const storedData = sessionStorage.getItem(catalogItemKey);
-      
       if (storedData) {
         const bricklinkItem = JSON.parse(storedData);
-        
-        // Format BrickLink catalog data to match inventory structure
-        // Build correct BrickLink URL based on item type
         const itemTypePrefix = bricklinkItem.itemType === 'SET' ? 'S' :
                                bricklinkItem.itemType === 'MINIFIG' ? 'M' :
                                bricklinkItem.itemType === 'PART' ? 'P' :
                                bricklinkItem.itemType === 'BOOK' ? 'B' :
                                bricklinkItem.itemType === 'GEAR' ? 'G' :
                                bricklinkItem.itemType === 'CATALOG' ? 'C' :
-                               bricklinkItem.itemType === 'INSTRUCTION' ? 'I' :
-                               'P'; // Default to PART if unknown
-        
+                               bricklinkItem.itemType === 'INSTRUCTION' ? 'I' : 'P';
         const catalogData = {
           id: String(id),
           itemNo: bricklinkItem.itemNo,
           itemName: bricklinkItem.itemName,
           itemType: bricklinkItem.itemType,
-          categoryId: bricklinkItem.categoryId,
+          categoryId: bricklinkItem.categoryId ?? null,
           categoryName: null,
-          colorId: null,
-          colorName: null,
+          colorId: bricklinkItem.colorId ?? null,
+          colorName: bricklinkItem.colorName ?? null,
           colorRgb: null,
           quantity: 0,
           newOrUsed: 'N',
           unitPrice: '0.00',
           myCost: null,
-          description: `BrickLink Catalog Item - ${bricklinkItem.itemName}`,
-          remarks: `Year Released: ${bricklinkItem.yearReleased || 'Unknown'}`,
+          description: null,
+          remarks: null,
           myWeight: bricklinkItem.weight ? String(bricklinkItem.weight) : null,
           isBrickLinkCatalog: true,
           bricklinkUrl: `https://www.bricklink.com/v2/catalog/catalogitem.page?${itemTypePrefix}=${bricklinkItem.itemNo}`,
@@ -224,47 +244,18 @@ export default function Home() {
             soldTotalLots: bricklinkItem.soldTotalLots,
             suggestedPrice: bricklinkItem.suggestedPrice,
             itemName: bricklinkItem.itemName,
-            imageUrl: bricklinkItem.imageUrl,
-            thumbnailUrl: bricklinkItem.thumbnailUrl,
+            imageUrl: bricklinkItem.imageUrl ?? null,
+            thumbnailUrl: bricklinkItem.thumbnailUrl ?? null,
           },
         };
-        
         setDetailModal({
           open: true,
-          data: { 
-            type: 'inventory', 
-            data: { ...catalogData, loadingPriceOMagic: false },
-            initialTab,
-          }
+          data: { type: 'inventory', data: { ...catalogData, loadingPriceOMagic: false }, initialTab }
         });
         return true;
       }
 
-      // No session storage — look up the matching inventory lot by part number + color.
-      // Do NOT show a loading modal until we have a real ID (avoids the blip on miss).
-      try {
-        // First try with color filter (more precise)
-        if (colorId) {
-          const searchParams = new URLSearchParams({ itemNo, colorId, limit: '50' });
-          const searchRes = await fetch(`/api/inventory/search?${searchParams}`);
-          if (searchRes.ok) {
-            const lots = await searchRes.json();
-            if (Array.isArray(lots) && lots.length > 0) {
-              return handleDashboardItemClick('inventory', lots[0].id, initialTab);
-            }
-          }
-        }
-        // Fall back to part number only (handles color mismatches, minifigs, stickers, etc.)
-        const fallbackParams = new URLSearchParams({ itemNo, limit: '50' });
-        const fallbackRes = await fetch(`/api/inventory/search?${fallbackParams}`);
-        if (fallbackRes.ok) {
-          const lots = await fallbackRes.json();
-          if (Array.isArray(lots) && lots.length > 0) {
-            return handleDashboardItemClick('inventory', lots[0].id, initialTab);
-          }
-        }
-      } catch { /* ignore */ }
-      // Part not in inventory — return false so caller can fall back to overlay
+      // Nothing available — no modal
       return false;
     }
 
