@@ -342,9 +342,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
       y += 2;
     }
 
-    const blob = doc.output('blob');
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
+    doc.save('picklist.pdf');
   };
 
   // ── Derived data ──

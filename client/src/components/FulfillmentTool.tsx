@@ -373,11 +373,6 @@ export default function FulfillmentTool() {
       
       const data = await response.json();
       await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined);
-      toast({
-        title: "Tip: Hide URL & page numbers",
-        description: 'In the print dialog, uncheck "Headers and footers" (Chrome) or "Print headers and footers" (Safari/Firefox) for a clean slip.',
-        duration: 8000,
-      });
     } catch (error) {
       console.error('Error fetching packing slip data:', error);
       toast({
@@ -466,9 +461,7 @@ export default function FulfillmentTool() {
       y += 2;
     }
 
-    const blob = doc.output('blob');
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
+    doc.save('picklist.pdf');
   };
 
   const handlePrintLotLabels = (orderIds: string[]) => {
