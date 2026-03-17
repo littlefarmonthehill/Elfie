@@ -105,7 +105,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
   // Print labels state
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
-  const [printLabelSize, setPrintLabelSize] = useState<'small' | 'medium' | 'large'>('medium');
+  const [printLabelSize, setPrintLabelSize] = useState<'avery5160' | 'avery5163' | 'avery5164'>('avery5163');
 
   // Bulk bin state
   const [bulkPrefix, setBulkPrefix] = useState("BIN-");
@@ -602,23 +602,51 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     return '';
   };
 
-  const LABEL_DIMS: Record<string, { w: string; h: string; qr: number; font: string; sub: string }> = {
-    small:  { w: '2in',   h: '1in',   qr: 50,  font: '11px', sub: '8px'  },
-    medium: { w: '2.5in', h: '1.5in', qr: 70,  font: '13px', sub: '9px'  },
-    large:  { w: '4in',   h: '2in',   qr: 100, font: '16px', sub: '10px' },
+  const LABEL_TEMPLATES: Record<string, {
+    name: string; desc: string; perSheet: number;
+    w: string; h: string; cols: number;
+    pageMarginV: string; pageMarginH: string;
+    colGap: string; rowGap: string;
+    qr: number; font: string; sub: string;
+    previewH: string; previewQr: number;
+  }> = {
+    avery5160: {
+      name: 'Avery 5160 / 8160', desc: '1" × 2⅝"', perSheet: 30,
+      w: '2.625in', h: '1in', cols: 3,
+      pageMarginV: '0.5in', pageMarginH: '0.1875in',
+      colGap: '0.125in', rowGap: '0in',
+      qr: 48, font: '9px', sub: '7px',
+      previewH: 'h-10', previewQr: 32,
+    },
+    avery5163: {
+      name: 'Avery 5163 / 8163', desc: '2" × 4"', perSheet: 10,
+      w: '4in', h: '2in', cols: 2,
+      pageMarginV: '0.5in', pageMarginH: '0.15625in',
+      colGap: '0.1875in', rowGap: '0in',
+      qr: 88, font: '14px', sub: '10px',
+      previewH: 'h-16', previewQr: 52,
+    },
+    avery5164: {
+      name: 'Avery 5164 / 8164', desc: '3⅓" × 4"', perSheet: 6,
+      w: '4in', h: '3.333in', cols: 2,
+      pageMarginV: '0.5in', pageMarginH: '0.15625in',
+      colGap: '0.1875in', rowGap: '0in',
+      qr: 140, font: '18px', sub: '13px',
+      previewH: 'h-24', previewQr: 72,
+    },
   };
 
   const handlePrint = () => {
     if (printItems.length === 0) return;
     const origin = window.location.origin;
-    const dims = LABEL_DIMS[printLabelSize];
+    const tmpl = LABEL_TEMPLATES[printLabelSize];
     const labelHtml = printItems.map((item: any) => {
       const qrData = getLabelQrData(item);
       const sub = getLabelSubtext(item);
-      const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${dims.qr * 2}`;
+      const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
       return `
         <div class="label">
-          <img class="qr" src="${qrUrl}" width="${dims.qr}" height="${dims.qr}" />
+          <img class="qr" src="${qrUrl}" width="${tmpl.qr}" height="${tmpl.qr}" />
           <div class="info">
             <div class="main">${item.name}</div>
             ${sub ? `<div class="sub">${sub}</div>` : ''}
@@ -629,9 +657,18 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: 'Helvetica Neue', Arial, sans-serif; background: white; }
-      .grid { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; }
+      @page {
+        size: letter;
+        margin: ${tmpl.pageMarginV} ${tmpl.pageMarginH};
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(${tmpl.cols}, ${tmpl.w});
+        column-gap: ${tmpl.colGap};
+        row-gap: ${tmpl.rowGap};
+      }
       .label {
-        width: ${dims.w}; height: ${dims.h};
+        width: ${tmpl.w}; height: ${tmpl.h};
         border: 1px solid #ccc;
         border-radius: 3px;
         display: flex;
@@ -640,12 +677,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         padding: 6px;
         page-break-inside: avoid;
         background: white;
+        overflow: hidden;
       }
       .qr { display: block; flex-shrink: 0; }
       .info { flex: 1; min-width: 0; overflow: hidden; }
-      .main { font-size: ${dims.font}; font-weight: 700; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .sub { font-size: ${dims.sub}; color: #555; margin-top: 3px; }
-      @page { margin: 0.25in; }
+      .main { font-size: ${tmpl.font}; font-weight: 700; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .sub { font-size: ${tmpl.sub}; color: #555; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
     </style>
     <script>
@@ -1076,25 +1113,27 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Size selector */}
+            {/* Template selector */}
             <div>
-              <Label className="text-xs mb-2 block">Label size</Label>
-              <div className="flex gap-2">
-                {(['small', 'medium', 'large'] as const).map(size => (
-                  <button
-                    key={size}
-                    onClick={() => setPrintLabelSize(size)}
-                    className={`flex-1 rounded-md border py-2 px-3 text-xs text-left transition-colors ${printLabelSize === size ? 'border-primary bg-primary/10 text-primary' : 'border-border hover-elevate'}`}
-                    data-testid={`button-label-size-${size}`}
-                  >
-                    <div className="font-medium capitalize">{size}</div>
-                    <div className="text-muted-foreground mt-0.5">
-                      {size === 'small' && '2" × 1"'}
-                      {size === 'medium' && '2.5" × 1.5"'}
-                      {size === 'large' && '4" × 2"'}
-                    </div>
-                  </button>
-                ))}
+              <Label className="text-xs mb-2 block">Label template</Label>
+              <div className="flex flex-col gap-1.5">
+                {(['avery5160', 'avery5163', 'avery5164'] as const).map(key => {
+                  const t = LABEL_TEMPLATES[key];
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setPrintLabelSize(key)}
+                      className={`rounded-md border py-2 px-3 text-xs text-left transition-colors flex items-center justify-between gap-3 ${printLabelSize === key ? 'border-primary bg-primary/10 text-primary' : 'border-border hover-elevate'}`}
+                      data-testid={`button-label-size-${key}`}
+                    >
+                      <div>
+                        <div className="font-semibold">{t.name}</div>
+                        <div className={`mt-0.5 ${printLabelSize === key ? 'text-primary/70' : 'text-muted-foreground'}`}>{t.desc} — {t.cols} across, {t.perSheet} per sheet</div>
+                      </div>
+                      <div className={`text-[10px] font-mono shrink-0 ${printLabelSize === key ? 'text-primary/60' : 'text-muted-foreground'}`}>{t.w} × {t.h}</div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -1105,22 +1144,21 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 {printItems.slice(0, 4).map((item: any) => {
                   const qrData = getLabelQrData(item);
                   const sub = getLabelSubtext(item);
+                  const tmpl = LABEL_TEMPLATES[printLabelSize];
                   return (
                     <div
                       key={item.id}
-                      className={`flex items-center gap-2 border border-border rounded-md bg-white dark:bg-zinc-900 p-2 ${
-                        printLabelSize === 'small' ? 'h-10' : printLabelSize === 'medium' ? 'h-16' : 'h-24'
-                      }`}
+                      className={`flex items-center gap-2 border border-border rounded-md bg-white dark:bg-zinc-900 p-2 ${tmpl.previewH}`}
                     >
                       <QRCodeSVG
                         value={qrData}
-                        size={printLabelSize === 'small' ? 28 : printLabelSize === 'medium' ? 44 : 64}
+                        size={tmpl.previewQr}
                         bgColor="transparent"
                         fgColor="currentColor"
                         className="shrink-0"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className={`font-bold text-foreground truncate ${printLabelSize === 'small' ? 'text-[10px]' : printLabelSize === 'medium' ? 'text-xs' : 'text-sm'}`}>
+                        <p className="font-bold text-foreground truncate text-xs">
                           {item.name}
                         </p>
                         {sub && (
