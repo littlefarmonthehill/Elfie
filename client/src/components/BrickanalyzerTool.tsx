@@ -414,85 +414,127 @@ function OverlayPricingPanel({ partNo, itemType, colorEntries }: {
   );
 }
 
-function PomPriceDialog({ target, onClose }: { target: { partNo: string; itemType: string; colorId: number | null; colorName: string; myQtyNew?: number; myPriceNew?: number | null; myQtyUsed?: number; myPriceUsed?: number | null }; onClose: () => void }) {
-  const blType = target.itemType === 'MINIFIG' ? 'MINIFIG' : 'PART';
-  const buildUrl = (cond: 'N' | 'U') => {
+function PomPriceDialog({ target, onClose }: { target: { partNo: string; itemType: string; colorId: number | null; colorName: string; myQtyNew?: number; myPriceNew?: number | null; myQtyUsed?: number; myPriceUsed?: number | null; condition?: 'new' | 'used'; source?: 'peak' | 'sold' | 'listed'; metric?: 'max' | 'avg' }; onClose: () => void }) {
+  const condition = target.condition ?? 'new';
+  const source    = target.source    ?? 'peak';
+  const metric    = target.metric    ?? 'max';
+  const blType    = target.itemType === 'MINIFIG' ? 'MINIFIG' : 'PART';
+  const blCond    = condition === 'new' ? 'N' : 'U';
+  const buildUrl  = (cond: 'N' | 'U') => {
     const p = new URLSearchParams({ new_or_used: cond });
     if (target.colorId != null) p.set('color_id', String(target.colorId));
     return `/api/inventory/price-guide/${encodeURIComponent(target.partNo)}/${blType}?${p}`;
   };
-  const { data: nData, isLoading: nLoading } = useQuery<any>({
-    queryKey: ['pom-detail', target.partNo, blType, target.colorId, 'N'],
-    queryFn: async () => { const r = await fetch(buildUrl('N'), { credentials: 'include' }); if (!r.ok) throw new Error('Failed'); return r.json(); },
+
+  const { data, isLoading } = useQuery<any>({
+    queryKey: ['pom-detail', target.partNo, blType, target.colorId, blCond],
+    queryFn: async () => { const r = await fetch(buildUrl(blCond), { credentials: 'include' }); if (!r.ok) throw new Error('Failed'); return r.json(); },
     staleTime: 5 * 60 * 1000,
   });
-  const { data: uData, isLoading: uLoading } = useQuery<any>({
-    queryKey: ['pom-detail', target.partNo, blType, target.colorId, 'U'],
-    queryFn: async () => { const r = await fetch(buildUrl('U'), { credentials: 'include' }); if (!r.ok) throw new Error('Failed'); return r.json(); },
+  const oppCond = blCond === 'N' ? 'U' : 'N';
+  const { data: oppData } = useQuery<any>({
+    queryKey: ['pom-detail', target.partNo, blType, target.colorId, oppCond],
+    queryFn: async () => { const r = await fetch(buildUrl(oppCond), { credentials: 'include' }); if (!r.ok) throw new Error('Failed'); return r.json(); },
     staleTime: 5 * 60 * 1000,
+    enabled: source === 'peak',
   });
-  const cachedAt = nData?.fetchedAt ?? uData?.fetchedAt;
-  const hasMyNew = (target.myQtyNew ?? 0) > 0 || target.myPriceNew != null;
-  const hasMyUsed = (target.myQtyUsed ?? 0) > 0 || target.myPriceUsed != null;
-  const hasMyInventory = hasMyNew || hasMyUsed;
+
+  const fmt = (v: number | null | undefined) => v != null ? `$${Number(v).toFixed(2)}` : '—';
+
+  let focusedPrice: number | null = null;
+  let sourceLabel = '';
+  let metricLabel = '';
+
+  if (source === 'peak') {
+    focusedPrice = Math.max(data?.soldMaxPrice ?? 0, data?.stockAvgPrice ?? 0, oppData?.soldMaxPrice ?? 0, oppData?.stockAvgPrice ?? 0) || null;
+    sourceLabel = 'Peak';
+  } else if (source === 'sold') {
+    focusedPrice = metric === 'max' ? (data?.soldMaxPrice ?? null) : (data?.soldAvgPrice ?? null);
+    sourceLabel = 'Sold';
+    metricLabel = metric === 'max' ? 'Max' : 'Avg';
+  } else {
+    focusedPrice = metric === 'max' ? (data?.stockMaxPrice ?? null) : (data?.stockAvgPrice ?? null);
+    sourceLabel = 'Listed';
+    metricLabel = metric === 'max' ? 'Max' : 'Avg';
+  }
+
+  const condLabel  = condition === 'new' ? 'New' : 'Used';
+  const myPrice    = condition === 'new' ? target.myPriceNew  : target.myPriceUsed;
+  const myQty      = condition === 'new' ? target.myQtyNew    : target.myQtyUsed;
+  const hasMyPrice = myPrice != null || (myQty ?? 0) > 0;
+  const contextTag = [condLabel, sourceLabel, metricLabel].filter(Boolean).join(' · ');
+
   return (
     <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-xs sm:max-w-sm bg-gray-900 border-gray-700 text-white">
-        <div className="space-y-3">
-          <div className="border-b border-gray-700 pb-2">
-            <div className="text-sm font-bold text-white font-mono">{target.partNo}</div>
-            {target.colorName && <div className="text-xs text-gray-400">{target.colorName}</div>}
+      <DialogContent className="max-w-[220px] bg-gray-900 border-gray-700 text-white p-0">
+        <div className="p-3 space-y-2.5">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <div className="text-xs font-bold text-white font-mono leading-tight">{target.partNo}</div>
+              {target.colorName && <div className="text-[10px] text-gray-400 leading-tight">{target.colorName}</div>}
+            </div>
+            <div className="text-[9px] text-gray-500 text-right leading-tight shrink-0">{contextTag}</div>
           </div>
-          {(nLoading || uLoading) ? (
-            <div className="flex items-center justify-center py-8 gap-2 text-gray-400 text-sm">
-              <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-4 gap-2 text-gray-400 text-xs">
+              <Loader2 className="w-3 h-3 animate-spin" /> Loading…
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
-              <PomConditionCol data={nData} label="New" />
-              <PomConditionCol data={uData} label="Used" />
-            </div>
-          )}
-          {hasMyInventory && (
-            <div className="border-t border-gray-700 pt-2 space-y-1">
-              <div className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold">My Prices</div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-0.5">
-                  <div className="app-label">New</div>
-                  {hasMyNew ? (
-                    <>
-                      <div className="text-sm font-mono font-bold text-white">
-                        {target.myPriceNew != null ? `$${target.myPriceNew.toFixed(2)}` : '—'}
-                      </div>
-                      <div className="text-[10px] text-gray-400">
-                        ×{target.myQtyNew ?? 0} in stock
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-xs text-gray-600">Not stocked</div>
-                  )}
-                </div>
-                <div className="space-y-0.5">
-                  <div className="app-label">Used</div>
-                  {hasMyUsed ? (
-                    <>
-                      <div className="text-sm font-mono font-bold text-white">
-                        {target.myPriceUsed != null ? `$${target.myPriceUsed.toFixed(2)}` : '—'}
-                      </div>
-                      <div className="text-[10px] text-gray-400">
-                        ×{target.myQtyUsed ?? 0} in stock
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-xs text-gray-600">Not stocked</div>
-                  )}
-                </div>
+            <div className="space-y-2">
+              <div className="text-center py-1">
+                <div className="text-3xl font-mono font-bold text-white">{fmt(focusedPrice)}</div>
+                <div className="text-[9px] text-gray-500 mt-0.5">{contextTag}</div>
               </div>
-            </div>
-          )}
-          {cachedAt && (
-            <div className="text-[9px] text-gray-600 border-t border-gray-800 pt-1">
-              Cached: {new Date(cachedAt).toLocaleDateString()}
+
+              <div className="border-t border-gray-800 pt-2 space-y-1">
+                {source === 'peak' && (
+                  <>
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-gray-500">Sold max</span>
+                      <span className="text-gray-300 font-mono">{fmt(data?.soldMaxPrice)}</span>
+                    </div>
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-gray-500">Listed avg</span>
+                      <span className="text-gray-300 font-mono">{fmt(data?.stockAvgPrice)}</span>
+                    </div>
+                  </>
+                )}
+                {source === 'sold' && (
+                  <>
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-gray-500">{metric === 'max' ? 'Sold avg' : 'Sold max'}</span>
+                      <span className="text-gray-300 font-mono">{fmt(metric === 'max' ? data?.soldAvgPrice : data?.soldMaxPrice)}</span>
+                    </div>
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-gray-500">Sold qty</span>
+                      <span className="text-gray-300 font-mono">{data?.soldQuantity ?? '—'}</span>
+                    </div>
+                  </>
+                )}
+                {source === 'listed' && (
+                  <>
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-gray-500">{metric === 'max' ? 'Listed avg' : 'Listed max'}</span>
+                      <span className="text-gray-300 font-mono">{fmt(metric === 'max' ? data?.stockAvgPrice : data?.stockMaxPrice)}</span>
+                    </div>
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-gray-500">Lots</span>
+                      <span className="text-gray-300 font-mono">{data?.stockTotalLots ?? '—'}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {hasMyPrice && (
+                <div className="border-t border-gray-800 pt-2 flex justify-between items-center">
+                  <span className="text-[10px] text-emerald-400">My price</span>
+                  <div className="text-right">
+                    <div className="text-xs font-mono font-bold text-emerald-300">{myPrice != null ? `$${myPrice.toFixed(2)}` : '—'}</div>
+                    {(myQty ?? 0) > 0 && <div className="text-[9px] text-gray-500">×{myQty} in stock</div>}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1152,7 +1194,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
   // Focused detail view — when set, shows crop image + single card instead of full list
   const [focusedDetailCropIndex, setFocusedDetailCropIndex] = useState<number | null>(null);
   // POM price popup target
-  const [pricePopupTarget, setPricePopupTarget] = useState<{ partNo: string; itemType: string; colorId: number | null; colorName: string; myQtyNew?: number; myPriceNew?: number | null; myQtyUsed?: number; myPriceUsed?: number | null } | null>(null);
+  const [pricePopupTarget, setPricePopupTarget] = useState<{ partNo: string; itemType: string; colorId: number | null; colorName: string; myQtyNew?: number; myPriceNew?: number | null; myQtyUsed?: number; myPriceUsed?: number | null; condition?: 'new' | 'used'; source?: 'peak' | 'sold' | 'listed'; metric?: 'max' | 'avg' } | null>(null);
   // Ref keeps a synchronous count of total groups so handlers can check "all done" without stale closure
   const groupCountRef = useRef(0);
 
@@ -2329,6 +2371,9 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                                       myPriceNew: r.ourPriceNew,
                                       myQtyUsed: r.ourQtyUsed,
                                       myPriceUsed: r.ourPriceUsed,
+                                      condition: heatmapCondition,
+                                      source: heatmapSource,
+                                      metric: heatmapMetric,
                                     });
                                   } else {
                                     setFocusedDetailCropIndex(r.cropIndex ?? null);
