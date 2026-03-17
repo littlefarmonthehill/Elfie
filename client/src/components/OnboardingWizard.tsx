@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, ArrowRight, Building2, Link, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2, Archive, Layers, MapPin, Upload, FileText, ChevronRight, AlertCircle, Package } from "lucide-react";
+import { CheckCircle2, ArrowRight, Building2, Link, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2, Archive, Layers, MapPin, Upload, FileText, ChevronRight, AlertCircle, Package, Globe } from "lucide-react";
 import { TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
 import type { Organization } from "@shared/schema";
@@ -21,6 +21,7 @@ const STEPS = [
   { id: 1, label: "Company", icon: Building2 },
   { id: 2, label: "BrickLink", icon: Link },
   { id: 3, label: "Warehouse", icon: Archive },
+  { id: 4, label: "BrickOwl", icon: Globe },
 ];
 
 const DEPTH_OPTIONS = [
@@ -32,8 +33,9 @@ const DEPTH_OPTIONS = [
 const STEP_MESSAGES: Record<number, string> = {
   1: "Hi! I'm E.L.F.I.E. — your warehouse operations assistant. Let's start with your company info. This shows up on your packing slips and account profile.",
   2: "BrickLink is the engine that drives everything. Connect your API keys and I'll automatically sync your inventory, orders, and pricing — all in one place.",
-  3: "Last step! Tell me how your warehouse is organized. Once I know the layout, I can guide you to any part the moment an order comes in.",
-  4: "You're all set! Come find me in the sidebar whenever you need help managing inventory, filling orders, or just want to know what's going on.",
+  3: "Now let's map out your storage. Choose how your warehouse is laid out — once I know the structure, I can guide you to any part the moment an order comes in.",
+  4: "Do you sell on BrickOwl too? I can keep both stores in sync automatically. This is completely optional — you can add it any time from Settings.",
+  5: "You're all set! Come find me in the sidebar whenever you need help managing inventory, filling orders, or just want to know what's going on.",
 };
 
 function ElfieSpeechBubble({ step, large = false }: { step: number; large?: boolean }) {
@@ -96,6 +98,10 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
 
   // Step 3 — Warehouse
   const [selectedDepth, setSelectedDepth] = useState<number | null>(null);
+
+  // Step 4 — BrickOwl
+  const [boApiKey, setBoApiKey] = useState("");
+  const [channelSyncMode, setChannelSyncMode] = useState<'full_control' | 'quantity_only'>('full_control');
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [csvText, setCsvText] = useState("");
   const [csvResult, setCsvResult] = useState<{ created: { aisles: number; shelves: number; bins: number; skipped: number }; errors: string[] } | null>(null);
@@ -158,11 +164,21 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
     setStep(3);
   };
 
-  const handleStep3 = async (skip = false) => {
-    if (!skip && selectedDepth !== null) {
+  const handleStep3 = async () => {
+    if (selectedDepth !== null) {
       await saveDepthMutation.mutateAsync(selectedDepth);
     }
     setStep(4);
+  };
+
+  const handleStep4 = async (skip = false) => {
+    if (!skip && boApiKey.trim()) {
+      await saveSettingsMutation.mutateAsync({
+        brickowlApiKey: boApiKey.trim(),
+        channelSyncMode,
+      });
+    }
+    setStep(5);
   };
 
   const handleFinish = async () => {
@@ -177,11 +193,11 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
     <div className="fixed inset-0 z-50 bg-gray-950 flex flex-col items-center justify-center p-4 overflow-y-auto">
       <div className="w-full max-w-lg py-8">
 
-        {/* ELFIE speech bubble — steps 1–3 */}
-        {step < 4 && <ElfieSpeechBubble step={step} />}
+        {/* ELFIE speech bubble — steps 1–4 */}
+        {step < 5 && <ElfieSpeechBubble step={step} />}
 
         {/* Step indicator */}
-        {step < 4 && (
+        {step < 5 && (
           <div className="flex items-center justify-center gap-0 mb-6">
             {STEPS.map((s, i) => (
               <div key={s.id} className="flex items-center">
@@ -664,12 +680,9 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                 </div>
               )}
 
-              <div className="pt-2 flex justify-between">
-                <Button variant="ghost" onClick={() => handleStep3(true)} className="text-gray-500" data-testid="button-onboard-skip-3">
-                  Skip for now
-                </Button>
+              <div className="pt-2 flex justify-end">
                 <Button
-                  onClick={() => handleStep3(false)}
+                  onClick={handleStep3}
                   disabled={isSaving || selectedDepth === null}
                   data-testid="button-onboard-next-3"
                 >
@@ -680,8 +693,83 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
             </>
           )}
 
-          {/* ── Step 4: Done ── */}
+          {/* ── Step 4: BrickOwl ── */}
           {step === 4 && (
+            <>
+              <div>
+                <h2 className="text-lg font-semibold text-white mb-1">BrickOwl channel</h2>
+                <p className="text-sm text-gray-400">
+                  If you have a BrickOwl store, connect it here. I'll keep both stores in sync
+                  so your quantities and prices stay consistent automatically.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="onboard-bo-key" className="text-xs text-gray-400">BrickOwl API Key <span className="text-gray-600">(optional)</span></Label>
+                <Input
+                  id="onboard-bo-key"
+                  type="password"
+                  value={boApiKey}
+                  onChange={(e) => setBoApiKey(e.target.value)}
+                  placeholder="Paste your BrickOwl API key…"
+                  className="bg-gray-800 border-gray-700 text-white"
+                  data-testid="input-onboard-bo-key"
+                />
+                <p className="text-[10px] text-gray-600">
+                  Find this under My Account → Settings → API on BrickOwl.
+                </p>
+              </div>
+
+              {boApiKey.trim() && (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-gray-300">How should I manage your BrickOwl store?</p>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    <button
+                      onClick={() => setChannelSyncMode('full_control')}
+                      className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-colors ${channelSyncMode === 'full_control' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
+                      data-testid="button-onboard-bo-full"
+                    >
+                      <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 ${channelSyncMode === 'full_control' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
+                      <div>
+                        <span className="text-sm font-semibold text-gray-200">Full Control</span>
+                        <p className="text-xs text-gray-500 mt-0.5">Push all items — create new lots and update existing</p>
+                        <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">I'll create BrickOwl listings for any BrickLink items that don't exist there yet, and keep everything in sync. Best for stores that aren't actively managed on BrickOwl.</p>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setChannelSyncMode('quantity_only')}
+                      className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-colors ${channelSyncMode === 'quantity_only' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
+                      data-testid="button-onboard-bo-qty"
+                    >
+                      <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 ${channelSyncMode === 'quantity_only' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
+                      <div>
+                        <span className="text-sm font-semibold text-gray-200">Quantity Only</span>
+                        <p className="text-xs text-gray-500 mt-0.5">Update counts on existing lots — never create new ones</p>
+                        <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">I'll only update quantities and prices on lots that already exist on BrickOwl. Anything without a matching lot is skipped. Best for stores you prefer to manage manually on BrickOwl.</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-2 flex justify-between">
+                <Button variant="ghost" onClick={() => handleStep4(true)} className="text-gray-500" data-testid="button-onboard-skip-4">
+                  Skip — I don't use BrickOwl
+                </Button>
+                <Button
+                  onClick={() => handleStep4(false)}
+                  disabled={isSaving}
+                  data-testid="button-onboard-next-4"
+                >
+                  {isSaving ? "Saving…" : boApiKey.trim() ? "Connect & continue" : "Continue"}
+                  <ArrowRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* ── Step 5: Done ── */}
+          {step === 5 && (
             <>
               {/* ELFIE centered + speech bubble */}
               <div className="flex flex-col items-center gap-4 py-2">
@@ -691,7 +779,7 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                   className="w-32 h-32 object-contain drop-shadow-2xl"
                 />
                 <div className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-4 text-center max-w-sm">
-                  <p className="text-base text-gray-200 leading-snug">{STEP_MESSAGES[4]}</p>
+                  <p className="text-base text-gray-200 leading-snug">{STEP_MESSAGES[5]}</p>
                 </div>
                 <div className="flex items-center gap-2 text-green-400">
                   <CheckCircle2 className="w-5 h-5" />
@@ -738,7 +826,7 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
           )}
         </div>
 
-        {step < 4 && (
+        {step < 5 && (
           <p className="text-center text-[11px] text-gray-600 mt-4">
             All settings can be updated any time in the Warehouse or Settings tabs.
           </p>
