@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, PanelLeftOpen, X } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, ChevronRight, X } from "lucide-react";
 import { printPackingSlips, printPicklist } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, PRIORITY_REGEX, toggleSetItem } from "@/lib/item-utils";
@@ -680,49 +680,52 @@ export default function FulfillmentTool() {
         </div>
       )}
 
-      {/* ── Main layout ── */}
-      <div className="space-y-2">
+      {/* ── Main layout: pull tab + content ── */}
+      <div className="flex gap-0">
 
-        {/* Top bar: drawer trigger + split controls */}
-        <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-700">
-          <button
-            onClick={() => setDrawerOpen(true)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-gray-800 border border-gray-700 text-sm text-gray-300 hover-elevate transition-colors"
-            data-testid="button-open-orders-drawer"
-          >
-            <PanelLeftOpen className="w-4 h-4 text-gray-400" />
-            <span className="font-medium">Orders</span>
-            {sortedOrders.length > 0 && (
-              <span className="text-xs tabular-nums text-gray-400">
-                {selectedOrders.size}/{sortedOrders.length}
-              </span>
-            )}
-          </button>
+        {/* Vertical pull tab */}
+        <button
+          onClick={() => setDrawerOpen(o => !o)}
+          className="shrink-0 flex flex-col items-center justify-start pt-3 gap-2 w-6 bg-gray-800/50 border-r border-gray-700 hover:bg-gray-700/50 transition-colors cursor-pointer"
+          data-testid="button-open-orders-drawer"
+          title="Toggle order selection"
+        >
+          <ChevronRight className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${drawerOpen ? 'rotate-180' : ''}`} />
+          {sortedOrders.length > 0 && (
+            <span
+              className="text-[9px] text-gray-500 tabular-nums font-medium select-none"
+              style={{ writingMode: 'vertical-rl' }}
+            >
+              {selectedOrders.size}/{sortedOrders.length}
+            </span>
+          )}
+        </button>
 
-          <div className="flex gap-2 flex-wrap">
-            {isSplitMode && (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleCancelSplit}
-                  data-testid="button-cancel-split"
-                >
-                  Cancel Split
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleConfirmSplit}
-                  disabled={selectedItemsForSplit.size === 0}
-                  data-testid="button-confirm-split"
-                >
-                  <Scissors className="w-3.5 h-3.5 mr-1.5" />
-                  Confirm Split ({selectedItemsForSplit.size})
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
+        {/* Content */}
+        <div className="flex-1 min-w-0 space-y-2 pl-2">
+
+          {/* Split mode bar — only visible when splitting */}
+          {isSplitMode && (
+            <div className="flex items-center justify-end gap-2 pb-2 border-b border-gray-700">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCancelSplit}
+                data-testid="button-cancel-split"
+              >
+                Cancel Split
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleConfirmSplit}
+                disabled={selectedItemsForSplit.size === 0}
+                data-testid="button-confirm-split"
+              >
+                <Scissors className="w-3.5 h-3.5 mr-1.5" />
+                Confirm Split ({selectedItemsForSplit.size})
+              </Button>
+            </div>
+          )}
 
         {/* ── Tab switcher: Fulfillment | Shipping ── */}
         <div className="flex justify-center gap-1 border-b border-gray-700">
@@ -977,7 +980,8 @@ export default function FulfillmentTool() {
           </div>
         )}
 
-      </div>
+        </div> {/* end flex-1 content */}
+      </div> {/* end flex pull-tab + content */}
 
       {/* Ship Confirmation Dialog */}
       <Dialog open={showShipConfirmDialog} onOpenChange={setShowShipConfirmDialog}>
