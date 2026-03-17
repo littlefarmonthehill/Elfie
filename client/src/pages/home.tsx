@@ -497,7 +497,7 @@ export default function Home() {
   const getChatContext = () => {
     switch (activeDashboard) {
       case 'inventory':
-        return 'Product';
+        return 'Inventory';
       case 'orders':
         return 'Orders';
       case 'sales':

@@ -26,7 +26,7 @@ interface DashboardNavProps {
 
 const dashboards: { id: DashboardType; label: string; color: string; activeClass: string; inactiveClass: string; icon: any }[] = [
   { id: 'dashboard', label: 'Ops Central', color: 'lego-red', activeClass: 'text-lego-red', inactiveClass: 'text-lego-red/75', icon: Rocket },
-  { id: 'inventory', label: 'Product', color: 'lego-blue', activeClass: 'text-lego-blue', inactiveClass: 'text-lego-blue/75', icon: ToyBrick },
+  { id: 'inventory', label: 'Inventory', color: 'lego-blue', activeClass: 'text-lego-blue', inactiveClass: 'text-lego-blue/75', icon: ToyBrick },
   { id: 'orders', label: 'Orders', color: 'lego-orange', activeClass: 'text-lego-orange', inactiveClass: 'text-lego-orange/75', icon: Orbit },
   { id: 'marketing', label: 'Marketing', color: 'lego-yellow', activeClass: 'text-lego-yellow', inactiveClass: 'text-lego-yellow/75', icon: Sparkles },
   { id: 'sales', label: 'Insights', color: 'lego-green', activeClass: 'text-lego-green', inactiveClass: 'text-lego-green/75', icon: InsightsIcon },

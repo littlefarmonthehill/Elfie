@@ -609,7 +609,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
       {/* Operational areas */}
       {showOps && (<div className="space-y-4" data-testid="section-ops-central">
         <OpAreaCard
-          label="Product"
+          label="Inventory"
           Icon={Package}
           color="blue"
           stat={`${totalLots.toLocaleString()} lots · ${totalPcs.toLocaleString()} pcs`}
