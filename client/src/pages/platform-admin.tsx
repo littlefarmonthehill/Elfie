@@ -1,4 +1,5 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState } from "react";
 import { 
   Table, 
   TableBody, 
@@ -37,7 +38,7 @@ import { z } from "zod";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Organization } from "@shared/schema";
-import { LayoutDashboard, Users, CreditCard, Scan, Settings2, ShieldCheck, ArrowLeft } from "lucide-react";
+import { LayoutDashboard, Users, CreditCard, Scan, Settings2, ShieldCheck, ArrowLeft, Trash2, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 
 const overrideSchema = z.object({
@@ -178,6 +179,102 @@ function ChangePlanDropdown({ org }: { org: OrgWithUsage }) {
   );
 }
 
+function DuplicateOrderCleanup() {
+  const { toast } = useToast();
+  const [dryRunResult, setDryRunResult] = useState<{ ordersToDelete: number; orderDetailsToDelete: number; sampleIds: string[] } | null>(null);
+  const [done, setDone] = useState(false);
+
+  const dryRun = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/platform-admin/cleanup-shipstation-duplicate-orders'),
+    onSuccess: (data: any) => setDryRunResult(data),
+    onError: () => toast({ title: 'Dry run failed', variant: 'destructive' }),
+  });
+
+  const execute = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/platform-admin/cleanup-shipstation-duplicate-orders?confirm=true'),
+    onSuccess: (data: any) => {
+      setDone(true);
+      toast({ title: `Deleted ${data.ordersDeleted} duplicate orders` });
+    },
+    onError: () => toast({ title: 'Cleanup failed', variant: 'destructive' }),
+  });
+
+  if (done) {
+    return (
+      <div className="flex items-center gap-2 text-green-500 text-sm font-medium p-4">
+        <CheckCircle2 className="h-5 w-5" />
+        Cleanup complete — duplicate orders removed.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-3">
+        <div className="flex-1">
+          <p className="text-sm text-muted-foreground">
+            Removes ShipStation-synced duplicate BL orders (bare numeric IDs) where a proper <code className="text-xs bg-muted px-1 py-0.5 rounded">bl-XXXXXX</code> record already exists. Run dry run first to preview.
+          </p>
+        </div>
+      </div>
+
+      {!dryRunResult ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => dryRun.mutate()}
+          disabled={dryRun.isPending}
+          data-testid="button-dryrun-cleanup"
+        >
+          {dryRun.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+          Run Dry Run
+        </Button>
+      ) : (
+        <div className="space-y-3">
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-md p-4 space-y-2">
+            <div className="flex items-center gap-2 text-amber-500 font-semibold text-sm">
+              <AlertTriangle className="h-4 w-4" />
+              Ready to delete — review before confirming
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <span className="text-muted-foreground">Orders to delete</span>
+                <p className="font-bold text-lg">{dryRunResult.ordersToDelete.toLocaleString()}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Order details to delete</span>
+                <p className="font-bold text-lg">{dryRunResult.orderDetailsToDelete.toLocaleString()}</p>
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Sample IDs: {dryRunResult.sampleIds.slice(0, 5).join(', ')}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDryRunResult(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => execute.mutate()}
+              disabled={execute.isPending}
+              data-testid="button-confirm-cleanup"
+            >
+              {execute.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Confirm & Delete {dryRunResult.ordersToDelete.toLocaleString()} Orders
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PlatformAdmin() {
   const { data: orgs, isLoading: orgsLoading } = useQuery<OrgWithUsage[]>({
     queryKey: ["/api/platform-admin/orgs"],
@@ -245,6 +342,18 @@ export default function PlatformAdmin() {
               <p className="text-sm font-medium text-muted-foreground">Total Users</p>
               <h2 className="text-2xl font-bold">{stats?.totalUsers ?? 0}</h2>
             </div>
+          </div>
+        </div>
+
+        {/* Maintenance Tools */}
+        <div className="bg-card border rounded-lg shadow-sm p-6 space-y-2">
+          <h2 className="text-base font-semibold flex items-center gap-2">
+            <Trash2 className="h-4 w-4 text-muted-foreground" />
+            Maintenance Tools
+          </h2>
+          <div className="border-t pt-4">
+            <p className="text-sm font-medium mb-2">ShipStation Duplicate Order Cleanup</p>
+            <DuplicateOrderCleanup />
           </div>
         </div>
 
