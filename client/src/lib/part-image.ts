@@ -34,8 +34,8 @@ export function partImageSources(
     const typeCode =
       itemType === 'MINIFIG' ? 'MN' : itemType === 'SET' ? 'SN' : 'PN';
 
-    // 2. BrickLink color-specific CDN
-    if (colorId) {
+    // 2. BrickLink color-specific CDN (colorId 0 is valid for minifigs)
+    if (colorId != null) {
       srcs.push(
         `https://img.bricklink.com/ItemImage/${typeCode}/${colorId}/${partNumber}.png`,
       );

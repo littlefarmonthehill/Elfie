@@ -232,6 +232,8 @@ export default function Home() {
           remarks: null,
           myWeight: bricklinkItem.weight ? String(bricklinkItem.weight) : null,
           isBrickLinkCatalog: true,
+          imageUrl: bricklinkItem.thumbnailUrl ?? bricklinkItem.imageUrl ?? null,
+          thumbnailUrl: bricklinkItem.thumbnailUrl ?? null,
           bricklinkUrl: `https://www.bricklink.com/v2/catalog/catalogitem.page?${itemTypePrefix}=${bricklinkItem.itemNo}`,
           priceOMagic: {
             stockAvgPrice: bricklinkItem.stockAvgPrice,
