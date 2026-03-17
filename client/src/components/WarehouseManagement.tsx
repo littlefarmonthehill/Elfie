@@ -558,6 +558,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               </button>
             ))}
           </div>
+          <p className="text-[10px] text-muted-foreground/60 pt-1 border-t border-border">
+            Upgrading to a deeper level is safe — your existing bins and all lot assignments are preserved. You simply gain the ability to organise bins onto shelves or aisles.
+          </p>
         </Card>
       ) : (
         <div className="flex items-center justify-between">

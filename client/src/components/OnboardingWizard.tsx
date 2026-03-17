@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, ArrowRight, Building2, Link, Sparkles, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2 } from "lucide-react";
+import { CheckCircle2, ArrowRight, Building2, Link, Sparkles, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2, Archive, Layers, MapPin, Upload, FileText, ChevronRight, AlertCircle } from "lucide-react";
 import { TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
 import type { Organization } from "@shared/schema";
@@ -19,6 +19,13 @@ interface Props {
 const STEPS = [
   { id: 1, label: "Company", icon: Building2 },
   { id: 2, label: "BrickLink", icon: Link },
+  { id: 3, label: "Warehouse", icon: Archive },
+];
+
+const DEPTH_OPTIONS = [
+  { value: 1, label: "Bins Only", description: "Simple — just label your bins", example: "Bin-01, Bin-02…", icon: Archive },
+  { value: 2, label: "Shelves + Bins", description: "Group bins onto shelves", example: "Shelf A → Bin A-01…", icon: Layers },
+  { value: 3, label: "Full Warehouse", description: "Aisles, shelves, and bins", example: "Aisle 1 → Shelf A → Bin A-01", icon: MapPin },
 ];
 
 export default function OnboardingWizard({ org, onComplete }: Props) {
@@ -43,6 +50,12 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
   const [blParsedTokens, setBlParsedTokens] = useState<{ tokenValue: string; tokenSecret: string }[]>([]);
   const [blOcrProcessing, setBlOcrProcessing] = useState(false);
 
+  // Step 3 — Warehouse
+  const [selectedDepth, setSelectedDepth] = useState<number | null>(null);
+  const [showCsvImport, setShowCsvImport] = useState(false);
+  const [csvText, setCsvText] = useState("");
+  const [csvResult, setCsvResult] = useState<{ created: { aisles: number; shelves: number; bins: number; skipped: number }; errors: string[] } | null>(null);
+
   const saveOrgMutation = useMutation({
     mutationFn: (data: Record<string, any>) => apiRequest("PATCH", "/api/org", data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/org"] }),
@@ -51,6 +64,22 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
   const saveSettingsMutation = useMutation({
     mutationFn: (data: Record<string, any>) => apiRequest("POST", "/api/settings", data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/settings"] }),
+  });
+
+  const saveDepthMutation = useMutation({
+    mutationFn: (depth: number) => apiRequest("PATCH", "/api/warehouse/settings", { depth }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/warehouse/settings"] }),
+  });
+
+  const importCsvMutation = useMutation({
+    mutationFn: (csvText: string) => apiRequest("POST", "/api/warehouse/import/csv", { csvText }),
+    onSuccess: async (res: any) => {
+      const data = await res.json();
+      setCsvResult(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/warehouse/bins"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/warehouse/shelves"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/warehouse/aisles"] });
+    },
   });
 
   const handleStep1 = async () => {
@@ -74,16 +103,25 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
     setStep(3);
   };
 
+  const handleStep3 = async (skip = false) => {
+    if (!skip && selectedDepth !== null) {
+      await saveDepthMutation.mutateAsync(selectedDepth);
+    }
+    setStep(4);
+  };
+
   const handleFinish = async () => {
     await saveOrgMutation.mutateAsync({ onboardingCompleted: true });
     onComplete();
   };
 
-  const isSaving = saveOrgMutation.isPending || saveSettingsMutation.isPending;
+  const isSaving = saveOrgMutation.isPending || saveSettingsMutation.isPending || saveDepthMutation.isPending;
+
+  const csvDepthHint = selectedDepth ?? 3;
 
   return (
-    <div className="fixed inset-0 z-50 bg-gray-950 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-lg">
+    <div className="fixed inset-0 z-50 bg-gray-950 flex flex-col items-center justify-center p-4 overflow-y-auto">
+      <div className="w-full max-w-lg py-8">
 
         {/* Header */}
         <div className="text-center mb-8">
@@ -91,7 +129,7 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
             <Sparkles className="w-5 h-5 text-lego-yellow" />
             <span className="text-sm font-semibold uppercase tracking-widest text-gray-400">Setup Wizard</span>
           </div>
-          {step < 3 ? (
+          {step < 4 ? (
             <h1 className="text-2xl font-bold text-white">Let's get you set up</h1>
           ) : (
             <h1 className="text-2xl font-bold text-white">You're ready to go</h1>
@@ -99,11 +137,11 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
         </div>
 
         {/* Step indicator */}
-        {step < 3 && (
+        {step < 4 && (
           <div className="flex items-center justify-center gap-0 mb-8">
             {STEPS.map((s, i) => (
               <div key={s.id} className="flex items-center">
-                <div className={`flex flex-col items-center gap-1`}>
+                <div className="flex flex-col items-center gap-1">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${
                     step > s.id
                       ? "bg-green-500 border-green-500"
@@ -122,7 +160,7 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                   </span>
                 </div>
                 {i < STEPS.length - 1 && (
-                  <div className={`w-16 h-px mx-2 mb-4 transition-colors ${step > s.id ? "bg-green-500/50" : "bg-gray-700"}`} />
+                  <div className={`w-12 h-px mx-2 mb-4 transition-colors ${step > s.id ? "bg-green-500/50" : "bg-gray-700"}`} />
                 )}
               </div>
             ))}
@@ -377,8 +415,160 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
             </>
           )}
 
-          {/* Step 3: Done */}
+          {/* Step 3: Warehouse Setup */}
           {step === 3 && (
+            <>
+              <div>
+                <h2 className="text-lg font-semibold text-white mb-1">Warehouse setup</h2>
+                <p className="text-sm text-gray-400">Tell us how your physical storage is organized. You can always change this later — your bin assignments are never lost when you upgrade levels.</p>
+              </div>
+
+              {/* Depth picker */}
+              <div className="space-y-2">
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">How is your storage organized?</p>
+                {DEPTH_OPTIONS.map(opt => {
+                  const Icon = opt.icon;
+                  const isSelected = selectedDepth === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => setSelectedDepth(opt.value)}
+                      className={`w-full flex items-start gap-3 p-3 rounded-lg border text-left transition-colors hover-elevate ${
+                        isSelected
+                          ? "border-yellow-500/60 bg-yellow-500/10"
+                          : "border-gray-700 bg-gray-800/40 hover:bg-gray-800/60"
+                      }`}
+                      data-testid={`button-onboard-depth-${opt.value}`}
+                    >
+                      <div className={`mt-0.5 ${isSelected ? "text-yellow-400" : "text-gray-500"}`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-sm font-semibold ${isSelected ? "text-white" : "text-gray-300"}`}>{opt.label}</span>
+                          {isSelected && <span className="text-[10px] text-yellow-400 font-medium">Selected</span>}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-0.5">{opt.description}</p>
+                        <p className="text-[10px] text-gray-600 mt-0.5 font-mono">{opt.example}</p>
+                      </div>
+                      <ChevronRight className={`w-4 h-4 mt-0.5 shrink-0 ${isSelected ? "text-yellow-400" : "text-gray-600"}`} />
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* CSV Import section — only shown if a depth is selected */}
+              {selectedDepth !== null && (
+                <div className="border-t border-gray-800 pt-4">
+                  {!showCsvImport ? (
+                    <button
+                      onClick={() => setShowCsvImport(true)}
+                      className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-200 transition-colors group w-full"
+                      data-testid="button-onboard-show-csv"
+                    >
+                      <Upload className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-300" />
+                      <span>I have a spreadsheet or list of my bins — import it now</span>
+                      <ChevronRight className="w-3.5 h-3.5 ml-auto text-gray-600 group-hover:text-gray-400" />
+                    </button>
+                  ) : csvResult ? (
+                    /* Import result summary */
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-green-400 text-xs font-semibold">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Import complete
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-500">
+                        {selectedDepth >= 3 && <span>Aisles created: <span className="font-semibold text-gray-300">{csvResult.created.aisles}</span></span>}
+                        {selectedDepth >= 2 && <span>Shelves created: <span className="font-semibold text-gray-300">{csvResult.created.shelves}</span></span>}
+                        <span>Bins created: <span className="font-semibold text-gray-300">{csvResult.created.bins}</span></span>
+                        {csvResult.created.skipped > 0 && <span>Rows skipped: <span className="font-semibold text-gray-300">{csvResult.created.skipped}</span></span>}
+                      </div>
+                      {csvResult.errors.length > 0 && (
+                        <div className="flex items-start gap-1.5 text-[10px] text-red-400">
+                          <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                          <span>{csvResult.errors.length} row{csvResult.errors.length !== 1 ? 's' : ''} had errors. You can fix these in the Warehouse tab after setup.</span>
+                        </div>
+                      )}
+                      <button onClick={() => { setCsvResult(null); setCsvText(""); }} className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors">
+                        Import another file
+                      </button>
+                    </div>
+                  ) : (
+                    /* CSV import form */
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-gray-300 flex items-center gap-1.5">
+                          <FileText className="h-3.5 w-3.5 text-gray-400" />
+                          Import your bin list
+                        </p>
+                        <button onClick={() => setShowCsvImport(false)} className="text-[10px] text-gray-600 hover:text-gray-400">
+                          Cancel
+                        </button>
+                      </div>
+
+                      {/* Format hint */}
+                      <div className="bg-gray-800/60 rounded-md p-2.5 space-y-1">
+                        <p className="text-[10px] text-gray-500">
+                          {csvDepthHint === 1 && <>One column: <code className="text-green-400">bin</code></>}
+                          {csvDepthHint === 2 && <>Two columns: <code className="text-green-400">shelf</code> and <code className="text-green-400">bin</code></>}
+                          {csvDepthHint === 3 && <>Three columns: <code className="text-green-400">aisle</code>, <code className="text-green-400">shelf</code>, and <code className="text-green-400">bin</code></>}
+                          {" "}— column order doesn't matter, names are case-insensitive.
+                        </p>
+                        <pre className="text-[10px] font-mono text-green-400/80 leading-relaxed">
+                          {csvDepthHint === 1 && `bin\nBIN-01\nBIN-02\nBIN-03`}
+                          {csvDepthHint === 2 && `shelf,bin\nShelf-A,BIN-A1\nShelf-A,BIN-A2\nShelf-B,BIN-B1`}
+                          {csvDepthHint === 3 && `aisle,shelf,bin\nA,Shelf-A1,BIN-A1-01\nA,Shelf-A1,BIN-A1-02\nB,Shelf-B1,BIN-B1-01`}
+                        </pre>
+                      </div>
+
+                      <textarea
+                        value={csvText}
+                        onChange={e => setCsvText(e.target.value)}
+                        rows={6}
+                        placeholder={`Paste your CSV here…`}
+                        className="w-full rounded-md border border-gray-700 bg-gray-800 text-xs font-mono text-white p-2 resize-y focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+                        data-testid="textarea-onboard-csv"
+                      />
+                      <p className="text-[10px] text-gray-600">
+                        {csvText.split('\n').filter(l => l.trim()).length > 1
+                          ? `${csvText.split('\n').filter(l => l.trim()).length - 1} data rows detected`
+                          : 'Paste your CSV above'}
+                      </p>
+                      <Button
+                        size="sm"
+                        className="w-full"
+                        disabled={importCsvMutation.isPending || csvText.trim().split('\n').filter(Boolean).length < 2}
+                        onClick={() => importCsvMutation.mutate(csvText)}
+                        data-testid="button-onboard-csv-import"
+                      >
+                        {importCsvMutation.isPending
+                          ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Importing…</>
+                          : <><Upload className="h-3.5 w-3.5 mr-1.5" />Import</>
+                        }
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="pt-2 flex justify-between">
+                <Button variant="ghost" onClick={() => handleStep3(true)} className="text-gray-500" data-testid="button-onboard-skip-3">
+                  Skip for now
+                </Button>
+                <Button
+                  onClick={() => handleStep3(false)}
+                  disabled={isSaving || selectedDepth === null}
+                  data-testid="button-onboard-next-3"
+                >
+                  {isSaving ? "Saving…" : "Continue"}
+                  <ArrowRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* Step 4: Done */}
+          {step === 4 && (
             <>
               <div className="text-center py-4">
                 <div className="w-16 h-16 rounded-full bg-green-500/10 border-2 border-green-500/30 flex items-center justify-center mx-auto mb-4">
@@ -434,9 +624,9 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
           )}
         </div>
 
-        {step < 3 && (
+        {step < 4 && (
           <p className="text-center text-[11px] text-gray-600 mt-4">
-            All credentials are stored securely and can be updated any time in Settings.
+            All settings can be updated any time in the Warehouse or Settings tabs.
           </p>
         )}
       </div>
