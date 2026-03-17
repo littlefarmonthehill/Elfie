@@ -154,13 +154,36 @@ const partKey    = (item: PicklistItem) => item.partNumber || item.sku || '';
 export function printPicklist(items: PicklistItem[]): void {
   if (items.length === 0) return;
 
+  // ── Two-panel layout ─────────────────────────────────────────────────────
+  // Each letter page is split into a top panel and a bottom panel.
+  // Printing 1-per-sheet gives you 2 content blocks per physical sheet with
+  // full control over margins — no printer scaling, no inter-page gaps.
+  const PANEL_H = PAGE_H / 2;                          // 139.7 mm per panel
+  const panelTop    = (p: 0 | 1) => p * PANEL_H + MY; // content start y
+  const panelBottom = (p: 0 | 1) => (p + 1) * PANEL_H - MY; // content end y
+
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
-  let y = MY;
+  let panel: 0 | 1 = 0;
+  let y = panelTop(0);
+
+  const advancePanel = () => {
+    if (panel === 0) {
+      // Draw a thin mid-page divider then move to the bottom panel
+      doc.setDrawColor(170, 170, 170);
+      doc.setLineWidth(0.3);
+      doc.line(MX, PANEL_H, MX + CONTENT_W, PANEL_H);
+      panel = 1;
+    } else {
+      doc.addPage();
+      panel = 0;
+    }
+    y = panelTop(panel);
+  };
 
   for (const item of items) {
     const hasComment = !!(item.comment);
     const itemH = 3 + 6 + 5 + (hasComment ? 4.5 : 0) + 6;
-    if (y + itemH > PAGE_H - MY) { doc.addPage(); y = MY; }
+    if (y + itemH > panelBottom(panel)) advancePanel();
 
     // ── Separator line ───────────────────────────────────────────────────────
     doc.setDrawColor(187, 187, 187);
