@@ -523,7 +523,7 @@ const MINIFIG_PART_CATEGORY_IDS = new Set([
 ]);
 
 interface BrickanalyzerToolProps {
-  onItemClick?: (type: 'inventory', id: number, tab?: string) => void;
+  onItemClick?: (type: 'inventory', id: number | string, tab?: string) => Promise<boolean> | void;
 }
 
 const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, ref) => {
@@ -2311,11 +2311,14 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                               {/* Price badge — opens Inventory Detail drawer on pricing tab via part number lookup */}
                               <button
                                 onMouseDown={e => e.stopPropagation()}
-                                onClick={e => {
+                                onClick={async e => {
                                   e.stopPropagation();
                                   if (onItemClick && r.partNo) {
                                     const colorSuffix = r.colorId != null ? `__c${r.colorId}` : '';
-                                    onItemClick('inventory', `bricklink-${r.partNo}${colorSuffix}` as any, 'pricing');
+                                    const found = await onItemClick('inventory', `bricklink-${r.partNo}${colorSuffix}` as any, 'pricing');
+                                    if (found === false) {
+                                      setFocusedDetailCropIndex(r.cropIndex ?? null);
+                                    }
                                   } else {
                                     setFocusedDetailCropIndex(r.cropIndex ?? null);
                                   }

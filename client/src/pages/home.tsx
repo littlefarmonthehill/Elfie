@@ -167,17 +167,11 @@ export default function Home() {
       (platform.discrepancies?.quantityDifferences || 0);
   }, 0) || 0;
 
-  const handleDashboardItemClick = async (type: 'order' | 'inventory', id: number | string, initialTab?: string) => {
-    // Check if this is a BrickLink catalog item
+  const handleDashboardItemClick = async (type: 'order' | 'inventory', id: number | string, initialTab?: string): Promise<boolean> => {
+    // Check if this is a BrickLink catalog item (used by Brickspotter heatmap badges)
     const isBrickLinkCatalog = String(id).startsWith('bricklink-');
-    
-    // Open modal immediately with loading state
-    setDetailModal({
-      open: true,
-      data: { type, data: { id, loading: true } as any, initialTab }
-    });
 
-    // Handle BrickLink catalog items
+    // Handle BrickLink catalog items — resolve to a real inventory ID BEFORE showing any modal
     if (isBrickLinkCatalog && type === 'inventory') {
       const raw = String(id).replace('bricklink-', '');
       const colorMatch = raw.match(/__c(\d+)$/);
@@ -217,9 +211,8 @@ export default function Home() {
           description: `BrickLink Catalog Item - ${bricklinkItem.itemName}`,
           remarks: `Year Released: ${bricklinkItem.yearReleased || 'Unknown'}`,
           myWeight: bricklinkItem.weight ? String(bricklinkItem.weight) : null,
-          isBrickLinkCatalog: true, // Flag to indicate this is from catalog
+          isBrickLinkCatalog: true,
           bricklinkUrl: `https://www.bricklink.com/v2/catalog/catalogitem.page?${itemTypePrefix}=${bricklinkItem.itemNo}`,
-          // Include pricing data from BrickLink for Price-o-Matic display
           priceOMagic: {
             stockAvgPrice: bricklinkItem.stockAvgPrice,
             stockMinPrice: bricklinkItem.stockMinPrice,
@@ -244,11 +237,11 @@ export default function Home() {
             initialTab,
           }
         });
-        return;
+        return true;
       }
 
-      // No session storage — look up the first matching inventory lot by part number + color
-      // (used when opening from Brickspotter heatmap)
+      // No session storage — look up the matching inventory lot by part number + color.
+      // Do NOT show a loading modal until we have a real ID (avoids the blip on miss).
       try {
         // First try with color filter (more precise)
         if (colorId) {
@@ -257,8 +250,7 @@ export default function Home() {
           if (searchRes.ok) {
             const lots = await searchRes.json();
             if (Array.isArray(lots) && lots.length > 0) {
-              await handleDashboardItemClick('inventory', lots[0].id, initialTab);
-              return;
+              return handleDashboardItemClick('inventory', lots[0].id, initialTab);
             }
           }
         }
@@ -268,15 +260,19 @@ export default function Home() {
         if (fallbackRes.ok) {
           const lots = await fallbackRes.json();
           if (Array.isArray(lots) && lots.length > 0) {
-            await handleDashboardItemClick('inventory', lots[0].id, initialTab);
-            return;
+            return handleDashboardItemClick('inventory', lots[0].id, initialTab);
           }
         }
-      } catch { /* ignore, close modal below */ }
-      // Part not in inventory — close the loading modal
-      setDetailModal({ open: false, data: null });
-      return;
+      } catch { /* ignore */ }
+      // Part not in inventory — return false so caller can fall back to overlay
+      return false;
     }
+
+    // Open modal immediately with loading state for real inventory/order IDs
+    setDetailModal({
+      open: true,
+      data: { type, data: { id, loading: true } as any, initialTab }
+    });
 
     // Fetch real data from API in background
     if (type === 'order') {
@@ -378,6 +374,7 @@ export default function Home() {
         console.error('Error fetching inventory:', error);
       }
     }
+    return true;
   };
 
   const renderDynamicDashboard = () => {
