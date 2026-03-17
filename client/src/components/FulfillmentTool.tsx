@@ -846,7 +846,7 @@ export default function FulfillmentTool() {
         )}
 
         {/* ── Pull tab + tab content ── */}
-        <div className="flex gap-0">
+        <div className="flex gap-0 mt-3">
 
           {/* Vertical pull tab — sits flush against the tab content */}
           <button
