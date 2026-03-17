@@ -3607,10 +3607,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
               {activeSection === null && (
                 <nav className="p-2">
                   {superAdmin && (
-                    <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1 mx-2 mb-2">
+                    <div className="tool-seg-bar mx-2 mb-2">
                       <button
                         onClick={() => setOpenGroup('company')}
-                        className={`flex items-center gap-1.5 flex-1 justify-center px-3 py-2 rounded text-xs font-semibold transition-colors ${openGroup === 'company' ? 'bg-gray-700 text-gray-100' : 'text-gray-500 hover:text-gray-300'}`}
+                        className={`tool-seg ${openGroup === 'company' ? 'bg-gray-700 text-gray-100' : 'tool-seg-off'}`}
                         data-testid="button-company-settings-toggle"
                       >
                         <Building2 className="h-3.5 w-3.5 shrink-0" />
@@ -3618,7 +3618,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       </button>
                       <button
                         onClick={() => setOpenGroup('platform')}
-                        className={`flex items-center gap-1.5 flex-1 justify-center px-3 py-2 rounded text-xs font-semibold transition-colors ${openGroup === 'platform' ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-500 hover:text-gray-300'}`}
+                        className={`tool-seg ${openGroup === 'platform' ? 'bg-yellow-500/20 text-yellow-400' : 'tool-seg-off'}`}
                         data-testid="button-platform-admin-toggle"
                       >
                         <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
@@ -6532,7 +6532,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
             {/* Audit Log */}
             {activeSection === 'auditLog' && (
               <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden">
-                <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1">
+                <div className="tool-seg-bar">
                   {([
                     { id: 'organization' as const, label: 'Organization', Icon: Building2 },
                     { id: 'platform' as const, label: 'Platform', Icon: Globe },
@@ -6540,7 +6540,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     <button
                       key={t.id}
                       onClick={() => setActiveAuditTab(t.id)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors flex-1 justify-center ${activeAuditTab === t.id ? 'bg-gray-700 text-gray-100' : 'text-gray-400 hover-elevate'}`}
+                      className={`tool-seg ${activeAuditTab === t.id ? 'bg-gray-700 text-gray-100' : 'tool-seg-off'}`}
                       data-testid={`audit-tab-${t.id}`}
                     >
                       <t.Icon className="h-3.5 w-3.5" />
@@ -7713,13 +7713,13 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     { id: 'market', label: 'Market', Icon: Globe },
                   ];
                   return (
-                    <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1">
+                    <div className="tool-seg-bar">
                       {schedTabs.map(({ id, label, Icon }) => (
                         <button
                           key={id}
                           onClick={() => setActiveSchedulerTab(id)}
                           data-testid={`tab-scheduler-${id}`}
-                          className={`flex items-center gap-1 flex-1 justify-center px-1.5 py-1.5 rounded text-[11px] font-medium transition-colors min-w-0 ${activeSchedulerTab === id ? 'bg-gray-700 text-gray-100' : 'text-gray-500 hover:text-gray-300'}`}
+                          className={`tool-seg gap-1 px-1.5 min-w-0 ${activeSchedulerTab === id ? 'bg-gray-700 text-gray-100' : 'tool-seg-off'}`}
                         >
                           <Icon className="h-3 w-3 shrink-0" />
                           <span className="truncate">{label}</span>
@@ -8596,13 +8596,13 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     { id: 'openai', label: 'OpenAI', Icon: Brain },
                   ];
                   return (
-                    <div className="flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1 overflow-x-auto">
+                    <div className="tool-seg-bar overflow-x-auto">
                       {psTabs.map(({ id, label, Icon }) => (
                         <button
                           key={id}
                           onClick={() => setActivePlatformServicesTab(id)}
                           data-testid={`tab-platform-services-${id}`}
-                          className={`flex items-center gap-1.5 flex-1 justify-center px-3 py-1.5 rounded text-xs font-medium transition-colors whitespace-nowrap ${activePlatformServicesTab === id ? 'bg-gray-700 text-gray-100' : 'text-gray-500 hover:text-gray-300'}`}
+                          className={`tool-seg whitespace-nowrap ${activePlatformServicesTab === id ? 'bg-gray-700 text-gray-100' : 'tool-seg-off'}`}
                         >
                           <Icon className="h-3 w-3 shrink-0" />
                           {label}

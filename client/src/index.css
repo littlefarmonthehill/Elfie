@@ -520,6 +520,28 @@ html.admin-mode {
   .tool-tab      { @apply flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border-b-2 -mb-px transition-colors; }
   .tool-tab-fill { @apply flex-1 flex items-center justify-center py-2 text-xs font-semibold border-b-2 -mb-px transition-colors; }
   .tool-tab-off  { @apply border-transparent text-gray-400 hover:text-gray-200; }
+
+  /*
+   * ── Pill / segment-control tab bars ──────────────────────────────────────
+   * Used for background-fill tab switchers (no underline — filled pill style).
+   *
+   * Usage:
+   *   <div className="tool-seg-bar">
+   *     <button className={`tool-seg ${active ? 'bg-gray-700 text-gray-100' : 'tool-seg-off'}`}>
+   *       <Icon className="h-3 w-3 shrink-0" /> Label
+   *     </button>
+   *   </div>
+   *
+   * Rules:
+   *   - Active state: supply your own bg-* + text-* (e.g. bg-gray-700 text-gray-100, or bg-yellow-500/20 text-yellow-400).
+   *   - Always use tool-seg-off for the inactive state.
+   *   - If the bar has extra margin/padding needs, add them alongside tool-seg-bar.
+   *   - For compact bars with 3+ items, add gap-1 px-1.5 overrides on the button.
+   *   - Never add your own hover or active color overrides — tool-seg-off handles it.
+   */
+  .tool-seg-bar { @apply flex gap-1 bg-gray-800/40 border border-gray-700/60 rounded-md p-1; }
+  .tool-seg     { @apply flex items-center gap-1.5 flex-1 justify-center px-3 py-1.5 rounded text-xs font-semibold transition-colors; }
+  .tool-seg-off { @apply text-gray-400 hover-elevate; }
 }
 
 /* ── Retro‐future radio wave pulse — Jetsons-style alert attention rings ── */
