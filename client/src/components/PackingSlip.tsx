@@ -93,7 +93,25 @@ async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: stri
 
 // ─── Hidden-print helper ──────────────────────────────────────────────────────
 
+function isIOS(): boolean {
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
+}
+
 export function hiddenPrint(blob: Blob, filename = 'document.pdf'): void {
+  // iOS Safari can't print from a hidden iframe — the share sheet is the
+  // only path to AirPrint / PDF save on that platform.
+  if (isIOS()) {
+    const file = new File([blob], filename, { type: 'application/pdf' });
+    if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
+      navigator.share({ files: [file], title: filename.replace(/\.pdf$/i, '') })
+        .catch(() => { /* user cancelled */ });
+      return;
+    }
+  }
+
   const url = URL.createObjectURL(blob);
   const iframe = document.createElement('iframe');
   iframe.setAttribute('aria-hidden', 'true');
