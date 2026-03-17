@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { orders, orderDetails, syncMetadata, blInventory, blCatalog } from "@shared/schema";
+import { orders, orderDetails, orderAdjustments, syncMetadata, blInventory, blCatalog } from "@shared/schema";
 import { eq, and, sql, isNull } from "drizzle-orm";
 import { getBrickLinkOrders, getBrickLinkOrderDetail, getBrickLinkOrderItems, mapBrickLinkStatusSync, mapBrickLinkCondition } from "./bricklink-orders";
 import { bricklinkRequest } from "./bricklink";
@@ -383,6 +383,31 @@ async function processBrickLinkOrder(
         // Instead, flag that an inventory sync should run after this order is processed.
         console.log(`↩️ Order ${orderId} is a return — skipping inventory adjustment, inventory sync will run after.`);
         result.needsInventorySync = true;
+
+        // Record the refund in order_adjustments from BrickLink's own cost data.
+        // Use a deterministic external ID so this is idempotent across sync runs.
+        const externalId = `bl-${blOrder.order_id}-return`;
+        const refundAmount = cost?.grand_total ? Number(cost.grand_total) : null;
+        if (refundAmount && refundAmount > 0) {
+          const existing = await db
+            .select({ id: orderAdjustments.id })
+            .from(orderAdjustments)
+            .where(eq(orderAdjustments.externalTransactionId, externalId))
+            .limit(1);
+          if (existing.length === 0) {
+            await db.insert(orderAdjustments).values({
+              orderId,
+              type: 'refund',
+              amount: (-refundAmount).toFixed(2),
+              paymentMethod: 'bricklink',
+              externalTransactionId: externalId,
+              reason: 'Customer return',
+              notes: `BrickLink return on order ${blOrder.order_id} — refund of $${refundAmount.toFixed(2)} (payment.status: Returned, date: ${blOrder.payment?.date_paid ?? 'unknown'})`,
+              orgId: ORG_ID,
+            });
+            console.log(`↩️ Order ${orderId}: recorded refund adjustment of -$${refundAmount.toFixed(2)}`);
+          }
+        }
       } else {
         // Trigger inventory adjustment asynchronously
         adjustInventoryForOrder(orderId).catch(error => {

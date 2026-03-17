@@ -132,15 +132,16 @@ export async function runPlatformOrderSync(
   }
 
   // ── Stripe ─────────────────────────────────────────────────────────────────
+  // Refund detection is now handled directly by the BrickLink order sync via
+  // payment.status === 'Returned'. Stripe sync is fees-only.
   if (process.env.STRIPE_SECRET_KEY) {
     try {
-      console.log("💳 Syncing Stripe refunds + fees...");
-      const { syncStripeRefunds, syncStripeFees } = await import("./stripe-refunds");
-      const [refundRes, feeRes] = await Promise.all([syncStripeRefunds(90), syncStripeFees(90)]);
+      console.log("💳 Syncing Stripe fees...");
+      const { syncStripeFees } = await import("./stripe-refunds");
+      const feeRes = await syncStripeFees(90);
       result.stripe.success = true;
-      result.stripe.refunds = refundRes.matched;
       result.stripe.fees = feeRes.matched;
-      console.log(`✅ Stripe: ${refundRes.matched} refunds, ${feeRes.matched} fees matched`);
+      console.log(`✅ Stripe: ${feeRes.matched} fees matched`);
     } catch (err: any) {
       result.stripe.error = err.message;
       console.error("❌ Stripe sync failed (non-fatal):", err.message);
@@ -150,32 +151,19 @@ export async function runPlatformOrderSync(
   }
 
   // ── PayPal ─────────────────────────────────────────────────────────────────
+  // Refund detection is now handled directly by the BrickLink order sync via
+  // payment.status === 'Returned'. PayPal sync is fees-only.
   if (process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET) {
     try {
-      console.log("🅿️ Syncing PayPal transactions...");
-      const { syncPayPalTransactions } = await import("./paypal-sync");
-      const ppRes = await syncPayPalTransactions(90);
+      console.log("🅿️ Syncing PayPal fees...");
+      const { syncPayPalFees } = await import("./paypal-sync");
+      const feeRes = await syncPayPalFees(90);
       result.paypal.success = true;
-      result.paypal.refunds = ppRes.refundsMatched;
-      result.paypal.fees = ppRes.feesMatched;
-      console.log(`✅ PayPal: ${ppRes.refundsMatched} refunds, ${ppRes.feesMatched} fees matched`);
+      result.paypal.fees = feeRes.matched;
+      console.log(`✅ PayPal: ${feeRes.matched} fees matched`);
     } catch (err: any) {
       result.paypal.error = err.message;
       console.error("❌ PayPal sync failed (non-fatal):", err.message);
-    }
-
-    // Capture poll: query /v2/payments/captures/{id} for orders with stored capture IDs.
-    // Catches refunds that webhooks may have missed (delivery failures, downtime, etc.).
-    try {
-      console.log("🅿️ Polling PayPal captures for refunds...");
-      const { syncPayPalRefundsByCapture } = await import("./paypal-webhook");
-      const capRes = await syncPayPalRefundsByCapture();
-      if (capRes.refundsFound > 0) {
-        result.paypal.refunds += capRes.refundsFound;
-        console.log(`✅ PayPal capture poll: ${capRes.refundsFound} new refund(s) found`);
-      }
-    } catch (err: any) {
-      console.error("❌ PayPal capture poll failed (non-fatal):", err.message);
     }
   } else {
     result.paypal.skipped = true;
