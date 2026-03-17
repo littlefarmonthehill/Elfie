@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, ArrowRight, Building2, Link, Sparkles, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2, Archive, Layers, MapPin, Upload, FileText, ChevronRight, AlertCircle, Package } from "lucide-react";
+import { CheckCircle2, ArrowRight, Building2, Link, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2, Archive, Layers, MapPin, Upload, FileText, ChevronRight, AlertCircle, Package } from "lucide-react";
 import { TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
 import type { Organization } from "@shared/schema";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
+import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
 interface Props {
   org: Organization;
@@ -27,6 +28,49 @@ const DEPTH_OPTIONS = [
   { value: 2, label: "Shelves + Bins", description: "Group bins onto shelves", example: "Shelf A → Bin A-01…", icon: Layers },
   { value: 3, label: "Full Warehouse", description: "Aisles, shelves, and bins", example: "Aisle 1 → Shelf A → Bin A-01", icon: MapPin },
 ];
+
+const STEP_MESSAGES: Record<number, string> = {
+  1: "Hi! I'm E.L.F.I.E. — your warehouse operations assistant. Let's start with your company info. This shows up on your packing slips and account profile.",
+  2: "BrickLink is the engine that drives everything. Connect your API keys and I'll automatically sync your inventory, orders, and pricing — all in one place.",
+  3: "Last step! Tell me how your warehouse is organized. Once I know the layout, I can guide you to any part the moment an order comes in.",
+  4: "You're all set! Come find me in the sidebar whenever you need help managing inventory, filling orders, or just want to know what's going on.",
+};
+
+function ElfieSpeechBubble({ step, large = false }: { step: number; large?: boolean }) {
+  return (
+    <div className={`flex items-end gap-3 ${large ? "mb-2" : "mb-6"}`}>
+      <img
+        src={elfieRobot}
+        alt="E.L.F.I.E."
+        className={`object-contain flex-shrink-0 drop-shadow-lg ${large ? "w-28 h-28" : "w-16 h-16"}`}
+      />
+      <div className="relative flex-1">
+        {/* Speech bubble tail — left-pointing triangle */}
+        <span
+          className="absolute left-0 bottom-4 -translate-x-full w-0 h-0"
+          style={{
+            borderTop: "6px solid transparent",
+            borderBottom: "6px solid transparent",
+            borderRight: "8px solid rgb(55 65 81)", // gray-700
+          }}
+        />
+        <span
+          className="absolute left-0 bottom-4 -translate-x-[calc(100%-1px)] w-0 h-0"
+          style={{
+            borderTop: "5px solid transparent",
+            borderBottom: "5px solid transparent",
+            borderRight: "7px solid rgb(17 24 39)", // gray-900
+          }}
+        />
+        <div className="bg-gray-900 border border-gray-700 rounded-xl rounded-bl-none px-4 py-3">
+          <p className={`text-gray-200 leading-snug ${large ? "text-base" : "text-sm"}`}>
+            {STEP_MESSAGES[step]}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function OnboardingWizard({ org, onComplete }: Props) {
   const [step, setStep] = useState(1);
@@ -55,7 +99,6 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [csvText, setCsvText] = useState("");
   const [csvResult, setCsvResult] = useState<{ created: { aisles: number; shelves: number; bins: number; skipped: number }; errors: string[] } | null>(null);
-  // Lot assignment follow-up (after structure import)
   const [showLotAssign, setShowLotAssign] = useState(false);
   const [lotCsvText, setLotCsvText] = useState("");
   const [lotResult, setLotResult] = useState<{ stats: { assigned: number; skipped: number; notFound: number }; errors: string[] } | null>(null);
@@ -128,29 +171,18 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
   };
 
   const isSaving = saveOrgMutation.isPending || saveSettingsMutation.isPending || saveDepthMutation.isPending;
-
   const csvDepthHint = selectedDepth ?? 3;
 
   return (
     <div className="fixed inset-0 z-50 bg-gray-950 flex flex-col items-center justify-center p-4 overflow-y-auto">
       <div className="w-full max-w-lg py-8">
 
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-3">
-            <Sparkles className="w-5 h-5 text-lego-yellow" />
-            <span className="text-sm font-semibold uppercase tracking-widest text-gray-400">Setup Wizard</span>
-          </div>
-          {step < 4 ? (
-            <h1 className="text-2xl font-bold text-white">Let's get you set up</h1>
-          ) : (
-            <h1 className="text-2xl font-bold text-white">You're ready to go</h1>
-          )}
-        </div>
+        {/* ELFIE speech bubble — steps 1–3 */}
+        {step < 4 && <ElfieSpeechBubble step={step} />}
 
         {/* Step indicator */}
         {step < 4 && (
-          <div className="flex items-center justify-center gap-0 mb-8">
+          <div className="flex items-center justify-center gap-0 mb-6">
             {STEPS.map((s, i) => (
               <div key={s.id} className="flex items-center">
                 <div className="flex flex-col items-center gap-1">
@@ -179,10 +211,10 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
           </div>
         )}
 
-        {/* Step content */}
+        {/* Step content card */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-5">
 
-          {/* Step 1: Company Info */}
+          {/* ── Step 1: Company Info ── */}
           {step === 1 && (
             <>
               <div>
@@ -238,6 +270,8 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                   </div>
                 </div>
               </div>
+
+              {/* Terms of Service */}
               <div className="border-t border-gray-800 pt-4 mt-2 space-y-3">
                 <label className="flex items-start gap-2.5 cursor-pointer group" data-testid="label-tos-accept">
                   <input
@@ -269,6 +303,7 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                   </div>
                 )}
               </div>
+
               <div className="pt-2 flex justify-end">
                 <Button onClick={handleStep1} disabled={isSaving || !name.trim() || !tosAccepted} data-testid="button-onboard-next-1">
                   {isSaving ? "Saving…" : "Continue"}
@@ -278,7 +313,7 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
             </>
           )}
 
-          {/* Step 2: BrickLink */}
+          {/* ── Step 2: BrickLink ── */}
           {step === 2 && (
             <>
               <div>
@@ -373,8 +408,8 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                   />
                   {blOcrProcessing && <p className="text-[10px] text-blue-400 flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" />Reading credentials from screenshot...</p>}
                   {blPasteStatus === "success" && !blOcrProcessing && <p className="text-[10px] text-green-400">All 4 credentials extracted successfully.</p>}
-                  {blPasteStatus === "partial" && !blOcrProcessing && <p className="text-[10px] text-yellow-400">Some credentials found but not all 4. You can fill in the missing fields manually below.</p>}
-                  {blPasteStatus === "fail" && !blOcrProcessing && <p className="text-[10px] text-red-400">Could not find BrickLink credentials in the pasted content. Make sure you copied the full page or try a clearer screenshot.</p>}
+                  {blPasteStatus === "partial" && !blOcrProcessing && <p className="text-[10px] text-yellow-400">Some credentials found — fill in the rest below.</p>}
+                  {blPasteStatus === "fail" && !blOcrProcessing && <p className="text-[10px] text-red-400">Could not find BrickLink credentials. Try copying the full page or pasting a clearer screenshot.</p>}
                   {blPasteStatus === "multi" && (
                     <div className="space-y-1.5">
                       <p className="text-[10px] text-yellow-400">Multiple access tokens found — select which one to use:</p>
@@ -427,7 +462,7 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
             </>
           )}
 
-          {/* Step 3: Warehouse Setup */}
+          {/* ── Step 3: Warehouse Setup ── */}
           {step === 3 && (
             <>
               <div>
@@ -435,7 +470,6 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                 <p className="text-sm text-gray-400">Tell us how your physical storage is organized. You can always change this later — your bin assignments are never lost when you upgrade levels.</p>
               </div>
 
-              {/* Depth picker */}
               <div className="space-y-2">
                 <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">How is your storage organized?</p>
                 {DEPTH_OPTIONS.map(opt => {
@@ -448,12 +482,12 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                       className={`w-full flex items-start gap-3 p-3 rounded-lg border text-left transition-colors hover-elevate ${
                         isSelected
                           ? "border-yellow-500/60 bg-yellow-500/10"
-                          : "border-gray-700 bg-gray-800/40 hover:bg-gray-800/60"
+                          : "border-gray-700 bg-gray-800/40 hover:border-gray-600"
                       }`}
-                      data-testid={`button-onboard-depth-${opt.value}`}
+                      data-testid={`button-depth-${opt.value}`}
                     >
-                      <div className={`mt-0.5 ${isSelected ? "text-yellow-400" : "text-gray-500"}`}>
-                        <Icon className="w-4 h-4" />
+                      <div className={`w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5 ${isSelected ? "bg-yellow-500/20" : "bg-gray-700/50"}`}>
+                        <Icon className={`w-4 h-4 ${isSelected ? "text-yellow-400" : "text-gray-400"}`} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
@@ -469,7 +503,7 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                 })}
               </div>
 
-              {/* CSV Import section — only shown if a depth is selected */}
+              {/* CSV Import section */}
               {selectedDepth !== null && (
                 <div className="border-t border-gray-800 pt-4">
                   {!showCsvImport ? (
@@ -483,7 +517,6 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                       <ChevronRight className="w-3.5 h-3.5 ml-auto text-gray-600 group-hover:text-gray-400" />
                     </button>
                   ) : csvResult ? (
-                    /* Import result summary + optional lot-assignment follow-up */
                     <div className="space-y-3">
                       <div className="flex items-center gap-2 text-green-400 text-xs font-semibold">
                         <CheckCircle2 className="h-4 w-4" />
@@ -498,7 +531,7 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                       {csvResult.errors.length > 0 && (
                         <div className="flex items-start gap-1.5 text-[10px] text-red-400">
                           <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                          <span>{csvResult.errors.length} row{csvResult.errors.length !== 1 ? 's' : ''} had errors. You can fix these in the Warehouse tab after setup.</span>
+                          <span>{csvResult.errors.length} row{csvResult.errors.length !== 1 ? 's' : ''} had errors. Fix these in the Warehouse tab after setup.</span>
                         </div>
                       )}
 
@@ -564,18 +597,20 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                           {lotResult.errors.length > 0 && (
                             <div className="flex items-start gap-1.5 text-[10px] text-red-400">
                               <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                              <span>{lotResult.errors.length} row{lotResult.errors.length !== 1 ? 's' : ''} had errors. You can fix these in the Warehouse tab.</span>
+                              <span>{lotResult.errors.length} row{lotResult.errors.length !== 1 ? 's' : ''} had errors. Fix these in the Warehouse tab.</span>
                             </div>
                           )}
                         </div>
                       )}
 
-                      <button onClick={() => { setCsvResult(null); setCsvText(""); setLotResult(null); setLotCsvText(""); setShowLotAssign(false); }} className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors">
+                      <button
+                        onClick={() => { setCsvResult(null); setCsvText(""); setLotResult(null); setLotCsvText(""); setShowLotAssign(false); }}
+                        className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+                      >
                         Import another structure file
                       </button>
                     </div>
                   ) : (
-                    /* CSV import form */
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <p className="text-xs font-medium text-gray-300 flex items-center gap-1.5">
@@ -586,8 +621,6 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                           Cancel
                         </button>
                       </div>
-
-                      {/* Format hint */}
                       <div className="bg-gray-800/60 rounded-md p-2.5 space-y-1">
                         <p className="text-[10px] text-gray-500">
                           {csvDepthHint === 1 && <>One column: <code className="text-green-400">bin</code></>}
@@ -601,12 +634,11 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                           {csvDepthHint === 3 && `aisle,shelf,bin\nA,Shelf-A1,BIN-A1-01\nA,Shelf-A1,BIN-A1-02\nB,Shelf-B1,BIN-B1-01`}
                         </pre>
                       </div>
-
                       <textarea
                         value={csvText}
                         onChange={e => setCsvText(e.target.value)}
                         rows={6}
-                        placeholder={`Paste your CSV here…`}
+                        placeholder="Paste your CSV here…"
                         className="w-full rounded-md border border-gray-700 bg-gray-800 text-xs font-mono text-white p-2 resize-y focus:outline-none focus:ring-1 focus:ring-blue-500/50"
                         data-testid="textarea-onboard-csv"
                       />
@@ -648,22 +680,28 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
             </>
           )}
 
-          {/* Step 4: Done */}
+          {/* ── Step 4: Done ── */}
           {step === 4 && (
             <>
-              <div className="text-center py-4">
-                <div className="w-16 h-16 rounded-full bg-green-500/10 border-2 border-green-500/30 flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle2 className="w-8 h-8 text-green-400" />
+              {/* ELFIE centered + speech bubble */}
+              <div className="flex flex-col items-center gap-4 py-2">
+                <img
+                  src={elfieRobot}
+                  alt="E.L.F.I.E."
+                  className="w-32 h-32 object-contain drop-shadow-2xl"
+                />
+                <div className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-4 text-center max-w-sm">
+                  <p className="text-base text-gray-200 leading-snug">{STEP_MESSAGES[4]}</p>
                 </div>
-                <h2 className="text-lg font-semibold text-white mb-2">Setup complete</h2>
-                <p className="text-sm text-gray-400 max-w-sm mx-auto">
-                  Your account is configured. The dashboard will show any remaining setup items as action items so you can finish up at your own pace.
-                </p>
+                <div className="flex items-center gap-2 text-green-400">
+                  <CheckCircle2 className="w-5 h-5" />
+                  <span className="text-base font-semibold">You're all set up!</span>
+                </div>
               </div>
 
               {/* Add to Home Screen prompt */}
               {installStatus !== 'installed' && installStatus !== 'unsupported' && (
-                <div className="app-card p-3 mb-2 space-y-2">
+                <div className="app-card p-3 space-y-2">
                   <div className="flex items-center gap-2">
                     <Smartphone className="w-4 h-4 text-blue-400 flex-shrink-0" />
                     <p className="text-xs font-medium text-gray-300">Add E.L.F.I.E. to your home screen</p>
@@ -671,12 +709,7 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                   {installStatus === 'promptable' ? (
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-[11px] text-gray-500">Get one-tap access from any device.</p>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={async () => { await promptInstall(); }}
-                        data-testid="button-onboard-install"
-                      >
+                      <Button size="sm" variant="outline" onClick={async () => { await promptInstall(); }} data-testid="button-onboard-install">
                         Add now
                       </Button>
                     </div>
