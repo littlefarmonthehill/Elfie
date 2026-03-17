@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -416,6 +415,7 @@ function HistoryTab() {
 // ─── Drawer shell ─────────────────────────────────────────────────────────────
 
 export function BillingDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [billingTab, setBillingTab] = useState<'current' | 'history'>('current');
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent
@@ -434,24 +434,36 @@ export function BillingDrawer({ open, onClose }: { open: boolean; onClose: () =>
           </Button>
         </SheetHeader>
 
-        <Tabs defaultValue="current" className="flex flex-col flex-1 min-h-0 overflow-hidden">
-          <div className="px-4 pb-0 pt-2 border-b border-white/8 flex-shrink-0">
-            <TabsList className="bg-gray-800/60 h-8 gap-1">
-              <TabsTrigger value="current" className="text-xs h-6" data-testid="tab-current-billing">
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <div className="px-4 py-2 border-b border-white/8 flex-shrink-0">
+            <div className="tool-seg-bar">
+              <button
+                onClick={() => setBillingTab('current')}
+                className={`tool-seg ${billingTab === 'current' ? 'bg-gray-700 text-gray-100' : 'tool-seg-off'}`}
+                data-testid="tab-current-billing"
+              >
                 Current Billing
-              </TabsTrigger>
-              <TabsTrigger value="history" className="text-xs h-6" data-testid="tab-previous-invoices">
+              </button>
+              <button
+                onClick={() => setBillingTab('history')}
+                className={`tool-seg ${billingTab === 'history' ? 'bg-gray-700 text-gray-100' : 'tool-seg-off'}`}
+                data-testid="tab-previous-invoices"
+              >
                 Invoice History
-              </TabsTrigger>
-            </TabsList>
+              </button>
+            </div>
           </div>
-          <TabsContent value="current" className="flex-1 min-h-0 overflow-y-auto px-4 py-4 mt-0" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-            <CurrentBillingTab />
-          </TabsContent>
-          <TabsContent value="history" className="flex-1 min-h-0 overflow-y-auto px-4 py-4 mt-0" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-            <HistoryTab />
-          </TabsContent>
-        </Tabs>
+          {billingTab === 'current' && (
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+              <CurrentBillingTab />
+            </div>
+          )}
+          {billingTab === 'history' && (
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+              <HistoryTab />
+            </div>
+          )}
+        </div>
       </SheetContent>
     </Sheet>
   );
