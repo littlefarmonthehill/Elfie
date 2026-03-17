@@ -12418,6 +12418,62 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
+  // GET warehouse settings (depth preference)
+  app.get("/api/warehouse/settings", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const [org] = await db.select({ warehouseDepth: organizations.warehouseDepth })
+        .from(organizations)
+        .where(eq(organizations.id, orgId));
+      res.json({ depth: org?.warehouseDepth ?? 3 });
+    } catch (error) {
+      console.error("Error fetching warehouse settings:", error);
+      res.status(500).json({ error: "Failed to fetch warehouse settings" });
+    }
+  });
+
+  // PATCH warehouse settings (depth preference)
+  app.patch("/api/warehouse/settings", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const depth = parseInt(req.body.depth);
+      if (![1, 2, 3].includes(depth)) return res.status(400).json({ error: "depth must be 1, 2, or 3" });
+      const [updated] = await db.update(organizations)
+        .set({ warehouseDepth: depth, updatedAt: new Date() })
+        .where(eq(organizations.id, orgId))
+        .returning({ warehouseDepth: organizations.warehouseDepth });
+      res.json({ depth: updated.warehouseDepth });
+    } catch (error) {
+      console.error("Error updating warehouse settings:", error);
+      res.status(500).json({ error: "Failed to update warehouse settings" });
+    }
+  });
+
+  // POST bulk create bins
+  app.post("/api/warehouse/bins/bulk", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { prefix, start, end, padLength, shelfId } = req.body;
+      if (!prefix || start == null || end == null) return res.status(400).json({ error: "prefix, start, and end are required" });
+      const from = parseInt(start);
+      const to = parseInt(end);
+      if (isNaN(from) || isNaN(to) || from > to || to - from > 499) {
+        return res.status(400).json({ error: "Invalid range (max 500 bins at once)" });
+      }
+      const pad = parseInt(padLength) || 0;
+      const rows = [];
+      for (let i = from; i <= to; i++) {
+        const num = pad > 0 ? String(i).padStart(pad, '0') : String(i);
+        rows.push({ name: `${prefix}${num}`, shelfId: shelfId ? parseInt(shelfId) : null, orgId });
+      }
+      const created = await db.insert(whBins).values(rows).returning();
+      res.json({ created: created.length, bins: created });
+    } catch (error) {
+      console.error("Error bulk creating bins:", error);
+      res.status(500).json({ error: "Failed to bulk create bins" });
+    }
+  });
+
   // Picklist Routes
   
   // Get picklist stats (unique bins still to pull)

@@ -1038,6 +1038,15 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-50 (item_no on order_details) complete.');
 
+    // ── Phase-51: warehouse_depth on organizations ────────────────────────────
+    // Stores per-org warehouse hierarchy depth preference:
+    //   1 = bins only, 2 = shelves + bins, 3 = aisles + shelves + bins (default)
+    await client.query(`
+      ALTER TABLE organizations
+        ADD COLUMN IF NOT EXISTS warehouse_depth INTEGER NOT NULL DEFAULT 3
+    `);
+    console.log('[Migration] Phase-51 (warehouse_depth on organizations) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

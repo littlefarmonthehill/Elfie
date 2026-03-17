@@ -94,6 +94,8 @@ export const organizations = pgTable("organizations", {
   billingStartDate: timestamp("billing_start_date"),
   // Sales-percentage billing plan (references plans.id). Null = no plan assigned.
   planId: integer("plan_id"),
+  // Warehouse depth: 1 = bins only, 2 = shelves + bins, 3 = aisles + shelves + bins (default)
+  warehouseDepth: integer("warehouse_depth").default(3).notNull(),
 });
 
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({
