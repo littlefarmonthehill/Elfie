@@ -402,7 +402,7 @@ export default function FulfillmentTool() {
 
     const PAGE_W = 215.9;
     const PAGE_H = 279.4;
-    const MARGIN = 8;
+    const MARGIN = 6.35; // 0.25 in — industry-minimum for laser printers
     const CONTENT_W = PAGE_W - 2 * MARGIN;
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
@@ -465,9 +465,7 @@ export default function FulfillmentTool() {
     }
 
     const blob = doc.output('blob');
-    const url = URL.createObjectURL(blob);
-    openPdfAndPrint(url);
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    openPdfAndPrint(URL.createObjectURL(blob));
   };
 
   const handlePrintLotLabels = (orderIds: string[]) => {

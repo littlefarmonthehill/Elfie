@@ -46,10 +46,10 @@ interface PackingSlipProps {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MARGIN   = 7.62;         // 0.3 in → mm
+const MARGIN   = 6.35;         // 0.25 in → mm (industry-minimum for laser printers)
 const PAGE_W   = 215.9;        // letter width mm
 const PAGE_H   = 279.4;        // letter height mm
-const CONTENT_W = PAGE_W - 2 * MARGIN;  // 200.66 mm
+const CONTENT_W = PAGE_W - 2 * MARGIN;  // 203.2 mm
 const LOGO_H   = 28;           // target logo height in mm
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -93,6 +93,11 @@ export function openPdfAndPrint(blobUrl: string): void {
   const doPrint = () => {
     if (printed) return;
     printed = true;
+    // Close the PDF window when the user dismisses the print dialog
+    win.addEventListener('afterprint', () => {
+      win.close();
+      URL.revokeObjectURL(blobUrl);
+    }, { once: true });
     try { win.print(); } catch { /* cross-origin guard */ }
   };
   win.addEventListener('load', doPrint, { once: true });
