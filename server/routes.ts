@@ -12449,6 +12449,22 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
+  // QR code SVG generator for warehouse labels
+  app.get("/api/warehouse/labels/qr", async (req, res) => {
+    try {
+      const data = String(req.query.data || '');
+      const size = Math.min(300, Math.max(50, parseInt(String(req.query.size || '120'))));
+      if (!data) return res.status(400).json({ error: 'data required' });
+      const QRCode = await import('qrcode');
+      const svg = await QRCode.toString(data, { type: 'svg', width: size, margin: 1, color: { dark: '#000000', light: '#ffffff' } });
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.send(svg);
+    } catch (err) {
+      res.status(500).json({ error: 'QR generation failed' });
+    }
+  });
+
   // GET warehouse settings (depth preference)
   app.get("/api/warehouse/settings", isApproved, async (req: any, res) => {
     try {

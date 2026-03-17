@@ -35,8 +35,10 @@ import {
   X,
   ExternalLink,
   SplitSquareHorizontal,
+  Printer,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { QRCodeSVG } from "qrcode.react";
 
 interface WarehouseManagementProps {
   onItemClick?: (type: 'inventory', id: number) => void;
@@ -94,6 +96,10 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [showAddLocation, setShowAddLocation] = useState(false);
   const [editingLocationId, setEditingLocationId] = useState<number | null>(null);
   const [editLocQty, setEditLocQty] = useState<string>("");
+
+  // Print labels state
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [printLabelSize, setPrintLabelSize] = useState<'small' | 'medium' | 'large'>('medium');
 
   // Bulk bin state
   const [bulkPrefix, setBulkPrefix] = useState("BIN-");
@@ -406,6 +412,86 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     return <div className="flex items-center justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
   }
 
+  // Build selected items data for print dialog
+  const printItems = (() => {
+    if (!activeView || selectedItems.size === 0) return [];
+    const ids = Array.from(selectedItems);
+    if (activeView === 'bins') return bins.filter((b: any) => ids.includes(b.id));
+    if (activeView === 'shelves') return shelves.filter((s: any) => ids.includes(s.id));
+    if (activeView === 'aisles') return aisles.filter((a: any) => ids.includes(a.id));
+    return [];
+  })();
+
+  const getLabelQrData = (item: any) => {
+    if (activeView === 'bins') return `BIN:${item.name}`;
+    if (activeView === 'shelves') return `SHELF:${item.name}`;
+    if (activeView === 'aisles') return `AISLE:${item.name}`;
+    return item.name || String(item.id);
+  };
+
+  const getLabelSubtext = (item: any) => {
+    if (activeView === 'bins') return [item.shelfName && `Shelf: ${item.shelfName}`, item.aisleName && `Aisle: ${item.aisleName}`].filter(Boolean).join('  ·  ');
+    if (activeView === 'shelves') return item.aisleName ? `Aisle: ${item.aisleName}` : '';
+    return '';
+  };
+
+  const LABEL_DIMS: Record<string, { w: string; h: string; qr: number; font: string; sub: string }> = {
+    small:  { w: '2in',   h: '1in',   qr: 50,  font: '11px', sub: '8px'  },
+    medium: { w: '2.5in', h: '1.5in', qr: 70,  font: '13px', sub: '9px'  },
+    large:  { w: '4in',   h: '2in',   qr: 100, font: '16px', sub: '10px' },
+  };
+
+  const handlePrint = () => {
+    if (printItems.length === 0) return;
+    const origin = window.location.origin;
+    const dims = LABEL_DIMS[printLabelSize];
+    const labelHtml = printItems.map((item: any) => {
+      const qrData = getLabelQrData(item);
+      const sub = getLabelSubtext(item);
+      const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${dims.qr * 2}`;
+      return `
+        <div class="label">
+          <img class="qr" src="${qrUrl}" width="${dims.qr}" height="${dims.qr}" />
+          <div class="info">
+            <div class="main">${item.name}</div>
+            ${sub ? `<div class="sub">${sub}</div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: 'Helvetica Neue', Arial, sans-serif; background: white; }
+      .grid { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; }
+      .label {
+        width: ${dims.w}; height: ${dims.h};
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px;
+        page-break-inside: avoid;
+        background: white;
+      }
+      .qr { display: block; flex-shrink: 0; }
+      .info { flex: 1; min-width: 0; overflow: hidden; }
+      .main { font-size: ${dims.font}; font-weight: 700; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .sub { font-size: ${dims.sub}; color: #555; margin-top: 3px; }
+      @page { margin: 0.25in; }
+      @media print { body { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+    </style></head><body onload="window.print(); window.close();">
+    <div class="grid">${labelHtml}</div>
+    </body></html>`;
+
+    const win = window.open('', '_blank', 'width=800,height=600');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+    }
+    setPrintDialogOpen(false);
+  };
+
   return (
     <div className="space-y-3 min-h-[60vh]">
 
@@ -618,6 +704,18 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 </Select>
               )}
               <Button size="sm" onClick={handleBulkAssign} className="text-xs h-7">Assign</Button>
+              {(activeView === 'bins' || activeView === 'shelves' || activeView === 'aisles') && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs h-7 gap-1"
+                  onClick={() => setPrintDialogOpen(true)}
+                  data-testid="button-print-labels"
+                >
+                  <Printer className="h-3 w-3" />
+                  Print Labels
+                </Button>
+              )}
               <Button size="sm" variant="ghost" onClick={() => setSelectedItems(new Set())} className="text-xs h-7">Clear</Button>
             </div>
           )}
@@ -702,6 +800,98 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           </div>
         </Card>
       )}
+
+      {/* Print Labels Dialog */}
+      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Printer className="h-4 w-4 text-muted-foreground" />
+              Print Labels
+            </DialogTitle>
+            <DialogDescription>
+              {printItems.length} {activeView} label{printItems.length !== 1 ? 's' : ''} selected. Each label includes a QR code for scan-to-pick.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Size selector */}
+            <div>
+              <Label className="text-xs mb-2 block">Label size</Label>
+              <div className="flex gap-2">
+                {(['small', 'medium', 'large'] as const).map(size => (
+                  <button
+                    key={size}
+                    onClick={() => setPrintLabelSize(size)}
+                    className={`flex-1 rounded-md border py-2 px-3 text-xs text-left transition-colors ${printLabelSize === size ? 'border-primary bg-primary/10 text-primary' : 'border-border hover-elevate'}`}
+                    data-testid={`button-label-size-${size}`}
+                  >
+                    <div className="font-medium capitalize">{size}</div>
+                    <div className="text-muted-foreground mt-0.5">
+                      {size === 'small' && '2" × 1"'}
+                      {size === 'medium' && '2.5" × 1.5"'}
+                      {size === 'large' && '4" × 2"'}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Preview */}
+            <div>
+              <Label className="text-xs mb-2 block text-muted-foreground">Preview (first {Math.min(4, printItems.length)})</Label>
+              <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                {printItems.slice(0, 4).map((item: any) => {
+                  const qrData = getLabelQrData(item);
+                  const sub = getLabelSubtext(item);
+                  return (
+                    <div
+                      key={item.id}
+                      className={`flex items-center gap-2 border border-border rounded-md bg-white dark:bg-zinc-900 p-2 ${
+                        printLabelSize === 'small' ? 'h-10' : printLabelSize === 'medium' ? 'h-16' : 'h-24'
+                      }`}
+                    >
+                      <QRCodeSVG
+                        value={qrData}
+                        size={printLabelSize === 'small' ? 28 : printLabelSize === 'medium' ? 44 : 64}
+                        bgColor="transparent"
+                        fgColor="currentColor"
+                        className="shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className={`font-bold text-foreground truncate ${printLabelSize === 'small' ? 'text-[10px]' : printLabelSize === 'medium' ? 'text-xs' : 'text-sm'}`}>
+                          {item.name}
+                        </p>
+                        {sub && (
+                          <p className="text-[9px] text-muted-foreground truncate mt-0.5">{sub}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {printItems.length > 4 && (
+                  <div className="col-span-2 text-center text-xs text-muted-foreground py-2">
+                    +{printItems.length - 4} more labels will be printed
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <Button
+                className="flex-1 gap-2"
+                onClick={handlePrint}
+                disabled={printItems.length === 0}
+                data-testid="button-print-confirm"
+              >
+                <Printer className="h-4 w-4" />
+                Print {printItems.length} Label{printItems.length !== 1 ? 's' : ''}
+              </Button>
+              <Button variant="ghost" onClick={() => setPrintDialogOpen(false)}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Lot Locations Dialog */}
       <Dialog open={lotDialogOpen} onOpenChange={open => { setLotDialogOpen(open); if (!open) setSelectedLot(null); }}>
