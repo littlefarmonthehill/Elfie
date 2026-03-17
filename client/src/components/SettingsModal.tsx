@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { AppSettings, User, Organization, OrgIntegration } from "@shared/schema";
 import { DimensionWheel, ScoringWheel, type PricingInsight } from "@/components/PriceOMaticDashboard";
-import { BillingDrawer } from "@/components/BillingDrawer";
 import { APP_VERSION, APP_NAME } from "@shared/version";
 import { CAPABILITY_STATUS_STYLES, CAPABILITY_STATUS_LABELS, CAPABILITY_STATUS_DOT_COLORS, TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
 import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Flag, Zap, Globe, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save, ClipboardPaste, Headphones, MessageCircle, Send, Target, Map, ListTodo, Crosshair, ThumbsUp, BarChart3 } from "lucide-react";
@@ -40,7 +39,7 @@ interface SettingsModalProps {
   scoringExample?: PricingInsight;
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'billing' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -2126,296 +2125,6 @@ function PlansAndPricingPanel() {
   );
 }
 
-type BillingMonthSummary = {
-  label: string;
-  year: number;
-  periodStart: string;
-  periodEnd: string;
-  monthlySalesCents: number;
-  billing: { baseFee: number; salesFee: number; totalDue: number };
-};
-
-function BillingHistoryPanel({
-  months,
-  onOpenDrawer,
-  isLoading,
-}: {
-  months: BillingMonthSummary[];
-  onOpenDrawer: () => void;
-  isLoading: boolean;
-}) {
-  const fmtC = (c: number) => `$${(c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const currentYear = new Date().getFullYear();
-
-  // Group months by year
-  const byYear = new Map<number, BillingMonthSummary[]>();
-  for (const m of months) {
-    if (!byYear.has(m.year)) byYear.set(m.year, []);
-    byYear.get(m.year)!.push(m);
-  }
-  const years = [...byYear.keys()].sort((a, b) => b - a);
-
-  return (
-    <div className="bg-gray-900/40 border border-gray-800 rounded-lg overflow-hidden">
-      {/* Panel header */}
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-800">
-        <div className="flex items-center gap-1.5 text-xs text-gray-400">
-          <Clock className="w-3.5 h-3.5" />
-          <span>Billing History</span>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-[10px] h-6 px-2 text-blue-400"
-          onClick={onOpenDrawer}
-          data-testid="button-open-billing-drawer"
-        >
-          Full breakdown
-        </Button>
-      </div>
-
-      {isLoading && (
-        <div className="flex items-center justify-center py-6">
-          <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
-        </div>
-      )}
-
-      {!isLoading && months.length === 0 && (
-        <div className="px-3 py-4 text-center text-[11px] text-gray-600">
-          No previous invoices yet — history appears after your first billing period.
-        </div>
-      )}
-
-      {!isLoading && years.map((yr, idx) => (
-        <YearHistorySection
-          key={yr}
-          year={yr}
-          months={byYear.get(yr)!}
-          defaultOpen={yr === currentYear}
-          fmtC={fmtC}
-          onOpenDrawer={onOpenDrawer}
-          hasBorderTop={idx > 0}
-        />
-      ))}
-
-      {!isLoading && months.length > 0 && (
-        <div className="px-3 py-2 border-t border-gray-800">
-          <button
-            className="text-[10px] text-gray-500 hover:text-gray-300 flex items-center gap-1 transition-colors"
-            onClick={onOpenDrawer}
-            data-testid="button-how-billing-works"
-          >
-            <Info className="w-3 h-3" />
-            How Pay As You Grow billing works
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function YearHistorySection({
-  year,
-  months,
-  defaultOpen,
-  fmtC,
-  onOpenDrawer,
-  hasBorderTop,
-}: {
-  year: number;
-  months: BillingMonthSummary[];
-  defaultOpen: boolean;
-  fmtC: (c: number) => string;
-  onOpenDrawer: () => void;
-  hasBorderTop: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  const yearTotal = months.reduce((s, m) => s + m.billing.totalDue, 0);
-  const yearSales = months.reduce((s, m) => s + m.monthlySalesCents, 0);
-
-  return (
-    <div className={hasBorderTop ? 'border-t border-gray-800' : ''}>
-      {/* Year header — clickable to collapse */}
-      <button
-        className="w-full flex items-center justify-between gap-3 px-3 py-2.5 hover-elevate text-left"
-        onClick={() => setOpen((o) => !o)}
-        data-testid={`billing-year-${year}`}
-      >
-        <div className="flex items-center gap-2">
-          {open
-            ? <ChevronDown className="w-3.5 h-3.5 text-gray-500 shrink-0" />
-            : <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />
-          }
-          <span className="text-xs font-semibold text-gray-300">{year}</span>
-          <span className="text-[10px] text-gray-600">{months.length} month{months.length !== 1 ? 's' : ''}</span>
-        </div>
-        <div className="text-right shrink-0">
-          <div className="text-xs font-mono text-gray-300 tabular-nums">{fmtC(yearTotal)}</div>
-          <div className="text-[9px] text-gray-600 tabular-nums">{fmtC(yearSales)} in sales</div>
-        </div>
-      </button>
-
-      {/* Month rows */}
-      {open && (
-        <div className="border-t border-gray-800/60 divide-y divide-gray-800/60">
-          {months.map((m) => (
-            <MonthHistoryRow key={m.periodStart} month={m} fmtC={fmtC} onOpenDrawer={onOpenDrawer} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MonthHistoryRow({
-  month,
-  fmtC,
-  onOpenDrawer,
-}: {
-  month: BillingMonthSummary;
-  fmtC: (c: number) => string;
-  onOpenDrawer: () => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const hasSalesFee = month.billing.salesFee > 0;
-
-  return (
-    <div>
-      <button
-        className="w-full flex items-center gap-3 px-4 py-2 hover-elevate text-left"
-        onClick={() => setExpanded((e) => !e)}
-        data-testid={`billing-month-${month.periodStart}`}
-      >
-        <div className="flex-1 min-w-0 flex items-center gap-2">
-          {expanded
-            ? <ChevronDown className="w-3 h-3 text-gray-600 shrink-0" />
-            : <ChevronRight className="w-3 h-3 text-gray-600 shrink-0" />
-          }
-          <span className="text-[11px] text-gray-400">{month.label}</span>
-          <span className="text-[10px] text-gray-600 tabular-nums">{fmtC(month.monthlySalesCents)} GMV</span>
-        </div>
-        <span className={`text-xs font-mono font-semibold tabular-nums shrink-0 ${hasSalesFee ? 'text-purple-300' : 'text-gray-300'}`}>
-          {fmtC(month.billing.totalDue)}
-        </span>
-      </button>
-
-      {expanded && (
-        <div className="mx-4 mb-2 rounded-md border border-white/6 bg-gray-900/50 overflow-hidden divide-y divide-white/5 text-[10px]">
-          <div className="flex items-center justify-between px-3 py-1.5">
-            <span className="text-gray-500">GMV this month</span>
-            <span className="text-gray-400 tabular-nums">{fmtC(month.monthlySalesCents)}</span>
-          </div>
-          <div className="flex items-center justify-between px-3 py-1.5">
-            <span className="text-gray-500">Base fee</span>
-            <span className="text-gray-400 tabular-nums">{fmtC(month.billing.baseFee)}</span>
-          </div>
-          <div className="flex items-center justify-between px-3 py-1.5">
-            <span className="text-gray-500">Sales fee</span>
-            <span className={hasSalesFee ? 'text-purple-300 tabular-nums' : 'text-gray-600'}>
-              {hasSalesFee ? `+${fmtC(month.billing.salesFee)}` : '$0.00'}
-            </span>
-          </div>
-          <div className="flex items-center justify-between px-3 py-1.5 bg-gray-800/40">
-            <span className="text-gray-300 font-semibold">Total</span>
-            <span className={`font-bold tabular-nums ${hasSalesFee ? 'text-purple-300' : 'text-gray-200'}`}>
-              {fmtC(month.billing.totalDue)}
-            </span>
-          </div>
-          <div className="px-3 py-1.5 flex justify-end">
-            <button
-              onClick={onOpenDrawer}
-              className="text-[9px] text-blue-400/60 hover:text-blue-300 transition-colors"
-            >
-              Full invoice in billing drawer →
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MyPlanUsagePanel() {
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
-  const { data: usage, isLoading } = useQuery<{
-    orgId: string;
-    billingStartDate?: string | null;
-    subscriptionStatus?: string;
-    period?: { start: string; end: string };
-    plan: { id: number; name: string; basePrice: number; salesPercentage: number; freeSalesThreshold: number };
-    monthlySalesCents: number;
-    billing: { baseFee: number; salesFee: number; totalDue: number };
-  }>({ queryKey: ['/api/org/usage'] });
-
-  type MonthSummary = {
-    label: string;
-    year: number;
-    periodStart: string;
-    periodEnd: string;
-    monthlySalesCents: number;
-    billing: { baseFee: number; salesFee: number; totalDue: number };
-  };
-  const { data: historyData, isLoading: historyLoading } = useQuery<{ months: MonthSummary[] }>({ queryKey: ['/api/org/billing/history'] });
-
-  if (isLoading) return <div className="flex items-center justify-center py-8"><Loader2 className="w-4 h-4 animate-spin text-gray-500" /></div>;
-  if (!usage) return <div className="text-center py-4 text-xs text-gray-500">Unable to load usage data.</div>;
-
-  const fmtC = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  const salesOver = Math.max(0, usage.monthlySalesCents - usage.plan.freeSalesThreshold);
-  const pct = usage.plan.freeSalesThreshold > 0
-    ? Math.min(100, (usage.monthlySalesCents / usage.plan.freeSalesThreshold) * 100)
-    : 0;
-  const barColor = pct >= 100 ? 'bg-purple-500/70' : pct >= 80 ? 'bg-amber-400/70' : 'bg-green-500/60';
-
-  return (
-    <div className="space-y-4">
-      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{usage.plan.name}</h3>
-
-      {/* Current billing summary */}
-      <div className="bg-gray-900/40 border border-gray-800 rounded-lg p-4 space-y-3" data-testid="section-my-plan-usage">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-400">This Month's Bill</span>
-          <span className="text-lg font-bold text-white tabular-nums">
-            {fmtC(usage.billing.totalDue)}
-            <span className="text-xs text-gray-500 font-normal">/mo</span>
-          </span>
-        </div>
-
-        {/* GMV progress bar */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-[10px] text-gray-500">
-            <span>Monthly GMV</span>
-            <span className="tabular-nums">{fmtC(usage.monthlySalesCents)} / {fmtC(usage.plan.freeSalesThreshold)} free</span>
-          </div>
-          <div className="h-2 rounded-full bg-gray-700/50 overflow-hidden">
-            <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${Math.min(100, pct)}%` }} />
-          </div>
-        </div>
-
-        {/* Fee breakdown */}
-        <div className="divide-y divide-white/5 rounded-md border border-gray-700/50 overflow-hidden text-[10px]">
-          <div className="flex items-center justify-between px-3 py-1.5">
-            <span className="text-gray-500">Base fee</span>
-            <span className="text-gray-400 tabular-nums">{fmtC(usage.billing.baseFee)}</span>
-          </div>
-          <div className="flex items-center justify-between px-3 py-1.5">
-            <span className="text-gray-500">{usage.plan.salesPercentage}% on {fmtC(salesOver)} over threshold</span>
-            <span className={usage.billing.salesFee > 0 ? 'text-purple-300 tabular-nums' : 'text-gray-600'}>
-              {usage.billing.salesFee > 0 ? `+${fmtC(usage.billing.salesFee)}` : '$0.00'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Billing history — year-grouped */}
-      <BillingHistoryPanel months={historyData?.months ?? []} onOpenDrawer={() => setDrawerOpen(true)} isLoading={historyLoading} />
-
-      <BillingDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
-    </div>
-  );
-}
-
 export default function SettingsModal({ open, onClose, initialSection, initialPlatformTab, pricingExample, scoringExample }: SettingsModalProps) {
   const { toast } = useToast();
   const { status: installStatus, promptInstall } = useInstallPrompt();
@@ -2831,18 +2540,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
   const [showClearPomDialog, setShowClearPomDialog] = useState(false);
 
-
-  type TenantPayment = {
-    id: string; amount: number; currency: string; status: string | null;
-    description: string | null; periodStart: number; periodEnd: number;
-    created: number; hostedUrl: string | null; pdfUrl: string | null;
-  };
-  const { data: tenantPaymentsData, isLoading: tenantPaymentsLoading } = useQuery<{ payments: TenantPayment[] }>({
-    queryKey: ['/api/billing/payments'],
-    enabled: open && activeSection === 'billing',
-    staleTime: 60000,
-    retry: 0,
-  });
 
   // Must be declared before any useEffect that references `org` in its dependency array
   const { data: org } = useQuery<Organization>({
@@ -3790,7 +3487,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: TrendingUp },
     { id: 'data' as const, label: 'Store Data', icon: HardDrive },
     { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
-    { id: 'billing' as const, label: 'My Plan', icon: CreditCard },
     { id: 'about' as const, label: 'About & Credits', icon: Info },
     { id: 'legal' as const, label: 'Legal & Terms', icon: FileText },
   ];
@@ -5637,12 +5333,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   <EmbeddingsManager searchOnly />
                 </div>
               </div>
-              </div>
-            )}
-
-            {activeSection === 'billing' && (
-              <div className="p-4">
-                <MyPlanUsagePanel />
               </div>
             )}
 
