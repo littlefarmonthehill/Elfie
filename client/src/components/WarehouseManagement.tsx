@@ -696,22 +696,34 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           </p>
         </Card>
       ) : (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Archive className="h-3.5 w-3.5" />
             <span className="font-medium">{depthOption.label}</span>
-            <span className="text-muted-foreground/60">— {depthOption.description}</span>
+            <span className="text-muted-foreground/60 hidden sm:inline">— {depthOption.description}</span>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowDepthSetup(true)}
-            className="text-xs h-7 px-2"
-            data-testid="button-warehouse-setup"
-          >
-            <Settings2 className="h-3.5 w-3.5 mr-1" />
-            Change
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs h-7 px-2 gap-1"
+              onClick={() => { setImportCsvOpen(true); setImportResult(null); setImportCsvText(""); }}
+              data-testid="button-import-csv-top"
+            >
+              <Upload className="h-3 w-3" />
+              Import CSV
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDepthSetup(true)}
+              className="text-xs h-7 px-2"
+              data-testid="button-warehouse-setup"
+            >
+              <Settings2 className="h-3.5 w-3.5 mr-1" />
+              Change
+            </Button>
+          </div>
         </div>
       )}
 
