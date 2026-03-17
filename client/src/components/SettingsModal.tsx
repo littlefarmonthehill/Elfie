@@ -2636,7 +2636,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [activeOrg, setActiveOrg] = useState<OrgWithUsage | null>(null);
   const [activeOrgTab, setActiveOrgTab] = useState<'features' | 'limits' | 'billing'>('features');
   const [activePlatformInnerTab, setActivePlatformInnerTab] = useState<'platforms' | 'scheduler'>('platforms');
-  const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'plan' | 'team'>('info');
+  const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'team'>('info');
   const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'stripe' | 'openai' | 'bricklink'>('bricklink');
   const [activeSchedulerTab, setActiveSchedulerTab] = useState<'catalog' | 'embeddings' | 'market'>('catalog');
   const [activeAuditTab, setActiveAuditTab] = useState<'organization' | 'platform'>('organization');
@@ -2831,18 +2831,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
   const [showClearPomDialog, setShowClearPomDialog] = useState(false);
 
-
-  type TenantLimitsData = {
-    plan: string;
-    limits: Record<string, number>;
-    usage: { seats: { count: number; limit: number }; automationRules: { count: number; limit: number }; brickspotterScans: { scansUsed: number; scansLimit: number } };
-  };
-  const { data: tenantLimitsData, isLoading: tenantLimitsLoading } = useQuery<TenantLimitsData>({
-    queryKey: ['/api/admin/organizations', user?.orgId, 'limits'],
-    enabled: open && activeSection === 'general' && activeGeneralTab === 'plan' && !!user?.orgId,
-    staleTime: 30000,
-    retry: 0,
-  });
 
   type TenantPayment = {
     id: string; amount: number; currency: string; status: string | null;
@@ -3994,7 +3982,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
               {/* Tab bar */}
               <div className="flex border-b border-gray-700 bg-gray-800/40 -mx-4 px-4 sm:-mx-6 sm:px-6 mb-4">
-                {(['info', 'plan', 'team'] as const).map(tab => (
+                {(['info', 'team'] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => setActiveGeneralTab(tab)}
@@ -4317,109 +4305,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
               )}
 
               {/* Features tab — read-only effective state */}
-              {activeGeneralTab === 'plan' && (() => {
-                const tier = getTierConfig(org?.plan ?? 'trial');
-                const fo = (org?.featureOverrides ?? {}) as Record<string, boolean>;
-                const FEATURE_ROWS: Array<{ key: string | null; tierKey: keyof typeof tier.features | null; label: string; icon: React.ElementType }> = [
-                  { key: 'elfieAiMode',      tierKey: 'elfieAiMode',        label: 'E.L.F.I.E. AI (Default)', icon: Brain },
-                  { key: 'elfieCustom',      tierKey: 'elfieCustom',        label: 'E.L.F.I.E. AI (Customized)', icon: Brain },
-                  { key: 'elfieLiveSupport', tierKey: 'elfieLiveSupport',   label: 'E.L.F.I.E. Live Support', icon: Headphones },
-                  { key: 'pom',              tierKey: 'priceOMatic',         label: 'Price-o-Matic',          icon: TrendingUp },
-                  { key: 'dataEnrichment',   tierKey: 'fullDataEnrichment',  label: 'Data Enrichment',        icon: Database },
-                  { key: 'brickSpotter',     tierKey: null,                  label: 'BrickSpotter Scanning',  icon: Zap },
-                  { key: 'warehouseModule',  tierKey: null,                  label: 'Warehouse Module',       icon: Package },
-                  { key: 'universalCatalog', tierKey: null,                  label: 'Universal Catalog',      icon: Globe },
-                  { key: null,               tierKey: 'brickOwl',            label: 'BrickOwl Integration',   icon: Globe },
-                  { key: null,               tierKey: 'easypostAutomation',  label: 'EasyPost Automation',    icon: Zap },
-                  { key: null,               tierKey: 'paymentSync',         label: 'Payment Sync',           icon: CreditCard },
-                ];
-                return (
-                <>
-                  <div className="sm-card">
-                    <div className="sm-card-header">
-                      <Flag className="h-3.5 w-3.5 text-yellow-500/70" />
-                      <span className="text-xs font-semibold text-gray-200">Features</span>
-                      <span className="text-[10px] text-gray-500 ml-1">— {org?.plan ?? 'trial'} plan</span>
-                    </div>
-                    <div className="grid grid-cols-[1fr_56px_48px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
-                      <span className="app-label">Feature</span>
-                      <span className="app-col-header">Plan</span>
-                      <span className="app-col-header">Active</span>
-                    </div>
-                    <div className="divide-y divide-gray-700/40">
-                      {[...FEATURE_ROWS].sort((a, b) => {
-                        const aOn = a.tierKey != null && tier.features[a.tierKey] ? 1 : 0;
-                        const bOn = b.tierKey != null && tier.features[b.tierKey] ? 1 : 0;
-                        return bOn - aOn;
-                      }).map(({ key, tierKey, label, icon: Icon }) => {
-                        const planDefault = tierKey != null ? tier.features[tierKey] : null;
-                        const overrideVal = key != null ? fo[key] : undefined;
-                        const isOverridden = key != null && overrideVal !== undefined;
-                        const effective = overrideVal !== undefined ? overrideVal : (planDefault ?? false);
-                        return (
-                          <div key={key ?? tierKey} className="grid grid-cols-[1fr_56px_48px] gap-2 items-center px-4 py-2.5">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Icon className="h-3.5 w-3.5 text-gray-500 shrink-0" />
-                              <span className="text-[11px] text-gray-300 truncate">{label}</span>
-                              {isOverridden && <span className="shrink-0 text-[8px] font-bold uppercase tracking-wide text-amber-400 border border-amber-500/40 rounded px-1 py-0.5">OVR</span>}
-                            </div>
-                            <div className="flex justify-center">
-                              {planDefault != null ? (
-                                <span className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${planDefault ? 'text-green-400 bg-green-500/10' : 'text-gray-600 bg-gray-700/50'}`}>
-                                  {planDefault ? 'ON' : 'OFF'}
-                                </span>
-                              ) : <span className="text-[9px] text-gray-700">—</span>}
-                            </div>
-                            <div className="flex justify-center">
-                              <span className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${effective ? 'text-green-400 bg-green-500/10' : 'text-gray-600 bg-gray-700/50'}`}>
-                                {effective ? 'ON' : 'OFF'}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="px-4 py-2 border-t border-gray-700/60">
-                      <p className="text-[9px] text-gray-600">OVR = feature has been individually overridden by platform admin</p>
-                    </div>
-                  </div>
-
-                  {/* Plan Limits */}
-                  {(() => {
-                    const fmtLimit = (n: number) => n === -1 ? '∞' : String(n);
-                    const rows = [
-                      { label: 'Seats',               planMax: fmtLimit(tier.limits.seats),                  usage: tenantLimitsData ? String(tenantLimitsData.usage.seats.count) : '—' },
-                      { label: 'BrickSpotter Scans/mo', planMax: fmtLimit(tier.limits.brickspotterScansPerMonth), usage: tenantLimitsData ? String(tenantLimitsData.usage.brickspotterScans.scansUsed) : '—' },
-                      { label: 'Automation Rules',     planMax: fmtLimit(tier.limits.automationRules),        usage: tenantLimitsData ? String(tenantLimitsData.usage.automationRules.count) : '—' },
-                    ];
-                    return (
-                      <div className="sm-card">
-                        <div className="sm-card-header">
-                          <Wrench className="h-3.5 w-3.5 text-yellow-500/70" />
-                          <span className="text-xs font-semibold text-gray-200">Plan Limits</span>
-                          {tenantLimitsLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-1" />}
-                        </div>
-                        <div className="grid grid-cols-[1fr_64px_64px] gap-2 px-4 py-1.5 border-b border-gray-700/60">
-                          <span className="app-label">Limit</span>
-                          <span className="app-col-header">Plan Max</span>
-                          <span className="app-col-header">In Use</span>
-                        </div>
-                        <div className="divide-y divide-gray-700/40">
-                          {rows.map(({ label, planMax, usage }) => (
-                            <div key={label} className="grid grid-cols-[1fr_64px_64px] gap-2 items-center px-4 py-2.5">
-                              <span className="text-[11px] text-gray-300">{label}</span>
-                              <span className="text-xs text-gray-500 text-center font-mono">{planMax}</span>
-                              <span className="text-xs text-gray-300 text-center font-mono">{usage}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </>
-                );
-              })()}
-
               {activeGeneralTab === 'team' && (
                 <UserManagementSection userCount={users?.length} />
               )}
