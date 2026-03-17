@@ -7,8 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2 } from "lucide-react";
-import { printPackingSlips } from "./PackingSlip";
-import PdfViewer from "./PdfViewer";
+import { printPackingSlips, openPdfAndPrint } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, PRIORITY_REGEX, toggleSetItem } from "@/lib/item-utils";
 import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult, OrderItem } from "./InlineShippingCard";
@@ -219,10 +218,6 @@ export default function FulfillmentTool() {
   const [isShippingAll, setIsShippingAll] = useState(false);
   const [batchResults, setBatchResults] = useState<BatchResult[]>([]);
 
-  // PDF viewer state
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const closePdf = () => { if (pdfUrl) { URL.revokeObjectURL(pdfUrl); setPdfUrl(null); } };
-
   // End of Day SCAN form state
   const [scanFormUrl, setScanFormUrl] = useState<string | null>(null);
 
@@ -377,8 +372,7 @@ export default function FulfillmentTool() {
       });
       
       const data = await response.json();
-      const url = await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined);
-      setPdfUrl(url);
+      await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined);
     } catch (error) {
       console.error('Error fetching packing slip data:', error);
       toast({
@@ -471,7 +465,9 @@ export default function FulfillmentTool() {
     }
 
     const blob = doc.output('blob');
-    setPdfUrl(URL.createObjectURL(blob));
+    const url = URL.createObjectURL(blob);
+    openPdfAndPrint(url);
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   const handlePrintLotLabels = (orderIds: string[]) => {
@@ -640,7 +636,6 @@ export default function FulfillmentTool() {
 
   return (
     <>
-      {pdfUrl && <PdfViewer url={pdfUrl} onClose={closePdf} />}
       {/* ── Single-column layout: tiles at top, tabbed content below ── */}
       <div className="space-y-4">
 

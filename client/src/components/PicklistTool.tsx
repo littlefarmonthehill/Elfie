@@ -344,8 +344,18 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
 
     const blob = doc.output('blob');
     const url = URL.createObjectURL(blob);
-    window.open(url, '_blank', 'noopener');
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    const win = window.open(url, '_blank', 'noopener');
+    if (win) {
+      let printed = false;
+      const doPrint = () => {
+        if (printed) return;
+        printed = true;
+        try { win.print(); } catch { /* cross-origin guard */ }
+      };
+      win.addEventListener('load', doPrint, { once: true });
+      setTimeout(doPrint, 1200);
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   // ── Derived data ──
