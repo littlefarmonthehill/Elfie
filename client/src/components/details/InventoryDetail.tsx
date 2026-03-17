@@ -192,7 +192,7 @@ function ItemBusinessInsightsDialog({ itemId, itemName, open, onOpenChange }: { 
     },
     staleTime: 5 * 60 * 1000,
     retry: 1,
-    enabled: open,
+    enabled: open && typeof itemId === 'number' && !isNaN(itemId) && itemId > 0,
   });
 
   return (
@@ -551,15 +551,17 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                   BIND #{data.bindId}
                 </Badge>
               )}
-              <button
-                onClick={() => setInsightsOpen(true)}
-                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-lego-orange/15 border border-lego-orange/30 text-lego-orange hover:bg-lego-orange/25 transition-colors"
-                data-testid="button-business-insights"
-                title="AI Business Insights"
-              >
-                <Sparkles className="h-3 w-3" />
-                <span className="text-[9px] md:text-xs font-semibold">Insights</span>
-              </button>
+              {!data.isBrickLinkCatalog && (
+                <button
+                  onClick={() => setInsightsOpen(true)}
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-lego-orange/15 border border-lego-orange/30 text-lego-orange hover:bg-lego-orange/25 transition-colors"
+                  data-testid="button-business-insights"
+                  title="AI Business Insights"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  <span className="text-[9px] md:text-xs font-semibold">Insights</span>
+                </button>
+              )}
             </div>
             <p className="text-xs text-white font-semibold mb-2 leading-tight" title={itemName}>
               {itemName}
