@@ -10178,6 +10178,192 @@ Return ONLY a JSON array, no markdown, no explanation.`;
     }
   });
 
+  // GET /api/catalog/item-insights — AI insights for a catalog item (not in inventory) using itemNo/itemType/colorId
+  app.get("/api/catalog/item-insights", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { itemNo, itemType, colorId: colorIdStr } = req.query as { itemNo?: string; itemType?: string; colorId?: string };
+      if (!itemNo || !itemType) return res.status(400).json({ error: "itemNo and itemType are required" });
+      const colorId = colorIdStr !== undefined ? parseInt(colorIdStr) : -1;
+      const effectiveColorId = isNaN(colorId) ? -1 : colorId === 0 ? -1 : colorId;
+
+      const [catalogItem] = await db
+        .select({
+          itemNo: blCatalog.itemNo,
+          itemType: blCatalog.itemType,
+          itemName: blCatalog.itemName,
+          colorName: blCatalog.colorName,
+          categoryName: blCategories.name,
+        })
+        .from(blCatalog)
+        .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
+        .where(and(
+          eq(blCatalog.itemNo, itemNo.toUpperCase()),
+          eq(blCatalog.itemType, itemType.toUpperCase()),
+          eq(blCatalog.colorId, effectiveColorId),
+        ))
+        .limit(1);
+
+      const pgResult = await db.execute(sql`
+        SELECT stock_avg_price, stock_min_price, stock_max_price, stock_total_lots,
+               sold_avg_price, sold_min_price, sold_max_price, sold_total_lots
+        FROM price_guide_cache
+        WHERE item_no = ${itemNo.toUpperCase()}
+          AND item_type = ${itemType.toUpperCase()}
+          AND new_or_used = 'N'
+        LIMIT 1
+      `);
+      const pgRow = pgResult.rows[0] as any;
+      const stockGuide = pgRow ? { avgPrice: pgRow.stock_avg_price, minPrice: pgRow.stock_min_price, maxPrice: pgRow.stock_max_price, totalLots: pgRow.stock_total_lots } : null;
+      const soldGuide = pgRow ? { avgPrice: pgRow.sold_avg_price, minPrice: pgRow.sold_min_price, maxPrice: pgRow.sold_max_price, totalLots: pgRow.sold_total_lots } : null;
+
+      // Sales history from this org's order_details by itemNo
+      const salesData = await db
+        .select({
+          quantity: orderDetails.quantity,
+          unitPrice: orderDetails.unitPrice,
+          orderDate: orders.orderDate,
+        })
+        .from(orderDetails)
+        .innerJoin(orders, and(eq(orderDetails.orderId, orders.id), eq(orders.orgId, orgId)))
+        .where(sql`UPPER(${orderDetails.itemNo}) = ${itemNo.toUpperCase()}`)
+        .orderBy(desc(orders.orderDate))
+        .limit(50);
+
+      const totalSold = salesData.reduce((s, r) => s + r.quantity, 0);
+      const totalRev = salesData.reduce((s, r) => s + r.quantity * parseFloat(r.unitPrice || '0'), 0);
+      let velocity = 0;
+      if (salesData.length > 0) {
+        const first = new Date(salesData[salesData.length - 1].orderDate);
+        const last = new Date(salesData[0].orderDate);
+        const months = (last.getTime() - first.getTime()) / (1000 * 60 * 60 * 24 * 30);
+        velocity = months > 0 ? totalSold / months : totalSold;
+      }
+      let daysSinceLastSold: number | null = null;
+      if (salesData.length > 0) {
+        daysSinceLastSold = Math.floor((Date.now() - new Date(salesData[0].orderDate).getTime()) / (1000 * 60 * 60 * 24));
+      }
+
+      const displayName = catalogItem?.itemName || itemNo;
+      const searchQuery = `${displayName} ${catalogItem?.categoryName || ''} LEGO`;
+
+      let marketNewsResults: any[] = [];
+      let forumResults: any[] = [];
+      try {
+        const { searchMarketNews, searchForumDiscussions } = await import('./services/ai-tools.js');
+        const [newsRes, forumRes] = await Promise.all([
+          searchMarketNews({ query: searchQuery, limit: 5 }),
+          searchForumDiscussions({ query: searchQuery, limit: 5 }),
+        ]);
+        marketNewsResults = newsRes.data || [];
+        forumResults = forumRes.data || [];
+      } catch (e: any) {
+        console.warn('[CatalogInsights] Embedding search error (non-fatal):', e.message);
+      }
+
+      const [platformSettings] = await db
+        .select({ openaiApiKey: appSettings.openaiApiKey })
+        .from(appSettings)
+        .where(eq(appSettings.id, 'platform'))
+        .limit(1);
+      const apiKey = platformSettings?.openaiApiKey || process.env.OPENAI_API_KEY;
+      if (!apiKey) return res.status(500).json({ error: "No AI API key configured" });
+
+      const prompt = `You are a LEGO/BrickLink business advisor. This is a catalog item the seller does NOT currently have in inventory. Analyze the market data and provide insights to help them decide whether to source and sell this item.
+
+ITEM DATA:
+- Name: ${displayName}
+- Part/Set Number: ${itemNo}
+- Type: ${itemType}
+- Category: ${catalogItem?.categoryName || 'Unknown'}
+- Color: ${catalogItem?.colorName || 'N/A'}
+
+PAST SALES (from this seller's order history):
+- Total units sold previously: ${totalSold}
+- Total revenue generated: $${totalRev.toFixed(2)}
+- Sales velocity: ${velocity.toFixed(1)} units/month
+- Days since last sold: ${daysSinceLastSold ?? 'Never sold'}
+
+MARKET DATA (BrickLink):
+- Current stock avg price: $${stockGuide?.avgPrice || 'N/A'} (${stockGuide?.totalLots || 0} sellers)
+- Current stock min: $${stockGuide?.minPrice || 'N/A'}, max: $${stockGuide?.maxPrice || 'N/A'}
+- Recent sold avg price: $${soldGuide?.avgPrice || 'N/A'} (${soldGuide?.totalLots || 0} transactions)
+- Recent sold min: $${soldGuide?.minPrice || 'N/A'}, max: $${soldGuide?.maxPrice || 'N/A'}
+
+RELEVANT MARKET NEWS:
+${marketNewsResults.length > 0 ? marketNewsResults.map(n => `- ${n.title}: ${n.snippet || ''}`).join('\n') : 'No relevant news found.'}
+
+RELEVANT FORUM DISCUSSIONS:
+${forumResults.length > 0 ? forumResults.map(f => `- ${f.title}: ${f.excerpt || ''}`).join('\n') : 'No relevant discussions found.'}
+
+Provide exactly 4-6 insights as a JSON array. Each insight must have:
+- "category": one of "pricing", "movement", "market", "category_trend", "opportunity", "risk"
+- "urgency": "high", "medium", or "low"
+- "title": short actionable headline (max 60 chars)
+- "summary": 1-2 sentence explanation with specific numbers/data
+- "source": what data informed this insight ("sales", "market_data", "news", "forum", "inventory")
+
+Focus on:
+1. Is this item worth sourcing? (demand signal from past sales + market liquidity)
+2. What price point makes sense? (based on market data)
+3. Market trends for this item or its category
+4. Any opportunities or risks (retirement, demand spikes, saturation)
+5. Sourcing urgency (high velocity + low stock = source now vs. wait)
+
+Be specific with numbers. Reference actual data points. Return ONLY a JSON array, no markdown, no explanation.`;
+
+      const openai = new (await import('openai')).default({ apiKey });
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3,
+        max_tokens: 2000,
+      });
+
+      const responseText = completion.choices[0]?.message?.content || '';
+      let insights: any[] = [];
+      try {
+        const trimmed = responseText.trim();
+        const parsed = JSON.parse(trimmed);
+        insights = Array.isArray(parsed) ? parsed : [parsed];
+      } catch {
+        const codeBlock = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (codeBlock) {
+          try {
+            const inner = JSON.parse(codeBlock[1].trim());
+            insights = Array.isArray(inner) ? inner : [inner];
+          } catch {}
+        }
+      }
+
+      const VALID_CATEGORIES = ['pricing', 'movement', 'market', 'category_trend', 'opportunity', 'risk'];
+      const VALID_URGENCIES = ['high', 'medium', 'low'];
+      insights = insights
+        .filter(i => i.title && i.summary)
+        .map(i => ({
+          category: VALID_CATEGORIES.includes(i.category) ? i.category : 'market',
+          urgency: VALID_URGENCIES.includes(i.urgency) ? i.urgency : 'medium',
+          title: String(i.title).slice(0, 100),
+          summary: String(i.summary).slice(0, 500),
+          source: i.source || 'market_data',
+        }));
+
+      res.json({
+        insights,
+        meta: {
+          newsCount: marketNewsResults.length,
+          forumCount: forumResults.length,
+          salesCount: salesData.length,
+          hasPriceGuide: !!(stockGuide || soldGuide),
+          isCatalog: true,
+        },
+      });
+    } catch (error: any) {
+      console.error("[CatalogInsights] Error:", error.message);
+      res.status(500).json({ error: "Failed to generate catalog insights" });
+    }
+  });
+
   // Rate Limit Status
   app.get("/api/bricklink/rate-limit", isApproved, async (req, res) => {
     try {

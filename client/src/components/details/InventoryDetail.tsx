@@ -183,16 +183,40 @@ const SOURCE_ICONS: Record<string, { icon: any; label: string }> = {
   inventory: { icon: Package, label: 'Inventory' },
 };
 
-function ItemBusinessInsightsDialog({ itemId, itemName, open, onOpenChange }: { itemId: number; itemName: string; open: boolean; onOpenChange: (open: boolean) => void }) {
+type ItemInsightsDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  itemName: string;
+} & (
+  | { mode: 'inventory'; itemId: number }
+  | { mode: 'catalog'; itemNo: string; itemType: string; colorId: number | null }
+);
+
+function ItemBusinessInsightsDialog(props: ItemInsightsDialogProps) {
+  const { open, onOpenChange, itemName } = props;
+  const isCatalogMode = props.mode === 'catalog';
+
+  const queryKey = isCatalogMode
+    ? ['/api/catalog/item-insights', (props as any).itemNo, (props as any).itemType, (props as any).colorId]
+    : ['/api/inventory', (props as any).itemId, 'item-insights'];
+
+  const apiUrl = isCatalogMode
+    ? `/api/catalog/item-insights?itemNo=${encodeURIComponent((props as any).itemNo)}&itemType=${encodeURIComponent((props as any).itemType)}&colorId=${(props as any).colorId ?? 0}`
+    : `/api/inventory/${(props as any).itemId}/item-insights`;
+
+  const enabled = isCatalogMode
+    ? open && !!(props as any).itemNo && !!(props as any).itemType
+    : open && typeof (props as any).itemId === 'number' && !isNaN((props as any).itemId) && (props as any).itemId > 0;
+
   const { data: insightsData, isLoading, isError, refetch, isFetching } = useQuery<ItemInsightsResponse>({
-    queryKey: ['/api/inventory', itemId, 'item-insights'],
+    queryKey,
     queryFn: async () => {
-      const res = await apiRequest('GET', `/api/inventory/${itemId}/item-insights`);
+      const res = await apiRequest('GET', apiUrl);
       return res as unknown as ItemInsightsResponse;
     },
     staleTime: 5 * 60 * 1000,
     retry: 1,
-    enabled: open && typeof itemId === 'number' && !isNaN(itemId) && itemId > 0,
+    enabled,
   });
 
   return (
@@ -201,16 +225,19 @@ function ItemBusinessInsightsDialog({ itemId, itemName, open, onOpenChange }: { 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
             <Sparkles className="h-4 w-4 text-lego-orange" />
-            <span className="text-lego-orange">Business Insights</span>
+            <span className="text-lego-orange">{isCatalogMode ? 'Market Insights' : 'Business Insights'}</span>
           </DialogTitle>
           <p className="text-xs text-gray-400 truncate">{itemName}</p>
+          {isCatalogMode && (
+            <p className="text-[10px] text-gray-600">Not in inventory — sourcing & market analysis</p>
+          )}
         </DialogHeader>
 
         {isLoading && (
           <div className="flex flex-col items-center justify-center gap-3 py-8">
             <Loader2 className="h-6 w-6 text-lego-orange animate-spin" />
             <div className="text-center">
-              <p className="text-xs text-gray-300">Analyzing item data...</p>
+              <p className="text-xs text-gray-300">{isCatalogMode ? 'Analyzing market data...' : 'Analyzing item data...'}</p>
               <p className="text-[10px] text-gray-500 mt-1">Checking market news, forums, sales history, and pricing</p>
             </div>
           </div>
@@ -551,17 +578,15 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                   BIND #{data.bindId}
                 </Badge>
               )}
-              {!data.isBrickLinkCatalog && (
-                <button
-                  onClick={() => setInsightsOpen(true)}
-                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-lego-orange/15 border border-lego-orange/30 text-lego-orange hover:bg-lego-orange/25 transition-colors"
-                  data-testid="button-business-insights"
-                  title="AI Business Insights"
-                >
-                  <Sparkles className="h-3 w-3" />
-                  <span className="text-[9px] md:text-xs font-semibold">Insights</span>
-                </button>
-              )}
+              <button
+                onClick={() => setInsightsOpen(true)}
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-lego-orange/15 border border-lego-orange/30 text-lego-orange hover:bg-lego-orange/25 transition-colors"
+                data-testid="button-business-insights"
+                title={data.isBrickLinkCatalog ? "Market Insights" : "AI Business Insights"}
+              >
+                <Sparkles className="h-3 w-3" />
+                <span className="text-[9px] md:text-xs font-semibold">Insights</span>
+              </button>
             </div>
             <p className="text-xs text-white font-semibold mb-2 leading-tight" title={itemName}>
               {itemName}
@@ -1577,12 +1602,25 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
         </div>
       </div>
 
-      <ItemBusinessInsightsDialog
-        itemId={data.id}
-        itemName={`${data.itemNo} — ${itemName}`}
-        open={insightsOpen}
-        onOpenChange={setInsightsOpen}
-      />
+      {data.isBrickLinkCatalog ? (
+        <ItemBusinessInsightsDialog
+          mode="catalog"
+          itemNo={data.itemNo || ''}
+          itemType={data.itemType || 'PART'}
+          colorId={data.colorId ?? null}
+          itemName={`${data.itemNo} — ${itemName}`}
+          open={insightsOpen}
+          onOpenChange={setInsightsOpen}
+        />
+      ) : (
+        <ItemBusinessInsightsDialog
+          mode="inventory"
+          itemId={data.id as number}
+          itemName={`${data.itemNo} — ${itemName}`}
+          open={insightsOpen}
+          onOpenChange={setInsightsOpen}
+        />
+      )}
     </div>
   );
 }
