@@ -9556,6 +9556,97 @@ Format search_web URLs as markdown links.`;
     }
   });
 
+  // Catalog lookup — fetch BrickLink item details + price guide for non-inventory items
+  // Called by heatmap badge when the scanned part isn't in inventory.
+  // Uses 6-month price_guide_cache so BL API calls are rare after first hit.
+  app.get("/api/catalog/lookup/:itemType/:itemNo", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { itemType, itemNo } = req.params;
+      const colorId = req.query.colorId !== undefined ? parseInt(req.query.colorId as string) : undefined;
+
+      const itemTypePrefix: Record<string, string> = {
+        PART: 'P', MINIFIG: 'M', SET: 'S', BOOK: 'B', GEAR: 'G', CATALOG: 'C', INSTRUCTION: 'I',
+      };
+      const blUrlPrefix = itemTypePrefix[itemType?.toUpperCase()] ?? 'P';
+
+      // Fetch from BL price guide (returns from 6-month cache or hits BL API if stale/missing)
+      // fetchPriceOMagicData also upserts into bl_catalog automatically
+      const pomData = await fetchPriceOMagicData(
+        itemNo, itemType, colorId, 'N', 15, null, false, undefined, undefined, orgId
+      );
+
+      // Get color name + rgb
+      let colorName: string | null = null;
+      let colorRgb: string | null = null;
+      if (colorId != null && colorId > 0) {
+        const colorRow = await db.select({ name: blColors.name, rgb: blColors.rgb })
+          .from(blColors)
+          .where(eq(blColors.id, colorId))
+          .limit(1);
+        if (colorRow.length > 0) {
+          colorName = colorRow[0].name;
+          colorRgb = colorRow[0].rgb ?? null;
+        }
+      }
+
+      // bl_catalog may have a Rebrickable LDraw render (higher quality than BL thumbnail)
+      const catalogRow = await db.select()
+        .from(blCatalog)
+        .where(and(
+          eq(blCatalog.itemNo, itemNo),
+          eq(blCatalog.itemType, itemType),
+          colorId != null ? eq(blCatalog.colorId, colorId) : eq(blCatalog.colorId, 0)
+        ))
+        .limit(1);
+      const catalog = catalogRow[0];
+
+      const responseData = {
+        id: `catalog-${itemType}-${itemNo}__c${colorId ?? 0}`,
+        itemNo,
+        itemName: pomData.itemName ?? catalog?.itemName ?? itemNo,
+        itemType,
+        categoryId: pomData.categoryId ?? catalog?.categoryId ?? null,
+        categoryName: null,
+        colorId: colorId ?? null,
+        colorName: catalog?.colorName ?? colorName ?? null,
+        colorRgb,
+        quantity: 0,
+        newOrUsed: 'N',
+        unitPrice: '0.00',
+        myCost: null,
+        description: null,
+        remarks: null,
+        myWeight: pomData.weight ? String(pomData.weight) : null,
+        isBrickLinkCatalog: true,
+        // Prefer Rebrickable LDraw render from bl_catalog, then BL API image
+        imageUrl: catalog?.imageUrl ?? pomData.imageUrl ?? null,
+        thumbnailUrl: catalog?.thumbnailUrl ?? pomData.thumbnailUrl ?? null,
+        bricklinkUrl: `https://www.bricklink.com/v2/catalog/catalogitem.page?${blUrlPrefix}=${itemNo}`,
+        loadingPriceOMagic: false,
+        priceOMagic: {
+          stockAvgPrice: pomData.stockAvgPrice ?? null,
+          stockMinPrice: pomData.stockMinPrice ?? null,
+          stockMaxPrice: pomData.stockMaxPrice ?? null,
+          stockTotalLots: pomData.stockTotalLots ?? null,
+          soldAvgPrice: pomData.soldAvgPrice ?? null,
+          soldMinPrice: pomData.soldMinPrice ?? null,
+          soldMaxPrice: pomData.soldMaxPrice ?? null,
+          soldTotalLots: pomData.soldTotalLots ?? null,
+          suggestedPrice: pomData.suggestedPrice ?? null,
+          itemName: pomData.itemName ?? catalog?.itemName ?? null,
+          imageUrl: catalog?.imageUrl ?? pomData.imageUrl ?? null,
+          thumbnailUrl: catalog?.thumbnailUrl ?? pomData.thumbnailUrl ?? null,
+        },
+      };
+
+      res.json(responseData);
+    } catch (error) {
+      console.error("[catalog/lookup] Error:", error);
+      res.status(500).json({ error: "Failed to fetch catalog data" });
+    }
+  });
+
   // Get Inventory Item by ID (MUST be after /api/inventory/stats and price-guide to avoid route conflict)
   app.get("/api/inventory/:id", isApproved, async (req: any, res) => {
     try {

@@ -202,62 +202,31 @@ export default function Home() {
         }
       } catch { /* ignore, fall through to catalog view */ }
 
-      // 3. Not in inventory — show catalog/scan view from session storage (always the drawer)
-      const catalogItemKey = `bricklink-item-${itemNo}`;
-      const storedData = sessionStorage.getItem(catalogItemKey);
-      if (storedData) {
-        const bricklinkItem = JSON.parse(storedData);
-        const itemTypePrefix = bricklinkItem.itemType === 'SET' ? 'S' :
-                               bricklinkItem.itemType === 'MINIFIG' ? 'M' :
-                               bricklinkItem.itemType === 'PART' ? 'P' :
-                               bricklinkItem.itemType === 'BOOK' ? 'B' :
-                               bricklinkItem.itemType === 'GEAR' ? 'G' :
-                               bricklinkItem.itemType === 'CATALOG' ? 'C' :
-                               bricklinkItem.itemType === 'INSTRUCTION' ? 'I' : 'P';
-        const catalogData = {
-          id: String(id),
-          itemNo: bricklinkItem.itemNo,
-          itemName: bricklinkItem.itemName,
-          itemType: bricklinkItem.itemType,
-          categoryId: bricklinkItem.categoryId ?? null,
-          categoryName: null,
-          colorId: bricklinkItem.colorId ?? null,
-          colorName: bricklinkItem.colorName ?? null,
-          colorRgb: null,
-          quantity: 0,
-          newOrUsed: 'N',
-          unitPrice: '0.00',
-          myCost: null,
-          description: null,
-          remarks: null,
-          myWeight: bricklinkItem.weight ? String(bricklinkItem.weight) : null,
-          isBrickLinkCatalog: true,
-          imageUrl: bricklinkItem.thumbnailUrl ?? bricklinkItem.imageUrl ?? null,
-          thumbnailUrl: bricklinkItem.thumbnailUrl ?? null,
-          bricklinkUrl: `https://www.bricklink.com/v2/catalog/catalogitem.page?${itemTypePrefix}=${bricklinkItem.itemNo}`,
-          priceOMagic: {
-            stockAvgPrice: bricklinkItem.stockAvgPrice,
-            stockMinPrice: bricklinkItem.stockMinPrice,
-            stockMaxPrice: bricklinkItem.stockMaxPrice,
-            stockTotalLots: bricklinkItem.stockTotalLots,
-            soldAvgPrice: bricklinkItem.soldAvgPrice,
-            soldMinPrice: bricklinkItem.soldMinPrice,
-            soldMaxPrice: bricklinkItem.soldMaxPrice,
-            soldTotalLots: bricklinkItem.soldTotalLots,
-            suggestedPrice: bricklinkItem.suggestedPrice,
-            itemName: bricklinkItem.itemName,
-            imageUrl: bricklinkItem.imageUrl ?? null,
-            thumbnailUrl: bricklinkItem.thumbnailUrl ?? null,
-          },
-        };
-        setDetailModal({
-          open: true,
-          data: { type: 'inventory', data: { ...catalogData, loadingPriceOMagic: false }, initialTab }
-        });
-        return true;
-      }
+      // 3. Not in inventory — fetch real BrickLink catalog data + price guide from server
+      //    (uses 6-month price_guide_cache so BL API calls are rare after first hit)
+      const itemType = sessionStorage.getItem(`bl-itemtype-${itemNo}`) ?? 'PART';
 
-      // Nothing available — no modal
+      // Show loading state immediately so the drawer opens without delay
+      setDetailModal({
+        open: true,
+        data: { type: 'inventory', data: { id: String(id), loading: true } as any, initialTab }
+      });
+
+      try {
+        const params = new URLSearchParams({ ...(colorId ? { colorId } : {}) });
+        const catalogRes = await fetch(`/api/catalog/lookup/${encodeURIComponent(itemType)}/${encodeURIComponent(itemNo)}?${params}`);
+        if (catalogRes.ok) {
+          const catalogData = await catalogRes.json();
+          setDetailModal({
+            open: true,
+            data: { type: 'inventory', data: { ...catalogData, loadingPriceOMagic: false }, initialTab }
+          });
+          return true;
+        }
+      } catch { /* fall through */ }
+
+      // Server fetch failed — close modal
+      setDetailModal({ open: false, data: null });
       return false;
     }
 

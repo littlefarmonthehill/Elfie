@@ -325,10 +325,10 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch warehouse location
+  // Fetch warehouse location (only for real inventory items, not catalog lookups)
   const { data: warehouseLocation } = useQuery<any[]>({
     queryKey: [`/api/warehouse/locations?inventoryId=${data.id}`],
-    enabled: !data.loading && !!data.id,
+    enabled: !data.loading && !!data.id && !data.isBrickLinkCatalog,
   });
 
   const { data: setsCountData } = useQuery<{ total: number }>({
