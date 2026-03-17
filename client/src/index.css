@@ -495,6 +495,31 @@ html.admin-mode {
 
   /* Interactive */
   .app-icon-btn    { @apply text-gray-500 hover:text-gray-200 flex items-center transition-colors; }
+
+  /*
+   * ── Tab bars ─────────────────────────────────────────────────────────────
+   * Standard tab pattern used in all modals, drawers, and tool panes.
+   *
+   * Usage:
+   *   <div className="tool-tab-bar">
+   *     <button className={`tool-tab ${active ? 'border-orange-500 text-orange-400' : 'tool-tab-off'}`}>
+   *       <MyIcon className="w-3.5 h-3.5" />  Tab Label
+   *     </button>
+   *   </div>
+   *
+   *   For full-width tabs (no fixed padding, fills bar evenly):
+   *   <button className={`tool-tab-fill ${active ? 'border-lego-blue text-white' : 'tool-tab-off'}`}>
+   *
+   * Rules:
+   *   - Always add exactly one of: border-{color} text-{color}  for the active state.
+   *   - Always add tool-tab-off for the inactive state.
+   *   - Icons inside .tool-tab should be w-3.5 h-3.5.
+   *   - Never add padding, font-size, or font-weight overrides — they are already set.
+   */
+  .tool-tab-bar  { @apply flex border-b border-gray-700; }
+  .tool-tab      { @apply flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border-b-2 -mb-px transition-colors; }
+  .tool-tab-fill { @apply flex-1 flex items-center justify-center py-2 text-xs font-semibold border-b-2 -mb-px transition-colors; }
+  .tool-tab-off  { @apply border-transparent text-gray-400 hover:text-gray-200; }
 }
 
 /* ── Retro‐future radio wave pulse — Jetsons-style alert attention rings ── */

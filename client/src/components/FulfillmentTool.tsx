@@ -713,14 +713,10 @@ export default function FulfillmentTool() {
         )}
 
         {/* ── Tab switcher: Fulfillment | Shipping ── */}
-        <div className="flex border-b border-gray-700">
+        <div className="tool-tab-bar">
           <button
             onClick={() => setActiveTab('picklist')}
-            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border-b-2 -mb-px transition-colors ${
-              activeTab === 'picklist'
-                ? 'border-orange-500 text-orange-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
+            className={`tool-tab ${activeTab === 'picklist' ? 'border-orange-500 text-orange-400' : 'tool-tab-off'}`}
             data-testid="tab-picklist"
           >
             <ClipboardList className="w-3.5 h-3.5" />
@@ -728,11 +724,7 @@ export default function FulfillmentTool() {
           </button>
           <button
             onClick={() => setActiveTab('shipping')}
-            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border-b-2 -mb-px transition-colors ${
-              activeTab === 'shipping'
-                ? 'border-purple-500 text-purple-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
+            className={`tool-tab ${activeTab === 'shipping' ? 'border-purple-500 text-purple-400' : 'tool-tab-off'}`}
             data-testid="tab-shipping"
           >
             <Truck className="w-3.5 h-3.5" />
