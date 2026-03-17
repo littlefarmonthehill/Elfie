@@ -635,6 +635,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/platform-admin/cleanup-shipstation-duplicate-orders
+  // Dry-run by default. Pass ?confirm=true to actually delete.
+  // Removes bare-numeric ShipStation-synced BL orders where a proper bl-{X} order already exists.
+  app.post('/api/platform-admin/cleanup-shipstation-duplicate-orders', isSuperAdmin, async (req, res) => {
+    try {
+      const confirm = req.query.confirm === 'true';
+
+      // Identify duplicate IDs: bare numeric orders with BL.X order_number where bl-X exists
+      const dupsResult = await db.execute(sql`
+        SELECT bare.id AS dup_id
+        FROM orders bare
+        INNER JOIN orders proper ON proper.id = 'bl-' || SUBSTRING(bare.order_number FROM 4)
+        WHERE bare.order_number LIKE 'BL.%'
+      `);
+      const dupIds = (dupsResult.rows as any[]).map(r => r.dup_id as string);
+
+      if (!confirm) {
+        // Dry run — count what would be deleted
+        const detailCountResult = await db.execute(sql`
+          SELECT COUNT(*) as cnt
+          FROM order_details od
+          WHERE od.order_id IN (
+            SELECT bare.id FROM orders bare
+            INNER JOIN orders proper ON proper.id = 'bl-' || SUBSTRING(bare.order_number FROM 4)
+            WHERE bare.order_number LIKE 'BL.%'
+          )
+        `);
+        return res.json({
+          dryRun: true,
+          ordersToDelete: dupIds.length,
+          orderDetailsToDelete: Number((detailCountResult.rows[0] as any)?.cnt ?? 0),
+          sampleIds: dupIds.slice(0, 10),
+          message: 'Pass ?confirm=true to execute the deletion',
+        });
+      }
+
+      if (dupIds.length === 0) {
+        return res.json({ message: 'No duplicate orders found — nothing to delete.' });
+      }
+
+      // Step 1: Delete order_details (no cascade on this FK)
+      await db.execute(sql`
+        DELETE FROM order_details
+        WHERE order_id IN (
+          SELECT bare.id FROM orders bare
+          INNER JOIN orders proper ON proper.id = 'bl-' || SUBSTRING(bare.order_number FROM 4)
+          WHERE bare.order_number LIKE 'BL.%'
+        )
+      `);
+
+      // Step 2: Delete the duplicate orders (order_adjustments + picklist_items cascade automatically)
+      await db.execute(sql`
+        DELETE FROM orders
+        WHERE id IN (
+          SELECT bare.id FROM orders bare
+          INNER JOIN orders proper ON proper.id = 'bl-' || SUBSTRING(bare.order_number FROM 4)
+          WHERE bare.order_number LIKE 'BL.%'
+        )
+      `);
+
+      console.log(`[AdminCleanup] Deleted ${dupIds.length} ShipStation duplicate orders and their related records`);
+
+      return res.json({
+        success: true,
+        ordersDeleted: dupIds.length,
+        message: `Deleted ${dupIds.length} ShipStation duplicate BL orders`,
+      });
+    } catch (error: any) {
+      console.error('[AdminCleanup] Error during duplicate order cleanup:', error.message);
+      res.status(500).json({ error: 'Cleanup failed: ' + error.message });
+    }
+  });
+
   // PATCH /api/platform-admin/orgs/:id/suspend — toggle org active state
   app.patch('/api/platform-admin/orgs/:id/suspend', isSuperAdmin, async (req, res) => {
     try {
