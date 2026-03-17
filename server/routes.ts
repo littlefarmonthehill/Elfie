@@ -1167,7 +1167,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/org/billing/history — all complete months since org billing start, grouped for display
+  // GET /api/org/billing/history — completed billing months, paginated by year
+  // Query params: ?year=2024  (defaults to current year)
+  // Response: { months, year, firstYear, lastYear }
   app.get('/api/org/billing/history', isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
@@ -1180,15 +1182,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const billingStartDate = orgRow?.billingStartDate ?? orgRow?.createdAt ?? null;
       const currentPeriodStart = getBillingPeriodStart(billingStartDate, now);
 
-      // How many full billing periods back from today?
+      // Determine full range of available years
       const earliest = billingStartDate ?? new Date(now.getFullYear(), now.getMonth() - 11, 1);
-      const monthsBack = Math.max(1, (currentPeriodStart.getFullYear() - earliest.getFullYear()) * 12 + (currentPeriodStart.getMonth() - earliest.getMonth()));
-      const months = [];
+      const firstYear = earliest.getFullYear();
+      const lastYear = currentPeriodStart.getFullYear();
 
-      for (let i = 1; i <= Math.min(monthsBack, 36); i++) {
-        // Each period runs anniversary-to-anniversary
+      // Total months back (no cap — can go all the way to account creation)
+      const totalMonthsBack = Math.max(1,
+        (currentPeriodStart.getFullYear() - earliest.getFullYear()) * 12 +
+        (currentPeriodStart.getMonth() - earliest.getMonth())
+      );
+
+      // Which year to show (default: last/current year)
+      const requestedYear = req.query.year ? parseInt(req.query.year as string) : lastYear;
+      const targetYear = Math.max(firstYear, Math.min(lastYear, requestedYear));
+
+      // Collect all periods within the target year
+      const months = [];
+      for (let i = 1; i <= totalMonthsBack; i++) {
         const mStart = getBillingPeriodStartOffset(billingStartDate, now, i);
-        const mEnd   = getBillingPeriodStartOffset(billingStartDate, now, i - 1);
+        if (mStart.getFullYear() !== targetYear) continue;
+        const mEnd = getBillingPeriodStartOffset(billingStartDate, now, i - 1);
         const monthlySalesCents = await getOrgMonthlySalesCents(orgId, mStart, mEnd);
         const billing = calcSalesBilling(plan, monthlySalesCents);
         months.push({
@@ -1202,7 +1216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      res.json({ months });
+      res.json({ months, year: targetYear, firstYear, lastYear });
     } catch (err: any) {
       console.error('Error fetching billing history:', err);
       res.status(500).json({ message: err.message });

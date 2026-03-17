@@ -5,8 +5,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-  X, CreditCard, ShoppingCart, ChevronDown, ChevronUp, Printer,
-  AlertTriangle, CheckCircle2, Info, Clock, TrendingUp,
+  X, CreditCard, ShoppingCart, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Printer,
+  AlertTriangle, CheckCircle2, Info, TrendingUp,
 } from "lucide-react";
 
 // ─── API response types ───────────────────────────────────────────────────────
@@ -248,42 +248,6 @@ function InvoiceRow({ month }: { month: MonthRecord }) {
   );
 }
 
-// ─── Year section (collapsible) ───────────────────────────────────────────────
-
-function YearSection({ year, months, defaultOpen }: { year: number; months: MonthRecord[]; defaultOpen: boolean }) {
-  const [open, setOpen] = useState(defaultOpen);
-  const yearTotal = months.reduce((s, m) => s + m.billing.totalDue, 0);
-  const yearSales = months.reduce((s, m) => s + m.monthlySalesCents, 0);
-
-  return (
-    <div className="rounded-md border border-white/8 bg-gray-800/20 overflow-hidden">
-      <button
-        className="w-full flex items-center justify-between gap-3 px-4 py-3 hover-elevate text-left"
-        onClick={() => setOpen((o) => !o)}
-        data-testid={`year-section-${year}`}
-      >
-        <div className="flex items-center gap-2">
-          {open ? <ChevronUp className="w-3.5 h-3.5 text-gray-500 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
-          <span className="text-sm font-semibold text-gray-200">{year}</span>
-          <span className="text-xs text-gray-500">{months.length} month{months.length !== 1 ? 's' : ''}</span>
-        </div>
-        <div className="text-right">
-          <div className="text-xs font-mono text-gray-300 font-medium">{cents(yearTotal)} billed</div>
-          <div className="text-[10px] text-gray-600">{salesLabel(yearSales)} in sales</div>
-        </div>
-      </button>
-
-      {open && (
-        <div className="border-t border-white/6 px-3 pb-3 pt-2 space-y-2">
-          {months.map((m) => (
-            <InvoiceRow key={m.periodStart} month={m} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Tab components ───────────────────────────────────────────────────────────
 
 function CurrentBillingTab() {
@@ -354,48 +318,97 @@ function CurrentBillingTab() {
   );
 }
 
-function HistoryTab() {
-  const { data, isLoading } = useQuery<{ months: MonthRecord[] }>({ queryKey: ['/api/org/billing/history'] });
+interface HistoryResponse {
+  months: MonthRecord[];
+  year: number;
+  firstYear: number;
+  lastYear: number;
+}
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center py-16 text-gray-500 text-sm">Loading…</div>;
-  }
+function HistoryTab() {
+  const currentYear = new Date().getFullYear();
+  const [viewYear, setViewYear] = useState(currentYear);
+
+  const { data, isLoading } = useQuery<HistoryResponse>({
+    queryKey: ['/api/org/billing/history', viewYear],
+    queryFn: async () => {
+      const res = await fetch(`/api/org/billing/history?year=${viewYear}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load billing history');
+      return res.json();
+    },
+  });
 
   const months = data?.months ?? [];
+  const firstYear = data?.firstYear ?? currentYear;
+  const lastYear = data?.lastYear ?? currentYear;
 
-  if (months.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 gap-2 text-center">
-        <CreditCard className="w-8 h-8 text-gray-600" />
-        <p className="text-gray-500 text-sm">No previous invoices yet.</p>
-        <p className="text-gray-600 text-xs">Invoices appear here after each completed billing month.</p>
-      </div>
-    );
-  }
+  const canGoPrev = viewYear > firstYear;
+  const canGoNext = viewYear < lastYear;
 
-  // Group by year
-  const byYear = new Map<number, MonthRecord[]>();
-  for (const m of months) {
-    const yr = m.year;
-    if (!byYear.has(yr)) byYear.set(yr, []);
-    byYear.get(yr)!.push(m);
-  }
-  const years = [...byYear.keys()].sort((a, b) => b - a);
-  const currentYear = new Date().getFullYear();
+  const yearTotal = months.reduce((s, m) => s + m.billing.totalDue, 0);
+  const yearSales = months.reduce((s, m) => s + m.monthlySalesCents, 0);
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-gray-500 mb-1">
-        Click any month to expand the full breakdown. Use the print icon for a printable invoice.
-      </p>
-      {years.map((yr) => (
-        <YearSection
-          key={yr}
-          year={yr}
-          months={byYear.get(yr)!}
-          defaultOpen={yr === currentYear}
-        />
-      ))}
+      {/* Year navigator */}
+      <div className="flex items-center justify-between gap-2 rounded-md border border-white/8 bg-gray-800/30 px-3 py-2">
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => setViewYear((y) => y - 1)}
+          disabled={!canGoPrev || isLoading}
+          data-testid="button-history-prev-year"
+          title="Previous year"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </Button>
+
+        <div className="flex-1 text-center">
+          <div className="text-sm font-semibold text-gray-200">{viewYear}</div>
+          {!isLoading && months.length > 0 && (
+            <div className="text-[10px] text-gray-500">
+              {cents(yearTotal)} billed · {salesLabel(yearSales)} in sales
+            </div>
+          )}
+        </div>
+
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => setViewYear((y) => y + 1)}
+          disabled={!canGoNext || isLoading}
+          data-testid="button-history-next-year"
+          title="Next year"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12 text-gray-500 text-sm">Loading…</div>
+      ) : months.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 gap-2 text-center">
+          <CreditCard className="w-7 h-7 text-gray-600" />
+          <p className="text-gray-500 text-sm">No invoices for {viewYear}.</p>
+          {firstYear < viewYear && (
+            <button
+              className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
+              onClick={() => setViewYear((y) => y - 1)}
+            >
+              Go to {viewYear - 1}
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-xs text-gray-500">
+            Click any month to expand the full breakdown. Use the print icon for a printable invoice.
+          </p>
+          {months.map((m) => (
+            <InvoiceRow key={m.periodStart} month={m} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
