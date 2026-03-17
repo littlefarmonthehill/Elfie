@@ -522,7 +522,11 @@ const MINIFIG_PART_CATEGORY_IDS = new Set([
   19,   // Minifigure, Weapon
 ]);
 
-const BrickanalyzerTool = forwardRef((_, ref) => {
+interface BrickanalyzerToolProps {
+  onItemClick?: (type: 'inventory', id: number, tab?: string) => void;
+}
+
+const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, ref) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uiState, setUiState] = useState<UIState>("idle");
@@ -2304,12 +2308,16 @@ const BrickanalyzerTool = forwardRef((_, ref) => {
                                   <span style={mkCorner(c, 'auto', 0, 'auto', 0)} />
                                 </>);
                               })()}
-                              {/* Price badge — tapping opens the Brickspotter detail overlay on pricing tab */}
+                              {/* Price badge — opens Inventory Detail drawer (pricing tab) if in inventory, else falls back to Brickspotter overlay */}
                               <button
                                 onMouseDown={e => e.stopPropagation()}
                                 onClick={e => {
                                   e.stopPropagation();
-                                  setFocusedDetailCropIndex(r.cropIndex ?? null);
+                                  if (onItemClick && r.inventoryId != null) {
+                                    onItemClick('inventory', r.inventoryId, 'pricing');
+                                  } else {
+                                    setFocusedDetailCropIndex(r.cropIndex ?? null);
+                                  }
                                 }}
                                 data-testid={`heatmap-price-badge-${r.cropIndex ?? i}`}
                                 style={{
