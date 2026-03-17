@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2 } from "lucide-react";
-import { printPackingSlips, openPdfAndPrint } from "./PackingSlip";
+import { printPackingSlips, openPdfAndPrint, openLoadingWindow } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, PRIORITY_REGEX, toggleSetItem } from "@/lib/item-utils";
 import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult, OrderItem } from "./InlineShippingCard";
@@ -363,17 +363,18 @@ export default function FulfillmentTool() {
 
   const handlePrintPackingSlips = async (orderIds: string[]) => {
     if (orderIds.length === 0) return;
-    
+    // Open the window NOW (within the user gesture) to bypass popup blockers
+    const printWin = openLoadingWindow();
     try {
       const response = await fetch('/api/fulfillment/packing-slip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderIds }),
       });
-      
       const data = await response.json();
-      await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined);
+      await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined, printWin);
     } catch (error) {
+      printWin?.close();
       console.error('Error fetching packing slip data:', error);
       toast({
         title: "Error",
@@ -385,6 +386,8 @@ export default function FulfillmentTool() {
 
   const handlePrintPicklist = async () => {
     if (selectedOrders.size === 0) return;
+    // Open the window NOW (within the user gesture) to bypass popup blockers
+    const printWin = openLoadingWindow();
     const { default: jsPDF } = await import('jspdf');
     // Always fetch fresh picklist data so recently-added orders are included
     const freshBins = await queryClient.fetchQuery<PicklistBin[]>({ queryKey: ['/api/picklist'] });
@@ -465,7 +468,7 @@ export default function FulfillmentTool() {
     }
 
     const blob = doc.output('blob');
-    openPdfAndPrint(URL.createObjectURL(blob));
+    openPdfAndPrint(URL.createObjectURL(blob), printWin);
   };
 
   const handlePrintLotLabels = (orderIds: string[]) => {

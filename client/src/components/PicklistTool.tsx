@@ -5,6 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Package, Loader2, List, Layers, ChevronDown, ChevronRight, ScanLine, Camera, X, CheckCircle2, AlertCircle } from "lucide-react";
+import { openLoadingWindow, openPdfAndPrint } from "./PackingSlip";
 
 type WarehouseLocation = {
   aisle: { id: number; name: string };
@@ -266,6 +267,8 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
   const partKey = (item: BinPicklistItem) => item.partNumber || item.sku || '';
 
   const handlePrint = async () => {
+    // Open the window NOW (within the user gesture) to bypass popup blockers
+    const printWin = openLoadingWindow();
     const { default: jsPDF } = await import('jspdf');
     const chanPrefix = (item: BinPicklistItem) => item.marketplace === 'BrickOwl' ? 'BO' : 'BL';
     const condLabel = (c: string | null) => c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
@@ -344,23 +347,8 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
 
     const blob = doc.output('blob');
     const url = URL.createObjectURL(blob);
-    const win = window.open(url, '_blank', 'noopener');
-    if (win) {
-      let printed = false;
-      const doPrint = () => {
-        if (printed) return;
-        printed = true;
-        win.addEventListener('afterprint', () => {
-          win.close();
-          URL.revokeObjectURL(url);
-        }, { once: true });
-        try { win.print(); } catch { /* cross-origin guard */ }
-      };
-      win.addEventListener('load', doPrint, { once: true });
-      setTimeout(doPrint, 1200);
-    } else {
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    }
+    openPdfAndPrint(url, printWin);
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
   };
 
   // ── Derived data ──

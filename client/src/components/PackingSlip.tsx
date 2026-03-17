@@ -86,28 +86,51 @@ async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: stri
 
 // ─── Print helper ────────────────────────────────────────────────────────────
 
-export function openPdfAndPrint(blobUrl: string): void {
-  const win = window.open(blobUrl, '_blank', 'noopener');
+/** Open a loading placeholder window before async work to avoid popup blocker. */
+export function openLoadingWindow(): Window | null {
+  const win = window.open('', '_blank', 'noopener');
+  if (win) {
+    win.document.write(
+      '<html><body style="margin:0;background:#f8f8f8;font-family:sans-serif;' +
+      'display:flex;align-items:center;justify-content:center;height:100vh;' +
+      'color:#888;font-size:14px">Preparing document\u2026</body></html>'
+    );
+    win.document.close();
+  }
+  return win;
+}
+
+/**
+ * Navigate `preOpenedWin` (or open a new window) to the blob URL, then
+ * auto-print and close on afterprint.
+ */
+export function openPdfAndPrint(blobUrl: string, preOpenedWin?: Window | null): void {
+  const win = preOpenedWin ?? window.open(blobUrl, '_blank', 'noopener');
   if (!win) return;
   let printed = false;
   const doPrint = () => {
     if (printed) return;
     printed = true;
-    // Close the PDF window when the user dismisses the print dialog
     win.addEventListener('afterprint', () => {
       win.close();
       URL.revokeObjectURL(blobUrl);
     }, { once: true });
     try { win.print(); } catch { /* cross-origin guard */ }
   };
-  win.addEventListener('load', doPrint, { once: true });
+  if (preOpenedWin) {
+    // Window already open with a loading page — navigate it to the PDF
+    preOpenedWin.location.href = blobUrl;
+    preOpenedWin.addEventListener('load', doPrint, { once: true });
+  } else {
+    win.addEventListener('load', doPrint, { once: true });
+  }
   // Fallback: some browsers don't fire load for blob PDF URLs
   setTimeout(doPrint, 1200);
 }
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 
-export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBranding): Promise<void> {
+export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBranding, preOpenedWin?: Window | null): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
   const logo = await loadLogoInfo(org?.logoUrl);
   let logoW = 0;
@@ -132,11 +155,11 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(19);
     doc.setFont('helvetica', 'bold');
-    doc.text(companyName, MARGIN, y + 6.5);
+    doc.text(companyName, MARGIN, y + 5);
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(51, 51, 51);
-    let addrLineY = y + 13.5;
+    let addrLineY = y + 12;
     addressLines.forEach(line => {
       doc.text(line, MARGIN, addrLineY);
       addrLineY += 6;
@@ -259,7 +282,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
 
   const blob = doc.output('blob');
   const url = URL.createObjectURL(blob);
-  openPdfAndPrint(url);
+  openPdfAndPrint(url, preOpenedWin);
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
