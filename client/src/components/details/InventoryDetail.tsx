@@ -6,8 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface ItemInsight {
   category: string;
@@ -352,10 +352,23 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch warehouse location (only for real inventory items, not catalog lookups)
+  // Fetch all warehouse locations for this inventory item
   const { data: warehouseLocation } = useQuery<any[]>({
-    queryKey: [`/api/warehouse/locations?inventoryId=${data.id}`],
+    queryKey: ['/api/warehouse/locations/inventory', data.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/warehouse/locations/inventory/${data.id}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
     enabled: !data.loading && !!data.id && !data.isBrickLinkCatalog,
+  });
+
+  const removeLocationMutation = useMutation({
+    mutationFn: (locationId: number) => apiRequest('DELETE', `/api/warehouse/locations/${locationId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/warehouse/locations/inventory', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/warehouse/locations'] });
+    },
   });
 
   const { data: setsCountData } = useQuery<{ total: number }>({
@@ -696,45 +709,76 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
 
             {/* Warehouse Location */}
             <div className="app-card-muted p-2.5">
-              <div className="flex items-center gap-1.5 mb-2">
-                <MapPin className="h-3.5 w-3.5 text-blue-400" />
-                <p className="text-[10px] md:text-sm font-bold text-blue-400">WAREHOUSE LOCATION</p>
+              <div className="flex items-center justify-between gap-1.5 mb-2">
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5 text-blue-400" />
+                  <p className="text-[10px] md:text-sm font-bold text-blue-400">WAREHOUSE LOCATION</p>
+                  {warehouseLocation && warehouseLocation.length > 1 && (
+                    <span className="text-[9px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded-full font-medium">
+                      {warehouseLocation.length} bins
+                    </span>
+                  )}
+                </div>
               </div>
               {warehouseLocation && warehouseLocation.length > 0 ? (
-                (() => {
-                  // Take only the first location (duplicates are from DB query)
-                  const loc = warehouseLocation[0];
-                  return (
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2 text-center" data-testid="card-aisle">
-                        <p className="text-[9px] md:text-xs text-purple-400 font-bold mb-1">AISLE</p>
-                        <p className="text-xs font-semibold text-white" data-testid="text-aisle">
-                          {loc.aisleName || '—'}
-                        </p>
-                      </div>
-                      <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-2 text-center" data-testid="card-shelf">
-                        <p className="text-[9px] md:text-xs text-orange-400 font-bold mb-1">SHELF</p>
-                        <p className="text-xs font-semibold text-white" data-testid="text-shelf">
-                          {loc.shelfName || '—'}
-                        </p>
-                      </div>
-                      <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2 text-center" data-testid="card-bin">
-                        <p className="text-[9px] md:text-xs text-green-400 font-bold mb-1">BIN</p>
-                        <p className="text-xs font-semibold text-white" data-testid="text-bin">
-                          {loc.binName || '—'}
-                        </p>
-                      </div>
-                      {loc.bagLabel && (
-                        <div className="col-span-3 bg-blue-500/10 border border-blue-500/30 rounded-lg p-2 text-center" data-testid="card-bag">
-                          <p className="text-[9px] md:text-xs text-blue-400 font-bold mb-1">BAG</p>
-                          <p className="text-xs font-semibold text-white" data-testid="text-bag">
-                            {loc.bagLabel}
-                          </p>
+                <div className="space-y-2">
+                  {warehouseLocation.map((loc: any, idx: number) => (
+                    <div key={loc.id} className="space-y-1.5">
+                      {warehouseLocation.length > 1 && (
+                        <div className="flex items-center justify-between">
+                          <p className="text-[9px] text-gray-500 font-medium uppercase tracking-wider">Location {idx + 1}</p>
+                          <button
+                            className="text-[9px] text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
+                            disabled={removeLocationMutation.isPending}
+                            onClick={() => removeLocationMutation.mutate(loc.id)}
+                            data-testid={`button-remove-location-${loc.id}`}
+                          >
+                            Remove
+                          </button>
                         </div>
                       )}
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-2 text-center" data-testid={`card-aisle-${idx}`}>
+                          <p className="text-[9px] md:text-xs text-purple-400 font-bold mb-1">AISLE</p>
+                          <p className="text-xs font-semibold text-white" data-testid={`text-aisle-${idx}`}>
+                            {loc.aisleName || '—'}
+                          </p>
+                        </div>
+                        <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-2 text-center" data-testid={`card-shelf-${idx}`}>
+                          <p className="text-[9px] md:text-xs text-orange-400 font-bold mb-1">SHELF</p>
+                          <p className="text-xs font-semibold text-white" data-testid={`text-shelf-${idx}`}>
+                            {loc.shelfName || '—'}
+                          </p>
+                        </div>
+                        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2 text-center" data-testid={`card-bin-${idx}`}>
+                          <p className="text-[9px] md:text-xs text-green-400 font-bold mb-1">BIN</p>
+                          <p className="text-xs font-semibold text-white" data-testid={`text-bin-${idx}`}>
+                            {loc.binName || '—'}
+                          </p>
+                        </div>
+                      </div>
+                      {(loc.bagLabel || loc.quantity != null) && (
+                        <div className="flex gap-1.5">
+                          {loc.bagLabel && (
+                            <div className="flex-1 bg-blue-500/10 border border-blue-500/30 rounded-lg p-2 text-center" data-testid={`card-bag-${idx}`}>
+                              <p className="text-[9px] text-blue-400 font-bold mb-0.5">BAG</p>
+                              <p className="text-xs font-semibold text-white">{loc.bagLabel}</p>
+                            </div>
+                          )}
+                          {loc.quantity != null && (
+                            <div className="flex-1 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-2 text-center" data-testid={`card-qty-${idx}`}>
+                              <p className="text-[9px] text-yellow-400 font-bold mb-0.5">QTY IN BIN</p>
+                              <p className="text-xs font-semibold text-white">{loc.quantity}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {idx < warehouseLocation.length - 1 && (
+                        <div className="border-t border-white/5 mt-1" />
+                      )}
                     </div>
-                  );
-                })()
+                  ))}
+                </div>
               ) : (
                 <p className="text-[10px] md:text-sm text-gray-400 italic">
                   Not assigned to a warehouse location
