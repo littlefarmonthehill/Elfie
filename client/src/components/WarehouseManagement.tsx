@@ -36,6 +36,12 @@ import {
   ExternalLink,
   SplitSquareHorizontal,
   Printer,
+  Upload,
+  CheckSquare,
+  Square,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { QRCodeSVG } from "qrcode.react";
@@ -107,6 +113,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [bulkEnd, setBulkEnd] = useState("20");
   const [bulkPad, setBulkPad] = useState("2");
   const [bulkShelfForBins, setBulkShelfForBins] = useState<string>("");
+
+  // CSV Import state
+  const [importCsvOpen, setImportCsvOpen] = useState(false);
+  const [importCsvText, setImportCsvText] = useState("");
+  const [importResult, setImportResult] = useState<{ created: { aisles: number; shelves: number; bins: number; skipped: number }; errors: string[] } | null>(null);
 
   const { data: warehouseSettings, isLoading: settingsLoading } = useQuery<{ depth: number }>({
     queryKey: ['/api/warehouse/settings'],
@@ -263,6 +274,27 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       apiRequest('PUT', `/api/warehouse/bins/${id}`, data),
     onSuccess: () => { invalidateWarehouse(); toast({ title: "Bin updated" }); setEditDialogOpen(false); },
   });
+
+  const importCsvMutation = useMutation({
+    mutationFn: (csvText: string) => apiRequest('POST', '/api/warehouse/import/csv', { csvText }),
+    onSuccess: async (res: any) => {
+      const data = await res.json();
+      setImportResult(data);
+      invalidateWarehouse();
+    },
+    onError: () => toast({ title: "Import failed", variant: "destructive" }),
+  });
+
+  const handleSelectAll = () => {
+    const allIds = new Set(filteredList.map((item: any) => item.id));
+    setSelectedItems(allIds);
+  };
+
+  const handlePrintAll = () => {
+    const allIds = new Set(filteredList.map((item: any) => item.id));
+    setSelectedItems(allIds);
+    setPrintDialogOpen(true);
+  };
 
   const handleCreateSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -643,7 +675,30 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               ))}
             </div>
 
-            <div className="flex gap-1">
+            <div className="flex gap-1 flex-wrap">
+              {/* Select All / Deselect All */}
+              {(activeView === 'bins' || activeView === 'shelves' || activeView === 'aisles') && filteredList.length > 0 && (
+                <>
+                  {selectedItems.size === filteredList.length ? (
+                    <Button size="sm" variant="ghost" onClick={() => setSelectedItems(new Set())}
+                      className="text-[10px] md:text-xs" data-testid="button-deselect-all">
+                      <CheckSquare className="w-3 h-3 mr-1 text-purple-400" />
+                      Deselect All
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="ghost" onClick={handleSelectAll}
+                      className="text-[10px] md:text-xs" data-testid="button-select-all">
+                      <Square className="w-3 h-3 mr-1" />
+                      Select All
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={handlePrintAll}
+                    className="text-[10px] md:text-xs gap-1" data-testid="button-print-all-labels">
+                    <Printer className="w-3 h-3" />
+                    Print All
+                  </Button>
+                </>
+              )}
               {activeView === 'bins' && (
                 <Button size="sm" variant="outline" onClick={() => setBulkDialogOpen(true)}
                   className="text-[10px] md:text-xs" data-testid="button-bulk-create-bins">
@@ -652,13 +707,20 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 </Button>
               )}
               {(activeView === 'aisles' || activeView === 'shelves' || activeView === 'bins') && (
-                <Button size="sm" onClick={() => {
-                  setCreateType(activeView === 'aisles' ? 'aisle' : activeView === 'shelves' ? 'shelf' : 'bin');
-                  setCreateDialogOpen(true);
-                }} data-testid="button-add-new" className="text-[10px] md:text-xs">
-                  <Plus className="w-3 h-3 mr-1" />
-                  Add One
-                </Button>
+                <>
+                  <Button size="sm" variant="outline" onClick={() => { setImportCsvOpen(true); setImportResult(null); setImportCsvText(""); }}
+                    className="text-[10px] md:text-xs" data-testid="button-import-csv">
+                    <Upload className="w-3 h-3 mr-1" />
+                    Import CSV
+                  </Button>
+                  <Button size="sm" onClick={() => {
+                    setCreateType(activeView === 'aisles' ? 'aisle' : activeView === 'shelves' ? 'shelf' : 'bin');
+                    setCreateDialogOpen(true);
+                  }} data-testid="button-add-new" className="text-[10px] md:text-xs">
+                    <Plus className="w-3 h-3 mr-1" />
+                    Add One
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -1237,6 +1299,132 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               Save Changes
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Import CSV Dialog ── */}
+      <Dialog open={importCsvOpen} onOpenChange={o => { setImportCsvOpen(o); if (!o) { setImportResult(null); setImportCsvText(""); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="h-4 w-4" />
+              Import Warehouse Structure from CSV
+            </DialogTitle>
+            <DialogDescription>
+              Paste a CSV to create bins, shelves, and aisles in bulk. Existing names are skipped.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!importResult ? (
+            <div className="space-y-4">
+              {/* Format guide */}
+              <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" />Format guide</p>
+                <div className="space-y-1">
+                  {depth === 1 && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground mb-1">Bins only — one column named <code className="bg-muted px-1 rounded">bin</code></p>
+                      <pre className="text-[10px] font-mono text-green-400 bg-black/30 p-2 rounded whitespace-pre-wrap">
+{`bin
+BIN-01
+BIN-02
+BIN-03`}
+                      </pre>
+                    </div>
+                  )}
+                  {depth === 2 && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground mb-1">Shelves + Bins — columns <code className="bg-muted px-1 rounded">shelf</code> and <code className="bg-muted px-1 rounded">bin</code></p>
+                      <pre className="text-[10px] font-mono text-green-400 bg-black/30 p-2 rounded whitespace-pre-wrap">
+{`shelf,bin
+Shelf-A,BIN-A1
+Shelf-A,BIN-A2
+Shelf-B,BIN-B1`}
+                      </pre>
+                    </div>
+                  )}
+                  {depth === 3 && (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground mb-1">Full warehouse — columns <code className="bg-muted px-1 rounded">aisle</code>, <code className="bg-muted px-1 rounded">shelf</code>, and <code className="bg-muted px-1 rounded">bin</code></p>
+                      <pre className="text-[10px] font-mono text-green-400 bg-black/30 p-2 rounded whitespace-pre-wrap">
+{`aisle,shelf,bin
+A,Shelf-A1,BIN-A1-01
+A,Shelf-A1,BIN-A1-02
+A,Shelf-A2,BIN-A2-01
+B,Shelf-B1,BIN-B1-01`}
+                      </pre>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-muted-foreground pt-1">Column order doesn't matter. Blank cells mean "no parent at that level".</p>
+                </div>
+              </div>
+
+              {/* CSV textarea */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Paste your CSV here</Label>
+                <textarea
+                  value={importCsvText}
+                  onChange={e => setImportCsvText(e.target.value)}
+                  rows={10}
+                  placeholder="aisle,shelf,bin&#10;A,Shelf-A1,BIN-A1-01&#10;..."
+                  className="w-full rounded-md border border-border bg-background text-xs font-mono p-2 resize-y focus:outline-none focus:ring-1 focus:ring-ring"
+                  data-testid="textarea-import-csv"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  {importCsvText.split('\n').filter(l => l.trim()).length > 1
+                    ? `${importCsvText.split('\n').filter(l => l.trim()).length - 1} data rows detected`
+                    : 'Add your CSV data above'}
+                </p>
+              </div>
+
+              <Button
+                className="w-full"
+                disabled={importCsvMutation.isPending || importCsvText.trim().split('\n').filter(Boolean).length < 2}
+                onClick={() => importCsvMutation.mutate(importCsvText)}
+                data-testid="button-import-csv-submit"
+              >
+                {importCsvMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Import
+              </Button>
+            </div>
+          ) : (
+            /* Import result */
+            <div className="space-y-4">
+              <div className="rounded-md border border-green-500/30 bg-green-500/5 p-4 space-y-2">
+                <div className="flex items-center gap-2 text-green-400 font-semibold text-sm">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Import complete
+                </div>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted-foreground">
+                  {depth >= 3 && <span>Aisles created: <span className="font-semibold text-foreground">{importResult.created.aisles}</span></span>}
+                  {depth >= 2 && <span>Shelves created: <span className="font-semibold text-foreground">{importResult.created.shelves}</span></span>}
+                  <span>Bins created: <span className="font-semibold text-foreground">{importResult.created.bins}</span></span>
+                  <span>Rows skipped: <span className="font-semibold text-foreground">{importResult.created.skipped}</span></span>
+                </div>
+              </div>
+
+              {importResult.errors.length > 0 && (
+                <div className="rounded-md border border-red-500/30 bg-red-500/5 p-3 space-y-1">
+                  <div className="flex items-center gap-1.5 text-red-400 text-xs font-semibold">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    {importResult.errors.length} row{importResult.errors.length !== 1 ? 's' : ''} had errors
+                  </div>
+                  <ul className="text-[10px] text-red-300/80 font-mono space-y-0.5 max-h-32 overflow-y-auto">
+                    {importResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+                  </ul>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => { setImportResult(null); setImportCsvText(""); }}>
+                  Import Another
+                </Button>
+                <Button className="flex-1" onClick={() => setImportCsvOpen(false)}>
+                  Done
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

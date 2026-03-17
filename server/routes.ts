@@ -12521,6 +12521,102 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
+  // ── Warehouse CSV Import ──
+  // Accepts JSON { csvText: string }, creates aisles/shelves/bins from a CSV.
+  // Supported column headers (case-insensitive): aisle, shelf, bin
+  // Rows with blank values in a column mean "no parent at that level".
+  app.post("/api/warehouse/import/csv", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { csvText } = req.body;
+      if (!csvText || typeof csvText !== 'string') {
+        return res.status(400).json({ error: "csvText is required" });
+      }
+
+      const lines = csvText.split(/\r?\n/).map((l: string) => l.trim()).filter(Boolean);
+      if (lines.length < 2) return res.status(400).json({ error: "CSV must have a header row and at least one data row" });
+
+      const headers = lines[0].split(',').map((h: string) => h.trim().toLowerCase());
+      const aisleIdx = headers.indexOf('aisle');
+      const shelfIdx = headers.indexOf('shelf');
+      const binIdx = headers.indexOf('bin');
+
+      if (binIdx === -1) return res.status(400).json({ error: "CSV must have at least a 'bin' column" });
+
+      // Cache names → ids to avoid duplicate inserts
+      const aisleCache = new Map<string, number>();
+      const shelfCache = new Map<string, number>();
+      const binCache = new Map<string, number>();
+
+      // Pre-load existing records
+      const existingAisles = await db.select().from(whAisles).where(eq(whAisles.orgId, orgId));
+      const existingShelves = await db.select().from(whShelves).where(eq(whShelves.orgId, orgId));
+      const existingBins = await db.select().from(whBins).where(eq(whBins.orgId, orgId));
+      existingAisles.forEach((a: any) => aisleCache.set(a.name.toLowerCase(), a.id));
+      existingShelves.forEach((s: any) => shelfCache.set(s.name.toLowerCase(), s.id));
+      existingBins.forEach((b: any) => binCache.set(b.name.toLowerCase(), b.id));
+
+      const stats = { aisles: 0, shelves: 0, bins: 0, skipped: 0 };
+      const errors: string[] = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map((c: string) => c.trim());
+        const aisleName = aisleIdx >= 0 ? (cols[aisleIdx] || '') : '';
+        const shelfName = shelfIdx >= 0 ? (cols[shelfIdx] || '') : '';
+        const binName = binIdx >= 0 ? (cols[binIdx] || '') : '';
+
+        if (!binName) { stats.skipped++; continue; }
+
+        try {
+          // Ensure aisle exists
+          let aisleId: number | null = null;
+          if (aisleName) {
+            const key = aisleName.toLowerCase();
+            if (aisleCache.has(key)) {
+              aisleId = aisleCache.get(key)!;
+            } else {
+              const [a] = await db.insert(whAisles).values({ name: aisleName, orgId }).returning();
+              aisleId = a.id;
+              aisleCache.set(key, aisleId);
+              stats.aisles++;
+            }
+          }
+
+          // Ensure shelf exists
+          let shelfId: number | null = null;
+          if (shelfName) {
+            const key = shelfName.toLowerCase();
+            if (shelfCache.has(key)) {
+              shelfId = shelfCache.get(key)!;
+            } else {
+              const [s] = await db.insert(whShelves).values({ name: shelfName, aisleId, orgId }).returning();
+              shelfId = s.id;
+              shelfCache.set(key, shelfId);
+              stats.shelves++;
+            }
+          }
+
+          // Ensure bin exists
+          const binKey = binName.toLowerCase();
+          if (binCache.has(binKey)) {
+            stats.skipped++;
+          } else {
+            const [b] = await db.insert(whBins).values({ name: binName, shelfId, orgId }).returning();
+            binCache.set(binKey, b.id);
+            stats.bins++;
+          }
+        } catch (rowErr) {
+          errors.push(`Row ${i + 1} (${binName}): ${rowErr instanceof Error ? rowErr.message : 'unknown error'}`);
+        }
+      }
+
+      res.json({ ok: true, created: stats, errors });
+    } catch (error) {
+      console.error("Error importing warehouse CSV:", error);
+      res.status(500).json({ error: "Failed to import CSV" });
+    }
+  });
+
   // Picklist Routes
   
   // Get picklist stats (unique bins still to pull)
