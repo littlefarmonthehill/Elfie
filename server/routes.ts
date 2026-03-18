@@ -708,6 +708,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PATCH /api/platform-admin/orgs/:id/plan — super admin assigns any plan (including free/default) to an org
+  app.patch('/api/platform-admin/orgs/:id/plan', isSuperAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const planId = parseInt(req.body.planId);
+      if (!planId || isNaN(planId)) return res.status(400).json({ message: 'planId is required' });
+      const [plan] = await db.select().from(plans).where(eq(plans.id, planId)).limit(1);
+      if (!plan) return res.status(404).json({ message: 'Plan not found' });
+      const [updated] = await db.update(organizations)
+        .set({ planId, updatedAt: new Date() })
+        .where(eq(organizations.id, id))
+        .returning();
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating org plan:', error);
+      res.status(500).json({ message: 'Failed to update plan' });
+    }
+  });
+
   // PATCH /api/platform-admin/orgs/:id/suspend — toggle org active state
   app.patch('/api/platform-admin/orgs/:id/suspend', isSuperAdmin, async (req, res) => {
     try {

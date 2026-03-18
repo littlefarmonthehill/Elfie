@@ -3025,9 +3025,16 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     onError: () => toast({ title: 'Failed to update feature flags', variant: 'destructive' }),
   });
 
+  const { data: adminPlans = [] } = useQuery<Array<{
+    id: number; name: string; basePrice: number; status: string; isDefault: boolean;
+  }>>({
+    queryKey: ['/api/platform-admin/plans'],
+    enabled: open && activeSection === 'orgs',
+  });
+
   const updatePlanMutation = useMutation({
-    mutationFn: async ({ orgId, plan }: { orgId: string; plan: string }) =>
-      apiRequest('POST', `/api/admin/organizations/${orgId}/plan`, { plan }),
+    mutationFn: async ({ orgId, planId }: { orgId: string; planId: number }) =>
+      apiRequest('PATCH', `/api/platform-admin/orgs/${orgId}/plan`, { planId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/orgs'] });
       toast({ title: 'Plan updated' });
@@ -6222,6 +6229,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
               if (activeOrg) {
                 const org = platformOrgs?.find(o => o.id === activeOrg.id) ?? activeOrg;
                 const fo = (org.featureOverrides ?? {}) as Record<string, boolean>;
+                const orgPlan = adminPlans.find(p => p.id === (org as any).planId);
                 return (
                   <div className="p-4 space-y-4">
                     {/* Org identity */}
@@ -6233,8 +6241,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         <p className="text-sm font-semibold text-white">{org.name}</p>
                         <p className="text-[11px] text-gray-500 font-mono">{org.slug}</p>
                       </div>
-                      <span className={`ml-auto text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded border ${PLAN_COLORS[org.plan] ?? PLAN_COLORS.trial}`}>
-                        {org.plan}
+                      <span className={`ml-auto text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded border ${orgPlan?.isDefault ? 'bg-gray-600/50 text-gray-300 border-gray-600' : orgPlan?.status === 'sunset' ? 'bg-orange-900/50 text-orange-300 border-orange-700/50' : 'bg-yellow-900/50 text-yellow-300 border-yellow-700/50'}`}>
+                        {orgPlan?.name ?? org.plan}
                       </span>
                     </div>
 
@@ -6246,18 +6254,21 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       </div>
                       <div className="px-4 py-3 flex items-center gap-3">
                         <Select
-                          defaultValue={org.plan}
-                          onValueChange={(plan) => updatePlanMutation.mutate({ orgId: org.id, plan })}
-                          disabled={updatePlanMutation.isPending}
+                          value={org.planId ? String(org.planId) : undefined}
+                          onValueChange={(val) => updatePlanMutation.mutate({ orgId: org.id, planId: parseInt(val) })}
+                          disabled={updatePlanMutation.isPending || adminPlans.length === 0}
                         >
                           <SelectTrigger className="bg-gray-700 border-gray-600 text-gray-200 text-xs" data-testid={`select-plan-detail-${org.id}`}>
-                            <SelectValue />
+                            <SelectValue placeholder="Select plan…" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="trial">Free Trial</SelectItem>
-                            <SelectItem value="foundation">Foundation</SelectItem>
-                            <SelectItem value="core">Core</SelectItem>
-                            <SelectItem value="flagship">Flagship</SelectItem>
+                            {adminPlans.filter(p => p.status !== 'in_progress').map(p => (
+                              <SelectItem key={p.id} value={String(p.id)}>
+                                {p.name}
+                                {p.isDefault && <span className="ml-1.5 text-[10px] text-gray-400">(free)</span>}
+                                {p.status === 'sunset' && <span className="ml-1.5 text-[10px] text-orange-400">(sunset)</span>}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <div className="flex items-center gap-2 text-xs text-gray-400">
