@@ -2340,7 +2340,10 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                           });
                           return (
                             <>
-                              <svg width="0" height="0" style={{ position: 'absolute', overflow: 'hidden' }}>
+                              <svg
+                                aria-hidden="true"
+                                style={{ position: 'absolute', width: 0, height: 0, overflow: 'visible' }}
+                              >
                                 <defs>
                                   <clipPath id="heatmap-spotlight-clip" clipPathUnits="objectBoundingBox">
                                     <path d={[outerRect, ...holes].join(' ')} fillRule="evenodd" />
