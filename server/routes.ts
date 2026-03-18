@@ -3130,7 +3130,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!dbPlan || dbPlan.status !== 'live') {
           return res.status(400).json({ message: "Invalid or unavailable plan" });
         }
-        const isOnboarding = context === 'onboarding';
+        const isOnboarding = context === 'onboarding' || context === 'plan_expired';
         const successUrl = isOnboarding
           ? `${req.protocol}://${req.get('host')}/?subscribed=true&plan=${dbPlan.id}`
           : `${req.protocol}://${req.get('host')}/settings?tab=billing&session_id={CHECKOUT_SESSION_ID}`;

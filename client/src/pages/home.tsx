@@ -31,6 +31,7 @@ import BrickanalyzerTool from "@/components/BrickanalyzerTool";
 import FulfillmentTool from "@/components/FulfillmentTool";
 import ShippedOrdersTool from "@/components/ShippedOrdersTool";
 import { BillingDrawer } from "@/components/BillingDrawer";
+import PlanExpiredScreen from "@/components/PlanExpiredScreen";
 
 export default function Home() {
   useAdminScaling();
@@ -49,6 +50,9 @@ export default function Home() {
     onError: () => toast({ title: 'Failed to exit impersonation', variant: 'destructive' }),
   });
   const { data: org } = useQuery<Organization>({ queryKey: ['/api/org'] });
+  const { data: billingStatus } = useQuery<{ plan: string; status: string; planStatus?: string | null; planSunsetAt?: string | null }>({
+    queryKey: ['/api/billing/status'],
+  });
   const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024);
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>(() =>
     typeof window !== 'undefined' && window.innerWidth >= 1024 ? 'inventory' : 'dashboard'
@@ -878,6 +882,22 @@ export default function Home() {
     setChatOpen(false);
     setMarketIntel(null);
   };
+
+  // Show plan-expired screen if org is on a sunset plan whose end date has passed.
+  // Bypass for super-admins (impersonation) so they can still access the full app.
+  const planExpired = !superAdmin &&
+    billingStatus?.planStatus === 'sunset' &&
+    !!billingStatus.planSunsetAt &&
+    new Date(billingStatus.planSunsetAt) < new Date();
+
+  if (planExpired && billingStatus) {
+    return (
+      <PlanExpiredScreen
+        sunsetAt={billingStatus.planSunsetAt!}
+        planName={billingStatus.plan}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-[#04080F] text-foreground">
