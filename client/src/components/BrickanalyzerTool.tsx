@@ -1910,9 +1910,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
             className="relative w-full rounded-lg overflow-hidden bg-gray-900 border border-gray-700 cursor-crosshair select-none"
             style={{ aspectRatio: `${previewData.imageWidth} / ${previewData.imageHeight}` }}
             data-testid="preview-image-container"
-            onPointerDown={handlePreviewPointerDown}
-            onPointerMove={handlePreviewPointerMove}
-            onPointerUp={handlePreviewPointerUp}
+            onClick={handleImageTap}
           >
             <img
               src={previewData.objectUrl}
@@ -1961,19 +1959,6 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
               />
             ))}
 
-            {/* Drag-to-draw in-progress rectangle */}
-            {drawingRect && (
-              <div
-                className="absolute border-2 border-dashed border-white/60 rounded-sm pointer-events-none"
-                style={{
-                  left:   `${drawingRect.x}%`,
-                  top:    `${drawingRect.y}%`,
-                  width:  `${drawingRect.w}%`,
-                  height: `${drawingRect.h}%`,
-                }}
-              />
-            )}
-
             {/* Detecting-at-point spinner */}
             {detectingPoint && (
               <div
@@ -1989,8 +1974,8 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
           {/* Zone count hint */}
           <p className="text-xs text-center">
             {previewCandidates.length > 0
-              ? <span className="text-teal-400/80">Tap a dashed zone to add it · tap empty area to detect · drag to draw</span>
-              : <span className="text-gray-500">Tap the image to add a zone · drag to draw one manually</span>
+              ? <span className="text-teal-400/80">Tap a dashed zone to add it · tap empty area to detect a piece</span>
+              : <span className="text-gray-500">Tap the image to add a zone</span>
             }
           </p>
         </div>
