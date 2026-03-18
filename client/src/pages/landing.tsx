@@ -688,10 +688,7 @@ function TVLoginScreen({ onBack }: { onBack: () => void }) {
       )}
 
       {/* Footer */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ fontSize: "clamp(8px,0.72vw,10px)", color: "rgba(200,220,255,0.4)", fontFamily: "monospace" }}>
-          No account?{" "}<a href="/signup" style={{ color: `${TEAL}BB`, textDecoration: "none" }}>Free Trial →</a>
-        </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
         <div style={{ fontSize: "clamp(7px,0.62vw,9px)", color: "rgba(200,220,255,0.2)", fontFamily: "monospace" }}>CH 00</div>
       </div>
 
