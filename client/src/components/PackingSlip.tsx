@@ -154,14 +154,46 @@ export interface PicklistItem {
   marketplace?: string | null;
   inventoryId?: number | null;
   comment?: string | null;
+  imageUrl?: string | null;
 }
 
 const chanPrefix = (item: PicklistItem) => item.marketplace === 'BrickOwl' ? 'BO' : 'BL';
 const condLabel  = (c: string | null | undefined) => c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
 const partKey    = (item: PicklistItem) => item.partNumber || item.sku || '';
 
-export function printPicklist(items: PicklistItem[]): void {
+async function loadItemImage(url: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width  = img.naturalWidth  || img.width  || 1;
+        canvas.height = img.naturalHeight || img.height || 1;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { resolve(null); return; }
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+export async function printPicklist(items: PicklistItem[]): Promise<void> {
   if (items.length === 0) return;
+
+  const IMG_SIZE = 15;            // thumbnail square mm
+  const IMG_GAP  = 2;             // gap between text and image mm
+  const TEXT_W   = CONTENT_W - IMG_SIZE - IMG_GAP;
+
+  // Pre-load all item images concurrently (graceful null on failure)
+  const imageDataUrls = await Promise.all(
+    items.map(item => item.imageUrl ? loadItemImage(item.imageUrl) : Promise.resolve(null))
+  );
 
   const PANEL_H     = PAGE_H / 2;
   const PL_MY       = 0;            // no top/bottom margin — as narrow as possible
@@ -185,10 +217,14 @@ export function printPicklist(items: PicklistItem[]): void {
     y = panelTop(panel);
   };
 
-  for (const item of items) {
+  for (let i = 0; i < items.length; i++) {
+    const item    = items[i];
+    const imgData = imageDataUrls[i];
     // Heights match the larger font sizes below
     const itemH = 3 + 7 + 6 + 6;
     if (y + itemH > panelBottom(panel)) advancePanel();
+
+    const itemY = y;
 
     doc.setDrawColor(187, 187, 187);
     doc.setLineWidth(0.25);
@@ -212,7 +248,7 @@ export function printPicklist(items: PicklistItem[]): void {
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(70, 70, 70);
       let restStr = ' \u00b7 ' + restParts.join(' \u00b7 ');
-      const maxW = CONTENT_W - partW;
+      const maxW = TEXT_W - partW;
       while (doc.getTextWidth(restStr) > maxW && restStr.length > 4) restStr = restStr.slice(0, -1);
       if (restStr.length < (' \u00b7 ' + restParts.join(' \u00b7 ')).length) restStr = restStr.slice(0, -3) + '\u2026';
       doc.text(restStr, MX + partW, y);
@@ -231,6 +267,15 @@ export function printPicklist(items: PicklistItem[]): void {
     doc.setTextColor(120, 120, 120);
     doc.text(metaParts.join(' \u00b7 '), MX, y);
     y += 12;
+
+    // Render thumbnail aligned to the right, vertically centred in the item block
+    if (imgData) {
+      const imgX = MX + CONTENT_W - IMG_SIZE;
+      const imgY = itemY + (itemH - IMG_SIZE) / 2;
+      try {
+        doc.addImage(imgData, 'PNG', imgX, imgY, IMG_SIZE, IMG_SIZE);
+      } catch { /* skip if image data invalid */ }
+    }
   }
 
   hiddenPrint(doc.output('blob'), 'picklist.pdf');

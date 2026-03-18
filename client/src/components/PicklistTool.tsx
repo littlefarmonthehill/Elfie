@@ -268,14 +268,14 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
 
   const partKey = (item: BinPicklistItem) => item.partNumber || item.sku || '';
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     const sortedItems = [...flatItems].sort((a, b) => {
       const pk = partKey(a).localeCompare(partKey(b), undefined, { numeric: true });
       if (pk !== 0) return pk;
       const ck = (a.colorName || '').localeCompare(b.colorName || '');
       return ck !== 0 ? ck : (a.condition || '').localeCompare(b.condition || '');
     });
-    printPicklist(sortedItems);
+    await printPicklist(sortedItems);
   };
 
   // ── Derived data ──
