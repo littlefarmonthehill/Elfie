@@ -2160,28 +2160,6 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
             )}
           </div>
 
-          {/* New Scan / Delete Results — top for easy mobile access */}
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => { setUiState("idle"); setScanId(null); }}
-              data-testid="button-brickanalyzer-new-scan"
-            >
-              New Scan
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1 text-lego-red border-lego-red/40"
-              onClick={() => dismissMutation.mutate()}
-              disabled={dismissMutation.isPending}
-              data-testid="button-brickanalyzer-dismiss"
-            >
-              <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-              Close &amp; Delete Results
-            </Button>
-          </div>
-
           {/* ── Inline heatmap ───────────────────────────────────────────── */}
           {activeScan && (
             <div className="relative rounded-lg border border-gray-700 overflow-hidden bg-black" data-testid="inline-heatmap">
