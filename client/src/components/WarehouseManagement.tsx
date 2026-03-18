@@ -812,7 +812,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   };
 
   return (
-    <div className="space-y-3 min-h-[60vh]">
+    <div className="space-y-4">
 
       {/* Depth Selector */}
       {showDepthSetup ? (
@@ -882,50 +882,50 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       )}
 
       {/* Navigation Tabs — filtered by depth */}
-      <div className="flex gap-2 overflow-x-auto">
+      <div className="tool-tab-bar">
         <button
           onClick={() => { setActiveView('lots'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-          className={`flex-1 flex items-center justify-center gap-1.5 p-2.5 rounded-lg text-xs hover-elevate whitespace-nowrap ${activeView === 'lots' ? 'bg-blue-500/20 border-2 border-blue-500/40' : 'bg-muted/30 border-2 border-border'}`}
+          className={`tool-tab ${activeView === 'lots' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
           data-testid="button-view-lots"
         >
-          <Package className="w-4 h-4 text-blue-400" />
-          <span className="font-semibold">Lots</span>
+          <Package className="w-3.5 h-3.5" />
+          Lots
           {unassignedLots > 0 && (
-            <Badge className="text-[9px] px-1 py-0 bg-blue-500/20 text-blue-300 no-default-active-elevate">{unassignedLots}</Badge>
+            <Badge className="text-[9px] px-1 py-0 no-default-active-elevate ml-1">{unassignedLots}</Badge>
           )}
         </button>
 
         <button
           onClick={() => { setActiveView('bins'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-          className={`flex-1 flex items-center justify-center gap-1.5 p-2.5 rounded-lg text-xs hover-elevate whitespace-nowrap ${activeView === 'bins' ? 'bg-green-500/20 border-2 border-green-500/40' : 'bg-muted/30 border-2 border-border'}`}
+          className={`tool-tab ${activeView === 'bins' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
           data-testid="button-view-bins"
         >
-          <Archive className="w-4 h-4 text-green-400" />
-          <span className="font-semibold">Bins</span>
-          <span className="text-muted-foreground font-normal">{bins.length}</span>
+          <Archive className="w-3.5 h-3.5" />
+          Bins
+          {bins.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{bins.length}</span>}
         </button>
 
         {depth >= 2 && (
           <button
             onClick={() => { setActiveView('shelves'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-            className={`flex-1 flex items-center justify-center gap-1.5 p-2.5 rounded-lg text-xs hover-elevate whitespace-nowrap ${activeView === 'shelves' ? 'bg-orange-500/20 border-2 border-orange-500/40' : 'bg-muted/30 border-2 border-border'}`}
+            className={`tool-tab ${activeView === 'shelves' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
             data-testid="button-view-shelves"
           >
-            <Layers className="w-4 h-4 text-orange-400" />
-            <span className="font-semibold">Shelves</span>
-            <span className="text-muted-foreground font-normal">{shelves.length}</span>
+            <Layers className="w-3.5 h-3.5" />
+            Shelves
+            {shelves.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{shelves.length}</span>}
           </button>
         )}
 
         {depth >= 3 && (
           <button
             onClick={() => { setActiveView('aisles'); setFilter('all'); setSelectedItems(new Set()); setSearchQuery(''); }}
-            className={`flex-1 flex items-center justify-center gap-1.5 p-2.5 rounded-lg text-xs hover-elevate whitespace-nowrap ${activeView === 'aisles' ? 'bg-purple-500/20 border-2 border-purple-500/40' : 'bg-muted/30 border-2 border-border'}`}
+            className={`tool-tab ${activeView === 'aisles' ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
             data-testid="button-view-aisles"
           >
-            <MapPin className="w-4 h-4 text-purple-400" />
-            <span className="font-semibold">Aisles</span>
-            <span className="text-muted-foreground font-normal">{aisles.length}</span>
+            <MapPin className="w-3.5 h-3.5" />
+            Aisles
+            {aisles.length > 0 && <span className="ml-1 opacity-60 text-[10px]">{aisles.length}</span>}
           </button>
         )}
       </div>

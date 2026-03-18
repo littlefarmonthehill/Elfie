@@ -9090,7 +9090,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
             {/* Warehouse Management */}
             {activeSection === 'warehouse' && (
-              <div className="min-h-[400px]">
+              <div className="p-4">
                 <WarehouseManagement />
               </div>
             )}
