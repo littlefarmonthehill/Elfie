@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronLeft, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle, ThumbsUp, ThumbsDown, Minus, FlaskConical, BarChart3, RefreshCw, Target, Info, ChevronDown, ChevronUp } from "lucide-react";
+import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronLeft, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle, ThumbsUp, ThumbsDown, Minus, FlaskConical, BarChart3, RefreshCw, Target, Info, ChevronDown, ChevronUp, Eye, EyeOff } from "lucide-react";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1165,6 +1165,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
   const [heatmapCondition, setHeatmapCondition] = useState<'new' | 'used'>('new');
   const [heatmapSource, setHeatmapSource] = useState<'peak' | 'sold' | 'listed'>('peak');
   const [heatmapMetric, setHeatmapMetric] = useState<'max' | 'avg'>('max');
+  const [heatmapPhotoHidden, setHeatmapPhotoHidden] = useState(false);
   const heatmapPrefsInitialized = useRef(false);
   const heatmapSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -2186,6 +2187,16 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
             <div className="relative rounded-lg border border-gray-700 overflow-hidden bg-black" data-testid="inline-heatmap">
               {/* Filter bar */}
               <div className="relative flex items-center justify-end gap-2 px-3 py-1.5 border-b border-gray-800 flex-wrap" style={{ zIndex: 10 }}>
+                {/* Photo visibility toggle */}
+                <button
+                  data-testid="heatmap-toggle-photo"
+                  onClick={() => setHeatmapPhotoHidden(v => !v)}
+                  title={heatmapPhotoHidden ? 'Show photo' : 'Hide photo'}
+                  className={`rounded text-[10px] font-medium px-2 py-0.5 transition-colors shrink-0 flex items-center gap-1 border ${heatmapPhotoHidden ? 'bg-gray-700 text-white border-gray-600' : 'text-gray-500 hover:text-gray-300 border-gray-700 bg-transparent'}`}
+                >
+                  {heatmapPhotoHidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  Photo
+                </button>
                 {/* Peak button — left-aligned, distinct color */}
                 <button
                   data-testid="heatmap-source-peak"
@@ -2260,9 +2271,9 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                   <img
                     src={`/api/brickanalyzer/scan/${activeScan.id}/image`}
                     alt="Original scan"
-                    className="absolute inset-0 w-full h-full object-fill block select-none"
+                    className="absolute inset-0 w-full h-full object-fill block select-none transition-opacity duration-200"
                     draggable={false}
-                    style={{ filter: 'brightness(0.70)' }}
+                    style={{ filter: 'brightness(0.70)', opacity: heatmapPhotoHidden ? 0 : 1 }}
                   />
                   {(() => {
                     const cropDismissKeyMap = new Map<number, string>();
