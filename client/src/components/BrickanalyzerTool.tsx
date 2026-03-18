@@ -2261,7 +2261,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                     alt="Original scan"
                     className="absolute inset-0 w-full h-full object-fill block select-none"
                     draggable={false}
-                    style={{ filter: 'brightness(0.70)' }}
+                    style={{ filter: heatmapPhotoHidden ? 'brightness(0.08)' : 'brightness(0.70)' }}
                   />
                   {(() => {
                     const cropDismissKeyMap = new Map<number, string>();
@@ -2334,39 +2334,24 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                     });
                     return (
                       <>
-                        {/* Spotlight overlay — darkens everything outside detected boxes */}
-                        {heatmapPhotoHidden && (() => {
-                          const spotlightBoxes = results.filter(r =>
-                            r.bboxX != null && r.bboxY != null && r.bboxW != null && r.bboxH != null
-                          );
-                          if (spotlightBoxes.length === 0) return (
-                            <div className="absolute inset-0 bg-gray-950/92 pointer-events-none" />
-                          );
-                          const outerRect = 'M0,0 L1,0 L1,1 L0,1 Z';
-                          const holes = spotlightBoxes.map(r => {
-                            const x1 = r.bboxX! / 100, y1 = r.bboxY! / 100;
-                            const x2 = (r.bboxX! + r.bboxW!) / 100, y2 = (r.bboxY! + r.bboxH!) / 100;
-                            return `M${x1},${y1} L${x2},${y1} L${x2},${y2} L${x1},${y2} Z`;
-                          });
-                          return (
-                            <>
-                              <svg
-                                aria-hidden="true"
-                                style={{ position: 'absolute', width: 0, height: 0, overflow: 'visible' }}
-                              >
-                                <defs>
-                                  <clipPath id="heatmap-spotlight-clip" clipPathUnits="objectBoundingBox">
-                                    <path d={[outerRect, ...holes].join(' ')} fillRule="evenodd" />
-                                  </clipPath>
-                                </defs>
-                              </svg>
-                              <div
-                                className="absolute inset-0 bg-gray-950/92 pointer-events-none"
-                                style={{ clipPath: 'url(#heatmap-spotlight-clip)' }}
-                              />
-                            </>
-                          );
-                        })()}
+                        {/* Spotlight — per-box photo windows above the dimmed base image */}
+                        {heatmapPhotoHidden && results
+                          .filter(r => r.bboxX != null && r.bboxY != null && r.bboxW != null && r.bboxH != null)
+                          .map((r, i) => (
+                            <img
+                              key={`spotlight-${i}`}
+                              src={`/api/brickanalyzer/scan/${activeScan.id}/image`}
+                              alt=""
+                              aria-hidden="true"
+                              className="absolute inset-0 w-full h-full object-fill block select-none pointer-events-none"
+                              draggable={false}
+                              style={{
+                                filter: 'brightness(0.70)',
+                                clipPath: `inset(${r.bboxY!}% ${100 - r.bboxX! - r.bboxW!}% ${100 - r.bboxY! - r.bboxH!}% ${r.bboxX!}%)`,
+                              }}
+                            />
+                          ))
+                        }
                         {bboxResults.map((r, i) => {
                           const peak = heatVal(r);
                           const displayPrice = peak > 0 ? peak : null;
