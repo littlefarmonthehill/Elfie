@@ -1261,25 +1261,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const billingStartDate = orgRow?.billingStartDate ?? orgRow?.createdAt ?? null;
       const currentPeriodStart = getBillingPeriodStart(billingStartDate, now);
 
-      // Determine full range of available years
-      const earliest = billingStartDate ?? new Date(now.getFullYear(), now.getMonth() - 11, 1);
-      const firstYear = earliest.getFullYear();
-      const lastYear = currentPeriodStart.getFullYear();
-
-      // Total months back (no cap — can go all the way to account creation)
-      const totalMonthsBack = Math.max(1,
+      // History = completed billing periods only (i.e. everything before the current period start).
+      // If the org just signed up and the current period hasn't completed yet, there is no history.
+      const earliest = billingStartDate ?? currentPeriodStart;
+      const totalMonthsBack =
         (currentPeriodStart.getFullYear() - earliest.getFullYear()) * 12 +
-        (currentPeriodStart.getMonth() - earliest.getMonth())
-      );
+        (currentPeriodStart.getMonth() - earliest.getMonth());
+
+      // Determine year range for the navigator
+      const firstYear = earliest.getFullYear();
+      const lastYear = totalMonthsBack > 0 ? currentPeriodStart.getFullYear() : earliest.getFullYear();
 
       // Which year to show (default: last/current year)
       const requestedYear = req.query.year ? parseInt(req.query.year as string) : lastYear;
       const targetYear = Math.max(firstYear, Math.min(lastYear, requestedYear));
 
-      // Collect all periods within the target year
+      // Collect all completed periods within the target year.
+      // Guard: mStart must be on or after billingStartDate so we never show pre-signup months.
       const months = [];
       for (let i = 1; i <= totalMonthsBack; i++) {
         const mStart = getBillingPeriodStartOffset(billingStartDate, now, i);
+        if (billingStartDate && mStart < earliest) continue; // never show pre-signup periods
         if (mStart.getFullYear() !== targetYear) continue;
         const mEnd = getBillingPeriodStartOffset(billingStartDate, now, i - 1);
         const monthlySalesCents = await getOrgMonthlySalesCents(orgId, mStart, mEnd);
