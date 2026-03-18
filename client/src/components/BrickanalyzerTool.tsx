@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronLeft, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle, ThumbsUp, ThumbsDown, Minus, FlaskConical, BarChart3, RefreshCw, Target, Info, ChevronDown, ChevronUp, Eye, EyeOff } from "lucide-react";
+import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronLeft, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle, ThumbsUp, ThumbsDown, Minus, FlaskConical, BarChart3, RefreshCw, Target, Info, ChevronDown, ChevronUp, Eye, EyeOff, Pencil } from "lucide-react";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -596,6 +596,10 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
   const [detectingPoint, setDetectingPoint] = useState<{ x: number; y: number } | null>(null);
   const [drawingRect, setDrawingRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const [drawMode, setDrawMode] = useState(false);
+  const [lassoPoints, setLassoPoints] = useState<{ x: number; y: number }[]>([]);
+  const lassoPointsRef = useRef<{ x: number; y: number }[]>([]);
+  const isLassoDrawing = useRef(false);
   const [scanMode, setScanMode] = useState<"auto" | "manual">(() => {
     try { return (localStorage.getItem(SCAN_MODE_KEY) as "auto" | "manual") || "auto"; } catch { return "auto"; }
   });
@@ -921,6 +925,10 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
     setPreviewData(null);
     setPreviewBoxes([]);
     setPreviewCandidates([]);
+    setDrawMode(false);
+    setLassoPoints([]);
+    lassoPointsRef.current = [];
+    isLassoDrawing.current = false;
     // Pass approved boxes so the server uses them exactly — no re-segmentation
     startFullScan(pendingFile, pendingSettings, approvedBoxes);
   }
@@ -932,6 +940,10 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
     setPreviewCandidates([]);
     setPendingFile(null);
     setPendingSettings(null);
+    setDrawMode(false);
+    setLassoPoints([]);
+    lassoPointsRef.current = [];
+    isLassoDrawing.current = false;
     setUiState("idle");
   }
 
@@ -1059,105 +1071,82 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
     }
   }
 
-  // ── Draw-to-segment pointer handlers ─────────────────────────────────────
-  function getPointerPct(e: React.PointerEvent<HTMLDivElement>) {
+  // ── Freeform lasso handlers ───────────────────────────────────────────────
+  function handleLassoStart(e: React.PointerEvent<HTMLDivElement>) {
+    e.preventDefault();
+    e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
-    return {
-      x: Math.min(Math.max(((e.clientX - rect.left) / rect.width) * 100, 0), 100),
-      y: Math.min(Math.max(((e.clientY - rect.top) / rect.height) * 100, 0), 100),
-    };
-  }
-
-  function handlePreviewPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if (e.button !== 0 && e.pointerType === 'mouse') return;
-    const pct = getPointerPct(e);
-    dragStartRef.current = pct;
-    setDrawingRect(null);
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    isLassoDrawing.current = true;
+    lassoPointsRef.current = [{ x, y }];
+    setLassoPoints([{ x, y }]);
     (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
   }
 
-  function handlePreviewPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    if (!dragStartRef.current) return;
-    const pct = getPointerPct(e);
-    const x = Math.min(dragStartRef.current.x, pct.x);
-    const y = Math.min(dragStartRef.current.y, pct.y);
-    const w = Math.abs(pct.x - dragStartRef.current.x);
-    const h = Math.abs(pct.y - dragStartRef.current.y);
-    if (w > 1 || h > 1) {
-      setDrawingRect({ x, y, w, h });
-    }
+  function handleLassoMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!isLassoDrawing.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    const next = [...lassoPointsRef.current, { x, y }];
+    lassoPointsRef.current = next;
+    // Throttle state updates for performance
+    if (next.length % 3 === 0) setLassoPoints([...next]);
   }
 
-  async function handlePreviewPointerUp(e: React.PointerEvent<HTMLDivElement>) {
-    const start = dragStartRef.current;
-    dragStartRef.current = null;
+  function handleLassoEnd(e: React.PointerEvent<HTMLDivElement>) {
+    if (!isLassoDrawing.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    isLassoDrawing.current = false;
+    const pts = [...lassoPointsRef.current];
+    lassoPointsRef.current = [];
+    setLassoPoints([]);
+    if (pts.length < 5) return; // too few points — was a tap, not a draw
+    const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+    const bbox = {
+      x: Math.min(...xs), y: Math.min(...ys),
+      w: Math.max(...xs) - Math.min(...xs),
+      h: Math.max(...ys) - Math.min(...ys),
+    };
+    if (bbox.w < 3 || bbox.h < 3) return; // too small
+    runLassoDetect(bbox);
+  }
 
-    const pct = getPointerPct(e);
-    const dx = Math.abs(pct.x - (start?.x ?? pct.x));
-    const dy = Math.abs(pct.y - (start?.y ?? pct.y));
-    const isDrag = dx > 2 || dy > 2;
-    setDrawingRect(null);
-
-    if (isDrag && start) {
-      const MIN_SIZE = 4;
-      const rx = Math.min(start.x, pct.x);
-      const ry = Math.min(start.y, pct.y);
-      const rw = Math.abs(pct.x - start.x);
-      const rh = Math.abs(pct.y - start.y);
-      const finalRect = {
-        x: Math.max(0, rx),
-        y: Math.max(0, ry),
-        w: Math.max(MIN_SIZE, Math.min(rw, 100 - rx)),
-        h: Math.max(MIN_SIZE, Math.min(rh, 100 - ry)),
-      };
-      setPreviewBoxes(prev => [...prev, finalRect]);
-    } else if (!isDrag && start) {
-      const syntheticX = start.x;
-      const syntheticY = start.y;
-      const hitConfirmed = previewBoxes.some(
-        b => syntheticX >= b.x && syntheticX <= b.x + b.w && syntheticY >= b.y && syntheticY <= b.y + b.h
-      );
-      if (hitConfirmed) return;
-      if (previewCandidates.length > 0) {
-        const containingIdx = previewCandidates.findIndex(
-          c => syntheticX >= c.x && syntheticX <= c.x + c.w && syntheticY >= c.y && syntheticY <= c.y + c.h
-        );
-        if (containingIdx !== -1) { handlePromoteCandidate(containingIdx); return; }
-        let nearestIdx = -1, nearestDist = Infinity;
-        previewCandidates.forEach((c, i) => {
-          const cx = c.x + c.w / 2, cy = c.y + c.h / 2;
-          const d = Math.hypot(syntheticX - cx, syntheticY - cy);
-          if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
+  async function runLassoDetect(bbox: { x: number; y: number; w: number; h: number }) {
+    const cx = bbox.x + bbox.w / 2;
+    const cy = bbox.y + bbox.h / 2;
+    setDetectingPoint({ x: cx, y: cy });
+    const boxesOverlap = (
+      a: { x: number; y: number; w: number; h: number },
+      b: { x: number; y: number; w: number; h: number }
+    ) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+    let finalBox: { x: number; y: number; w: number; h: number } = bbox;
+    try {
+      if (pendingFile) {
+        const form = new FormData();
+        form.append("image", pendingFile);
+        form.append("tapX", cx.toString());
+        form.append("tapY", cy.toString());
+        form.append("cropX", bbox.x.toString());
+        form.append("cropY", bbox.y.toString());
+        form.append("cropW", bbox.w.toString());
+        form.append("cropH", bbox.h.toString());
+        const resp = await fetch("/api/brickanalyzer/detect-at-point", {
+          method: "POST", credentials: "include", body: form,
         });
-        if (nearestIdx !== -1 && nearestDist < 15) { handlePromoteCandidate(nearestIdx); return; }
+        const data = await resp.json();
+        if (data.box) finalBox = data.box;
       }
-      setDetectingPoint({ x: syntheticX, y: syntheticY });
-      let detectedBox: { x: number; y: number; w: number; h: number } | null = null;
-      try {
-        if (pendingFile) {
-          const form = new FormData();
-          form.append("image", pendingFile);
-          form.append("tapX", syntheticX.toString());
-          form.append("tapY", syntheticY.toString());
-          const resp = await fetch("/api/brickanalyzer/detect-at-point", {
-            method: "POST", credentials: "include", body: form,
-          });
-          const data = await resp.json();
-          detectedBox = data.box ?? null;
-        }
-      } catch {}
-      setDetectingPoint(null);
-      if (detectedBox) {
-        setPreviewBoxes(prev => [...prev, detectedBox!]);
-      } else {
-        const size = 16;
-        setPreviewBoxes(prev => [...prev, {
-          x: Math.min(Math.max(syntheticX - size / 2, 0), 100 - size),
-          y: Math.min(Math.max(syntheticY - size / 2, 0), 100 - size),
-          w: size, h: size,
-        }]);
-      }
-    }
+    } catch {}
+    setDetectingPoint(null);
+    setPreviewBoxes(prev => {
+      if (prev.some(b => boxesOverlap(finalBox, b))) return prev;
+      return [...prev, finalBox];
+    });
   }
 
   // ── Calibration mode state ────────────────────────────────────────────────
@@ -1917,6 +1906,15 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
               Retake
             </Button>
             <Button
+              variant={drawMode ? "default" : "outline"}
+              className={drawMode ? "bg-purple-500 gap-1.5" : "gap-1.5"}
+              onClick={() => setDrawMode(v => !v)}
+              data-testid="button-preview-draw-mode"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              {drawMode ? "Drawing" : "Lasso"}
+            </Button>
+            <Button
               className="flex-1 bg-purple-600 gap-1.5"
               onClick={handleConfirmScan}
               data-testid="button-preview-confirm"
@@ -1933,16 +1931,52 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
 
           {/* Photo with overlaid bounding boxes */}
           <div
-            className="relative w-full rounded-lg overflow-hidden bg-gray-900 border border-gray-700 cursor-crosshair select-none"
-            style={{ aspectRatio: `${previewData.imageWidth} / ${previewData.imageHeight}` }}
+            className="relative w-full rounded-lg overflow-hidden bg-gray-900 border border-gray-700 select-none"
+            style={{
+              aspectRatio: `${previewData.imageWidth} / ${previewData.imageHeight}`,
+              cursor: drawMode ? "crosshair" : "crosshair",
+              touchAction: drawMode ? "none" : "manipulation",
+            }}
             data-testid="preview-image-container"
-            onClick={handleImageTap}
+            onClick={!drawMode ? handleImageTap : undefined}
+            onPointerDown={drawMode ? handleLassoStart : undefined}
+            onPointerMove={drawMode ? handleLassoMove : undefined}
+            onPointerUp={drawMode ? handleLassoEnd : undefined}
+            onPointerCancel={drawMode ? handleLassoEnd : undefined}
           >
             <img
               src={previewData.objectUrl}
               alt="Scan preview"
               className="w-full h-full object-contain pointer-events-none select-none"
             />
+
+            {/* Lasso draw overlay */}
+            {drawMode && lassoPoints.length > 1 && (
+              <svg
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                style={{ zIndex: 30 }}
+              >
+                <polyline
+                  points={lassoPoints.map(p => `${p.x},${p.y}`).join(" ")}
+                  fill="rgba(167,139,250,0.15)"
+                  stroke="rgba(167,139,250,0.9)"
+                  strokeWidth="0.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+
+            {/* Lasso hint banner */}
+            {drawMode && lassoPoints.length === 0 && (
+              <div className="absolute inset-x-0 bottom-2 flex justify-center pointer-events-none" style={{ zIndex: 30 }}>
+                <span className="text-[10px] text-purple-200 bg-gray-900/80 rounded px-2 py-0.5">
+                  Draw around a piece to identify it
+                </span>
+              </div>
+            )}
 
             {/* Confirmed boxes — purple solid border + number label + remove button */}
             {previewBoxes.map((box, i) => (
