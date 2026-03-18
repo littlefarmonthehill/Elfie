@@ -1200,9 +1200,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   async function getOrgActivePlan(orgId: string) {
     const [orgRow] = await db.select({ planId: organizations.planId }).from(organizations).where(eq(organizations.id, orgId)).limit(1);
-    const planId = orgRow?.planId ?? 1;
-    const [plan] = await db.select().from(plans).where(eq(plans.id, planId)).limit(1);
-    return plan ?? { id: 1, name: 'Pay As You Grow', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, status: 'live', createdAt: new Date(), updatedAt: new Date() };
+    if (orgRow?.planId) {
+      const [plan] = await db.select().from(plans).where(eq(plans.id, orgRow.planId)).limit(1);
+      if (plan) return plan;
+    }
+    // Fall back to the platform-designated default plan
+    const [defaultPlan] = await db.select().from(plans).where(eq(plans.isDefault, true)).limit(1);
+    if (defaultPlan) return defaultPlan;
+    // Last-resort hardcoded fallback (should never reach here in a properly seeded DB)
+    return { id: 0, name: 'Pay As You Grow', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, status: 'live', isDefault: true, sunsetAt: null, createdAt: new Date(), updatedAt: new Date() };
   }
 
   // GET /api/org/usage — current org's billing-period usage summary (sales-based)
@@ -1327,15 +1333,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/platform-admin/plans/:id', isSuperAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      // Check if orgs are on this plan — if so, only status/name/sunsetAt edits allowed
+      // Check if orgs are on this plan — if so, only status/name/sunsetAt/isDefault edits allowed
       const [orgCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(organizations).where(eq(organizations.planId, id));
       const hasOrgs = Number(orgCount.count) > 0;
       const allowed = hasOrgs
-        ? { status: req.body.status, name: req.body.name, sunsetAt: req.body.sunsetAt }
+        ? { status: req.body.status, name: req.body.name, sunsetAt: req.body.sunsetAt, isDefault: req.body.isDefault }
         : req.body;
       // Parse sunsetAt as a Date if provided
       if (allowed.sunsetAt !== undefined) {
         allowed.sunsetAt = allowed.sunsetAt ? new Date(allowed.sunsetAt) : null;
+      }
+      // If setting this plan as default, clear the flag from all other plans first
+      if (allowed.isDefault === true) {
+        await db.update(plans).set({ isDefault: false }).where(sql`id != ${id}`);
       }
       const parsed = insertPlanSchema.partial().parse(allowed);
       const [updated] = await db.update(plans).set({ ...parsed, updatedAt: new Date() }).where(eq(plans.id, id)).returning();

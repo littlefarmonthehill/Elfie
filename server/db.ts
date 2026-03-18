@@ -1090,6 +1090,18 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS sunset_at TIMESTAMP`);
     console.log('[Migration] Phase-54 (plans sunset_at column) complete.');
 
+    // ── Phase-55: Add is_default flag to plans ────────────────────────────────
+    await client.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS is_default BOOLEAN NOT NULL DEFAULT false`);
+    // Set the first live plan as default if none is marked yet
+    await client.query(`
+      UPDATE plans SET is_default = true
+      WHERE id = (
+        SELECT id FROM plans WHERE status = 'live' ORDER BY id ASC LIMIT 1
+      )
+      AND NOT EXISTS (SELECT 1 FROM plans WHERE is_default = true)
+    `);
+    console.log('[Migration] Phase-55 (plans is_default column) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

@@ -1860,6 +1860,7 @@ function PlansAndPricingPanel() {
     freeSalesThreshold: number;
     status: string;
     sunsetAt: string | null;
+    isDefault: boolean;
     locked: boolean;
     orgCount: number;
   };
@@ -1870,7 +1871,7 @@ function PlansAndPricingPanel() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
-  const defaultForm = { name: '', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, status: 'in_progress', sunsetAt: null as string | null };
+  const defaultForm = { name: '', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, status: 'in_progress', sunsetAt: null as string | null, isDefault: false };
   const [form, setForm] = useState<typeof defaultForm>(defaultForm);
 
   const fmtC = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -1912,6 +1913,7 @@ function PlansAndPricingPanel() {
       freeSalesThreshold: plan.freeSalesThreshold,
       status: plan.status,
       sunsetAt: plan.sunsetAt ? new Date(plan.sunsetAt).toISOString().split('T')[0] : null,
+      isDefault: plan.isDefault,
     });
   };
 
@@ -1925,8 +1927,8 @@ function PlansAndPricingPanel() {
     const editingPlanRef = (plans ?? []).find(p => p.id === editingId);
     const sunsetAtIso = form.sunsetAt ? new Date(form.sunsetAt).toISOString() : null;
     const payload = editingId
-      ? { id: editingId, data: { name: form.name, status: form.status, sunsetAt: sunsetAtIso, ...(!editingPlanRef?.locked ? { basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold } : {}) } }
-      : { data: { name: form.name, basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold, status: form.status, sunsetAt: sunsetAtIso } };
+      ? { id: editingId, data: { name: form.name, status: form.status, sunsetAt: sunsetAtIso, isDefault: form.isDefault, ...(!editingPlanRef?.locked ? { basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold } : {}) } }
+      : { data: { name: form.name, basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold, status: form.status, sunsetAt: sunsetAtIso, isDefault: form.isDefault } };
     saveMutation.mutate(payload);
   };
 
@@ -1976,6 +1978,9 @@ function PlansAndPricingPanel() {
                       <span className="text-[9px] bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded px-1 py-0.5">
                         locked ({plan.orgCount} org{plan.orgCount !== 1 ? 's' : ''})
                       </span>
+                    )}
+                    {plan.isDefault && (
+                      <span className="text-[9px] bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded px-1 py-0.5">default</span>
                     )}
                     {plan.status === 'live' && (
                       <span className="text-[9px] bg-green-500/20 text-green-400 border border-green-500/30 rounded px-1 py-0.5">live</span>
@@ -2089,6 +2094,19 @@ function PlansAndPricingPanel() {
                   <p className="text-[10px] text-gray-500 mt-0.5">Users on this plan will be notified to switch by this date.</p>
                 </div>
               )}
+              <div>
+                <label className="block app-label mb-1">Default Plan</label>
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, isDefault: !f.isDefault }))}
+                  data-testid="toggle-plan-isDefault"
+                  className={`flex items-center gap-2 w-full rounded border px-3 py-2 text-xs transition-colors ${form.isDefault ? 'border-purple-500/50 bg-purple-500/10 text-purple-300' : 'border-gray-700 bg-gray-900/40 text-gray-400 hover:border-gray-600'}`}
+                >
+                  <span className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 transition-colors ${form.isDefault ? 'border-purple-400 bg-purple-400' : 'border-gray-500'}`} />
+                  {form.isDefault ? 'This is the default plan' : 'Set as default plan'}
+                </button>
+                <p className="text-[10px] text-gray-500 mt-0.5">Orgs that don't pick a plan during onboarding are assigned the default plan. Only one plan can be default at a time.</p>
+              </div>
               {!editingPlan?.locked && (
                 <>
                   <div className="grid grid-cols-3 gap-2">

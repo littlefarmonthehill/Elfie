@@ -225,6 +225,9 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings, onOpenBilling }: { onO
 
   if (isLoading || !usage) return null;
 
+  // Don't show billing details for trial users — they haven't committed to a plan yet
+  if (usage.subscriptionStatus === 'trial') return null;
+
   const { billing, plan, monthlySalesCents } = usage;
   const hasSalesFee = billing.salesFee > 0;
 

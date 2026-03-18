@@ -1639,6 +1639,8 @@ export const plans = pgTable("plans", {
   status: varchar("status", { length: 20 }).notNull().default('live'),
   // Date when a sunset plan officially ends — users on this plan must switch by this date
   sunsetAt: timestamp("sunset_at"),
+  // Exactly one live plan should be marked as default — assigned to orgs that don't pick a plan during onboarding
+  isDefault: boolean("is_default").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
