@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ToolDrawer } from "@/components/ui/tool-drawer";
 import {
-  X, CreditCard, ShoppingCart, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Printer,
+  CreditCard, ShoppingCart, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Printer,
   AlertTriangle, CheckCircle2, Info, TrendingUp,
 } from "lucide-react";
 
@@ -416,53 +416,45 @@ function HistoryTab() {
 
 export function BillingDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [billingTab, setBillingTab] = useState<'current' | 'history'>('current');
-  return (
-    <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent
-        side="right"
-        className="w-full sm:max-w-lg flex flex-col gap-0 p-0 bg-gray-950 border-white/10 overflow-hidden"
-        style={{ paddingTop: 'env(safe-area-inset-top)' }}
-        data-testid="sheet-billing-drawer"
-      >
-        <SheetHeader className="flex flex-row items-center justify-between px-4 py-3 border-b border-white/10 gap-2 flex-wrap flex-shrink-0">
-          <div className="flex items-center gap-1.5">
-            <CreditCard className="w-5 h-5 text-blue-400 shrink-0" />
-            <SheetTitle className="text-sm font-semibold text-gray-200">Payments & Billing</SheetTitle>
-          </div>
-          <Button size="icon" variant="ghost" onClick={onClose} data-testid="button-close-billing-drawer">
-            <X className="w-4 h-4" />
-          </Button>
-        </SheetHeader>
 
-        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-          <div className="tool-tab-bar flex-shrink-0">
-            <button
-              onClick={() => setBillingTab('current')}
-              className={`tool-tab ${billingTab === 'current' ? 'text-orange-400 border-orange-500' : 'tool-tab-off'}`}
-              data-testid="tab-current-billing"
-            >
-              Current Billing
-            </button>
-            <button
-              onClick={() => setBillingTab('history')}
-              className={`tool-tab ${billingTab === 'history' ? 'text-orange-400 border-orange-500' : 'tool-tab-off'}`}
-              data-testid="tab-previous-invoices"
-            >
-              Invoice History
-            </button>
-          </div>
-          {billingTab === 'current' && (
-            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-              <CurrentBillingTab />
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col" data-testid="sheet-billing-drawer">
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]"
+        onClick={onClose}
+      />
+      <div className="relative flex-1 bg-gray-950/95 border border-white/10 rounded-lg m-3 overflow-hidden shadow-2xl animate-[slideUp_250ms_ease-out]">
+        <ToolDrawer
+          icon={CreditCard}
+          iconColor="text-blue-400"
+          title="Payments & Billing"
+          onClose={onClose}
+          closeTestId="button-close-billing-drawer"
+          subHeader={
+            <div className="tool-tab-bar">
+              <button
+                onClick={() => setBillingTab('current')}
+                className={`tool-tab ${billingTab === 'current' ? 'text-orange-400 border-orange-500' : 'tool-tab-off'}`}
+                data-testid="tab-current-billing"
+              >
+                Current Billing
+              </button>
+              <button
+                onClick={() => setBillingTab('history')}
+                className={`tool-tab ${billingTab === 'history' ? 'text-orange-400 border-orange-500' : 'tool-tab-off'}`}
+                data-testid="tab-previous-invoices"
+              >
+                Invoice History
+              </button>
             </div>
-          )}
-          {billingTab === 'history' && (
-            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-              <HistoryTab />
-            </div>
-          )}
-        </div>
-      </SheetContent>
-    </Sheet>
+          }
+          contentClassName="flex-1 min-h-0 overflow-y-auto px-4 py-4"
+        >
+          {billingTab === 'current' ? <CurrentBillingTab /> : <HistoryTab />}
+        </ToolDrawer>
+      </div>
+    </div>
   );
 }
