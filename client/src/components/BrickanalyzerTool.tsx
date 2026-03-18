@@ -2165,6 +2165,16 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
             <div className="relative rounded-lg border border-gray-700 overflow-hidden bg-black" data-testid="inline-heatmap">
               {/* Filter bar */}
               <div className="relative flex items-center justify-end gap-2 px-3 py-1.5 border-b border-gray-800 flex-wrap" style={{ zIndex: 10 }}>
+                {/* New scan shortcut */}
+                <button
+                  data-testid="button-brickanalyzer-new-scan-filterbar"
+                  onClick={() => { setUiState("idle"); setScanId(null); }}
+                  title="Start a new scan"
+                  className="rounded text-[10px] font-medium px-2 py-0.5 transition-colors shrink-0 flex items-center gap-1 border text-gray-500 hover:text-gray-300 border-gray-700 bg-transparent"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  New Scan
+                </button>
                 {/* Photo visibility toggle */}
                 <button
                   data-testid="heatmap-toggle-photo"
