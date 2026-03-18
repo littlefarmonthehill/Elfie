@@ -301,12 +301,13 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings, onOpenBilling }: { onO
   );
 }
 
-export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings, children }: {
+export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings, onOpenBilling, children }: {
   setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }>;
   billingStatus?: { plan: string; status: string; interval?: string | null; trialEndsAt?: string | null; subscriptionEndsAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number } } | null;
   rateLimit?: { allowed: boolean; callsLast24h: number; blocked?: boolean } | null;
   blApiCallLimit?: number;
   onOpenSettings?: (section: any) => void;
+  onOpenBilling?: () => void;
   children?: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(() => {
@@ -615,7 +616,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
 
       {/* System Pulse (plan info, setup items) */}
       {showPlan && (
-        <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings}>
+        <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings} onOpenBilling={onOpenBilling}>
           <DashboardNotifications />
         </SystemPulse>
       )}
