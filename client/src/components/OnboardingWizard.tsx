@@ -1,21 +1,21 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, ArrowRight, Building2, Link, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2, Archive, Layers, MapPin, Upload, FileText, ChevronRight, AlertCircle, Package, Globe, CreditCard, Lock, BadgeCheck, CalendarClock, ToggleLeft } from "lucide-react";
+import { CheckCircle2, ArrowRight, Building2, Link, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2, Archive, Layers, MapPin, Upload, FileText, ChevronRight, AlertCircle, Package, Globe, CreditCard, Lock, BadgeCheck, X, TrendingUp } from "lucide-react";
 import { TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
 import type { Organization } from "@shared/schema";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
-import { TIER_CONFIG } from "@shared/tierConfig";
 
 interface Props {
   org: Organization;
   onComplete: () => void;
+  onDismiss?: () => void;
 }
 
 const STEPS = [
@@ -77,9 +77,14 @@ function ElfieSpeechBubble({ step, large = false }: { step: number; large?: bool
   );
 }
 
-export default function OnboardingWizard({ org, onComplete }: Props) {
+export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) {
   const [step, setStep] = useState(1);
   const { status: installStatus, promptInstall } = useInstallPrompt();
+
+  const { data: availablePlans = [], isLoading: plansLoading } = useQuery<Array<{
+    id: number; name: string; basePrice: number; salesPercentage: number;
+    freeSalesThreshold: number; isActive: boolean; isSunset: boolean;
+  }>>({ queryKey: ['/api/plans'] });
 
   // Step 1 — Company Info
   const [name, setName] = useState(org.name || "");
@@ -107,8 +112,7 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
   const [channelSyncMode, setChannelSyncMode] = useState<'full_control' | 'quantity_only'>('full_control');
 
   // Step 5 — Subscribe
-  const [selectedPlan, setSelectedPlan] = useState<'foundation' | 'core' | null>(null);
-  const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly');
+  const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [csvText, setCsvText] = useState("");
   const [csvResult, setCsvResult] = useState<{ created: { aisles: number; shelves: number; bins: number; skipped: number }; errors: string[] } | null>(null);
@@ -151,9 +155,9 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
   });
 
   const checkoutMutation = useMutation({
-    mutationFn: async ({ plan, interval }: { plan: string; interval: string }) => {
+    mutationFn: async ({ planId }: { planId: number }) => {
       await apiRequest("PATCH", "/api/org", { onboardingCompleted: true });
-      const res = await apiRequest("POST", "/api/billing/checkout", { plan, interval, context: "onboarding" });
+      const res = await apiRequest("POST", "/api/billing/checkout", { planId, context: "onboarding" });
       return res.json();
     },
     onSuccess: (data: { url?: string }) => {
@@ -213,16 +217,31 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
     <div className="fixed inset-0 z-50 bg-gray-950 flex flex-col items-center justify-center p-4 overflow-y-auto">
       <div className="w-full max-w-lg py-8">
 
+        {/* Dismiss button */}
+        {onDismiss && step < 6 && (
+          <div className="flex justify-end mb-2">
+            <button
+              onClick={onDismiss}
+              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              data-testid="button-onboard-dismiss"
+              title="Close and finish later"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Finish later</span>
+            </button>
+          </div>
+        )}
+
         {/* ELFIE speech bubble — steps 1–5 */}
         {step < 6 && <ElfieSpeechBubble step={step} />}
 
         {/* Step indicator */}
         {step < 6 && (
-          <div className="flex items-center justify-center gap-0 mb-6">
+          <div className="flex items-center justify-center gap-0 mb-6 overflow-x-auto pb-1">
             {STEPS.map((s, i) => (
-              <div key={s.id} className="flex items-center">
+              <div key={s.id} className="flex items-center flex-shrink-0">
                 <div className="flex flex-col items-center gap-1">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center border-2 transition-colors ${
                     step > s.id
                       ? "bg-green-500 border-green-500"
                       : step === s.id
@@ -230,17 +249,17 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                       : "bg-gray-900 border-gray-700"
                   }`}>
                     {step > s.id ? (
-                      <CheckCircle2 className="w-4 h-4 text-white" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-white" />
                     ) : (
-                      <s.icon className={`w-3.5 h-3.5 ${step === s.id ? "text-lego-blue" : "text-gray-600"}`} />
+                      <s.icon className={`w-3 h-3 ${step === s.id ? "text-lego-blue" : "text-gray-600"}`} />
                     )}
                   </div>
-                  <span className={`text-[10px] font-medium uppercase tracking-wide ${step === s.id ? "text-gray-300" : step > s.id ? "text-green-400" : "text-gray-600"}`}>
+                  <span className={`hidden sm:block text-[10px] font-medium uppercase tracking-wide whitespace-nowrap ${step === s.id ? "text-gray-300" : step > s.id ? "text-green-400" : "text-gray-600"}`}>
                     {s.label}
                   </span>
                 </div>
                 {i < STEPS.length - 1 && (
-                  <div className={`w-12 h-px mx-2 mb-4 transition-colors ${step > s.id ? "bg-green-500/50" : "bg-gray-700"}`} />
+                  <div className={`w-8 h-px mx-1.5 mb-0 sm:mb-4 flex-shrink-0 transition-colors ${step > s.id ? "bg-green-500/50" : "bg-gray-700"}`} />
                 )}
               </div>
             ))}
@@ -795,107 +814,47 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                 <h2 className="text-lg font-semibold text-white mb-1">Choose your plan</h2>
                 <p className="text-sm text-gray-400">
                   You're on a free trial — subscribe now to keep going after it ends.
-                  Every paid plan includes a 14-day free trial, so you won't be charged right away.
                 </p>
               </div>
 
-              {/* Billing interval toggle */}
-              <div className="flex items-center justify-center">
-                <div className="flex items-center bg-gray-800 border border-gray-700 rounded-lg p-0.5 gap-0.5">
-                  <button
-                    onClick={() => setBillingInterval('monthly')}
-                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${billingInterval === 'monthly' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200'}`}
-                    data-testid="button-interval-monthly"
-                  >
-                    Monthly
-                  </button>
-                  <button
-                    onClick={() => setBillingInterval('annual')}
-                    className={`relative px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${billingInterval === 'annual' ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200'}`}
-                    data-testid="button-interval-annual"
-                  >
-                    Annual
-                    <span className="absolute -top-2.5 -right-1 text-[9px] font-bold bg-green-500 text-white px-1 py-0.5 rounded">SAVE 20%</span>
-                  </button>
+              {/* Plan cards — loaded from DB */}
+              {plansLoading ? (
+                <div className="flex items-center justify-center py-8 gap-2 text-gray-500">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-sm">Loading plans…</span>
                 </div>
-              </div>
-
-              {/* Plan cards */}
-              <div className="grid grid-cols-2 gap-3">
-                {/* Foundation */}
-                <button
-                  onClick={() => setSelectedPlan('foundation')}
-                  className={`relative flex flex-col text-left rounded-lg border p-3.5 transition-colors ${selectedPlan === 'foundation' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
-                  data-testid="button-plan-foundation"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-semibold text-white">Foundation</span>
-                    {selectedPlan === 'foundation' && <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />}
-                  </div>
-                  <div className="mb-0.5">
-                    <span className="text-xl font-bold text-white">{billingInterval === 'monthly' ? '$19.99' : '$15.99'}</span>
-                    <span className="text-xs text-gray-500">/mo</span>
-                  </div>
-                  {billingInterval === 'annual' && <p className="text-[10px] text-green-400 mb-1">$191.88 billed annually</p>}
-                  <p className="text-[10px] text-gray-500 mb-3">{TIER_CONFIG.foundation.tagline}</p>
-                  <ul className="space-y-1.5 text-[10px] text-gray-400">
-                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />2 team seats</li>
-                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />50 BrickSpotter scans/mo</li>
-                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />Price-O-Matic repricing</li>
-                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />3 automation rules</li>
-                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />90-day order history</li>
-                  </ul>
-                </button>
-
-                {/* Core */}
-                <button
-                  onClick={() => setSelectedPlan('core')}
-                  className={`relative flex flex-col text-left rounded-lg border p-3.5 transition-colors ${selectedPlan === 'core' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
-                  data-testid="button-plan-core"
-                >
-                  <span className="absolute -top-2.5 left-3 text-[9px] font-bold bg-yellow-500 text-gray-900 px-2 py-0.5 rounded-full">MOST POPULAR</span>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-semibold text-white">Core</span>
-                    {selectedPlan === 'core' && <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />}
-                  </div>
-                  <div className="mb-0.5">
-                    <span className="text-xl font-bold text-white">{billingInterval === 'monthly' ? '$49.99' : '$39.99'}</span>
-                    <span className="text-xs text-gray-500">/mo</span>
-                  </div>
-                  {billingInterval === 'annual' && <p className="text-[10px] text-green-400 mb-1">$479.88 billed annually</p>}
-                  <p className="text-[10px] text-gray-500 mb-3">{TIER_CONFIG.core.tagline}</p>
-                  <ul className="space-y-1.5 text-[10px] text-gray-400">
-                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />5 team seats</li>
-                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />250 BrickSpotter scans/mo</li>
-                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />ELFIE AI assistant</li>
-                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />BrickOwl channel sync</li>
-                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />10 automation rules</li>
-                    <li className="flex items-center gap-1.5"><CheckCircle2 className="w-2.5 h-2.5 text-green-400 shrink-0" />Full data enrichment</li>
-                  </ul>
-                </button>
-              </div>
-
-              {/* Free trial callout */}
-              {selectedPlan ? (
-                <div className="flex items-start gap-2.5 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2.5">
-                  <CalendarClock className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs font-medium text-green-400">14-day free trial included</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">
-                      Enter your card now and your first charge will be{' '}
-                      {billingInterval === 'monthly'
-                        ? `$${selectedPlan === 'foundation' ? '19.99' : '49.99'}/month`
-                        : `$${selectedPlan === 'foundation' ? '191.88' : '479.88'}/year`}{' '}
-                      — billed 14 days from today. Cancel before then and you won't pay a thing.
-                    </p>
-                  </div>
+              ) : availablePlans.length === 0 ? (
+                <div className="text-center py-6 text-gray-500 text-sm">
+                  No plans are currently available. You can subscribe later from the <span className="text-gray-300 font-medium">My Plan</span> section.
                 </div>
               ) : (
-                <div className="flex items-start gap-2.5 bg-gray-800/40 border border-gray-700 rounded-lg px-3 py-2.5">
-                  <ToggleLeft className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
-                  <p className="text-[10px] text-gray-500 leading-relaxed">
-                    Select a plan above to see trial and pricing details. You can also skip now and subscribe from the <span className="text-gray-400 font-medium">My Plan</span> section any time.
-                  </p>
+                <div className="grid grid-cols-1 gap-3">
+                  {availablePlans.map((plan) => {
+                    const monthlyDollars = (plan.basePrice / 100).toFixed(2);
+                    const thresholdDollars = Math.round(plan.freeSalesThreshold / 100).toLocaleString();
+                    const isSelected = selectedPlan === plan.id;
+                    return (
+                      <button
+                        key={plan.id}
+                        onClick={() => setSelectedPlan(plan.id)}
+                        className={`relative flex flex-col text-left rounded-lg border p-4 transition-colors ${isSelected ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
+                        data-testid={`button-plan-${plan.id}`}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <span className="text-sm font-semibold text-white">{plan.name}</span>
+                          {isSelected && <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />}
+                        </div>
+                        <div className="mb-1">
+                          <span className="text-2xl font-bold text-white">${monthlyDollars}</span>
+                          <span className="text-xs text-gray-500">/mo base</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+                          <TrendingUp className="w-3 h-3 text-purple-400 shrink-0" />
+                          <span>+{plan.salesPercentage}% on sales over ${thresholdDollars}/mo</span>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
@@ -912,14 +871,14 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
                   I'll subscribe later
                 </Button>
                 <Button
-                  onClick={() => selectedPlan && checkoutMutation.mutate({ plan: selectedPlan, interval: billingInterval })}
-                  disabled={!selectedPlan || checkoutMutation.isPending}
+                  onClick={() => selectedPlan !== null && checkoutMutation.mutate({ planId: selectedPlan })}
+                  disabled={selectedPlan === null || checkoutMutation.isPending}
                   data-testid="button-onboard-subscribe"
                 >
                   {checkoutMutation.isPending ? (
                     <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Redirecting to Stripe…</>
-                  ) : selectedPlan ? (
-                    <>Subscribe to {selectedPlan === 'foundation' ? 'Foundation' : 'Core'}<ArrowRight className="w-4 h-4 ml-1" /></>
+                  ) : selectedPlan !== null ? (
+                    <>Subscribe<ArrowRight className="w-4 h-4 ml-1" /></>
                   ) : (
                     'Select a plan above'
                   )}
@@ -927,13 +886,9 @@ export default function OnboardingWizard({ org, onComplete }: Props) {
               </div>
 
               {/* Legal disclosure */}
-              {selectedPlan && (
+              {selectedPlan !== null && (
                 <p className="text-center text-[10px] text-gray-600 leading-relaxed">
-                  By subscribing, you authorize E.L.F.I.E. to charge{' '}
-                  {billingInterval === 'monthly'
-                    ? `$${selectedPlan === 'foundation' ? '19.99' : '49.99'}/month`
-                    : `$${selectedPlan === 'foundation' ? '191.88' : '479.88'}/year`}{' '}
-                  after your 14-day free trial. You can cancel at any time before the trial ends.
+                  By subscribing, you authorize E.L.F.I.E. to charge the selected plan rate after any applicable trial period. You can cancel at any time.
                 </p>
               )}
             </>

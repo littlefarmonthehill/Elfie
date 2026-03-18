@@ -517,10 +517,8 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   const underpricedThreshold = appSettings?.pomUnderpricedScore ?? 1.5;
 
   const setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }> = [];
-  if (orgData?.onboardingCompleted) {
-    if (!orgData?.address) setupItems.push({ id: 'address', label: 'Add business address', section: 'general' });
-    if (!appSettings?.bricklinkConsumerKey) setupItems.push({ id: 'bricklink', label: 'Connect BrickLink', section: 'platforms' });
-  }
+  if (!orgData?.address) setupItems.push({ id: 'address', label: 'Add business address', section: 'general' });
+  if (!appSettings?.bricklinkConsumerKey) setupItems.push({ id: 'bricklink', label: 'Connect BrickLink', section: 'platforms' });
 
   const pendingOrders = fulfillmentStats?.unfulfilled ?? dashboardOrders?.pending?.length ?? 0;
   const totalLots = stats?.totalInventoryItems ?? 0;

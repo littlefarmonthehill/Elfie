@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import { db } from "../db";
 import { organizations } from "@shared/schema";
+import type { Plan } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { getPlanConfigByKey } from "./planConfigService";
 
@@ -54,6 +55,39 @@ export async function createCheckoutSession(orgId: string, plan: string, interva
       orgId,
       plan,
       interval,
+    },
+  });
+
+  return session;
+}
+
+// Creates a checkout session using a plan from the plans table (dynamic pricing model)
+export async function createCheckoutSessionByPlan(orgId: string, plan: Plan, successUrl: string, cancelUrl: string) {
+  const stripe = getStripeClient();
+  const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
+  if (!org) throw new Error("Organization not found");
+
+  const session = await stripe.checkout.sessions.create({
+    customer: org.stripeCustomerId || undefined,
+    payment_method_types: ["card"],
+    line_items: [
+      {
+        price_data: {
+          currency: "usd",
+          product_data: { name: plan.name },
+          unit_amount: plan.basePrice,
+          recurring: { interval: "month" },
+        },
+        quantity: 1,
+      },
+    ],
+    mode: "subscription",
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+    metadata: {
+      orgId,
+      planId: String(plan.id),
+      plan: plan.name,
     },
   });
 

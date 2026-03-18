@@ -53,7 +53,7 @@ import FormData from "form-data";
 import axios from "axios";
 import OpenAI from "openai";
 import { checkBrickspotterLimit, incrementBrickspotterScan, getOrgWithLimits, checkSeatLimit, checkAutomationLimit } from "./services/tierEnforcement";
-import { stripeClient, createCheckoutSession, createPortalSession, handleStripeWebhook, changePlan, setAutoRenew, cancelSubscriptionNow } from "./services/stripe";
+import { stripeClient, createCheckoutSession, createCheckoutSessionByPlan, createPortalSession, handleStripeWebhook, changePlan, setAutoRenew, cancelSubscriptionNow } from "./services/stripe";
 
 // Decode HTML entities from BrickLink notes for accurate comparison.
 // Regex compiled once at module level; single-pass replace with a lookup table.
@@ -3086,11 +3086,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── Billing routes ──────────────────────────────────────────────────────────
 
+  // GET /api/plans — return all active, non-sunset plans for subscription selection
+  app.get('/api/plans', isAuthenticated, async (_req, res) => {
+    try {
+      const activePlans = await db
+        .select()
+        .from(plans)
+        .where(and(eq(plans.isActive, true), eq(plans.isSunset, false)))
+        .orderBy(asc(plans.id));
+      res.json(activePlans);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // POST /api/billing/checkout — create Stripe checkout session
   app.post('/api/billing/checkout', isAuthenticated, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const { plan, interval, context } = req.body;
+      const { plan, interval, planId, context } = req.body;
+
+      // New path: plan selected by DB id (dynamic plans table)
+      if (planId !== undefined) {
+        const [dbPlan] = await db.select().from(plans).where(eq(plans.id, planId)).limit(1);
+        if (!dbPlan || dbPlan.isSunset || !dbPlan.isActive) {
+          return res.status(400).json({ message: "Invalid or unavailable plan" });
+        }
+        const isOnboarding = context === 'onboarding';
+        const successUrl = isOnboarding
+          ? `${req.protocol}://${req.get('host')}/?subscribed=true&plan=${dbPlan.id}`
+          : `${req.protocol}://${req.get('host')}/settings?tab=billing&session_id={CHECKOUT_SESSION_ID}`;
+        const cancelUrl = isOnboarding
+          ? `${req.protocol}://${req.get('host')}/`
+          : `${req.protocol}://${req.get('host')}/settings?tab=billing`;
+
+        const session = await createCheckoutSessionByPlan(orgId, dbPlan, successUrl, cancelUrl);
+        return res.json({ url: session.url });
+      }
+
       if (!['foundation', 'core'].includes(plan)) return res.status(400).json({ message: "Invalid plan" });
       if (!['monthly', 'annual'].includes(interval)) return res.status(400).json({ message: "Invalid interval" });
 

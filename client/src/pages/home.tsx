@@ -63,6 +63,15 @@ export default function Home() {
   const [chatOpen, setChatOpen] = useState(false);
   const [supportNotification, setSupportNotification] = useState(false);
   const [navHidden, setNavHidden] = useState(false);
+  const [wizardDismissed, setWizardDismissed] = useState(false);
+  useEffect(() => {
+    if (org?.id) {
+      try {
+        const dismissed = localStorage.getItem(`onboardingDismissed_${org.id}`) === 'true';
+        setWizardDismissed(dismissed);
+      } catch {}
+    }
+  }, [org?.id]);
   useEffect(() => {
     const check = () => {
       const nowDesktop = window.innerWidth >= 1024;
@@ -1041,10 +1050,14 @@ export default function Home() {
         </SheetContent>
       </Sheet>
       
-      {!user?.isAdmin && user?.orgRole === 'owner' && org && !org.onboardingCompleted && (
+      {!user?.isAdmin && user?.orgRole === 'owner' && org && !org.onboardingCompleted && !wizardDismissed && (
         <OnboardingWizard
           org={org}
           onComplete={() => queryClient.invalidateQueries({ queryKey: ['/api/org'] })}
+          onDismiss={() => {
+            setWizardDismissed(true);
+            try { localStorage.setItem(`onboardingDismissed_${org.id}`, 'true'); } catch {}
+          }}
         />
       )}
 
