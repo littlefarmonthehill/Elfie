@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, ChevronRight, X } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X } from "lucide-react";
 import { printPackingSlips, printPicklist } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, PRIORITY_REGEX, toggleSetItem } from "@/lib/item-utils";
@@ -585,20 +585,20 @@ export default function FulfillmentTool() {
             onClick={() => setDrawerOpen(false)}
           />
 
-          {/* Panel — slides in from the left */}
+          {/* Panel — slides in from the right */}
           <div
             ref={drawerPanelRef}
-            className="fixed top-0 left-0 bottom-0 z-50 flex flex-col bg-gray-950 border-r border-gray-800 shadow-2xl transition-transform duration-300 ease-out"
+            className="fixed top-0 right-0 bottom-0 z-50 flex flex-col bg-gray-950 border-l border-gray-800 shadow-2xl transition-transform duration-300 ease-out"
             style={{
               width: 'min(320px, 90vw)',
-              transform: drawerVisible ? 'translateX(0)' : 'translateX(-100%)',
+              transform: drawerVisible ? 'translateX(0)' : 'translateX(100%)',
               willChange: 'transform',
             }}
             onClick={e => e.stopPropagation()}
             onTouchStart={e => { swipeTouchStartX.current = e.touches[0].clientX; }}
             onTouchEnd={e => {
-              const dx = swipeTouchStartX.current - e.changedTouches[0].clientX;
-              if (dx > 50) setDrawerOpen(false);
+              const dx = e.changedTouches[0].clientX - swipeTouchStartX.current;
+              if (dx > 72) setDrawerOpen(false);
             }}
             data-testid="panel-orders"
           >
@@ -723,6 +723,22 @@ export default function FulfillmentTool() {
             </Button>
           </div>
         )}
+
+        {/* ── Orders link — mirrors Brickspotter's Batches link ── */}
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <button
+            onClick={() => setDrawerOpen(true)}
+            data-testid="button-open-orders-drawer"
+            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-200 transition-colors"
+          >
+            <Truck className="w-3.5 h-3.5" />
+            <span>
+              {sortedOrders.length > 0
+                ? `${selectedOrders.size} of ${sortedOrders.length} order${sortedOrders.length !== 1 ? 's' : ''}`
+                : 'Orders'}
+            </span>
+          </button>
+        </div>
 
         {/* ── Tab switcher: Fulfillment | Shipping ── */}
         <div className="tool-tab-bar">
@@ -849,32 +865,8 @@ export default function FulfillmentTool() {
           </div>
         )}
 
-        {/* ── Pull tab + tab content ── */}
-        <div className="flex gap-0 mt-3">
-
-          {/* Vertical pull tab — sits flush against the tab content */}
-          <button
-            onClick={() => setDrawerOpen(o => !o)}
-            className="shrink-0 flex flex-col items-center justify-start pt-3 gap-2 w-6 bg-gray-800/50 border-r border-gray-700 hover:bg-gray-700/50 transition-colors cursor-pointer"
-            data-testid="button-open-orders-drawer"
-            title="Toggle order selection"
-          >
-            <ChevronRight className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${drawerOpen ? 'rotate-180' : ''}`} />
-            {sortedOrders.length > 0 && (
-              <span
-                className="text-[9px] text-gray-500 tabular-nums font-medium select-none"
-                style={{ writingMode: 'vertical-rl' }}
-              >
-                {selectedOrders.size}/{sortedOrders.length}
-              </span>
-            )}
-          </button>
-
-          {/* Tab content */}
-          <div className="flex-1 min-w-0 pl-2">
-
-
         {/* ── Tab content ── */}
+        <div className="mt-3">
         {activeTab === 'picklist' ? (
           <PicklistTool filterOrderIds={selectedOrders} />
         ) : (
@@ -994,8 +986,7 @@ export default function FulfillmentTool() {
           </div>
         )}
 
-          </div> {/* end flex-1 tab content */}
-        </div> {/* end pull-tab row */}
+        </div> {/* end tab content */}
       </div> {/* end main layout */}
 
       {/* Ship Confirmation Dialog */}
