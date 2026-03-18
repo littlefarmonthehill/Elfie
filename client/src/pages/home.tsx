@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Package, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut, ArrowLeft, RotateCw, AlertCircle, Mail, Sparkles, ListChecks, ScanSearch, Truck, PackageCheck, SlidersHorizontal, Info } from "lucide-react";
+import { Package, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut, ArrowLeft, RotateCw, AlertCircle, Mail, Sparkles, ListChecks, ScanSearch, Truck, PackageCheck, SlidersHorizontal, Info, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +30,7 @@ import ListomaticPriority from "@/components/ListomaticPriority";
 import BrickanalyzerTool from "@/components/BrickanalyzerTool";
 import FulfillmentTool from "@/components/FulfillmentTool";
 import ShippedOrdersTool from "@/components/ShippedOrdersTool";
+import { BillingDrawer } from "@/components/BillingDrawer";
 
 export default function Home() {
   useAdminScaling();
@@ -82,6 +83,7 @@ export default function Home() {
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'shipped' | null>(null);
   const [activeMarketingDrawer, setActiveMarketingDrawer] = useState<MarketingDrawer>(null);
   const [activeSalesDrawer, setActiveSalesDrawer] = useState<SalesDrawer>(null);
+  const [billingOpen, setBillingOpen] = useState(false);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
     data: null,
@@ -355,7 +357,7 @@ export default function Home() {
 
   const renderMobileDashboard = () => {
     if (activeDashboard === 'dashboard') {
-      return <GeneralDashboard onItemClick={handleDashboardItemClick} onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }} onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }} onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }} onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }} onNavigate={(tab) => setActiveDashboard(tab as DashboardType)} />;
+      return <GeneralDashboard onItemClick={handleDashboardItemClick} onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }} onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }} onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }} onOpenBilling={() => setBillingOpen(true)} onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }} onNavigate={(tab) => setActiveDashboard(tab as DashboardType)} />;
     }
     return renderDynamicDashboard();
   };
@@ -454,6 +456,9 @@ export default function Home() {
           renderDrawerOnly
         />
       );
+    }
+    if (billingOpen) {
+      return <BillingDrawer onClose={closeActiveDrawer} />;
     }
     return null;
   };
@@ -914,6 +919,7 @@ export default function Home() {
                 onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
                 onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
                 onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
+                onOpenBilling={() => setBillingOpen(true)}
                 onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
                 onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
                 section="plan"
@@ -936,7 +942,7 @@ export default function Home() {
               </div>
 
               {/* Drawer overlay — covers entire dynamic board */}
-              {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer || detailModal.open) && (
+              {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer || billingOpen || detailModal.open) && (
                 <div className="absolute inset-0 z-20 flex flex-col">
                   <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={() => { closeActiveDrawer(); setDetailModal({ open: false, data: null }); }} />
                   <div className="relative flex-1 bg-gray-950/95 border border-white/10 rounded-lg m-3 overflow-y-auto shadow-2xl animate-[slideUp_250ms_ease-out]">
@@ -963,6 +969,7 @@ export default function Home() {
                 onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
                 onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
                 onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
+                onOpenBilling={() => setBillingOpen(true)}
                 onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
                 onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
                 section="ops"
@@ -1065,7 +1072,7 @@ export default function Home() {
 
       {/* Tool drawers — Vaul drawer on mobile only; desktop uses inline overlay in center column */}
       {!isDesktop && (
-        <Drawer open={!!(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer)} onOpenChange={(open) => { if (!open) closeActiveDrawer(); }}>
+        <Drawer open={!!(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer || billingOpen)} onOpenChange={(open) => { if (!open) closeActiveDrawer(); }}>
           <DrawerContent className="bg-gray-950 border-gray-800 h-[92vh] flex flex-col rounded-t-2xl">
             <DrawerHeader className="p-0 flex-shrink-0">
               <div className="flex justify-center pt-3 pb-1">
@@ -1080,6 +1087,7 @@ export default function Home() {
                   {activeOrdersDrawer === 'shipped' && <><PackageCheck className="w-4 h-4 text-green-400 flex-shrink-0" /> Shipped Orders</>}
                   {activeMarketingDrawer && <><Mail className="w-4 h-4 text-yellow-400 flex-shrink-0" /> Marketing</>}
                   {activeSalesDrawer && <><Package className="w-4 h-4 text-green-400 flex-shrink-0" /> Insights</>}
+                  {billingOpen && <><CreditCard className="w-4 h-4 text-blue-400 flex-shrink-0" /> Payments & Billing</>}
                 </DrawerTitle>
                 <button onClick={closeActiveDrawer} className="ml-2 text-gray-500 hover:text-gray-200 transition-colors" data-testid="button-close-tool-drawer">
                   <X className="w-5 h-5" />
@@ -1095,6 +1103,7 @@ export default function Home() {
               {activeOrdersDrawer === 'shipped' && <ShippedOrdersTool onItemClick={(type, id) => { closeActiveDrawer(); handleDashboardItemClick(type, id); }} />}
               {activeMarketingDrawer && <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} renderDrawerOnly />}
               {activeSalesDrawer && <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeSalesDrawer} onDrawerChange={setActiveSalesDrawer} renderDrawerOnly />}
+              {billingOpen && <BillingDrawer onClose={closeActiveDrawer} />}
             </div>
           </DrawerContent>
         </Drawer>

@@ -9,7 +9,6 @@ import {
   Sparkles, Globe, Megaphone,
 } from "lucide-react";
 import DashboardNotifications from "./DashboardNotifications";
-import { BillingDrawer } from "./BillingDrawer";
 import { cn } from "@/lib/utils";
 
 interface GeneralDashboardProps {
@@ -17,6 +16,7 @@ interface GeneralDashboardProps {
   onOpenFulfillment?: () => void;
   onOpenBrickanalyzer?: () => void;
   onOpenPriceomatic?: () => void;
+  onOpenBilling?: () => void;
   onOpenSettings?: (section: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing') => void;
   onNavigate?: (tab: 'inventory' | 'orders' | 'sales' | 'marketing') => void;
   section?: 'all' | 'plan' | 'ops';
@@ -220,8 +220,7 @@ interface OrgUsageData {
   billing: { baseFee: number; salesFee: number; totalDue: number };
 }
 
-function UsageSynopsis({ onOpenSettings: _onOpenSettings }: { onOpenSettings?: (section: any) => void }) {
-  const [billingOpen, setBillingOpen] = useState(false);
+function UsageSynopsis({ onOpenSettings: _onOpenSettings, onOpenBilling }: { onOpenSettings?: (section: any) => void; onOpenBilling?: () => void }) {
   const { data: usage, isLoading } = useQuery<OrgUsageData>({ queryKey: ['/api/org/usage'] });
 
   if (isLoading || !usage) return null;
@@ -240,7 +239,7 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings }: { onOpenSettings?: (
     <>
       <div className="px-3 py-2.5 border-t border-gray-700/30 bg-gray-900/40" data-testid="section-usage-synopsis">
         <button
-          onClick={() => setBillingOpen(true)}
+          onClick={() => onOpenBilling?.()}
           className="w-full text-left"
           data-testid="button-usage-details"
         >
@@ -298,17 +297,17 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings }: { onOpenSettings?: (
         </button>
       </div>
 
-      <BillingDrawer open={billingOpen} onClose={() => setBillingOpen(false)} />
     </>
   );
 }
 
-export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings, children }: {
+export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings, onOpenBilling, children }: {
   setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }>;
   billingStatus?: { plan: string; status: string; interval?: string | null; trialEndsAt?: string | null; subscriptionEndsAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number } } | null;
   rateLimit?: { allowed: boolean; callsLast24h: number; blocked?: boolean } | null;
   blApiCallLimit?: number;
   onOpenSettings?: (section: any) => void;
+  onOpenBilling?: () => void;
   children?: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(() => {
@@ -370,7 +369,7 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
 
       {!collapsed && (
         <>
-          <UsageSynopsis onOpenSettings={onOpenSettings} />
+          <UsageSynopsis onOpenSettings={onOpenSettings} onOpenBilling={onOpenBilling} />
 
           <div className="bg-gray-950/60">
             {alerts.length > 0 && (
@@ -398,7 +397,7 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
   );
 }
 
-export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpenBrickanalyzer, onOpenPriceomatic, onOpenSettings, onNavigate, section = 'all' }: GeneralDashboardProps) {
+export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpenBrickanalyzer, onOpenPriceomatic, onOpenBilling, onOpenSettings, onNavigate, section = 'all' }: GeneralDashboardProps) {
 
   const { data: stats } = useQuery<{ totalOrders: number; totalInventoryItems: number; totalInventoryQuantity: number; totalSales: number }>({
     queryKey: ['/api/dashboard/stats'],
@@ -617,7 +616,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
 
       {/* System Pulse (plan info, setup items) */}
       {showPlan && (
-        <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings}>
+        <SystemPulse setupItems={setupItems} billingStatus={billingStatus} rateLimit={rateLimit} blApiCallLimit={appSettings?.blApiCallLimit} onOpenSettings={onOpenSettings} onOpenBilling={onOpenBilling}>
           <DashboardNotifications />
         </SystemPulse>
       )}

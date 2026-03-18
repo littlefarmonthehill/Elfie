@@ -414,47 +414,37 @@ function HistoryTab() {
 
 // ─── Drawer shell ─────────────────────────────────────────────────────────────
 
-export function BillingDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function BillingDrawer({ onClose }: { onClose: () => void }) {
   const [billingTab, setBillingTab] = useState<'current' | 'history'>('current');
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" data-testid="billing-drawer">
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]"
-        onClick={onClose}
-      />
-      <div className="relative flex-1 bg-gray-950/95 border border-white/10 rounded-lg m-3 overflow-hidden shadow-2xl animate-[slideUp_250ms_ease-out]">
-        <ToolDrawer
-          icon={CreditCard}
-          iconColor="text-blue-400"
-          title="Payments & Billing"
-          onClose={onClose}
-          closeTestId="button-close-billing-drawer"
-          subHeader={
-            <div className="tool-tab-bar">
-              <button
-                onClick={() => setBillingTab('current')}
-                className={`tool-tab ${billingTab === 'current' ? 'text-orange-400 border-orange-500' : 'tool-tab-off'}`}
-                data-testid="tab-current-billing"
-              >
-                Current Billing
-              </button>
-              <button
-                onClick={() => setBillingTab('history')}
-                className={`tool-tab ${billingTab === 'history' ? 'text-orange-400 border-orange-500' : 'tool-tab-off'}`}
-                data-testid="tab-previous-invoices"
-              >
-                Invoice History
-              </button>
-            </div>
-          }
-          contentClassName="flex-1 min-h-0 overflow-y-auto px-4 py-4"
-        >
-          {billingTab === 'current' ? <CurrentBillingTab /> : <HistoryTab />}
-        </ToolDrawer>
-      </div>
-    </div>
+    <ToolDrawer
+      icon={CreditCard}
+      iconColor="text-blue-400"
+      title="Payments & Billing"
+      onClose={onClose}
+      closeTestId="button-close-billing-drawer"
+      subHeader={
+        <div className="tool-tab-bar">
+          <button
+            onClick={() => setBillingTab('current')}
+            className={`tool-tab ${billingTab === 'current' ? 'text-orange-400 border-orange-500' : 'tool-tab-off'}`}
+            data-testid="tab-current-billing"
+          >
+            Current Billing
+          </button>
+          <button
+            onClick={() => setBillingTab('history')}
+            className={`tool-tab ${billingTab === 'history' ? 'text-orange-400 border-orange-500' : 'tool-tab-off'}`}
+            data-testid="tab-previous-invoices"
+          >
+            Invoice History
+          </button>
+        </div>
+      }
+      contentClassName="flex-1 min-h-0 overflow-y-auto px-4 py-4"
+    >
+      {billingTab === 'current' ? <CurrentBillingTab /> : <HistoryTab />}
+    </ToolDrawer>
   );
 }
