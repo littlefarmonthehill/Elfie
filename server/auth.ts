@@ -180,7 +180,9 @@ export async function setupAuth(app: Express) {
         const slug = `${baseSlug}${suffix}`;
         const orgName = firstName ? `${firstName}'s Store` : `${email.split('@')[0]}'s Store`;
         const trialEndsAt = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000);
-        const newOrg = await storage.createOrganization({ name: orgName, slug, plan: 'trial', trialEndsAt });
+        const signupDate = new Date();
+        signupDate.setHours(0, 0, 0, 0); // normalize to start of day
+        const newOrg = await storage.createOrganization({ name: orgName, slug, plan: 'trial', trialEndsAt, billingStartDate: signupDate });
         orgId = newOrg.id;
         userApproved = true;
       }
