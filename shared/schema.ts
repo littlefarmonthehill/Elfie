@@ -1641,6 +1641,8 @@ export const plans = pgTable("plans", {
   sunsetAt: timestamp("sunset_at"),
   // Exactly one live plan should be marked as default — assigned to orgs that don't pick a plan during onboarding
   isDefault: boolean("is_default").notNull().default(false),
+  // Free trial before first charge — 0 means no trial; ignored for default/free plans
+  trialDurationDays: integer("trial_duration_days").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -15,6 +15,7 @@ interface Plan {
   status: string;
   sunsetAt: string | null;
   isDefault?: boolean;
+  trialDurationDays?: number;
 }
 
 interface PlanExpiredScreenProps {
@@ -129,6 +130,7 @@ export default function PlanExpiredScreen({ sunsetAt, planName }: PlanExpiredScr
                 const isSelected = selectedPlan === plan.id;
                 const isSunset = plan.status === 'sunset';
                 const sunsetDate = plan.sunsetAt ? new Date(plan.sunsetAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
+                const trialDays = plan.trialDurationDays ?? 0;
                 return (
                   <button
                     key={plan.id}
@@ -141,6 +143,9 @@ export default function PlanExpiredScreen({ sunsetAt, planName }: PlanExpiredScr
                         <span className="text-sm font-semibold text-white">{plan.name}</span>
                         {isSunset && (
                           <span className="text-[9px] bg-orange-500/15 text-orange-400 border border-orange-500/25 rounded px-1.5 py-0.5">legacy plan</span>
+                        )}
+                        {!isSunset && trialDays > 0 && (
+                          <span className="text-[9px] bg-green-500/15 text-green-400 border border-green-500/25 rounded px-1.5 py-0.5">{trialDays}-day free trial</span>
                         )}
                       </div>
                       {isSelected && <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />}
@@ -155,6 +160,9 @@ export default function PlanExpiredScreen({ sunsetAt, planName }: PlanExpiredScr
                     </div>
                     {isSunset && sunsetDate && (
                       <p className="text-[10px] text-orange-400/70 mt-2">This plan is being retired on {sunsetDate}. You can switch plans at any time.</p>
+                    )}
+                    {!isSunset && trialDays > 0 && (
+                      <p className="text-[10px] text-green-400/70 mt-2">First {trialDays} days free — no charge until your trial ends. Cancel anytime.</p>
                     )}
                   </button>
                 );

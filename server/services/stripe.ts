@@ -82,6 +82,7 @@ export async function createCheckoutSessionByPlan(orgId: string, plan: Plan, suc
       },
     ],
     mode: "subscription",
+    subscription_data: (plan.trialDurationDays ?? 0) > 0 ? { trial_period_days: plan.trialDurationDays } : undefined,
     success_url: successUrl,
     cancel_url: cancelUrl,
     metadata: {

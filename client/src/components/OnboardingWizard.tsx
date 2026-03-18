@@ -38,7 +38,7 @@ const STEP_MESSAGES: Record<number, string> = {
   2: "BrickLink is the engine that drives everything. Connect your API keys and I'll automatically sync your inventory, orders, and pricing — all in one place.",
   3: "Now let's map out your storage. Choose how your warehouse is laid out — once I know the structure, I can guide you to any part the moment an order comes in.",
   4: "Do you sell on BrickOwl too? I can keep both stores in sync automatically. This is completely optional — you can add it any time from Settings.",
-  5: "You're currently on a free trial. When you're ready, pick a plan and subscribe — your first 14 days on a paid plan are also free, so there's nothing to lose.",
+  5: "You're on the free plan. When you're ready, pick a paid plan below — if it includes a trial, you won't be charged until it ends.",
   6: "You're all set! Come find me in the sidebar whenever you need help managing inventory, filling orders, or just want to know what's going on.",
 };
 
@@ -83,10 +83,14 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   const { toast } = useToast();
   const { status: installStatus, promptInstall } = useInstallPrompt();
 
-  const { data: availablePlans = [], isLoading: plansLoading } = useQuery<Array<{
+  const { data: allPlans = [], isLoading: plansLoading } = useQuery<Array<{
     id: number; name: string; basePrice: number; salesPercentage: number;
     freeSalesThreshold: number; status: string; sunsetAt: string | null; isDefault?: boolean;
+    trialDurationDays?: number;
   }>>({ queryKey: ['/api/plans'] });
+
+  // New users in onboarding only see live plans — sunset plans are legacy and shouldn't be chosen by new signups
+  const availablePlans = allPlans.filter(p => p.status === 'live');
 
   // Step 1 — Company Info
   const [name, setName] = useState(org.name || "");
@@ -825,7 +829,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
               <div>
                 <h2 className="text-lg font-semibold text-white mb-1">Choose your plan</h2>
                 <p className="text-sm text-gray-400">
-                  You're on a free trial — subscribe now to keep going after it ends.
+                  You're on the free plan. Subscribe whenever you're ready to unlock the full platform.
                 </p>
               </div>
 
@@ -845,8 +849,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                     const monthlyDollars = (plan.basePrice / 100).toFixed(2);
                     const thresholdDollars = Math.round(plan.freeSalesThreshold / 100).toLocaleString();
                     const isSelected = selectedPlan === plan.id;
-                    const isSunset = plan.status === 'sunset';
-                    const sunsetDate = plan.sunsetAt ? new Date(plan.sunsetAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
+                    const trialDays = plan.trialDurationDays ?? 0;
                     return (
                       <button
                         key={plan.id}
@@ -857,8 +860,8 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm font-semibold text-white">{plan.name}</span>
-                            {isSunset && (
-                              <span className="text-[9px] bg-orange-500/15 text-orange-400 border border-orange-500/25 rounded px-1.5 py-0.5">legacy plan</span>
+                            {trialDays > 0 && (
+                              <span className="text-[9px] bg-green-500/15 text-green-400 border border-green-500/25 rounded px-1.5 py-0.5">{trialDays}-day free trial</span>
                             )}
                           </div>
                           {isSelected && <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />}
@@ -871,8 +874,8 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                           <TrendingUp className="w-3 h-3 text-purple-400 shrink-0" />
                           <span>+{plan.salesPercentage}% on sales over ${thresholdDollars}/mo</span>
                         </div>
-                        {isSunset && sunsetDate && (
-                          <p className="text-[10px] text-orange-400/70 mt-2">This plan is being retired on {sunsetDate}. You can switch plans at any time.</p>
+                        {trialDays > 0 && (
+                          <p className="text-[10px] text-green-400/70 mt-2">First {trialDays} days free — no charge until your trial ends. Cancel anytime.</p>
                         )}
                       </button>
                     );
