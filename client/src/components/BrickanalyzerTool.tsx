@@ -620,18 +620,67 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
     else setBatchesVisible(false);
   }, [batchesOpen]);
 
-  // Block ALL native touch events inside the panel so they never reach the parent Vaul drawer
+  // Swipe-right-to-close + block events from reaching parent Vaul drawer
+  const closeBatchesRef = useRef(closeBatches);
+  useEffect(() => { closeBatchesRef.current = closeBatches; });
+
   useEffect(() => {
     if (!batchesOpen || !batchPanelRef.current) return;
     const el = batchPanelRef.current;
-    const stop = (e: TouchEvent) => { e.stopPropagation(); e.stopImmediatePropagation(); };
-    el.addEventListener('touchstart', stop, { capture: true, passive: true });
-    el.addEventListener('touchmove',  stop, { capture: true, passive: true });
-    el.addEventListener('touchend',   stop, { capture: true, passive: true });
+
+    let startX = 0;
+    let startY = 0;
+    let gesture: 'undecided' | 'horizontal' | 'vertical' = 'undecided';
+
+    const THRESHOLD = 72; // px — how far right before snap-close
+
+    const onTouchStart = (e: TouchEvent) => {
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      gesture = 'undecided';
+      el.style.transition = 'none';
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+
+      if (gesture === 'undecided') {
+        gesture = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical';
+      }
+
+      // Only translate for rightward horizontal swipes
+      if (gesture === 'horizontal' && dx > 0) {
+        el.style.transform = `translateX(${dx}px)`;
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      const dx = e.changedTouches[0].clientX - startX;
+
+      el.style.transition = '';
+
+      if (gesture === 'horizontal' && dx > THRESHOLD) {
+        closeBatchesRef.current();
+      } else {
+        el.style.transform = 'translateX(0)';
+      }
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
+    el.addEventListener('touchmove',  onTouchMove,  { capture: true, passive: true });
+    el.addEventListener('touchend',   onTouchEnd,   { capture: true, passive: true });
+
     return () => {
-      el.removeEventListener('touchstart', stop, { capture: true } as any);
-      el.removeEventListener('touchmove',  stop, { capture: true } as any);
-      el.removeEventListener('touchend',   stop, { capture: true } as any);
+      el.removeEventListener('touchstart', onTouchStart, { capture: true } as any);
+      el.removeEventListener('touchmove',  onTouchMove,  { capture: true } as any);
+      el.removeEventListener('touchend',   onTouchEnd,   { capture: true } as any);
     };
   }, [batchesOpen, batchesVisible]);
 
