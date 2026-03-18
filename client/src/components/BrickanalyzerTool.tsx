@@ -2249,9 +2249,9 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                   <img
                     src={`/api/brickanalyzer/scan/${activeScan.id}/image`}
                     alt="Original scan"
-                    className="absolute inset-0 w-full h-full object-fill block select-none transition-opacity duration-200"
+                    className="absolute inset-0 w-full h-full object-fill block select-none"
                     draggable={false}
-                    style={{ filter: 'brightness(0.70)', opacity: heatmapPhotoHidden ? 0.06 : 1 }}
+                    style={{ filter: 'brightness(0.70)', opacity: heatmapPhotoHidden ? 0 : 1 }}
                   />
                   {heatmapPhotoHidden && (
                     <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none" style={{ zIndex: 50 }}>
