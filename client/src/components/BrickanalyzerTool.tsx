@@ -1605,6 +1605,29 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
   return (
     <div className="space-y-4 sm:space-y-12 p-1 sm:p-6">
 
+      {/* ── Persistent toolbar — accessible in every workflow state ──────── */}
+      <div className="flex items-center justify-between gap-2 -mb-2 sm:-mb-8">
+        <button
+          onClick={openBatches}
+          data-testid="button-brickanalyzer-batches-persistent"
+          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-200 transition-colors"
+        >
+          <Layers className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+          <span className="sm:text-xl">
+            {allBatches?.length ? `${allBatches.length} batch${allBatches.length !== 1 ? 'es' : ''}` : 'Batches'}
+          </span>
+        </button>
+        {scanId && (
+          <button
+            onClick={startNewScan}
+            data-testid="button-brickanalyzer-new-scan-persistent"
+            className="flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-200 transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
+            <span className="sm:text-xl">New Scan</span>
+          </button>
+        )}
+      </div>
 
       {/* ── Python AI service not ready ──────────────────────────────────── */}
       {!pythonReady && (
@@ -2321,26 +2344,6 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
             <div className="relative rounded-lg border border-gray-700 overflow-hidden bg-black" data-testid="inline-heatmap">
               {/* Filter bar */}
               <div className="relative flex items-center justify-end gap-2 px-3 py-1.5 border-b border-gray-800 flex-wrap" style={{ zIndex: 10 }}>
-                {/* Batches shortcut */}
-                <button
-                  data-testid="button-brickanalyzer-batches-filterbar"
-                  onClick={openBatches}
-                  title="View scan batches"
-                  className="rounded text-[10px] font-medium px-2 py-0.5 transition-colors shrink-0 flex items-center gap-1 border text-gray-400 hover:text-gray-200 border-gray-700 bg-transparent"
-                >
-                  <Layers className="w-3 h-3" />
-                  Batches
-                </button>
-                {/* New Scan — saves current batch and resets */}
-                <button
-                  data-testid="button-heatmap-new-scan"
-                  onClick={startNewScan}
-                  title="Save this batch and start a new scan"
-                  className="rounded text-[10px] font-medium px-2 py-0.5 transition-colors shrink-0 flex items-center gap-1 border text-purple-300 hover:text-purple-100 border-purple-700/60 bg-purple-950/40 hover:bg-purple-900/50"
-                >
-                  <Plus className="w-3 h-3" />
-                  New Scan
-                </button>
                 {/* Peak button — left-aligned, distinct color */}
                 <button
                   data-testid="heatmap-source-peak"
@@ -3921,15 +3924,6 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                 );
               })}
               <div className="flex gap-2 pt-1">
-                <Button
-                  variant="outline"
-                  className="flex-1 gap-1.5"
-                  onClick={openBatches}
-                  data-testid="button-brickanalyzer-new-scan-bottom"
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  Batches
-                </Button>
                 <Button
                   variant="outline"
                   className="flex-1 text-lego-red border-lego-red/40"
