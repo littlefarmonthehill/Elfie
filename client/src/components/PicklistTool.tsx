@@ -606,10 +606,9 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                               <span className="text-gray-600">·</span>
                               <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(item.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}</span>
                             </div>
-                            {(item.remarks || item.comment) && (
-                              <div className="mt-0.5 space-y-0.5">
-                                {item.remarks && <div className="text-gray-400 italic">{item.remarks}</div>}
-                                {item.comment && <div className="text-blue-400/80 italic">{item.comment}</div>}
+                            {item.comment && (
+                              <div className="mt-0.5">
+                                <div className="text-blue-400/80 italic">{item.comment}</div>
                               </div>
                             )}
                           </div>
@@ -700,10 +699,9 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                           <span className="text-gray-600">·</span>
                           <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(item.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}</span>
                         </div>
-                        {(item.remarks || item.comment) && (
-                          <div className="mt-0.5 space-y-0.5">
-                            {item.remarks && <div className="text-[10px] text-gray-400 italic">{item.remarks}</div>}
-                            {item.comment && <div className="text-[10px] text-blue-400/80 italic">{item.comment}</div>}
+                        {item.comment && (
+                          <div className="mt-0.5">
+                            <div className="text-[10px] text-blue-400/80 italic">{item.comment}</div>
                           </div>
                         )}
                       </div>

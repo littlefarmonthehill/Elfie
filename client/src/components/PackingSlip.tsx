@@ -186,9 +186,8 @@ export function printPicklist(items: PicklistItem[]): void {
   };
 
   for (const item of items) {
-    const hasComment = !!(item.comment);
     // Heights match the larger font sizes below
-    const itemH = 3 + 7 + 6 + (hasComment ? 5.5 : 0) + 6;
+    const itemH = 3 + 7 + 6 + 6;
     if (y + itemH > panelBottom(panel)) advancePanel();
 
     doc.setDrawColor(187, 187, 187);
@@ -225,20 +224,13 @@ export function printPicklist(items: PicklistItem[]): void {
       `Qty ${item.quantity}`,
       `${chanPrefix(item)}${rawOrder}`,
       item.inventoryId ? `Lot ${item.inventoryId}` : null,
+      item.comment ? item.comment : null,
     ].filter(Boolean) as string[];
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(11);
     doc.setTextColor(120, 120, 120);
     doc.text(metaParts.join(' \u00b7 '), MX, y);
-    y += 6;
-
-    if (item.comment) {
-      doc.setFontSize(10);
-      doc.setTextColor(0, 85, 170);
-      doc.text(item.comment, MX, y);
-      y += 5.5;
-    }
-    y += 6;
+    y += 12;
   }
 
   hiddenPrint(doc.output('blob'), 'picklist.pdf');
