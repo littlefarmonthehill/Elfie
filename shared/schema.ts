@@ -1635,8 +1635,8 @@ export const plans = pgTable("plans", {
   basePrice: integer("base_price").notNull().default(3900),          // cents, e.g. 3900 = $39
   salesPercentage: real("sales_percentage").notNull().default(1.9),  // e.g. 1.9 = 1.9%
   freeSalesThreshold: integer("free_sales_threshold").notNull().default(100000), // cents, e.g. 100000 = $1000
-  isActive: boolean("is_active").notNull().default(true),
-  isSunset: boolean("is_sunset").notNull().default(false),
+  // 'live' → visible to new subscribers; 'in_progress' → draft (not yet launched); 'sunset' → legacy, no new sign-ups
+  status: varchar("status", { length: 20 }).notNull().default('live'),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

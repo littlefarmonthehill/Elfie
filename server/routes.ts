@@ -1202,7 +1202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const [orgRow] = await db.select({ planId: organizations.planId }).from(organizations).where(eq(organizations.id, orgId)).limit(1);
     const planId = orgRow?.planId ?? 1;
     const [plan] = await db.select().from(plans).where(eq(plans.id, planId)).limit(1);
-    return plan ?? { id: 1, name: 'Pay As You Grow', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, isActive: true, isSunset: false, createdAt: new Date(), updatedAt: new Date() };
+    return plan ?? { id: 1, name: 'Pay As You Grow', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, status: 'live', createdAt: new Date(), updatedAt: new Date() };
   }
 
   // GET /api/org/usage — current org's billing-period usage summary (sales-based)
@@ -1331,7 +1331,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [orgCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(organizations).where(eq(organizations.planId, id));
       const hasOrgs = Number(orgCount.count) > 0;
       const allowed = hasOrgs
-        ? { isSunset: req.body.isSunset, name: req.body.name }  // locked: only sunset+name
+        ? { status: req.body.status, name: req.body.name }  // locked: only status+name editable when orgs are on this plan
         : req.body;
       const parsed = insertPlanSchema.partial().parse(allowed);
       const [updated] = await db.update(plans).set({ ...parsed, updatedAt: new Date() }).where(eq(plans.id, id)).returning();
@@ -1391,7 +1391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allOrgs = await db.select({ id: organizations.id, name: organizations.name, planId: organizations.planId, billingStartDate: organizations.billingStartDate }).from(organizations);
       const allPlans = await db.select().from(plans);
       const planMap = new Map(allPlans.map(p => [p.id, p]));
-      const defaultPlan = { id: 1, name: 'Pay As You Grow', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, isActive: true, isSunset: false, createdAt: new Date(), updatedAt: new Date() };
+      const defaultPlan = { id: 1, name: 'Pay As You Grow', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, status: 'live', createdAt: new Date(), updatedAt: new Date() };
 
       const orgUsages = await Promise.all(allOrgs.map(async (org) => {
         const plan = planMap.get(org.planId ?? 1) ?? defaultPlan;
@@ -3086,13 +3086,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── Billing routes ──────────────────────────────────────────────────────────
 
-  // GET /api/plans — return all active, non-sunset plans for subscription selection
+  // GET /api/plans — return only 'live' plans for subscription selection
   app.get('/api/plans', isAuthenticated, async (_req, res) => {
     try {
       const activePlans = await db
         .select()
         .from(plans)
-        .where(and(eq(plans.isActive, true), eq(plans.isSunset, false)))
+        .where(eq(plans.status, 'live'))
         .orderBy(asc(plans.id));
       res.json(activePlans);
     } catch (err: any) {
@@ -3109,7 +3109,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // New path: plan selected by DB id (dynamic plans table)
       if (planId !== undefined) {
         const [dbPlan] = await db.select().from(plans).where(eq(plans.id, planId)).limit(1);
-        if (!dbPlan || dbPlan.isSunset || !dbPlan.isActive) {
+        if (!dbPlan || dbPlan.status !== 'live') {
           return res.status(400).json({ message: "Invalid or unavailable plan" });
         }
         const isOnboarding = context === 'onboarding';

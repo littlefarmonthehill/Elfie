@@ -22,7 +22,8 @@ import {
   FormControl, 
   FormField, 
   FormItem, 
-  FormLabel 
+  FormLabel,
+  FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { 
@@ -37,8 +38,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Organization } from "@shared/schema";
-import { LayoutDashboard, Users, CreditCard, Scan, Settings2, ShieldCheck, ArrowLeft, Trash2, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import { Organization, Plan } from "@shared/schema";
+import { LayoutDashboard, Users, CreditCard, Scan, Settings2, ShieldCheck, ArrowLeft, Trash2, AlertTriangle, CheckCircle2, Loader2, Plus, Lock, Pencil, PackageCheck } from "lucide-react";
 import { Link } from "wouter";
 
 const overrideSchema = z.object({
@@ -275,6 +276,244 @@ function DuplicateOrderCleanup() {
   );
 }
 
+type PlanWithMeta = Plan & { orgCount: number; locked: boolean };
+
+const PLAN_STATUS_OPTIONS = [
+  { value: 'live', label: 'Live' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'sunset', label: 'Sunset' },
+] as const;
+
+function PlanStatusBadge({ status }: { status: string }) {
+  if (status === 'live') return <Badge className="bg-green-500/15 text-green-600 dark:text-green-400 no-default-active-elevate" data-testid={`badge-plan-status-live`}>Live</Badge>;
+  if (status === 'in_progress') return <Badge variant="secondary" data-testid={`badge-plan-status-in-progress`}>In Progress</Badge>;
+  return <Badge variant="outline" className="text-muted-foreground" data-testid={`badge-plan-status-sunset`}>Sunset</Badge>;
+}
+
+const createPlanSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  basePrice: z.coerce.number().int().min(0, "Must be ≥ 0 cents"),
+  salesPercentage: z.coerce.number().min(0),
+  freeSalesThreshold: z.coerce.number().int().min(0),
+  status: z.enum(['live', 'in_progress', 'sunset']),
+});
+type CreatePlanValues = z.infer<typeof createPlanSchema>;
+
+function CreatePlanDialog() {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const form = useForm<CreatePlanValues>({
+    resolver: zodResolver(createPlanSchema),
+    defaultValues: { name: '', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, status: 'in_progress' },
+  });
+
+  const mutation = useMutation({
+    mutationFn: (values: CreatePlanValues) => apiRequest('POST', '/api/platform-admin/plans', values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/plans'] });
+      toast({ title: 'Plan created' });
+      setOpen(false);
+      form.reset();
+    },
+    onError: (err: any) => toast({ title: 'Failed to create plan', description: err.message, variant: 'destructive' }),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" data-testid="button-create-plan">
+          <Plus className="w-4 h-4 mr-1" />
+          New Plan
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create New Plan</DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
+            <FormField control={form.control} name="name" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Plan Name</FormLabel>
+                <FormControl><Input {...field} data-testid="input-plan-name" /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField control={form.control} name="basePrice" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Base Price (cents)</FormLabel>
+                  <FormControl><Input {...field} type="number" data-testid="input-plan-base-price" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="salesPercentage" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Sales % Fee</FormLabel>
+                  <FormControl><Input {...field} type="number" step="0.1" data-testid="input-plan-sales-pct" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            </div>
+            <FormField control={form.control} name="freeSalesThreshold" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Free Sales Threshold (cents)</FormLabel>
+                <FormControl><Input {...field} type="number" data-testid="input-plan-threshold" /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="status" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Status</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger data-testid="select-plan-status-new">
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {PLAN_STATUS_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <Button type="submit" className="w-full" disabled={mutation.isPending} data-testid="button-save-new-plan">
+              {mutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Create Plan
+            </Button>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditPlanDialog({ plan }: { plan: PlanWithMeta }) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+
+  const form = useForm<CreatePlanValues>({
+    resolver: zodResolver(createPlanSchema),
+    defaultValues: {
+      name: plan.name,
+      basePrice: plan.basePrice,
+      salesPercentage: plan.salesPercentage,
+      freeSalesThreshold: plan.freeSalesThreshold,
+      status: plan.status as 'live' | 'in_progress' | 'sunset',
+    },
+  });
+
+  const mutation = useMutation({
+    mutationFn: (values: Partial<CreatePlanValues>) => apiRequest('PATCH', `/api/platform-admin/plans/${plan.id}`, values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/plans'] });
+      toast({ title: 'Plan updated' });
+      setOpen(false);
+    },
+    onError: (err: any) => toast({ title: 'Failed to update plan', description: err.message, variant: 'destructive' }),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" data-testid={`button-edit-plan-${plan.id}`}>
+          <Pencil className="w-3 h-3 mr-1" />
+          Edit
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Plan{plan.locked && <span className="ml-2 text-sm font-normal text-muted-foreground flex items-center gap-1"><Lock className="w-3 h-3" /> Pricing locked (orgs on this plan)</span>}</DialogTitle>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit((v) => mutation.mutate(v))} className="space-y-4">
+            <FormField control={form.control} name="name" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Plan Name</FormLabel>
+                <FormControl><Input {...field} data-testid={`input-edit-plan-name-${plan.id}`} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            {!plan.locked && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField control={form.control} name="basePrice" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Base Price (cents)</FormLabel>
+                      <FormControl><Input {...field} type="number" data-testid={`input-edit-plan-price-${plan.id}`} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="salesPercentage" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Sales % Fee</FormLabel>
+                      <FormControl><Input {...field} type="number" step="0.1" data-testid={`input-edit-plan-pct-${plan.id}`} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+                <FormField control={form.control} name="freeSalesThreshold" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Free Sales Threshold (cents)</FormLabel>
+                    <FormControl><Input {...field} type="number" data-testid={`input-edit-plan-threshold-${plan.id}`} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </>
+            )}
+            <FormField control={form.control} name="status" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Status</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger data-testid={`select-edit-plan-status-${plan.id}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {PLAN_STATUS_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <Button type="submit" className="w-full" disabled={mutation.isPending} data-testid={`button-save-plan-${plan.id}`}>
+              {mutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Save Changes
+            </Button>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeletePlanButton({ plan }: { plan: PlanWithMeta }) {
+  const { toast } = useToast();
+  const mutation = useMutation({
+    mutationFn: () => apiRequest('DELETE', `/api/platform-admin/plans/${plan.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/plans'] });
+      toast({ title: 'Plan deleted' });
+    },
+    onError: (err: any) => toast({ title: 'Cannot delete plan', description: err.message, variant: 'destructive' }),
+  });
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => mutation.mutate()}
+      disabled={mutation.isPending || plan.locked}
+      title={plan.locked ? 'Cannot delete: orgs are on this plan' : 'Delete plan'}
+      data-testid={`button-delete-plan-${plan.id}`}
+    >
+      {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+    </Button>
+  );
+}
+
 export default function PlatformAdmin() {
   const { data: orgs, isLoading: orgsLoading } = useQuery<OrgWithUsage[]>({
     queryKey: ["/api/platform-admin/orgs"],
@@ -286,6 +525,10 @@ export default function PlatformAdmin() {
     totalUsers: number;
   }>({
     queryKey: ["/api/platform-admin/stats"],
+  });
+
+  const { data: allPlans } = useQuery<PlanWithMeta[]>({
+    queryKey: ["/api/platform-admin/plans"],
   });
 
   if (orgsLoading || statsLoading) {
@@ -355,6 +598,58 @@ export default function PlatformAdmin() {
             <p className="text-sm font-medium mb-2">ShipStation Duplicate Order Cleanup</p>
             <DuplicateOrderCleanup />
           </div>
+        </div>
+
+        {/* Plans Management */}
+        <div className="bg-card border rounded-lg shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b">
+            <h2 className="text-base font-semibold flex items-center gap-2">
+              <PackageCheck className="h-4 w-4 text-muted-foreground" />
+              Subscription Plans
+            </h2>
+            <CreatePlanDialog />
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Base Price</TableHead>
+                <TableHead>Sales %</TableHead>
+                <TableHead>Free Threshold</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Orgs</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {allPlans?.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-6">No plans yet. Create one above.</TableCell>
+                </TableRow>
+              )}
+              {allPlans?.map((plan) => (
+                <TableRow key={plan.id} data-testid={`row-plan-${plan.id}`}>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      {plan.name}
+                      {plan.locked && <Lock className="w-3 h-3 text-muted-foreground" title="Pricing locked — orgs on this plan" />}
+                    </div>
+                  </TableCell>
+                  <TableCell data-testid={`text-plan-price-${plan.id}`}>${(plan.basePrice / 100).toFixed(2)}</TableCell>
+                  <TableCell data-testid={`text-plan-pct-${plan.id}`}>{plan.salesPercentage}%</TableCell>
+                  <TableCell data-testid={`text-plan-threshold-${plan.id}`}>${(plan.freeSalesThreshold / 100).toLocaleString()}</TableCell>
+                  <TableCell><PlanStatusBadge status={plan.status} /></TableCell>
+                  <TableCell data-testid={`text-plan-orgs-${plan.id}`}>{plan.orgCount}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <EditPlanDialog plan={plan} />
+                      <DeletePlanButton plan={plan} />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
 
         {/* Orgs Table */}

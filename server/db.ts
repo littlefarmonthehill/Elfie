@@ -1059,6 +1059,33 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-52 (trial_duration_days for foundation/core) complete.');
 
+    // ── Phase-53: Replace isActive/isSunset booleans with a single `status` enum ─
+    // Status values: 'live' (default, visible to subscribers), 'in_progress' (draft),
+    // 'sunset' (legacy, no new sign-ups allowed).
+    await client.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'live'`);
+    // Backfill only if the old boolean columns still exist (safe on re-run)
+    await client.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'plans' AND column_name = 'is_active'
+        ) THEN
+          UPDATE plans SET status =
+            CASE
+              WHEN is_sunset = true THEN 'sunset'
+              WHEN is_active = false THEN 'in_progress'
+              ELSE 'live'
+            END
+          WHERE status = 'live';
+        END IF;
+      END;
+      $$
+    `);
+    await client.query(`ALTER TABLE plans DROP COLUMN IF EXISTS is_active`);
+    await client.query(`ALTER TABLE plans DROP COLUMN IF EXISTS is_sunset`);
+    console.log('[Migration] Phase-53 (plans status enum: live/in_progress/sunset) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
