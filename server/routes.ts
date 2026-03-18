@@ -7787,6 +7787,13 @@ Format search_web URLs as markdown links.`;
       if (!req.file) return res.status(400).json({ error: "No image provided" });
       const tapX = parseFloat(req.body?.tapX ?? '50');
       const tapY = parseFloat(req.body?.tapY ?? '50');
+      // Optional: caller can pass an explicit crop region (e.g. an existing grouped box)
+      // so we segment exactly within that area instead of a fixed 50%×50% window.
+      const hasCropHint = req.body?.cropX != null && req.body?.cropW != null;
+      const hintX = hasCropHint ? parseFloat(req.body.cropX) : null;
+      const hintY = hasCropHint ? parseFloat(req.body.cropY) : null;
+      const hintW = hasCropHint ? parseFloat(req.body.cropW) : null;
+      const hintH = hasCropHint ? parseFloat(req.body.cropH) : null;
 
       const { default: sharp } = await import('sharp');
       let buf = req.file.buffer;
@@ -7794,13 +7801,21 @@ Format search_web URLs as markdown links.`;
       const meta = await sharp(buf).metadata();
       const W = meta.width || 1000, H = meta.height || 1000;
 
-      // Crop a 50%×50% region centered on tap, clamped to image bounds
-      const cropW = Math.round(W * 0.50);
-      const cropH = Math.round(H * 0.50);
-      const cx    = Math.round(tapX / 100 * W);
-      const cy    = Math.round(tapY / 100 * H);
-      const cropLeft = Math.max(0, Math.min(cx - Math.round(cropW / 2), W - cropW));
-      const cropTop  = Math.max(0, Math.min(cy - Math.round(cropH / 2), H - cropH));
+      // Use the caller-supplied box if present, otherwise fall back to 50%×50% centred on tap
+      let cropLeft: number, cropTop: number, cropW: number, cropH: number;
+      if (hasCropHint && hintX != null && hintY != null && hintW != null && hintH != null) {
+        cropLeft = Math.max(0, Math.round(hintX / 100 * W));
+        cropTop  = Math.max(0, Math.round(hintY / 100 * H));
+        cropW    = Math.min(Math.round(hintW / 100 * W), W - cropLeft);
+        cropH    = Math.min(Math.round(hintH / 100 * H), H - cropTop);
+      } else {
+        cropW = Math.round(W * 0.50);
+        cropH = Math.round(H * 0.50);
+        const cx = Math.round(tapX / 100 * W);
+        const cy = Math.round(tapY / 100 * H);
+        cropLeft = Math.max(0, Math.min(cx - Math.round(cropW / 2), W - cropW));
+        cropTop  = Math.max(0, Math.min(cy - Math.round(cropH / 2), H - cropH));
+      }
 
       const cropBuf = await sharp(buf)
         .extract({ left: cropLeft, top: cropTop, width: cropW, height: cropH })

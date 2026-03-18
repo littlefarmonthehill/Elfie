@@ -1004,7 +1004,12 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
     }
 
     // 3. No candidate hit — ask the server to detect a contour at the tap point.
+    //    When tapping inside an existing box, pass that box's bounds so the backend
+    //    crops exactly to that region instead of the default 50%×50% window.
     //    Falls back to a 16%×16% fixed box if detection fails or returns nothing.
+    const hitBox = previewBoxes.find(
+      b => tapX >= b.x && tapX <= b.x + b.w && tapY >= b.y && tapY <= b.y + b.h
+    ) ?? null;
     setDetectingPoint({ x: tapX, y: tapY });
     let detectedBox: { x: number; y: number; w: number; h: number } | null = null;
     try {
@@ -1013,6 +1018,12 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
         form.append("image", pendingFile);
         form.append("tapX", tapX.toString());
         form.append("tapY", tapY.toString());
+        if (hitBox) {
+          form.append("cropX", hitBox.x.toString());
+          form.append("cropY", hitBox.y.toString());
+          form.append("cropW", hitBox.w.toString());
+          form.append("cropH", hitBox.h.toString());
+        }
         const resp = await fetch("/api/brickanalyzer/detect-at-point", {
           method: "POST", credentials: "include", body: form,
         });
