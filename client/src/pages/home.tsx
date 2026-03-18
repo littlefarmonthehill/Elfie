@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Package, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut, ArrowLeft, RotateCw, AlertCircle, Mail, Sparkles, ListChecks, ScanSearch, Truck, PackageCheck, SlidersHorizontal, Info, CreditCard } from "lucide-react";
+import { Package, ClipboardList, RefreshCw, ExternalLink, X, EyeOff, LogOut, ArrowLeft, RotateCw, Mail, Sparkles, ListChecks, ScanSearch, Truck, PackageCheck, SlidersHorizontal, Info, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -884,27 +884,16 @@ export default function Home() {
   };
 
   // Grace period: hard block only fires 7 days after sunset.
-  // Within 30 days of sunset (or during grace period) we show a dismissible banner instead.
   const GRACE_DAYS = 7;
-  const WARN_DAYS_BEFORE = 30;
-  const [planBannerDismissed, setPlanBannerDismissed] = useState(false);
 
   const sunsetDate = billingStatus?.planSunsetAt ? new Date(billingStatus.planSunsetAt) : null;
   const isSunsetPlan = !superAdmin && billingStatus?.planStatus === 'sunset' && !!sunsetDate;
   const now = new Date();
   const msPerDay = 86400000;
-  const daysUntilSunset = sunsetDate ? Math.ceil((sunsetDate.getTime() - now.getTime()) / msPerDay) : null;
   const daysSinceSunset = sunsetDate ? Math.floor((now.getTime() - sunsetDate.getTime()) / msPerDay) : null;
 
   // Hard block: grace period has passed
   const planExpired = isSunsetPlan && daysSinceSunset !== null && daysSinceSunset > GRACE_DAYS;
-
-  // Banner: plan expires within 30 days, or within grace period (not yet hard-blocked)
-  const showPlanBanner = !planBannerDismissed && isSunsetPlan && !planExpired &&
-    daysUntilSunset !== null && daysUntilSunset <= WARN_DAYS_BEFORE;
-
-  // Banner urgency: red during grace period, yellow in warning window
-  const bannerIsUrgent = isSunsetPlan && daysSinceSunset !== null && daysSinceSunset >= 0;
 
   if (planExpired && billingStatus) {
     return (
@@ -917,36 +906,6 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen bg-[#04080F] text-foreground">
-      {/* Plan sunset / grace period banner */}
-      {showPlanBanner && sunsetDate && (
-        <div className={`flex-shrink-0 border-b px-4 py-2 flex items-center gap-3 z-[100] ${bannerIsUrgent ? 'bg-red-950/40 border-red-700/40' : 'bg-amber-950/40 border-amber-700/40'}`}>
-          <AlertCircle className={`h-3.5 w-3.5 shrink-0 ${bannerIsUrgent ? 'text-red-400' : 'text-amber-400'}`} />
-          <p className={`flex-1 text-xs font-medium ${bannerIsUrgent ? 'text-red-200' : 'text-amber-200'}`}>
-            {bannerIsUrgent
-              ? <>Your <span className="font-bold">{billingStatus!.plan}</span> plan ended. You have {GRACE_DAYS - daysSinceSunset!} day{GRACE_DAYS - daysSinceSunset! !== 1 ? 's' : ''} of access remaining — choose a new plan to keep using E.L.F.I.E.</>
-              : <>Your <span className="font-bold">{billingStatus!.plan}</span> plan {daysUntilSunset! <= 0 ? 'ended' : `retires in ${daysUntilSunset} day${daysUntilSunset !== 1 ? 's' : ''}`} — choose a new plan to keep your access.</>
-            }
-          </p>
-          <Button
-            size="sm"
-            variant="secondary"
-            className={`text-xs h-7 shrink-0 ${bannerIsUrgent ? 'bg-red-900/60 border border-red-700/60 text-red-200' : 'bg-amber-900/60 border border-amber-700/60 text-amber-200'}`}
-            onClick={() => setSettingsOpen(true)}
-            data-testid="button-plan-banner-upgrade"
-          >
-            <CreditCard className="h-3 w-3 mr-1" />
-            Choose plan
-          </Button>
-          <button
-            onClick={() => setPlanBannerDismissed(true)}
-            className={`shrink-0 ${bannerIsUrgent ? 'text-red-400 hover:text-red-200' : 'text-amber-400 hover:text-amber-200'} transition-colors`}
-            data-testid="button-plan-banner-dismiss"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
-
       {/* Impersonation Banner — shown when super admin is viewing as another org */}
       {impersonationStatus?.isImpersonating && (
         <div className="flex-shrink-0 bg-amber-500/20 border-b border-amber-500/40 px-4 py-2 flex items-center gap-3 z-[100]">

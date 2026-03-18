@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { ToolDrawer } from "@/components/ui/tool-drawer";
 import {
   CreditCard, ShoppingCart, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Printer,
-  AlertTriangle, CheckCircle2, Info, TrendingUp,
+  AlertTriangle, CheckCircle2, Info, TrendingUp, Clock,
 } from "lucide-react";
 
 // ─── API response types ───────────────────────────────────────────────────────
@@ -132,6 +132,57 @@ function SalesBillCard({ usage }: { usage: OrgUsageData }) {
               {cents(billing.totalDue)}
             </span>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sunset / grace period callout ───────────────────────────────────────────
+
+const GRACE_DAYS = 7;
+const MS_PER_DAY = 86400000;
+
+function SunsetCallout({ plan }: { plan: PlanInfo }) {
+  if (!plan.sunsetAt) return null;
+  const sunsetDate = new Date(plan.sunsetAt);
+  const now = new Date();
+  const daysSince = Math.floor((now.getTime() - sunsetDate.getTime()) / MS_PER_DAY);
+  const daysUntil = Math.ceil((sunsetDate.getTime() - now.getTime()) / MS_PER_DAY);
+
+  const inGrace = daysSince >= 0 && daysSince <= GRACE_DAYS;
+  const upcoming = daysUntil > 0;
+
+  if (!inGrace && !upcoming) return null;
+
+  const urgent = inGrace;
+  const daysLeftInGrace = GRACE_DAYS - daysSince;
+
+  return (
+    <div className={cn(
+      "rounded-md border px-4 py-3 space-y-1.5",
+      urgent
+        ? "border-red-800/40 bg-red-950/20"
+        : "border-amber-800/30 bg-amber-950/15"
+    )}>
+      <div className="flex items-start gap-2.5">
+        {urgent
+          ? <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
+          : <Clock className="w-3.5 h-3.5 text-amber-400/80 shrink-0 mt-0.5" />
+        }
+        <div className="space-y-0.5">
+          <p className={cn("text-xs font-semibold", urgent ? "text-red-200" : "text-amber-200/90")}>
+            {urgent
+              ? `Your ${plan.name} plan has ended — ${daysLeftInGrace} day${daysLeftInGrace !== 1 ? 's' : ''} of access remaining`
+              : `Your ${plan.name} plan retires in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}`
+            }
+          </p>
+          <p className="text-xs text-gray-500 leading-relaxed">
+            {urgent
+              ? "Choose a paid plan to keep your access before the grace period expires."
+              : "Upgrade to a paid plan before this date to keep your access uninterrupted."
+            }
+          </p>
         </div>
       </div>
     </div>
@@ -285,6 +336,8 @@ function CurrentBillingTab() {
 
   return (
     <div className="space-y-3">
+      <SunsetCallout plan={usage.plan} />
+
       <p className="text-xs text-gray-500">
         {isTrial
           ? 'Usage shown is what your bill would look like as a subscriber. Nothing is charged during your trial.'
