@@ -49,6 +49,12 @@ export default function PlanExpiredScreen({ sunsetAt, planName }: PlanExpiredScr
     },
   });
 
+  const logoutMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/logout'),
+    onSuccess: () => { window.location.href = '/'; },
+    onError: () => { window.location.href = '/'; },
+  });
+
   const selectedPlanData = availablePlans.find(p => p.id === selectedPlan) ?? null;
   const selectedIsDefault = selectedPlanData?.isDefault ?? false;
 
@@ -166,14 +172,15 @@ export default function PlanExpiredScreen({ sunsetAt, planName }: PlanExpiredScr
 
         {/* Action row */}
         <div className="flex items-center justify-between gap-3 pt-1">
-          <a
-            href="/api/auth/logout"
-            className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-400 transition-colors"
-            data-testid="link-expired-logout"
+          <button
+            onClick={() => logoutMutation.mutate()}
+            disabled={logoutMutation.isPending}
+            className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-400 transition-colors disabled:opacity-50"
+            data-testid="button-expired-logout"
           >
             <LogOut className="w-3 h-3" />
-            Sign out
-          </a>
+            {logoutMutation.isPending ? 'Signing out…' : 'Sign out'}
+          </button>
           <Button
             onClick={() => selectedPlan !== null && checkoutMutation.mutate({ planId: selectedPlan })}
             disabled={selectedPlan === null || checkoutMutation.isPending || availablePlans.length === 0}
