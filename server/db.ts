@@ -1102,6 +1102,25 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-55 (plans is_default column) complete.');
 
+    // ── Phase-56: Move trial orgs onto default plan if one exists ─────────────
+    // Any org still on 'trial' with no Stripe subscription should be activated on the default plan.
+    const defaultPlanResult = await client.query(`SELECT id, name FROM plans WHERE is_default = true LIMIT 1`);
+    if (defaultPlanResult.rows.length > 0) {
+      const dp = defaultPlanResult.rows[0];
+      const migrated = await client.query(`
+        UPDATE organizations
+        SET plan_id = $1,
+            plan = $2,
+            subscription_status = 'active',
+            trial_ends_at = NULL
+        WHERE subscription_status = 'trial'
+          AND stripe_subscription_id IS NULL
+      `, [dp.id, dp.name]);
+      console.log(`[Migration] Phase-56 (trial→default plan migration) complete — ${migrated.rowCount} org(s) moved to default plan "${dp.name}".`);
+    } else {
+      console.log('[Migration] Phase-56 (trial→default plan migration) complete — no default plan set, nothing to migrate.');
+    }
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

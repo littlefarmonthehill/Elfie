@@ -8,8 +8,10 @@ import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import crypto from "crypto";
-import { pool } from "./db";
+import { pool, db } from "./db";
 import type { User } from "@shared/schema";
+import { plans } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 // ─── Session type augmentation for impersonation ─────────────────────────────
 declare module 'express-session' {
@@ -179,10 +181,18 @@ export async function setupAuth(app: Express) {
         const suffix = Math.floor(1000 + Math.random() * 9000);
         const slug = `${baseSlug}${suffix}`;
         const orgName = firstName ? `${firstName}'s Store` : `${email.split('@')[0]}'s Store`;
-        const trialEndsAt = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000);
         const signupDate = new Date();
         signupDate.setHours(0, 0, 0, 0); // normalize to start of day
-        const newOrg = await storage.createOrganization({ name: orgName, slug, plan: 'trial', trialEndsAt, billingStartDate: signupDate });
+
+        // If there's a default plan, skip the trial and put the org on it directly
+        const [defaultPlan] = await db.select().from(plans).where(eq(plans.isDefault, true)).limit(1);
+        let newOrg;
+        if (defaultPlan) {
+          newOrg = await storage.createOrganization({ name: orgName, slug, plan: defaultPlan.name, planId: defaultPlan.id, subscriptionStatus: 'active', billingStartDate: signupDate });
+        } else {
+          const trialEndsAt = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000);
+          newOrg = await storage.createOrganization({ name: orgName, slug, plan: 'trial', trialEndsAt, billingStartDate: signupDate });
+        }
         orgId = newOrg.id;
         userApproved = true;
       }
