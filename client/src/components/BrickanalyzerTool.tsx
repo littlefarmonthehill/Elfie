@@ -974,14 +974,14 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
     const tapX = ((e.clientX - rect.left) / rect.width) * 100;
     const tapY = ((e.clientY - rect.top) / rect.height) * 100;
 
-    // 1. Check if tap lands inside an existing confirmed box — do nothing (user was clicking it)
+    // 1. If tap lands inside an existing confirmed box, skip straight to detect-at-point
+    //    so the user can tap individual pieces inside a grouped detection.
     const hitConfirmed = previewBoxes.some(
       b => tapX >= b.x && tapX <= b.x + b.w && tapY >= b.y && tapY <= b.y + b.h
     );
-    if (hitConfirmed) return;
 
-    // 2. Find candidate whose box contains the tap point
-    if (previewCandidates.length > 0) {
+    // 2. Find candidate whose box contains the tap point (only if not inside a confirmed box)
+    if (!hitConfirmed && previewCandidates.length > 0) {
       const containingIdx = previewCandidates.findIndex(
         c => tapX >= c.x && tapX <= c.x + c.w && tapY >= c.y && tapY <= c.y + c.h
       );
