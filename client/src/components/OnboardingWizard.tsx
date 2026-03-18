@@ -83,14 +83,11 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   const { toast } = useToast();
   const { status: installStatus, promptInstall } = useInstallPrompt();
 
-  const { data: allPlans = [], isLoading: plansLoading } = useQuery<Array<{
+  const { data: availablePlans = [], isLoading: plansLoading } = useQuery<Array<{
     id: number; name: string; basePrice: number; salesPercentage: number;
     freeSalesThreshold: number; status: string; sunsetAt: string | null; isDefault?: boolean;
     trialDurationDays?: number;
   }>>({ queryKey: ['/api/plans'] });
-
-  // New users in onboarding only see live plans — sunset plans are legacy and shouldn't be chosen by new signups
-  const availablePlans = allPlans.filter(p => p.status === 'live');
 
   // Step 1 — Company Info
   const [name, setName] = useState(org.name || "");

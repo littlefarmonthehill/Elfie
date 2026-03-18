@@ -3116,13 +3116,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/plans — return live + sunset plans for subscription selection (in_progress drafts are hidden)
+  // GET /api/plans — return only live plans for subscription selection (sunset + in_progress plans are hidden)
   app.get('/api/plans', isAuthenticated, async (_req, res) => {
     try {
       const activePlans = await db
         .select()
         .from(plans)
-        .where(inArray(plans.status, ['live', 'sunset']))
+        .where(eq(plans.status, 'live'))
         .orderBy(asc(plans.id));
       res.json(activePlans);
     } catch (err: any) {
