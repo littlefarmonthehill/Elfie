@@ -2336,7 +2336,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                       <>
                         {/* Spotlight — per-box photo windows above the dimmed base image */}
                         {heatmapPhotoHidden && results
-                          .filter(r => r.bboxX != null && r.bboxY != null && r.bboxW != null && r.bboxH != null)
+                          .filter(r => r.bboxX != null && r.bboxY != null && r.bboxW != null && r.bboxH != null && !!r.partNo)
                           .map((r, i) => (
                             <img
                               key={`spotlight-${i}`}
