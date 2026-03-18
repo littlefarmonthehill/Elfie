@@ -2261,7 +2261,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                     alt="Original scan"
                     className="absolute inset-0 w-full h-full object-fill block select-none"
                     draggable={false}
-                    style={{ filter: heatmapPhotoHidden ? 'brightness(0.08)' : 'brightness(0.70)' }}
+                    style={{ filter: 'brightness(0.70)', opacity: heatmapPhotoHidden ? 0 : 1 }}
                   />
                   {(() => {
                     const cropDismissKeyMap = new Map<number, string>();
