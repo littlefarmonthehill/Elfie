@@ -2334,12 +2334,12 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                     });
                     return (
                       <>
-                        {/* Spotlight — per-box photo windows above the dimmed base image */}
+                        {/* Spotlight — identified pieces: full colour */}
                         {heatmapPhotoHidden && results
                           .filter(r => r.bboxX != null && r.bboxY != null && r.bboxW != null && r.bboxH != null && !!r.partNo)
                           .map((r, i) => (
                             <img
-                              key={`spotlight-${i}`}
+                              key={`spotlight-id-${i}`}
                               src={`/api/brickanalyzer/scan/${activeScan.id}/image`}
                               alt=""
                               aria-hidden="true"
@@ -2351,6 +2351,39 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                               }}
                             />
                           ))
+                        }
+                        {/* Spotlight — unknown pieces: greyscale + dimmed to show "not identified" */}
+                        {heatmapPhotoHidden && results
+                          .filter(r => r.bboxX != null && r.bboxY != null && r.bboxW != null && r.bboxH != null && !r.partNo)
+                          .map((r, i) => {
+                            const inset = `inset(${r.bboxY!}% ${100 - r.bboxX! - r.bboxW!}% ${100 - r.bboxY! - r.bboxH!}% ${r.bboxX!}%)`;
+                            const cx = r.bboxX! + r.bboxW! / 2;
+                            const cy = r.bboxY! + r.bboxH! / 2;
+                            return [
+                              <img
+                                key={`spotlight-unk-img-${i}`}
+                                src={`/api/brickanalyzer/scan/${activeScan.id}/image`}
+                                alt=""
+                                aria-hidden="true"
+                                className="absolute inset-0 w-full h-full object-fill block select-none pointer-events-none"
+                                draggable={false}
+                                style={{ filter: 'brightness(0.35) grayscale(1)', clipPath: inset }}
+                              />,
+                              <div
+                                key={`spotlight-unk-label-${i}`}
+                                className="absolute pointer-events-none flex items-center justify-center"
+                                style={{
+                                  left: `${cx}%`, top: `${cy}%`,
+                                  transform: 'translate(-50%, -50%)',
+                                  zIndex: 6,
+                                }}
+                              >
+                                <span className="text-[9px] font-semibold text-gray-400 bg-gray-900/80 border border-gray-600 rounded px-1 py-0.5 whitespace-nowrap">
+                                  Not found
+                                </span>
+                              </div>,
+                            ];
+                          })
                         }
                         {bboxResults.map((r, i) => {
                           const peak = heatVal(r);
