@@ -3142,6 +3142,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!dbPlan || !['live', 'sunset'].includes(dbPlan.status)) {
           return res.status(400).json({ message: "Invalid or unavailable plan" });
         }
+
+        // Default (free) plans skip Stripe entirely — activate directly
+        if (dbPlan.isDefault) {
+          await storage.updateOrganization(orgId, {
+            plan: dbPlan.name,
+            planId: dbPlan.id,
+            subscriptionStatus: 'active',
+            trialEndsAt: null,
+          });
+          const isOnboarding = context === 'onboarding' || context === 'plan_expired';
+          const redirect = isOnboarding ? `/?subscribed=true&plan=${dbPlan.id}` : `/settings?tab=billing`;
+          return res.json({ success: true, redirect });
+        }
+
         const isOnboarding = context === 'onboarding' || context === 'plan_expired';
         const successUrl = isOnboarding
           ? `${req.protocol}://${req.get('host')}/?subscribed=true&plan=${dbPlan.id}`

@@ -14,6 +14,7 @@ interface Plan {
   freeSalesThreshold: number;
   status: string;
   sunsetAt: string | null;
+  isDefault?: boolean;
 }
 
 interface PlanExpiredScreenProps {
@@ -34,9 +35,11 @@ export default function PlanExpiredScreen({ sunsetAt, planName }: PlanExpiredScr
       const res = await apiRequest("POST", "/api/billing/checkout", { planId, context: "plan_expired" });
       return res.json();
     },
-    onSuccess: (data: { url?: string }) => {
+    onSuccess: (data: { url?: string; success?: boolean; redirect?: string }) => {
       if (data?.url) {
         window.location.href = data.url;
+      } else if (data?.success) {
+        window.location.href = data.redirect || '/';
       } else {
         toast({ title: "Checkout error", description: "No redirect URL returned. Please try again.", variant: "destructive" });
       }
@@ -45,6 +48,9 @@ export default function PlanExpiredScreen({ sunsetAt, planName }: PlanExpiredScr
       toast({ title: "Checkout failed", description: err?.message || "Unable to start checkout. Please try again.", variant: "destructive" });
     },
   });
+
+  const selectedPlanData = availablePlans.find(p => p.id === selectedPlan) ?? null;
+  const selectedIsDefault = selectedPlanData?.isDefault ?? false;
 
   const expiredDate = new Date(sunsetAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
@@ -153,7 +159,7 @@ export default function PlanExpiredScreen({ sunsetAt, planName }: PlanExpiredScr
 
         {/* Trust signals */}
         <div className="flex items-center justify-center gap-5 text-[10px] text-gray-600">
-          <span className="flex items-center gap-1"><Lock className="w-2.5 h-2.5" />Secured by Stripe</span>
+          {!selectedIsDefault && <span className="flex items-center gap-1"><Lock className="w-2.5 h-2.5" />Secured by Stripe</span>}
           <span className="flex items-center gap-1"><BadgeCheck className="w-2.5 h-2.5" />Cancel anytime</span>
           <span className="flex items-center gap-1"><CheckCircle2 className="w-2.5 h-2.5" />No setup fees</span>
         </div>
@@ -174,9 +180,11 @@ export default function PlanExpiredScreen({ sunsetAt, planName }: PlanExpiredScr
             data-testid="button-expired-subscribe"
           >
             {checkoutMutation.isPending ? (
-              <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />Redirecting to Stripe…</>
+              <><Loader2 className="w-4 h-4 mr-1.5 animate-spin" />{selectedIsDefault ? 'Activating…' : 'Redirecting to Stripe…'}</>
             ) : selectedPlan !== null ? (
-              <>Subscribe & restore access<ArrowRight className="w-4 h-4 ml-1" /></>
+              selectedIsDefault
+                ? <>Start for free<ArrowRight className="w-4 h-4 ml-1" /></>
+                : <>Subscribe & restore access<ArrowRight className="w-4 h-4 ml-1" /></>
             ) : (
               'Select a plan to continue'
             )}
