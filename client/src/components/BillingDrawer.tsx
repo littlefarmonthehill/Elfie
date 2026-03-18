@@ -281,19 +281,22 @@ function CurrentBillingTab() {
   }
 
   const isTrial = usage.subscriptionStatus === 'trial';
+  const isDefaultPlan = usage.plan?.isDefault;
 
   return (
     <div className="space-y-3">
       <p className="text-xs text-gray-500">
         {isTrial
           ? 'Usage shown is what your bill would look like as a subscriber. Nothing is charged during your trial.'
-          : 'Your billing period runs from your signup anniversary date each month. Sales include all channels — items total minus discounts.'}
+          : isDefaultPlan
+            ? 'You are on a free plan. Sales data is shown for reference — nothing is charged.'
+            : 'Your billing period runs from your signup anniversary date each month. Sales include all channels — items total minus discounts.'}
       </p>
 
       <SalesBillCard usage={usage} />
       <TrialCallout status={usage.subscriptionStatus} billingStartDate={usage.billingStartDate} />
 
-      {!isTrial && (
+      {!isTrial && !isDefaultPlan && (
         <div className="pt-4 border-t border-gray-800">
           {!cancelConfirm ? (
             <div className="flex justify-center">
