@@ -2251,15 +2251,8 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                     alt="Original scan"
                     className="absolute inset-0 w-full h-full object-fill block select-none"
                     draggable={false}
-                    style={{ filter: 'brightness(0.70)', opacity: heatmapPhotoHidden ? 0 : 1 }}
+                    style={{ filter: 'brightness(0.70)' }}
                   />
-                  {heatmapPhotoHidden && (
-                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none" style={{ zIndex: 50 }}>
-                      <span className="text-[10px] text-gray-500 bg-gray-950/80 px-2 py-0.5 rounded-sm whitespace-nowrap">
-                        Photo hidden — tap Photo to restore
-                      </span>
-                    </div>
-                  )}
                   {(() => {
                     const cropDismissKeyMap = new Map<number, string>();
                     groupedResults.forEach(grp => {
@@ -2331,6 +2324,36 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                     });
                     return (
                       <>
+                        {/* Spotlight overlay — darkens everything outside detected boxes */}
+                        {heatmapPhotoHidden && (() => {
+                          const spotlightBoxes = results.filter(r =>
+                            r.bboxX != null && r.bboxY != null && r.bboxW != null && r.bboxH != null
+                          );
+                          if (spotlightBoxes.length === 0) return (
+                            <div className="absolute inset-0 bg-gray-950/92 pointer-events-none" />
+                          );
+                          const outerRect = 'M0,0 L1,0 L1,1 L0,1 Z';
+                          const holes = spotlightBoxes.map(r => {
+                            const x1 = r.bboxX! / 100, y1 = r.bboxY! / 100;
+                            const x2 = (r.bboxX! + r.bboxW!) / 100, y2 = (r.bboxY! + r.bboxH!) / 100;
+                            return `M${x1},${y1} L${x2},${y1} L${x2},${y2} L${x1},${y2} Z`;
+                          });
+                          return (
+                            <>
+                              <svg width="0" height="0" style={{ position: 'absolute', overflow: 'hidden' }}>
+                                <defs>
+                                  <clipPath id="heatmap-spotlight-clip" clipPathUnits="objectBoundingBox">
+                                    <path d={[outerRect, ...holes].join(' ')} fillRule="evenodd" />
+                                  </clipPath>
+                                </defs>
+                              </svg>
+                              <div
+                                className="absolute inset-0 bg-gray-950/92 pointer-events-none"
+                                style={{ clipPath: 'url(#heatmap-spotlight-clip)' }}
+                              />
+                            </>
+                          );
+                        })()}
                         {bboxResults.map((r, i) => {
                           const peak = heatVal(r);
                           const displayPrice = peak > 0 ? peak : null;
