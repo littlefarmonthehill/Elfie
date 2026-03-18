@@ -614,12 +614,26 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
   const [batchesVisible, setBatchesVisible] = useState(false);
   const [batchDeleteConfirmId, setBatchDeleteConfirmId] = useState<number | null>(null);
   const batchPanelRef = useRef<HTMLDivElement>(null);
-  const batchTouchStartY = useRef<number | null>(null);
 
   useEffect(() => {
     if (batchesOpen) requestAnimationFrame(() => setBatchesVisible(true));
     else setBatchesVisible(false);
   }, [batchesOpen]);
+
+  // Block ALL native touch events inside the panel so they never reach the parent Vaul drawer
+  useEffect(() => {
+    if (!batchesOpen || !batchPanelRef.current) return;
+    const el = batchPanelRef.current;
+    const stop = (e: TouchEvent) => { e.stopPropagation(); e.stopImmediatePropagation(); };
+    el.addEventListener('touchstart', stop, { capture: true, passive: true });
+    el.addEventListener('touchmove',  stop, { capture: true, passive: true });
+    el.addEventListener('touchend',   stop, { capture: true, passive: true });
+    return () => {
+      el.removeEventListener('touchstart', stop, { capture: true } as any);
+      el.removeEventListener('touchmove',  stop, { capture: true } as any);
+      el.removeEventListener('touchend',   stop, { capture: true } as any);
+    };
+  }, [batchesOpen, batchesVisible]);
 
   type BatchScanMeta = { id: number; status: string; totalPieces: number | null; identifiedPieces: number | null; estimatedValue: string | null; createdAt: string | null; completedAt: string | null };
   const { data: allBatches, isLoading: batchesLoading } = useQuery<BatchScanMeta[]>({
@@ -692,26 +706,6 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
     return `${d.toLocaleDateString([], { month: "short", day: "numeric" })} · ${time}`;
   }
 
-  function onBatchTouchStart(e: React.TouchEvent) {
-    e.stopPropagation();
-    batchTouchStartY.current = e.touches[0].clientY;
-  }
-  function onBatchTouchMove(e: React.TouchEvent) {
-    e.stopPropagation();
-    if (batchTouchStartY.current === null) return;
-    const dy = e.touches[0].clientY - batchTouchStartY.current;
-    if (dy > 0 && batchPanelRef.current) {
-      batchPanelRef.current.style.transform = `translateY(${dy}px)`;
-    }
-  }
-  function onBatchTouchEnd(e: React.TouchEvent) {
-    e.stopPropagation();
-    if (batchTouchStartY.current === null) return;
-    const dy = e.changedTouches[0].clientY - batchTouchStartY.current;
-    batchTouchStartY.current = null;
-    if (batchPanelRef.current) batchPanelRef.current.style.transform = '';
-    if (dy > 60) closeBatches();
-  }
 
   useEffect(() => {
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch {}
@@ -4076,42 +4070,30 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
       />
     )}
 
-    {/* ── Batch scans flyout sheet ────────────────────────────────────────── */}
+    {/* ── Batch scans side flyout ──────────────────────────────────────────── */}
     {batchesOpen && (
-      <div
-        className="fixed inset-0 z-50"
-        data-testid="overlay-batches"
-        onTouchStart={e => e.stopPropagation()}
-        onTouchMove={e => e.stopPropagation()}
-        onTouchEnd={e => e.stopPropagation()}
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Backdrop */}
+      <>
+        {/* Backdrop — click to close */}
         <div
-          className="absolute inset-0 bg-black transition-opacity duration-300"
-          style={{ opacity: batchesVisible ? 0.6 : 0 }}
+          className="fixed inset-0 z-40 bg-black transition-opacity duration-300"
+          style={{ opacity: batchesVisible ? 0.5 : 0 }}
           onClick={closeBatches}
+          data-testid="overlay-batches-backdrop"
         />
-        {/* Sheet panel */}
+
+        {/* Side panel — slides in from the right */}
         <div
           ref={batchPanelRef}
-          className="absolute bottom-0 left-0 right-0 flex flex-col bg-gray-950 rounded-t-2xl transition-transform duration-300 ease-out"
+          className="fixed top-0 right-0 bottom-0 z-50 flex flex-col bg-gray-950 border-l border-gray-800 shadow-2xl transition-transform duration-300 ease-out"
           style={{
-            height: '88%',
-            transform: batchesVisible ? 'translateY(0)' : 'translateY(100%)',
+            width: 'min(320px, 90vw)',
+            transform: batchesVisible ? 'translateX(0)' : 'translateX(100%)',
             willChange: 'transform',
           }}
-          onTouchStart={onBatchTouchStart}
-          onTouchMove={onBatchTouchMove}
-          onTouchEnd={onBatchTouchEnd}
+          data-testid="panel-batches"
         >
-          {/* Drag handle */}
-          <div className="flex-shrink-0 flex justify-center pt-3 pb-1">
-            <div className="w-10 h-1 rounded-full bg-gray-700" />
-          </div>
-
           {/* Header */}
-          <div className="flex-shrink-0 flex items-center gap-2 px-4 pt-2 pb-3 border-b border-gray-800">
+          <div className="flex-shrink-0 flex items-center gap-2 px-4 py-3.5 border-b border-gray-800">
             <Layers className="w-4 h-4 text-purple-400 flex-shrink-0" />
             <span className="text-sm font-semibold text-gray-100 flex-1">Scan Batches</span>
             {allBatches && (
@@ -4164,7 +4146,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                       className={`py-3 flex items-center gap-3 ${isActive ? 'opacity-100' : 'opacity-90'}`}
                       data-testid={`batch-row-${batch.id}`}
                     >
-                      {/* Scan thumbnail or status icon */}
+                      {/* Scan thumbnail */}
                       <div className={`w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border ${isActive ? 'border-purple-500/60' : 'border-gray-700'} bg-gray-900 flex items-center justify-center`}>
                         <img
                           src={`/api/brickanalyzer/scan/${batch.id}/image`}
@@ -4247,7 +4229,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
             )}
           </div>
         </div>
-      </div>
+      </>
     )}
 
     </div>
