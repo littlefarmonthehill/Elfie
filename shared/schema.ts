@@ -1637,6 +1637,8 @@ export const plans = pgTable("plans", {
   freeSalesThreshold: integer("free_sales_threshold").notNull().default(100000), // cents, e.g. 100000 = $1000
   // 'live' → visible to new subscribers; 'in_progress' → draft (not yet launched); 'sunset' → legacy, no new sign-ups
   status: varchar("status", { length: 20 }).notNull().default('live'),
+  // Date when a sunset plan officially ends — users on this plan must switch by this date
+  sunsetAt: timestamp("sunset_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

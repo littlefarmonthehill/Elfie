@@ -1327,12 +1327,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/platform-admin/plans/:id', isSuperAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      // Check if orgs are on this plan — if so, only sunset/name edits allowed
+      // Check if orgs are on this plan — if so, only status/name/sunsetAt edits allowed
       const [orgCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(organizations).where(eq(organizations.planId, id));
       const hasOrgs = Number(orgCount.count) > 0;
       const allowed = hasOrgs
-        ? { status: req.body.status, name: req.body.name }  // locked: only status+name editable when orgs are on this plan
+        ? { status: req.body.status, name: req.body.name, sunsetAt: req.body.sunsetAt }
         : req.body;
+      // Parse sunsetAt as a Date if provided
+      if (allowed.sunsetAt !== undefined) {
+        allowed.sunsetAt = allowed.sunsetAt ? new Date(allowed.sunsetAt) : null;
+      }
       const parsed = insertPlanSchema.partial().parse(allowed);
       const [updated] = await db.update(plans).set({ ...parsed, updatedAt: new Date() }).where(eq(plans.id, id)).returning();
       if (!updated) return res.status(404).json({ message: 'Plan not found' });
@@ -3178,6 +3182,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!org) return res.status(404).json({ message: "Organization not found" });
 
       const brickspotterCheck = await checkBrickspotterLimit(orgId);
+
+      // Look up plan sunset info (if org is on a sunset plan with an end date)
+      let planSunsetAt: string | null = null;
+      let planStatus: string | null = null;
+      if (org.planId) {
+        const [planRow] = await db.select({ status: plans.status, sunsetAt: plans.sunsetAt }).from(plans).where(eq(plans.id, org.planId)).limit(1);
+        if (planRow) {
+          planStatus = planRow.status;
+          planSunsetAt = planRow.sunsetAt ? planRow.sunsetAt.toISOString() : null;
+        }
+      }
       
       res.json({
         plan: org.plan,
@@ -3188,6 +3203,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         trialEndsAt: org.trialEndsAt ?? null,
         subscriptionEndsAt: org.subscriptionEndsAt ?? null,
         cancelAtPeriodEnd: org.cancelAtPeriodEnd ?? false,
+        planStatus,
+        planSunsetAt,
         brickspotter: {
           scansUsed: brickspotterCheck.scansUsed ?? 0,
           scansLimit: brickspotterCheck.scansLimit ?? -1,

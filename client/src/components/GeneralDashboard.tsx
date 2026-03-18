@@ -310,7 +310,7 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings, onOpenBilling }: { onO
 
 export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings, onOpenBilling, children }: {
   setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }>;
-  billingStatus?: { plan: string; status: string; interval?: string | null; trialEndsAt?: string | null; subscriptionEndsAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number } } | null;
+  billingStatus?: { plan: string; status: string; interval?: string | null; trialEndsAt?: string | null; subscriptionEndsAt?: string | null; planStatus?: string | null; planSunsetAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number } } | null;
   rateLimit?: { allowed: boolean; callsLast24h: number; blocked?: boolean } | null;
   blApiCallLimit?: number;
   onOpenSettings?: (section: any) => void;
@@ -353,6 +353,15 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
   }
   if (isTrial && trialDaysLeft !== null) {
     alerts.push({ id: 'trial', icon: Clock, iconColor: trialSeverity === 'error' ? 'text-red-400' : trialSeverity === 'warn' ? 'text-yellow-400' : 'text-muted-foreground', label: trialDaysLeft === 0 ? 'Trial ending today' : `${trialDaysLeft} days left in trial`, sub: 'Upgrade to keep access', severity: trialSeverity ?? 'info', onClick: () => onOpenSettings?.('billing') });
+  }
+  if (billingStatus?.planStatus === 'sunset') {
+    const sunsetDate = billingStatus.planSunsetAt ? new Date(billingStatus.planSunsetAt) : null;
+    const daysUntilSunset = sunsetDate ? Math.max(0, Math.ceil((sunsetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : null;
+    const sunsetSeverity: 'error' | 'warn' | 'info' = daysUntilSunset !== null && daysUntilSunset <= 14 ? 'error' : daysUntilSunset !== null && daysUntilSunset <= 30 ? 'warn' : 'info';
+    const sunsetLabel = sunsetDate
+      ? (daysUntilSunset === 0 ? 'Your plan ends today' : `Your plan ends ${sunsetDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`)
+      : 'Your current plan is being retired';
+    alerts.push({ id: 'plan-sunset', icon: CreditCard, iconColor: sunsetSeverity === 'error' ? 'text-red-400' : sunsetSeverity === 'warn' ? 'text-orange-400' : 'text-yellow-400', label: sunsetLabel, sub: 'Choose a new plan to keep access', severity: sunsetSeverity, onClick: () => onOpenBilling?.() });
   }
 
   const sevOrder: Record<string, number> = { error: 0, warn: 1, info: 2 };
@@ -486,7 +495,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     queryKey: ['/api/org'],
   });
 
-  const { data: billingStatus } = useQuery<{ plan: string; status: string; interval: string | null; trialEndsAt: string | null; subscriptionEndsAt: string | null; brickspotter: { scansUsed: number; scansLimit: number } }>({
+  const { data: billingStatus } = useQuery<{ plan: string; status: string; interval: string | null; trialEndsAt: string | null; subscriptionEndsAt: string | null; planStatus: string | null; planSunsetAt: string | null; brickspotter: { scansUsed: number; scansLimit: number } }>({
     queryKey: ['/api/billing/status'],
     refetchInterval: 60000,
   });

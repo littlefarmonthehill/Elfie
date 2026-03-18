@@ -1859,6 +1859,7 @@ function PlansAndPricingPanel() {
     salesPercentage: number;
     freeSalesThreshold: number;
     status: string;
+    sunsetAt: string | null;
     locked: boolean;
     orgCount: number;
   };
@@ -1869,7 +1870,7 @@ function PlansAndPricingPanel() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
-  const defaultForm = { name: '', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, status: 'in_progress' };
+  const defaultForm = { name: '', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, status: 'in_progress', sunsetAt: null as string | null };
   const [form, setForm] = useState<typeof defaultForm>(defaultForm);
 
   const fmtC = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -1910,6 +1911,7 @@ function PlansAndPricingPanel() {
       salesPercentage: plan.salesPercentage,
       freeSalesThreshold: plan.freeSalesThreshold,
       status: plan.status,
+      sunsetAt: plan.sunsetAt ? new Date(plan.sunsetAt).toISOString().split('T')[0] : null,
     });
   };
 
@@ -1921,9 +1923,10 @@ function PlansAndPricingPanel() {
 
   const handleSave = () => {
     const editingPlanRef = (plans ?? []).find(p => p.id === editingId);
+    const sunsetAtIso = form.sunsetAt ? new Date(form.sunsetAt).toISOString() : null;
     const payload = editingId
-      ? { id: editingId, data: { name: form.name, status: form.status, ...(!editingPlanRef?.locked ? { basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold } : {}) } }
-      : { data: { name: form.name, basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold, status: form.status } };
+      ? { id: editingId, data: { name: form.name, status: form.status, sunsetAt: sunsetAtIso, ...(!editingPlanRef?.locked ? { basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold } : {}) } }
+      : { data: { name: form.name, basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold, status: form.status, sunsetAt: sunsetAtIso } };
     saveMutation.mutate(payload);
   };
 
@@ -1981,7 +1984,14 @@ function PlansAndPricingPanel() {
                       <span className="text-[9px] bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded px-1 py-0.5">in progress</span>
                     )}
                     {plan.status === 'sunset' && (
-                      <span className="text-[9px] bg-gray-700/60 text-gray-500 border border-gray-600/40 rounded px-1 py-0.5">sunset</span>
+                      <>
+                        <span className="text-[9px] bg-gray-700/60 text-gray-500 border border-gray-600/40 rounded px-1 py-0.5">sunset</span>
+                        {plan.sunsetAt && (
+                          <span className="text-[9px] bg-orange-500/10 text-orange-400 border border-orange-500/20 rounded px-1 py-0.5">
+                            ends {new Date(plan.sunsetAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        )}
+                      </>
                     )}
                   </div>
                   <div className="text-[10px] text-gray-400 mt-0.5 tabular-nums">
@@ -2057,7 +2067,7 @@ function PlansAndPricingPanel() {
                 <label className="block app-label mb-1">Status</label>
                 <select
                   value={form.status}
-                  onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+                  onChange={e => setForm(f => ({ ...f, status: e.target.value, sunsetAt: e.target.value !== 'sunset' ? null : f.sunsetAt }))}
                   data-testid="select-plan-status"
                   className="w-full bg-gray-900/60 border border-gray-700 rounded px-2 py-1 text-gray-200 outline-none focus:border-gray-500 text-xs"
                 >
@@ -2066,6 +2076,19 @@ function PlansAndPricingPanel() {
                   <option value="sunset">Sunset — legacy, no new sign-ups</option>
                 </select>
               </div>
+              {form.status === 'sunset' && (
+                <div>
+                  <label className="block app-label mb-1">Plan End Date <span className="text-gray-500 font-normal">(optional)</span></label>
+                  <input
+                    type="date"
+                    value={form.sunsetAt ?? ''}
+                    onChange={e => setForm(f => ({ ...f, sunsetAt: e.target.value || null }))}
+                    data-testid="input-plan-sunsetAt"
+                    className="w-full bg-gray-900/60 border border-gray-700 rounded px-2 py-1 text-gray-200 outline-none focus:border-gray-500 text-xs"
+                  />
+                  <p className="text-[10px] text-gray-500 mt-0.5">Users on this plan will be notified to switch by this date.</p>
+                </div>
+              )}
               {!editingPlan?.locked && (
                 <>
                   <div className="grid grid-cols-3 gap-2">

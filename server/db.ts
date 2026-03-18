@@ -1086,6 +1086,10 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE plans DROP COLUMN IF EXISTS is_sunset`);
     console.log('[Migration] Phase-53 (plans status enum: live/in_progress/sunset) complete.');
 
+    // ── Phase-54: Add sunset_at timestamp to plans ────────────────────────────
+    await client.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS sunset_at TIMESTAMP`);
+    console.log('[Migration] Phase-54 (plans sunset_at column) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
