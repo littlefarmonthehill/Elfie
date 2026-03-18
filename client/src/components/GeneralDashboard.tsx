@@ -215,7 +215,7 @@ interface OrgUsageData {
   billingStartDate?: string | null;
   subscriptionStatus?: string;
   period: { start: string; end: string };
-  plan: { id: number; name: string; basePrice: number; salesPercentage: number; freeSalesThreshold: number };
+  plan: { id: number; name: string; basePrice: number; salesPercentage: number; freeSalesThreshold: number; isDefault?: boolean; sunsetAt?: string | null };
   monthlySalesCents: number;
   billing: { baseFee: number; salesFee: number; totalDue: number };
 }
@@ -231,16 +231,22 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings, onOpenBilling }: { onO
   const { billing, plan, monthlySalesCents } = usage;
   const hasSalesFee = billing.salesFee > 0;
 
-  const periodRange = usage.period?.start && usage.period?.end
-    ? (() => {
-        const s = new Date(usage.period.start);
-        const e = new Date(usage.period.end);
-        const fmt = (d: Date, includeYear: boolean) =>
-          d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(includeYear ? { year: 'numeric' } : {}) });
-        const sameYear = s.getFullYear() === e.getFullYear();
-        return `${fmt(s, false)} – ${fmt(e, sameYear)}`;
-      })()
-    : '';
+  const periodRange = (() => {
+    if (usage.plan.isDefault) {
+      if (usage.plan.sunsetAt) {
+        const end = new Date(usage.plan.sunsetAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        return `Ends ${end}`;
+      }
+      return '';
+    }
+    if (!usage.period?.start || !usage.period?.end) return '';
+    const s = new Date(usage.period.start);
+    const e = new Date(usage.period.end);
+    const fmt = (d: Date, includeYear: boolean) =>
+      d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(includeYear ? { year: 'numeric' } : {}) });
+    const sameYear = s.getFullYear() === e.getFullYear();
+    return `${fmt(s, false)} – ${fmt(e, sameYear)}`;
+  })();
 
   // Sales bar: 0–threshold = green, over threshold = purple
   const barPct = Math.min(100, plan.freeSalesThreshold > 0 ? (monthlySalesCents / (plan.freeSalesThreshold * 2)) * 100 : 0);

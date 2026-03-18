@@ -16,6 +16,8 @@ interface PlanInfo {
   basePrice: number;
   salesPercentage: number;
   freeSalesThreshold: number;
+  isDefault?: boolean;
+  sunsetAt?: string | null;
 }
 
 interface BillingBreakdown {
@@ -41,7 +43,7 @@ interface MonthRecord {
   periodEnd: string;
   monthlySalesCents: number;
   billing: BillingBreakdown;
-  plan: Omit<PlanInfo, "id">;
+  plan: Omit<PlanInfo, "id"> & { isDefault?: boolean; sunsetAt?: string | null };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -56,25 +58,37 @@ function salesLabel(cents_: number) {
 
 // ─── Current billing card ─────────────────────────────────────────────────────
 
+function planDateLabel(plan: PlanInfo, period: { start: string; end: string }): { title: string; sub: string } {
+  if (plan.isDefault) {
+    if (plan.sunsetAt) {
+      const end = new Date(plan.sunsetAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      return { title: plan.name, sub: `Ends ${end}` };
+    }
+    return { title: plan.name, sub: 'No expiry date set' };
+  }
+  const start = new Date(period.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const end   = new Date(period.end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const monthLabel = new Date(period.start).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  return { title: monthLabel, sub: `${start} – ${end}` };
+}
+
 function SalesBillCard({ usage }: { usage: OrgUsageData }) {
   const { plan, monthlySalesCents, billing, period } = usage;
   const salesOverThreshold = Math.max(0, monthlySalesCents - plan.freeSalesThreshold);
   const aboveThreshold = monthlySalesCents > plan.freeSalesThreshold;
   const hasSalesFee = billing.salesFee > 0;
 
-  const start = new Date(period.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const end   = new Date(period.end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const monthLabel = new Date(period.start).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const { title, sub } = planDateLabel(plan, period);
 
   return (
     <div className="rounded-md border border-white/8 bg-gray-800/40">
       {/* Header */}
       <div className="px-4 py-3 border-b border-white/8 flex items-center justify-between gap-2">
         <div>
-          <div className="text-sm font-semibold text-gray-200">{monthLabel}</div>
-          <div className="text-xs text-gray-500 mt-0.5">{start} – {end}</div>
+          <div className="text-sm font-semibold text-gray-200">{title}</div>
+          <div className="text-xs text-gray-500 mt-0.5">{sub}</div>
         </div>
-        <div className="text-xs text-gray-500">{plan.name}</div>
+        {!plan.isDefault && <div className="text-xs text-gray-500">{plan.name}</div>}
       </div>
 
       {/* Sales */}

@@ -1236,7 +1236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         billingStartDate: orgRow?.billingStartDate ? orgRow.billingStartDate.toISOString() : null,
         subscriptionStatus: orgRow?.subscriptionStatus ?? 'active',
         period: { start: periodStart.toISOString(), end: now.toISOString() },
-        plan: { id: plan.id, name: plan.name, basePrice: plan.basePrice, salesPercentage: plan.salesPercentage, freeSalesThreshold: plan.freeSalesThreshold },
+        plan: { id: plan.id, name: plan.name, basePrice: plan.basePrice, salesPercentage: plan.salesPercentage, freeSalesThreshold: plan.freeSalesThreshold, isDefault: plan.isDefault ?? false, sunsetAt: plan.sunsetAt ? plan.sunsetAt.toISOString() : null },
         monthlySalesCents,
         billing,
       });
@@ -1291,7 +1291,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           periodEnd: mEnd.toISOString(),
           monthlySalesCents,
           billing,
-          plan: { name: plan.name, basePrice: plan.basePrice, salesPercentage: plan.salesPercentage, freeSalesThreshold: plan.freeSalesThreshold },
+          plan: { name: plan.name, basePrice: plan.basePrice, salesPercentage: plan.salesPercentage, freeSalesThreshold: plan.freeSalesThreshold, isDefault: plan.isDefault ?? false, sunsetAt: plan.sunsetAt ? plan.sunsetAt.toISOString() : null },
         });
       }
 
