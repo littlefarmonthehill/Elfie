@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronLeft, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle, ThumbsUp, ThumbsDown, Minus, FlaskConical, BarChart3, RefreshCw, Target, Info, ChevronDown, ChevronUp, Eye, EyeOff, Pencil, Layers, Plus } from "lucide-react";
+import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronLeft, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle, ThumbsUp, ThumbsDown, Minus, FlaskConical, BarChart3, RefreshCw, Target, Info, ChevronDown, ChevronUp, Pencil, Layers, Plus } from "lucide-react";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1277,7 +1277,6 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
   const [heatmapCondition, setHeatmapCondition] = useState<'new' | 'used'>('new');
   const [heatmapSource, setHeatmapSource] = useState<'peak' | 'sold' | 'listed'>('peak');
   const [heatmapMetric, setHeatmapMetric] = useState<'max' | 'avg'>('max');
-  const [heatmapPhotoHidden, setHeatmapPhotoHidden] = useState(false);
   const heatmapPrefsInitialized = useRef(false);
   const heatmapSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -2332,15 +2331,15 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                   <Layers className="w-3 h-3" />
                   Batches
                 </button>
-                {/* Photo visibility toggle */}
+                {/* New Scan — saves current batch and resets */}
                 <button
-                  data-testid="heatmap-toggle-photo"
-                  onClick={() => setHeatmapPhotoHidden(v => !v)}
-                  title={heatmapPhotoHidden ? 'Show photo' : 'Hide photo'}
-                  className={`rounded text-[10px] font-medium px-2 py-0.5 transition-colors shrink-0 flex items-center gap-1 border ${heatmapPhotoHidden ? 'bg-gray-700 text-white border-gray-600' : 'text-gray-500 hover:text-gray-300 border-gray-700 bg-transparent'}`}
+                  data-testid="button-heatmap-new-scan"
+                  onClick={startNewScan}
+                  title="Save this batch and start a new scan"
+                  className="rounded text-[10px] font-medium px-2 py-0.5 transition-colors shrink-0 flex items-center gap-1 border text-purple-300 hover:text-purple-100 border-purple-700/60 bg-purple-950/40 hover:bg-purple-900/50"
                 >
-                  {heatmapPhotoHidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                  Photo
+                  <Plus className="w-3 h-3" />
+                  New Scan
                 </button>
                 {/* Peak button — left-aligned, distinct color */}
                 <button
@@ -2418,7 +2417,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                     alt="Original scan"
                     className="absolute inset-0 w-full h-full object-fill block select-none"
                     draggable={false}
-                    style={{ filter: heatmapPhotoHidden ? 'brightness(0)' : 'brightness(0.70)' }}
+                    style={{ filter: 'brightness(0.70)' }}
                   />
                   {(() => {
                     const cropDismissKeyMap = new Map<number, string>();
@@ -2491,57 +2490,6 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                     });
                     return (
                       <>
-                        {/* Spotlight — identified pieces: full colour */}
-                        {heatmapPhotoHidden && results
-                          .filter(r => r.bboxX != null && r.bboxY != null && r.bboxW != null && r.bboxH != null && !!r.partNo)
-                          .map((r, i) => (
-                            <img
-                              key={`spotlight-id-${i}`}
-                              src={`/api/brickanalyzer/scan/${activeScan.id}/image`}
-                              alt=""
-                              aria-hidden="true"
-                              className="absolute inset-0 w-full h-full object-fill block select-none pointer-events-none"
-                              draggable={false}
-                              style={{
-                                filter: 'brightness(0.70)',
-                                clipPath: `inset(${r.bboxY!}% ${100 - r.bboxX! - r.bboxW!}% ${100 - r.bboxY! - r.bboxH!}% ${r.bboxX!}%)`,
-                              }}
-                            />
-                          ))
-                        }
-                        {/* Spotlight — unknown pieces: greyscale + dimmed to show "not identified" */}
-                        {heatmapPhotoHidden && results
-                          .filter(r => r.bboxX != null && r.bboxY != null && r.bboxW != null && r.bboxH != null && !r.partNo)
-                          .map((r, i) => {
-                            const inset = `inset(${r.bboxY!}% ${100 - r.bboxX! - r.bboxW!}% ${100 - r.bboxY! - r.bboxH!}% ${r.bboxX!}%)`;
-                            const cx = r.bboxX! + r.bboxW! / 2;
-                            const cy = r.bboxY! + r.bboxH! / 2;
-                            return [
-                              <img
-                                key={`spotlight-unk-img-${i}`}
-                                src={`/api/brickanalyzer/scan/${activeScan.id}/image`}
-                                alt=""
-                                aria-hidden="true"
-                                className="absolute inset-0 w-full h-full object-fill block select-none pointer-events-none"
-                                draggable={false}
-                                style={{ filter: 'brightness(0.35) grayscale(1)', clipPath: inset }}
-                              />,
-                              <div
-                                key={`spotlight-unk-label-${i}`}
-                                className="absolute pointer-events-none flex items-center justify-center"
-                                style={{
-                                  left: `${cx}%`, top: `${cy}%`,
-                                  transform: 'translate(-50%, -50%)',
-                                  zIndex: 6,
-                                }}
-                              >
-                                <span className="text-[9px] font-semibold text-gray-400 bg-gray-900/80 border border-gray-600 rounded px-1 py-0.5 whitespace-nowrap">
-                                  Not found
-                                </span>
-                              </div>,
-                            ];
-                          })
-                        }
                         {bboxResults.map((r, i) => {
                           const peak = heatVal(r);
                           const displayPrice = peak > 0 ? peak : null;
