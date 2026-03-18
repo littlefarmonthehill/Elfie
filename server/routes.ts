@@ -3086,6 +3086,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── Billing routes ──────────────────────────────────────────────────────────
 
+  // GET /api/public/plans — unauthenticated endpoint for landing page
+  app.get('/api/public/plans', async (_req, res) => {
+    try {
+      const livePlans = await db
+        .select()
+        .from(plans)
+        .where(eq(plans.status, 'live'))
+        .orderBy(asc(plans.basePrice));
+      res.json(livePlans);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // GET /api/plans — return only 'live' plans for subscription selection
   app.get('/api/plans', isAuthenticated, async (_req, res) => {
     try {

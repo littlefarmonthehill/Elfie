@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -79,11 +80,12 @@ function ElfieSpeechBubble({ step, large = false }: { step: number; large?: bool
 
 export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) {
   const [step, setStep] = useState(1);
+  const { toast } = useToast();
   const { status: installStatus, promptInstall } = useInstallPrompt();
 
   const { data: availablePlans = [], isLoading: plansLoading } = useQuery<Array<{
     id: number; name: string; basePrice: number; salesPercentage: number;
-    freeSalesThreshold: number; isActive: boolean; isSunset: boolean;
+    freeSalesThreshold: number; status: string;
   }>>({ queryKey: ['/api/plans'] });
 
   // Step 1 — Company Info
@@ -156,12 +158,18 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
 
   const checkoutMutation = useMutation({
     mutationFn: async ({ planId }: { planId: number }) => {
-      await apiRequest("PATCH", "/api/org", { onboardingCompleted: true });
       const res = await apiRequest("POST", "/api/billing/checkout", { planId, context: "onboarding" });
       return res.json();
     },
     onSuccess: (data: { url?: string }) => {
-      if (data?.url) window.location.href = data.url;
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        toast({ title: "Checkout error", description: "No redirect URL returned. Please try again.", variant: "destructive" });
+      }
+    },
+    onError: (err: any) => {
+      toast({ title: "Checkout failed", description: err?.message || "Unable to start checkout. Please try again.", variant: "destructive" });
     },
   });
 

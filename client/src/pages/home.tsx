@@ -73,6 +73,19 @@ export default function Home() {
     }
   }, [org?.id]);
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('subscribed') === 'true') {
+      apiRequest('PATCH', '/api/org', { onboardingCompleted: true }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ['/api/billing/status'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/org'] });
+      toast({ title: "Subscription active", description: "Welcome aboard! Your plan is now live." });
+      const url = new URL(window.location.href);
+      url.searchParams.delete('subscribed');
+      url.searchParams.delete('plan');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, []);
+  useEffect(() => {
     const check = () => {
       const nowDesktop = window.innerWidth >= 1024;
       setIsDesktop(nowDesktop);

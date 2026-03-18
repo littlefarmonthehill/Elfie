@@ -15,23 +15,7 @@ const CHANNELS: { id: ChId; num: string; label: string; slides: number }[] = [
   { id: "live",    num: "05", label: "ON AIR",  slides: 1 },
 ];
 
-const TIERS = [
-  {
-    name: "Trial", price: "Free", period: "", highlight: false,
-    description: "Kick the tires. No card required.",
-    features: ["Full inventory access", "BrickSpotter (25 scans/mo)", "Basic pricing tools", "Single marketplace"],
-  },
-  {
-    name: "Foundation", price: "$29", period: "/mo", highlight: false,
-    description: "For solo sellers ready to get serious.",
-    features: ["Up to 5,000 lots", "BrickSpotter (250 scans/mo)", "Price-o-Matic automation", "BrickLink sync", "Warehouse manager"],
-  },
-  {
-    name: "Core", price: "$79", period: "/mo", highlight: true,
-    description: "For growing stores managing real volume.",
-    features: ["Up to 25,000 lots", "BrickSpotter (unlimited)", "Full POM automation", "2 marketplace channels", "Team access (3 seats)", "Priority support"],
-  },
-];
+type LivePlan = { id: number; name: string; basePrice: number; salesPercentage: number; freeSalesThreshold: number; status: string };
 
 const TOOLS_SLIDES = [
   {
@@ -283,7 +267,21 @@ function OpsScreen({ slideIndex }: { slideIndex: number }) {
   );
 }
 
-function PricingScreen({ tune }: { tune: (id: ChId) => void }) {
+function PricingScreen({ tune, livePlans }: { tune: (id: ChId) => void; livePlans: LivePlan[] }) {
+  const trialTier = { name: "Free Trial", price: "Free", period: "", isFirst: true };
+  const paidTiers = livePlans.map((p, i) => ({
+    name: p.name,
+    price: `$${(p.basePrice / 100).toFixed(0)}`,
+    period: "/mo",
+    isFirst: false,
+    highlight: i === 0 && livePlans.length === 1,
+    description: p.salesPercentage > 0
+      ? `${p.salesPercentage}% sales fee after $${(p.freeSalesThreshold / 100).toFixed(0)}/mo free`
+      : "Flat monthly fee, no sales commission",
+  }));
+
+  const allTiers = [trialTier, ...paidTiers];
+
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(12px,1.8vw,22px) clamp(14px,2vw,26px)", color: "#E8F4FF", gap: "clamp(8px,1.2vw,13px)", overflow: "hidden", animation: "pb-slidein 0.3s ease-out" }}>
       <div>
@@ -291,55 +289,64 @@ function PricingScreen({ tune }: { tune: (id: ChId) => void }) {
         <h2 style={{ fontSize: "clamp(16px,1.8vw,22px)", fontWeight: 900, color: "#FFF", margin: 0 }}>Simple, honest pricing</h2>
       </div>
       <div style={{ display: "flex", gap: "clamp(8px,1.2vw,12px)", flex: 1, overflow: "hidden" }}>
-        {TIERS.map(t => (
-          <div key={t.name} style={{
-            flex: 1,
-            background: t.highlight ? `rgba(0,255,238,0.07)` : "rgba(255,255,255,0.04)",
-            border: `1px solid ${t.highlight ? "rgba(0,255,238,0.4)" : "rgba(200,220,255,0.15)"}`,
-            borderRadius: "14px",
-            padding: "clamp(10px,1.4vw,16px) clamp(10px,1.2vw,14px)",
-            display: "flex", flexDirection: "column", gap: "clamp(5px,0.7vw,8px)",
-            position: "relative",
-            boxShadow: t.highlight ? `0 0 30px rgba(0,255,238,0.08) inset` : "none",
-          }}>
-            {t.highlight && (
-              <div style={{
-                position: "absolute", top: "-1px", left: "50%", transform: "translateX(-50%)",
-                background: TEAL, color: SCR_BG, fontSize: "clamp(7px,0.6vw,9px)",
-                fontWeight: 800, padding: "2px 12px", borderRadius: "0 0 8px 8px",
-                letterSpacing: "0.2em", textTransform: "uppercase",
-                boxShadow: `0 4px 12px ${TEAL}55`,
-              }}>POPULAR</div>
-            )}
-            <div style={{ fontSize: "clamp(12px,1.1vw,15px)", fontWeight: 700, color: "#FFF" }}>{t.name}</div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: "2px" }}>
-              <span style={{ fontSize: "clamp(20px,2.2vw,30px)", fontWeight: 900, color: t.highlight ? TEAL : "#FFF", fontFamily: "monospace", textShadow: t.highlight ? `0 0 16px ${TEAL}66` : "none" }}>{t.price}</span>
-              <span style={{ fontSize: "clamp(10px,0.9vw,12px)", color: "rgba(200,220,255,0.55)" }}>{t.period}</span>
+        {allTiers.map((t, idx) => {
+          const highlight = !t.isFirst && idx === allTiers.length - 1 && livePlans.length > 0;
+          return (
+            <div key={t.name} style={{
+              flex: 1,
+              background: highlight ? `rgba(0,255,238,0.07)` : "rgba(255,255,255,0.04)",
+              border: `1px solid ${highlight ? "rgba(0,255,238,0.4)" : "rgba(200,220,255,0.15)"}`,
+              borderRadius: "14px",
+              padding: "clamp(10px,1.4vw,16px) clamp(10px,1.2vw,14px)",
+              display: "flex", flexDirection: "column", gap: "clamp(5px,0.7vw,8px)",
+              position: "relative",
+              boxShadow: highlight ? `0 0 30px rgba(0,255,238,0.08) inset` : "none",
+            }}>
+              {highlight && (
+                <div style={{
+                  position: "absolute", top: "-1px", left: "50%", transform: "translateX(-50%)",
+                  background: TEAL, color: SCR_BG, fontSize: "clamp(7px,0.6vw,9px)",
+                  fontWeight: 800, padding: "2px 12px", borderRadius: "0 0 8px 8px",
+                  letterSpacing: "0.2em", textTransform: "uppercase",
+                  boxShadow: `0 4px 12px ${TEAL}55`,
+                }}>POPULAR</div>
+              )}
+              <div style={{ fontSize: "clamp(12px,1.1vw,15px)", fontWeight: 700, color: "#FFF" }}>{t.name}</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: "2px" }}>
+                <span style={{ fontSize: "clamp(20px,2.2vw,30px)", fontWeight: 900, color: highlight ? TEAL : "#FFF", fontFamily: "monospace", textShadow: highlight ? `0 0 16px ${TEAL}66` : "none" }}>{t.price}</span>
+                <span style={{ fontSize: "clamp(10px,0.9vw,12px)", color: "rgba(200,220,255,0.55)" }}>{t.period}</span>
+              </div>
+              {'description' in t && (
+                <div style={{ fontSize: "clamp(9px,0.82vw,11px)", color: "rgba(200,220,255,0.72)" }}>{t.description}</div>
+              )}
+              <Link href="/signup" style={{ marginTop: "auto", paddingTop: "6px" }}>
+                <button style={{
+                  width: "100%",
+                  background: highlight ? TEAL : "transparent",
+                  border: `1px solid ${highlight ? TEAL : "rgba(200,220,255,0.3)"}`,
+                  borderRadius: "100px", padding: "clamp(6px,0.8vw,10px)",
+                  color: highlight ? SCR_BG : "rgba(210,230,255,0.9)",
+                  fontSize: "clamp(10px,0.95vw,12px)", fontWeight: 700, cursor: "pointer",
+                  boxShadow: highlight ? `0 0 16px ${TEAL}55` : "none",
+                }}>
+                  {t.isFirst ? "Start Free" : "Get Started"}
+                </button>
+              </Link>
             </div>
-            <div style={{ fontSize: "clamp(9px,0.82vw,11px)", color: "rgba(200,220,255,0.72)" }}>{t.description}</div>
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "clamp(3px,0.5vw,5px)", marginTop: "2px" }}>
-              {t.features.map(f => (
-                <div key={f} style={{ display: "flex", alignItems: "flex-start", gap: "5px", fontSize: "clamp(9px,0.88vw,11px)", color: "rgba(210,230,255,0.88)" }}>
-                  <span style={{ color: TEAL, flexShrink: 0, fontSize: "9px", marginTop: "2px", textShadow: `0 0 8px ${TEAL}` }}>✦</span>
-                  {f}
-                </div>
-              ))}
-            </div>
+          );
+        })}
+        {livePlans.length === 0 && (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Link href="/signup">
               <button style={{
-                width: "100%", marginTop: "6px",
-                background: t.highlight ? TEAL : "transparent",
-                border: `1px solid ${t.highlight ? TEAL : "rgba(200,220,255,0.3)"}`,
-                borderRadius: "100px", padding: "clamp(6px,0.8vw,10px)",
-                color: t.highlight ? SCR_BG : "rgba(210,230,255,0.9)",
-                fontSize: "clamp(10px,0.95vw,12px)", fontWeight: 700, cursor: "pointer",
-                boxShadow: t.highlight ? `0 0 16px ${TEAL}55` : "none",
-              }}>
-                {t.name === "Trial" ? "Start Free" : "Get Started"}
-              </button>
+                background: TEAL, border: `1px solid ${TEAL}`,
+                borderRadius: "100px", padding: "clamp(8px,1vw,12px) clamp(20px,2vw,30px)",
+                color: SCR_BG, fontSize: "clamp(10px,0.95vw,13px)", fontWeight: 700, cursor: "pointer",
+                boxShadow: `0 0 16px ${TEAL}55`,
+              }}>Start Free Trial</button>
             </Link>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
@@ -697,9 +704,17 @@ export default function Landing() {
   const [flash, setFlash] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
   const [showLogin, setShowLogin] = useState(false);
+  const [livePlans, setLivePlans] = useState<LivePlan[]>([]);
   const touchStartX = useRef(0);
   const isDragging = useRef(false);
   const { canPromptInstall, showInstallOption, isInstalled, isInstalling, isIos, install } = usePwaInstall();
+
+  useEffect(() => {
+    fetch('/api/public/plans')
+      .then(r => r.ok ? r.json() : [])
+      .then((data: LivePlan[]) => setLivePlans(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
 
   const activeCh = CHANNELS.find(c => c.id === ch)!;
   const totalSlides = activeCh.slides;
@@ -988,7 +1003,7 @@ export default function Landing() {
                       {ch === "home"    && <HomeScreen tune={tune} />}
                       {ch === "ops"     && <OpsScreen slideIndex={slideIndex} />}
                       {ch === "tools"   && <ToolsScreen slideIndex={slideIndex} />}
-                      {ch === "pricing" && <PricingScreen tune={tune} />}
+                      {ch === "pricing" && <PricingScreen tune={tune} livePlans={livePlans} />}
                       {ch === "live"    && <LiveScreen onSignIn={() => setShowLogin(true)} canPromptInstall={canPromptInstall} showInstallOption={showInstallOption} isInstalled={isInstalled} isInstalling={isInstalling} isIos={isIos} onInstall={install} />}
                     </>
                   )}

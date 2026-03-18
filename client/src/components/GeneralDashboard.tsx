@@ -326,8 +326,8 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
     try { localStorage.setItem('systemPulseCollapsed', String(next)); } catch {}
   };
 
-  const planLabels: Record<string, string> = { trial: 'Trial', foundation: 'Foundation', core: 'Core', flagship: 'Flagship' };
-  const planLabel = planLabels[billingStatus?.plan ?? ''] ?? billingStatus?.plan ?? '';
+  const isActivePaid = billingStatus?.status === 'active';
+  const planLabel = isActivePaid ? (billingStatus?.plan ?? '') : '';
 
   const trialDaysLeft = (() => {
     if (!billingStatus?.trialEndsAt) return null;
