@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -210,10 +210,18 @@ export default function FulfillmentTool() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'picklist' | 'shipping'>('picklist');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const drawerPanelRef = useRef<HTMLDivElement>(null);
   const actionRowRef = useRef<HTMLDivElement>(null);
   const shipBtnRef = useRef<HTMLButtonElement>(null);
   const swipeTouchStartX = useRef<number>(0);
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
+
+  // Slide-in animation: one frame delay so CSS transition has something to transition from
+  useEffect(() => {
+    if (drawerOpen) requestAnimationFrame(() => setDrawerVisible(true));
+    else setDrawerVisible(false);
+  }, [drawerOpen]);
   // Batch shipping state
   const [readyToShip, setReadyToShip] = useState<Map<string, ShippingReadyState>>(new Map());
   const [purchasedLabels, setPurchasedLabels] = useState<Map<string, PurchasedLabelResult>>(new Map());
@@ -570,15 +578,20 @@ export default function FulfillmentTool() {
       {/* ── Left drawer: order selection ── */}
       {drawerOpen && (
         <div
-          className="fixed inset-0 z-40 flex"
+          className="fixed inset-0 z-40"
           onClick={() => setDrawerOpen(false)}
         >
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/60" />
+          <div
+            className="absolute inset-0 bg-black transition-opacity duration-300"
+            style={{ opacity: drawerVisible ? 0.5 : 0 }}
+          />
 
           {/* Panel */}
           <div
-            className="relative z-50 flex flex-col w-80 max-w-[90vw] h-full bg-gray-900 border-r border-gray-700 shadow-2xl"
+            ref={drawerPanelRef}
+            className="absolute top-0 left-0 bottom-0 z-50 flex flex-col w-80 max-w-[90vw] bg-gray-950 border-r border-gray-800 shadow-2xl transition-transform duration-300 ease-out"
+            style={{ transform: drawerVisible ? 'translateX(0)' : 'translateX(-100%)', willChange: 'transform' }}
             onClick={e => e.stopPropagation()}
             onTouchStart={e => { swipeTouchStartX.current = e.touches[0].clientX; }}
             onTouchEnd={e => {
@@ -587,7 +600,7 @@ export default function FulfillmentTool() {
             }}
           >
             {/* Drawer header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 shrink-0">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 shrink-0">
               <div className="flex items-center gap-3">
                 <h2 className="text-sm font-bold text-gray-200">Orders</h2>
                 {sortedOrders.length > 0 && (

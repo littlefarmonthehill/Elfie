@@ -92,9 +92,6 @@ export default function Home() {
   const brickLinkIframeRef = useRef<HTMLIFrameElement>(null);
   const [brickLinkLoading, setBrickLinkLoading] = useState(false);
 
-  // Fulfillment side flyout (mobile)
-  const fulfillmentPanelRef = useRef<HTMLDivElement>(null);
-  const [fulfillmentPanelVisible, setFulfillmentPanelVisible] = useState(false);
 
   // Fetch picklist stats for indicator
   const { data: picklistStats } = useQuery<{ toPull: number }>({
@@ -162,54 +159,6 @@ export default function Home() {
 
     prevSyncStatuses.current = curr;
   }, [globalSyncStatuses]);
-
-  // Fulfillment panel: slide-in animation
-  useEffect(() => {
-    if (!isDesktop && activeOrdersDrawer === 'fulfillment') {
-      requestAnimationFrame(() => setFulfillmentPanelVisible(true));
-    } else {
-      setFulfillmentPanelVisible(false);
-    }
-  }, [activeOrdersDrawer, isDesktop]);
-
-  // Fulfillment panel: swipe-right-to-close
-  const closeActiveFulfillmentRef = useRef<() => void>(() => {});
-  useEffect(() => { closeActiveFulfillmentRef.current = closeActiveDrawer; });
-  useEffect(() => {
-    if (!fulfillmentPanelVisible || !fulfillmentPanelRef.current) return;
-    const el = fulfillmentPanelRef.current;
-    let startX = 0;
-    let startY = 0;
-    let gesture: 'undecided' | 'horizontal' | 'vertical' = 'undecided';
-    const THRESHOLD = 72;
-    const onTouchStart = (e: TouchEvent) => {
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-      gesture = 'undecided';
-      el.style.transition = 'none';
-    };
-    const onTouchMove = (e: TouchEvent) => {
-      const dx = e.touches[0].clientX - startX;
-      const dy = e.touches[0].clientY - startY;
-      if (gesture === 'undecided') gesture = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical';
-      if (gesture === 'horizontal' && dx > 0) el.style.transform = `translateX(${dx}px)`;
-    };
-    const onTouchEnd = (e: TouchEvent) => {
-      const dx = e.changedTouches[0].clientX - startX;
-      el.style.transition = '';
-      if (gesture === 'horizontal' && dx > THRESHOLD) closeActiveFulfillmentRef.current();
-      else el.style.transform = 'translateX(0)';
-    };
-    el.addEventListener('touchstart', onTouchStart, { passive: true });
-    el.addEventListener('touchmove',  onTouchMove,  { passive: true });
-    el.addEventListener('touchend',   onTouchEnd,   { passive: true });
-    return () => {
-      el.removeEventListener('touchstart', onTouchStart);
-      el.removeEventListener('touchmove',  onTouchMove);
-      el.removeEventListener('touchend',   onTouchEnd);
-    };
-  }, [fulfillmentPanelVisible]);
-
 
   // Calculate total discrepancies across all platforms
   const totalDiscrepancies = syncStatus?.targets?.reduce((total: number, platform: any) => {
@@ -1121,9 +1070,9 @@ export default function Home() {
         />
       )}
 
-      {/* Tool drawers — Vaul bottom sheet on mobile (excludes fulfillment); desktop uses inline overlay */}
+      {/* Tool drawers — Vaul drawer on mobile only; desktop uses inline overlay in center column */}
       {!isDesktop && (
-        <Drawer open={!!(activeInventoryDrawer || (activeOrdersDrawer && activeOrdersDrawer !== 'fulfillment') || activeMarketingDrawer || activeSalesDrawer || billingOpen)} onOpenChange={(open) => { if (!open) closeActiveDrawer(); }}>
+        <Drawer open={!!(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer || billingOpen)} onOpenChange={(open) => { if (!open) closeActiveDrawer(); }}>
           <DrawerContent className="bg-gray-950 border-gray-800 h-[92vh] flex flex-col rounded-t-2xl">
             <DrawerHeader className="p-0 flex-shrink-0">
               <div className="flex justify-center pt-3 pb-1">
@@ -1134,6 +1083,7 @@ export default function Home() {
                   {activeInventoryDrawer === 'priceomatic' && <><Sparkles className="w-4 h-4 text-purple-400 flex-shrink-0" /> Price-o-Matic</>}
                   {activeInventoryDrawer === 'platformsync' && <><ListChecks className="w-4 h-4 text-green-400 flex-shrink-0" /> List-o-Matic</>}
                   {activeInventoryDrawer === 'brickanalyzer' && <><ScanSearch className="w-4 h-4 text-lego-yellow flex-shrink-0" /> Brick Spotter 3000</>}
+                  {activeOrdersDrawer === 'fulfillment' && <><Truck className="w-4 h-4 text-orange-400 flex-shrink-0" /> Fulfillment & Shipping</>}
                   {activeOrdersDrawer === 'shipped' && <><PackageCheck className="w-4 h-4 text-green-400 flex-shrink-0" /> Shipped Orders</>}
                   {activeMarketingDrawer && <><Mail className="w-4 h-4 text-yellow-400 flex-shrink-0" /> Marketing</>}
                   {activeSalesDrawer && <><Package className="w-4 h-4 text-green-400 flex-shrink-0" /> Insights</>}
@@ -1149,6 +1099,7 @@ export default function Home() {
               {activeInventoryDrawer === 'priceomatic' && <PriceOMaticDashboard onItemClick={(type, id) => handleDashboardItemClick(type, id, 'pricing')} onOpenSettings={(section, pricingExample, scoringExample) => { setSettingsInitialSection(section as any); setSettingsPricingExample(pricingExample); setSettingsScoringExample(scoringExample); setSettingsOpen(true); }} />}
               {activeInventoryDrawer === 'platformsync' && <ListomaticPriority />}
               {activeInventoryDrawer === 'brickanalyzer' && <BrickanalyzerTool onItemClick={(type, id, tab) => handleDashboardItemClick(type, id, tab)} />}
+              {activeOrdersDrawer === 'fulfillment' && <FulfillmentTool />}
               {activeOrdersDrawer === 'shipped' && <ShippedOrdersTool onItemClick={(type, id) => { closeActiveDrawer(); handleDashboardItemClick(type, id); }} />}
               {activeMarketingDrawer && <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} renderDrawerOnly />}
               {activeSalesDrawer && <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeSalesDrawer} onDrawerChange={setActiveSalesDrawer} renderDrawerOnly />}
@@ -1156,49 +1107,6 @@ export default function Home() {
             </div>
           </DrawerContent>
         </Drawer>
-      )}
-
-      {/* Fulfillment side flyout — mobile only, slides in from right */}
-      {!isDesktop && activeOrdersDrawer === 'fulfillment' && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-40 bg-black transition-opacity duration-300"
-            style={{ opacity: fulfillmentPanelVisible ? 0.5 : 0 }}
-            onClick={closeActiveDrawer}
-          />
-          {/* Side panel */}
-          <div
-            ref={fulfillmentPanelRef}
-            className="fixed top-0 right-0 bottom-0 z-50 flex flex-col bg-gray-950 border-l border-gray-800 shadow-2xl transition-transform duration-300 ease-out"
-            style={{
-              width: 'min(360px, 92vw)',
-              transform: fulfillmentPanelVisible ? 'translateX(0)' : 'translateX(100%)',
-              willChange: 'transform',
-            }}
-            data-testid="panel-fulfillment"
-          >
-            {/* Header */}
-            <div className="flex-shrink-0 flex items-center gap-2 px-4 py-3.5 border-b border-gray-800">
-              <Truck className="w-4 h-4 text-orange-400 flex-shrink-0" />
-              <span className="text-sm font-semibold text-gray-100 flex-1">Fulfillment &amp; Shipping</span>
-              <Button size="sm" variant="ghost" className="text-xs text-gray-400 gap-1" onClick={() => openSettings('automation')} data-testid="button-fulfillment-settings">
-                <SlidersHorizontal className="w-3.5 h-3.5" /> Settings
-              </Button>
-              <button
-                onClick={closeActiveDrawer}
-                className="ml-1 text-gray-500 hover:text-gray-200 transition-colors"
-                data-testid="button-close-fulfillment-flyout"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto px-4 pt-3 pb-4 min-h-0">
-              <FulfillmentTool />
-            </div>
-          </div>
-        </>
       )}
 
       {/* BrickLink in-app browser dialog */}
