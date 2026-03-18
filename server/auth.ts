@@ -174,6 +174,7 @@ export async function setupAuth(app: Express) {
         orgRole = null;
         userApproved = false;
       } else {
+        // New business — owner is auto-approved (no admin exists to approve them)
         const baseSlug = toSlug(firstName || email.split('@')[0] || 'store');
         const suffix = Math.floor(1000 + Math.random() * 9000);
         const slug = `${baseSlug}${suffix}`;
@@ -181,6 +182,7 @@ export async function setupAuth(app: Express) {
         const trialEndsAt = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000);
         const newOrg = await storage.createOrganization({ name: orgName, slug, plan: 'trial', trialEndsAt });
         orgId = newOrg.id;
+        userApproved = true;
       }
 
       // Create user
