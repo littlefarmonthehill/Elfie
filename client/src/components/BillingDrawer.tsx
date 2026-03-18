@@ -196,7 +196,13 @@ function InvoiceRow({ month }: { month: MonthRecord }) {
         <CheckCircle2 className="w-4 h-4 text-green-500/70 shrink-0" />
         <div className="flex-1 min-w-0">
           <div className="text-sm text-gray-200 font-medium">{month.label}</div>
-          <div className="text-xs text-gray-500 mt-0.5">{salesLabel(monthlySalesCents)} in sales</div>
+          <div className="text-xs text-gray-500 mt-0.5">
+            {new Date(month.periodStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            {' – '}
+            {new Date(month.periodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            {' · '}
+            {salesLabel(monthlySalesCents)} in sales
+          </div>
         </div>
         <span className={cn("font-mono text-sm font-semibold tabular-nums shrink-0", hasSalesFee ? 'text-purple-300' : 'text-gray-200')}>
           {cents(billing.totalDue)}
@@ -221,7 +227,7 @@ function InvoiceRow({ month }: { month: MonthRecord }) {
         <div className="border-t border-white/8 px-4 pb-4 pt-3 space-y-2">
           <div className="divide-y divide-white/5 rounded-md border border-white/6 bg-gray-900/40 overflow-hidden">
             <div className="flex items-center justify-between px-3 py-2">
-              <span className="text-xs text-gray-400">Sales this month</span>
+              <span className="text-xs text-gray-400">Sales this period</span>
               <span className="text-xs font-mono text-gray-300">{salesLabel(monthlySalesCents)}</span>
             </div>
             <div className="flex items-center justify-between px-3 py-2">

@@ -228,8 +228,15 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings, onOpenBilling }: { onO
   const { billing, plan, monthlySalesCents } = usage;
   const hasSalesFee = billing.salesFee > 0;
 
-  const monthLabel = usage.period?.start
-    ? new Date(usage.period.start).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+  const periodRange = usage.period?.start && usage.period?.end
+    ? (() => {
+        const s = new Date(usage.period.start);
+        const e = new Date(usage.period.end);
+        const fmt = (d: Date, includeYear: boolean) =>
+          d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(includeYear ? { year: 'numeric' } : {}) });
+        const sameYear = s.getFullYear() === e.getFullYear();
+        return `${fmt(s, false)} – ${fmt(e, sameYear)}`;
+      })()
     : '';
 
   // Sales bar: 0–threshold = green, over threshold = purple
@@ -249,7 +256,7 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings, onOpenBilling }: { onO
               <CreditCard className="w-3 h-3" />
               My Plan
             </span>
-            <span className="text-[9px] text-gray-600">{monthLabel}</span>
+            <span className="text-[9px] text-gray-600">{periodRange}</span>
           </div>
 
           {/* Cost rows */}
