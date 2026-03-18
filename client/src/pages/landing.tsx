@@ -882,7 +882,7 @@ export default function Landing() {
                 boxShadow: `0 0 18px ${TEAL}30, 0 0 6px ${TEAL}20 inset`,
                 whiteSpace: "nowrap",
               }}
-            >{showLogin ? "← BACK" : "Sign In / Free Trial"}</button>
+            >{showLogin ? "← BACK" : "Sign In"}</button>
           </div>
         </div>
 
