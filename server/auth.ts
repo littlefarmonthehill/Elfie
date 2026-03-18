@@ -302,6 +302,36 @@ export async function setupAuth(app: Express) {
     });
   });
 
+  // Change password (authenticated user changes their own password)
+  app.post("/api/auth/change-password", async (req, res) => {
+    if (!req.isAuthenticated?.() || !req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "currentPassword and newPassword are required" });
+    }
+    if (typeof newPassword !== "string" || newPassword.length < 8) {
+      return res.status(400).json({ message: "New password must be at least 8 characters" });
+    }
+    try {
+      const userId = (req.user as any).id;
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      if (!user.password) {
+        return res.status(400).json({ message: "This account uses social login and does not have a password" });
+      }
+      const valid = await bcrypt.compare(currentPassword, user.password);
+      if (!valid) return res.status(400).json({ message: "Current password is incorrect" });
+      const hashed = await bcrypt.hash(newPassword, 12);
+      await storage.updateUserPassword(userId, hashed);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Change password error:", err);
+      res.status(500).json({ message: "Failed to change password" });
+    }
+  });
+
   // Forgot password — generates a reset token and returns the reset URL
   app.post("/api/forgot-password", async (req, res) => {
     try {

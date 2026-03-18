@@ -323,6 +323,97 @@ const ROLE_META: Record<string, { label: string; description: string; color: str
   },
 };
 
+// Change Password Section — visible to all authenticated users
+function ChangePasswordSection() {
+  const { toast } = useToast();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [open, setOpen] = useState(false);
+
+  const changePasswordMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/auth/change-password", { currentPassword, newPassword });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to change password");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Password changed", description: "Your password has been updated successfully." });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setOpen(false);
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message || "Failed to change password.", variant: "destructive" });
+    },
+  });
+
+  const canSubmit = currentPassword.length > 0 && newPassword.length >= 8 && newPassword === confirmPassword;
+
+  return (
+    <div className="mb-5">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-medium text-gray-100">Password</h3>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setOpen(v => !v)}
+          className="text-xs"
+          data-testid="button-change-password-toggle"
+        >
+          {open ? "Cancel" : "Change password"}
+        </Button>
+      </div>
+      {open && (
+        <div className="bg-gray-800/60 border border-gray-700 rounded-md p-3 space-y-2.5">
+          <Input
+            type="password"
+            placeholder="Current password"
+            value={currentPassword}
+            onChange={e => setCurrentPassword(e.target.value)}
+            className="bg-gray-900/50 border-gray-600 text-white text-xs h-8"
+            data-testid="input-current-password"
+          />
+          <Input
+            type="password"
+            placeholder="New password (min. 8 characters)"
+            value={newPassword}
+            onChange={e => setNewPassword(e.target.value)}
+            className="bg-gray-900/50 border-gray-600 text-white text-xs h-8"
+            data-testid="input-new-password"
+          />
+          <Input
+            type="password"
+            placeholder="Confirm new password"
+            value={confirmPassword}
+            onChange={e => setConfirmPassword(e.target.value)}
+            className="bg-gray-900/50 border-gray-600 text-white text-xs h-8"
+            data-testid="input-confirm-password"
+          />
+          {confirmPassword.length > 0 && newPassword !== confirmPassword && (
+            <p className="text-[11px] text-red-400">Passwords do not match</p>
+          )}
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              onClick={() => changePasswordMutation.mutate()}
+              disabled={!canSubmit || changePasswordMutation.isPending}
+              className="text-xs"
+              data-testid="button-save-password"
+            >
+              {changePasswordMutation.isPending ? "Saving…" : "Save password"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // User Management Section Component (Admin Only)
 function UserManagementSection({ userCount }: { userCount?: number }) {
   const { toast } = useToast();
@@ -4065,7 +4156,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
               {/* Features tab — read-only effective state */}
               {activeGeneralTab === 'team' && (
-                <UserManagementSection userCount={users?.length} />
+                <div className="space-y-0">
+                  <ChangePasswordSection />
+                  <UserManagementSection userCount={users?.length} />
+                </div>
               )}
 
               </div>
