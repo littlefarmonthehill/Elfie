@@ -1021,10 +1021,24 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
       }
     } catch {}
     setDetectingPoint(null);
+
+    const boxesOverlap = (
+      a: { x: number; y: number; w: number; h: number },
+      b: { x: number; y: number; w: number; h: number }
+    ) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
     if (detectedBox) {
-      setPreviewBoxes(prev => [...prev, detectedBox!]);
-    } else {
-      // Fallback: fixed 16%×16% box
+      setPreviewBoxes(prev => {
+        // If tap was inside an existing box, remove that containing box
+        const base = hitConfirmed
+          ? prev.filter(b => !(tapX >= b.x && tapX <= b.x + b.w && tapY >= b.y && tapY <= b.y + b.h))
+          : prev;
+        // Discard the new box if it overlaps any remaining box
+        if (base.some(b => boxesOverlap(detectedBox!, b))) return base;
+        return [...base, detectedBox!];
+      });
+    } else if (!hitConfirmed) {
+      // Fallback fixed box only when tapping empty space (not inside an existing box)
       const size = 16;
       setPreviewBoxes(prev => [...prev, {
         x: Math.min(Math.max(tapX - size / 2, 0), 100 - size),
