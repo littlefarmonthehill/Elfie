@@ -1858,8 +1858,7 @@ function PlansAndPricingPanel() {
     basePrice: number;
     salesPercentage: number;
     freeSalesThreshold: number;
-    isActive: boolean;
-    isSunset: boolean;
+    status: string;
     locked: boolean;
     orgCount: number;
   };
@@ -1870,14 +1869,14 @@ function PlansAndPricingPanel() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
-  const defaultForm = { name: '', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000 };
+  const defaultForm = { name: '', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, status: 'in_progress' };
   const [form, setForm] = useState<typeof defaultForm>(defaultForm);
 
   const fmtC = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const inputCls = 'w-full bg-gray-900/60 border border-gray-700 rounded px-2 py-1 text-gray-200 outline-none focus:border-gray-500 text-xs tabular-nums';
 
   const saveMutation = useMutation({
-    mutationFn: async (payload: { id?: number; data: Partial<typeof defaultForm & { isSunset: boolean }> }) => {
+    mutationFn: async (payload: { id?: number; data: Partial<typeof defaultForm> }) => {
       if (payload.id) {
         return apiRequest('PATCH', `/api/platform-admin/plans/${payload.id}`, payload.data);
       } else {
@@ -1897,8 +1896,9 @@ function PlansAndPricingPanel() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/plans'] }),
   });
 
-  const toggleSunset = (plan: PlanRow) => {
-    saveMutation.mutate({ id: plan.id, data: { isSunset: !plan.isSunset } });
+  const cycleStatus = (plan: PlanRow) => {
+    const next = plan.status === 'live' ? 'sunset' : plan.status === 'sunset' ? 'in_progress' : 'live';
+    saveMutation.mutate({ id: plan.id, data: { status: next } });
   };
 
   const startEdit = (plan: PlanRow) => {
@@ -1909,6 +1909,7 @@ function PlansAndPricingPanel() {
       basePrice: plan.basePrice,
       salesPercentage: plan.salesPercentage,
       freeSalesThreshold: plan.freeSalesThreshold,
+      status: plan.status,
     });
   };
 
@@ -1919,9 +1920,10 @@ function PlansAndPricingPanel() {
   };
 
   const handleSave = () => {
+    const editingPlanRef = (plans ?? []).find(p => p.id === editingId);
     const payload = editingId
-      ? { id: editingId, data: { name: form.name, ...(!((plans ?? []).find(p => p.id === editingId)?.locked) ? { basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold } : {}) } }
-      : { data: { name: form.name, basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold } };
+      ? { id: editingId, data: { name: form.name, status: form.status, ...(!editingPlanRef?.locked ? { basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold } : {}) } }
+      : { data: { name: form.name, basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold, status: form.status } };
     saveMutation.mutate(payload);
   };
 
@@ -1960,7 +1962,7 @@ function PlansAndPricingPanel() {
           {(plans ?? []).map(plan => (
             <div
               key={plan.id}
-              className={`rounded-md border p-3 space-y-2 ${plan.isSunset ? 'border-gray-700/40 bg-gray-800/20 opacity-60' : 'border-gray-700 bg-gray-800/40'}`}
+              className={`rounded-md border p-3 space-y-2 ${plan.status === 'sunset' ? 'border-gray-700/40 bg-gray-800/20 opacity-60' : 'border-gray-700 bg-gray-800/40'}`}
               data-testid={`plan-row-${plan.id}`}
             >
               <div className="flex items-start gap-2">
@@ -1972,11 +1974,14 @@ function PlansAndPricingPanel() {
                         locked ({plan.orgCount} org{plan.orgCount !== 1 ? 's' : ''})
                       </span>
                     )}
-                    {plan.isSunset && (
-                      <span className="text-[9px] bg-gray-700/60 text-gray-500 border border-gray-600/40 rounded px-1 py-0.5">sunset</span>
+                    {plan.status === 'live' && (
+                      <span className="text-[9px] bg-green-500/20 text-green-400 border border-green-500/30 rounded px-1 py-0.5">live</span>
                     )}
-                    {!plan.isActive && !plan.isSunset && (
-                      <span className="text-[9px] bg-gray-700/60 text-gray-500 border border-gray-600/40 rounded px-1 py-0.5">inactive</span>
+                    {plan.status === 'in_progress' && (
+                      <span className="text-[9px] bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded px-1 py-0.5">in progress</span>
+                    )}
+                    {plan.status === 'sunset' && (
+                      <span className="text-[9px] bg-gray-700/60 text-gray-500 border border-gray-600/40 rounded px-1 py-0.5">sunset</span>
                     )}
                   </div>
                   <div className="text-[10px] text-gray-400 mt-0.5 tabular-nums">
@@ -1988,11 +1993,11 @@ function PlansAndPricingPanel() {
                     size="sm"
                     variant="ghost"
                     className="h-6 text-[10px] px-2"
-                    onClick={() => toggleSunset(plan)}
-                    data-testid={`button-plan-sunset-${plan.id}`}
-                    title={plan.isSunset ? 'Unsunset plan' : 'Sunset plan'}
+                    onClick={() => cycleStatus(plan)}
+                    data-testid={`button-plan-cycle-status-${plan.id}`}
+                    title={`Status: ${plan.status} — click to cycle`}
                   >
-                    {plan.isSunset ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                    {plan.status === 'live' ? <Eye className="w-3 h-3" /> : plan.status === 'sunset' ? <EyeOff className="w-3 h-3" /> : <Loader2 className="w-3 h-3" />}
                   </Button>
                   <Button
                     size="sm"
@@ -2033,7 +2038,7 @@ function PlansAndPricingPanel() {
           <div className="px-4 py-3 space-y-3">
             {editingPlan?.locked && (
               <p className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded px-2 py-1.5">
-                This plan has active organizations — only the name can be changed.
+                This plan has active organizations — only the name and status can be changed.
               </p>
             )}
             <div className="space-y-2">
@@ -2047,6 +2052,19 @@ function PlansAndPricingPanel() {
                   data-testid="input-plan-name"
                   className="w-full bg-gray-900/60 border border-gray-700 rounded px-2 py-1 text-gray-200 outline-none focus:border-gray-500 text-xs"
                 />
+              </div>
+              <div>
+                <label className="block app-label mb-1">Status</label>
+                <select
+                  value={form.status}
+                  onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
+                  data-testid="select-plan-status"
+                  className="w-full bg-gray-900/60 border border-gray-700 rounded px-2 py-1 text-gray-200 outline-none focus:border-gray-500 text-xs"
+                >
+                  <option value="live">Live — visible to subscribers</option>
+                  <option value="in_progress">In Progress — draft, not yet visible</option>
+                  <option value="sunset">Sunset — legacy, no new sign-ups</option>
+                </select>
               </div>
               {!editingPlan?.locked && (
                 <>
