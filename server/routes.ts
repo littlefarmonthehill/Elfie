@@ -4826,8 +4826,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Order Adjustments - Per-order refund totals (for chart deduction)
-  app.get("/api/orders/adjustments/by-order", isApproved, async (req, res) => {
+  app.get("/api/orders/adjustments/by-order", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const { dateRange = 'mtd' } = req.query as { dateRange?: string };
       const now = new Date();
       let sinceDate: Date;
@@ -4852,6 +4853,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         FROM order_adjustments oa
         JOIN orders o ON o.id = oa.order_id
         WHERE oa.type = 'refund'
+          AND oa.org_id = ${orgId}
           AND o.is_test = false
           AND o.order_date >= ${sinceDate}
           ${endDate ? sql`AND o.order_date <= ${endDate}` : sql``}
@@ -4868,8 +4870,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Order Adjustments - Summary (total refunds + fees for a date range)
-  app.get("/api/orders/adjustments/summary", isApproved, async (req, res) => {
+  app.get("/api/orders/adjustments/summary", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const { dateRange = 'mtd' } = req.query as { dateRange?: string };
 
       let sinceDate: Date;
@@ -4902,7 +4905,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           COUNT(DISTINCT CASE WHEN oa.type = 'shipping_cost' THEN oa.order_id END) AS shipped_order_count
         FROM order_adjustments oa
         JOIN orders o ON o.id = oa.order_id
-        WHERE o.is_test = false
+        WHERE oa.org_id = ${orgId}
+          AND o.is_test = false
           AND o.order_date >= ${sinceDate}
           ${endDate ? sql`AND o.order_date <= ${endDate}` : sql``}
       `);

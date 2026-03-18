@@ -407,6 +407,8 @@ async function processBrickLinkOrder(
             });
             console.log(`↩️ Order ${orderId}: recorded refund adjustment of -$${refundAmount.toFixed(2)}`);
           }
+        } else {
+          console.warn(`⚠️ Order ${orderId}: BrickLink return detected but cost.grand_total is missing or zero — refund adjustment NOT recorded. cost=${JSON.stringify(cost)}`);
         }
       } else {
         // Trigger inventory adjustment asynchronously

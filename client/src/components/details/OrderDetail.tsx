@@ -166,8 +166,7 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
   const shipping = data.shipping ?? 0;
   const tax = data.tax ?? 0;
   const total = data.total ?? 0;
-  const BUSINESS_COST_TYPES = ['merchant_fee', 'shipping_cost'];
-  const refundAdjustments = (data.adjustments ?? []).filter(a => !BUSINESS_COST_TYPES.includes(a.type));
+  const refundAdjustments = (data.adjustments ?? []).filter(a => a.type === 'refund');
   const feeAdjustments = (data.adjustments ?? []).filter(a => a.type === 'merchant_fee');
   const shippingAdjustments = (data.adjustments ?? []).filter(a => a.type === 'shipping_cost');
   const adjustmentsTotal = refundAdjustments.reduce((sum, a) => sum + a.amount, 0);
