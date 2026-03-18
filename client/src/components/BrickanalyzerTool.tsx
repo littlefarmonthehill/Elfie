@@ -693,9 +693,11 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
   }
 
   function onBatchTouchStart(e: React.TouchEvent) {
+    e.stopPropagation();
     batchTouchStartY.current = e.touches[0].clientY;
   }
   function onBatchTouchMove(e: React.TouchEvent) {
+    e.stopPropagation();
     if (batchTouchStartY.current === null) return;
     const dy = e.touches[0].clientY - batchTouchStartY.current;
     if (dy > 0 && batchPanelRef.current) {
@@ -703,6 +705,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
     }
   }
   function onBatchTouchEnd(e: React.TouchEvent) {
+    e.stopPropagation();
     if (batchTouchStartY.current === null) return;
     const dy = e.changedTouches[0].clientY - batchTouchStartY.current;
     batchTouchStartY.current = null;
@@ -4075,7 +4078,14 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
 
     {/* ── Batch scans flyout sheet ────────────────────────────────────────── */}
     {batchesOpen && (
-      <div className="fixed inset-0 z-50" data-testid="overlay-batches">
+      <div
+        className="fixed inset-0 z-50"
+        data-testid="overlay-batches"
+        onTouchStart={e => e.stopPropagation()}
+        onTouchMove={e => e.stopPropagation()}
+        onTouchEnd={e => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
+      >
         {/* Backdrop */}
         <div
           className="absolute inset-0 bg-black transition-opacity duration-300"
