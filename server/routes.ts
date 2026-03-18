@@ -7910,6 +7910,29 @@ Format search_web URLs as markdown links.`;
     }
   });
 
+  // GET /api/brickanalyzer/scans — paginated batch list (metadata only, no imageData/results)
+  app.get("/api/brickanalyzer/scans", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const scans = await db.select({
+        id: brickanalyzerScans.id,
+        status: brickanalyzerScans.status,
+        totalPieces: brickanalyzerScans.totalPieces,
+        identifiedPieces: brickanalyzerScans.identifiedPieces,
+        estimatedValue: brickanalyzerScans.estimatedValue,
+        createdAt: brickanalyzerScans.createdAt,
+        completedAt: brickanalyzerScans.completedAt,
+      })
+        .from(brickanalyzerScans)
+        .where(eq(brickanalyzerScans.orgId, orgId))
+        .orderBy(desc(brickanalyzerScans.createdAt))
+        .limit(50);
+      res.json(scans);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // GET /api/brickanalyzer/scans/latest — for dashboard polling
   // Returns the most recent scan that is not "failed" (complete or processing).
   // A newer failed scan should not overwrite an older successful scan that may

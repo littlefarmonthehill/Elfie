@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronLeft, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle, ThumbsUp, ThumbsDown, Minus, FlaskConical, BarChart3, RefreshCw, Target, Info, ChevronDown, ChevronUp, Eye, EyeOff, Pencil } from "lucide-react";
+import { Camera, X, CheckCircle, Loader2, ExternalLink, Trash2, ScanSearch, ChevronLeft, ChevronRight, Sparkles, Check, Grid3X3, Settings2, RotateCcw, ZoomIn, AlertTriangle, ThumbsUp, ThumbsDown, Minus, FlaskConical, BarChart3, RefreshCw, Target, Info, ChevronDown, ChevronUp, Eye, EyeOff, Pencil, Layers, Plus } from "lucide-react";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -607,6 +607,107 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
   function handleScanModeChange(mode: "auto" | "manual") {
     setScanMode(mode);
     try { localStorage.setItem(SCAN_MODE_KEY, mode); } catch {}
+  }
+
+  // ── Batch scans panel ─────────────────────────────────────────────────────
+  const [batchesOpen, setBatchesOpen] = useState(false);
+  const [batchesVisible, setBatchesVisible] = useState(false);
+  const [batchDeleteConfirmId, setBatchDeleteConfirmId] = useState<number | null>(null);
+  const batchPanelRef = useRef<HTMLDivElement>(null);
+  const batchTouchStartY = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (batchesOpen) requestAnimationFrame(() => setBatchesVisible(true));
+    else setBatchesVisible(false);
+  }, [batchesOpen]);
+
+  type BatchScanMeta = { id: number; status: string; totalPieces: number | null; identifiedPieces: number | null; estimatedValue: string | null; createdAt: string | null; completedAt: string | null };
+  const { data: allBatches, isLoading: batchesLoading } = useQuery<BatchScanMeta[]>({
+    queryKey: ["/api/brickanalyzer/scans"],
+    queryFn: async () => {
+      const res = await fetch("/api/brickanalyzer/scans", { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: batchesOpen,
+    staleTime: 0,
+  });
+
+  function openBatches() {
+    setBatchDeleteConfirmId(null);
+    setBatchesOpen(true);
+  }
+
+  function closeBatches() {
+    setBatchesOpen(false);
+    setBatchDeleteConfirmId(null);
+  }
+
+  function loadBatch(batch: BatchScanMeta) {
+    closeBatches();
+    setScanId(batch.id);
+    if (batch.status === 'complete') {
+      setUiState('complete');
+    } else if (batch.status === 'processing') {
+      setUiState('processing');
+      setLeftPage(true);
+    } else {
+      setUiState('failed');
+    }
+  }
+
+  function startNewScan() {
+    closeBatches();
+    setScanId(null);
+    setUiState('idle');
+    setLeftPage(false);
+  }
+
+  const deleteBatchMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await fetch(`/api/brickanalyzer/scan/${id}`, { method: "DELETE", credentials: "include" });
+    },
+    onSuccess: (_, id) => {
+      setBatchDeleteConfirmId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/brickanalyzer/scans"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/brickanalyzer/scans/latest"] });
+      if (scanId === id) {
+        setScanId(null);
+        setUiState('idle');
+        setLeftPage(false);
+      }
+    },
+  });
+
+  function formatBatchDate(iso: string | null) {
+    if (!iso) return "Unknown date";
+    const d = new Date(iso);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+    const isYesterday = d.toDateString() === yesterday.toDateString();
+    const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    if (sameDay) return `Today · ${time}`;
+    if (isYesterday) return `Yesterday · ${time}`;
+    return `${d.toLocaleDateString([], { month: "short", day: "numeric" })} · ${time}`;
+  }
+
+  function onBatchTouchStart(e: React.TouchEvent) {
+    batchTouchStartY.current = e.touches[0].clientY;
+  }
+  function onBatchTouchMove(e: React.TouchEvent) {
+    if (batchTouchStartY.current === null) return;
+    const dy = e.touches[0].clientY - batchTouchStartY.current;
+    if (dy > 0 && batchPanelRef.current) {
+      batchPanelRef.current.style.transform = `translateY(${dy}px)`;
+    }
+  }
+  function onBatchTouchEnd(e: React.TouchEvent) {
+    if (batchTouchStartY.current === null) return;
+    const dy = e.changedTouches[0].clientY - batchTouchStartY.current;
+    batchTouchStartY.current = null;
+    if (batchPanelRef.current) batchPanelRef.current.style.transform = '';
+    if (dy > 60) closeBatches();
   }
 
   useEffect(() => {
@@ -2224,15 +2325,15 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
             <div className="relative rounded-lg border border-gray-700 overflow-hidden bg-black" data-testid="inline-heatmap">
               {/* Filter bar */}
               <div className="relative flex items-center justify-end gap-2 px-3 py-1.5 border-b border-gray-800 flex-wrap" style={{ zIndex: 10 }}>
-                {/* New scan shortcut */}
+                {/* Batches shortcut */}
                 <button
-                  data-testid="button-brickanalyzer-new-scan-filterbar"
-                  onClick={() => { setUiState("idle"); setScanId(null); }}
-                  title="Start a new scan"
-                  className="rounded text-[10px] font-medium px-2 py-0.5 transition-colors shrink-0 flex items-center gap-1 border text-gray-500 hover:text-gray-300 border-gray-700 bg-transparent"
+                  data-testid="button-brickanalyzer-batches-filterbar"
+                  onClick={openBatches}
+                  title="View scan batches"
+                  className="rounded text-[10px] font-medium px-2 py-0.5 transition-colors shrink-0 flex items-center gap-1 border text-gray-400 hover:text-gray-200 border-gray-700 bg-transparent"
                 >
-                  <RotateCcw className="w-3 h-3" />
-                  New Scan
+                  <Layers className="w-3 h-3" />
+                  Batches
                 </button>
                 {/* Photo visibility toggle */}
                 <button
@@ -3877,11 +3978,12 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
               <div className="flex gap-2 pt-1">
                 <Button
                   variant="outline"
-                  className="flex-1"
-                  onClick={() => { setUiState("idle"); setScanId(null); }}
+                  className="flex-1 gap-1.5"
+                  onClick={openBatches}
                   data-testid="button-brickanalyzer-new-scan-bottom"
                 >
-                  New Scan
+                  <Layers className="w-3.5 h-3.5" />
+                  Batches
                 </Button>
                 <Button
                   variant="outline"
@@ -3969,6 +4071,173 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
         target={pricePopupTarget}
         onClose={() => setPricePopupTarget(null)}
       />
+    )}
+
+    {/* ── Batch scans flyout sheet ────────────────────────────────────────── */}
+    {batchesOpen && (
+      <div className="fixed inset-0 z-50" data-testid="overlay-batches">
+        {/* Backdrop */}
+        <div
+          className="absolute inset-0 bg-black transition-opacity duration-300"
+          style={{ opacity: batchesVisible ? 0.6 : 0 }}
+          onClick={closeBatches}
+        />
+        {/* Sheet panel */}
+        <div
+          ref={batchPanelRef}
+          className="absolute bottom-0 left-0 right-0 flex flex-col bg-gray-950 rounded-t-2xl transition-transform duration-300 ease-out"
+          style={{
+            height: '88%',
+            transform: batchesVisible ? 'translateY(0)' : 'translateY(100%)',
+            willChange: 'transform',
+          }}
+          onTouchStart={onBatchTouchStart}
+          onTouchMove={onBatchTouchMove}
+          onTouchEnd={onBatchTouchEnd}
+        >
+          {/* Drag handle */}
+          <div className="flex-shrink-0 flex justify-center pt-3 pb-1">
+            <div className="w-10 h-1 rounded-full bg-gray-700" />
+          </div>
+
+          {/* Header */}
+          <div className="flex-shrink-0 flex items-center gap-2 px-4 pt-2 pb-3 border-b border-gray-800">
+            <Layers className="w-4 h-4 text-purple-400 flex-shrink-0" />
+            <span className="text-sm font-semibold text-gray-100 flex-1">Scan Batches</span>
+            {allBatches && (
+              <span className="text-xs text-gray-500">{allBatches.length} batch{allBatches.length !== 1 ? "es" : ""}</span>
+            )}
+            <button
+              onClick={closeBatches}
+              className="ml-2 text-gray-500 hover:text-gray-200 transition-colors"
+              data-testid="button-batches-close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* New scan CTA */}
+          <div className="flex-shrink-0 px-4 pt-3 pb-2">
+            <button
+              onClick={startNewScan}
+              data-testid="button-batches-new-scan"
+              className="w-full flex items-center gap-3 rounded-lg border border-dashed border-purple-600/60 bg-purple-950/30 hover:bg-purple-950/50 transition-colors px-4 py-3"
+            >
+              <div className="w-8 h-8 rounded-full bg-purple-700/50 flex items-center justify-center flex-shrink-0">
+                <Plus className="w-4 h-4 text-purple-300" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-medium text-purple-300">Start New Scan</div>
+                <div className="text-xs text-gray-500">Upload or take a photo of LEGO pieces</div>
+              </div>
+            </button>
+          </div>
+
+          {/* Batch list */}
+          <div className="flex-1 overflow-y-auto px-4 pt-1 pb-4 min-h-0">
+            {batchesLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
+              </div>
+            ) : !allBatches || allBatches.length === 0 ? (
+              <div className="py-16 text-center text-gray-500 text-sm">No scan batches yet</div>
+            ) : (
+              <div className="divide-y divide-gray-800/60">
+                {allBatches.map((batch) => {
+                  const isActive = batch.id === scanId;
+                  const isDeleting = deleteBatchMutation.isPending && deleteBatchMutation.variables === batch.id;
+                  const confirmingDelete = batchDeleteConfirmId === batch.id;
+                  const value = batch.estimatedValue ? `$${parseFloat(batch.estimatedValue).toFixed(2)}` : null;
+                  return (
+                    <div
+                      key={batch.id}
+                      className={`py-3 flex items-center gap-3 ${isActive ? 'opacity-100' : 'opacity-90'}`}
+                      data-testid={`batch-row-${batch.id}`}
+                    >
+                      {/* Scan thumbnail or status icon */}
+                      <div className={`w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border ${isActive ? 'border-purple-500/60' : 'border-gray-700'} bg-gray-900 flex items-center justify-center`}>
+                        <img
+                          src={`/api/brickanalyzer/scan/${batch.id}/image`}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-medium text-gray-200 truncate">
+                            {formatBatchDate(batch.createdAt)}
+                          </span>
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded leading-none ${
+                            batch.status === 'complete' ? 'bg-green-900/50 text-green-400' :
+                            batch.status === 'processing' ? 'bg-yellow-900/50 text-yellow-400' :
+                            'bg-red-900/50 text-red-400'
+                          }`}>
+                            {batch.status === 'complete' ? 'Complete' : batch.status === 'processing' ? 'Processing' : 'Failed'}
+                          </span>
+                          {isActive && (
+                            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded leading-none bg-purple-900/50 text-purple-400">
+                              Viewing
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-gray-500 mt-0.5">
+                          {batch.totalPieces != null ? `${batch.totalPieces} piece${batch.totalPieces !== 1 ? "s" : ""}` : "—"}
+                          {value ? ` · ${value}` : ""}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {confirmingDelete ? (
+                          [<button
+                            key="confirm"
+                            onClick={() => deleteBatchMutation.mutate(batch.id)}
+                            disabled={isDeleting}
+                            className="text-[10px] font-medium px-2 py-1 rounded bg-red-700/70 text-red-200 hover:bg-red-600/80 transition-colors"
+                            data-testid={`button-batch-delete-confirm-${batch.id}`}
+                          >
+                            {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : "Delete"}
+                          </button>,
+                          <button
+                            key="cancel"
+                            onClick={() => setBatchDeleteConfirmId(null)}
+                            className="text-[10px] font-medium px-2 py-1 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+                            data-testid={`button-batch-delete-cancel-${batch.id}`}
+                          >
+                            Cancel
+                          </button>]
+                        ) : (
+                          [!isActive && (
+                            <button
+                              key="load"
+                              onClick={() => loadBatch(batch)}
+                              className="text-[10px] font-medium px-2 py-1 rounded bg-purple-700/60 text-purple-200 hover:bg-purple-600/70 transition-colors"
+                              data-testid={`button-batch-load-${batch.id}`}
+                            >
+                              Load
+                            </button>
+                          ),
+                          <button
+                            key="delete"
+                            onClick={() => setBatchDeleteConfirmId(batch.id)}
+                            className="p-1 rounded text-gray-600 hover:text-red-400 transition-colors"
+                            data-testid={`button-batch-delete-${batch.id}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>]
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     )}
 
     </div>
