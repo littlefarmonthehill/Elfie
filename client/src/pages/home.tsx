@@ -30,6 +30,7 @@ import ListomaticPriority from "@/components/ListomaticPriority";
 import BrickanalyzerTool from "@/components/BrickanalyzerTool";
 import FulfillmentTool from "@/components/FulfillmentTool";
 import ShippedOrdersTool from "@/components/ShippedOrdersTool";
+import { BillingDrawer } from "@/components/BillingDrawer";
 
 export default function Home() {
   useAdminScaling();
@@ -82,6 +83,7 @@ export default function Home() {
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'shipped' | null>(null);
   const [activeMarketingDrawer, setActiveMarketingDrawer] = useState<MarketingDrawer>(null);
   const [activeSalesDrawer, setActiveSalesDrawer] = useState<SalesDrawer>(null);
+  const [billingOpen, setBillingOpen] = useState(false);
   const [detailModal, setDetailModal] = useState<{ open: boolean; data: DetailData | null }>({
     open: false,
     data: null,
@@ -355,7 +357,7 @@ export default function Home() {
 
   const renderMobileDashboard = () => {
     if (activeDashboard === 'dashboard') {
-      return <GeneralDashboard onItemClick={handleDashboardItemClick} onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }} onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }} onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }} onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }} onNavigate={(tab) => setActiveDashboard(tab as DashboardType)} />;
+      return <GeneralDashboard onItemClick={handleDashboardItemClick} onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }} onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }} onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }} onOpenBilling={() => setBillingOpen(true)} onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }} onNavigate={(tab) => setActiveDashboard(tab as DashboardType)} />;
     }
     return renderDynamicDashboard();
   };
@@ -365,6 +367,7 @@ export default function Home() {
     setActiveOrdersDrawer(null);
     setActiveMarketingDrawer(null);
     setActiveSalesDrawer(null);
+    setBillingOpen(false);
   };
 
   const openSettings = (section?: string, pricingExample?: PricingInsight, scoringExample?: PricingInsight) => {
@@ -453,6 +456,9 @@ export default function Home() {
           renderDrawerOnly
         />
       );
+    }
+    if (billingOpen) {
+      return <BillingDrawer onClose={closeActiveDrawer} />;
     }
     return null;
   };
@@ -913,6 +919,7 @@ export default function Home() {
                 onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
                 onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
                 onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
+                onOpenBilling={() => setBillingOpen(true)}
                 onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
                 onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
                 section="plan"
@@ -935,7 +942,7 @@ export default function Home() {
               </div>
 
               {/* Drawer overlay — covers entire dynamic board */}
-              {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer || detailModal.open) && (
+              {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer || billingOpen || detailModal.open) && (
                 <div className="absolute inset-0 z-20 flex flex-col">
                   <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={() => { closeActiveDrawer(); setDetailModal({ open: false, data: null }); }} />
                   <div className="relative flex-1 bg-gray-950/95 border border-white/10 rounded-lg m-3 overflow-y-auto shadow-2xl animate-[slideUp_250ms_ease-out]">
@@ -962,6 +969,7 @@ export default function Home() {
                 onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
                 onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
                 onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
+                onOpenBilling={() => setBillingOpen(true)}
                 onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
                 onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
                 section="ops"
