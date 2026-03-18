@@ -124,7 +124,15 @@ export function CollapsibleDatePicker({
   };
 
   return (
-    <div className="ml-auto flex flex-col items-end gap-1.5 shrink-0">
+    <div className="ml-auto flex items-center gap-1.5 shrink-0">
+      {open && (
+        <DateRangeSelector
+          value={value}
+          onChange={handleChange}
+          compact
+          scaled
+        />
+      )}
       <button
         onClick={() => setOpen((o) => !o)}
         className={cn(
@@ -141,14 +149,6 @@ export function CollapsibleDatePicker({
           : <ChevronDown className="w-2.5 h-2.5 shrink-0" />
         }
       </button>
-      {open && (
-        <DateRangeSelector
-          value={value}
-          onChange={handleChange}
-          compact
-          scaled
-        />
-      )}
     </div>
   );
 }

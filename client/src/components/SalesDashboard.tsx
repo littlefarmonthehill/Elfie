@@ -1397,11 +1397,11 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
       {/* ── Top Metrics ── */}
       <div className={cn("relative bg-gradient-to-b from-green-950/25 to-gray-900/85 border border-green-500/40 rounded-lg shadow-[0_0_22px_rgba(34,197,94,0.12)] overflow-hidden", "p-2.5")} data-testid="section-sales-overview">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-400/50 to-transparent" />
-        <div className="flex items-start gap-2 mb-2">
-          <div className="p-1.5 rounded-md bg-green-900/60 ring-1 ring-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.25)] shrink-0 mt-0.5">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="p-1.5 rounded-md bg-green-900/60 ring-1 ring-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.25)] shrink-0">
             <TrendingUp className={cn("w-3 h-3 text-green-200", "md:w-4 md:h-4")} />
           </div>
-          <h3 className={cn("text-xs font-semibold text-green-200 uppercase tracking-wide min-w-0 mt-0.5", "md:text-sm lg:text-base")}>Insights</h3>
+          <h3 className={cn("text-xs font-semibold text-green-200 uppercase tracking-wide min-w-0", "md:text-sm lg:text-base")}>Insights</h3>
           <CollapsibleDatePicker
             value={localDateRange}
             onChange={setLocalDateRange}
