@@ -2273,8 +2273,15 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                     alt="Original scan"
                     className="absolute inset-0 w-full h-full object-fill block select-none transition-opacity duration-200"
                     draggable={false}
-                    style={{ filter: 'brightness(0.70)', opacity: heatmapPhotoHidden ? 0 : 1 }}
+                    style={{ filter: 'brightness(0.70)', opacity: heatmapPhotoHidden ? 0.06 : 1 }}
                   />
+                  {heatmapPhotoHidden && (
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none" style={{ zIndex: 50 }}>
+                      <span className="text-[10px] text-gray-500 bg-gray-950/80 px-2 py-0.5 rounded-sm whitespace-nowrap">
+                        Photo hidden — tap Photo to restore
+                      </span>
+                    </div>
+                  )}
                   {(() => {
                     const cropDismissKeyMap = new Map<number, string>();
                     groupedResults.forEach(grp => {
