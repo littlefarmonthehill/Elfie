@@ -1917,11 +1917,11 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
               className="w-full h-full object-contain pointer-events-none select-none"
             />
 
-            {/* Confirmed boxes — purple solid border + number label */}
+            {/* Confirmed boxes — purple solid border + number label + remove button */}
             {previewBoxes.map((box, i) => (
               <div
                 key={`box-${i}`}
-                className="absolute border-2 border-purple-400/90 rounded-sm pointer-events-none"
+                className="absolute border-2 border-purple-400/90 rounded-sm"
                 style={{
                   left:   `${box.x}%`,
                   top:    `${box.y}%`,
@@ -1932,6 +1932,15 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                 <span className="absolute -top-4 left-0 text-[9px] font-mono text-purple-300 bg-gray-900/80 px-0.5 leading-3 pointer-events-none select-none">
                   {i + 1}
                 </span>
+                <button
+                  className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center rounded-sm bg-gray-900/80 text-red-400 hover:text-red-300 hover:bg-gray-900/95"
+                  onClick={(e) => { e.stopPropagation(); handleRemoveBox(i); }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  data-testid={`button-remove-box-${i}`}
+                  title="Remove this zone"
+                >
+                  <X className="w-2.5 h-2.5" />
+                </button>
               </div>
             ))}
 
