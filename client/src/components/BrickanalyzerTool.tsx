@@ -1907,9 +1907,12 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
 
           {/* Photo with overlaid bounding boxes */}
           <div
-            className="relative w-full rounded-lg overflow-hidden bg-gray-900 border border-gray-700"
+            className="relative w-full rounded-lg overflow-hidden bg-gray-900 border border-gray-700 cursor-crosshair select-none"
             style={{ aspectRatio: `${previewData.imageWidth} / ${previewData.imageHeight}` }}
             data-testid="preview-image-container"
+            onPointerDown={handlePreviewPointerDown}
+            onPointerMove={handlePreviewPointerMove}
+            onPointerUp={handlePreviewPointerUp}
           >
             <img
               src={previewData.objectUrl}
@@ -1944,13 +1947,50 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
               </div>
             ))}
 
+            {/* Candidate (tap-to-promote) overlays */}
+            {previewCandidates.map((c, i) => (
+              <div
+                key={`cand-${i}`}
+                className="absolute border border-dashed border-teal-400/50 rounded-sm pointer-events-none"
+                style={{
+                  left:   `${c.x}%`,
+                  top:    `${c.y}%`,
+                  width:  `${c.w}%`,
+                  height: `${c.h}%`,
+                }}
+              />
+            ))}
+
+            {/* Drag-to-draw in-progress rectangle */}
+            {drawingRect && (
+              <div
+                className="absolute border-2 border-dashed border-white/60 rounded-sm pointer-events-none"
+                style={{
+                  left:   `${drawingRect.x}%`,
+                  top:    `${drawingRect.y}%`,
+                  width:  `${drawingRect.w}%`,
+                  height: `${drawingRect.h}%`,
+                }}
+              />
+            )}
+
+            {/* Detecting-at-point spinner */}
+            {detectingPoint && (
+              <div
+                className="absolute pointer-events-none"
+                style={{ left: `${detectingPoint.x}%`, top: `${detectingPoint.y}%`, transform: 'translate(-50%, -50%)' }}
+              >
+                <Loader2 className="w-5 h-5 text-purple-300 animate-spin drop-shadow-lg" />
+              </div>
+            )}
+
           </div>
 
           {/* Zone count hint */}
           <p className="text-xs text-center">
             {previewCandidates.length > 0
-              ? <span className="text-teal-400/80">{previewCandidates.length} possible piece{previewCandidates.length !== 1 ? "s" : ""} detected</span>
-              : <span className="text-gray-500">Zones detected — ready to identify</span>
+              ? <span className="text-teal-400/80">Tap a dashed zone to add it · tap empty area to detect · drag to draw</span>
+              : <span className="text-gray-500">Tap the image to add a zone · drag to draw one manually</span>
             }
           </p>
         </div>
