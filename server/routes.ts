@@ -3106,7 +3106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const livePlans = await db
         .select()
         .from(plans)
-        .where(eq(plans.status, 'live'))
+        .where(inArray(plans.status, ['live', 'sunset']))
         .orderBy(asc(plans.basePrice));
       res.json(livePlans);
     } catch (err: any) {
@@ -3114,13 +3114,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/plans — return only 'live' plans for subscription selection
+  // GET /api/plans — return live + sunset plans for subscription selection (in_progress drafts are hidden)
   app.get('/api/plans', isAuthenticated, async (_req, res) => {
     try {
       const activePlans = await db
         .select()
         .from(plans)
-        .where(eq(plans.status, 'live'))
+        .where(inArray(plans.status, ['live', 'sunset']))
         .orderBy(asc(plans.id));
       res.json(activePlans);
     } catch (err: any) {
@@ -3137,7 +3137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // New path: plan selected by DB id (dynamic plans table)
       if (planId !== undefined) {
         const [dbPlan] = await db.select().from(plans).where(eq(plans.id, planId)).limit(1);
-        if (!dbPlan || dbPlan.status !== 'live') {
+        if (!dbPlan || !['live', 'sunset'].includes(dbPlan.status)) {
           return res.status(400).json({ message: "Invalid or unavailable plan" });
         }
         const isOnboarding = context === 'onboarding' || context === 'plan_expired';

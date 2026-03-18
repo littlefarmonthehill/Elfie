@@ -85,7 +85,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
 
   const { data: availablePlans = [], isLoading: plansLoading } = useQuery<Array<{
     id: number; name: string; basePrice: number; salesPercentage: number;
-    freeSalesThreshold: number; status: string;
+    freeSalesThreshold: number; status: string; sunsetAt: string | null;
   }>>({ queryKey: ['/api/plans'] });
 
   // Step 1 — Company Info
@@ -841,6 +841,8 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                     const monthlyDollars = (plan.basePrice / 100).toFixed(2);
                     const thresholdDollars = Math.round(plan.freeSalesThreshold / 100).toLocaleString();
                     const isSelected = selectedPlan === plan.id;
+                    const isSunset = plan.status === 'sunset';
+                    const sunsetDate = plan.sunsetAt ? new Date(plan.sunsetAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
                     return (
                       <button
                         key={plan.id}
@@ -849,7 +851,12 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                         data-testid={`button-plan-${plan.id}`}
                       >
                         <div className="flex items-start justify-between gap-2 mb-2">
-                          <span className="text-sm font-semibold text-white">{plan.name}</span>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-semibold text-white">{plan.name}</span>
+                            {isSunset && (
+                              <span className="text-[9px] bg-orange-500/15 text-orange-400 border border-orange-500/25 rounded px-1.5 py-0.5">legacy plan</span>
+                            )}
+                          </div>
                           {isSelected && <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />}
                         </div>
                         <div className="mb-1">
@@ -860,6 +867,9 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                           <TrendingUp className="w-3 h-3 text-purple-400 shrink-0" />
                           <span>+{plan.salesPercentage}% on sales over ${thresholdDollars}/mo</span>
                         </div>
+                        {isSunset && sunsetDate && (
+                          <p className="text-[10px] text-orange-400/70 mt-2">This plan is being retired on {sunsetDate}. You can switch plans at any time.</p>
+                        )}
                       </button>
                     );
                   })}
