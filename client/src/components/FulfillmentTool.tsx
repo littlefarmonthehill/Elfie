@@ -860,10 +860,14 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                         {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
                                       </span>
                                       {tier === 'express' && (
-                                        <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-blue-900/50 text-blue-300 border border-blue-700/40 shrink-0" data-testid={`badge-express-${order.id}`}>EXPRESS</span>
+                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-blue-900/50 text-blue-300 border border-blue-700/40 shrink-0" data-testid={`badge-express-${order.id}`}>
+                                          <Truck className="w-2.5 h-2.5" />EXP
+                                        </span>
                                       )}
                                       {tier === 'priority' && (
-                                        <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-red-900/50 text-red-300 border border-red-700/40 shrink-0" data-testid={`badge-priority-${order.id}`}>PRIORITY</span>
+                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-red-900/50 text-red-300 border border-red-700/40 shrink-0" data-testid={`badge-priority-${order.id}`}>
+                                          <Truck className="w-2.5 h-2.5" />PRI
+                                        </span>
                                       )}
                                       {isPickComplete && <CheckCircle2 className="w-3 h-3 text-green-400 fill-green-400 shrink-0" />}
                                     </div>
