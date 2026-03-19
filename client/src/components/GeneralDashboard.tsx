@@ -485,7 +485,7 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
                 <FuelGauge remaining={remaining} />
                 <div className="flex items-center justify-between gap-2 mt-1">
                   <span className="text-[10px] text-gray-600 font-mono">{used.toLocaleString()} used</span>
-                  <span className="text-[10px] text-gray-600 font-mono">{(limit - used).toLocaleString()} left · 24 h</span>
+                  <span className="text-[10px] text-gray-600 font-mono">{(limit - used).toLocaleString()} left · rolling 24 h</span>
                 </div>
               </div>
             );
