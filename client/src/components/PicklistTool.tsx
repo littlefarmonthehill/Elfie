@@ -273,8 +273,9 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
     const sortedItems = [...flatItems].sort((a, b) => {
       const pk = partKey(a).localeCompare(partKey(b), undefined, { numeric: true });
       if (pk !== 0) return pk;
-      const ck = (a.colorName || '').localeCompare(b.colorName || '');
-      return ck !== 0 ? ck : (a.condition || '').localeCompare(b.condition || '');
+      const condCmp = (a.condition || '').localeCompare(b.condition || '');
+      if (condCmp !== 0) return condCmp;
+      return (a.colorName || '').localeCompare(b.colorName || '');
     });
     await printPicklist(sortedItems);
   };
@@ -290,7 +291,13 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
 
   const flatItems: BinPicklistItem[] = filteredPicklistData
     .flatMap(bin => bin.items)
-    .sort((a, b) => partKey(a).localeCompare(partKey(b), undefined, { numeric: true }));
+    .sort((a, b) => {
+      const pk = partKey(a).localeCompare(partKey(b), undefined, { numeric: true });
+      if (pk !== 0) return pk;
+      const condCmp = (a.condition || '').localeCompare(b.condition || '');
+      if (condCmp !== 0) return condCmp;
+      return (a.colorName || '').localeCompare(b.colorName || '');
+    });
 
   const groupedBins = filteredPicklistData.reduce((acc, bin) => {
     const aisleKey = bin.warehouseLocation?.aisle.name || 'No Location';
@@ -596,7 +603,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                                 <span className="text-yellow-400">{item.colorName}</span>
                               )}
                               {item.condition && (
-                                <span className={item.condition === 'N' ? 'text-green-400' : 'text-orange-400'}>
+                                <span className={item.condition === 'N' ? 'text-blue-400' : 'text-gray-200'}>
                                   {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
                                 </span>
                               )}
@@ -605,9 +612,11 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                                 <span className="text-gray-500">Stock: {item.inventoryQty}</span>
                               )}
                             </div>
-                            {item.comment && (
-                              <div className="mt-0.5">
-                                <div className="text-blue-400/80 italic">{item.comment}</div>
+                            {(item.comment || item.remarks || item.inventoryId != null) && (
+                              <div className="mt-0.5 text-[10px] text-blue-400/80">
+                                {item.comment && <span className="italic">{item.comment}</span>}
+                                {item.remarks && <span className="not-italic text-gray-400">{item.comment ? ' ' : ''}{item.remarks}</span>}
+                                {item.inventoryId != null && <span className="not-italic text-gray-500">{(item.comment || item.remarks) ? ' ' : ''}lot {item.inventoryId}</span>}
                               </div>
                             )}
                           </div>
@@ -666,7 +675,13 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
               </div>
               {bin.items.length > 0 && (
                 <div className="ml-4 space-y-1">
-                  {[...bin.items].sort((a, b) => partKey(a).localeCompare(partKey(b), undefined, { numeric: true })).map((item) => (
+                  {[...bin.items].sort((a, b) => {
+                    const pk = partKey(a).localeCompare(partKey(b), undefined, { numeric: true });
+                    if (pk !== 0) return pk;
+                    const condCmp = (a.condition || '').localeCompare(b.condition || '');
+                    if (condCmp !== 0) return condCmp;
+                    return (a.colorName || '').localeCompare(b.colorName || '');
+                  }).map((item) => (
                     <div
                       key={item.picklistItemId}
                       className="flex items-start gap-2 bg-gray-900/60 border border-gray-700/50 rounded px-2.5 py-1.5"
@@ -690,16 +705,18 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                           <span className="tabular-nums">Qty {item.quantity}</span>
                           {item.colorName && <span className="text-yellow-500">{item.colorName}</span>}
                           {item.condition && (
-                            <span className={item.condition === 'N' ? 'text-green-500' : 'text-orange-400'}>
+                            <span className={item.condition === 'N' ? 'text-blue-400' : 'text-gray-200'}>
                               {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
                             </span>
                           )}
                           <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(item.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}</span>
                           {item.inventoryQty != null && <span>Stock: {item.inventoryQty}</span>}
                         </div>
-                        {item.comment && (
-                          <div className="mt-0.5">
-                            <div className="text-[10px] text-blue-400/80 italic">{item.comment}</div>
+                        {(item.comment || item.remarks || item.inventoryId != null) && (
+                          <div className="mt-0.5 text-[10px] text-blue-400/80">
+                            {item.comment && <span className="italic">{item.comment}</span>}
+                            {item.remarks && <span className="not-italic text-gray-400">{item.comment ? ' ' : ''}{item.remarks}</span>}
+                            {item.inventoryId != null && <span className="not-italic text-gray-500">{(item.comment || item.remarks) ? ' ' : ''}lot {item.inventoryId}</span>}
                           </div>
                         )}
                       </div>
