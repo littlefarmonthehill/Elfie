@@ -6490,6 +6490,10 @@ Format search_web URLs as markdown links.`;
     }
   }
 
+  // BrickSpotter always uses the platform BrickLink account for all catalog/price API calls.
+  // The orgId param is used only for DB operations (tracking scans, storing results).
+  // All bricklinkCatalogRequest calls below intentionally omit orgId so they default to
+  // PLATFORM_ORG_ID — never pass orgId to those calls here.
   async function processBrickanalyzerScan(scanId: number, imageBuffer: Buffer, settings: Record<string, number> = {}, calibration = false, previewBoxes?: { x: number; y: number; w: number; h: number }[], orgId: string = 'org_planetbrick') {
     const { incrementActiveScan, decrementActiveScan } = await import('./services/segmentClient.js');
     incrementActiveScan();
@@ -10597,11 +10601,19 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   });
 
   // Rate Limit Status
+  // BrickSpotter always draws from the platform BrickLink account (PLATFORM_ORG_ID).
+  // Org-level BL accounts are used only for that org's own inventory sync / order sync / POM.
+  // So for BrickSpotter users we report platform-level usage, not the org's own usage.
   app.get("/api/bricklink/rate-limit", isApproved, async (req, res) => {
     try {
       const orgId = reqOrgId(req);
       const { checkRateLimit } = await import("./services/bricklink");
-      const status = await checkRateLimit(orgId);
+
+      const bsCheck = await checkBrickspotterLimit(orgId);
+      const hasBrickSpotter = bsCheck.apiCallLimit !== 0; // 0 = no BrickSpotter; >0 or -1 = has access
+      const targetOrgId = hasBrickSpotter ? PLATFORM_ORG_ID : orgId;
+
+      const status = await checkRateLimit(targetOrgId);
       res.json(status);
     } catch (error) {
       console.error("Error checking rate limit:", error);
