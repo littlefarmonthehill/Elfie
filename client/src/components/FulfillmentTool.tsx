@@ -6,12 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe } from "lucide-react";
 import { printPackingSlips, printPicklist } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, shippingTier, toggleSetItem } from "@/lib/item-utils";
 import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult, OrderItem } from "./InlineShippingCard";
 import PicklistTool from "./PicklistTool";
+
+/** Convert an ISO 3166-1 alpha-2 country code to a flag emoji. */
+function countryFlag(code: string | null | undefined): string {
+  if (!code || code.length !== 2) return '';
+  const c = code.toUpperCase();
+  return String.fromCodePoint(
+    0x1F1E6 + c.charCodeAt(0) - 65,
+    0x1F1E6 + c.charCodeAt(1) - 65,
+  );
+}
 
 type BatchResult = {
   orderId: string;
@@ -662,6 +672,9 @@ export default function FulfillmentTool() {
                     const fullName: string = (order.shipTo as any)?.name || order.customerUsername || '';
                     const lastName = fullName.trim().split(' ').pop() || '';
                     const isPickComplete = !!picklistOrderStatus[order.id];
+                    const country: string = ((order.shipTo as any)?.country || '').toUpperCase();
+                    const isInternational = country && country !== 'US';
+                    const flag = countryFlag(country);
                     return (
                       <div key={order.id}>
                         <div
@@ -677,6 +690,12 @@ export default function FulfillmentTool() {
                           {/* Order info */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
+                              {isInternational && (
+                                <Globe className="w-3 h-3 text-sky-400 shrink-0" data-testid={`icon-international-${order.id}`} />
+                              )}
+                              {flag && (
+                                <span className="text-sm leading-none shrink-0" data-testid={`flag-${order.id}`}>{flag}</span>
+                              )}
                               <span className={`font-mono text-xs font-semibold ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}>
                                 {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
                               </span>
