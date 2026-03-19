@@ -40,6 +40,12 @@ export async function runMigrations() {
   try {
     console.log('[Migration] Running startup migrations…');
 
+    // ── Pre-flight: isolated column additions that must always succeed ────────
+    // These run before the phased chain so they succeed even if later phases fail.
+    try {
+      await client.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS workflow_status text NOT NULL DEFAULT 'new'`);
+    } catch (_) { /* column may already exist */ }
+
     // ── Phase-1: Organizations table ─────────────────────────────────────────
     // Create with minimal required columns — db:push fills the rest.
     await client.query(`
@@ -1204,6 +1210,13 @@ export async function runMigrations() {
         ADD COLUMN IF NOT EXISTS limit_brickspotter_api_calls integer NOT NULL DEFAULT 0
     `);
     console.log('[Migration] Phase-62 (BS fields on plans table) complete.');
+
+    // ── Phase-63: Internal workflow_status on orders ─────────────────────────
+    await client.query(`
+      ALTER TABLE orders
+        ADD COLUMN IF NOT EXISTS workflow_status text NOT NULL DEFAULT 'new'
+    `);
+    console.log('[Migration] Phase-63 (workflow_status on orders) complete.');
 
     console.log('[Migration] All startup migrations finished successfully.');
 

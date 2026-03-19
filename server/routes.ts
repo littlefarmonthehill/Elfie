@@ -13601,6 +13601,27 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
+  // Update internal workflow status for an order
+  app.put("/api/fulfillment/order/:orderId/workflow-status", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { orderId } = req.params;
+      const { status } = req.body;
+      const valid = ['new', 'processing', 'bump', 'issue', 'on_hold', 'done'];
+      if (!status || !valid.includes(status)) {
+        return res.status(400).json({ error: `status must be one of: ${valid.join(', ')}` });
+      }
+      await db
+        .update(orders)
+        .set({ workflowStatus: status, updatedAt: sql`CURRENT_TIMESTAMP` })
+        .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating workflow status:", error);
+      res.status(500).json({ error: "Failed to update workflow status" });
+    }
+  });
+
   // Update fulfilled status for an order detail item
   app.put("/api/fulfillment/item/:itemId/fulfill", isApproved, async (req, res) => {
     try {

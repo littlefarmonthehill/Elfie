@@ -46,6 +46,18 @@ type PicklistBinItem = {
 };
 type PicklistBin = { items: PicklistBinItem[] };
 
+const WORKFLOW_STATUSES = ['new', 'processing', 'bump', 'issue', 'on_hold', 'done'] as const;
+type WorkflowStatus = typeof WORKFLOW_STATUSES[number];
+
+const WORKFLOW_META: Record<WorkflowStatus, { label: string; dot: string; badge: string; header: string }> = {
+  new:        { label: 'New',        dot: 'bg-gray-500',   badge: 'bg-gray-800/60 text-gray-300 border-gray-600/40',   header: 'text-gray-300' },
+  processing: { label: 'Processing', dot: 'bg-blue-500',   badge: 'bg-blue-900/50 text-blue-300 border-blue-700/40',   header: 'text-blue-300' },
+  bump:       { label: 'Bump',       dot: 'bg-amber-400',  badge: 'bg-amber-900/50 text-amber-300 border-amber-700/40', header: 'text-amber-300' },
+  issue:      { label: 'Issue',      dot: 'bg-red-500',    badge: 'bg-red-900/50 text-red-300 border-red-700/40',       header: 'text-red-300' },
+  on_hold:    { label: 'On Hold',    dot: 'bg-purple-500', badge: 'bg-purple-900/50 text-purple-300 border-purple-700/40', header: 'text-purple-300' },
+  done:       { label: 'Done',       dot: 'bg-green-500',  badge: 'bg-green-900/50 text-green-300 border-green-700/40', header: 'text-green-300' },
+};
+
 type Order = {
   id: string;
   orderNumber: string;
@@ -56,6 +68,7 @@ type Order = {
   shipTo: any;
   orderDate: string | null;
   requestedShippingService: string | null;
+  workflowStatus: WorkflowStatus | null;
 };
 
 type FulfillmentItem = {
@@ -249,6 +262,13 @@ export default function FulfillmentTool() {
   const [isSplitMode, setIsSplitMode] = useState(false);
   const [selectedItemsForSplit, setSelectedItemsForSplit] = useState<Set<string>>(new Set());
   const [commentOrderId, setCommentOrderId] = useState<string | null>(null);
+  const [statusPickerOrderId, setStatusPickerOrderId] = useState<string | null>(null);
+
+  const updateWorkflowStatus = useMutation({
+    mutationFn: ({ orderId, status }: { orderId: string; status: WorkflowStatus }) =>
+      apiRequest('PUT', `/api/fulfillment/order/${orderId}/workflow-status`, { status }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] }),
+  });
   const [showSplitConfirmDialog, setShowSplitConfirmDialog] = useState(false);
   const [splitOrderNumber, setSplitOrderNumber] = useState<string>("");
 
@@ -358,20 +378,32 @@ export default function FulfillmentTool() {
     );
   }
 
-  // Sort orders: express (blue) → priority (red) → others, then oldest first within each tier
+  // Within a group: express first, then priority, then others; oldest first within tier
   const tierRank = (o: Order) => {
     const t = shippingTier(o.requestedShippingService);
     if (t === 'express') return 0;
     if (t === 'priority') return 1;
     return 2;
   };
-  const sortedOrders = [...(data?.orders || [])].sort((a, b) => {
+  const sortWithinGroup = (a: Order, b: Order) => {
     const rankDiff = tierRank(a) - tierRank(b);
     if (rankDiff !== 0) return rankDiff;
     const dateA = a.orderDate ? new Date(a.orderDate).getTime() : 0;
     const dateB = b.orderDate ? new Date(b.orderDate).getTime() : 0;
     return dateA - dateB;
-  });
+  };
+  const allOrders = data?.orders || [];
+  // Flat sorted list used for select-all / print
+  const sortedOrders = [...allOrders].sort(sortWithinGroup);
+  // Grouped by workflow status, each group sorted by tier then date
+  const groupedOrders = WORKFLOW_STATUSES
+    .map(status => ({
+      status,
+      orders: allOrders
+        .filter(o => (o.workflowStatus || 'new') === status)
+        .sort(sortWithinGroup),
+    }))
+    .filter(g => g.orders.length > 0);
 
   // Orders that are both selected AND fully ready to ship
   const shippableOrderIds = [...selectedOrders].filter(id => readyToShip.has(id));
@@ -651,9 +683,9 @@ export default function FulfillmentTool() {
               </button>
             </div>
 
-            {/* Order list — scrollable */}
+            {/* Order list — scrollable, grouped by workflow status */}
             <div className="flex-1 overflow-y-auto px-4 pt-1 pb-4 min-h-0">
-              {sortedOrders.length === 0 ? (
+              {allOrders.length === 0 ? (
                 <div className="flex items-center justify-center h-40">
                   <div className="text-center text-gray-500">
                     <Truck className="w-10 h-10 mx-auto mb-2 opacity-40" />
@@ -661,87 +693,136 @@ export default function FulfillmentTool() {
                   </div>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-800/60">
-                  {sortedOrders.map((order) => {
-                    const isSelected = selectedOrders.has(order.id);
-                    const lotCount = data?.items.filter(i => i.orderId === order.id).length ?? 0;
-                    const tier = shippingTier(order.requestedShippingService);
-                    const formattedDate = order.orderDate
-                      ? new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                      : null;
-                    const fullName: string = (order.shipTo as any)?.name || order.customerUsername || '';
-                    const lastName = fullName.trim().split(' ').pop() || '';
-                    const isPickComplete = !!picklistOrderStatus[order.id];
-                    const country: string = ((order.shipTo as any)?.country || '').toUpperCase();
-                    const isInternational = country && country !== 'US';
-                    const flag = countryFlag(country);
+                <div className="space-y-1">
+                  {groupedOrders.map((group, gi) => {
+                    const meta = WORKFLOW_META[group.status];
                     return (
-                      <div key={order.id}>
-                        <div
-                          onClick={() => handleOrderToggle(order.id)}
-                          className={`flex items-center gap-3 py-3 cursor-pointer transition-colors ${
-                            isSelected ? 'opacity-100' : 'opacity-90'
-                          }`}
-                          data-testid={`order-${order.orderNumber}`}
-                        >
-                          {/* Selection indicator */}
-                          <div className={`shrink-0 w-2 h-2 rounded-full ${isSelected ? 'bg-purple-400' : 'bg-gray-700'}`} />
-
-                          {/* Order info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {isInternational && (
-                                <Globe className="w-3 h-3 text-sky-400 shrink-0" data-testid={`icon-international-${order.id}`} />
-                              )}
-                              {flag && (
-                                <span className="text-sm leading-none shrink-0" data-testid={`flag-${order.id}`}>{flag}</span>
-                              )}
-                              <span className={`font-mono text-xs font-semibold ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}>
-                                {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
-                              </span>
-                              {tier === 'express' && (
-                                <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-blue-900/50 text-blue-300 border border-blue-700/40 shrink-0" data-testid={`badge-express-${order.id}`}>EXPRESS</span>
-                              )}
-                              {tier === 'priority' && (
-                                <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-red-900/50 text-red-300 border border-red-700/40 shrink-0" data-testid={`badge-priority-${order.id}`}>PRIORITY</span>
-                              )}
-                              {isPickComplete && <CheckCircle2 className="w-3 h-3 text-green-400 fill-green-400 shrink-0" />}
-                              {isSelected && (
-                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded leading-none bg-purple-900/50 text-purple-400">Selected</span>
-                              )}
-                            </div>
-                            {(lastName || order.marketplace) && (
-                              <p className="text-[11px] text-gray-500 truncate leading-tight mt-0.5">{lastName || order.marketplace}</p>
-                            )}
-                          </div>
-
-                          {/* Right side: comment flag + date + lot count */}
-                          <div className="shrink-0 flex items-center gap-2">
-                            {order.customerNotes && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setCommentOrderId(commentOrderId === order.id ? null : order.id); }}
-                                className={`rounded transition-colors ${commentOrderId === order.id ? 'text-amber-400' : 'text-amber-500/60 hover:text-amber-400'}`}
-                                data-testid={`button-customer-note-${order.id}`}
-                                title="Customer note"
-                              >
-                                <MessageCircle className="w-3.5 h-3.5 fill-current" />
-                              </button>
-                            )}
-                            {formattedDate && <span className="text-[10px] text-gray-500">{formattedDate}</span>}
-                            {lotCount > 0 && (
-                              <span className="w-5 h-5 rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] font-bold text-white tabular-nums">
-                                {lotCount}
-                              </span>
-                            )}
-                          </div>
+                      <div key={group.status}>
+                        {/* Group header */}
+                        <div className={`flex items-center gap-2 pt-${gi === 0 ? '1' : '3'} pb-1`}>
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${meta.dot}`} />
+                          <span className={`text-[10px] font-bold uppercase tracking-wider ${meta.header}`}>{meta.label}</span>
+                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-800 text-gray-400 tabular-nums">{group.orders.length}</span>
                         </div>
+                        {/* Orders in this group */}
+                        <div className="divide-y divide-gray-800/60 rounded-md overflow-hidden">
+                          {group.orders.map((order) => {
+                            const isSelected = selectedOrders.has(order.id);
+                            const lotCount = data?.items.filter(i => i.orderId === order.id).length ?? 0;
+                            const tier = shippingTier(order.requestedShippingService);
+                            const formattedDate = order.orderDate
+                              ? new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                              : null;
+                            const fullName: string = (order.shipTo as any)?.name || order.customerUsername || '';
+                            const lastName = fullName.trim().split(' ').pop() || '';
+                            const isPickComplete = !!picklistOrderStatus[order.id];
+                            const country: string = ((order.shipTo as any)?.country || '').toUpperCase();
+                            const isInternational = country && country !== 'US';
+                            const flag = countryFlag(country);
+                            const wfStatus: WorkflowStatus = (order.workflowStatus as WorkflowStatus) || 'new';
+                            const wfMeta = WORKFLOW_META[wfStatus];
+                            return (
+                              <div key={order.id}>
+                                <div
+                                  onClick={() => handleOrderToggle(order.id)}
+                                  className={`flex items-center gap-3 py-3 cursor-pointer transition-colors ${isSelected ? 'opacity-100' : 'opacity-90'}`}
+                                  data-testid={`order-${order.orderNumber}`}
+                                >
+                                  {/* Selection indicator */}
+                                  <div className={`shrink-0 w-2 h-2 rounded-full ${isSelected ? 'bg-purple-400' : 'bg-gray-700'}`} />
 
-                        {/* Inline customer note — expands below tile on tap */}
-                        {order.customerNotes && commentOrderId === order.id && (
-                          <div className="ml-5 mb-2 px-2.5 py-2 rounded border border-amber-500/25 bg-amber-500/5 text-[11px] text-amber-200/90 leading-relaxed">
-                            {order.customerNotes}
-                          </div>
-                        )}
+                                  {/* Order info */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      {isInternational && (
+                                        <Globe className="w-3 h-3 text-sky-400 shrink-0" data-testid={`icon-international-${order.id}`} />
+                                      )}
+                                      {flag && (
+                                        <span className="text-sm leading-none shrink-0" data-testid={`flag-${order.id}`}>{flag}</span>
+                                      )}
+                                      <span className={`font-mono text-xs font-semibold ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}>
+                                        {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
+                                      </span>
+                                      {tier === 'express' && (
+                                        <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-blue-900/50 text-blue-300 border border-blue-700/40 shrink-0" data-testid={`badge-express-${order.id}`}>EXPRESS</span>
+                                      )}
+                                      {tier === 'priority' && (
+                                        <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-red-900/50 text-red-300 border border-red-700/40 shrink-0" data-testid={`badge-priority-${order.id}`}>PRIORITY</span>
+                                      )}
+                                      {isPickComplete && <CheckCircle2 className="w-3 h-3 text-green-400 fill-green-400 shrink-0" />}
+                                      {isSelected && (
+                                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded leading-none bg-purple-900/50 text-purple-400">Selected</span>
+                                      )}
+                                    </div>
+                                    {(lastName || order.marketplace) && (
+                                      <p className="text-[11px] text-gray-500 truncate leading-tight mt-0.5">{lastName || order.marketplace}</p>
+                                    )}
+                                  </div>
+
+                                  {/* Right side: comment + date + lot count + workflow status badge */}
+                                  <div className="shrink-0 flex items-center gap-2">
+                                    {order.customerNotes && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); setCommentOrderId(commentOrderId === order.id ? null : order.id); }}
+                                        className={`rounded transition-colors ${commentOrderId === order.id ? 'text-amber-400' : 'text-amber-500/60 hover:text-amber-400'}`}
+                                        data-testid={`button-customer-note-${order.id}`}
+                                        title="Customer note"
+                                      >
+                                        <MessageCircle className="w-3.5 h-3.5 fill-current" />
+                                      </button>
+                                    )}
+                                    {formattedDate && <span className="text-[10px] text-gray-500">{formattedDate}</span>}
+                                    {lotCount > 0 && (
+                                      <span className="w-5 h-5 rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] font-bold text-white tabular-nums">
+                                        {lotCount}
+                                      </span>
+                                    )}
+                                    {/* Workflow status badge — tap to open picker */}
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setStatusPickerOrderId(statusPickerOrderId === order.id ? null : order.id); }}
+                                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded border leading-none transition-opacity ${wfMeta.badge}`}
+                                      data-testid={`button-workflow-status-${order.id}`}
+                                      title="Change workflow status"
+                                    >
+                                      {wfMeta.label}
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Inline customer note */}
+                                {order.customerNotes && commentOrderId === order.id && (
+                                  <div className="ml-5 mb-2 px-2.5 py-2 rounded border border-amber-500/25 bg-amber-500/5 text-[11px] text-amber-200/90 leading-relaxed">
+                                    {order.customerNotes}
+                                  </div>
+                                )}
+
+                                {/* Inline workflow status picker */}
+                                {statusPickerOrderId === order.id && (
+                                  <div className="ml-5 mb-2 flex flex-wrap gap-1.5" data-testid={`workflow-picker-${order.id}`}>
+                                    {WORKFLOW_STATUSES.map(s => {
+                                      const sm = WORKFLOW_META[s];
+                                      const isActive = wfStatus === s;
+                                      return (
+                                        <button
+                                          key={s}
+                                          onClick={() => {
+                                            updateWorkflowStatus.mutate({ orderId: order.id, status: s });
+                                            setStatusPickerOrderId(null);
+                                          }}
+                                          disabled={isActive || updateWorkflowStatus.isPending}
+                                          className={`text-[9px] font-bold px-2 py-1 rounded border leading-none transition-opacity ${sm.badge} ${isActive ? 'opacity-100 ring-1 ring-offset-1 ring-offset-gray-900 ring-current' : 'opacity-60 hover:opacity-100'}`}
+                                          data-testid={`workflow-option-${order.id}-${s}`}
+                                        >
+                                          {sm.label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     );
                   })}

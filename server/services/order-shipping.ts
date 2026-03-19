@@ -395,12 +395,13 @@ export async function purchaseLabel(
     })
     .returning();
 
-  // Update order status to shipped
+  // Update order status to shipped and auto-advance internal workflow to done
   const [updatedOrder] = await db
     .update(orders)
     .set({
       previousStatus: (await db.select().from(orders).where(eq(orders.id, orderId)).limit(1))[0]?.orderStatus,
       orderStatus: 'shipped',
+      workflowStatus: 'done',
       shipDate: new Date(),
       carrierCode: label.carrier,
       serviceCode: label.service,

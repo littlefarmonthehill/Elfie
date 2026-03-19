@@ -307,6 +307,7 @@ export const orders = pgTable("orders", {
   orgId: varchar("org_id"),                            // FK → organizations.id
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  workflowStatus: text("workflow_status").default('new').notNull(),
 }, (table) => ({
   orgIdIdx: index("orders_org_id_idx").on(table.orgId),
   orgIdDateIdx: index("orders_org_id_date_idx").on(table.orgId, table.orderDate),
