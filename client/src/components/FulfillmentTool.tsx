@@ -348,8 +348,16 @@ export default function FulfillmentTool() {
     );
   }
 
-  // Sort orders by date (oldest first)
+  // Sort orders: express (blue) → priority (red) → others, then oldest first within each tier
+  const tierRank = (o: Order) => {
+    const t = shippingTier(o.requestedShippingService);
+    if (t === 'express') return 0;
+    if (t === 'priority') return 1;
+    return 2;
+  };
   const sortedOrders = [...(data?.orders || [])].sort((a, b) => {
+    const rankDiff = tierRank(a) - tierRank(b);
+    if (rankDiff !== 0) return rankDiff;
     const dateA = a.orderDate ? new Date(a.orderDate).getTime() : 0;
     const dateB = b.orderDate ? new Date(b.orderDate).getTime() : 0;
     return dateA - dateB;

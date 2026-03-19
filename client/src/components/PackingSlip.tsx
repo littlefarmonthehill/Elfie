@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { cleanItemName } from "@/lib/item-utils";
+import { cleanItemName, shippingTier } from "@/lib/item-utils";
 
 // ─── Org branding config ──────────────────────────────────────────────────────
 export interface OrgBranding {
@@ -522,7 +522,14 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     const boxY    = headerTopY + 1;                // top-aligned in header
     const stampY  = boxY + sPad + STAMP_CAP;       // text baseline inside box
 
-    doc.setFillColor(248, 248, 248);
+    const stampTier = shippingTier(order.requestedService);
+    if (stampTier === 'express') {
+      doc.setFillColor(144, 202, 249); // Material Blue-200 — noticeable, black text reads fine
+    } else if (stampTier === 'priority') {
+      doc.setFillColor(239, 154, 154); // Material Red-200 — noticeable, black text reads fine
+    } else {
+      doc.setFillColor(248, 248, 248);
+    }
     doc.setDrawColor(35, 35, 35);
     doc.setLineWidth(1.4);
     doc.roundedRect(boxX, boxY, boxW, boxH, 2, 2, 'FD');
@@ -593,7 +600,16 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
       return (cut > 0 ? order.requestedService.slice(0, cut) : order.requestedService).trim();
     })();
     if (serviceDisplay) {
+      if (stampTier) {
+        // Yellow highlight band behind the service text
+        const svcW = doc.getTextWidth(serviceDisplay);
+        doc.setFillColor(255, 235, 59); // amber-yellow
+        doc.setDrawColor(255, 235, 59);
+        doc.rect(metaX - svcW - 1.5, infoTopY + 17 - 3.2, svcW + 3, 4.6, 'F');
+        doc.setTextColor(0, 0, 0);
+      }
       doc.text(serviceDisplay, metaX, infoTopY + 17, { align: 'right' });
+      doc.setDrawColor(170, 170, 170); // restore draw color for subsequent lines
     }
 
     y = Math.max(shipAddrY, infoTopY + (serviceDisplay ? 24 : 18)) + 3;
