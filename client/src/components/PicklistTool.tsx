@@ -601,11 +601,10 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                                   {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
                                 </span>
                               )}
+                              <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(item.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}</span>
                               {item.inventoryQty != null && (
                                 <span className="text-gray-500">Stock: {item.inventoryQty}</span>
                               )}
-                              <span className="text-gray-600">·</span>
-                              <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(item.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}</span>
                             </div>
                             {item.comment && (
                               <div className="mt-0.5">
@@ -696,9 +695,8 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                               {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
                             </span>
                           )}
-                          {item.inventoryQty != null && <span>Stock: {item.inventoryQty}</span>}
-                          <span className="text-gray-600">·</span>
                           <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(item.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}</span>
+                          {item.inventoryQty != null && <span>Stock: {item.inventoryQty}</span>}
                         </div>
                         {item.comment && (
                           <div className="mt-0.5">
