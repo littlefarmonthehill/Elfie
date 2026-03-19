@@ -241,7 +241,7 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
   const IMG_W      = 13.5;  // image cell width mm  (18 × 0.75)
   const IMG_H      = 13.5;  // image cell height mm (18 × 0.75)
   const IMG_GAP    = 3;     // gap between image and text block mm
-  const BASE_ROW_H = 30;    // minimum row height mm — no-comment rows stay consistent
+  const BASE_ROW_H = 17;    // minimum row height mm — snug around IMG_H=13.5
   const CMT_LINE_H = 4.5;   // mm per additional wrapped color+comment line
   const PANEL_H    = PAGE_H / 2;
   const PANEL_PAD  = 1;     // breathing room at panel top and bottom mm
@@ -326,8 +326,8 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
     }
 
     // ── Baselines ─────────────────────────────────────────────────────────────
-    const L1_Y = rowY + 6 + 5;   // part + name      (rowY + 11mm)
-    const L2_Y = L1_Y + 5.5;     // color + comment  (rowY + 16.5mm)
+    const L1_Y = rowY + 6;    // part + name      — near image top
+    const L2_Y = rowY + 11;   // color + comment  — near image centre
 
     // ── Shortcode column — left of image, large and bold ─────────────────────
     const sc = item.orderNumber ? shortCode(item.orderNumber) : '';
