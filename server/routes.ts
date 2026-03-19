@@ -3118,13 +3118,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── Billing routes ──────────────────────────────────────────────────────────
 
-  // GET /api/public/plans — unauthenticated endpoint for landing page
+  // GET /api/public/plans — unauthenticated endpoint for landing page (live plans only)
   app.get('/api/public/plans', async (_req, res) => {
     try {
       const livePlans = await db
         .select()
         .from(plans)
-        .where(inArray(plans.status, ['live', 'sunset']))
+        .where(eq(plans.status, 'live'))
         .orderBy(asc(plans.basePrice));
       res.json(livePlans);
     } catch (err: any) {
@@ -3155,7 +3155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // New path: plan selected by DB id (dynamic plans table)
       if (planId !== undefined) {
         const [dbPlan] = await db.select().from(plans).where(eq(plans.id, planId)).limit(1);
-        if (!dbPlan || !['live', 'sunset'].includes(dbPlan.status)) {
+        if (!dbPlan || dbPlan.status !== 'live') {
           return res.status(400).json({ message: "Invalid or unavailable plan" });
         }
 
