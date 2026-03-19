@@ -498,7 +498,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
         }
 
         return (
-          <div className="space-y-2" data-testid="picklist-by-part">
+          <div className="space-y-3" data-testid="picklist-by-part">
             {Array.from(partGroups.entries()).map(([key, variants]) => {
               const allPulled = variants.every(v => v.pulled);
               const somePulled = variants.some(v => v.pulled);
@@ -717,7 +717,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
         // ── depth 1: flat bin list ────────────────────────────────────────
         if (warehouseDepth === 1) {
           return (
-            <div className="space-y-2" data-testid="picklist-by-bin">
+            <div className="space-y-3" data-testid="picklist-by-bin">
               {filteredPicklistData.map(renderBin)}
             </div>
           );

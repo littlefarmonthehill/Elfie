@@ -17,6 +17,7 @@ type PackingSlipOrder = {
   shipDate: string | null;
   customerUsername: string | null;
   marketplace: string | null;
+  requestedService?: string | null;
   shipTo: {
     name?: string;
     company?: string;
@@ -74,7 +75,7 @@ function channelLabel(order: PackingSlipOrder): string {
  * BrickLink and BrickOwl orders with the same numeric suffix never collide.
  */
 export function shortCode(orderNumber: string): string {
-  const ALPHA = '23456789ABCDEFGHJKMNPQRSTVWXYZ'; // 30 unambiguous chars
+  const ALPHA = 'ABCDEFGHJKMPQRSTVWXYZ'; // 21 letters — no I, L, O, N, U
   const s = orderNumber.trim();
   // djb2 variant — simple, fast, good distribution for short strings
   let h = 5381;
@@ -241,10 +242,9 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
   const IMG_W      = 13.5;  // image cell width mm  (18 × 0.75)
   const IMG_H      = 13.5;  // image cell height mm (18 × 0.75)
   const IMG_GAP    = 3;     // gap between image and text block mm
-  const BASE_ROW_H = 22;    // row height mm — extra gap for paper-cutter clarity
+  const BASE_ROW_H = 22;    // row height mm
   const CMT_LINE_H = 4.5;   // mm per additional wrapped color+comment line
-  const PANEL_H    = PAGE_H / 2;
-  const PANEL_PAD  = 1;     // breathing room at panel top and bottom mm
+  const PAGE_PAD   = 6;     // breathing room at top/bottom of each page mm
   const IMG_X      = MX + SC_W + SC_GAP;               // image left edge
   const TEXT_X     = IMG_X + IMG_W + IMG_GAP;           // text block left edge
   const TEXT_W     = CONTENT_W - SC_W - SC_GAP - IMG_W - IMG_GAP;
@@ -259,38 +259,12 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
     )
   );
 
-  const panelTop    = (p: 0 | 1) => p * PANEL_H + PANEL_PAD;
-  const panelBottom = (p: 0 | 1) => (p + 1) * PANEL_H - PANEL_PAD;
-
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
-  let panel: 0 | 1 = 0;
-  let y = panelTop(0);
-  let cutLineDrawn = false;
+  let y = PAGE_PAD;
 
-  const drawCutLine = () => {
-    if (cutLineDrawn) return;
-    cutLineDrawn = true;
-    // Solid dark line — visible against white paper for a straight cut
-    doc.setDrawColor(80, 80, 80);
-    doc.setLineWidth(0.5);
-    doc.line(0, PANEL_H, PAGE_W, PANEL_H);
-    // Small "CUT" label centred on the line
-    doc.setFontSize(5.5);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(120, 120, 120);
-    doc.text('CUT', PAGE_W / 2, PANEL_H - 0.8, { align: 'center' });
-  };
-
-  const advancePanel = () => {
-    if (panel === 0) {
-      drawCutLine();
-      panel = 1;
-    } else {
-      doc.addPage();
-      panel = 0;
-      cutLineDrawn = false;
-    }
-    y = panelTop(panel);
+  const advancePage = () => {
+    doc.addPage();
+    y = PAGE_PAD;
   };
 
   // Compute each item's actual height.
@@ -314,7 +288,7 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
     const imgData = imageDataUrls[i];
     const itemH   = calcItemH(item);
 
-    if (y + itemH > panelBottom(panel)) advancePanel();
+    if (y + itemH > PAGE_H - PAGE_PAD) advancePage();
 
     const rowY = y;
 
@@ -420,9 +394,6 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
 
     y = rowY + itemH;
   }
-
-  // Ensure the cut line appears on the last physical page if panel 0 was used
-  if (panel === 0) drawCutLine();
 
   hiddenPrint(doc.output('blob'), 'picklist.pdf');
 }
@@ -537,14 +508,20 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     doc.setTextColor(85, 85, 85);
     doc.text(`${channelLabel(order)} Order #`, labelX, infoTopY + 5,  { align: 'right' });
     doc.text('Date',                           labelX, infoTopY + 11, { align: 'right' });
+    if (order.requestedService) {
+      doc.text('Ship Via', labelX, infoTopY + 17, { align: 'right' });
+    }
 
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(0, 0, 0);
     doc.text(order.orderNumber, metaX, infoTopY + 5,  { align: 'right' });
     const dateStr = order.orderDate ? new Date(order.orderDate).toLocaleDateString() : '';
     doc.text(dateStr, metaX, infoTopY + 11, { align: 'right' });
+    if (order.requestedService) {
+      doc.text(order.requestedService, metaX, infoTopY + 17, { align: 'right' });
+    }
 
-    y = Math.max(shipAddrY, infoTopY + 18) + 3;
+    y = Math.max(shipAddrY, infoTopY + (order.requestedService ? 24 : 18)) + 3;
 
     // ── Items table ──────────────────────────────────────────────────────────
     const rows = order.items.map(item => {

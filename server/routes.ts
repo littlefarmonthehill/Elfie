@@ -13790,6 +13790,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
           shipDate: order.shipDate,
           customerUsername: order.customerUsername,
           marketplace: order.marketplace,
+          requestedService: order.requestedShippingService || null,
           shipTo,
           items: orderItems,
         };

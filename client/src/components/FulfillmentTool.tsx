@@ -104,7 +104,7 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {Array.from(partGroups.entries()).map(([key, variants]) => {
         const allFulfilled = variants.every(v => fulfilledItems.has(v.picklistItemId));
         const someFulfilled = variants.some(v => fulfilledItems.has(v.picklistItemId));
@@ -191,8 +191,8 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
                           <span className="font-mono text-blue-400/70">Lot {item.inventoryId}</span>
                         )}
                       </div>
-                      {item.remarks && (
-                        <div className="text-gray-400 mt-0.5 italic">{item.remarks}</div>
+                      {item.comment && (
+                        <div className="text-gray-400 mt-0.5 italic">{item.comment}</div>
                       )}
                     </div>
                   </div>
@@ -402,7 +402,7 @@ export default function FulfillmentTool() {
           const pk = (a.partNumber || a.sku || '').localeCompare(b.partNumber || b.sku || '', undefined, { numeric: true });
           return pk !== 0 ? pk : (a.colorName || '').localeCompare(b.colorName || '');
         });
-      printPicklist(items.map(item => ({ ...item, comment: item.remarks })));
+      printPicklist(items.map(item => ({ ...item, comment: item.comment })));
     } catch (error) {
       console.error('Error fetching picklist data:', error);
       toast({ title: "Error", description: "Failed to generate picklist. Please try again.", variant: "destructive" });
