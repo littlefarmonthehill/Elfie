@@ -6,7 +6,7 @@ interface ToolDrawerProps {
   icon: LucideIcon;
   iconColor: string;
   title: string;
-  onClose: () => void;
+  onClose?: () => void;
   actions?: React.ReactNode;
   subHeader?: React.ReactNode;
   children: React.ReactNode;
@@ -24,9 +24,11 @@ export function ToolDrawer({ icon: Icon, iconColor, title, onClose, actions, sub
         </div>
         <div className="flex items-center gap-1">
           {actions}
-          <Button size="icon" variant="ghost" onClick={onClose} data-testid={closeTestId}>
-            <X className="w-4 h-4" />
-          </Button>
+          {onClose && (
+            <Button size="icon" variant="ghost" onClick={onClose} data-testid={closeTestId}>
+              <X className="w-4 h-4" />
+            </Button>
+          )}
         </div>
       </div>
       {subHeader}

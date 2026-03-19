@@ -50,9 +50,13 @@ export default function Home() {
     onError: () => toast({ title: 'Failed to exit impersonation', variant: 'destructive' }),
   });
   const { data: org } = useQuery<Organization>({ queryKey: ['/api/org'] });
-  const { data: billingStatus } = useQuery<{ plan: string; status: string; trialEndsAt?: string | null; planStatus?: string | null; planSunsetAt?: string | null }>({
+  const { data: billingStatus } = useQuery<{
+    plan: string; status: string; trialEndsAt?: string | null; planStatus?: string | null; planSunsetAt?: string | null;
+    brickspotter?: { brickspotterOnly?: boolean; scansUsed?: number; scansLimit?: number; apiCallLimit?: number };
+  }>({
     queryKey: ['/api/billing/status'],
   });
+  const isBrickspotterOnly = !!billingStatus?.brickspotter?.brickspotterOnly;
   const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024);
   const [activeDashboard, setActiveDashboard] = useState<DashboardType>(() =>
     typeof window !== 'undefined' && window.innerWidth >= 1024 ? 'inventory' : 'dashboard'
@@ -118,6 +122,13 @@ export default function Home() {
   const brickLinkIframeRef = useRef<HTMLIFrameElement>(null);
   const [brickLinkLoading, setBrickLinkLoading] = useState(false);
 
+  // BrickSpotter-only: lock view to BrickSpotter as soon as billing status confirms it
+  useEffect(() => {
+    if (isBrickspotterOnly) {
+      setActiveDashboard('inventory');
+      setActiveInventoryDrawer('brickanalyzer');
+    }
+  }, [isBrickspotterOnly]);
 
   // Fetch picklist stats for indicator
   const { data: picklistStats } = useQuery<{ toPull: number }>({
@@ -428,7 +439,7 @@ export default function Home() {
     }
     if (activeInventoryDrawer === 'brickanalyzer') {
       return (
-        <ToolDrawer icon={ScanSearch} iconColor="text-lego-yellow" title="Brick Spotter 3000" onClose={closeActiveDrawer}>
+        <ToolDrawer icon={ScanSearch} iconColor="text-lego-yellow" title="Brick Spotter 3000" onClose={isBrickspotterOnly ? undefined : closeActiveDrawer}>
           <BrickanalyzerTool onItemClick={(type, id, tab) => handleDashboardItemClick(type, id, tab)} />
         </ToolDrawer>
       );
@@ -950,7 +961,7 @@ export default function Home() {
       <div className="flex-1 overflow-hidden bg-[#04080F]">
         {/* MOBILE layout (< lg): single column, same as before */}
         <div className="lg:hidden h-full overflow-y-auto">
-          <div className={cn("h-full p-2 md:p-4 transition-[padding] duration-300", !navHidden && "pb-20 md:pb-24")}>
+          <div className={cn("h-full p-2 md:p-4 transition-[padding] duration-300", !navHidden && !isBrickspotterOnly && "pb-20 md:pb-24")}>
             <div className={`h-full rounded-lg border overflow-hidden ${
               activeDashboard === 'dashboard' ? 'border-lego-red/30 bg-gradient-to-br from-lego-red/15 via-gray-950/80 to-lego-red/5' :
               activeDashboard === 'inventory' ? 'border-lego-blue/30 bg-gradient-to-br from-lego-blue/15 via-gray-950/80 to-lego-blue/5' :
@@ -1097,7 +1108,7 @@ export default function Home() {
         </SheetContent>
       </Sheet>
       
-      {!user?.isAdmin && user?.orgRole === 'owner' && org && !org.onboardingCompleted && !wizardDismissed && (
+      {!user?.isAdmin && !isBrickspotterOnly && user?.orgRole === 'owner' && org && !org.onboardingCompleted && !wizardDismissed && (
         <OnboardingWizard
           org={org}
           onComplete={() => queryClient.invalidateQueries({ queryKey: ['/api/org'] })}
@@ -1242,15 +1253,17 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      {/* Bottom Nav — mobile/tablet only */}
-      <div className="lg:hidden">
-        <DashboardNav
-          active={activeDashboard}
-          onSelect={(d) => { closeActiveDrawer(); setActiveDashboard(d); }}
-          hideOpsCentral={isDesktop}
-          onHiddenChange={setNavHidden}
-        />
-      </div>
+      {/* Bottom Nav — mobile/tablet only; hidden for BrickSpotter-only plans */}
+      {!isBrickspotterOnly && (
+        <div className="lg:hidden">
+          <DashboardNav
+            active={activeDashboard}
+            onSelect={(d) => { closeActiveDrawer(); setActiveDashboard(d); }}
+            hideOpsCentral={isDesktop}
+            onHiddenChange={setNavHidden}
+          />
+        </div>
+      )}
     </div>
   );
 }
