@@ -453,7 +453,7 @@ export default function Home() {
             <SlidersHorizontal className="w-3.5 h-3.5" /> Settings
           </Button>
         }>
-          <FulfillmentTool />
+          <FulfillmentTool onOrderDetail={handleOrderSelect} />
         </ToolDrawer>
       );
     }
@@ -1236,7 +1236,7 @@ export default function Home() {
               {activeInventoryDrawer === 'priceomatic' && <PriceOMaticDashboard onItemClick={(type, id) => handleDashboardItemClick(type, id, 'pricing')} onOpenSettings={(section, pricingExample, scoringExample) => { setSettingsInitialSection(section as any); setSettingsPricingExample(pricingExample); setSettingsScoringExample(scoringExample); setSettingsOpen(true); }} />}
               {activeInventoryDrawer === 'platformsync' && <ListomaticPriority />}
               {activeInventoryDrawer === 'brickanalyzer' && <BrickanalyzerTool onItemClick={(type, id, tab) => handleDashboardItemClick(type, id, tab)} />}
-              {activeOrdersDrawer === 'fulfillment' && <FulfillmentTool />}
+              {activeOrdersDrawer === 'fulfillment' && <FulfillmentTool onOrderDetail={handleOrderSelect} />}
               {activeOrdersDrawer === 'shipped' && <ShippedOrdersTool onItemClick={(type, id) => { closeActiveDrawer(); handleDashboardItemClick(type, id); }} />}
               {activeMarketingDrawer && <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} renderDrawerOnly />}
               {activeSalesDrawer && <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeSalesDrawer} onDrawerChange={setActiveSalesDrawer} renderDrawerOnly />}

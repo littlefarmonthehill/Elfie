@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe, ChevronRight } from "lucide-react";
 import { printPackingSlips, printPicklist, buildShortCodeMap } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, shippingTier, toggleSetItem } from "@/lib/item-utils";
@@ -230,7 +230,7 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
   );
 }
 
-export default function FulfillmentTool() {
+export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (orderId: string) => void } = {}) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'picklist' | 'shipping'>('picklist');
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -896,6 +896,16 @@ export default function FulfillmentTool() {
                                     >
                                       {wfMeta.label}
                                     </button>
+                                    {onOrderDetail && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); onOrderDetail(String(order.id)); }}
+                                        className="text-gray-600 hover:text-gray-400 transition-colors shrink-0"
+                                        data-testid={`button-order-detail-${order.id}`}
+                                        title="View order detail"
+                                      >
+                                        <ChevronRight className="w-4 h-4" />
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
 
