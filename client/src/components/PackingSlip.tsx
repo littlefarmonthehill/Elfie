@@ -405,7 +405,7 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
       const sep = prominentParts ? '  \u00b7  ' : '';
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(150, 150, 150);
+      doc.setTextColor(40, 40, 40);
       doc.text(sep + orderRef + lotsLabel, L2_cursor, L2_Y);
     }
 
