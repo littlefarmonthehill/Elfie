@@ -273,11 +273,14 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
   // Color+condition and comment are combined on line 2 and may wrap.
   // Extra wrapped lines beyond the first add CMT_LINE_H each.
   const calcItemH = (item: PicklistItem): number => {
+    const rawOrder = (item.orderNumber || '').replace(/^(BL|BO)/i, '').trim();
+    const orderRef = rawOrder ? `${chanPrefix(item).toLowerCase()}.${rawOrder}` : '';
     const cc = [
       item.colorName,
       item.condition ? condLabel(item.condition) : null,
     ].filter(Boolean).join('  \u00b7  ');
-    const combined = [cc, item.comment].filter(Boolean).join('  ');
+    const metaParts = [`\u00d7${item.quantity}`, cc || null, orderRef || null].filter(Boolean).join('  \u00b7  ');
+    const combined = [metaParts, item.comment].filter(Boolean).join('  ');
     if (!combined) return BASE_ROW_H;
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
@@ -333,13 +336,8 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
       doc.roundedRect(IMG_X, imgY, IMG_W, IMG_H, 1, 1, 'FD');
     }
 
-    // ── Line 1: [bold]PartNo[/bold] [normal]Name…[/normal]  |  ×Qty ─────────
+    // ── Line 1: [bold]PartNo[/bold] [normal]Name…[/normal] ──────────────────
     const partStr = partKey(item);
-    const qtyStr  = `\u00d7${item.quantity}`;
-
-    doc.setFontSize(15);
-    doc.setFont('helvetica', 'bold');
-    const qtyW = doc.getTextWidth(qtyStr);
 
     doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
@@ -351,7 +349,7 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
       ? cleanItemName(item.itemName, item.partNumber || '')
       : '';
     if (rawName) {
-      const maxNameW = TEXT_W - partStrW - 3 - qtyW - 2;
+      const maxNameW = TEXT_W - partStrW - 3;
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(90, 90, 90);
@@ -362,18 +360,21 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
       doc.text('\u00a0\u00a0' + name, TEXT_X + partStrW, L1_Y);
     }
 
-    doc.setFontSize(15);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(15, 15, 15);
-    doc.text(qtyStr, RIGHT_X, L1_Y, { align: 'right' });
-
-    // ── Line 2: Color · Condition + Comment (wrapping)  |  bl.12345 (right) ──
+    // ── Line 2: Qty · Color · Condition · OrderRef + Comment (wrapping) ──────
+    const rawOrder = (item.orderNumber || '').replace(/^(BL|BO)/i, '').trim();
+    const orderRef = rawOrder ? `${chanPrefix(item).toLowerCase()}.${rawOrder}` : '';
     const colorCond = [
       item.colorName,
       item.condition ? condLabel(item.condition) : null,
     ].filter(Boolean).join('  \u00b7  ');
 
-    const combined = [colorCond, item.comment].filter(Boolean).join('  ');
+    const metaParts = [
+      `\u00d7${item.quantity}`,
+      colorCond || null,
+      orderRef || null,
+    ].filter(Boolean).join('  \u00b7  ');
+
+    const combined = [metaParts, item.comment].filter(Boolean).join('  ');
     if (combined) {
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
@@ -382,16 +383,6 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
       lines.forEach((line, idx) => {
         doc.text(line, TEXT_X, L2_Y + idx * CMT_LINE_H);
       });
-    }
-
-    // Order ref — right-aligned at L2_Y baseline
-    const rawOrder = (item.orderNumber || '').replace(/^(BL|BO)/i, '').trim();
-    const orderRef = rawOrder ? `${chanPrefix(item).toLowerCase()}.${rawOrder}` : '';
-    if (orderRef) {
-      doc.setFontSize(7.5);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(130, 130, 130);
-      doc.text(orderRef, RIGHT_X, L2_Y, { align: 'right' });
     }
 
     y = rowY + itemH;

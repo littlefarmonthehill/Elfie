@@ -69,6 +69,8 @@ const _doExit = (code: number) => {
 
 process.on('SIGTERM', () => {
   console.log('[SIGNAL] Received SIGTERM — stopping active syncs and flushing records...');
+  // Release the port immediately so a new process can bind it while cleanup runs.
+  if (httpServer?.listening) httpServer.close();
   const cleanup = async () => {
     try {
       const { requestPomShutdown } = await import('./services/bricklink');
