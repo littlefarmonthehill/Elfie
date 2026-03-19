@@ -842,10 +842,6 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                   {/* Line 1: globe (intl) · shortcode · flag · order# · lots · shipping tier | workflow status */}
                                   <div className="flex items-center gap-2 pl-2 pr-2">
                                     <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                      {/* International globe (non-US only) — first position */}
-                                      {country && country !== 'US' && (
-                                        <Globe className="w-3 h-3 text-sky-400 shrink-0" data-testid={`icon-international-${order.id}`} />
-                                      )}
                                       {/* 2-char shortcode */}
                                       <span className="text-[10px] font-bold text-amber-400 font-mono shrink-0 tabular-nums" data-testid={`shortcode-${order.id}`}>
                                         {orderShortCodeMap.get(order.orderNumber) ?? ''}
@@ -883,10 +879,13 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                     </button>
                                   </div>
 
-                                  {/* Line 2: pick-complete · date · view order | comment */}
+                                  {/* Line 2: pick-complete · globe (intl) · date · view order | comment */}
                                   <div className="flex items-center justify-between pl-2 pr-2 mt-0.5">
                                     <div className="flex items-center gap-1.5">
                                       {isPickComplete && <CheckCircle2 className="w-3 h-3 text-green-400 fill-green-400 shrink-0" />}
+                                      {country && country !== 'US' && (
+                                        <Globe className="w-3 h-3 text-sky-400 shrink-0" data-testid={`icon-international-${order.id}`} />
+                                      )}
                                       {formattedDate && <span className="text-[10px] text-gray-500">{formattedDate}</span>}
                                       {onOrderDetail && (
                                         <button
