@@ -190,7 +190,7 @@ export async function getOrFetchImage(
   const cdnUrl = canonicalBricklinkImageUrl(itemType, itemNo, colorId);
   if (!cdnUrl) return null;
 
-  const rawBuffer = await fetchImageFromUrl(cdnUrl);
+  const rawBuffer = await fetchImageFromUrl(cdnUrl, true);
   if (!rawBuffer) {
     // Record the 404 so the harvester doesn't waste time re-trying this item
     markFetchFailedInDb(itemType, itemNo, colorId).catch(() => {});

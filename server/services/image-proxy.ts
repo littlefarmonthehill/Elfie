@@ -21,7 +21,7 @@ const WHITE_THRESHOLD = 240; // Pixels above this value are considered white
 const FETCH_TIMEOUT_MS = 10000; // 10 second timeout
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB maximum
 
-export async function fetchImageFromUrl(url: string): Promise<Buffer | null> {
+export async function fetchImageFromUrl(url: string, silent = false): Promise<Buffer | null> {
   return new Promise((resolve) => {
     const protocol = url.startsWith('https') ? https : http;
     let redirectCount = 0;
@@ -32,7 +32,7 @@ export async function fetchImageFromUrl(url: string): Promise<Buffer | null> {
         // Handle redirects
         if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
           if (redirectCount >= maxRedirects) {
-            console.error('[Image Proxy] Too many redirects');
+            if (!silent) console.error('[Image Proxy] Too many redirects');
             resolve(null);
             return;
           }
@@ -42,7 +42,7 @@ export async function fetchImageFromUrl(url: string): Promise<Buffer | null> {
         }
         
         if (response.statusCode !== 200) {
-          console.error(`[Image Proxy] Failed to fetch image: ${response.statusCode}`);
+          if (!silent) console.error(`[Image Proxy] Failed to fetch image: ${response.statusCode}`);
           resolve(null);
           return;
         }
@@ -53,7 +53,7 @@ export async function fetchImageFromUrl(url: string): Promise<Buffer | null> {
         response.on('data', (chunk) => {
           totalSize += chunk.length;
           if (totalSize > MAX_IMAGE_SIZE) {
-            console.error('[Image Proxy] Image too large, aborting');
+            if (!silent) console.error('[Image Proxy] Image too large, aborting');
             request.destroy();
             resolve(null);
             return;
@@ -63,19 +63,19 @@ export async function fetchImageFromUrl(url: string): Promise<Buffer | null> {
         
         response.on('end', () => resolve(Buffer.concat(chunks)));
         response.on('error', (error) => {
-          console.error('[Image Proxy] Error fetching image:', error);
+          if (!silent) console.error('[Image Proxy] Error fetching image:', error);
           resolve(null);
         });
       });
       
       request.on('timeout', () => {
-        console.error('[Image Proxy] Request timeout');
+        if (!silent) console.error('[Image Proxy] Request timeout');
         request.destroy();
         resolve(null);
       });
       
       request.on('error', (error) => {
-        console.error('[Image Proxy] Request error:', error);
+        if (!silent) console.error('[Image Proxy] Request error:', error);
         resolve(null);
       });
     };
