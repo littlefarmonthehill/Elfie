@@ -322,14 +322,8 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
       doc.roundedRect(IMG_X, imgY, IMG_W, IMG_H, 1, 1, 'FD');
     }
 
-    // ── Line 1: PartNo (bold) · Name (gray)  |  ×Qty (large bold, right) ──────
+    // ── Line 1: PartNo (bold) · Name (gray) — all left ──────────────────────
     const partStr = partKey(item);
-    const qtyStr  = `\u00d7${item.quantity}`;
-
-    // Measure qty width at its display size so name can avoid it
-    doc.setFontSize(17);
-    doc.setFont('helvetica', 'bold');
-    const qtyW = doc.getTextWidth(qtyStr);
 
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
@@ -341,7 +335,7 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
       ? cleanItemName(item.itemName, item.partNumber || '')
       : '';
     if (rawName) {
-      const maxNameW = TEXT_W - partStrW - 4 - qtyW - 2;
+      const maxNameW = TEXT_W - partStrW - 4;
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(100, 100, 100);
@@ -352,33 +346,32 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
       doc.text('\u00a0\u00a0' + name, TEXT_X + partStrW, L1_Y);
     }
 
-    // ×Qty — prominent, right-aligned, large bold
-    doc.setFontSize(17);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(15, 15, 15);
-    doc.text(qtyStr, RIGHT_X, L1_Y, { align: 'right' });
-
-    // ── Line 2: Color · Condition (bold, prominent)  |  bl.OrderRef (small, right) ──
+    // ── Line 2: ×Qty · Color · Condition (11pt bold) then · OrderRef (8pt gray) ──
+    // Key picker/customer info is prominent; order ref is subdued but left-aligned.
     const rawOrder = (item.orderNumber || '').replace(/^(BL|BO)/i, '').trim();
     const orderRef = rawOrder ? `${chanPrefix(item).toLowerCase()}.${rawOrder}` : '';
 
-    const colorCondParts = [
+    const prominentParts = [
+      `\u00d7${item.quantity}`,
       item.colorName,
       item.condition ? condLabel(item.condition) : null,
-    ].filter(Boolean);
+    ].filter(Boolean).join('  \u00b7  ');
 
-    if (colorCondParts.length > 0) {
+    let L2_cursor = TEXT_X;
+    if (prominentParts) {
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(30, 30, 30);
-      doc.text(colorCondParts.join('  \u00b7  '), TEXT_X, L2_Y);
+      doc.setTextColor(25, 25, 25);
+      doc.text(prominentParts, L2_cursor, L2_Y);
+      L2_cursor += doc.getTextWidth(prominentParts);
     }
 
     if (orderRef) {
-      doc.setFontSize(7.5);
+      const sep = prominentParts ? '  \u00b7  ' : '';
+      doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(150, 150, 150);
-      doc.text(orderRef, RIGHT_X, L2_Y, { align: 'right' });
+      doc.text(sep + orderRef, L2_cursor, L2_Y);
     }
 
     // ── Line 3+: Comment (italic, muted) — only if present ───────────────────
