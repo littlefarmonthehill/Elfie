@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle } from "lucide-react";
 import { printPackingSlips, printPicklist } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, shippingTier, toggleSetItem } from "@/lib/item-utils";
@@ -263,11 +263,25 @@ export default function FulfillmentTool() {
   const [selectedItemsForSplit, setSelectedItemsForSplit] = useState<Set<string>>(new Set());
   const [commentOrderId, setCommentOrderId] = useState<string | null>(null);
   const [statusPickerOrderId, setStatusPickerOrderId] = useState<string | null>(null);
+  const [activeWorkflowFilter, setActiveWorkflowFilter] = useState<WorkflowStatus | null>(null);
+  const [bulkStatusPickerOpen, setBulkStatusPickerOpen] = useState(false);
 
   const updateWorkflowStatus = useMutation({
     mutationFn: ({ orderId, status }: { orderId: string; status: WorkflowStatus }) =>
       apiRequest('PUT', `/api/fulfillment/order/${orderId}/workflow-status`, { status }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] }),
+  });
+
+  const updateWorkflowStatusBulk = useMutation({
+    mutationFn: async ({ orderIds, status }: { orderIds: string[]; status: WorkflowStatus }) => {
+      await Promise.all(orderIds.map(orderId =>
+        apiRequest('PUT', `/api/fulfillment/order/${orderId}/workflow-status`, { status })
+      ));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
+      setBulkStatusPickerOpen(false);
+    },
   });
   const [showSplitConfirmDialog, setShowSplitConfirmDialog] = useState(false);
   const [splitOrderNumber, setSplitOrderNumber] = useState<string>("");
@@ -397,8 +411,8 @@ export default function FulfillmentTool() {
   const sortedOrders = [...allOrders]
     .filter(o => (o.workflowStatus || 'new') !== 'done')
     .sort(sortWithinGroup);
-  // Grouped by workflow status — 'done' orders are hidden from the flyout
-  const groupedOrders = WORKFLOW_STATUSES
+  // All groups (excluding done) — used for filter pills
+  const allGroups = WORKFLOW_STATUSES
     .filter(status => status !== 'done')
     .map(status => ({
       status,
@@ -407,6 +421,22 @@ export default function FulfillmentTool() {
         .sort(sortWithinGroup),
     }))
     .filter(g => g.orders.length > 0);
+  // Filtered view — if a filter pill is active only show that group
+  const groupedOrders = activeWorkflowFilter
+    ? allGroups.filter(g => g.status === activeWorkflowFilter)
+    : allGroups;
+
+  // Per-group select/deselect-all handler
+  const handleGroupSelectAll = (groupOrders: Order[]) => {
+    const ids = groupOrders.map(o => o.id);
+    const allSelected = ids.every(id => selectedOrders.has(id));
+    setSelectedOrders(prev => {
+      const next = new Set(prev);
+      if (allSelected) ids.forEach(id => next.delete(id));
+      else ids.forEach(id => next.add(id));
+      return next;
+    });
+  };
 
   // Orders that are both selected AND fully ready to ship
   const shippableOrderIds = [...selectedOrders].filter(id => readyToShip.has(id));
@@ -661,29 +691,97 @@ export default function FulfillmentTool() {
             data-testid="panel-orders"
           >
             {/* Header */}
-            <div className="flex-shrink-0 flex items-center gap-2 px-4 py-3.5 border-b border-gray-800">
-              <Truck className="w-4 h-4 text-orange-400 flex-shrink-0" />
-              <span className="text-sm font-semibold text-gray-100 flex-1">Orders</span>
-              {sortedOrders.length > 0 && (
-                <span className="text-xs text-gray-500 tabular-nums">{selectedOrders.size} of {sortedOrders.length}</span>
-              )}
-              {sortedOrders.length > 0 && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSelectAll}
-                  data-testid="button-select-all"
+            <div className="flex-shrink-0 border-b border-gray-800">
+              <div className="flex items-center gap-2 px-4 py-3.5">
+                <Truck className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                <span className="text-sm font-semibold text-gray-100 flex-1">Orders</span>
+                {sortedOrders.length > 0 && (
+                  <span className="text-xs text-gray-500 tabular-nums">{selectedOrders.size} of {sortedOrders.length}</span>
+                )}
+                {sortedOrders.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSelectAll}
+                    data-testid="button-select-all"
+                  >
+                    {selectedOrders.size === sortedOrders.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                )}
+                <button
+                  onClick={() => setDrawerOpen(false)}
+                  className="ml-2 text-gray-500 hover:text-gray-200 transition-colors"
+                  data-testid="button-drawer-close"
                 >
-                  {selectedOrders.size === sortedOrders.length ? 'Deselect All' : 'Select All'}
-                </Button>
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Bulk status picker — shown when 2+ orders selected */}
+              {selectedOrders.size >= 2 && (
+                <div className="px-4 pb-2">
+                  {bulkStatusPickerOpen ? (
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mr-0.5">Set status:</span>
+                      {WORKFLOW_STATUSES.filter(s => s !== 'done').map(s => {
+                        const sm = WORKFLOW_META[s];
+                        return (
+                          <button
+                            key={s}
+                            onClick={() => updateWorkflowStatusBulk.mutate({ orderIds: [...selectedOrders], status: s })}
+                            disabled={updateWorkflowStatusBulk.isPending}
+                            className={`text-[9px] font-bold px-2 py-1 rounded border leading-none ${sm.badge}`}
+                            data-testid={`bulk-workflow-${s}`}
+                          >
+                            {sm.label}
+                          </button>
+                        );
+                      })}
+                      <button onClick={() => setBulkStatusPickerOpen(false)} className="text-[9px] text-gray-500 hover:text-gray-300 ml-1">Cancel</button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setBulkStatusPickerOpen(true)}
+                      className="text-[9px] font-bold px-2 py-1 rounded border border-gray-600 text-gray-400 hover:text-gray-200 hover:border-gray-400 leading-none"
+                      data-testid="button-bulk-status"
+                    >
+                      Set status for {selectedOrders.size} orders…
+                    </button>
+                  )}
+                </div>
               )}
-              <button
-                onClick={() => setDrawerOpen(false)}
-                className="ml-2 text-gray-500 hover:text-gray-200 transition-colors"
-                data-testid="button-drawer-close"
-              >
-                <X className="w-5 h-5" />
-              </button>
+
+              {/* Workflow filter pills */}
+              {allGroups.length > 1 && (
+                <div className="flex gap-1.5 px-4 pb-2.5 flex-wrap">
+                  <button
+                    onClick={() => setActiveWorkflowFilter(null)}
+                    className={`text-[9px] font-bold px-2 py-1 rounded border leading-none transition-opacity ${
+                      activeWorkflowFilter === null
+                        ? 'bg-gray-700 text-gray-100 border-gray-500'
+                        : 'bg-gray-800/40 text-gray-500 border-gray-700/40 opacity-70 hover:opacity-100'
+                    }`}
+                    data-testid="filter-workflow-all"
+                  >
+                    All
+                  </button>
+                  {allGroups.map(g => {
+                    const m = WORKFLOW_META[g.status];
+                    return (
+                      <button
+                        key={g.status}
+                        onClick={() => setActiveWorkflowFilter(activeWorkflowFilter === g.status ? null : g.status)}
+                        className={`text-[9px] font-bold px-2 py-1 rounded border leading-none transition-opacity ${m.badge} ${
+                          activeWorkflowFilter === g.status ? 'opacity-100' : 'opacity-50 hover:opacity-80'
+                        }`}
+                        data-testid={`filter-workflow-${g.status}`}
+                      >
+                        {m.label} · {g.orders.length}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Order list — scrollable, grouped by workflow status */}
@@ -706,6 +804,13 @@ export default function FulfillmentTool() {
                           <div className={`w-2 h-2 rounded-full shrink-0 ${meta.dot}`} />
                           <span className={`text-[10px] font-bold uppercase tracking-wider ${meta.header}`}>{meta.label}</span>
                           <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-800 text-gray-400 tabular-nums">{group.orders.length}</span>
+                          <button
+                            onClick={() => handleGroupSelectAll(group.orders)}
+                            className="ml-1 text-[9px] font-bold text-gray-500 hover:text-gray-300 leading-none"
+                            data-testid={`group-select-all-${group.status}`}
+                          >
+                            {group.orders.every(o => selectedOrders.has(o.id)) ? 'Deselect' : 'Select all'}
+                          </button>
                         </div>
                         {/* Orders in this group */}
                         <div className="divide-y divide-gray-800/60 rounded-md overflow-hidden">
@@ -716,11 +821,8 @@ export default function FulfillmentTool() {
                             const formattedDate = order.orderDate
                               ? new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                               : null;
-                            const fullName: string = (order.shipTo as any)?.name || order.customerUsername || '';
-                            const lastName = fullName.trim().split(' ').pop() || '';
                             const isPickComplete = !!picklistOrderStatus[order.id];
                             const country: string = ((order.shipTo as any)?.country || '').toUpperCase();
-                            const isInternational = country && country !== 'US';
                             const flag = countryFlag(country);
                             const wfStatus: WorkflowStatus = (order.workflowStatus as WorkflowStatus) || 'new';
                             const wfMeta = WORKFLOW_META[wfStatus];
@@ -737,15 +839,12 @@ export default function FulfillmentTool() {
                                   {/* Order info */}
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                      {isInternational && (
-                                        <Globe className="w-3 h-3 text-sky-400 shrink-0" data-testid={`icon-international-${order.id}`} />
-                                      )}
-                                      {flag && (
-                                        <span className="text-sm leading-none shrink-0" data-testid={`flag-${order.id}`}>{flag}</span>
-                                      )}
                                       <span className={`font-mono text-xs font-semibold ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}>
                                         {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
                                       </span>
+                                      {flag && (
+                                        <span className="text-sm leading-none shrink-0" data-testid={`flag-${order.id}`}>{flag}</span>
+                                      )}
                                       {tier === 'express' && (
                                         <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-blue-900/50 text-blue-300 border border-blue-700/40 shrink-0" data-testid={`badge-express-${order.id}`}>EXPRESS</span>
                                       )}
@@ -757,9 +856,6 @@ export default function FulfillmentTool() {
                                         <span className="text-[10px] font-medium px-1.5 py-0.5 rounded leading-none bg-purple-900/50 text-purple-400">Selected</span>
                                       )}
                                     </div>
-                                    {(lastName || order.marketplace) && (
-                                      <p className="text-[11px] text-gray-500 truncate leading-tight mt-0.5">{lastName || order.marketplace}</p>
-                                    )}
                                   </div>
 
                                   {/* Right side: comment + date + lot count + workflow status badge */}
