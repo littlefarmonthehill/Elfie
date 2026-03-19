@@ -1195,6 +1195,16 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-61 (plan_configs is_brickspotter_only column) complete.');
 
+    // ── Phase-62: Add BrickSpotter fields to plans table ────────────────────────
+    // Moving BS settings from plan_configs to plans so each billing plan owns its BS config.
+    await client.query(`
+      ALTER TABLE plans
+        ADD COLUMN IF NOT EXISTS is_brickspotter_only boolean NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS limit_brickspotter_scans integer NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS limit_brickspotter_api_calls integer NOT NULL DEFAULT 0
+    `);
+    console.log('[Migration] Phase-62 (BS fields on plans table) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

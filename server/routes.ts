@@ -1357,8 +1357,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if orgs are on this plan — if so, only status/name/sunsetAt/isDefault edits allowed
       const [orgCount] = await db.select({ count: sql<number>`COUNT(*)::int` }).from(organizations).where(eq(organizations.planId, id));
       const hasOrgs = Number(orgCount.count) > 0;
+      // BS fields are always editable regardless of lock status
+      const bsFields = {
+        ...(req.body.isBrickspotterOnly !== undefined && { isBrickspotterOnly: req.body.isBrickspotterOnly }),
+        ...(req.body.limitBrickspotterScans !== undefined && { limitBrickspotterScans: req.body.limitBrickspotterScans }),
+        ...(req.body.limitBrickspotterApiCalls !== undefined && { limitBrickspotterApiCalls: req.body.limitBrickspotterApiCalls }),
+      };
       const allowed = hasOrgs
-        ? { status: req.body.status, name: req.body.name, sunsetAt: req.body.sunsetAt, isDefault: req.body.isDefault }
+        ? { status: req.body.status, name: req.body.name, sunsetAt: req.body.sunsetAt, isDefault: req.body.isDefault, ...bsFields }
         : req.body;
       // Parse sunsetAt as a Date if provided
       if (allowed.sunsetAt !== undefined) {

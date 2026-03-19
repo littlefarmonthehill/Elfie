@@ -1,8 +1,8 @@
 import { db } from "../db";
-import { organizations, users, picklistItems } from "@shared/schema";
+import { organizations, users, picklistItems, plans } from "@shared/schema";
 import { eq, sql, count } from "drizzle-orm";
 import { checkLimit, type TierFeatures } from "@shared/tierConfig";
-import { getPlanConfigByKey, dbPlanToLimits, dbPlanToFeatures } from "./planConfigService";
+import { getPlanConfigByKey, dbPlanToFeatures } from "./planConfigService";
 
 export async function getOrgWithLimits(orgId: string) {
   const [org] = await db
@@ -13,29 +13,32 @@ export async function getOrgWithLimits(orgId: string) {
 
   if (!org) return null;
 
-  const planCfg = await getPlanConfigByKey(org.plan);
-  const baseLimits = planCfg ? dbPlanToLimits(planCfg) : {
-    seats: 1, brickspotterScansPerMonth: 0, brickspotterApiCallsPerDay: 0, automationRules: 0,
-    orderHistoryDays: 30, inventoryItems: 100,
-  };
+  // BS limits live on the billing plan (plans table, via org.planId)
+  let bsPlan: { limitBrickspotterScans: number; limitBrickspotterApiCalls: number; isBrickspotterOnly: boolean } | null = null;
+  if (org.planId) {
+    const [p] = await db.select({
+      limitBrickspotterScans: plans.limitBrickspotterScans,
+      limitBrickspotterApiCalls: plans.limitBrickspotterApiCalls,
+      isBrickspotterOnly: plans.isBrickspotterOnly,
+    }).from(plans).where(eq(plans.id, org.planId)).limit(1);
+    bsPlan = p ?? null;
+  }
 
   const limits = {
-    seats: org.seatLimitOverride ?? baseLimits.seats,
-    brickspotterScansPerMonth: org.brickspotterLimitOverride ?? baseLimits.brickspotterScansPerMonth,
-    brickspotterApiCallsPerDay: org.blApiCallLimitOverride ?? baseLimits.brickspotterApiCallsPerDay,
-    automationRules: org.automationLimitOverride ?? baseLimits.automationRules,
-    orderHistoryDays: baseLimits.orderHistoryDays,
-    inventoryItems: baseLimits.inventoryItems,
+    seats: org.seatLimitOverride ?? 1,
+    brickspotterScansPerMonth: org.brickspotterLimitOverride ?? (bsPlan?.limitBrickspotterScans ?? 0),
+    brickspotterApiCallsPerDay: org.blApiCallLimitOverride ?? (bsPlan?.limitBrickspotterApiCalls ?? 0),
+    automationRules: org.automationLimitOverride ?? 0,
   };
 
-  return { ...org, limits };
+  return { ...org, limits, isBrickspotterOnly: bsPlan?.isBrickspotterOnly ?? false };
 }
 
 export async function checkBrickspotterLimit(orgId: string) {
   const orgWithLimits = await getOrgWithLimits(orgId);
   if (!orgWithLimits) return { allowed: false, message: "Organization not found" };
 
-  const { brickspotterScansThisMonth, brickspotterScansResetDate, limits } = orgWithLimits;
+  const { brickspotterScansThisMonth, brickspotterScansResetDate, limits, isBrickspotterOnly } = orgWithLimits;
 
   const now = new Date();
   const resetDate = new Date(brickspotterScansResetDate);
@@ -49,9 +52,6 @@ export async function checkBrickspotterLimit(orgId: string) {
       .set({ brickspotterScansThisMonth: 0, brickspotterScansResetDate: now })
       .where(eq(organizations.id, orgId));
   }
-
-  const planCfg = await getPlanConfigByKey(orgWithLimits.plan);
-  const isBrickspotterOnly = planCfg?.isBrickspotterOnly ?? false;
 
   const result = checkLimit(currentScans, limits.brickspotterScansPerMonth, "BrickSpotter scans");
   return { ...result, scansUsed: currentScans, scansLimit: limits.brickspotterScansPerMonth, apiCallLimit: limits.brickspotterApiCallsPerDay, isBrickspotterOnly };

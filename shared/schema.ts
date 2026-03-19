@@ -1649,6 +1649,10 @@ export const plans = pgTable("plans", {
   isDefault: boolean("is_default").notNull().default(false),
   // Free trial before first charge — 0 means no trial; ignored for default/free plans
   trialDurationDays: integer("trial_duration_days").notNull().default(0),
+  // BrickSpotter settings — -1 = unlimited, 0 = not included, >0 = specific limit
+  isBrickspotterOnly: boolean("is_brickspotter_only").notNull().default(false),
+  limitBrickspotterScans: integer("limit_brickspotter_scans").notNull().default(0),
+  limitBrickspotterApiCalls: integer("limit_brickspotter_api_calls").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

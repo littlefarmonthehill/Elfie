@@ -1954,6 +1954,9 @@ function PlansAndPricingPanel() {
     sunsetAt: string | null;
     isDefault: boolean;
     trialDurationDays: number;
+    isBrickspotterOnly: boolean;
+    limitBrickspotterScans: number;
+    limitBrickspotterApiCalls: number;
     locked: boolean;
     orgCount: number;
   };
@@ -1964,7 +1967,7 @@ function PlansAndPricingPanel() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
-  const defaultForm = { name: '', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, status: 'in_progress', sunsetAt: null as string | null, isDefault: false, trialDurationDays: 0 };
+  const defaultForm = { name: '', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, status: 'in_progress', sunsetAt: null as string | null, isDefault: false, trialDurationDays: 0, isBrickspotterOnly: false, limitBrickspotterScans: 0, limitBrickspotterApiCalls: 0 };
   const [form, setForm] = useState<typeof defaultForm>(defaultForm);
 
   const fmtC = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -2008,6 +2011,9 @@ function PlansAndPricingPanel() {
       sunsetAt: plan.sunsetAt ? new Date(plan.sunsetAt).toISOString().split('T')[0] : null,
       isDefault: plan.isDefault,
       trialDurationDays: plan.trialDurationDays ?? 0,
+      isBrickspotterOnly: plan.isBrickspotterOnly ?? false,
+      limitBrickspotterScans: plan.limitBrickspotterScans ?? 0,
+      limitBrickspotterApiCalls: plan.limitBrickspotterApiCalls ?? 0,
     });
   };
 
@@ -2020,9 +2026,10 @@ function PlansAndPricingPanel() {
   const handleSave = () => {
     const editingPlanRef = (plans ?? []).find(p => p.id === editingId);
     const sunsetAtIso = form.sunsetAt ? new Date(form.sunsetAt).toISOString() : null;
+    const bsFields = { isBrickspotterOnly: form.isBrickspotterOnly, limitBrickspotterScans: form.limitBrickspotterScans, limitBrickspotterApiCalls: form.limitBrickspotterApiCalls };
     const payload = editingId
-      ? { id: editingId, data: { name: form.name, status: form.status, sunsetAt: sunsetAtIso, isDefault: form.isDefault, ...(!editingPlanRef?.locked ? { basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold, trialDurationDays: form.trialDurationDays } : {}) } }
-      : { data: { name: form.name, basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold, status: form.status, sunsetAt: sunsetAtIso, isDefault: form.isDefault, trialDurationDays: form.trialDurationDays } };
+      ? { id: editingId, data: { name: form.name, status: form.status, sunsetAt: sunsetAtIso, isDefault: form.isDefault, ...bsFields, ...(!editingPlanRef?.locked ? { basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold, trialDurationDays: form.trialDurationDays } : {}) } }
+      : { data: { name: form.name, basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold, status: form.status, sunsetAt: sunsetAtIso, isDefault: form.isDefault, trialDurationDays: form.trialDurationDays, ...bsFields } };
     saveMutation.mutate(payload);
   };
 
@@ -2097,6 +2104,16 @@ function PlansAndPricingPanel() {
                     {fmtC(plan.basePrice)}/mo base · {plan.salesPercentage}% of GMV over {fmtC(plan.freeSalesThreshold)} free threshold
                     {plan.trialDurationDays > 0 && (
                       <span className="ml-2 text-violet-400">· {plan.trialDurationDays}-day free trial</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {plan.isBrickspotterOnly && (
+                      <span className="text-[9px] bg-lego-yellow/20 text-lego-yellow border border-lego-yellow/30 rounded px-1 py-0.5">BS standalone</span>
+                    )}
+                    {(plan.limitBrickspotterScans !== 0 || plan.limitBrickspotterApiCalls !== 0) && (
+                      <span className="text-[9px] text-gray-500 font-mono">
+                        BS: {plan.limitBrickspotterScans === -1 ? '∞' : plan.limitBrickspotterScans} scans/mo · {plan.limitBrickspotterApiCalls === -1 ? '∞' : plan.limitBrickspotterApiCalls} api/day
+                      </span>
                     )}
                   </div>
                 </div>
@@ -2262,6 +2279,52 @@ function PlansAndPricingPanel() {
                   </div>
                 </>
               )}
+
+              {/* BrickSpotter — always editable even on locked plans */}
+              <div className="border-t border-gray-700/50 pt-3 space-y-2">
+                <p className="text-[10px] font-semibold text-gray-300">BrickSpotter 3000</p>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, isBrickspotterOnly: !f.isBrickspotterOnly }))}
+                    data-testid="toggle-plan-brickspotter-only"
+                    className={`flex items-center gap-2 w-full rounded border px-3 py-2 text-xs transition-colors ${form.isBrickspotterOnly ? 'border-lego-yellow/50 bg-lego-yellow/10 text-lego-yellow' : 'border-gray-700 bg-gray-900/40 text-gray-400'}`}
+                  >
+                    <span className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 transition-colors ${form.isBrickspotterOnly ? 'border-lego-yellow bg-lego-yellow' : 'border-gray-500'}`} />
+                    {form.isBrickspotterOnly ? 'BrickSpotter standalone plan' : 'Set as BrickSpotter standalone'}
+                  </button>
+                  <p className="text-[10px] text-gray-500 mt-0.5">Standalone plans show only the scanner — no store management UI.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block app-label mb-1">Scans / month</label>
+                    <input
+                      type="number"
+                      min={-1}
+                      step={1}
+                      value={form.limitBrickspotterScans}
+                      onChange={e => setForm(f => ({ ...f, limitBrickspotterScans: parseInt(e.target.value || '0', 10) }))}
+                      data-testid="input-plan-limitBrickspotterScans"
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className="block app-label mb-1">API calls / day</label>
+                    <input
+                      type="number"
+                      min={-1}
+                      step={1}
+                      value={form.limitBrickspotterApiCalls}
+                      onChange={e => setForm(f => ({ ...f, limitBrickspotterApiCalls: parseInt(e.target.value || '0', 10) }))}
+                      data-testid="input-plan-limitBrickspotterApiCalls"
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-500">
+                  <code className="text-violet-400">-1</code> = unlimited · <code className="text-violet-400">0</code> = BrickSpotter not included
+                </p>
+              </div>
             </div>
             <div className="flex items-center gap-2 pt-1">
               <Button
@@ -2289,8 +2352,6 @@ function PlansAndPricingPanel() {
         </div>
       )}
 
-      {/* Tier configurations — feature flags and limits per plan */}
-      <TierConfigsPanel />
 
       {/* Live billing snapshot */}
       <PricingLiveUsageCard />
@@ -2298,167 +2359,6 @@ function PlansAndPricingPanel() {
   );
 }
 
-function TierConfigsPanel() {
-  type TierConfig = {
-    id: number;
-    planKey: string;
-    name: string;
-    limitScans: number;
-    limitBrickspotterApiCalls: number;
-    isBrickspotterOnly: boolean;
-    isSunset: boolean;
-    orgCount: number;
-  };
-
-  type DraftMap = Record<string, { limitScans: number; limitBrickspotterApiCalls: number; dirty: boolean }>;
-
-  const queryClient = useQueryClient();
-  const { data: configs, isLoading } = useQuery<TierConfig[]>({ queryKey: ['/api/platform-admin/plan-configs'] });
-  const [drafts, setDrafts] = useState<DraftMap>({});
-
-  const inputCls = 'w-full bg-gray-900/60 border border-gray-700 rounded px-2 py-1 text-gray-200 outline-none focus:border-gray-500 text-xs tabular-nums';
-
-  const patchMutation = useMutation({
-    mutationFn: async ({ planKey, data }: { planKey: string; data: Record<string, unknown> }) =>
-      apiRequest('PATCH', `/api/platform-admin/plan-configs/${planKey}`, data),
-    onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/plan-configs'] });
-      setDrafts(d => { const next = { ...d }; delete next[vars.planKey]; return next; });
-    },
-  });
-
-  const toggleBrickspotterOnly = (cfg: TierConfig) =>
-    patchMutation.mutate({ planKey: cfg.planKey, data: { isBrickspotterOnly: !cfg.isBrickspotterOnly } });
-
-  const getDraft = (cfg: TierConfig) =>
-    drafts[cfg.planKey] ?? { limitScans: cfg.limitScans, limitBrickspotterApiCalls: cfg.limitBrickspotterApiCalls, dirty: false };
-
-  const setField = (planKey: string, cfg: TierConfig, field: 'limitScans' | 'limitBrickspotterApiCalls', val: number) =>
-    setDrafts(d => ({
-      ...d,
-      [planKey]: { ...getDraft(cfg), [field]: val, dirty: true },
-    }));
-
-  const saveDraft = (cfg: TierConfig) => {
-    const draft = getDraft(cfg);
-    patchMutation.mutate({ planKey: cfg.planKey, data: { limitScans: draft.limitScans, limitBrickspotterApiCalls: draft.limitBrickspotterApiCalls } });
-  };
-
-  const discardDraft = (planKey: string) =>
-    setDrafts(d => { const next = { ...d }; delete next[planKey]; return next; });
-
-  const fmtLimit = (n: number) => n === -1 ? 'unlimited' : n === 0 ? 'off' : n.toLocaleString();
-
-  if (isLoading) return <div className="px-3 pt-3 text-xs text-gray-500">Loading…</div>;
-
-  return (
-    <div className="sm-card" data-testid="tier-configs-panel">
-      <div className="sm-card-header">
-        <Layers className="h-3.5 w-3.5 text-violet-400/80" />
-        <span className="text-xs font-semibold text-gray-200">Plan Tier Configurations</span>
-      </div>
-      <p className="px-4 pt-2 pb-1 text-[11px] text-gray-500 leading-relaxed">
-        Set BrickSpotter limits and standalone mode for each plan tier.
-        <code className="text-violet-400 mx-1">-1</code>= unlimited,
-        <code className="text-violet-400 mx-1">0</code>= not included.
-        Limits on plans with active orgs are locked; the standalone toggle is always editable.
-      </p>
-      <div className="divide-y divide-gray-800">
-        {(configs ?? []).map(cfg => {
-          const locked = cfg.orgCount > 0;
-          const draft = getDraft(cfg);
-          const isSaving = patchMutation.isPending;
-          return (
-            <div key={cfg.planKey} className="px-4 py-3 space-y-2.5">
-              {/* Row header */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-semibold text-gray-200">{cfg.name}</span>
-                <code className="text-[10px] text-gray-500 font-mono bg-gray-800 px-1 rounded">{cfg.planKey}</code>
-                {locked && (
-                  <span className="text-[10px] text-amber-400/80 flex items-center gap-0.5">
-                    <Lock className="h-2.5 w-2.5" />{cfg.orgCount} org{cfg.orgCount !== 1 ? 's' : ''}
-                  </span>
-                )}
-                {cfg.isSunset && <span className="text-[10px] text-red-400/80">sunset</span>}
-              </div>
-
-              {/* BrickSpotter fields — always visible */}
-              <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
-                {/* Scans / month */}
-                <div>
-                  <label className="block text-[10px] text-gray-500 mb-0.5">Scans / month</label>
-                  {locked ? (
-                    <div className="text-xs text-gray-300 font-mono px-2 py-1 bg-gray-800/40 border border-gray-700/50 rounded">
-                      {fmtLimit(cfg.limitScans)}
-                    </div>
-                  ) : (
-                    <input
-                      type="number"
-                      className={inputCls}
-                      value={draft.limitScans}
-                      onChange={e => setField(cfg.planKey, cfg, 'limitScans', parseInt(e.target.value || '0', 10))}
-                      data-testid={`input-limit-scans-${cfg.planKey}`}
-                    />
-                  )}
-                </div>
-
-                {/* API calls / day */}
-                <div>
-                  <label className="block text-[10px] text-gray-500 mb-0.5">API calls / day</label>
-                  {locked ? (
-                    <div className="text-xs text-gray-300 font-mono px-2 py-1 bg-gray-800/40 border border-gray-700/50 rounded">
-                      {fmtLimit(cfg.limitBrickspotterApiCalls)}
-                    </div>
-                  ) : (
-                    <input
-                      type="number"
-                      className={inputCls}
-                      value={draft.limitBrickspotterApiCalls}
-                      onChange={e => setField(cfg.planKey, cfg, 'limitBrickspotterApiCalls', parseInt(e.target.value || '0', 10))}
-                      data-testid={`input-limit-api-calls-${cfg.planKey}`}
-                    />
-                  )}
-                </div>
-
-                {/* BS Standalone toggle */}
-                <div className="flex flex-col items-center gap-1 pb-0.5">
-                  <span className="text-[10px] text-gray-500 whitespace-nowrap">Standalone</span>
-                  <button
-                    type="button"
-                    data-testid={`toggle-brickspotter-only-${cfg.planKey}`}
-                    onClick={() => toggleBrickspotterOnly(cfg)}
-                    title="BrickSpotter standalone plan — no store management features"
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${cfg.isBrickspotterOnly ? 'bg-lego-yellow' : 'bg-gray-700'}`}
-                  >
-                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${cfg.isBrickspotterOnly ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Save / discard — only shown when unlocked and dirty */}
-              {!locked && draft.dirty && (
-                <div className="flex items-center gap-2 pt-0.5">
-                  <Button
-                    size="sm"
-                    className="h-6 px-3 text-[10px]"
-                    onClick={() => saveDraft(cfg)}
-                    disabled={isSaving}
-                    data-testid={`button-save-tier-config-${cfg.planKey}`}
-                  >
-                    {isSaving ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : 'Save'}
-                  </Button>
-                  <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => discardDraft(cfg.planKey)}>
-                    Discard
-                  </Button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 export default function SettingsModal({ open, onClose, initialSection, initialPlatformTab, pricingExample, scoringExample, isBrickspotterOnly = false }: SettingsModalProps) {
   const { toast } = useToast();
