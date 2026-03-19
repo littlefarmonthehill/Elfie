@@ -839,17 +839,17 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                   className={`flex flex-col py-2 cursor-pointer transition-colors border-l-[3px] ${isSelected ? 'border-l-purple-500 bg-purple-950/30' : 'border-l-transparent'}`}
                                   data-testid={`order-${order.orderNumber}`}
                                 >
-                                  {/* Line 1: shortcode · globe · flag · order# · lots · shipping tier | workflow status · chevron */}
+                                  {/* Line 1: globe (intl) · shortcode · flag · order# · lots · shipping tier | workflow status */}
                                   <div className="flex items-center gap-2 pl-2 pr-2">
                                     <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                      {/* International globe (non-US only) — first position */}
+                                      {country && country !== 'US' && (
+                                        <Globe className="w-3 h-3 text-sky-400 shrink-0" data-testid={`icon-international-${order.id}`} />
+                                      )}
                                       {/* 2-char shortcode */}
                                       <span className="text-[10px] font-bold text-amber-400 font-mono shrink-0 tabular-nums" data-testid={`shortcode-${order.id}`}>
                                         {orderShortCodeMap.get(order.orderNumber) ?? ''}
                                       </span>
-                                      {/* International globe (non-US only) */}
-                                      {country && country !== 'US' && (
-                                        <Globe className="w-3 h-3 text-sky-400 shrink-0" data-testid={`icon-international-${order.id}`} />
-                                      )}
                                       {/* Country flag */}
                                       {flag && (
                                         <span className="text-sm leading-none shrink-0" data-testid={`flag-${order.id}`}>{flag}</span>
