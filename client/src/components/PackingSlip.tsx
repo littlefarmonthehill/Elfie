@@ -474,16 +474,16 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     const STAMP_PT    = 42;
     const STAMP_CAP   = STAMP_PT * 0.352 * 0.70;   // cap-height in mm
     const stampCenterX = MX + CONTENT_W / 2;
-    const stampY      = headerTopY + headerH / 2 + STAMP_CAP / 2;
+    const sPad    = 4;                              // padding inside border
 
     doc.setFontSize(STAMP_PT);
     doc.setFont('helvetica', 'bold');
     const scTextW = doc.getTextWidth(sc);
-    const sPad    = 4;                              // padding inside border
     const boxW    = scTextW + sPad * 2;
-    const boxH    = STAMP_CAP    + sPad * 2;
+    const boxH    = STAMP_CAP + sPad * 2;
     const boxX    = stampCenterX - boxW / 2;
-    const boxY    = stampY       - STAMP_CAP - sPad;
+    const boxY    = headerTopY + 1;                // top-aligned in header
+    const stampY  = boxY + sPad + STAMP_CAP;       // text baseline inside box
 
     doc.setFillColor(248, 248, 248);
     doc.setDrawColor(35, 35, 35);
@@ -492,6 +492,12 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
 
     doc.setTextColor(15, 15, 15);
     doc.text(sc, stampCenterX, stampY, { align: 'center' });
+
+    // Small caption below stamp
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120, 120, 120);
+    doc.text('for internal use only', stampCenterX, boxY + boxH + 3.5, { align: 'center' });
 
     y += headerH + 3;
 
