@@ -13805,6 +13805,8 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
           customerUsername: order.customerUsername,
           marketplace: order.marketplace,
           requestedService: order.requestedShippingService || null,
+          carrierCode: order.carrierCode || null,
+          serviceCode: order.serviceCode || null,
           shipTo,
           items: orderItems,
         };

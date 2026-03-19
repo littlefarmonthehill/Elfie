@@ -18,6 +18,8 @@ type PackingSlipOrder = {
   customerUsername: string | null;
   marketplace: string | null;
   requestedService?: string | null;
+  carrierCode?: string | null;
+  serviceCode?: string | null;
   shipTo: {
     name?: string;
     company?: string;
@@ -517,13 +519,20 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     doc.text(order.orderNumber, metaX, infoTopY + 5,  { align: 'right' });
     const dateStr = order.orderDate ? new Date(order.orderDate).toLocaleDateString() : '';
     doc.text(dateStr, metaX, infoTopY + 11, { align: 'right' });
-    if (order.requestedService) {
+    const serviceDisplay = (() => {
+      // Prefer the clean EasyPost carrier + service fields written when a label is purchased
+      const fromEasyPost = [order.carrierCode, order.serviceCode].filter(Boolean).join(' ');
+      if (fromEasyPost) return fromEasyPost;
+      // Fall back to stripping cost/packaging noise from the raw BrickLink service string
+      if (!order.requestedService) return null;
       const cut = order.requestedService.search(/ \$\d| - \$| \(\$| {2,}\(|\|/);
-      const serviceDisplay = (cut > 0 ? order.requestedService.slice(0, cut) : order.requestedService).trim();
+      return (cut > 0 ? order.requestedService.slice(0, cut) : order.requestedService).trim();
+    })();
+    if (serviceDisplay) {
       doc.text(serviceDisplay, metaX, infoTopY + 17, { align: 'right' });
     }
 
-    y = Math.max(shipAddrY, infoTopY + (order.requestedService ? 24 : 18)) + 3;
+    y = Math.max(shipAddrY, infoTopY + (serviceDisplay ? 24 : 18)) + 3;
 
     // ── Items table ──────────────────────────────────────────────────────────
     const rows = order.items.map(item => {
