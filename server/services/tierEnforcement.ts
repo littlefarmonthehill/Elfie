@@ -50,8 +50,11 @@ export async function checkBrickspotterLimit(orgId: string) {
       .where(eq(organizations.id, orgId));
   }
 
+  const planCfg = await getPlanConfigByKey(orgWithLimits.plan);
+  const isBrickspotterOnly = planCfg?.isBrickspotterOnly ?? false;
+
   const result = checkLimit(currentScans, limits.brickspotterScansPerMonth, "BrickSpotter scans");
-  return { ...result, scansUsed: currentScans, scansLimit: limits.brickspotterScansPerMonth, apiCallLimit: limits.brickspotterApiCallsPerDay };
+  return { ...result, scansUsed: currentScans, scansLimit: limits.brickspotterScansPerMonth, apiCallLimit: limits.brickspotterApiCallsPerDay, isBrickspotterOnly };
 }
 
 export async function incrementBrickspotterScan(orgId: string) {

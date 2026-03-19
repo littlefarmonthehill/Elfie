@@ -35,7 +35,7 @@ function maskSettingsSecrets(settings: Record<string, any> | null): Record<strin
 }
 import { storage } from "./storage";
 import { getEffectiveLimits } from "@shared/tierConfig";
-import { seedPlanConfigsIfEmpty, dbPlanToLimits, dbPlanToFeatures } from "./services/planConfigService";
+import { seedPlanConfigsIfEmpty, dbPlanToLimits, dbPlanToFeatures, getAllPlanConfigsWithCounts, updatePlanConfig, invalidatePlanCache } from "./services/planConfigService";
 import { setupAuth, isAuthenticated, isApproved, isOrgOwner, getOrgId, isSuperAdmin } from "./auth";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, bricklinkCatalogRequest, calculateSuggestedPriceWithSupply } from "./services/bricklink";
 import { getPomIsRunning, setPomIsRunning } from "./services/pom-scheduler";
@@ -1386,6 +1386,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ success: true });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
+    }
+  });
+
+  // ── Platform admin: Tier/Plan Configs (plan_configs table) ────────────────────
+  // GET /api/platform-admin/plan-configs — list all plan configs with org counts
+  app.get('/api/platform-admin/plan-configs', isSuperAdmin, async (_req, res) => {
+    try {
+      const configs = await getAllPlanConfigsWithCounts();
+      res.json(configs);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  // PATCH /api/platform-admin/plan-configs/:planKey — update a plan config.
+  // Locked configs (orgs on them): only safe toggles allowed (isSunset, isBrickspotterOnly).
+  // Unlocked configs: all fields allowed.
+  app.patch('/api/platform-admin/plan-configs/:planKey', isSuperAdmin, async (req, res) => {
+    try {
+      const { planKey } = req.params;
+      const [orgCountRow] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(organizations)
+        .where(eq(organizations.plan, planKey));
+      const isLocked = Number(orgCountRow?.count ?? 0) > 0;
+
+      // Fields that are always safe to change regardless of lock status
+      const ALWAYS_ALLOWED: string[] = ['isSunset', 'isBrickspotterOnly'];
+      const body = req.body as Record<string, unknown>;
+      const hasLockedFields = Object.keys(body).some(k => !ALWAYS_ALLOWED.includes(k));
+
+      if (isLocked && hasLockedFields) {
+        return res.status(409).json({ message: `This plan has active orgs — only feature flags can be changed. Limits and pricing are locked.` });
+      }
+
+      const result = await updatePlanConfig(planKey, body, isLocked);
+      if (!result.success) return res.status(409).json({ message: result.error });
+      res.json(result.plan);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
     }
   });
 
@@ -3254,6 +3294,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           scansUsed: brickspotterCheck.scansUsed ?? 0,
           scansLimit: brickspotterCheck.scansLimit ?? -1,
           apiCallLimit: brickspotterCheck.apiCallLimit ?? 0,
+          brickspotterOnly: brickspotterCheck.isBrickspotterOnly ?? false,
         },
       });
     } catch (error) {

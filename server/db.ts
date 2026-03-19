@@ -1186,6 +1186,15 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-60 (plan_configs limit_brickspotter_api_calls column) complete.');
 
+    // ── Phase-61: Add is_brickspotter_only to plan_configs ──────────────────────
+    // Flag marking a plan as BrickSpotter-only: no store management UI, no BL/BO
+    // credentials required. Multiple BrickSpotter-only plans can be created.
+    await client.query(`
+      ALTER TABLE plan_configs
+        ADD COLUMN IF NOT EXISTS is_brickspotter_only boolean NOT NULL DEFAULT false
+    `);
+    console.log('[Migration] Phase-61 (plan_configs is_brickspotter_only column) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

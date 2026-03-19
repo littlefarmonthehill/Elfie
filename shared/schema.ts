@@ -1611,6 +1611,7 @@ export const planConfigs = pgTable("plan_configs", {
   limitBusinessIntel: integer("limit_business_intel").notNull().default(0),
   limitBrickspotterApiCalls: integer("limit_brickspotter_api_calls").notNull().default(0), // daily BL API calls via platform account (-1 = unlimited, 0 = no BrickSpotter)
   // Features
+  isBrickspotterOnly: boolean("is_brickspotter_only").notNull().default(false), // when true, org sees BrickSpotter UI only — no store management
   featureBrickOwl: boolean("feature_brick_owl").notNull().default(false),
   featureElfieAi: boolean("feature_elfie_ai").notNull().default(false),
   featureElfieCustom: boolean("feature_elfie_custom").notNull().default(false),

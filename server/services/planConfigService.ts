@@ -98,15 +98,17 @@ export async function getAllPlanConfigsWithCounts(): Promise<PlanConfigWithCount
 // ── Update a plan config (only if no orgs on it) ──────────────────────────────
 export type PlanUpdateFields = Partial<Omit<PlanConfig, 'id' | 'planKey' | 'sortOrder' | 'updatedAt' | 'isSunset'>>;
 
-export async function updatePlanConfig(planKey: string, fields: PlanUpdateFields): Promise<{ success: boolean; error?: string; plan?: PlanConfig }> {
-  const orgCountResult = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(organizations)
-    .where(eq(organizations.plan, planKey));
-  const orgCount = orgCountResult[0]?.count ?? 0;
+export async function updatePlanConfig(planKey: string, fields: PlanUpdateFields, skipLockCheck = false): Promise<{ success: boolean; error?: string; plan?: PlanConfig }> {
+  if (!skipLockCheck) {
+    const orgCountResult = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(organizations)
+      .where(eq(organizations.plan, planKey));
+    const orgCount = orgCountResult[0]?.count ?? 0;
 
-  if (orgCount > 0) {
-    return { success: false, error: `This plan has ${orgCount} active org${orgCount === 1 ? '' : 's'} — config is locked. Sunset the plan instead.` };
+    if (orgCount > 0) {
+      return { success: false, error: `This plan has ${orgCount} active org${orgCount === 1 ? '' : 's'} — config is locked. Sunset the plan instead.` };
+    }
   }
 
   const [updated] = await db
@@ -148,6 +150,7 @@ export function dbPlanToLimits(plan: PlanConfig) {
 
 export function dbPlanToFeatures(plan: PlanConfig) {
   return {
+    brickspotterOnly: plan.isBrickspotterOnly,
     brickOwl: plan.featureBrickOwl,
     elfieAiMode: plan.featureElfieAi,
     elfieCustom: plan.featureElfieCustom,
