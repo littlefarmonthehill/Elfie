@@ -311,7 +311,7 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
   const imageDataUrls = await Promise.all(
     items.map(item =>
       item.partNumber && item.colorId != null
-        ? loadItemImage(item.partNumber, item.colorId)
+        ? loadItemImageGrayscale(item.partNumber, item.colorId)
         : Promise.resolve(null)
     )
   );
@@ -427,7 +427,7 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
     }
 
     if (orderRef) {
-      const lotLabel = item.inventoryId != null ? `  \u00b7  lot ${item.inventoryId}` : '';
+      const lotLabel = item.inventoryId != null ? `  \u00b7  Lot ${item.inventoryId}` : '';
       const sep = prominentParts ? '  \u00b7  ' : '';
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
@@ -435,12 +435,16 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
       doc.text(sep + orderRef + lotLabel, L2_cursor, L2_Y);
     }
 
-    // ── Line 3+: Comment (italic, muted) — only if present ───────────────────
+    // ── Line 3+: Comment (italic, yellow highlight) — only if present ─────────
     if (item.comment) {
       doc.setFontSize(9);
       doc.setFont('helvetica', 'oblique');
-      doc.setTextColor(90, 90, 90);
       const lines = doc.splitTextToSize(item.comment, TEXT_W) as string[];
+      // Yellow highlight rect behind comment
+      const hlH = lines.length * CMT_LINE_H;
+      doc.setFillColor(255, 245, 100);
+      doc.rect(TEXT_X - 1, L3_Y - 3.5, TEXT_W + 2, hlH + 0.5, 'F');
+      doc.setTextColor(40, 40, 40);
       lines.forEach((line, idx) => {
         doc.text(line, TEXT_X, L3_Y + idx * CMT_LINE_H);
       });

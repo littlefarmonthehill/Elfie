@@ -564,7 +564,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                     {/* Summary: lot count + chevron */}
                     <div className="shrink-0 flex items-center gap-2 text-[10px] text-gray-400 tabular-nums">
                       {variants.length > 1 && (
-                        <span className="font-bold">{variants.length} lots</span>
+                        <span className="font-bold">{variants.length} Lots</span>
                       )}
                       {isExpanded
                         ? <ChevronDown className="w-3.5 h-3.5 text-gray-500" />
@@ -614,9 +614,9 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                             </div>
                             {(item.comment || item.remarks || item.inventoryId != null) && (
                               <div className="mt-0.5 text-[10px] text-blue-400/80">
-                                {item.comment && <span className="italic">{item.comment}</span>}
+                                {item.comment && <span className="italic bg-yellow-300/70 text-yellow-900 px-0.5 rounded-sm">{item.comment}</span>}
                                 {item.remarks && <span className="not-italic text-gray-400">{item.comment ? ' ' : ''}{item.remarks}</span>}
-                                {item.inventoryId != null && <span className="not-italic text-gray-500">{(item.comment || item.remarks) ? ' ' : ''}lot {item.inventoryId}</span>}
+                                {item.inventoryId != null && <span className="not-italic text-gray-500">{(item.comment || item.remarks) ? ' ' : ''}Lot {item.inventoryId}</span>}
                               </div>
                             )}
                           </div>
@@ -669,7 +669,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                 </div>
                 {bin.items.length > 0 && (
                   <span className="shrink-0 text-[10px] font-bold text-blue-300 bg-blue-900/40 border border-blue-700/40 rounded-full px-1.5 py-0.5 tabular-nums">
-                    {bin.items.length} {bin.items.length === 1 ? 'lot' : 'lots'}
+                    {bin.items.length} {bin.items.length === 1 ? 'Lot' : 'Lots'}
                   </span>
                 )}
               </div>
@@ -714,9 +714,9 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                         </div>
                         {(item.comment || item.remarks || item.inventoryId != null) && (
                           <div className="mt-0.5 text-[10px] text-blue-400/80">
-                            {item.comment && <span className="italic">{item.comment}</span>}
+                            {item.comment && <span className="italic bg-yellow-300/70 text-yellow-900 px-0.5 rounded-sm">{item.comment}</span>}
                             {item.remarks && <span className="not-italic text-gray-400">{item.comment ? ' ' : ''}{item.remarks}</span>}
-                            {item.inventoryId != null && <span className="not-italic text-gray-500">{(item.comment || item.remarks) ? ' ' : ''}lot {item.inventoryId}</span>}
+                            {item.inventoryId != null && <span className="not-italic text-gray-500">{(item.comment || item.remarks) ? ' ' : ''}Lot {item.inventoryId}</span>}
                           </div>
                         )}
                       </div>
