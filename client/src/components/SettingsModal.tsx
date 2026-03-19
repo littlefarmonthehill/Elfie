@@ -1952,6 +1952,7 @@ function PlansAndPricingPanel() {
     status: string;
     sunsetAt: string | null;
     isDefault: boolean;
+    trialDurationDays: number;
     locked: boolean;
     orgCount: number;
   };
@@ -1962,7 +1963,7 @@ function PlansAndPricingPanel() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
-  const defaultForm = { name: '', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, status: 'in_progress', sunsetAt: null as string | null, isDefault: false };
+  const defaultForm = { name: '', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, status: 'in_progress', sunsetAt: null as string | null, isDefault: false, trialDurationDays: 0 };
   const [form, setForm] = useState<typeof defaultForm>(defaultForm);
 
   const fmtC = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -2005,6 +2006,7 @@ function PlansAndPricingPanel() {
       status: plan.status,
       sunsetAt: plan.sunsetAt ? new Date(plan.sunsetAt).toISOString().split('T')[0] : null,
       isDefault: plan.isDefault,
+      trialDurationDays: plan.trialDurationDays ?? 0,
     });
   };
 
@@ -2018,8 +2020,8 @@ function PlansAndPricingPanel() {
     const editingPlanRef = (plans ?? []).find(p => p.id === editingId);
     const sunsetAtIso = form.sunsetAt ? new Date(form.sunsetAt).toISOString() : null;
     const payload = editingId
-      ? { id: editingId, data: { name: form.name, status: form.status, sunsetAt: sunsetAtIso, isDefault: form.isDefault, ...(!editingPlanRef?.locked ? { basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold } : {}) } }
-      : { data: { name: form.name, basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold, status: form.status, sunsetAt: sunsetAtIso, isDefault: form.isDefault } };
+      ? { id: editingId, data: { name: form.name, status: form.status, sunsetAt: sunsetAtIso, isDefault: form.isDefault, ...(!editingPlanRef?.locked ? { basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold, trialDurationDays: form.trialDurationDays } : {}) } }
+      : { data: { name: form.name, basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold, status: form.status, sunsetAt: sunsetAtIso, isDefault: form.isDefault, trialDurationDays: form.trialDurationDays } };
     saveMutation.mutate(payload);
   };
 
@@ -2092,6 +2094,9 @@ function PlansAndPricingPanel() {
                   </div>
                   <div className="text-[10px] text-gray-400 mt-0.5 tabular-nums">
                     {fmtC(plan.basePrice)}/mo base · {plan.salesPercentage}% of GMV over {fmtC(plan.freeSalesThreshold)} free threshold
+                    {plan.trialDurationDays > 0 && (
+                      <span className="ml-2 text-violet-400">· {plan.trialDurationDays}-day free trial</span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -2240,6 +2245,19 @@ function PlansAndPricingPanel() {
                   </div>
                   <div className="text-[10px] text-gray-500 pt-0.5">
                     Preview: {fmtC(form.basePrice)}/mo base + {form.salesPercentage}% on GMV over {fmtC(form.freeSalesThreshold)}
+                  </div>
+                  <div>
+                    <label className="block app-label mb-1">Free Trial Duration (days)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={form.trialDurationDays}
+                      onChange={e => setForm(f => ({ ...f, trialDurationDays: Math.max(0, parseInt(e.target.value || '0', 10)) }))}
+                      data-testid="input-plan-trialDurationDays"
+                      className={inputCls}
+                    />
+                    <p className="text-[10px] text-gray-500 mt-0.5">Set to 0 for no free trial. Ignored for default/free plans.</p>
                   </div>
                 </>
               )}
