@@ -40,7 +40,7 @@ interface SettingsModalProps {
   scoringExample?: PricingInsight;
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'tierConfigs' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -2288,6 +2288,9 @@ function PlansAndPricingPanel() {
         </div>
       )}
 
+      {/* Tier configurations — feature flags and limits per plan */}
+      <TierConfigsPanel />
+
       {/* Live billing snapshot */}
       <PricingLiveUsageCard />
     </div>
@@ -2354,8 +2357,7 @@ function TierConfigsPanel() {
   if (isLoading) return <div className="px-3 pt-3 text-xs text-gray-500">Loading tier configs…</div>;
 
   return (
-    <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden" data-testid="tier-configs-panel">
-      <div className="sm-card">
+    <div className="sm-card" data-testid="tier-configs-panel">
         <div className="sm-card-header">
           <Layers className="h-3.5 w-3.5 text-violet-400/80" />
           <span className="text-xs font-semibold text-gray-200">Tier Configurations</span>
@@ -2460,7 +2462,6 @@ function TierConfigsPanel() {
             );
           })}
         </div>
-      </div>
     </div>
   );
 }
@@ -3814,7 +3815,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       label: 'Plans & Customers',
       items: [
         { id: 'plansAndPricing' as const, label: 'Plans & Pricing', icon: Tag },
-        { id: 'tierConfigs' as const, label: 'Tier Configs', icon: Layers },
         { id: 'orgs' as const, label: 'Organizations', icon: Building2 },
         { id: 'billingOverview' as const, label: 'Billing Overview', icon: CreditCard },
         { id: 'announcements' as const, label: 'Announcements', icon: Megaphone },
@@ -7849,9 +7849,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
             {/* Plans & Pricing */}
             {activeSection === 'plansAndPricing' && <PlansAndPricingPanel />}
-
-            {/* Tier Configs */}
-            {activeSection === 'tierConfigs' && <TierConfigsPanel />}
 
             {/* Platform General */}
             {activeSection === 'platformGeneral' && (
