@@ -382,7 +382,7 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
     // ── Line 2: ×Qty · Color · Condition (11pt bold) then · OrderRef (8pt gray) ──
     // Key picker/customer info is prominent; order ref is subdued but left-aligned.
     const rawOrder = (item.orderNumber || '').replace(/^(BL|BO)/i, '').trim();
-    const orderRef = rawOrder ? `${chanPrefix(item).toLowerCase()}.${rawOrder}` : '';
+    const orderRef = rawOrder ? `${chanPrefix(item)}.${rawOrder}` : '';
 
     const prominentParts = [
       `\u00d7${item.quantity}`,
