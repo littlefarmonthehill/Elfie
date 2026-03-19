@@ -451,6 +451,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
 
     // ── Company info (left) + logo (right) ──────────────────────────────────
     const headerTopY = y;
+    const headerH    = Math.max(LOGO_H, 23);
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(19);
     doc.setFont('helvetica', 'bold');
@@ -468,7 +469,31 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
       doc.addImage(logo.dataUrl, 'PNG', MX + CONTENT_W - logoW, headerTopY, logoW, LOGO_H);
     }
 
-    y += Math.max(LOGO_H, 23) + 3;
+    // ── Shortcode stamp — centred in header, large + chunky ──────────────────
+    const sc          = shortCode(order.orderNumber);
+    const STAMP_PT    = 42;
+    const STAMP_CAP   = STAMP_PT * 0.352 * 0.70;   // cap-height in mm
+    const stampCenterX = MX + CONTENT_W / 2;
+    const stampY      = headerTopY + headerH / 2 + STAMP_CAP / 2;
+
+    doc.setFontSize(STAMP_PT);
+    doc.setFont('helvetica', 'bold');
+    const scTextW = doc.getTextWidth(sc);
+    const sPad    = 4;                              // padding inside border
+    const boxW    = scTextW + sPad * 2;
+    const boxH    = STAMP_CAP    + sPad * 2;
+    const boxX    = stampCenterX - boxW / 2;
+    const boxY    = stampY       - STAMP_CAP - sPad;
+
+    doc.setFillColor(248, 248, 248);
+    doc.setDrawColor(35, 35, 35);
+    doc.setLineWidth(1.4);
+    doc.roundedRect(boxX, boxY, boxW, boxH, 2, 2, 'FD');
+
+    doc.setTextColor(15, 15, 15);
+    doc.text(sc, stampCenterX, stampY, { align: 'center' });
+
+    y += headerH + 3;
 
     // ── Divider ─────────────────────────────────────────────────────────────
     doc.setDrawColor(170, 170, 170);
@@ -498,15 +523,14 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     let shipAddrY = y + 11;
     shipAddrLines.forEach(line => { doc.text(line, MX, shipAddrY); shipAddrY += 5.5; });
 
-    const metaX   = MX + CONTENT_W;
-    const labelX  = metaX - 48;
-    const sc      = shortCode(order.orderNumber);
+    const metaX  = MX + CONTENT_W;
+    const labelX = metaX - 48;
 
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(85, 85, 85);
     doc.text(`${channelLabel(order)} Order #`, labelX, infoTopY + 5,  { align: 'right' });
     doc.text('Date',                           labelX, infoTopY + 11, { align: 'right' });
-    doc.text('Ref',                            labelX, infoTopY + 17, { align: 'right' });
 
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(0, 0, 0);
@@ -514,14 +538,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     const dateStr = order.orderDate ? new Date(order.orderDate).toLocaleDateString() : '';
     doc.text(dateStr, metaX, infoTopY + 11, { align: 'right' });
 
-    // Ref / shortcode — bold and slightly larger so staff can match it at a glance
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.setTextColor(0, 0, 0);
-    doc.text(sc, metaX, infoTopY + 17, { align: 'right' });
-    doc.setFontSize(11); // restore
-
-    y = Math.max(shipAddrY, infoTopY + 24) + 3;
+    y = Math.max(shipAddrY, infoTopY + 18) + 3;
 
     // ── Items table ──────────────────────────────────────────────────────────
     const rows = order.items.map(item => {
