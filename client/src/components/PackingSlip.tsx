@@ -35,6 +35,7 @@ type PackingSlipOrder = {
   items: Array<{
     inventoryId: string | null;
     bricklinkPartNumber: string | null;
+    colorId?: number | null;
     name: string;
     quantity: number;
     colorName: string | null;
@@ -256,6 +257,35 @@ async function loadItemImage(partNum: string, colorId: number): Promise<string |
   });
 }
 
+async function loadItemImageGrayscale(partNum: string, colorId: number): Promise<string | null> {
+  const dataUrl = await loadItemImage(partNum, colorId);
+  if (!dataUrl) return null;
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width  = img.naturalWidth  || img.width  || 1;
+        canvas.height = img.naturalHeight || img.height || 1;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const d = imageData.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const g = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
+          d[i] = d[i + 1] = d[i + 2] = g;
+        }
+        ctx.putImageData(imageData, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
 export async function printPicklist(items: PicklistItem[]): Promise<void> {
   if (items.length === 0) return;
 
@@ -442,13 +472,23 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
 
   const slipCodeMap = buildShortCodeMap(orders.map(o => o.orderNumber).filter(Boolean));
 
-  orders.forEach((order, idx) => {
+  for (let idx = 0; idx < orders.length; idx++) {
+    const order = orders[idx];
     if (idx > 0) doc.addPage();
     const orderStartPage = doc.internal.getNumberOfPages();
     // Explicitly switch to this order's starting page so the footer loop's
     // setPage() calls don't leave the cursor on the wrong page for the next order.
     doc.setPage(orderStartPage);
     let y = MY;
+
+    // Pre-load grayscale images for all items in this order
+    const itemImageUrls = await Promise.all(
+      order.items.map(item =>
+        item.bricklinkPartNumber && item.colorId != null
+          ? loadItemImageGrayscale(item.bricklinkPartNumber, item.colorId)
+          : Promise.resolve(null)
+      )
+    );
 
     // ── Company info (left) + logo (right) ──────────────────────────────────
     const headerTopY = y;
@@ -563,11 +603,11 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     y = Math.max(shipAddrY, infoTopY + (serviceDisplay ? 24 : 18)) + 3;
 
     // ── Items table ──────────────────────────────────────────────────────────
+    const IMG_COL = 14; // mm reserved on the left of the description cell for the image
     const rows = order.items.map(item => {
       const base  = cleanItemName(item.name, item.bricklinkPartNumber);
-      const color = item.colorName ? `${item.colorName} ` : '';
       const part  = item.bricklinkPartNumber ? ` (${item.bricklinkPartNumber})` : '';
-      const name  = `LEGO ${color}${base}${part}`;
+      const name  = `${base}${part}`;
       const metaParts = [
         item.colorName ? `Color: ${item.colorName}`     : '',
         item.condition ? `Condition: ${item.condition}` : '',
@@ -599,11 +639,25 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
         lineColor:   [85, 85, 85],
         lineWidth:   { bottom: 0.4 },
       },
+      bodyStyles: {
+        minCellHeight: 14,
+      },
+      alternateRowStyles: { fillColor: [245, 245, 245] },
       columnStyles: {
-        0: { cellWidth: 'auto' },
+        0: { cellWidth: 'auto', cellPadding: { top: 3.5, right: 3.5, bottom: 3.5, left: IMG_COL + 2 } },
         1: { cellWidth: 18, halign: 'right', fontStyle: 'bold' },
       },
-      alternateRowStyles: false,
+      didDrawCell: (data: any) => {
+        if (data.column.index === 0 && data.row.section === 'body') {
+          const imgUrl = itemImageUrls[data.row.index];
+          if (imgUrl) {
+            const imgSize = 12;
+            const imgX = data.cell.x + 1;
+            const imgY = data.cell.y + (data.cell.height - imgSize) / 2;
+            try { doc.addImage(imgUrl, 'PNG', imgX, imgY, imgSize, imgSize); } catch {}
+          }
+        }
+      },
     });
 
     // ── Footer: Page X of Y on every page for this order ────────────────────
@@ -624,7 +678,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
         { align: 'center' },
       );
     }
-  });
+  }
 
   hiddenPrint(doc.output('blob'), 'packing-slips.pdf');
 }
