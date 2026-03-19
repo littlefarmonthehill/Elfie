@@ -2,28 +2,21 @@
  * Shared image resolution for LEGO parts across all views.
  *
  * Priority order for every inventory item:
- *   1. imageUrl stored in the database (Rebrickable or other corrected source)
- *   2. BrickLink color-specific CDN  (ItemImage/PN/{colorId}/{itemNo}.png)
- *   3. BrickLink shape-only CDN      (PL/{itemNo}.jpg)
+ *   1. Server proxy  /api/images/parts/:partNum/:colorId
+ *        → checks object storage (L2) first, falls back to BL CDN (L3),
+ *          processes PNG (white-bg removal), and caches permanently.
+ *        → same bytes the picklist PDF renders — UI and PDF are consistent.
+ *   2. Database imageUrl (Rebrickable or BL CDN URL), proxied if needed.
+ *   3. BrickLink CDN direct (legacy fallback if proxy unreachable).
  *
- * Rebrickable images must pass through /api/images/proxy because the
- * Rebrickable CDN blocks direct browser requests with CORS/hotlink protection.
- * BrickLink images load directly in <img> tags with no proxy required.
+ * Note: As of March 2026, bl_catalog.imageUrl is populated for all
+ * P/PART/MINIFIG/SET/GEAR rows after the Phase-57 migration.
  *
- * ⚠️  PDF / canvas context (printPicklist):
- *   BrickLink CDN does NOT send CORS headers. Loading a BrickLink URL into an
- *   HTMLImageElement and then drawing it to a canvas taints the canvas, making
- *   canvas.toDataURL() throw a SecurityError — even though the image displays
- *   fine in an <img> tag. For PDF generation, ALL images must be fetched
- *   server-side via /api/images/parts/:partNum/:colorId, which proxies the
- *   BrickLink CDN and returns a same-origin PNG. See PackingSlip.tsx and
- *   server/services/image-proxy.ts for the full implementation.
- *
- * ⚠️  bl_catalog.imageUrl reliability (as of March 2026):
- *   ~99% of rows have NULL imageUrl — the field is sparsely populated.
- *   ~22 rows contain legacy protocol-relative //img.bricklink.com/... URLs.
- *   Never rely solely on the stored URL; always fall through to the constructed
- *   BrickLink CDN URLs using partNumber + colorId.
+ * PDF / canvas context (PackingSlip.tsx):
+ *   BrickLink CDN does NOT send CORS headers — drawing a BL URL to a canvas
+ *   taints it, making canvas.toDataURL() throw a SecurityError. PDF generation
+ *   MUST use the server proxy (/api/images/parts/:partNum/:colorId). The proxy
+ *   is same-origin and returns processed PNG safe for canvas use.
  */
 
 export function proxiedUrl(url: string | null | undefined): string | null {
@@ -41,22 +34,28 @@ export function partImageSources(
 ): string[] {
   const srcs: string[] = [];
 
-  // 1. DB image (Rebrickable or other corrected source), proxied if needed
-  const primary = proxiedUrl(imageUrl);
-  if (primary) srcs.push(primary);
+  if (partNumber && colorId != null) {
+    // 1. Server proxy — object storage (persistent) → CDN → processed PNG.
+    //    Same source as picklist PDF so UI and PDF are always consistent.
+    srcs.push(`/api/images/parts/${encodeURIComponent(partNumber)}/${colorId}`);
+  }
+
+  // 2. DB image (Rebrickable or BL CDN), proxied through server if needed
+  const dbSrc = proxiedUrl(imageUrl);
+  if (dbSrc && !srcs.includes(dbSrc)) srcs.push(dbSrc);
 
   if (partNumber) {
     const typeCode =
       itemType === 'MINIFIG' ? 'MN' : itemType === 'SET' ? 'SN' : 'PN';
 
-    // 2. BrickLink color-specific CDN (colorId 0 is valid for minifigs)
+    // 3. BrickLink CDN direct (fallback when server proxy is unreachable)
     if (colorId != null) {
       srcs.push(
         `https://img.bricklink.com/ItemImage/${typeCode}/${colorId}/${partNumber}.png`,
       );
     }
 
-    // 3. BrickLink shape-only CDN (reliable, no color info)
+    // 4. BrickLink shape-only CDN (no color, last resort)
     srcs.push(`https://img.bricklink.com/PL/${partNumber}.jpg`);
   }
 

@@ -5,12 +5,16 @@ import { db } from '../db';
 import { blCatalog } from '@shared/schema';
 import { eq, and, sql } from 'drizzle-orm';
 
+// NOTE: getOrFetchImage (image-store.ts) IS the canonical pipeline for parts.
+// getProcessedPartImage() below delegates to it; the in-memory map below is
+// kept only for the processImageFromUrl() helper used by Rebrickable previews.
+
 interface CachedImage {
   buffer: Buffer;
   timestamp: number;
 }
 
-const MAX_CACHE_SIZE = 500; // Maximum number of cached images
+const MAX_CACHE_SIZE = 500;
 const imageCache = new Map<string, CachedImage>();
 const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 const WHITE_THRESHOLD = 240; // Pixels above this value are considered white
@@ -194,52 +198,14 @@ function bricklinkCandidateUrls(partNum: string, colorId: number): string[] {
 }
 
 export async function getProcessedPartImage(partNum: string, colorId: number): Promise<Buffer | null> {
-  const cacheKey = `${partNum}-${colorId}`;
-  
-  const cached = imageCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_DURATION_MS) {
-    console.log(`[Image Proxy] Cache hit for ${cacheKey}`);
-    return cached.buffer;
-  }
-
+  // Delegate to the central image store (L1 → L2 object storage → L3 CDN).
+  // This guarantees every caller — UI proxy, PDF, CLIP, BrickSpotter — operates
+  // on the same processed PNG bytes stored in one place.
   try {
-    // 1. Check bl_catalog for a stored URL (may be null for most rows, or
-    //    protocol-relative for older rows — normalise before use).
-    const inventoryItem = await db
-      .select({ imageUrl: blCatalog.imageUrl })
-      .from(blCatalog)
-      .where(and(
-        eq(blCatalog.itemNo, partNum),
-        eq(blCatalog.colorId, colorId)
-      ))
-      .limit(1);
-
-    const storedUrl = normaliseCatalogUrl(inventoryItem[0]?.imageUrl);
-
-    // 2. Build the full candidate list: stored URL first, then BrickLink CDN
-    //    patterns constructed directly from part number and color ID.
-    const candidates: string[] = [
-      ...(storedUrl ? [storedUrl] : []),
-      ...bricklinkCandidateUrls(partNum, colorId),
-    ];
-
-    // 3. Try each candidate in order until one succeeds.
-    for (const url of candidates) {
-      console.log(`[Image Proxy] Trying ${url} for ${cacheKey}`);
-      const originalBuffer = await fetchImageFromUrl(url);
-      if (!originalBuffer) continue;
-
-      const processedBuffer = await removeWhiteBackground(originalBuffer);
-      evictOldestCacheEntries();
-      imageCache.set(cacheKey, { buffer: processedBuffer, timestamp: Date.now() });
-      console.log(`[Image Proxy] Successfully fetched and cached ${cacheKey} from ${url}`);
-      return processedBuffer;
-    }
-
-    console.warn(`[Image Proxy] All candidates failed for ${cacheKey}`);
-    return null;
+    const { getOrFetchImage } = await import('./image-store.js');
+    return await getOrFetchImage('PART', partNum, colorId);
   } catch (error) {
-    console.error(`[Image Proxy] Error processing image for ${partNum} color ${colorId}:`, error);
+    console.error(`[Image Proxy] Error fetching image for ${partNum} color ${colorId}:`, error);
     return null;
   }
 }

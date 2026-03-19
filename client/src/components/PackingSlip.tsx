@@ -165,6 +165,8 @@ const partKey    = (item: PicklistItem) => item.partNumber || item.sku || '';
 
 /**
  * Load a part thumbnail for PDF embedding via the server-side image proxy.
+ * The proxy checks object storage first (persistent), then BL CDN (fallback),
+ * and processes the PNG (white-bg removal) — same bytes PartImage shows in the UI.
  *
  * Why the proxy instead of loading BrickLink URLs directly in the browser:
  *   - BrickLink CDN does NOT send CORS headers, so `canvas.toDataURL()` throws

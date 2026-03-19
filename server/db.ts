@@ -1159,6 +1159,24 @@ export async function runMigrations() {
     `);
     console.log(`[Migration] Phase-57 (bl_catalog image_url backfill) complete — ${backfillResult.rowCount} rows filled, ${normaliseResult.rowCount} protocol-relative URLs normalised.`);
 
+    // ── Phase-58: Add stored_image_key column to bl_catalog ────────────────────
+    // Tracks the object-storage key for permanently cached processed PNGs.
+    // NULL = not yet stored; non-null = bytes are in object storage at that key.
+    await client.query(`
+      ALTER TABLE bl_catalog
+        ADD COLUMN IF NOT EXISTS stored_image_key text
+    `);
+    console.log('[Migration] Phase-58 (bl_catalog stored_image_key column) complete.');
+
+    // ── Phase-59: Add image_fetch_failed column to bl_catalog ──────────────────
+    // Boolean flag set by the background harvester when all CDN sources 404.
+    // Harvester skips rows where this is true to avoid repeated pointless requests.
+    await client.query(`
+      ALTER TABLE bl_catalog
+        ADD COLUMN IF NOT EXISTS image_fetch_failed boolean DEFAULT false
+    `);
+    console.log('[Migration] Phase-59 (bl_catalog image_fetch_failed column) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

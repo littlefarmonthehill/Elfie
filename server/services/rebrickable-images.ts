@@ -3,6 +3,7 @@ import { blInventory, blCatalog, partIdMappings } from "@shared/schema";
 import { sql, inArray, and, eq } from "drizzle-orm";
 import axios from "axios";
 import https from "https";
+import { enqueueImageStore } from "./image-store";
 
 export interface RebrickableImageSyncResult {
   imagesProcessed: number;
@@ -243,6 +244,8 @@ export function scheduleImageFetchForNewItems(
           });
 
           fetched++;
+          // Background: persist image bytes in object storage.
+          enqueueImageStore('PART', pair.itemNo, pair.colorId);
           console.log(`[Rebrickable Images] ✓ ${pair.itemNo} color ${pair.colorId} → saved`);
         }
 

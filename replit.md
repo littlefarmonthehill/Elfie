@@ -214,36 +214,55 @@ ChatGPT-style conversation management with thread persistence and auto-expiry.
 
 ## Part Images — Source & Pipeline
 
-### True image source
-BrickLink CDN is the reliable source for all part/minifig thumbnails. The canonical URL patterns are:
-1. `https://img.bricklink.com/ItemImage/PN/{colorId}/{partNum}.png` — color-specific photo (preferred)
-2. `https://img.bricklink.com/ItemImage/PL/{partNum}.png` — shape-only, no color (reliable fallback)
-3. `https://img.bricklink.com/PL/{partNum}.jpg` — legacy shape-only JPEG (last resort)
+### Three-layer persistent image store (`server/services/image-store.ts`)
+Every image consumer goes through the same pipeline — UI, PDF, CLIP catalog, BrickSpotter:
 
-**Do NOT use the old `//img.bricklink.com/P/{colorId}/{partNum}.jpg` pattern** — it is legacy, protocol-relative, and no longer reliably served.
+| Layer | What | Lifetime |
+|---|---|---|
+| L1 | In-memory Map cache (500 entries, 24 h TTL) | Process lifetime |
+| L2 | Replit Object Storage (processed PNG, white-bg removed) | Permanent |
+| L3 | BrickLink CDN (canonical URL fetched once, promoted to L2) | Fallback only |
 
-### `bl_catalog.imageUrl` state (as of March 2026)
-- **~99% of rows are NULL** — the field is almost never populated from sync
-- **~22 rows have protocol-relative `//img.bricklink.com/...`** — must be normalised to `https:` before use
-- **~38 rows have the new `https://img.bricklink.com/ItemImage/...` format** — these work correctly
-- **Conclusion: never rely solely on `bl_catalog.imageUrl`; always fall through to constructed CDN URLs**
+`getOrFetchImage(itemType, itemNo, colorId)` checks L1 → L2 → L3. On a L3 hit it processes the image (removes white background via `sharp`) and promotes to L2 asynchronously, updating `bl_catalog.stored_image_key`.
+
+### `bl_catalog` image columns (as of March 2026)
+- **`image_url`**: populated for all P/PART/MINIFIG/SET/GEAR rows after Phase-57 migration with canonical BL CDN URL `https://img.bricklink.com/ItemImage/{code}/{colorId}/{itemNo}.png`
+- **`stored_image_key`**: object-storage key for the permanent processed PNG (null = not yet stored, populated on first fetch via image store). Added in Phase-58.
+- **`thumbnail_url`**: same as `image_url` (kept for legacy compatibility)
+
+### Canonical BrickLink CDN URL patterns
+- Parts: `https://img.bricklink.com/ItemImage/PN/{colorId}/{itemNo}.png`
+- Minifigs: `https://img.bricklink.com/ItemImage/MN/0/{itemNo}.png`
+- Sets: `https://img.bricklink.com/ItemImage/SN/0/{itemNo}.png`
+- Gear: `https://img.bricklink.com/ItemImage/GN/0/{itemNo}.png`
+- **NEVER use** the old `//img.bricklink.com/P/{colorId}/{itemNo}.jpg` pattern (legacy, protocol-relative)
 
 ### On-screen images (`PartImage` component)
 `client/src/components/PartImage.tsx` uses `partImageSources()` from `client/src/lib/part-image.ts`:
-1. DB `imageUrl` (proxied if Rebrickable, direct if BrickLink) — gracefully skipped if null
-2. `https://img.bricklink.com/ItemImage/PN/{colorId}/{partNum}.png`
-3. `https://img.bricklink.com/PL/{partNum}.jpg`
+1. `/api/images/parts/:partNum/:colorId` — server proxy → image store (object storage → CDN → processed PNG)
+2. DB `imageUrl` (proxied if Rebrickable, direct if BrickLink) — secondary
+3. `https://img.bricklink.com/ItemImage/PN/{colorId}/{partNum}.png` — direct CDN fallback
+4. `https://img.bricklink.com/PL/{partNum}.jpg` — legacy last resort
 
-Rebrickable URLs must go through `/api/images/proxy` (CORS/hotlink protection). BrickLink URLs load directly in `<img>` tags without a proxy.
+### PDF / print images (`PackingSlip.tsx`)
+Uses `/api/images/parts/:partNum/:colorId` — same server proxy as #1 above. BrickLink CDN cannot be used directly in a canvas context (no CORS headers → `canvas.toDataURL()` throws SecurityError). The proxy returns a same-origin PNG processed through the image store.
 
-### PDF / print images (`printPicklist` in `PackingSlip.tsx`)
-**Cannot** load BrickLink URLs directly in a browser canvas — BrickLink CDN sends no CORS headers, so `canvas.toDataURL()` throws a security error even though the image loads fine in an `<img>` tag.
+### CLIP catalog worker (`universal-clip-catalog.ts`)
+Replaced `embedUrl(url)` (Flask downloads from CDN directly) with `getOrFetchImage()` + `embedCrop(buffer)`. CLIP now trains on the same processed PNG bytes stored in object storage — identical to what the PDF renders.
 
-**Solution**: use the server-side route `/api/images/parts/:partNum/:colorId` which:
-- Fetches from BrickLink server-side (no CORS issue)
-- Tries the same candidate URL list (`ItemImage/PN` → `ItemImage/PL` → `PL`)
-- Removes white backgrounds via `sharp`
-- Caches results in memory for 24 hours
-- Returns same-origin PNG — canvas access always permitted
+### BrickSpotter confirm-embedding fallback (`routes.ts`)
+When the scan crop is no longer in memory, falls back to `getOrFetchImage()` + `embedCrop()` instead of `embedUrl(cdnUrl)`. Consistent with CLIP catalog bytes.
 
-The picklist API (`/api/picklist/bins`) exposes `colorId` on every item specifically so the PDF generator can call this route. `imageUrl` from the DB is **not used** for PDF generation.
+### Scheduler hooks
+- **Catalog Detail Scheduler**: calls `enqueueImageStore()` after each BL API item enrichment
+- **Rebrickable Images**: calls `enqueueImageStore()` after writing each Rebrickable URL to `bl_catalog`
+- Images accumulate in object storage passively as enrichment jobs run
+
+### Background image harvester (`startImageHarvester` in `image-store.ts`)
+Proactive background walker that runs on boot alongside all other schedulers:
+- Queries `bl_catalog WHERE stored_image_key IS NULL AND image_fetch_failed IS NOT TRUE AND item_type IN ('P','PART','MINIFIG','SET','GEAR')` in batches of 20
+- Rate-limited to 2 req/sec (500 ms between requests) to avoid hammering BrickLink CDN
+- On CDN 404: sets `image_fetch_failed = true` — row permanently skipped on future sweeps (Phase-59 column)
+- On success: promotes to object storage, sets `stored_image_key`, clears `image_fetch_failed`
+- Between full sweeps: 60-second pause; logs stored/failed counts per sweep
+- Idempotent: `_harvesterRunning` guard prevents duplicate instances on re-import

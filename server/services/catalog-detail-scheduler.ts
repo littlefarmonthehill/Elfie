@@ -4,6 +4,7 @@ import { eq, and, or, isNull, sql, gte, lt, gt, desc } from "drizzle-orm";
 import { bricklinkCatalogRequest, bricklinkRequest } from "./bricklink";
 import { syncLock } from "./sync-lock";
 import { canonicalBricklinkImageUrl } from "./image-proxy";
+import { enqueueImageStore } from "./image-store";
 
 const ORG_ID = PLATFORM_ORG_ID;
 const SYNC_ID = 'catalog_detail_completion';
@@ -276,6 +277,9 @@ export async function runCatalogDetailSync(): Promise<{
           });
 
           itemsEnriched++;
+          // Background: download and store image bytes in object storage.
+          // Fire-and-forget — never blocks the BL API quota loop.
+          if (apiImageUrl) enqueueImageStore(item.itemType, item.itemNo, item.colorId);
         }
         cdProgress.itemsProcessed = itemsEnriched;
       } catch (error: any) {

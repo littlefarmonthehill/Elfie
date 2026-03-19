@@ -17,6 +17,7 @@ import { startMarketNewsSyncScheduler } from "./services/market-news-scheduler";
 import { startBusinessIntelScheduler } from "./services/business-intel-scheduler";
 import { startUniversalCatalogScheduler } from "./services/universal-catalog-scheduler";
 import { startRebrickableSetsScheduler } from "./services/rebrickable-sets-scheduler";
+import { startImageHarvester } from "./services/image-store";
 import { startService as startSegmentService, warmupClip } from "./services/segmentClient";
 import { pool, db, runMigrations } from "./db";
 import { blInventory, blCatalogClipEmbeddings, embeddingJobs } from "@shared/schema";
@@ -261,6 +262,7 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       startMarketNewsSyncScheduler().catch(error => console.error('Failed to start market news sync scheduler:', error));
       startBusinessIntelScheduler().catch(error => console.error('Failed to start business intel scheduler:', error));
       startEmbeddingWorker().catch(error => console.error('Failed to start embedding worker:', error));
+      startImageHarvester();
 
       // 4i. Auto-resume CLIP visual catalog build (15s: segment service warm-up)
       setTimeout(async () => {

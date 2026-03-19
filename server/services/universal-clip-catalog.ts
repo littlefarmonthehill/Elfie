@@ -14,7 +14,8 @@
 import { db } from '../db';
 import { universalCatalogQueue, blCatalog, partIdMappings } from '../../shared/schema';
 import { sql, eq } from 'drizzle-orm';
-import { embedUrl, isScanActive } from './segmentClient';
+import { embedCrop, isScanActive } from './segmentClient';
+import { getOrFetchImage } from './image-store';
 import * as https from 'https';
 import * as zlib from 'zlib';
 
@@ -42,38 +43,6 @@ export function getLastImportedAt()        { return _lastImportedAt; }
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
-/**
- * Build an ordered list of image URLs to try for a given part.
- *
- * @param rbId  — the Rebrickable part number (source of the queue row)
- * @param blId  — the BrickLink part number resolved via part_id_mappings, or null if unknown
- *
- * Strategy:
- *  - BL CDN URLs use the BL part number (blId) when available — that's the only number BL CDN
- *    recognises. Using rbId for BL CDN URLs causes the ~85% 404 rate we saw previously.
- *  - Rebrickable CDN URLs use the Rebrickable part number (rbId). Rebrickable hosts photos
- *    for most of their catalog; color 15 (white) and 1 (black) are the most common baselines.
- *  - If blId equals rbId we deduplicate automatically via Set later (or they hit the same URL).
- */
-function partImageUrls(rbId: string, blId: string | null): string[] {
-  const urls: string[] = [];
-
-  // BL CDN — only useful when we have the correct BL part number
-  if (blId) {
-    urls.push(`https://img.bricklink.com/ItemImage/PL/${blId}.png`);
-    urls.push(`https://img.bricklink.com/PL/${blId}.jpg`);
-  }
-
-  // Rebrickable CDN — publicly accessible, no auth, uses Rebrickable's own numbering.
-  // URL format: /media/parts/photos/{colorId}/{partNo}_{colorId}.jpg
-  // Try the most commonly photographed colors: 71 (light bluish gray), 15 (white),
-  // 72 (dark bluish gray), 4 (yellow), 5 (red), 1 (blue), 11 (black).
-  for (const colorId of [71, 15, 72, 4, 5, 1, 11]) {
-    urls.push(`https://cdn.rebrickable.com/media/parts/photos/${colorId}/${rbId}_${colorId}.jpg`);
-  }
-
-  return urls;
-}
 
 /** Fetch a gzipped URL and return the decompressed text. */
 function fetchGzipped(url: string): Promise<string> {
@@ -255,30 +224,46 @@ export async function retryStaleItems(olderThanDays: number = 30): Promise<numbe
 const WORKER_CONCURRENCY = 5;
 
 async function processOnePart(partNo: string): Promise<void> {
-  // Resolve the BrickLink part number for this Rebrickable part_no via part_id_mappings.
-  // BL CDN requires BL-native IDs — using Rebrickable IDs directly causes 404s for ~85% of parts.
+  // Resolve the BrickLink part number — BL CDN requires BL-native IDs.
   const mappingRows = await db.execute<{ bl_id: string | null }>(
     sql`SELECT bl_id FROM part_id_mappings WHERE rebrickable_id = ${partNo} AND bl_id IS NOT NULL LIMIT 1`
   ).then(r => r.rows ?? []);
   const blId: string | null = mappingRows[0]?.bl_id ?? null;
+  const effectiveId = blId ?? partNo;
 
-  // Try each candidate URL in order — first success wins.
-  const urls = partImageUrls(partNo, blId);
-  let embedding: number[] | null = null;
+  // Look up a representative colorId for this part from bl_catalog.
+  // CLIP embeddings are color-agnostic (stored with color_id=NULL) but we need
+  // a specific color to build the CDN URL. Use the first available row.
+  const catalogRows = await db.execute<{ color_id: number }>(
+    sql`SELECT color_id FROM bl_catalog WHERE item_no = ${effectiveId} AND item_type IN ('P','PART') LIMIT 1`
+  ).then(r => r.rows ?? []);
+
+  // Fall back to a sequence of commonly-photographed colors when no catalog row exists.
+  const colorCandidates: number[] = catalogRows[0]?.color_id != null
+    ? [catalogRows[0].color_id, 1, 71, 15, 4]   // prefer known color, then common ones
+    : [1, 71, 15, 72, 4, 5, 11];                  // black, lt-grey, white, dk-grey, yellow, red, blue
+
+  // Fetch through the image store (L1 memory → L2 object storage → L3 CDN).
+  // The first color that yields an image wins; that image is stored persistently
+  // so future calls (display, PDF, CLIP) all use the same processed bytes.
+  let buffer: Buffer | null = null;
   let lastErr: any = null;
 
-  for (const url of urls) {
+  for (const colorId of colorCandidates) {
     try {
-      embedding = await embedUrl(url);
-      break; // got a valid embedding — stop trying
+      buffer = await getOrFetchImage('PART', effectiveId, colorId);
+      if (buffer) break;
     } catch (err: any) {
       lastErr = err;
-      const msg = err?.message ?? '';
-      // Only fall through to the next URL on image-not-found errors.
-      // Network/server errors should not silently try the next URL.
-      if (!msg.includes('404') && !msg.includes('403') && !msg.includes('image not available')) {
-        throw err;
-      }
+    }
+  }
+
+  let embedding: number[] | null = null;
+  if (buffer) {
+    try {
+      embedding = await embedCrop(buffer);
+    } catch (err: any) {
+      lastErr = err;
     }
   }
 

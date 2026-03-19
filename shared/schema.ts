@@ -210,6 +210,10 @@ export const blCatalog = pgTable("bl_catalog", {
   // Images (color-specific LDraw renders from Rebrickable)
   imageUrl: text("image_url"),
   thumbnailUrl: text("thumbnail_url"),
+  // Object-storage key for permanently stored processed PNG (null = not yet stored)
+  storedImageKey: text("stored_image_key"),
+  // Set true when all CDN sources 404 — harvester skips rows with this flag
+  imageFetchFailed: boolean("image_fetch_failed").default(false),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
   pk: primaryKey({ columns: [table.itemNo, table.itemType, table.colorId] }),
