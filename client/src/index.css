@@ -487,6 +487,10 @@ html.admin-mode {
   .app-card        { @apply bg-gray-800/50 border border-gray-700 rounded-lg; }
   .app-card-muted  { @apply bg-gray-800/30 border border-gray-700 rounded-lg; }
 
+  /* ── Condition colours (global) ─────────────────────────────────────────── */
+  .cond-new  { @apply text-blue-400; }
+  .cond-used { @apply text-foreground; }
+
   /* Typography */
   .app-label       { @apply text-[10px] font-semibold uppercase tracking-widest text-gray-400; }
   .app-col-header  { @apply text-[9px] font-semibold uppercase tracking-widest text-gray-500 text-center; }

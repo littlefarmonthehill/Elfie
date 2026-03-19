@@ -603,7 +603,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                                 <span className="text-yellow-400">{item.colorName}</span>
                               )}
                               {item.condition && (
-                                <span className={item.condition === 'N' ? 'text-blue-400' : 'text-gray-200'}>
+                                <span className={item.condition === 'N' ? 'cond-new' : 'cond-used'}>
                                   {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
                                 </span>
                               )}
@@ -705,7 +705,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                           <span className="tabular-nums">Qty {item.quantity}</span>
                           {item.colorName && <span className="text-yellow-500">{item.colorName}</span>}
                           {item.condition && (
-                            <span className={item.condition === 'N' ? 'text-blue-400' : 'text-gray-200'}>
+                            <span className={item.condition === 'N' ? 'cond-new' : 'cond-used'}>
                               {item.condition === 'N' ? 'New' : item.condition === 'U' ? 'Used' : item.condition}
                             </span>
                           )}
