@@ -373,6 +373,17 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
     alerts.push({ id: 'plan-sunset', icon: CreditCard, iconColor: sunsetSeverity === 'error' ? 'text-red-400' : sunsetSeverity === 'warn' ? 'text-orange-400' : 'text-yellow-400', label: sunsetLabel, sub: 'Choose a new plan to keep access', severity: sunsetSeverity, onClick: () => onOpenBilling?.() });
   }
 
+  if (rateLimit != null) {
+    const limit = blApiCallLimit ?? 5000;
+    const used = rateLimit.callsLast24h ?? 0;
+    const pct = limit > 0 ? (used / limit) * 100 : 0;
+    if (pct >= 90) {
+      alerts.push({ id: 'bl-api-danger', icon: Activity, iconColor: 'text-red-400', label: 'BrickLink API near daily limit', sub: `${used.toLocaleString()} / ${limit.toLocaleString()} calls used`, severity: 'error' });
+    } else if (pct >= 70) {
+      alerts.push({ id: 'bl-api-warn', icon: Activity, iconColor: 'text-yellow-400', label: 'BrickLink API usage high', sub: `${used.toLocaleString()} / ${limit.toLocaleString()} calls used`, severity: 'warn' });
+    }
+  }
+
   const sevOrder: Record<string, number> = { error: 0, warn: 1, info: 2 };
   alerts.sort((a, b) => (sevOrder[a.severity] ?? 9) - (sevOrder[b.severity] ?? 9));
 
@@ -395,6 +406,39 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
       {!collapsed && (
         <>
           <UsageSynopsis onOpenSettings={onOpenSettings} onOpenBilling={onOpenBilling} />
+
+          {/* BrickLink API usage */}
+          {rateLimit != null && (() => {
+            const limit = blApiCallLimit ?? 5000;
+            const used = rateLimit.callsLast24h ?? 0;
+            const pct = Math.min(100, limit > 0 ? Math.round((used / limit) * 100) : 0);
+            const isWarning = pct >= 70 && pct < 90;
+            const isDanger = pct >= 90;
+            const barColor = isDanger ? 'bg-red-500/70' : isWarning ? 'bg-yellow-500/70' : 'bg-blue-500/60';
+            const labelColor = isDanger ? 'text-red-400' : isWarning ? 'text-yellow-400' : 'text-gray-400';
+            return (
+              <div className="px-3 py-2.5 border-t border-gray-700/30 bg-gray-900/40">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <span className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    <Activity className="w-3 h-3" />
+                    BrickLink API
+                  </span>
+                  <span className={cn('text-[10px] font-mono tabular-nums', labelColor)}>
+                    {used.toLocaleString()} / {limit.toLocaleString()}
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full bg-gray-700/50 overflow-hidden mb-1">
+                  <div className={cn('h-full rounded-full transition-all duration-500', barColor)} style={{ width: `${pct}%` }} />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={cn('text-[10px]', labelColor)}>
+                    {isDanger ? 'Near daily limit' : isWarning ? 'Approaching limit' : 'calls used · 24 h rolling'}
+                  </span>
+                  <span className="text-[10px] text-gray-600">{pct}%</span>
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="bg-gray-950/60">
             {alerts.length > 0 && (
