@@ -398,7 +398,7 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
   })();
 
   const isTrial = billingStatus?.status === 'trial' || billingStatus?.plan === 'trial';
-  const isBrickSpotter = billingStatus?.plan?.toLowerCase().includes('brickspot') ?? false;
+  const isBrickSpotter = billingStatus?.brickspotter != null;
   const bs = billingStatus?.brickspotter;
   const bsLimited = bs && bs.scansLimit > 0;
   const bsNearLimit = bsLimited && bs.scansUsed >= Math.floor(bs.scansLimit * 0.8);
