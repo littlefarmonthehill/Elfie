@@ -372,7 +372,7 @@ function FuelGauge({ remaining }: { remaining: number }) {
 
 export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings, onOpenBilling, children }: {
   setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }>;
-  billingStatus?: { plan: string; status: string; interval?: string | null; trialEndsAt?: string | null; subscriptionEndsAt?: string | null; planStatus?: string | null; planSunsetAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number } } | null;
+  billingStatus?: { plan: string; status: string; interval?: string | null; trialEndsAt?: string | null; subscriptionEndsAt?: string | null; planStatus?: string | null; planSunsetAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number; apiCallLimit?: number } } | null;
   rateLimit?: { allowed: boolean; callsLast24h: number; blocked?: boolean } | null;
   blApiCallLimit?: number;
   onOpenSettings?: (section: any) => void;
@@ -428,7 +428,7 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
   }
 
   if (isBrickSpotter && rateLimit != null) {
-    const limit = blApiCallLimit ?? 5000;
+    const limit = bs?.apiCallLimit && bs.apiCallLimit > 0 ? bs.apiCallLimit : (blApiCallLimit ?? 5000);
     const used = rateLimit.callsLast24h ?? 0;
     const pct = limit > 0 ? (used / limit) * 100 : 0;
     if (pct >= 85) {
@@ -463,7 +463,7 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
 
           {/* BrickSpotter Fuel — only visible on BrickSpotter plan */}
           {isBrickSpotter && rateLimit != null && (() => {
-            const limit = blApiCallLimit ?? 5000;
+            const limit = bs?.apiCallLimit && bs.apiCallLimit > 0 ? bs.apiCallLimit : (blApiCallLimit ?? 5000);
             const used = rateLimit.callsLast24h ?? 0;
             const pct = Math.min(100, limit > 0 ? Math.round((used / limit) * 100) : 0);
             const remaining = 100 - pct;

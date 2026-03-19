@@ -136,6 +136,7 @@ export function dbPlanToLimits(plan: PlanConfig) {
   return {
     seats: plan.limitSeats,
     brickspotterScansPerMonth: plan.limitScans,
+    brickspotterApiCallsPerDay: plan.limitBrickspotterApiCalls,
     automationRules: plan.limitAutomationRules,
     orderHistoryDays: plan.limitOrderHistoryDays,
     inventoryItems: plan.limitInventoryItems,

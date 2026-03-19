@@ -3253,6 +3253,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         brickspotter: {
           scansUsed: brickspotterCheck.scansUsed ?? 0,
           scansLimit: brickspotterCheck.scansLimit ?? -1,
+          apiCallLimit: brickspotterCheck.apiCallLimit ?? 0,
         },
       });
     } catch (error) {

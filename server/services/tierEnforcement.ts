@@ -15,13 +15,14 @@ export async function getOrgWithLimits(orgId: string) {
 
   const planCfg = await getPlanConfigByKey(org.plan);
   const baseLimits = planCfg ? dbPlanToLimits(planCfg) : {
-    seats: 1, brickspotterScansPerMonth: 0, automationRules: 0,
+    seats: 1, brickspotterScansPerMonth: 0, brickspotterApiCallsPerDay: 0, automationRules: 0,
     orderHistoryDays: 30, inventoryItems: 100,
   };
 
   const limits = {
     seats: org.seatLimitOverride ?? baseLimits.seats,
     brickspotterScansPerMonth: org.brickspotterLimitOverride ?? baseLimits.brickspotterScansPerMonth,
+    brickspotterApiCallsPerDay: org.blApiCallLimitOverride ?? baseLimits.brickspotterApiCallsPerDay,
     automationRules: org.automationLimitOverride ?? baseLimits.automationRules,
     orderHistoryDays: baseLimits.orderHistoryDays,
     inventoryItems: baseLimits.inventoryItems,
@@ -50,7 +51,7 @@ export async function checkBrickspotterLimit(orgId: string) {
   }
 
   const result = checkLimit(currentScans, limits.brickspotterScansPerMonth, "BrickSpotter scans");
-  return { ...result, scansUsed: currentScans, scansLimit: limits.brickspotterScansPerMonth };
+  return { ...result, scansUsed: currentScans, scansLimit: limits.brickspotterScansPerMonth, apiCallLimit: limits.brickspotterApiCallsPerDay };
 }
 
 export async function incrementBrickspotterScan(orgId: string) {

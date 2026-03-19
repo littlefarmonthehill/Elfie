@@ -1609,6 +1609,7 @@ export const planConfigs = pgTable("plan_configs", {
   limitOrders: integer("limit_orders").notNull().default(-1),
   limitElfieQueries: integer("limit_elfie_queries").notNull().default(0),
   limitBusinessIntel: integer("limit_business_intel").notNull().default(0),
+  limitBrickspotterApiCalls: integer("limit_brickspotter_api_calls").notNull().default(0), // daily BL API calls via platform account (-1 = unlimited, 0 = no BrickSpotter)
   // Features
   featureBrickOwl: boolean("feature_brick_owl").notNull().default(false),
   featureElfieAi: boolean("feature_elfie_ai").notNull().default(false),

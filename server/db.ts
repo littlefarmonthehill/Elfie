@@ -1177,6 +1177,15 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-59 (bl_catalog image_fetch_failed column) complete.');
 
+    // ── Phase-60: Add limit_brickspotter_api_calls to plan_configs ─────────────
+    // Per-plan daily BrickLink API call limit for BrickSpotter (platform account).
+    // 0 = BrickSpotter not included, -1 = unlimited.
+    await client.query(`
+      ALTER TABLE plan_configs
+        ADD COLUMN IF NOT EXISTS limit_brickspotter_api_calls integer NOT NULL DEFAULT 0
+    `);
+    console.log('[Migration] Phase-60 (plan_configs limit_brickspotter_api_calls column) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
