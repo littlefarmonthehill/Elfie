@@ -156,6 +156,11 @@ export async function syncBrickLinkOrders(
         // Allow shipped orders through if BrickLink signals a return via payment status.
         // BrickLink keeps order status as COMPLETED on returns — only payment.status changes.
         const isPaymentReturned = order.payment?.status === 'Returned';
+        // Already marked as returned locally — skip regardless of BrickLink status.
+        // BrickLink always shows COMPLETED for returned orders, so without this guard
+        // the status comparison below would perpetually find a mismatch ('returned' vs 'shipped')
+        // and re-process the same orders every sync without making any real change.
+        if (existing === 'returned') return false;
         if (existing === 'shipped') return isPaymentReturned; // Only let through if it's a return
         const newStatus = mapPlatformStatus('bricklink', order.status);
         if (existing !== newStatus) return true; // Status changed - process it

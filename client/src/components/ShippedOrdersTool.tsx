@@ -249,31 +249,25 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                         )}
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-gray-400">
-                        <div>
-                          <span className="text-gray-500">Customer:</span>{' '}
-                          {order.customerUsername || shipTo.name || 'Unknown'}
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Ship Date:</span>{' '}
-                          {order.shipDate ? format(new Date(order.shipDate), 'MMM d, yyyy') : 'N/A'}
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Total:</span> ${order.orderTotal}
-                        </div>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-400">
+                        <span>{order.customerUsername || shipTo.name || 'Unknown'}</span>
+                        <span className="text-gray-600">•</span>
+                        <span>${order.orderTotal}</span>
+                        <span className="text-gray-600">•</span>
+                        <span>{order.shipDate ? format(new Date(order.shipDate), 'MMM d, yyyy') : 'No ship date'}</span>
+                        {order.carrier && order.service && (
+                          <>
+                            <span className="text-gray-600">•</span>
+                            <span className="text-gray-500">{order.carrier} {order.service}</span>
+                          </>
+                        )}
                         {order.trackingNumber && (
-                          <div className="truncate">
-                            <span className="text-gray-500">Tracking:</span>{' '}
-                            <span className="font-mono">{order.trackingNumber}</span>
-                          </div>
+                          <>
+                            <span className="text-gray-600">•</span>
+                            <span className="font-mono truncate max-w-[180px]">{order.trackingNumber}</span>
+                          </>
                         )}
                       </div>
-                      
-                      {order.carrier && order.service && (
-                        <div className="mt-2 text-xs text-gray-500">
-                          {order.carrier} • {order.service}
-                        </div>
-                      )}
                     </div>
 
                     {/* Actions Dropdown */}

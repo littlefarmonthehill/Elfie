@@ -4200,53 +4200,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Build base query conditions
-      let whereConditions: any = and(eq(orders.orgId, orgId), eq(orders.orderStatus, 'shipped'));
-      if (dateFilter && dateEnd) {
-        whereConditions = and(whereConditions, sql`${orders.orderDate} >= ${dateFilter.toISOString()} AND ${orders.orderDate} < ${dateEnd.toISOString()}`);
-      } else if (dateFilter) {
-        whereConditions = and(whereConditions, sql`${orders.orderDate} >= ${dateFilter.toISOString()}`);
-      }
-      
-      // Add search filter if provided
-      if (searchQuery && searchQuery.trim()) {
-        const search = searchQuery.trim();
-        const searchConditions = or(
-          sql`${orders.orderNumber} ILIKE ${`%${search}%`}`,
-          sql`${orders.customerUsername} ILIKE ${`%${search}%`}`,
-          sql`${orders.customerEmail} ILIKE ${`%${search}%`}`,
-          sql`${shipments.trackingNumber} ILIKE ${`%${search}%`}`
-        );
-        whereConditions = and(whereConditions, searchConditions)!;
-      }
-      
-      // Execute query for shipped orders — limit to 200 most recent to prevent browser crash
+      // Execute query for shipped orders — limit to 200 most recent to prevent browser crash.
+      // Use DISTINCT ON to avoid duplicates when an order has multiple shipment records.
       const limit = searchQuery?.trim() ? 500 : 200;
-      const shippedOrders = await db
-        .select({
-          id: orders.id,
-          orderNumber: orders.orderNumber,
-          orderDate: orders.orderDate,
-          shipDate: orders.shipDate,
-          customerUsername: orders.customerUsername,
-          customerEmail: orders.customerEmail,
-          orderTotal: orders.orderTotal,
-          marketplace: orders.marketplace,
-          shipTo: orders.shipTo,
-          orderStatus: orders.orderStatus,
-          isTest: orders.isTest,
-          trackingNumber: shipments.trackingNumber,
-          carrier: shipments.carrier,
-          service: shipments.service,
-          labelUrl: shipments.labelUrl,
-        })
-        .from(orders)
-        .leftJoin(shipments, eq(orders.id, shipments.orderId))
-        .where(whereConditions)
-        .orderBy(desc(sql`COALESCE(${orders.shipDate}, ${orders.orderDate})`))
-        .limit(limit);
-      
-      res.json(shippedOrders);
+
+      const searchWhere = searchQuery?.trim()
+        ? sql`AND (
+            o.order_number ILIKE ${'%' + searchQuery.trim() + '%'}
+            OR o.customer_username ILIKE ${'%' + searchQuery.trim() + '%'}
+            OR o.customer_email ILIKE ${'%' + searchQuery.trim() + '%'}
+            OR s.tracking_number ILIKE ${'%' + searchQuery.trim() + '%'}
+          )`
+        : sql``;
+
+      const dateWhere = dateFilter && dateEnd
+        ? sql`AND o.order_date >= ${dateFilter.toISOString()} AND o.order_date < ${dateEnd.toISOString()}`
+        : dateFilter
+          ? sql`AND o.order_date >= ${dateFilter.toISOString()}`
+          : sql``;
+
+      const rawRows = await db.execute(sql`
+        SELECT * FROM (
+          SELECT DISTINCT ON (o.id)
+            o.id,
+            o.order_number AS "orderNumber",
+            o.order_date AS "orderDate",
+            o.ship_date AS "shipDate",
+            o.customer_username AS "customerUsername",
+            o.customer_email AS "customerEmail",
+            o.order_total AS "orderTotal",
+            o.marketplace,
+            o.ship_to AS "shipTo",
+            o.order_status AS "orderStatus",
+            o.is_test AS "isTest",
+            s.tracking_number AS "trackingNumber",
+            s.carrier,
+            s.service,
+            s.label_url AS "labelUrl",
+            COALESCE(o.ship_date, o.order_date) AS sort_date
+          FROM orders o
+          LEFT JOIN shipments s ON o.id = s.order_id
+          WHERE o.org_id = ${orgId}
+            AND o.order_status = 'shipped'
+            ${dateWhere}
+            ${searchWhere}
+          ORDER BY o.id, s.created_at DESC NULLS LAST
+        ) sub
+        ORDER BY sort_date DESC
+        LIMIT ${limit}
+      `);
+
+      res.json(rawRows.rows);
     } catch (error) {
       console.error("Error fetching shipped orders:", error);
       res.status(500).json({ error: "Failed to fetch shipped orders" });
