@@ -3,6 +3,8 @@
 ## Overview
 E.L.F.I.E. (Electronic Lifeform For Intelligent Elements) is a business operations and analytics SaaS platform designed for LEGO resellers. It integrates with BrickLink, BrickOwl, and EasyPost to provide real-time inventory management, order tracking, sales analytics, and marketing insights. The platform aims to enhance efficiency and profitability for LEGO resellers and includes an AI chat assistant (also named E.L.F.I.E.). The app also offers a customer portal with a retro-futuristic design, showroom, and community features, positioning itself as a comprehensive solution for the LEGO reseller market. Version 2.3.0.
 
+**BrickSpotter-only plan support:** The platform supports a BrickSpotter-only subscription mode (`isBrickspotterOnly` on `plan_configs`). Users on such plans see only the BrickSpotter 3000 scanner — store management tabs, the DashboardNav, and the OnboardingWizard are hidden. A dedicated signup path ("Become a BrickSpotter 3000 Member") on the signup page routes new users to the first active BS-only plan. A `BrickSpotterWelcome` overlay shows once on first login (tracked via localStorage). New BS-only signups have `onboardingCompleted: true` and `tosAcceptedAt` set immediately at signup.
+
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 

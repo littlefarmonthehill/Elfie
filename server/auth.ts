@@ -12,6 +12,7 @@ import { pool, db } from "./db";
 import type { User } from "@shared/schema";
 import { plans } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { getAllPlanConfigs } from "./services/planConfigService";
 
 // ─── Session type augmentation for impersonation ─────────────────────────────
 declare module 'express-session' {
@@ -58,6 +59,7 @@ const signupSchema = emailPasswordSchema.extend({
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   joinOrgId: z.string().optional(),
+  brickspotterSignup: z.boolean().optional(),
 });
 
 const changePasswordSchema = z.object({
@@ -142,7 +144,7 @@ export async function setupAuth(app: Express) {
     try {
       // Validate input
       const validatedData = signupSchema.parse(req.body);
-      const { email, password, firstName, lastName, joinOrgId } = validatedData;
+      const { email, password, firstName, lastName, joinOrgId, brickspotterSignup } = validatedData;
 
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(email);
@@ -180,29 +182,45 @@ export async function setupAuth(app: Express) {
         const baseSlug = toSlug(firstName || email.split('@')[0] || 'store');
         const suffix = Math.floor(1000 + Math.random() * 9000);
         const slug = `${baseSlug}${suffix}`;
-        const orgName = firstName ? `${firstName}'s Store` : `${email.split('@')[0]}'s Store`;
         const signupDate = new Date();
         signupDate.setHours(0, 0, 0, 0); // normalize to start of day
 
-        // Assign new org to the default plan (if set) or fall back to the 'trial' plan.
-        // Always honour trialDurationDays so every org gets a "try before you buy" window.
-        const [defaultPlan] = await db.select().from(plans).where(eq(plans.isDefault, true)).limit(1);
         let newOrg;
-        if (defaultPlan) {
-          const trialDays = defaultPlan.trialDurationDays ?? 0;
-          const trialEndsAt = trialDays > 0 ? new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000) : null;
+
+        if (brickspotterSignup) {
+          // BrickSpotter-only signup — find the first active BS-only plan config and assign it
+          const allConfigs = await getAllPlanConfigs();
+          const bsPlanConfig = allConfigs.find(c => c.isBrickspotterOnly && !c.isSunset);
+          const orgName = firstName ? `${firstName}'s Account` : `${email.split('@')[0]}'s Account`;
           newOrg = await storage.createOrganization({
             name: orgName, slug,
-            plan: defaultPlan.name,
-            planId: defaultPlan.id,
-            subscriptionStatus: trialEndsAt ? 'trial' : 'active',
-            trialEndsAt,
+            plan: bsPlanConfig ? bsPlanConfig.planKey : 'trial',
+            subscriptionStatus: 'active',
             billingStartDate: signupDate,
+            onboardingCompleted: true, // no store setup needed
+            tosAcceptedAt: new Date(),
           });
         } else {
-          // No default plan configured — fall back to the legacy 'trial' planKey with 14-day window
-          const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-          newOrg = await storage.createOrganization({ name: orgName, slug, plan: 'trial', trialEndsAt, billingStartDate: signupDate });
+          const orgName = firstName ? `${firstName}'s Store` : `${email.split('@')[0]}'s Store`;
+          // Assign new org to the default plan (if set) or fall back to the 'trial' plan.
+          // Always honour trialDurationDays so every org gets a "try before you buy" window.
+          const [defaultPlan] = await db.select().from(plans).where(eq(plans.isDefault, true)).limit(1);
+          if (defaultPlan) {
+            const trialDays = defaultPlan.trialDurationDays ?? 0;
+            const trialEndsAt = trialDays > 0 ? new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000) : null;
+            newOrg = await storage.createOrganization({
+              name: orgName, slug,
+              plan: defaultPlan.name,
+              planId: defaultPlan.id,
+              subscriptionStatus: trialEndsAt ? 'trial' : 'active',
+              trialEndsAt,
+              billingStartDate: signupDate,
+            });
+          } else {
+            // No default plan configured — fall back to the legacy 'trial' planKey with 14-day window
+            const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+            newOrg = await storage.createOrganization({ name: orgName, slug, plan: 'trial', trialEndsAt, billingStartDate: signupDate });
+          }
         }
         orgId = newOrg.id;
         userApproved = true;

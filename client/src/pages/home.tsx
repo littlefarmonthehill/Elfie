@@ -7,6 +7,7 @@ import { useAdminScaling } from "@/hooks/useAdminScaling";
 import { useAuth } from "@/hooks/useAuth";
 import OnboardingWizard from "@/components/OnboardingWizard";
 import EmployeeWelcome, { hasCompletedEmployeeWelcome } from "@/components/EmployeeWelcome";
+import BrickSpotterWelcome, { hasCompletedBsWelcome } from "@/components/BrickSpotterWelcome";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Organization } from "@shared/schema";
 import Header from "@/components/Header";
@@ -63,6 +64,7 @@ export default function Home() {
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [employeeWelcomeDone, setEmployeeWelcomeDone] = useState(false);
+  const [bsWelcomeDone, setBsWelcomeDone] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'priceomatic' | null>(null);
   const [settingsPricingExample, setSettingsPricingExample] = useState<PricingInsight | undefined>(undefined);
   const [settingsScoringExample, setSettingsScoringExample] = useState<PricingInsight | undefined>(undefined);
@@ -1119,11 +1121,19 @@ export default function Home() {
         />
       )}
 
-      {user && user.orgRole !== 'owner' && !user.isAdmin && org && !employeeWelcomeDone && !hasCompletedEmployeeWelcome(user.id) && (
+      {user && user.orgRole !== 'owner' && !user.isAdmin && org && !employeeWelcomeDone && !hasCompletedEmployeeWelcome(user.id) && !isBrickspotterOnly && (
         <EmployeeWelcome
           user={user}
           orgName={org.name}
           onComplete={() => setEmployeeWelcomeDone(true)}
+        />
+      )}
+
+      {/* BrickSpotter-only welcome — shown once on first login for BS members */}
+      {user && isBrickspotterOnly && !bsWelcomeDone && !hasCompletedBsWelcome(user.id) && (
+        <BrickSpotterWelcome
+          userId={user.id}
+          onComplete={() => setBsWelcomeDone(true)}
         />
       )}
 

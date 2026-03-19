@@ -3,12 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Building2, Users, ArrowLeft, Search } from "lucide-react";
+import { UserPlus, Building2, Users, ArrowLeft, Search, ScanSearch, CheckCircle2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
 import logoUrl from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
 import elfieUrl from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
-type SignupMode = "choose" | "business" | "employee";
+type SignupMode = "choose" | "business" | "employee" | "brickspotter";
 
 interface PublicOrg {
   id: string;
@@ -87,6 +88,8 @@ export default function Signup() {
   const [orgs, setOrgs] = useState<PublicOrg[]>([]);
   const [orgsLoading, setOrgsLoading] = useState(false);
   const [orgSearch, setOrgSearch] = useState("");
+  const [tosAccepted, setTosAccepted] = useState(false);
+  const [showTos, setShowTos] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -119,15 +122,26 @@ export default function Signup() {
       toast({ title: "Select a Business", description: "Please choose which business you work for", variant: "destructive" });
       return;
     }
+    if (mode === "brickspotter" && !tosAccepted) {
+      toast({ title: "Terms Required", description: "Please accept the Terms of Service to continue", variant: "destructive" });
+      return;
+    }
 
     setIsLoading(true);
     try {
-      const body: Record<string, string> = { email, password, firstName, lastName };
+      const body: Record<string, unknown> = { email, password, firstName, lastName };
       if (mode === "employee" && selectedOrgId) {
         body.joinOrgId = selectedOrgId;
       }
+      if (mode === "brickspotter") {
+        body.brickspotterSignup = true;
+      }
       await apiRequest("POST", "/api/signup", body);
-      toast({ title: "Account Created!", description: mode === "employee" ? "Your company admin will review and approve your access." : "Welcome to E.L.F.I.E." });
+      const successMsg =
+        mode === "employee" ? "Your company admin will review and approve your access." :
+        mode === "brickspotter" ? "Welcome to BrickSpotter 3000! Start scanning your bricks." :
+        "Welcome to E.L.F.I.E.";
+      toast({ title: "Account Created!", description: successMsg });
       window.location.href = "/";
     } catch (error: any) {
       toast({ title: "Signup Failed", description: error.message || "Failed to create account", variant: "destructive" });
@@ -135,6 +149,29 @@ export default function Signup() {
       setIsLoading(false);
     }
   };
+
+  const handleBack = () => {
+    setMode("choose");
+    setSelectedOrgId(null);
+    setOrgSearch("");
+    setTosAccepted(false);
+    setShowTos(false);
+  };
+
+  const elfieTitle =
+    mode === "business" ? "Set Up Your Business" :
+    mode === "employee" ? "Join a Team" :
+    "Become a BrickSpotter Member";
+
+  const elfieSubtitle =
+    mode === "business" ? "Let's get your store set up with E.L.F.I.E." :
+    mode === "employee" ? "Select your employer, then create your account" :
+    "Snap a photo of any LEGO part — E.L.F.I.E. identifies it instantly.";
+
+  const submitLabel =
+    mode === "employee" ? "Join Team" :
+    mode === "brickspotter" ? "Activate Membership" :
+    "Create Account";
 
   return (
     <div className="min-h-screen flex items-center justify-center p-3 md:p-4 lg:p-6 relative overflow-hidden bg-gradient-to-br from-purple-900 via-indigo-900 to-cyan-900">
@@ -146,6 +183,7 @@ export default function Signup() {
             <div className="p-4 md:p-6 lg:p-8 space-y-2.5 md:space-y-3 lg:space-y-4">
               <LogoHeader />
 
+              {/* ── Mode chooser ── */}
               {mode === "choose" && (
                 <>
                   <ElfieWelcome title="Welcome to E.L.F.I.E.!" subtitle="How would you like to get started?" />
@@ -177,15 +215,30 @@ export default function Signup() {
                         <p className="text-gray-400 text-[10px] md:text-xs">Sign up as an employee of a business already on E.L.F.I.E.</p>
                       </div>
                     </button>
+
+                    <button
+                      onClick={() => setMode("brickspotter")}
+                      className="w-full flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-xl bg-gradient-to-r from-yellow-900/60 to-amber-900/60 border border-yellow-500/30 hover:border-yellow-400/50 transition-all group"
+                      data-testid="button-brickspotter-signup"
+                    >
+                      <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center group-hover:bg-yellow-500/30 transition-colors">
+                        <ScanSearch className="w-5 h-5 md:w-6 md:h-6 text-yellow-300" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-white font-semibold text-sm md:text-base">Become a BrickSpotter 3000 Member</p>
+                        <p className="text-gray-400 text-[10px] md:text-xs">Identify any LEGO part instantly with your camera</p>
+                      </div>
+                    </button>
                   </div>
                 </>
               )}
 
+              {/* ── Forms (business / employee / brickspotter) ── */}
               {mode !== "choose" && (
                 <>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => { setMode("choose"); setSelectedOrgId(null); setOrgSearch(""); }}
+                      onClick={handleBack}
                       className="flex items-center gap-1 text-gray-400 hover:text-white text-xs transition-colors"
                       data-testid="button-back"
                     >
@@ -194,11 +247,25 @@ export default function Signup() {
                     </button>
                   </div>
 
-                  <ElfieWelcome
-                    title={mode === "business" ? "Set Up Your Business" : "Join a Team"}
-                    subtitle={mode === "business" ? "Let's get your store set up with E.L.F.I.E." : "Select your employer, then create your account"}
-                  />
+                  <ElfieWelcome title={elfieTitle} subtitle={elfieSubtitle} />
 
+                  {/* BrickSpotter feature highlights */}
+                  {mode === "brickspotter" && (
+                    <div className="bg-yellow-950/30 border border-yellow-500/20 rounded-xl p-3 space-y-2">
+                      {[
+                        "No store setup — just scan and go",
+                        "E.L.F.I.E. uses the platform BrickLink account (no API key needed)",
+                        "Get real-time prices and part IDs from any photo",
+                      ].map((item) => (
+                        <div key={item} className="flex items-center gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" />
+                          <span className="text-xs text-gray-300">{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Employer selector (employee mode) */}
                   {mode === "employee" && (
                     <div className="space-y-2">
                       <Label className="text-gray-300 text-[10px] md:text-xs lg:text-sm">Select Your Business</Label>
@@ -247,6 +314,7 @@ export default function Signup() {
                     </div>
                   )}
 
+                  {/* Account form */}
                   <form onSubmit={handleSignup} className="space-y-2 md:space-y-2.5 lg:space-y-3">
                     <div className="grid grid-cols-2 gap-2 md:gap-3">
                       <div className="space-y-1">
@@ -274,14 +342,60 @@ export default function Signup() {
                       <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} className="bg-gray-800/50 border-gray-700 text-white text-xs md:text-sm h-9 md:h-10 lg:h-11" data-testid="input-confirmPassword" />
                     </div>
 
+                    {/* Terms of Service — required for BrickSpotter signups */}
+                    {mode === "brickspotter" && (
+                      <div className="space-y-2 border-t border-gray-800 pt-3">
+                        <label className="flex items-start gap-2.5 cursor-pointer" data-testid="label-tos-accept">
+                          <input
+                            type="checkbox"
+                            checked={tosAccepted}
+                            onChange={(e) => setTosAccepted(e.target.checked)}
+                            className="mt-0.5 h-4 w-4 rounded border-gray-600 bg-gray-800 text-yellow-500 focus:ring-yellow-500/30 cursor-pointer"
+                            data-testid="checkbox-tos-accept"
+                          />
+                          <span className="text-xs text-gray-400 leading-relaxed">
+                            I agree to the{" "}
+                            <button
+                              type="button"
+                              onClick={() => setShowTos(!showTos)}
+                              className="text-yellow-400 hover:text-yellow-300 underline underline-offset-2"
+                              data-testid="button-view-tos"
+                            >
+                              Terms of Service
+                            </button>
+                          </span>
+                        </label>
+                        {showTos && (
+                          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 max-h-40 overflow-y-auto text-[11px] text-gray-400 leading-relaxed space-y-3">
+                            <p className="text-xs font-semibold text-gray-300">E.L.F.I.E. Terms of Service</p>
+                            <p>Last updated: {TOS_LAST_UPDATED}</p>
+                            {TOS_SECTIONS.map(s => (
+                              <p key={s.num}><strong className="text-gray-300">{s.num}. {s.title}.</strong> {s.text}</p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <Button
                       type="submit"
-                      disabled={isLoading || (mode === "employee" && !selectedOrgId)}
-                      className="w-full h-10 md:h-12 lg:h-14 text-sm md:text-base lg:text-lg font-semibold bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 hover:from-purple-500 hover:via-pink-500 hover:to-cyan-500 border-0 shadow-lg shadow-purple-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-pink-500/50 hover:scale-[1.02]"
+                      disabled={
+                        isLoading ||
+                        (mode === "employee" && !selectedOrgId) ||
+                        (mode === "brickspotter" && !tosAccepted)
+                      }
+                      className={`w-full h-10 md:h-12 lg:h-14 text-sm md:text-base lg:text-lg font-semibold border-0 shadow-lg transition-all duration-300 hover:scale-[1.02] ${
+                        mode === "brickspotter"
+                          ? "bg-gradient-to-r from-yellow-500 via-amber-500 to-orange-500 hover:from-yellow-400 hover:via-amber-400 hover:to-orange-400 text-gray-900 shadow-yellow-500/50 hover:shadow-xl hover:shadow-amber-500/50"
+                          : "bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 hover:from-purple-500 hover:via-pink-500 hover:to-cyan-500 shadow-purple-500/50 hover:shadow-xl hover:shadow-pink-500/50"
+                      }`}
                       data-testid="button-signup"
                     >
-                      <UserPlus className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 mr-1.5 md:mr-2 lg:mr-3" />
-                      {isLoading ? "Creating Account..." : mode === "employee" ? "Join Team" : "Create Account"}
+                      {mode === "brickspotter"
+                        ? <ScanSearch className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 mr-1.5 md:mr-2 lg:mr-3" />
+                        : <UserPlus className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 mr-1.5 md:mr-2 lg:mr-3" />
+                      }
+                      {isLoading ? "Creating Account..." : submitLabel}
                     </Button>
                   </form>
                 </>
