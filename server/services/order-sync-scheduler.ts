@@ -122,9 +122,8 @@ async function runScheduledOrderSync() {
 
     const totalAdded = result.bricklink.ordersAdded + result.brickowl.ordersAdded;
     console.log(
-      `\n✨ Scheduled order sync complete — ${totalAdded} new orders | ` +
-      `Stripe: ${result.stripe.refunds}r ${result.stripe.fees}f | ` +
-      `PayPal: ${result.paypal.refunds}r ${result.paypal.fees}f`
+      `\n✨ Scheduled order sync complete — ${totalAdded} new orders ` +
+      `(BL: ${result.bricklink.ordersAdded}, BO: ${result.brickowl.ordersAdded})`
     );
 
     await db.insert(syncMetadata).values({

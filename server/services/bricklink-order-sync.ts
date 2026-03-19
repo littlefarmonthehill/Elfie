@@ -351,8 +351,9 @@ async function processBrickLinkOrder(
     // Protect locally-shipped orders: if we've marked this order as shipped locally,
     // don't let a sync from BrickLink demote the status (BrickLink may lag behind,
     // or our update to BrickLink may have failed temporarily).
+    // Exception: returns are a legitimate status change from BrickLink — always allow them through.
     const isLocallyShipped = existingOrder.orderStatus === 'shipped';
-    const wouldDemote = isLocallyShipped && normalizedStatus !== 'shipped';
+    const wouldDemote = isLocallyShipped && normalizedStatus !== 'shipped' && !isReturn;
     
     const updatedStatus = wouldDemote ? 'shipped' : normalizedStatus;
     
