@@ -839,7 +839,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                   className={`flex flex-col py-2 cursor-pointer transition-colors border-l-[3px] ${isSelected ? 'border-l-purple-500 bg-purple-950/30' : 'border-l-transparent'}`}
                                   data-testid={`order-${order.orderNumber}`}
                                 >
-                                  {/* Line 1: identity + workflow status + chevron */}
+                                  {/* Line 1: shortcode · globe · flag · order# · lots · shipping tier | workflow status · chevron */}
                                   <div className="flex items-center gap-2 pl-2 pr-2">
                                     <div className="flex items-center gap-1.5 flex-1 min-w-0">
                                       {/* 2-char shortcode */}
@@ -855,9 +855,22 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                         <span className="text-sm leading-none shrink-0" data-testid={`flag-${order.id}`}>{flag}</span>
                                       )}
                                       {/* Order number */}
-                                      <span className={`font-mono text-xs font-semibold truncate ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}>
+                                      <span className={`font-mono text-xs font-semibold shrink-0 ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}>
                                         {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
                                       </span>
+                                      {/* Lot count — right after order number */}
+                                      {lotCount > 0 && (
+                                        <span className="w-5 h-5 rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] font-bold text-white tabular-nums shrink-0" data-testid={`lot-count-${order.id}`}>
+                                          {lotCount}
+                                        </span>
+                                      )}
+                                      {/* Shipping tier badge */}
+                                      {tier === 'express' && (
+                                        <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-blue-900/50 text-blue-300 border border-blue-700/40 shrink-0" data-testid={`badge-express-${order.id}`}>EXPRESS</span>
+                                      )}
+                                      {tier === 'priority' && (
+                                        <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-red-900/50 text-red-300 border border-red-700/40 shrink-0" data-testid={`badge-priority-${order.id}`}>PRIORITY</span>
+                                      )}
                                     </div>
                                     {/* Workflow status badge */}
                                     <button
@@ -880,15 +893,9 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                     )}
                                   </div>
 
-                                  {/* Line 2: shipping tier + pick status | comment + date + lot count */}
+                                  {/* Line 2: pick-complete | comment · date */}
                                   <div className="flex items-center justify-between pl-2 pr-2 mt-0.5">
                                     <div className="flex items-center gap-1.5">
-                                      {tier === 'express' && (
-                                        <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-blue-900/50 text-blue-300 border border-blue-700/40 shrink-0" data-testid={`badge-express-${order.id}`}>EXPRESS</span>
-                                      )}
-                                      {tier === 'priority' && (
-                                        <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-red-900/50 text-red-300 border border-red-700/40 shrink-0" data-testid={`badge-priority-${order.id}`}>PRIORITY</span>
-                                      )}
                                       {isPickComplete && <CheckCircle2 className="w-3 h-3 text-green-400 fill-green-400 shrink-0" />}
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -903,11 +910,6 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                         </button>
                                       )}
                                       {formattedDate && <span className="text-[10px] text-gray-500">{formattedDate}</span>}
-                                      {lotCount > 0 && (
-                                        <span className="w-5 h-5 rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] font-bold text-white tabular-nums">
-                                          {lotCount}
-                                        </span>
-                                      )}
                                     </div>
                                   </div>
                                 </div>
