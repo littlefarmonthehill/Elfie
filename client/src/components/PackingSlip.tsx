@@ -325,9 +325,12 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
       doc.line(MX, rowY, RIGHT_X, rowY);
     }
 
-    // ── Baselines ─────────────────────────────────────────────────────────────
-    const L1_Y = rowY + 6;    // part + name      — near image top
-    const L2_Y = rowY + 11;   // color + comment  — near image centre
+    // ── Baselines — two-line block centred in the row ────────────────────────
+    // Block height ≈ cap(13pt)=4.6 + line-gap(5) + desc(9pt)=1.5 ≈ 11mm
+    // Centre at BASE_ROW_H/2 → top-of-block at (BASE_ROW_H-11)/2
+    //   L1 baseline = top-of-block + cap(13pt) = (BASE_ROW_H-11)/2 + 4.6
+    const L1_Y = rowY + (BASE_ROW_H - 11) / 2 + 4.6;
+    const L2_Y = L1_Y + 5;   // 5 mm line-gap between baselines
 
     // ── Shortcode column — left of image, large and bold ─────────────────────
     const sc = item.orderNumber ? shortCode(item.orderNumber) : '';
