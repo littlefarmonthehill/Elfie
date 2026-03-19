@@ -26,6 +26,8 @@ import { sql as drizzleSqlCount, inArray } from "drizzle-orm";
 // Suppress Vite's process.exit(1) which fires on any CSS/TS compilation error.
 const _originalExit = process.exit.bind(process);
 let _allowExit = false;
+// Forward-declared so signal handlers (registered below) can close the server.
+let httpServer: ReturnType<typeof createServer>;
 (process as any).exit = (code?: number) => {
   if (_allowExit) { _originalExit(code); return; }
   console.log(`[EXIT SUPPRESSED] process.exit(${code}) was called — keeping server alive`);
@@ -51,6 +53,20 @@ process.on('unhandledRejection', (reason: any) => {
   }
   console.error('[CRASH] Unhandled Rejection reason:', reason);
 });
+const _doExit = (code: number) => {
+  // Close the HTTP server first so the OS releases port 5000 before the
+  // new process tries to bind it. Without this, rapid restarts (workflow
+  // restart, deploy, file-save HMR) reliably trigger EADDRINUSE.
+  const finish = () => { _allowExit = true; _originalExit(code); };
+  if (httpServer?.listening) {
+    httpServer.close(() => finish());
+    // Hard deadline: if close() stalls (keep-alive connections), force exit.
+    setTimeout(finish, 2000).unref();
+  } else {
+    finish();
+  }
+};
+
 process.on('SIGTERM', () => {
   console.log('[SIGNAL] Received SIGTERM — stopping active syncs and flushing records...');
   const cleanup = async () => {
@@ -82,16 +98,14 @@ process.on('SIGTERM', () => {
         .where(drizzleSql`${syncMeta.id} = 'priceomatic_cache' AND ${syncMeta.lastSyncStatus} IN ('in_progress', 'interrupted')`);
       console.log('[SIGTERM] Final POM status check complete');
     } catch (_) {}
-    _allowExit = true;
-    _originalExit(0);
+    _doExit(0);
   };
-  const timer = setTimeout(() => { _allowExit = true; _originalExit(0); }, 5000);
+  const timer = setTimeout(() => _doExit(0), 5000);
   cleanup().finally(() => clearTimeout(timer));
 });
 process.on('SIGINT', () => {
   console.log('[SIGNAL] Received SIGINT');
-  _allowExit = true;
-  _originalExit(0);
+  _doExit(0);
 });
 process.on('exit', (code) => {
   console.log(`[EXIT] Process exiting with code ${code} — exiting from within code`);
@@ -153,7 +167,7 @@ if (isProduction) {
   serveStatic(app);
 }
 
-const httpServer = createServer(app);
+httpServer = createServer(app);
 const port = parseInt(process.env.PORT || '5000', 10);
 
 httpServer.listen({ port, host: "0.0.0.0" }, () => {
