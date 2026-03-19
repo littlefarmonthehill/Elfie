@@ -76,21 +76,52 @@ function channelLabel(order: PackingSlipOrder): string {
  * The full order number string (including any BL/BO prefix) is hashed so that
  * BrickLink and BrickOwl orders with the same numeric suffix never collide.
  */
-export function shortCode(orderNumber: string): string {
-  const ALPHA = 'ABCDEFGHJKMPQRSTVWXYZ'; // 21 letters — no I, L, O, N, U
+const ALPHA = 'ABCDEFGHJKMPQRSTVWXYZ'; // 21 letters — no I, L, O, N, U
+
+function hashCode(orderNumber: string, len: number): string {
   const s = orderNumber.trim();
-  // djb2 variant — simple, fast, good distribution for short strings
   let h = 5381;
-  for (let i = 0; i < s.length; i++) {
-    h = Math.imul(h, 33) ^ s.charCodeAt(i);
-  }
-  h = (h >>> 0); // unsigned 32-bit
+  for (let i = 0; i < s.length; i++) h = Math.imul(h, 33) ^ s.charCodeAt(i);
+  h = h >>> 0;
   let code = '';
-  for (let i = 0; i < 4; i++) {
-    code += ALPHA[h % ALPHA.length];
-    h = Math.floor(h / ALPHA.length);
-  }
+  for (let i = 0; i < len; i++) { code += ALPHA[h % ALPHA.length]; h = Math.floor(h / ALPHA.length); }
   return code;
+}
+
+/** For single-order contexts (e.g. packing slip header). Starts at 2 chars. */
+export function shortCode(orderNumber: string): string {
+  return hashCode(orderNumber, 2);
+}
+
+/**
+ * Build a collision-free order→code map for a batch of orders.
+ * Starts at 2-char codes (441 combinations). If any two orders hash to the
+ * same code at the current length, the whole batch is retried at length+1.
+ * This means all codes in a given picklist have the same character count.
+ */
+function buildShortCodeMap(orderNumbers: string[]): Map<string, string> {
+  const unique = [...new Set(orderNumbers.filter(Boolean))];
+  for (let len = 2; len <= 5; len++) {
+    const codeToOrder = new Map<string, string>();
+    const orderToCode = new Map<string, string>();
+    let collision = false;
+    for (const o of unique) {
+      const code = hashCode(o, len);
+      if (codeToOrder.has(code)) { collision = true; break; }
+      codeToOrder.set(code, o);
+      orderToCode.set(o, code);
+    }
+    if (!collision) return orderToCode;
+  }
+  // Ultimate fallback: sequential base-21 assignment (no collision possible)
+  const map = new Map<string, string>();
+  unique.forEach((o, i) => {
+    let n = i, code = '';
+    do { code = ALPHA[n % 21] + code; n = Math.floor(n / 21); } while (n > 0);
+    while (code.length < 2) code = ALPHA[0] + code;
+    map.set(o, code);
+  });
+  return map;
 }
 
 async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: string; w: number; h: number } | null> {
@@ -261,6 +292,10 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
     )
   );
 
+  // Build collision-free short codes for all orders in this batch.
+  // Starts at 2 chars; expands to 3 only if two orders hash to the same code.
+  const codeMap = buildShortCodeMap(items.map(i => i.orderNumber).filter(Boolean) as string[]);
+
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
   let y = PAGE_PAD;
 
@@ -298,7 +333,7 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
     const L3_Y = L2_Y + 5;   // gap for comment line(s)
 
     // ── Shortcode column — left of image, large and bold ─────────────────────
-    const sc = item.orderNumber ? shortCode(item.orderNumber) : '';
+    const sc = item.orderNumber ? (codeMap.get(item.orderNumber) ?? shortCode(item.orderNumber)) : '';
     if (sc) {
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
@@ -405,6 +440,8 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
   const companyAddress = org?.address || '';
   const addressLines   = companyAddress.split('\n').map(l => l.trim()).filter(Boolean);
 
+  const slipCodeMap = buildShortCodeMap(orders.map(o => o.orderNumber).filter(Boolean));
+
   orders.forEach((order, idx) => {
     if (idx > 0) doc.addPage();
     const orderStartPage = doc.internal.getNumberOfPages();
@@ -434,7 +471,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     }
 
     // ── Shortcode stamp — centred in header, large + chunky ──────────────────
-    const sc          = shortCode(order.orderNumber);
+    const sc          = slipCodeMap.get(order.orderNumber) ?? shortCode(order.orderNumber);
     const STAMP_PT    = 42;
     const STAMP_CAP   = STAMP_PT * 0.352 * 0.70;   // cap-height in mm
     const stampCenterX = MX + CONTENT_W / 2;
