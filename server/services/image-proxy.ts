@@ -133,6 +133,43 @@ function evictOldestCacheEntries(): void {
 }
 
 /**
+ * The single authoritative way to derive a BrickLink CDN image URL from the
+ * three fields that are ALWAYS present on every bl_catalog row.
+ *
+ * BrickLink CDN type codes:
+ *   PN — Part with color     (item_type P or PART)
+ *   MN — Minifig             (item_type M or MINIFIG, colorId is always 0)
+ *   SN — Set                 (item_type S or SET,     colorId is always 0)
+ *   GN — Gear                (item_type G or GEAR)
+ *
+ * Returns null for item types that have no CDN images (INSTRUCTION, BOOK, etc).
+ *
+ * This URL is used as the GUARANTEED baseline value for bl_catalog.imageUrl.
+ * Enrichment jobs (Rebrickable, BL Catalog API) may overwrite it with a
+ * higher-quality image, but the field is NEVER left null.
+ */
+export function canonicalBricklinkImageUrl(
+  itemType: string,
+  itemNo: string,
+  colorId: number,
+): string | null {
+  const t = itemType.toUpperCase();
+  if (t === 'P' || t === 'PART') {
+    return `https://img.bricklink.com/ItemImage/PN/${colorId}/${itemNo}.png`;
+  }
+  if (t === 'M' || t === 'MINIFIG') {
+    return `https://img.bricklink.com/ItemImage/MN/0/${itemNo}.png`;
+  }
+  if (t === 'S' || t === 'SET') {
+    return `https://img.bricklink.com/ItemImage/SN/0/${itemNo}.png`;
+  }
+  if (t === 'G' || t === 'GEAR') {
+    return `https://img.bricklink.com/ItemImage/GN/0/${itemNo}.png`;
+  }
+  return null;
+}
+
+/**
  * Normalise a raw image URL from bl_catalog:
  *   - protocol-relative  //img.bricklink.com/...  → https://img.bricklink.com/...
  *   - already absolute   https://...              → unchanged
@@ -145,15 +182,8 @@ function normaliseCatalogUrl(raw: string | null | undefined): string | null {
 }
 
 /**
- * Build candidate BrickLink CDN URLs for a given part + color.
- *
- * BrickLink CDN URL patterns (confirmed working as of 2025):
- *   1. https://img.bricklink.com/ItemImage/PN/{colorId}/{partNum}.png  — color-specific photo
- *   2. https://img.bricklink.com/ItemImage/PL/{partNum}.png            — shape-only (no background)
- *   3. https://img.bricklink.com/PL/{partNum}.jpg                      — legacy shape-only JPEG
- *
- * NOTE: The old //img.bricklink.com/P/{colorId}/{partNum}.jpg format is legacy
- * and is no longer reliably served. Always prefer the ItemImage paths.
+ * Build candidate BrickLink CDN URLs for a given part + color (used by the
+ * server-side image proxy to try multiple URLs until one succeeds).
  */
 function bricklinkCandidateUrls(partNum: string, colorId: number): string[] {
   return [

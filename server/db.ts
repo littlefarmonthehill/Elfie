@@ -1121,6 +1121,44 @@ export async function runMigrations() {
       console.log('[Migration] Phase-56 (trial→default plan migration) complete — no default plan set, nothing to migrate.');
     }
 
+    // ── Phase-57: Backfill bl_catalog.image_url for all null rows ─────────────
+    // Every row gets the canonical BrickLink CDN URL constructed from its own
+    // (item_type, item_no, color_id) — the three fields that are ALWAYS present.
+    // Protocol-relative URLs (//img.bricklink.com/...) are also normalised to https:.
+    // Enrichment jobs (Rebrickable, BL Catalog API) may later overwrite with
+    // higher-quality images; this just guarantees the field is never null.
+    const backfillResult = await client.query(`
+      UPDATE bl_catalog
+      SET
+        image_url = CASE
+          WHEN item_type IN ('P', 'PART')    THEN 'https://img.bricklink.com/ItemImage/PN/' || color_id || '/' || item_no || '.png'
+          WHEN item_type IN ('M', 'MINIFIG') THEN 'https://img.bricklink.com/ItemImage/MN/0/' || item_no || '.png'
+          WHEN item_type IN ('S', 'SET')     THEN 'https://img.bricklink.com/ItemImage/SN/0/' || item_no || '.png'
+          WHEN item_type IN ('G', 'GEAR')    THEN 'https://img.bricklink.com/ItemImage/GN/0/' || item_no || '.png'
+          ELSE image_url
+        END,
+        thumbnail_url = CASE
+          WHEN item_type IN ('P', 'PART')    THEN 'https://img.bricklink.com/ItemImage/PN/' || color_id || '/' || item_no || '.png'
+          WHEN item_type IN ('M', 'MINIFIG') THEN 'https://img.bricklink.com/ItemImage/MN/0/' || item_no || '.png'
+          WHEN item_type IN ('S', 'SET')     THEN 'https://img.bricklink.com/ItemImage/SN/0/' || item_no || '.png'
+          WHEN item_type IN ('G', 'GEAR')    THEN 'https://img.bricklink.com/ItemImage/GN/0/' || item_no || '.png'
+          ELSE thumbnail_url
+        END,
+        updated_at = NOW()
+      WHERE image_url IS NULL
+        AND item_type IN ('P', 'PART', 'M', 'MINIFIG', 'S', 'SET', 'G', 'GEAR')
+    `);
+    // Also normalise any remaining protocol-relative URLs
+    const normaliseResult = await client.query(`
+      UPDATE bl_catalog
+      SET
+        image_url     = 'https:' || image_url,
+        thumbnail_url = CASE WHEN thumbnail_url LIKE '//%' THEN 'https:' || thumbnail_url ELSE thumbnail_url END,
+        updated_at    = NOW()
+      WHERE image_url LIKE '//%'
+    `);
+    console.log(`[Migration] Phase-57 (bl_catalog image_url backfill) complete — ${backfillResult.rowCount} rows filled, ${normaliseResult.rowCount} protocol-relative URLs normalised.`);
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

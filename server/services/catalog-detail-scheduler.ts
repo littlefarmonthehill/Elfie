@@ -3,6 +3,7 @@ import { appSettings, blCatalog, blInventory, blCategories, blColors, blApiCalls
 import { eq, and, or, isNull, sql, gte, lt, gt, desc } from "drizzle-orm";
 import { bricklinkCatalogRequest, bricklinkRequest } from "./bricklink";
 import { syncLock } from "./sync-lock";
+import { canonicalBricklinkImageUrl } from "./image-proxy";
 
 const ORG_ID = PLATFORM_ORG_ID;
 const SYNC_ID = 'catalog_detail_completion';
@@ -232,6 +233,17 @@ export async function runCatalogDetailSync(): Promise<{
         cdProgress.apiCallsUsed = apiCallsUsed;
 
         if (data) {
+          // BrickLink API returns protocol-relative URLs (//img.bricklink.com/...).
+          // Normalise to absolute HTTPS. If the API returns nothing, fall back to
+          // the canonical CDN URL we can always construct from itemType + itemNo + colorId.
+          const normalise = (raw: string | null | undefined): string | null => {
+            if (!raw) return null;
+            return raw.startsWith('//') ? `https:${raw}` : raw;
+          };
+          const apiImageUrl = normalise(data.image_url)
+            ?? canonicalBricklinkImageUrl(item.itemType, item.itemNo, item.colorId);
+          const apiThumbUrl = normalise(data.thumbnail_url) ?? apiImageUrl;
+
           await db.insert(blCatalog).values({
             itemNo: item.itemNo,
             itemType: item.itemType,
@@ -243,8 +255,8 @@ export async function runCatalogDetailSync(): Promise<{
             blDimensionY: data.dim_y ? String(data.dim_y) : null,
             blDimensionZ: data.dim_z ? String(data.dim_z) : null,
             yearReleased: data.year_released || null,
-            imageUrl: data.image_url || null,
-            thumbnailUrl: data.thumbnail_url || null,
+            imageUrl: apiImageUrl,
+            thumbnailUrl: apiThumbUrl,
           }).onConflictDoUpdate({
             target: [blCatalog.itemNo, blCatalog.itemType, blCatalog.colorId],
             set: {
@@ -255,6 +267,8 @@ export async function runCatalogDetailSync(): Promise<{
               blDimensionY: sql`COALESCE(EXCLUDED.bl_dimension_y, bl_catalog.bl_dimension_y)`,
               blDimensionZ: sql`COALESCE(EXCLUDED.bl_dimension_z, bl_catalog.bl_dimension_z)`,
               yearReleased: sql`COALESCE(EXCLUDED.year_released, bl_catalog.year_released)`,
+              // Always take the fresh API value — it is the direct BL source.
+              // Rebrickable enrichment (higher quality) can still overwrite later.
               imageUrl: sql`COALESCE(EXCLUDED.image_url, bl_catalog.image_url)`,
               thumbnailUrl: sql`COALESCE(EXCLUDED.thumbnail_url, bl_catalog.thumbnail_url)`,
               updatedAt: sql`NOW()`,

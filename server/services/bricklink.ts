@@ -5,6 +5,7 @@ import OAuth from "oauth-1.0a";
 import crypto from "crypto";
 import { syncRebrickableSetParts } from "./rebrickable";
 import { syncLock } from "./sync-lock";
+import { canonicalBricklinkImageUrl } from "./image-proxy";
 import { batchEmbedInventory, batchEmbedSets } from "./embeddings";
 import { syncBrickLinkToBrickOwl } from "./brickowl";
 import { saveXMLBackup } from "./export";
@@ -580,7 +581,19 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
         const batchCatMap = new Map<string, any>();
         for (const item of batch) {
           const k = `${item.item.no}|${item.item.type}|${item.color_id || 0}`;
-          if (!batchCatMap.has(k)) batchCatMap.set(k, { itemNo: item.item.no, itemType: item.item.type, colorId: item.color_id || 0, itemName: item.item.name || null, colorName: item.color_name || null, categoryId: item.item.category_id || null });
+          if (!batchCatMap.has(k)) {
+            const colorId = item.color_id || 0;
+            batchCatMap.set(k, {
+              itemNo: item.item.no,
+              itemType: item.item.type,
+              colorId,
+              itemName: item.item.name || null,
+              colorName: item.color_name || null,
+              categoryId: item.item.category_id || null,
+              imageUrl: canonicalBricklinkImageUrl(item.item.type, item.item.no, colorId),
+              thumbnailUrl: canonicalBricklinkImageUrl(item.item.type, item.item.no, colorId),
+            });
+          }
         }
         if (batchCatMap.size > 0) {
           await db.insert(blCatalog).values(Array.from(batchCatMap.values())).onConflictDoUpdate({
@@ -589,6 +602,8 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
               itemName: sql`COALESCE(EXCLUDED.item_name, bl_catalog.item_name)`,
               colorName: sql`COALESCE(EXCLUDED.color_name, bl_catalog.color_name)`,
               categoryId: sql`COALESCE(EXCLUDED.category_id, bl_catalog.category_id)`,
+              imageUrl: sql`COALESCE(bl_catalog.image_url, EXCLUDED.image_url)`,
+              thumbnailUrl: sql`COALESCE(bl_catalog.thumbnail_url, EXCLUDED.thumbnail_url)`,
               updatedAt: sql`NOW()`,
             },
           });
@@ -751,21 +766,25 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
       }
     }
 
-    // Bulk-upsert bl_catalog for ALL items so every inventory lot gets a name/color/category.
+    // Bulk-upsert bl_catalog for ALL items so every inventory lot gets a name/color/category/image.
     // This covers items that existed before the dual-write was added and items that
     // didn't change (so weren't touched by the new/update paths above).
     // Deduplicate by (item_no, item_type, color_id) first — multiple lots share the same key.
-    const catalogMap = new Map<string, { itemNo: string; itemType: string; colorId: number; itemName: string | null; colorName: string | null; categoryId: number | null }>();
+    const catalogMap = new Map<string, { itemNo: string; itemType: string; colorId: number; itemName: string | null; colorName: string | null; categoryId: number | null; imageUrl: string | null; thumbnailUrl: string | null }>();
     for (const item of items) {
       const key = `${item.item.no}|${item.item.type}|${item.color_id || 0}`;
       if (!catalogMap.has(key)) {
+        const colorId = item.color_id || 0;
+        const imgUrl = canonicalBricklinkImageUrl(item.item.type, item.item.no, colorId);
         catalogMap.set(key, {
           itemNo: item.item.no,
           itemType: item.item.type,
-          colorId: item.color_id || 0,
+          colorId,
           itemName: item.item.name || null,
           colorName: item.color_name || null,
           categoryId: item.item.category_id || null,
+          imageUrl: imgUrl,
+          thumbnailUrl: imgUrl,
         });
       }
     }
@@ -780,6 +799,8 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
           itemName: sql`COALESCE(EXCLUDED.item_name, bl_catalog.item_name)`,
           colorName: sql`COALESCE(EXCLUDED.color_name, bl_catalog.color_name)`,
           categoryId: sql`COALESCE(EXCLUDED.category_id, bl_catalog.category_id)`,
+          imageUrl: sql`COALESCE(bl_catalog.image_url, EXCLUDED.image_url)`,
+          thumbnailUrl: sql`COALESCE(bl_catalog.thumbnail_url, EXCLUDED.thumbnail_url)`,
           updatedAt: sql`NOW()`,
         },
       });
