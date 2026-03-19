@@ -393,10 +393,13 @@ export default function FulfillmentTool() {
     return dateA - dateB;
   };
   const allOrders = data?.orders || [];
-  // Flat sorted list used for select-all / print
-  const sortedOrders = [...allOrders].sort(sortWithinGroup);
-  // Grouped by workflow status, each group sorted by tier then date
+  // Flat sorted list used for select-all / print — excludes done orders
+  const sortedOrders = [...allOrders]
+    .filter(o => (o.workflowStatus || 'new') !== 'done')
+    .sort(sortWithinGroup);
+  // Grouped by workflow status — 'done' orders are hidden from the flyout
   const groupedOrders = WORKFLOW_STATUSES
+    .filter(status => status !== 'done')
     .map(status => ({
       status,
       orders: allOrders
@@ -799,7 +802,7 @@ export default function FulfillmentTool() {
                                 {/* Inline workflow status picker */}
                                 {statusPickerOrderId === order.id && (
                                   <div className="ml-5 mb-2 flex flex-wrap gap-1.5" data-testid={`workflow-picker-${order.id}`}>
-                                    {WORKFLOW_STATUSES.map(s => {
+                                    {WORKFLOW_STATUSES.filter(s => s !== 'done').map(s => {
                                       const sm = WORKFLOW_META[s];
                                       const isActive = wfStatus === s;
                                       return (
