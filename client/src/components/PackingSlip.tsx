@@ -290,13 +290,6 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
 
     const rowY = y;
 
-    // ── Row divider (between rows only, not before the first) ────────────────
-    if (y > PAGE_PAD) {
-      doc.setDrawColor(210, 210, 210);
-      doc.setLineWidth(0.2);
-      doc.line(MX, rowY, RIGHT_X, rowY);
-    }
-
     // ── Baselines ─────────────────────────────────────────────────────────────
     // Three-line hierarchy: L1 (part+qty), L2 (color+condition), L3 (comment)
     // Block: cap13pt≈4.6 + gap5.5 + cap11pt≈3.9 ≈ 14mm centred in BASE_ROW_H
