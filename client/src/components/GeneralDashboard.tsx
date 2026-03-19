@@ -398,6 +398,7 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
   })();
 
   const isTrial = billingStatus?.status === 'trial' || billingStatus?.plan === 'trial';
+  const isBrickSpotter = billingStatus?.plan?.toLowerCase().includes('brickspot') ?? false;
   const bs = billingStatus?.brickspotter;
   const bsLimited = bs && bs.scansLimit > 0;
   const bsNearLimit = bsLimited && bs.scansUsed >= Math.floor(bs.scansLimit * 0.8);
@@ -426,7 +427,7 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
     alerts.push({ id: 'plan-sunset', icon: CreditCard, iconColor: sunsetSeverity === 'error' ? 'text-red-400' : sunsetSeverity === 'warn' ? 'text-orange-400' : 'text-yellow-400', label: sunsetLabel, sub: 'Choose a new plan to keep access', severity: sunsetSeverity, onClick: () => onOpenBilling?.() });
   }
 
-  if (rateLimit != null) {
+  if (isBrickSpotter && rateLimit != null) {
     const limit = blApiCallLimit ?? 5000;
     const used = rateLimit.callsLast24h ?? 0;
     const pct = limit > 0 ? (used / limit) * 100 : 0;
@@ -460,8 +461,8 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
         <>
           <UsageSynopsis onOpenSettings={onOpenSettings} onOpenBilling={onOpenBilling} />
 
-          {/* BrickSpotter Fuel */}
-          {rateLimit != null && (() => {
+          {/* BrickSpotter Fuel — only visible on BrickSpotter plan */}
+          {isBrickSpotter && rateLimit != null && (() => {
             const limit = blApiCallLimit ?? 5000;
             const used = rateLimit.callsLast24h ?? 0;
             const pct = Math.min(100, limit > 0 ? Math.round((used / limit) * 100) : 0);
