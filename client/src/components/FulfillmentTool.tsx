@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe, ChevronRight } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe } from "lucide-react";
 import { printPackingSlips, printPicklist, buildShortCodeMap } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, shippingTier, toggleSetItem } from "@/lib/item-utils";
@@ -881,22 +881,22 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                     >
                                       {wfMeta.label}
                                     </button>
-                                    {onOrderDetail && (
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); onOrderDetail(String(order.id)); }}
-                                        className="text-gray-600 hover:text-gray-400 transition-colors shrink-0"
-                                        data-testid={`button-order-detail-${order.id}`}
-                                        title="View order detail"
-                                      >
-                                        <ChevronRight className="w-4 h-4" />
-                                      </button>
-                                    )}
                                   </div>
 
-                                  {/* Line 2: pick-complete | comment · date */}
+                                  {/* Line 2: pick-complete · date · view order | comment */}
                                   <div className="flex items-center justify-between pl-2 pr-2 mt-0.5">
                                     <div className="flex items-center gap-1.5">
                                       {isPickComplete && <CheckCircle2 className="w-3 h-3 text-green-400 fill-green-400 shrink-0" />}
+                                      {formattedDate && <span className="text-[10px] text-gray-500">{formattedDate}</span>}
+                                      {onOrderDetail && (
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); onOrderDetail(String(order.id)); }}
+                                          className="text-[10px] text-sky-500/70 hover:text-sky-400 transition-colors"
+                                          data-testid={`button-order-detail-${order.id}`}
+                                        >
+                                          view order
+                                        </button>
+                                      )}
                                     </div>
                                     <div className="flex items-center gap-2">
                                       {order.customerNotes && (
@@ -909,7 +909,6 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                           <MessageCircle className="w-3.5 h-3.5 fill-current" />
                                         </button>
                                       )}
-                                      {formattedDate && <span className="text-[10px] text-gray-500">{formattedDate}</span>}
                                     </div>
                                   </div>
                                 </div>
