@@ -104,14 +104,18 @@ export function shortCode(orderNumber: string): string {
  */
 function buildShortCodeMap(orderNumbers: string[]): Map<string, string> {
   const unique = [...new Set(orderNumbers.filter(Boolean))].sort();
-  const len = unique.length <= ALPHA.length ** 2 ? 2
-            : unique.length <= ALPHA.length ** 3 ? 3 : 4;
   const map = new Map<string, string>();
-  unique.forEach((o, i) => {
-    let n = i, code = '';
-    for (let d = 0; d < len; d++) { code = ALPHA[n % ALPHA.length] + code; n = Math.floor(n / ALPHA.length); }
+  const used = new Set<string>();
+  for (const o of unique) {
+    let code = '';
+    for (let len = 2; len <= 4; len++) {
+      const candidate = hashCode(o, len);
+      if (!used.has(candidate)) { code = candidate; break; }
+    }
+    if (!code) code = hashCode(o, 4);
+    used.add(code);
     map.set(o, code);
-  });
+  }
   return map;
 }
 
