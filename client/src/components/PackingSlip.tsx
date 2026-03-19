@@ -147,6 +147,8 @@ export interface PicklistItem {
   partNumber?: string | null;
   sku?: string | null;
   colorName?: string | null;
+  /** BrickLink color ID — used to fetch the part thumbnail via the server proxy. */
+  colorId?: number | null;
   condition?: string | null;
   itemName?: string | null;
   quantity: number;
@@ -161,10 +163,24 @@ const chanPrefix = (item: PicklistItem) => item.marketplace === 'BrickOwl' ? 'BO
 const condLabel  = (c: string | null | undefined) => c === 'N' ? 'New' : c === 'U' ? 'Used' : (c || '');
 const partKey    = (item: PicklistItem) => item.partNumber || item.sku || '';
 
-async function loadItemImage(url: string): Promise<string | null> {
+/**
+ * Load a part thumbnail for PDF embedding via the server-side image proxy.
+ *
+ * Why the proxy instead of loading BrickLink URLs directly in the browser:
+ *   - BrickLink CDN does NOT send CORS headers, so `canvas.toDataURL()` throws
+ *     a security error after drawing a cross-origin image, even when the image
+ *     loads fine in a plain <img> tag.
+ *   - The server proxy (/api/images/parts/:partNum/:colorId) fetches from
+ *     BrickLink server-side, processes the image, and serves it same-origin —
+ *     so canvas access is always permitted.
+ *   - The proxy also builds the correct CDN URL from the part number and color ID
+ *     (https://img.bricklink.com/ItemImage/PN/{colorId}/{partNum}.png) regardless
+ *     of what is stored in bl_catalog.imageUrl (which is NULL for ~99% of rows).
+ */
+async function loadItemImage(partNum: string, colorId: number): Promise<string | null> {
+  const proxyUrl = `/api/images/parts/${encodeURIComponent(partNum)}/${colorId}`;
   return new Promise((resolve) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
     img.onload = () => {
       try {
         const canvas = document.createElement('canvas');
@@ -179,7 +195,7 @@ async function loadItemImage(url: string): Promise<string | null> {
       }
     };
     img.onerror = () => resolve(null);
-    img.src = url;
+    img.src = proxyUrl;
   });
 }
 
@@ -190,9 +206,15 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
   const IMG_GAP  = 2;             // gap between text and image mm
   const TEXT_W   = CONTENT_W - IMG_SIZE - IMG_GAP;
 
-  // Pre-load all item images concurrently (graceful null on failure)
+  // Pre-load all item images concurrently via the server-side proxy.
+  // Uses partNumber + colorId (not imageUrl) because bl_catalog.imageUrl is NULL
+  // for ~99% of inventory rows, and BrickLink CDN blocks canvas CORS access anyway.
   const imageDataUrls = await Promise.all(
-    items.map(item => item.imageUrl ? loadItemImage(item.imageUrl) : Promise.resolve(null))
+    items.map(item =>
+      item.partNumber && item.colorId != null
+        ? loadItemImage(item.partNumber, item.colorId)
+        : Promise.resolve(null)
+    )
   );
 
   const PANEL_H     = PAGE_H / 2;

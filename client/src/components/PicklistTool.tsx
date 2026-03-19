@@ -23,6 +23,7 @@ type BinPicklistItem = {
   sku: string;
   partNumber: string | null;
   colorName: string | null;
+  colorId: number | null;
   condition: string | null;
   pulled: boolean;
   inventoryId: number | null;

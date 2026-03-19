@@ -132,6 +132,37 @@ function evictOldestCacheEntries(): void {
   console.log(`[Image Proxy] Evicted ${toRemove.length} old cache entries`);
 }
 
+/**
+ * Normalise a raw image URL from bl_catalog:
+ *   - protocol-relative  //img.bricklink.com/...  → https://img.bricklink.com/...
+ *   - already absolute   https://...              → unchanged
+ *   - null / empty       → null
+ */
+function normaliseCatalogUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  if (raw.startsWith('//')) return `https:${raw}`;
+  return raw;
+}
+
+/**
+ * Build candidate BrickLink CDN URLs for a given part + color.
+ *
+ * BrickLink CDN URL patterns (confirmed working as of 2025):
+ *   1. https://img.bricklink.com/ItemImage/PN/{colorId}/{partNum}.png  — color-specific photo
+ *   2. https://img.bricklink.com/ItemImage/PL/{partNum}.png            — shape-only (no background)
+ *   3. https://img.bricklink.com/PL/{partNum}.jpg                      — legacy shape-only JPEG
+ *
+ * NOTE: The old //img.bricklink.com/P/{colorId}/{partNum}.jpg format is legacy
+ * and is no longer reliably served. Always prefer the ItemImage paths.
+ */
+function bricklinkCandidateUrls(partNum: string, colorId: number): string[] {
+  return [
+    `https://img.bricklink.com/ItemImage/PN/${colorId}/${partNum}.png`,
+    `https://img.bricklink.com/ItemImage/PL/${partNum}.png`,
+    `https://img.bricklink.com/PL/${partNum}.jpg`,
+  ];
+}
+
 export async function getProcessedPartImage(partNum: string, colorId: number): Promise<Buffer | null> {
   const cacheKey = `${partNum}-${colorId}`;
   
@@ -142,6 +173,8 @@ export async function getProcessedPartImage(partNum: string, colorId: number): P
   }
 
   try {
+    // 1. Check bl_catalog for a stored URL (may be null for most rows, or
+    //    protocol-relative for older rows — normalise before use).
     const inventoryItem = await db
       .select({ imageUrl: blCatalog.imageUrl })
       .from(blCatalog)
@@ -151,59 +184,30 @@ export async function getProcessedPartImage(partNum: string, colorId: number): P
       ))
       .limit(1);
 
-    if (!inventoryItem.length || !inventoryItem[0].imageUrl) {
-      const anyInventoryItem = await db
-        .select({ imageUrl: blCatalog.imageUrl })
-        .from(blCatalog)
-        .where(and(
-          eq(blCatalog.itemNo, partNum),
-          sql`${blCatalog.imageUrl} IS NOT NULL AND ${blCatalog.imageUrl} != ''`
-        ))
-        .limit(1);
-      
-      if (!anyInventoryItem.length) {
-        console.warn(`[Image Proxy] No image URL found for ${partNum} (any color)`);
-        return null;
-      }
-      
-      const imageUrl = anyInventoryItem[0].imageUrl!;
-      console.log(`[Image Proxy] Using fallback image for ${cacheKey} from ${imageUrl}`);
-      
-      const originalBuffer = await fetchImageFromUrl(imageUrl);
-      if (!originalBuffer) {
-        return null;
-      }
+    const storedUrl = normaliseCatalogUrl(inventoryItem[0]?.imageUrl);
+
+    // 2. Build the full candidate list: stored URL first, then BrickLink CDN
+    //    patterns constructed directly from part number and color ID.
+    const candidates: string[] = [
+      ...(storedUrl ? [storedUrl] : []),
+      ...bricklinkCandidateUrls(partNum, colorId),
+    ];
+
+    // 3. Try each candidate in order until one succeeds.
+    for (const url of candidates) {
+      console.log(`[Image Proxy] Trying ${url} for ${cacheKey}`);
+      const originalBuffer = await fetchImageFromUrl(url);
+      if (!originalBuffer) continue;
 
       const processedBuffer = await removeWhiteBackground(originalBuffer);
-      
       evictOldestCacheEntries();
-      imageCache.set(cacheKey, {
-        buffer: processedBuffer,
-        timestamp: Date.now()
-      });
-
-      console.log(`[Image Proxy] Successfully processed and cached ${cacheKey} (fallback)`);
+      imageCache.set(cacheKey, { buffer: processedBuffer, timestamp: Date.now() });
+      console.log(`[Image Proxy] Successfully fetched and cached ${cacheKey} from ${url}`);
       return processedBuffer;
     }
 
-    const imageUrl = inventoryItem[0].imageUrl;
-    console.log(`[Image Proxy] Fetching image for ${cacheKey} from ${imageUrl}`);
-
-    const originalBuffer = await fetchImageFromUrl(imageUrl);
-    if (!originalBuffer) {
-      return null;
-    }
-
-    const processedBuffer = await removeWhiteBackground(originalBuffer);
-
-    evictOldestCacheEntries();
-    imageCache.set(cacheKey, {
-      buffer: processedBuffer,
-      timestamp: Date.now()
-    });
-
-    console.log(`[Image Proxy] Successfully processed and cached ${cacheKey}`);
-    return processedBuffer;
+    console.warn(`[Image Proxy] All candidates failed for ${cacheKey}`);
+    return null;
   } catch (error) {
     console.error(`[Image Proxy] Error processing image for ${partNum} color ${colorId}:`, error);
     return null;

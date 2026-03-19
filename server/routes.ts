@@ -13150,6 +13150,9 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
             sku: detail?.sku,
             partNumber,
             colorName,
+            // BrickLink color ID from bl_inventory — used by the PDF image proxy
+            // (/api/images/parts/:partNum/:colorId) to construct the correct CDN URL.
+            colorId: inv?.colorId ?? null,
             condition,
             pulled: item.pulled,
             inventoryId: lookupId,

@@ -6,9 +6,24 @@
  *   2. BrickLink color-specific CDN  (ItemImage/PN/{colorId}/{itemNo}.png)
  *   3. BrickLink shape-only CDN      (PL/{itemNo}.jpg)
  *
- * Rebrickable images must pass through our server proxy because the
+ * Rebrickable images must pass through /api/images/proxy because the
  * Rebrickable CDN blocks direct browser requests with CORS/hotlink protection.
- * BrickLink images load directly with no proxy required.
+ * BrickLink images load directly in <img> tags with no proxy required.
+ *
+ * ⚠️  PDF / canvas context (printPicklist):
+ *   BrickLink CDN does NOT send CORS headers. Loading a BrickLink URL into an
+ *   HTMLImageElement and then drawing it to a canvas taints the canvas, making
+ *   canvas.toDataURL() throw a SecurityError — even though the image displays
+ *   fine in an <img> tag. For PDF generation, ALL images must be fetched
+ *   server-side via /api/images/parts/:partNum/:colorId, which proxies the
+ *   BrickLink CDN and returns a same-origin PNG. See PackingSlip.tsx and
+ *   server/services/image-proxy.ts for the full implementation.
+ *
+ * ⚠️  bl_catalog.imageUrl reliability (as of March 2026):
+ *   ~99% of rows have NULL imageUrl — the field is sparsely populated.
+ *   ~22 rows contain legacy protocol-relative //img.bricklink.com/... URLs.
+ *   Never rely solely on the stored URL; always fall through to the constructed
+ *   BrickLink CDN URLs using partNumber + colorId.
  */
 
 export function proxiedUrl(url: string | null | undefined): string | null {

@@ -211,3 +211,39 @@ ChatGPT-style conversation management with thread persistence and auto-expiry.
 - **AI article overviews**: Expanding an `InlineNewsCard` auto-triggers a call to `POST /api/ai/summarize` which uses `gpt-4o-mini` to generate a 1-2 sentence business-relevant overview. Results are cached in component state (no re-fetch on re-expand). Falls back to raw snippet on error.
 - **Theme-based card assignment**: Market news articles are assigned to their best-fit theme using `themeMatchScore()` with expanded keyword maps (`THEME_KEYWORD_MAP`) covering retirement, pricing, releases, supply, investing, and market categories. Each article belongs to exactly one theme. Community Buzz section exclusively shows BrickLink forum posts — never news articles. "Impact on Your Inventory" section is suppressed (header, body text, bullets, and cards all skipped).
 - **Forum cards**: All forum cards have expandable detail with AI analysis. Fallback text "Click to view discussion thread and AI analysis" shown when excerpt is missing.
+
+## Part Images — Source & Pipeline
+
+### True image source
+BrickLink CDN is the reliable source for all part/minifig thumbnails. The canonical URL patterns are:
+1. `https://img.bricklink.com/ItemImage/PN/{colorId}/{partNum}.png` — color-specific photo (preferred)
+2. `https://img.bricklink.com/ItemImage/PL/{partNum}.png` — shape-only, no color (reliable fallback)
+3. `https://img.bricklink.com/PL/{partNum}.jpg` — legacy shape-only JPEG (last resort)
+
+**Do NOT use the old `//img.bricklink.com/P/{colorId}/{partNum}.jpg` pattern** — it is legacy, protocol-relative, and no longer reliably served.
+
+### `bl_catalog.imageUrl` state (as of March 2026)
+- **~99% of rows are NULL** — the field is almost never populated from sync
+- **~22 rows have protocol-relative `//img.bricklink.com/...`** — must be normalised to `https:` before use
+- **~38 rows have the new `https://img.bricklink.com/ItemImage/...` format** — these work correctly
+- **Conclusion: never rely solely on `bl_catalog.imageUrl`; always fall through to constructed CDN URLs**
+
+### On-screen images (`PartImage` component)
+`client/src/components/PartImage.tsx` uses `partImageSources()` from `client/src/lib/part-image.ts`:
+1. DB `imageUrl` (proxied if Rebrickable, direct if BrickLink) — gracefully skipped if null
+2. `https://img.bricklink.com/ItemImage/PN/{colorId}/{partNum}.png`
+3. `https://img.bricklink.com/PL/{partNum}.jpg`
+
+Rebrickable URLs must go through `/api/images/proxy` (CORS/hotlink protection). BrickLink URLs load directly in `<img>` tags without a proxy.
+
+### PDF / print images (`printPicklist` in `PackingSlip.tsx`)
+**Cannot** load BrickLink URLs directly in a browser canvas — BrickLink CDN sends no CORS headers, so `canvas.toDataURL()` throws a security error even though the image loads fine in an `<img>` tag.
+
+**Solution**: use the server-side route `/api/images/parts/:partNum/:colorId` which:
+- Fetches from BrickLink server-side (no CORS issue)
+- Tries the same candidate URL list (`ItemImage/PN` → `ItemImage/PL` → `PL`)
+- Removes white backgrounds via `sharp`
+- Caches results in memory for 24 hours
+- Returns same-origin PNG — canvas access always permitted
+
+The picklist API (`/api/picklist/bins`) exposes `colorId` on every item specifically so the PDF generator can call this route. `imageUrl` from the DB is **not used** for PDF generation.
