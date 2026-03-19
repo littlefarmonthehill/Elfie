@@ -59,6 +59,37 @@ function channelLabel(order: PackingSlipOrder): string {
   return order.marketplace === 'BrickOwl' ? 'BrickOwl' : 'BrickLink';
 }
 
+/**
+ * Deterministic 4-character shortcode derived from an order number.
+ *
+ * Purpose: staff communication shorthand between the picklist (warehouse) and
+ * the packing slip (customer copy). Instead of reading out "BL 12345678",
+ * pickers say "J4KN". Consistent — same order always produces the same code.
+ *
+ * Alphabet: Crockford-style, minus 0/1/L/U to eliminate common misreads when
+ * spoken aloud or written by hand. 30 chars → 30^4 = 810 000 possible codes,
+ * far more than enough within a working day's volume.
+ *
+ * The full order number string (including any BL/BO prefix) is hashed so that
+ * BrickLink and BrickOwl orders with the same numeric suffix never collide.
+ */
+export function shortCode(orderNumber: string): string {
+  const ALPHA = '23456789ABCDEFGHJKMNPQRSTVWXYZ'; // 30 unambiguous chars
+  const s = orderNumber.trim();
+  // djb2 variant — simple, fast, good distribution for short strings
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) {
+    h = Math.imul(h, 33) ^ s.charCodeAt(i);
+  }
+  h = (h >>> 0); // unsigned 32-bit
+  let code = '';
+  for (let i = 0; i < 4; i++) {
+    code += ALPHA[h % ALPHA.length];
+    h = Math.floor(h / ALPHA.length);
+  }
+  return code;
+}
+
 async function loadLogoInfo(orgLogoUrl?: string | null): Promise<{ dataUrl: string; w: number; h: number } | null> {
   if (!orgLogoUrl) return null;
   return new Promise((resolve) => {
@@ -320,12 +351,13 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
       doc.text(colorCond, TEXT_X, L2_Y);
     }
 
-    const rawOrder = (item.orderNumber || '').replace(/^(BL|BO)/i, '');
-    if (rawOrder) {
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(130, 130, 130);
-      doc.text(`${chanPrefix(item)}\u00a0${rawOrder}`, RIGHT_X, L2_Y, { align: 'right' });
+    // Shortcode — the 4-char ref staff use to cross-reference picklist ↔ packing slip
+    const sc = item.orderNumber ? shortCode(item.orderNumber) : '';
+    if (sc) {
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(40, 40, 40);
+      doc.text(sc, RIGHT_X, L2_Y, { align: 'right' });
     }
 
     // ── Line 3: Item name left · Lot right ───────────────────────────────────
@@ -447,11 +479,15 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     let shipAddrY = y + 11;
     shipAddrLines.forEach(line => { doc.text(line, MX, shipAddrY); shipAddrY += 5.5; });
 
-    const metaX = MX + CONTENT_W;
+    const metaX   = MX + CONTENT_W;
+    const labelX  = metaX - 48;
+    const sc      = shortCode(order.orderNumber);
+
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(85, 85, 85);
-    doc.text(`${channelLabel(order)} Order #`, metaX - 48, infoTopY + 5,  { align: 'right' });
-    doc.text('Date',                           metaX - 48, infoTopY + 11, { align: 'right' });
+    doc.text(`${channelLabel(order)} Order #`, labelX, infoTopY + 5,  { align: 'right' });
+    doc.text('Date',                           labelX, infoTopY + 11, { align: 'right' });
+    doc.text('Ref',                            labelX, infoTopY + 17, { align: 'right' });
 
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(0, 0, 0);
@@ -459,7 +495,14 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     const dateStr = order.orderDate ? new Date(order.orderDate).toLocaleDateString() : '';
     doc.text(dateStr, metaX, infoTopY + 11, { align: 'right' });
 
-    y = Math.max(shipAddrY, infoTopY + 18) + 3;
+    // Ref / shortcode — bold and slightly larger so staff can match it at a glance
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(0, 0, 0);
+    doc.text(sc, metaX, infoTopY + 17, { align: 'right' });
+    doc.setFontSize(11); // restore
+
+    y = Math.max(shipAddrY, infoTopY + 24) + 3;
 
     // ── Items table ──────────────────────────────────────────────────────────
     const rows = order.items.map(item => {
@@ -508,7 +551,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     // ── Footer: Page X of Y on every page for this order ────────────────────
     const orderEndPage   = doc.internal.getNumberOfPages();
     const orderPageTotal = orderEndPage - orderStartPage + 1;
-    const footerLabel    = `${channelLabel(order)} Order # ${order.orderNumber}`;
+    const footerLabel    = `${channelLabel(order)} Order # ${order.orderNumber}  \u00b7  Ref ${sc}`;
 
     for (let p = orderStartPage; p <= orderEndPage; p++) {
       doc.setPage(p);
