@@ -4,7 +4,7 @@ import {
   Package, ShoppingCart, TrendingUp, Users,
   RefreshCw, CheckCircle, XCircle, AlertCircle, Loader2,
   ScanSearch, ArrowRight, Settings, AlertTriangle, Zap,
-  TrendingDown, Clock, Activity, CreditCard, ChevronRight,
+  TrendingDown, Clock, Activity, Gauge, CreditCard, ChevronRight,
   ChevronDown, ChevronUp,
   Sparkles, Globe, Megaphone,
 } from "lucide-react";
@@ -317,6 +317,59 @@ function UsageSynopsis({ onOpenSettings: _onOpenSettings, onOpenBilling }: { onO
   );
 }
 
+function FuelGauge({ remaining }: { remaining: number }) {
+  const cx = 64, cy = 58, r = 44, sw = 8;
+  const arcLen = Math.PI * r;
+  const angleDeg = 180 - (remaining / 100) * 180;
+  const angleRad = (angleDeg * Math.PI) / 180;
+  const tipX = cx + (r - sw - 4) * Math.cos(angleRad);
+  const tipY = cy - (r - sw - 4) * Math.sin(angleRad);
+  const isDanger = remaining <= 15;
+  const isWarn = remaining <= 35 && !isDanger;
+  const fuelColor = isDanger ? '#f87171' : isWarn ? '#fbbf24' : '#60a5fa';
+  const glowColor = isDanger ? '#ef4444' : isWarn ? '#f59e0b' : '#3b82f6';
+  const ticks = [0, 25, 50, 75, 100].map(p => {
+    const a = ((180 - (p / 100) * 180) * Math.PI) / 180;
+    return {
+      x1: cx + (r - sw + 1) * Math.cos(a), y1: cy - (r - sw + 1) * Math.sin(a),
+      x2: cx + (r + 5) * Math.cos(a),       y2: cy - (r + 5) * Math.sin(a),
+    };
+  });
+  return (
+    <svg width="128" height="80" viewBox="0 0 128 80" className="mx-auto overflow-visible">
+      <defs>
+        <filter id="fuelglow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+      <path d={`M ${cx - r},${cy} A ${r},${r} 0 0,1 ${cx + r},${cy}`}
+        fill="none" stroke="#111827" strokeWidth={sw} strokeLinecap="butt" />
+      {remaining > 0 && (
+        <path d={`M ${cx - r},${cy} A ${r},${r} 0 0,1 ${cx + r},${cy}`}
+          fill="none" stroke={glowColor} strokeWidth={sw} strokeLinecap="butt"
+          strokeDasharray={`${(remaining / 100) * arcLen} ${arcLen}`}
+          filter="url(#fuelglow)" opacity={0.35} />
+      )}
+      {remaining > 0 && (
+        <path d={`M ${cx - r},${cy} A ${r},${r} 0 0,1 ${cx + r},${cy}`}
+          fill="none" stroke={fuelColor} strokeWidth={sw - 2} strokeLinecap="butt"
+          strokeDasharray={`${(remaining / 100) * arcLen} ${arcLen}`} />
+      )}
+      {ticks.map((t, i) => (
+        <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2}
+          stroke="#374151" strokeWidth={i === 0 || i === 4 ? 1.5 : 1} />
+      ))}
+      <line x1={cx} y1={cy} x2={tipX} y2={tipY}
+        stroke="#e5e7eb" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx={cx} cy={cy} r="4" fill="#1f2937" stroke="#374151" strokeWidth="1" />
+      <circle cx={cx} cy={cy} r="1.5" fill={fuelColor} />
+      <text x={cx - r - 6} y={cy + 14} fontSize="7.5" fill="#4b5563" textAnchor="middle" fontFamily="monospace" fontWeight="700">E</text>
+      <text x={cx + r + 6} y={cy + 14} fontSize="7.5" fill="#4b5563" textAnchor="middle" fontFamily="monospace" fontWeight="700">F</text>
+    </svg>
+  );
+}
+
 export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLimit, onOpenSettings, onOpenBilling, children }: {
   setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }>;
   billingStatus?: { plan: string; status: string; interval?: string | null; trialEndsAt?: string | null; subscriptionEndsAt?: string | null; planStatus?: string | null; planSunsetAt?: string | null; brickspotter?: { scansUsed: number; scansLimit: number } } | null;
@@ -377,10 +430,10 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
     const limit = blApiCallLimit ?? 5000;
     const used = rateLimit.callsLast24h ?? 0;
     const pct = limit > 0 ? (used / limit) * 100 : 0;
-    if (pct >= 90) {
-      alerts.push({ id: 'bl-api-danger', icon: Activity, iconColor: 'text-red-400', label: 'BrickLink API near daily limit', sub: `${used.toLocaleString()} / ${limit.toLocaleString()} calls used`, severity: 'error' });
-    } else if (pct >= 70) {
-      alerts.push({ id: 'bl-api-warn', icon: Activity, iconColor: 'text-yellow-400', label: 'BrickLink API usage high', sub: `${used.toLocaleString()} / ${limit.toLocaleString()} calls used`, severity: 'warn' });
+    if (pct >= 85) {
+      alerts.push({ id: 'bl-api-danger', icon: Gauge, iconColor: 'text-red-400', label: 'BrickSpotter Fuel — CRITICAL', sub: `Only ${(limit - used).toLocaleString()} calls remaining today`, severity: 'error' });
+    } else if (pct >= 65) {
+      alerts.push({ id: 'bl-api-warn', icon: Gauge, iconColor: 'text-yellow-400', label: 'BrickSpotter Fuel running low', sub: `${(limit - used).toLocaleString()} calls left · 24 h rolling`, severity: 'warn' });
     }
   }
 
@@ -407,34 +460,31 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
         <>
           <UsageSynopsis onOpenSettings={onOpenSettings} onOpenBilling={onOpenBilling} />
 
-          {/* BrickLink API usage */}
+          {/* BrickSpotter Fuel */}
           {rateLimit != null && (() => {
             const limit = blApiCallLimit ?? 5000;
             const used = rateLimit.callsLast24h ?? 0;
             const pct = Math.min(100, limit > 0 ? Math.round((used / limit) * 100) : 0);
-            const isWarning = pct >= 70 && pct < 90;
-            const isDanger = pct >= 90;
-            const barColor = isDanger ? 'bg-red-500/70' : isWarning ? 'bg-yellow-500/70' : 'bg-blue-500/60';
-            const labelColor = isDanger ? 'text-red-400' : isWarning ? 'text-yellow-400' : 'text-gray-400';
+            const remaining = 100 - pct;
+            const isDanger = remaining <= 15;
+            const isWarn = remaining <= 35 && !isDanger;
+            const statusLabel = isDanger ? 'CRITICAL' : isWarn ? 'RUNNING LOW' : 'NOMINAL';
+            const statusColor = isDanger ? 'text-red-400' : isWarn ? 'text-yellow-400' : 'text-blue-400';
             return (
-              <div className="px-3 py-2.5 border-t border-gray-700/30 bg-gray-900/40">
-                <div className="flex items-center justify-between gap-2 mb-1.5">
+              <div className="px-3 pt-2 pb-3 border-t border-gray-700/30 bg-gray-900/40">
+                <div className="flex items-center justify-between gap-2 mb-1">
                   <span className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    <Activity className="w-3 h-3" />
-                    BrickLink API
+                    <Gauge className="w-3 h-3" />
+                    BrickSpotter Fuel
                   </span>
-                  <span className={cn('text-[10px] font-mono tabular-nums', labelColor)}>
-                    {used.toLocaleString()} / {limit.toLocaleString()}
+                  <span className={cn('text-[10px] font-mono font-bold tracking-widest', statusColor)}>
+                    {statusLabel}
                   </span>
                 </div>
-                <div className="h-1.5 rounded-full bg-gray-700/50 overflow-hidden mb-1">
-                  <div className={cn('h-full rounded-full transition-all duration-500', barColor)} style={{ width: `${pct}%` }} />
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className={cn('text-[10px]', labelColor)}>
-                    {isDanger ? 'Near daily limit' : isWarning ? 'Approaching limit' : 'calls used · 24 h rolling'}
-                  </span>
-                  <span className="text-[10px] text-gray-600">{pct}%</span>
+                <FuelGauge remaining={remaining} />
+                <div className="flex items-center justify-between gap-2 mt-1">
+                  <span className="text-[10px] text-gray-600 font-mono">{used.toLocaleString()} used</span>
+                  <span className="text-[10px] text-gray-600 font-mono">{(limit - used).toLocaleString()} left · 24 h</span>
                 </div>
               </div>
             );
