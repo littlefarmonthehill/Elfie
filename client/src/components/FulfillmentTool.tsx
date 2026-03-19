@@ -694,21 +694,12 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
           >
             {/* Header */}
             <div className="flex-shrink-0 border-b border-gray-800">
+              {/* Title row */}
               <div className="flex items-center gap-2 px-4 py-3.5">
                 <Truck className="w-4 h-4 text-orange-400 flex-shrink-0" />
                 <span className="text-sm font-semibold text-gray-100 flex-1">Orders</span>
                 {sortedOrders.length > 0 && (
-                  <span className="text-xs text-gray-500 tabular-nums">{selectedOrders.size} of {sortedOrders.length}</span>
-                )}
-                {sortedOrders.length > 0 && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleSelectAll}
-                    data-testid="button-select-all"
-                  >
-                    {selectedOrders.size === sortedOrders.length ? 'Deselect All' : 'Select All'}
-                  </Button>
+                  <span className="text-xs text-gray-500 tabular-nums">{sortedOrders.length} orders</span>
                 )}
                 <button
                   onClick={() => setDrawerOpen(false)}
@@ -718,40 +709,6 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                   <X className="w-5 h-5" />
                 </button>
               </div>
-
-              {/* Bulk status picker — shown when 2+ orders selected */}
-              {selectedOrders.size >= 2 && (
-                <div className="px-4 pb-2">
-                  {bulkStatusPickerOpen ? (
-                    <div className="flex flex-wrap gap-1.5 items-center">
-                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mr-0.5">Set status:</span>
-                      {WORKFLOW_STATUSES.filter(s => s !== 'done').map(s => {
-                        const sm = WORKFLOW_META[s];
-                        return (
-                          <button
-                            key={s}
-                            onClick={() => updateWorkflowStatusBulk.mutate({ orderIds: [...selectedOrders], status: s })}
-                            disabled={updateWorkflowStatusBulk.isPending}
-                            className={`text-[9px] font-bold px-2 py-1 rounded border leading-none ${sm.badge}`}
-                            data-testid={`bulk-workflow-${s}`}
-                          >
-                            {sm.label}
-                          </button>
-                        );
-                      })}
-                      <button onClick={() => setBulkStatusPickerOpen(false)} className="text-[9px] text-gray-500 hover:text-gray-300 ml-1">Cancel</button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setBulkStatusPickerOpen(true)}
-                      className="text-[9px] font-bold px-2 py-1 rounded border border-gray-600 text-gray-400 hover:text-gray-200 hover:border-gray-400 leading-none"
-                      data-testid="button-bulk-status"
-                    >
-                      Set status for {selectedOrders.size} orders…
-                    </button>
-                  )}
-                </div>
-              )}
 
               {/* Workflow filter pills */}
               {allGroups.length > 1 && (
@@ -782,6 +739,53 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                       </button>
                     );
                   })}
+                </div>
+              )}
+
+              {/* Contextual selection + bulk action bar */}
+              {sortedOrders.length > 0 && (
+                <div className="px-4 pb-2.5">
+                  {bulkStatusPickerOpen ? (
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mr-0.5">Set status:</span>
+                      {WORKFLOW_STATUSES.filter(s => s !== 'done').map(s => {
+                        const sm = WORKFLOW_META[s];
+                        return (
+                          <button
+                            key={s}
+                            onClick={() => updateWorkflowStatusBulk.mutate({ orderIds: [...selectedOrders], status: s })}
+                            disabled={updateWorkflowStatusBulk.isPending}
+                            className={`text-[9px] font-bold px-2 py-1 rounded border leading-none ${sm.badge}`}
+                            data-testid={`bulk-workflow-${s}`}
+                          >
+                            {sm.label}
+                          </button>
+                        );
+                      })}
+                      <button onClick={() => setBulkStatusPickerOpen(false)} className="text-[9px] text-gray-500 hover:text-gray-300 ml-1">Cancel</button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <button
+                        onClick={handleSelectAll}
+                        className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+                        data-testid="button-select-all"
+                      >
+                        {selectedOrders.size === 0
+                          ? 'Select all'
+                          : `${selectedOrders.size} selected · Deselect`}
+                      </button>
+                      {selectedOrders.size >= 1 && (
+                        <button
+                          onClick={() => setBulkStatusPickerOpen(true)}
+                          className="text-[9px] font-bold px-2 py-1 rounded border border-gray-600 text-gray-400 hover:text-gray-200 hover:border-gray-400 leading-none transition-colors"
+                          data-testid="button-bulk-status"
+                        >
+                          Set status…
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
