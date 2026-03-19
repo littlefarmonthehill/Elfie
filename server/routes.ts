@@ -4241,7 +4241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           FROM orders o
           LEFT JOIN shipments s ON o.id = s.order_id
           WHERE o.org_id = ${orgId}
-            AND o.order_status = 'shipped'
+            AND o.order_status IN ('shipped', 'returned')
             ${dateWhere}
             ${searchWhere}
           ORDER BY o.id, s.created_at DESC NULLS LAST
