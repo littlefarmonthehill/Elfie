@@ -236,15 +236,16 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
   if (items.length === 0) return;
 
   // ── Layout constants ────────────────────────────────────────────────────────
-  const IMG_W     = 18;     // image cell width mm
-  const IMG_H     = 18;     // image cell height mm
-  const IMG_GAP   = 3;      // gap between image and text block mm
-  const ROW_H     = 30;     // FIXED row height mm — larger gap gives cutter safe landing zone
-  const PANEL_H   = PAGE_H / 2;
-  const PANEL_PAD = 4;      // breathing room at panel top and bottom mm
-  const TEXT_X    = MX + IMG_W + IMG_GAP;
-  const TEXT_W    = CONTENT_W - IMG_W - IMG_GAP;
-  const RIGHT_X   = MX + CONTENT_W;
+  const IMG_W      = 18;    // image cell width mm
+  const IMG_H      = 18;    // image cell height mm
+  const IMG_GAP    = 3;     // gap between image and text block mm
+  const BASE_ROW_H = 30;    // minimum row height mm — no-comment rows stay consistent
+  const CMT_LINE_H = 4.5;   // mm per wrapped comment line
+  const PANEL_H    = PAGE_H / 2;
+  const PANEL_PAD  = 4;     // breathing room at panel top and bottom mm
+  const TEXT_X     = MX + IMG_W + IMG_GAP;
+  const TEXT_W     = CONTENT_W - IMG_W - IMG_GAP;
+  const RIGHT_X    = MX + CONTENT_W;
 
   // ── Pre-load all images concurrently ───────────────────────────────────────
   const imageDataUrls = await Promise.all(
@@ -289,11 +290,23 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
     y = panelTop(panel);
   };
 
+  // Compute each item's actual height so the panel-overflow check is accurate.
+  // Base height covers part/name, color/condition, and shortcode+order-ref.
+  // Each wrapped comment line adds CMT_LINE_H mm on top.
+  const calcItemH = (item: PicklistItem): number => {
+    if (!item.comment) return BASE_ROW_H;
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    const lines = (doc.splitTextToSize(item.comment, TEXT_W) as string[]);
+    return BASE_ROW_H + lines.length * CMT_LINE_H;
+  };
+
   for (let i = 0; i < items.length; i++) {
     const item    = items[i];
     const imgData = imageDataUrls[i];
+    const itemH   = calcItemH(item);
 
-    if (y + ROW_H > panelBottom(panel)) advancePanel();
+    if (y + itemH > panelBottom(panel)) advancePanel();
 
     const rowY = y;
 
@@ -304,41 +317,64 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
       doc.line(MX, rowY, RIGHT_X, rowY);
     }
 
-    // ── Image — left side, vertically centred in the row ─────────────────────
-    const imgY = rowY + (ROW_H - IMG_H) / 2;
+    // ── Image — centred within the base row height (not stretched by comment) ─
+    const imgY = rowY + (BASE_ROW_H - IMG_H) / 2;
     if (imgData) {
       try {
         doc.addImage(imgData, 'PNG', MX, imgY, IMG_W, IMG_H);
       } catch { /* skip if image data is invalid */ }
     } else {
-      // Subtle placeholder box so the grid still reads cleanly without an image
       doc.setDrawColor(210, 210, 210);
       doc.setLineWidth(0.15);
       doc.setFillColor(248, 248, 248);
       doc.roundedRect(MX, imgY, IMG_W, IMG_H, 1, 1, 'FD');
     }
 
-    // ── Text block — three stacked rows ──────────────────────────────────────
-    // Centred inside ROW_H=30mm.  6mm top-pad before first baseline gives
-    // ~6mm of clear whitespace above and below for the paper cutter.
-    const L1_Y = rowY + 6 + 5;    // part number baseline     (rowY + 11mm)
-    const L2_Y = L1_Y + 5.5;      // color · condition baseline (rowY + 16.5mm)
-    const L3_Y = L2_Y + 5;        // item name baseline         (rowY + 21.5mm)
+    // ── Baselines ─────────────────────────────────────────────────────────────
+    const L1_Y   = rowY + 6 + 5;   // part + name      (rowY + 11mm)
+    const L2_Y   = L1_Y + 5.5;     // color/condition  (rowY + 16.5mm)
+    const OREF_Y = L2_Y + 4;       // order ref        (rowY + 20.5mm)
+    const CMT_Y  = OREF_Y + 5.5;   // first comment line (rowY + 26mm)
 
-    // ── Line 1: Part number (bold) left · Quantity right ────────────────────
-    const partStr = partKey(item);
+    // ── Line 1: [bold]PartNo[/bold] [normal]Name…[/normal]  |  ×Qty ─────────
+    const partStr  = partKey(item);
+    const qtyStr   = `\u00d7${item.quantity}`;
+
+    // Measure qty width at 15pt so we know how much space to reserve
+    doc.setFontSize(15);
+    doc.setFont('helvetica', 'bold');
+    const qtyW = doc.getTextWidth(qtyStr);
+
+    // Part number
     doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 15, 15);
     doc.text(partStr, TEXT_X, L1_Y);
+    const partStrW = doc.getTextWidth(partStr);
 
-    // Quantity — large and prominent so pickers see it at a glance
+    // Item name — same line, right of part number, truncated before the qty column
+    const rawName = item.itemName
+      ? cleanItemName(item.itemName, item.partNumber || '')
+      : '';
+    if (rawName) {
+      const maxNameW = TEXT_W - partStrW - 3 - qtyW - 2; // 3mm name-gap, 2mm qty-gap
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(90, 90, 90);
+      let name = rawName;
+      while (doc.getTextWidth(name) > maxNameW && name.length > 4)
+        name = name.slice(0, -1);
+      if (name.length < rawName.length) name = name.slice(0, -1) + '\u2026';
+      doc.text('\u00a0\u00a0' + name, TEXT_X + partStrW, L1_Y);
+    }
+
+    // Quantity
     doc.setFontSize(15);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 15, 15);
-    doc.text(`\u00d7${item.quantity}`, RIGHT_X, L1_Y, { align: 'right' });
+    doc.text(qtyStr, RIGHT_X, L1_Y, { align: 'right' });
 
-    // ── Line 2: Color · Condition left · Order ref right ─────────────────────
+    // ── Line 2: Color · Condition (left)  |  Shortcode (right, bold) ─────────
     const colorCond = [
       item.colorName,
       item.condition ? condLabel(item.condition) : null,
@@ -351,7 +387,6 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
       doc.text(colorCond, TEXT_X, L2_Y);
     }
 
-    // Shortcode — the 4-char ref staff use to cross-reference picklist ↔ packing slip
     const sc = item.orderNumber ? shortCode(item.orderNumber) : '';
     if (sc) {
       doc.setFontSize(10);
@@ -360,46 +395,28 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
       doc.text(sc, RIGHT_X, L2_Y, { align: 'right' });
     }
 
-    // ── Line 3: Item name left · Lot right ───────────────────────────────────
-    const rawName = item.itemName
-      ? cleanItemName(item.itemName, item.partNumber || '')
-      : '';
-    if (rawName) {
-      const lotW = item.inventoryId
-        ? doc.getTextWidth(`Lot ${item.inventoryId}`) + 4
-        : 0;
-      const maxNameW = TEXT_W - lotW;
-      let name = rawName;
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(110, 110, 110);
-      while (doc.getTextWidth(name) > maxNameW && name.length > 4)
-        name = name.slice(0, -1);
-      if (name.length < rawName.length) name = name.slice(0, -1) + '\u2026';
-      doc.text(name, TEXT_X, L3_Y);
-    }
-
-    if (item.inventoryId) {
-      doc.setFontSize(8);
+    // ── Order ref (bl.12345 / bo.12345) — below shortcode, right-aligned ─────
+    const rawOrder  = (item.orderNumber || '').replace(/^(BL|BO)/i, '').trim();
+    const orderRef  = rawOrder ? `${chanPrefix(item).toLowerCase()}.${rawOrder}` : '';
+    if (orderRef) {
+      doc.setFontSize(7.5);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(130, 130, 130);
-      doc.text(`Lot\u00a0${item.inventoryId}`, RIGHT_X, L3_Y, { align: 'right' });
+      doc.text(orderRef, RIGHT_X, OREF_Y, { align: 'right' });
     }
 
-    // ── Comment (below line 3, only if present) ───────────────────────────────
+    // ── Comments — wrapping below the order ref, left-aligned ────────────────
     if (item.comment) {
-      const L4_Y = L3_Y + 4.5;
-      doc.setFontSize(7.5);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(140, 140, 140);
-      let cmt = item.comment;
-      while (doc.getTextWidth(cmt) > TEXT_W && cmt.length > 4)
-        cmt = cmt.slice(0, -1);
-      if (cmt.length < item.comment.length) cmt = cmt.slice(0, -1) + '\u2026';
-      doc.text(cmt, TEXT_X, L4_Y);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(70, 70, 70);
+      const lines = doc.splitTextToSize(item.comment, TEXT_W) as string[];
+      lines.forEach((line, idx) => {
+        doc.text(line, TEXT_X, CMT_Y + idx * CMT_LINE_H);
+      });
     }
 
-    y = rowY + ROW_H;
+    y = rowY + itemH;
   }
 
   // Ensure the cut line appears on the last physical page if panel 0 was used
