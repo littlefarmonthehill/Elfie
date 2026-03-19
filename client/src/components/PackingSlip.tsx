@@ -204,13 +204,18 @@ async function loadItemImage(partNum: string, colorId: number): Promise<string |
 export async function printPicklist(items: PicklistItem[]): Promise<void> {
   if (items.length === 0) return;
 
-  const IMG_SIZE = 15;            // thumbnail square mm
-  const IMG_GAP  = 2;             // gap between text and image mm
-  const TEXT_W   = CONTENT_W - IMG_SIZE - IMG_GAP;
+  // ── Layout constants ────────────────────────────────────────────────────────
+  const IMG_W     = 18;     // image cell width mm
+  const IMG_H     = 18;     // image cell height mm
+  const IMG_GAP   = 3;      // gap between image and text block mm
+  const ROW_H     = 24;     // FIXED row height mm — must be consistent for paper cutter
+  const PANEL_H   = PAGE_H / 2;
+  const PANEL_PAD = 3;      // breathing room at panel top and bottom mm
+  const TEXT_X    = MX + IMG_W + IMG_GAP;
+  const TEXT_W    = CONTENT_W - IMG_W - IMG_GAP;
+  const RIGHT_X   = MX + CONTENT_W;
 
-  // Pre-load all item images concurrently via the server-side proxy.
-  // Uses partNumber + colorId (not imageUrl) because bl_catalog.imageUrl is NULL
-  // for ~99% of inventory rows, and BrickLink CDN blocks canvas CORS access anyway.
+  // ── Pre-load all images concurrently ───────────────────────────────────────
   const imageDataUrls = await Promise.all(
     items.map(item =>
       item.partNumber && item.colorId != null
@@ -219,24 +224,36 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
     )
   );
 
-  const PANEL_H     = PAGE_H / 2;
-  const PL_MY       = 0;            // no top/bottom margin — as narrow as possible
-  const panelTop    = (p: 0 | 1) => p * PANEL_H + PL_MY;
-  const panelBottom = (p: 0 | 1) => (p + 1) * PANEL_H - PL_MY;
+  const panelTop    = (p: 0 | 1) => p * PANEL_H + PANEL_PAD;
+  const panelBottom = (p: 0 | 1) => (p + 1) * PANEL_H - PANEL_PAD;
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
   let panel: 0 | 1 = 0;
   let y = panelTop(0);
+  let cutLineDrawn = false;
+
+  const drawCutLine = () => {
+    if (cutLineDrawn) return;
+    cutLineDrawn = true;
+    // Solid dark line — visible against white paper for a straight cut
+    doc.setDrawColor(80, 80, 80);
+    doc.setLineWidth(0.5);
+    doc.line(0, PANEL_H, PAGE_W, PANEL_H);
+    // Small "CUT" label centred on the line
+    doc.setFontSize(5.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120, 120, 120);
+    doc.text('CUT', PAGE_W / 2, PANEL_H - 0.8, { align: 'center' });
+  };
 
   const advancePanel = () => {
     if (panel === 0) {
-      doc.setDrawColor(170, 170, 170);
-      doc.setLineWidth(0.3);
-      doc.line(MX, PANEL_H, MX + CONTENT_W, PANEL_H);
+      drawCutLine();
       panel = 1;
     } else {
       doc.addPage();
       panel = 0;
+      cutLineDrawn = false;
     }
     y = panelTop(panel);
   };
@@ -244,63 +261,117 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
   for (let i = 0; i < items.length; i++) {
     const item    = items[i];
     const imgData = imageDataUrls[i];
-    // Heights match the larger font sizes below
-    const itemH = 3 + 7 + 6 + 6;
-    if (y + itemH > panelBottom(panel)) advancePanel();
 
-    const itemY = y;
+    if (y + ROW_H > panelBottom(panel)) advancePanel();
 
-    doc.setDrawColor(187, 187, 187);
-    doc.setLineWidth(0.25);
-    doc.line(MX, y, MX + 20, y);
-    y += 3;
+    const rowY = y;
 
-    const partStr   = partKey(item);
-    const restParts = [
-      item.colorName,
-      item.condition ? condLabel(item.condition) : null,
-      item.itemName,
-    ].filter(Boolean) as string[];
+    // ── Row divider (between rows only, not before the first) ────────────────
+    if (y > panelTop(panel)) {
+      doc.setDrawColor(210, 210, 210);
+      doc.setLineWidth(0.2);
+      doc.line(MX, rowY, RIGHT_X, rowY);
+    }
 
+    // ── Image — left side, vertically centred in the row ─────────────────────
+    const imgY = rowY + (ROW_H - IMG_H) / 2;
+    if (imgData) {
+      try {
+        doc.addImage(imgData, 'PNG', MX, imgY, IMG_W, IMG_H);
+      } catch { /* skip if image data is invalid */ }
+    } else {
+      // Subtle placeholder box so the grid still reads cleanly without an image
+      doc.setDrawColor(210, 210, 210);
+      doc.setLineWidth(0.15);
+      doc.setFillColor(248, 248, 248);
+      doc.roundedRect(MX, imgY, IMG_W, IMG_H, 1, 1, 'FD');
+    }
+
+    // ── Text block — three stacked rows ──────────────────────────────────────
+    // Row heights chosen so the three lines fit inside ROW_H with even padding.
+    //   Top-pad ~4mm, line-1 (part+qty) 7pt baseline gap, line-2 5pt, line-3 5pt
+    const L1_Y = rowY + 4 + 5;    // part number baseline
+    const L2_Y = L1_Y + 5.5;      // color · condition baseline
+    const L3_Y = L2_Y + 5;        // item name baseline
+
+    // ── Line 1: Part number (bold) left · Quantity right ────────────────────
+    const partStr = partKey(item);
     doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 0);
-    doc.text(partStr, MX, y);
-    const partW = doc.getTextWidth(partStr);
+    doc.setTextColor(15, 15, 15);
+    doc.text(partStr, TEXT_X, L1_Y);
 
-    if (restParts.length > 0) {
+    // Quantity — large and prominent so pickers see it at a glance
+    doc.setFontSize(15);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 15, 15);
+    doc.text(`\u00d7${item.quantity}`, RIGHT_X, L1_Y, { align: 'right' });
+
+    // ── Line 2: Color · Condition left · Order ref right ─────────────────────
+    const colorCond = [
+      item.colorName,
+      item.condition ? condLabel(item.condition) : null,
+    ].filter(Boolean).join('  \u00b7  ');
+
+    if (colorCond) {
+      doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      doc.setTextColor(70, 70, 70);
-      let restStr = ' \u00b7 ' + restParts.join(' \u00b7 ');
-      const maxW = TEXT_W - partW;
-      while (doc.getTextWidth(restStr) > maxW && restStr.length > 4) restStr = restStr.slice(0, -1);
-      if (restStr.length < (' \u00b7 ' + restParts.join(' \u00b7 ')).length) restStr = restStr.slice(0, -3) + '\u2026';
-      doc.text(restStr, MX + partW, y);
+      doc.setTextColor(55, 55, 55);
+      doc.text(colorCond, TEXT_X, L2_Y);
     }
-    y += 7;
 
-    const rawOrder  = (item.orderNumber || '').replace(/^(BL|BO)/i, '');
-    const metaParts = [
-      `Qty ${item.quantity}`,
-      `${chanPrefix(item)}${rawOrder}`,
-      item.inventoryId ? `Lot ${item.inventoryId}` : null,
-      item.comment ? item.comment : null,
-    ].filter(Boolean) as string[];
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-    doc.setTextColor(120, 120, 120);
-    doc.text(metaParts.join(' \u00b7 '), MX, y);
-    y += 12;
-
-    // Render thumbnail aligned to the right, vertically centred in the item block
-    if (imgData) {
-      const imgX = MX + CONTENT_W - IMG_SIZE;
-      const imgY = itemY + (itemH - IMG_SIZE) / 2;
-      try {
-        doc.addImage(imgData, 'PNG', imgX, imgY, IMG_SIZE, IMG_SIZE);
-      } catch { /* skip if image data invalid */ }
+    const rawOrder = (item.orderNumber || '').replace(/^(BL|BO)/i, '');
+    if (rawOrder) {
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(130, 130, 130);
+      doc.text(`${chanPrefix(item)}\u00a0${rawOrder}`, RIGHT_X, L2_Y, { align: 'right' });
     }
+
+    // ── Line 3: Item name left · Lot right ───────────────────────────────────
+    const rawName = item.itemName
+      ? cleanItemName(item.itemName, item.partNumber || '')
+      : '';
+    if (rawName) {
+      const lotW = item.inventoryId
+        ? doc.getTextWidth(`Lot ${item.inventoryId}`) + 4
+        : 0;
+      const maxNameW = TEXT_W - lotW;
+      let name = rawName;
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(110, 110, 110);
+      while (doc.getTextWidth(name) > maxNameW && name.length > 4)
+        name = name.slice(0, -1);
+      if (name.length < rawName.length) name = name.slice(0, -1) + '\u2026';
+      doc.text(name, TEXT_X, L3_Y);
+    }
+
+    if (item.inventoryId) {
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(130, 130, 130);
+      doc.text(`Lot\u00a0${item.inventoryId}`, RIGHT_X, L3_Y, { align: 'right' });
+    }
+
+    // ── Comment (below line 3, only if present) ───────────────────────────────
+    if (item.comment) {
+      const L4_Y = L3_Y + 4.5;
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(140, 140, 140);
+      let cmt = item.comment;
+      while (doc.getTextWidth(cmt) > TEXT_W && cmt.length > 4)
+        cmt = cmt.slice(0, -1);
+      if (cmt.length < item.comment.length) cmt = cmt.slice(0, -1) + '\u2026';
+      doc.text(cmt, TEXT_X, L4_Y);
+    }
+
+    y = rowY + ROW_H;
   }
+
+  // Ensure the cut line appears on the last physical page if panel 0 was used
+  if (panel === 0) drawCutLine();
 
   hiddenPrint(doc.output('blob'), 'picklist.pdf');
 }
