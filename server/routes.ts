@@ -13800,7 +13800,11 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         const orderItems = (itemsByOrder[order.id] || []).sort((a: any, b: any) => {
           const pa = a.bricklinkPartNumber || '';
           const pb = b.bricklinkPartNumber || '';
-          return pa.localeCompare(pb, undefined, { numeric: true });
+          const pCmp = pa.localeCompare(pb, undefined, { numeric: true });
+          if (pCmp !== 0) return pCmp;
+          const cCmp = (a.condition || '').localeCompare(b.condition || '');
+          if (cCmp !== 0) return cCmp;
+          return (a.colorName || '').localeCompare(b.colorName || '');
         });
         
         return {

@@ -400,7 +400,10 @@ export default function FulfillmentTool() {
         .filter(item => selectedOrders.has(item.orderId))
         .sort((a, b) => {
           const pk = (a.partNumber || a.sku || '').localeCompare(b.partNumber || b.sku || '', undefined, { numeric: true });
-          return pk !== 0 ? pk : (a.colorName || '').localeCompare(b.colorName || '');
+          if (pk !== 0) return pk;
+          const ck = (a.condition || '').localeCompare(b.condition || '');
+          if (ck !== 0) return ck;
+          return (a.colorName || '').localeCompare(b.colorName || '');
         });
       printPicklist(items.map(item => ({ ...item, comment: item.comment })));
     } catch (error) {

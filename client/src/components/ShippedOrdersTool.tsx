@@ -137,10 +137,13 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
         return;
       }
       const picklistItems = slip.items
-        .sort((a: any, b: any) =>
-          (a.bricklinkPartNumber || '').localeCompare(b.bricklinkPartNumber || '', undefined, { numeric: true }) ||
-          (a.colorName || '').localeCompare(b.colorName || '')
-        )
+        .sort((a: any, b: any) => {
+          const pk = (a.bricklinkPartNumber || '').localeCompare(b.bricklinkPartNumber || '', undefined, { numeric: true });
+          if (pk !== 0) return pk;
+          const ck = (a.condition || '').localeCompare(b.condition || '');
+          if (ck !== 0) return ck;
+          return (a.colorName || '').localeCompare(b.colorName || '');
+        })
         .map((item: any) => ({
           partNumber: item.bricklinkPartNumber || null,
           sku: item.inventoryId || null,
