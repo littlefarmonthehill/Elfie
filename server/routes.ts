@@ -9835,11 +9835,12 @@ Format search_web URLs as markdown links.`;
   });
 
   // Catalog lookup — fetch BrickLink item details + price guide for non-inventory items
-  // Called by heatmap badge when the scanned part isn't in inventory.
+  // Called by BrickSpotter heatmap badge when the scanned part isn't in inventory.
   // Uses 6-month price_guide_cache so BL API calls are rare after first hit.
+  // BrickSpotter always uses the platform BL account — orgId is only for DB access control.
   app.get("/api/catalog/lookup/:itemType/:itemNo", isApproved, async (req: any, res) => {
     try {
-      const orgId = reqOrgId(req);
+      const orgId = reqOrgId(req); // used for DB ownership checks only
       const { itemType, itemNo } = req.params;
       const colorId = req.query.colorId !== undefined ? parseInt(req.query.colorId as string) : undefined;
 
@@ -9867,7 +9868,7 @@ Format search_web URLs as markdown links.`;
       // This enriches non-inventory items on first lookup and caches result in bl_catalog for future calls
       if (!catalog?.imageUrl) {
         try {
-          const { data } = await bricklinkCatalogRequest(`/items/${apiItemType}/${itemNo}`, undefined, orgId);
+          const { data } = await bricklinkCatalogRequest(`/items/${apiItemType}/${itemNo}`, undefined, PLATFORM_ORG_ID);
           if (data) {
             const rawImage = data.image_url as string | null | undefined;
             const rawThumb = data.thumbnail_url as string | null | undefined;
