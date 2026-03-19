@@ -836,65 +836,33 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                               <div key={order.id}>
                                 <div
                                   onClick={() => handleOrderToggle(order.id)}
-                                  className={`flex items-center gap-3 py-2.5 cursor-pointer transition-colors border-l-[3px] ${isSelected ? 'border-l-purple-500 bg-purple-950/30' : 'border-l-transparent'}`}
+                                  className={`flex flex-col py-2 cursor-pointer transition-colors border-l-[3px] ${isSelected ? 'border-l-purple-500 bg-purple-950/30' : 'border-l-transparent'}`}
                                   data-testid={`order-${order.orderNumber}`}
                                 >
-
-                                  {/* Order info */}
-                                  <div className="flex-1 min-w-0 pl-2">
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      {/* 2-char shortcode — same as picklist/packing slip */}
+                                  {/* Line 1: identity + workflow status + chevron */}
+                                  <div className="flex items-center gap-2 pl-2 pr-2">
+                                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                      {/* 2-char shortcode */}
                                       <span className="text-[10px] font-bold text-amber-400 font-mono shrink-0 tabular-nums" data-testid={`shortcode-${order.id}`}>
                                         {orderShortCodeMap.get(order.orderNumber) ?? ''}
                                       </span>
-                                      {/* International globe indicator (non-US only) */}
+                                      {/* International globe (non-US only) */}
                                       {country && country !== 'US' && (
                                         <Globe className="w-3 h-3 text-sky-400 shrink-0" data-testid={`icon-international-${order.id}`} />
                                       )}
-                                      {/* Country flag for all orders */}
+                                      {/* Country flag */}
                                       {flag && (
                                         <span className="text-sm leading-none shrink-0" data-testid={`flag-${order.id}`}>{flag}</span>
                                       )}
-                                      {/* Full order number with marketplace prefix */}
-                                      <span className={`font-mono text-xs font-semibold ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}>
+                                      {/* Order number */}
+                                      <span className={`font-mono text-xs font-semibold truncate ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}>
                                         {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
                                       </span>
-                                      {tier === 'express' && (
-                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-blue-900/50 text-blue-300 border border-blue-700/40 shrink-0" data-testid={`badge-express-${order.id}`}>
-                                          <Truck className="w-2.5 h-2.5" />EXP
-                                        </span>
-                                      )}
-                                      {tier === 'priority' && (
-                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-red-900/50 text-red-300 border border-red-700/40 shrink-0" data-testid={`badge-priority-${order.id}`}>
-                                          <Truck className="w-2.5 h-2.5" />PRI
-                                        </span>
-                                      )}
-                                      {isPickComplete && <CheckCircle2 className="w-3 h-3 text-green-400 fill-green-400 shrink-0" />}
                                     </div>
-                                  </div>
-
-                                  {/* Right side: comment + date + lot count + workflow status badge */}
-                                  <div className="shrink-0 flex items-center gap-2">
-                                    {order.customerNotes && (
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); setCommentOrderId(commentOrderId === order.id ? null : order.id); }}
-                                        className={`rounded transition-colors ${commentOrderId === order.id ? 'text-amber-400' : 'text-amber-500/60 hover:text-amber-400'}`}
-                                        data-testid={`button-customer-note-${order.id}`}
-                                        title="Customer note"
-                                      >
-                                        <MessageCircle className="w-3.5 h-3.5 fill-current" />
-                                      </button>
-                                    )}
-                                    {formattedDate && <span className="text-[10px] text-gray-500">{formattedDate}</span>}
-                                    {lotCount > 0 && (
-                                      <span className="w-5 h-5 rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] font-bold text-white tabular-nums">
-                                        {lotCount}
-                                      </span>
-                                    )}
-                                    {/* Workflow status badge — tap to open picker */}
+                                    {/* Workflow status badge */}
                                     <button
                                       onClick={(e) => { e.stopPropagation(); setStatusPickerOrderId(statusPickerOrderId === order.id ? null : order.id); }}
-                                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded border leading-none transition-opacity ${wfMeta.badge}`}
+                                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded border leading-none transition-opacity shrink-0 ${wfMeta.badge}`}
                                       data-testid={`button-workflow-status-${order.id}`}
                                       title="Change workflow status"
                                     >
@@ -910,6 +878,37 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                         <ChevronRight className="w-4 h-4" />
                                       </button>
                                     )}
+                                  </div>
+
+                                  {/* Line 2: shipping tier + pick status | comment + date + lot count */}
+                                  <div className="flex items-center justify-between pl-2 pr-2 mt-0.5">
+                                    <div className="flex items-center gap-1.5">
+                                      {tier === 'express' && (
+                                        <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-blue-900/50 text-blue-300 border border-blue-700/40 shrink-0" data-testid={`badge-express-${order.id}`}>EXPRESS</span>
+                                      )}
+                                      {tier === 'priority' && (
+                                        <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-red-900/50 text-red-300 border border-red-700/40 shrink-0" data-testid={`badge-priority-${order.id}`}>PRIORITY</span>
+                                      )}
+                                      {isPickComplete && <CheckCircle2 className="w-3 h-3 text-green-400 fill-green-400 shrink-0" />}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      {order.customerNotes && (
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); setCommentOrderId(commentOrderId === order.id ? null : order.id); }}
+                                          className={`rounded transition-colors ${commentOrderId === order.id ? 'text-amber-400' : 'text-amber-500/60 hover:text-amber-400'}`}
+                                          data-testid={`button-customer-note-${order.id}`}
+                                          title="Customer note"
+                                        >
+                                          <MessageCircle className="w-3.5 h-3.5 fill-current" />
+                                        </button>
+                                      )}
+                                      {formattedDate && <span className="text-[10px] text-gray-500">{formattedDate}</span>}
+                                      {lotCount > 0 && (
+                                        <span className="w-5 h-5 rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] font-bold text-white tabular-nums">
+                                          {lotCount}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
 
