@@ -239,9 +239,9 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
   const IMG_W     = 18;     // image cell width mm
   const IMG_H     = 18;     // image cell height mm
   const IMG_GAP   = 3;      // gap between image and text block mm
-  const ROW_H     = 24;     // FIXED row height mm — must be consistent for paper cutter
+  const ROW_H     = 30;     // FIXED row height mm — larger gap gives cutter safe landing zone
   const PANEL_H   = PAGE_H / 2;
-  const PANEL_PAD = 3;      // breathing room at panel top and bottom mm
+  const PANEL_PAD = 4;      // breathing room at panel top and bottom mm
   const TEXT_X    = MX + IMG_W + IMG_GAP;
   const TEXT_W    = CONTENT_W - IMG_W - IMG_GAP;
   const RIGHT_X   = MX + CONTENT_W;
@@ -319,11 +319,11 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
     }
 
     // ── Text block — three stacked rows ──────────────────────────────────────
-    // Row heights chosen so the three lines fit inside ROW_H with even padding.
-    //   Top-pad ~4mm, line-1 (part+qty) 7pt baseline gap, line-2 5pt, line-3 5pt
-    const L1_Y = rowY + 4 + 5;    // part number baseline
-    const L2_Y = L1_Y + 5.5;      // color · condition baseline
-    const L3_Y = L2_Y + 5;        // item name baseline
+    // Centred inside ROW_H=30mm.  6mm top-pad before first baseline gives
+    // ~6mm of clear whitespace above and below for the paper cutter.
+    const L1_Y = rowY + 6 + 5;    // part number baseline     (rowY + 11mm)
+    const L2_Y = L1_Y + 5.5;      // color · condition baseline (rowY + 16.5mm)
+    const L3_Y = L2_Y + 5;        // item name baseline         (rowY + 21.5mm)
 
     // ── Line 1: Part number (bold) left · Quantity right ────────────────────
     const partStr = partKey(item);
