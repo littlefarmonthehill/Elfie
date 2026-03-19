@@ -236,15 +236,18 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
   if (items.length === 0) return;
 
   // ── Layout constants ────────────────────────────────────────────────────────
+  const SC_W       = 14;    // shortcode column width mm (left of image)
+  const SC_GAP     = 2;     // gap between shortcode column and image mm
   const IMG_W      = 18;    // image cell width mm
   const IMG_H      = 18;    // image cell height mm
   const IMG_GAP    = 3;     // gap between image and text block mm
   const BASE_ROW_H = 30;    // minimum row height mm — no-comment rows stay consistent
-  const CMT_LINE_H = 4.5;   // mm per wrapped comment line
+  const CMT_LINE_H = 4.5;   // mm per additional wrapped color+comment line
   const PANEL_H    = PAGE_H / 2;
   const PANEL_PAD  = 4;     // breathing room at panel top and bottom mm
-  const TEXT_X     = MX + IMG_W + IMG_GAP;
-  const TEXT_W     = CONTENT_W - IMG_W - IMG_GAP;
+  const IMG_X      = MX + SC_W + SC_GAP;               // image left edge
+  const TEXT_X     = IMG_X + IMG_W + IMG_GAP;           // text block left edge
+  const TEXT_W     = CONTENT_W - SC_W - SC_GAP - IMG_W - IMG_GAP;
   const RIGHT_X    = MX + CONTENT_W;
 
   // ── Pre-load all images concurrently ───────────────────────────────────────
@@ -290,15 +293,20 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
     y = panelTop(panel);
   };
 
-  // Compute each item's actual height so the panel-overflow check is accurate.
-  // Base height covers part/name, color/condition, and shortcode+order-ref.
-  // Each wrapped comment line adds CMT_LINE_H mm on top.
+  // Compute each item's actual height.
+  // Color+condition and comment are combined on line 2 and may wrap.
+  // Extra wrapped lines beyond the first add CMT_LINE_H each.
   const calcItemH = (item: PicklistItem): number => {
-    if (!item.comment) return BASE_ROW_H;
-    doc.setFontSize(8);
+    const cc = [
+      item.colorName,
+      item.condition ? condLabel(item.condition) : null,
+    ].filter(Boolean).join('  \u00b7  ');
+    const combined = [cc, item.comment].filter(Boolean).join('  ');
+    if (!combined) return BASE_ROW_H;
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    const lines = (doc.splitTextToSize(item.comment, TEXT_W) as string[]);
-    return BASE_ROW_H + lines.length * CMT_LINE_H;
+    const lineCount = (doc.splitTextToSize(combined, TEXT_W) as string[]).length;
+    return BASE_ROW_H + Math.max(0, lineCount - 1) * CMT_LINE_H;
   };
 
   for (let i = 0; i < items.length; i++) {
@@ -317,47 +325,53 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
       doc.line(MX, rowY, RIGHT_X, rowY);
     }
 
-    // ── Image — centred within the base row height (not stretched by comment) ─
+    // ── Baselines ─────────────────────────────────────────────────────────────
+    const L1_Y = rowY + 6 + 5;   // part + name      (rowY + 11mm)
+    const L2_Y = L1_Y + 5.5;     // color + comment  (rowY + 16.5mm)
+
+    // ── Shortcode column — left of image, large and bold ─────────────────────
+    const sc = item.orderNumber ? shortCode(item.orderNumber) : '';
+    if (sc) {
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 15, 15);
+      // Centre horizontally within SC_W, align baseline with part number
+      const scW = doc.getTextWidth(sc);
+      doc.text(sc, MX + (SC_W - scW) / 2, L1_Y);
+    }
+
+    // ── Image — centred vertically in base row height, after SC column ────────
     const imgY = rowY + (BASE_ROW_H - IMG_H) / 2;
     if (imgData) {
       try {
-        doc.addImage(imgData, 'PNG', MX, imgY, IMG_W, IMG_H);
+        doc.addImage(imgData, 'PNG', IMG_X, imgY, IMG_W, IMG_H);
       } catch { /* skip if image data is invalid */ }
     } else {
       doc.setDrawColor(210, 210, 210);
       doc.setLineWidth(0.15);
       doc.setFillColor(248, 248, 248);
-      doc.roundedRect(MX, imgY, IMG_W, IMG_H, 1, 1, 'FD');
+      doc.roundedRect(IMG_X, imgY, IMG_W, IMG_H, 1, 1, 'FD');
     }
 
-    // ── Baselines ─────────────────────────────────────────────────────────────
-    const L1_Y   = rowY + 6 + 5;   // part + name      (rowY + 11mm)
-    const L2_Y   = L1_Y + 5.5;     // color/condition  (rowY + 16.5mm)
-    const OREF_Y = L2_Y + 4;       // order ref        (rowY + 20.5mm)
-    const CMT_Y  = OREF_Y + 5.5;   // first comment line (rowY + 26mm)
-
     // ── Line 1: [bold]PartNo[/bold] [normal]Name…[/normal]  |  ×Qty ─────────
-    const partStr  = partKey(item);
-    const qtyStr   = `\u00d7${item.quantity}`;
+    const partStr = partKey(item);
+    const qtyStr  = `\u00d7${item.quantity}`;
 
-    // Measure qty width at 15pt so we know how much space to reserve
     doc.setFontSize(15);
     doc.setFont('helvetica', 'bold');
     const qtyW = doc.getTextWidth(qtyStr);
 
-    // Part number
     doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 15, 15);
     doc.text(partStr, TEXT_X, L1_Y);
     const partStrW = doc.getTextWidth(partStr);
 
-    // Item name — same line, right of part number, truncated before the qty column
     const rawName = item.itemName
       ? cleanItemName(item.itemName, item.partNumber || '')
       : '';
     if (rawName) {
-      const maxNameW = TEXT_W - partStrW - 3 - qtyW - 2; // 3mm name-gap, 2mm qty-gap
+      const maxNameW = TEXT_W - partStrW - 3 - qtyW - 2;
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(90, 90, 90);
@@ -368,52 +382,36 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
       doc.text('\u00a0\u00a0' + name, TEXT_X + partStrW, L1_Y);
     }
 
-    // Quantity
     doc.setFontSize(15);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(15, 15, 15);
     doc.text(qtyStr, RIGHT_X, L1_Y, { align: 'right' });
 
-    // ── Line 2: Color · Condition (left)  |  Shortcode (right, bold) ─────────
+    // ── Line 2: Color · Condition + Comment (wrapping)  |  bl.12345 (right) ──
     const colorCond = [
       item.colorName,
       item.condition ? condLabel(item.condition) : null,
     ].filter(Boolean).join('  \u00b7  ');
 
-    if (colorCond) {
+    const combined = [colorCond, item.comment].filter(Boolean).join('  ');
+    if (combined) {
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(55, 55, 55);
-      doc.text(colorCond, TEXT_X, L2_Y);
+      const lines = doc.splitTextToSize(combined, TEXT_W) as string[];
+      lines.forEach((line, idx) => {
+        doc.text(line, TEXT_X, L2_Y + idx * CMT_LINE_H);
+      });
     }
 
-    const sc = item.orderNumber ? shortCode(item.orderNumber) : '';
-    if (sc) {
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(40, 40, 40);
-      doc.text(sc, RIGHT_X, L2_Y, { align: 'right' });
-    }
-
-    // ── Order ref (bl.12345 / bo.12345) — below shortcode, right-aligned ─────
-    const rawOrder  = (item.orderNumber || '').replace(/^(BL|BO)/i, '').trim();
-    const orderRef  = rawOrder ? `${chanPrefix(item).toLowerCase()}.${rawOrder}` : '';
+    // Order ref — right-aligned at L2_Y baseline
+    const rawOrder = (item.orderNumber || '').replace(/^(BL|BO)/i, '').trim();
+    const orderRef = rawOrder ? `${chanPrefix(item).toLowerCase()}.${rawOrder}` : '';
     if (orderRef) {
       doc.setFontSize(7.5);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(130, 130, 130);
-      doc.text(orderRef, RIGHT_X, OREF_Y, { align: 'right' });
-    }
-
-    // ── Comments — wrapping below the order ref, left-aligned ────────────────
-    if (item.comment) {
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(70, 70, 70);
-      const lines = doc.splitTextToSize(item.comment, TEXT_W) as string[];
-      lines.forEach((line, idx) => {
-        doc.text(line, TEXT_X, CMT_Y + idx * CMT_LINE_H);
-      });
+      doc.text(orderRef, RIGHT_X, L2_Y, { align: 'right' });
     }
 
     y = rowY + itemH;
