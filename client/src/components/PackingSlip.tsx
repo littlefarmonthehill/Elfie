@@ -518,7 +518,7 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     const dateStr = order.orderDate ? new Date(order.orderDate).toLocaleDateString() : '';
     doc.text(dateStr, metaX, infoTopY + 11, { align: 'right' });
     if (order.requestedService) {
-      const cut = order.requestedService.search(/ - \$| \(\$| {2,}\(|\|/);
+      const cut = order.requestedService.search(/ \$\d| - \$| \(\$| {2,}\(|\|/);
       const serviceDisplay = (cut > 0 ? order.requestedService.slice(0, cut) : order.requestedService).trim();
       doc.text(serviceDisplay, metaX, infoTopY + 17, { align: 'right' });
     }
