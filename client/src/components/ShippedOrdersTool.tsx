@@ -11,10 +11,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Search, Package, Loader2, Printer, Tag, FileText, ChevronDown, RotateCcw, ScanLine, FlaskConical } from "lucide-react";
+import { Search, Package, Loader2, Printer, Tag, FileText, ChevronDown, RotateCcw, ScanLine, FlaskConical, ClipboardList } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import { printPackingSlips } from "./PackingSlip";
+import { printPackingSlips, printPicklist } from "./PackingSlip";
 import DateRangeSelector, { DateRangeValue } from "./DateRangeSelector";
 
 type ShippedOrder = {
@@ -120,6 +120,44 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
         description: "Failed to generate packing slip",
         variant: "destructive",
       });
+    }
+  };
+
+  const handlePrintPicklistForOrder = async (order: ShippedOrder) => {
+    try {
+      const response = await fetch('/api/fulfillment/packing-slip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderIds: [order.id] }),
+      });
+      if (!response.ok) throw new Error('Failed to fetch order items');
+      const [slip] = await response.json();
+      if (!slip?.items?.length) {
+        toast({ title: "No Items", description: "This order has no line items to print.", variant: "destructive" });
+        return;
+      }
+      const picklistItems = slip.items
+        .sort((a: any, b: any) =>
+          (a.bricklinkPartNumber || '').localeCompare(b.bricklinkPartNumber || '', undefined, { numeric: true }) ||
+          (a.colorName || '').localeCompare(b.colorName || '')
+        )
+        .map((item: any) => ({
+          partNumber: item.bricklinkPartNumber || null,
+          sku: item.inventoryId || null,
+          colorName: item.colorName || null,
+          colorId: item.colorId ?? null,
+          condition: item.condition || null,
+          itemName: item.name || null,
+          quantity: item.quantity,
+          orderNumber: order.orderNumber,
+          marketplace: order.marketplace || null,
+          inventoryId: item.inventoryId ? Number(item.inventoryId) : null,
+          comment: item.comment || null,
+        }));
+      await printPicklist(picklistItems);
+    } catch (error) {
+      console.error('Error printing picklist:', error);
+      toast({ title: "Error", description: "Failed to generate picklist", variant: "destructive" });
     }
   };
 
@@ -291,6 +329,13 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                         >
                           <FileText className="w-4 h-4 mr-2" />
                           Print Packing Slip
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handlePrintPicklistForOrder(order)}
+                          data-testid={`menu-print-picklist-${order.orderNumber}`}
+                        >
+                          <ClipboardList className="w-4 h-4 mr-2" />
+                          Print Picklist
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handlePrintShippingLabel(order)}
