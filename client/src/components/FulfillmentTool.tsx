@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle } from "lucide-react";
-import { printPackingSlips, printPicklist } from "./PackingSlip";
+import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe } from "lucide-react";
+import { printPackingSlips, printPicklist, buildShortCodeMap } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, shippingTier, toggleSetItem } from "@/lib/item-utils";
 import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult, OrderItem } from "./InlineShippingCard";
@@ -407,6 +407,8 @@ export default function FulfillmentTool() {
     return dateA - dateB;
   };
   const allOrders = data?.orders || [];
+  // Build collision-free 2-char shortcodes for all active orders (same algorithm as picklist/packing slip)
+  const orderShortCodeMap = buildShortCodeMap(allOrders.map(o => o.orderNumber).filter(Boolean));
   // Flat sorted list used for select-all / print — excludes done orders
   const sortedOrders = [...allOrders]
     .filter(o => (o.workflowStatus || 'new') !== 'done')
@@ -841,15 +843,21 @@ export default function FulfillmentTool() {
                                   {/* Order info */}
                                   <div className="flex-1 min-w-0 pl-2">
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                      {/* Marketplace ref prefix — leading label */}
-                                      <span className="text-[9px] font-bold text-gray-500 font-mono shrink-0">
-                                        {order.marketplace === 'BrickOwl' ? 'BO' : 'BL'}
+                                      {/* 2-char shortcode — same as picklist/packing slip */}
+                                      <span className="text-[10px] font-bold text-amber-400 font-mono shrink-0 tabular-nums" data-testid={`shortcode-${order.id}`}>
+                                        {orderShortCodeMap.get(order.orderNumber) ?? ''}
                                       </span>
+                                      {/* International globe indicator (non-US only) */}
+                                      {country && country !== 'US' && (
+                                        <Globe className="w-3 h-3 text-sky-400 shrink-0" data-testid={`icon-international-${order.id}`} />
+                                      )}
+                                      {/* Country flag for all orders */}
                                       {flag && (
                                         <span className="text-sm leading-none shrink-0" data-testid={`flag-${order.id}`}>{flag}</span>
                                       )}
+                                      {/* Full order number with marketplace prefix */}
                                       <span className={`font-mono text-xs font-semibold ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}>
-                                        {(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
+                                        {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
                                       </span>
                                       {tier === 'express' && (
                                         <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-blue-900/50 text-blue-300 border border-blue-700/40 shrink-0" data-testid={`badge-express-${order.id}`}>EXPRESS</span>

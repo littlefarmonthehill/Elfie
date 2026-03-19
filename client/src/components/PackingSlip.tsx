@@ -102,7 +102,7 @@ export function shortCode(orderNumber: string): string {
  * Starts at 2 chars (AA–ZZ = 441 slots). Only grows to 3 when the
  * batch genuinely exceeds 441 simultaneous active orders.
  */
-function buildShortCodeMap(orderNumbers: string[]): Map<string, string> {
+export function buildShortCodeMap(orderNumbers: string[]): Map<string, string> {
   const unique = [...new Set(orderNumbers.filter(Boolean))].sort();
   const map = new Map<string, string>();
   const used = new Set<string>();
