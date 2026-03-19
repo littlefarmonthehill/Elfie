@@ -10652,7 +10652,9 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       const { checkRateLimit } = await import("./services/bricklink");
 
       const bsCheck = await checkBrickspotterLimit(orgId);
-      const hasBrickSpotter = bsCheck.apiCallLimit !== 0; // 0 = no BrickSpotter; >0 or -1 = has access
+      // BS-only orgs always route through the platform BL account.
+      // For mixed-access plans, check apiCallLimit (0 = no BrickSpotter; >0 or -1 = has access).
+      const hasBrickSpotter = bsCheck.isBrickspotterOnly || bsCheck.apiCallLimit !== 0;
       const targetOrgId = hasBrickSpotter ? PLATFORM_ORG_ID : orgId;
 
       const status = await checkRateLimit(targetOrgId);

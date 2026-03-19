@@ -38,6 +38,7 @@ interface SettingsModalProps {
   initialPlatformTab?: 'platforms' | 'scheduler';
   pricingExample?: PricingInsight;
   scoringExample?: PricingInsight;
+  isBrickspotterOnly?: boolean;
 }
 
 type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | null;
@@ -2422,7 +2423,7 @@ function TierConfigsPanel() {
   );
 }
 
-export default function SettingsModal({ open, onClose, initialSection, initialPlatformTab, pricingExample, scoringExample }: SettingsModalProps) {
+export default function SettingsModal({ open, onClose, initialSection, initialPlatformTab, pricingExample, scoringExample, isBrickspotterOnly = false }: SettingsModalProps) {
   const { toast } = useToast();
   const { status: installStatus, promptInstall } = useInstallPrompt();
   const { isAdmin, superAdmin, user } = useAuth();
@@ -3755,16 +3756,19 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     enabled: !!org?.id && isAdmin,
   });
 
-  const navigationItems = [
-    { id: 'general' as const, label: 'Organization', icon: Settings },
-    { id: 'platforms' as const, label: 'Platform Services', icon: Layers },
-    { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: TrendingUp },
-    { id: 'data' as const, label: 'Store Data', icon: HardDrive },
-    { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain },
-    { id: 'warehouse' as const, label: 'Warehouse', icon: Warehouse },
-    { id: 'about' as const, label: 'About & Credits', icon: Info },
-    { id: 'legal' as const, label: 'Legal & Terms', icon: FileText },
+  const allNavigationItems = [
+    { id: 'general' as const, label: 'Organization', icon: Settings, bsVisible: true },
+    { id: 'platforms' as const, label: 'Platform Services', icon: Layers, bsVisible: false },
+    { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: TrendingUp, bsVisible: false },
+    { id: 'data' as const, label: 'Store Data', icon: HardDrive, bsVisible: false },
+    { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain, bsVisible: true },
+    { id: 'warehouse' as const, label: 'Warehouse', icon: Warehouse, bsVisible: false },
+    { id: 'about' as const, label: 'About & Credits', icon: Info, bsVisible: true },
+    { id: 'legal' as const, label: 'Legal & Terms', icon: FileText, bsVisible: true },
   ];
+  const navigationItems = isBrickspotterOnly
+    ? allNavigationItems.filter(item => item.bsVisible)
+    : allNavigationItems;
 
   const platformAdminGroups = [
     {

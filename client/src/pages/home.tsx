@@ -922,6 +922,7 @@ export default function Home() {
         sunsetAt={expiredAt}
         planName={billingStatus.plan}
         reason={expiredReason}
+        isBrickspotterOnly={isBrickspotterOnly}
       />
     );
   }
@@ -955,6 +956,7 @@ export default function Home() {
           onSettingsClick={() => setSettingsOpen(true)} 
           onElfieClick={handleElfieClick}
           supportNotification={supportNotification}
+          hideSettings={isBrickspotterOnly}
         />
       </div>
       
@@ -1137,7 +1139,7 @@ export default function Home() {
         />
       )}
 
-      <SettingsModal open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsPricingExample(undefined); setSettingsScoringExample(undefined); }} initialSection={settingsInitialSection ?? undefined} pricingExample={settingsPricingExample} scoringExample={settingsScoringExample} />
+      <SettingsModal open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsPricingExample(undefined); setSettingsScoringExample(undefined); }} initialSection={settingsInitialSection ?? undefined} pricingExample={settingsPricingExample} scoringExample={settingsScoringExample} isBrickspotterOnly={isBrickspotterOnly} />
       
       {/* Detail modal — Vaul drawer on mobile only; desktop uses inline overlay in center column */}
       {!isDesktop && (

@@ -22,9 +22,10 @@ interface PlanExpiredScreenProps {
   sunsetAt: string;
   planName: string;
   reason?: 'trial' | 'sunset';
+  isBrickspotterOnly?: boolean;
 }
 
-export default function PlanExpiredScreen({ sunsetAt, planName, reason = 'sunset' }: PlanExpiredScreenProps) {
+export default function PlanExpiredScreen({ sunsetAt, planName, reason = 'sunset', isBrickspotterOnly = false }: PlanExpiredScreenProps) {
   const { toast } = useToast();
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
 
@@ -93,8 +94,12 @@ export default function PlanExpiredScreen({ sunsetAt, planName, reason = 'sunset
             <div className="bg-gray-900 border border-gray-700 rounded-xl rounded-bl-none px-4 py-3">
               <p className="text-sm text-gray-200 leading-snug">
                 {reason === 'trial'
-                  ? <>Your free trial ended on {expiredDate}. Pick a plan below and I'll have you back up and running in seconds.</>
-                  : <>Your <span className="text-white font-medium">{planName}</span> plan ended on {expiredDate}. To keep using E.L.F.I.E., pick a new plan below and I'll have you back up and running in seconds.</>
+                  ? isBrickspotterOnly
+                    ? <>Your BrickSpotter 3000 trial ended on {expiredDate}. Pick a membership plan below to keep scanning.</>
+                    : <>Your free trial ended on {expiredDate}. Pick a plan below and I'll have you back up and running in seconds.</>
+                  : isBrickspotterOnly
+                    ? <>Your <span className="text-white font-medium">{planName}</span> membership ended on {expiredDate}. Renew below to restore BrickSpotter 3000 scanning.</>
+                    : <>Your <span className="text-white font-medium">{planName}</span> plan ended on {expiredDate}. To keep using E.L.F.I.E., pick a new plan below and I'll have you back up and running in seconds.</>
                 }
               </p>
             </div>
@@ -109,14 +114,18 @@ export default function PlanExpiredScreen({ sunsetAt, planName, reason = 'sunset
               {reason === 'trial' ? `Free trial ended on ${expiredDate}` : `Plan expired on ${expiredDate}`}
             </p>
             <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
-              Your account is currently read-only. Inventory sync, order management, and other live features will resume as soon as you subscribe.
+              {isBrickspotterOnly
+                ? "Scanning is paused until you renew your BrickSpotter 3000 membership."
+                : "Your account is currently read-only. Inventory sync, order management, and other live features will resume as soon as you subscribe."}
             </p>
           </div>
         </div>
 
         {/* Plan cards */}
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Choose a plan</h2>
+          <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
+            {isBrickspotterOnly ? "Choose a membership" : "Choose a plan"}
+          </h2>
 
           {plansLoading ? (
             <div className="flex items-center justify-center py-10 gap-2 text-gray-500">

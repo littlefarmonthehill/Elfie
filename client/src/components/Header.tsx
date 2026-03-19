@@ -10,9 +10,10 @@ interface HeaderProps {
   onSettingsClick: () => void;
   onElfieClick: () => void;
   supportNotification?: boolean;
+  hideSettings?: boolean;
 }
 
-export default function Header({ onSettingsClick, onElfieClick, supportNotification }: HeaderProps) {
+export default function Header({ onSettingsClick, onElfieClick, supportNotification, hideSettings }: HeaderProps) {
   const { user, superAdmin } = useAuth();
   const { data: org } = useQuery<any>({
     queryKey: ['/api/org'],
@@ -145,23 +146,25 @@ export default function Header({ onSettingsClick, onElfieClick, supportNotificat
 
         {/* Settings - Right */}
         <div className="flex items-center gap-2">
-          <div className="relative">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={onSettingsClick}
-              data-testid="button-settings"
-              className="md:h-12 md:w-12 lg:h-14 lg:w-14"
-              title="Settings"
-            >
-              <Settings className="h-4 w-4 md:h-6 md:w-6 lg:h-7 lg:w-7" />
-            </Button>
-            {superAdmin && openTicketCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-red-500 border-2 border-black text-[10px] font-bold text-white px-1 z-10" data-testid="badge-support-count">
-                {openTicketCount > 9 ? '9+' : openTicketCount}
-              </span>
-            )}
-          </div>
+          {!hideSettings && (
+            <div className="relative">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={onSettingsClick}
+                data-testid="button-settings"
+                className="md:h-12 md:w-12 lg:h-14 lg:w-14"
+                title="Settings"
+              >
+                <Settings className="h-4 w-4 md:h-6 md:w-6 lg:h-7 lg:w-7" />
+              </Button>
+              {superAdmin && openTicketCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-red-500 border-2 border-black text-[10px] font-bold text-white px-1 z-10" data-testid="badge-support-count">
+                  {openTicketCount > 9 ? '9+' : openTicketCount}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </header>

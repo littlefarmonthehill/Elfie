@@ -188,13 +188,17 @@ export async function setupAuth(app: Express) {
         let newOrg;
 
         if (brickspotterSignup) {
-          // BrickSpotter-only signup — find the first active BS-only plan config and assign it
+          // BrickSpotter-only signup — find the first active BS-only plan config and assign it.
+          // Fail fast if no plan has been configured yet — the admin must set one up first.
           const allConfigs = await getAllPlanConfigs();
           const bsPlanConfig = allConfigs.find(c => c.isBrickspotterOnly && !c.isSunset);
+          if (!bsPlanConfig) {
+            return res.status(503).json({ error: 'BrickSpotter 3000 memberships are not yet available. Please check back soon or contact support.' });
+          }
           const orgName = firstName ? `${firstName}'s Account` : `${email.split('@')[0]}'s Account`;
           newOrg = await storage.createOrganization({
             name: orgName, slug,
-            plan: bsPlanConfig ? bsPlanConfig.planKey : 'trial',
+            plan: bsPlanConfig.planKey,
             subscriptionStatus: 'active',
             billingStartDate: signupDate,
             onboardingCompleted: true, // no store setup needed

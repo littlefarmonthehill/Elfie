@@ -144,7 +144,16 @@ export default function Signup() {
       toast({ title: "Account Created!", description: successMsg });
       window.location.href = "/";
     } catch (error: any) {
-      toast({ title: "Signup Failed", description: error.message || "Failed to create account", variant: "destructive" });
+      // Try to extract a clean message from "503: {"error":"..."}" style throws
+      let description = error.message || "Failed to create account";
+      try {
+        const jsonStart = description.indexOf('{');
+        if (jsonStart !== -1) {
+          const parsed = JSON.parse(description.slice(jsonStart));
+          if (parsed?.error) description = parsed.error;
+        }
+      } catch {}
+      toast({ title: "Signup Failed", description, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
