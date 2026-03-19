@@ -4,6 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe } from "lucide-react";
@@ -264,7 +265,6 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
   const [commentOrderId, setCommentOrderId] = useState<string | null>(null);
   const [statusPickerOrderId, setStatusPickerOrderId] = useState<string | null>(null);
   const [activeWorkflowFilter, setActiveWorkflowFilter] = useState<WorkflowStatus | null>(null);
-  const [bulkStatusPickerOpen, setBulkStatusPickerOpen] = useState(false);
 
   const updateWorkflowStatus = useMutation({
     mutationFn: ({ orderId, status }: { orderId: string; status: WorkflowStatus }) =>
@@ -280,7 +280,6 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
-      setBulkStatusPickerOpen(false);
     },
   });
   const [showSplitConfirmDialog, setShowSplitConfirmDialog] = useState(false);
@@ -744,47 +743,44 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
 
               {/* Contextual selection + bulk action bar */}
               {sortedOrders.length > 0 && (
-                <div className="px-4 pb-2.5">
-                  {bulkStatusPickerOpen ? (
-                    <div className="flex flex-wrap gap-1.5 items-center">
-                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mr-0.5">Set status:</span>
-                      {WORKFLOW_STATUSES.filter(s => s !== 'done').map(s => {
-                        const sm = WORKFLOW_META[s];
-                        return (
-                          <button
-                            key={s}
-                            onClick={() => updateWorkflowStatusBulk.mutate({ orderIds: [...selectedOrders], status: s })}
-                            disabled={updateWorkflowStatusBulk.isPending}
-                            className={`text-[9px] font-bold px-2 py-1 rounded border leading-none ${sm.badge}`}
-                            data-testid={`bulk-workflow-${s}`}
-                          >
-                            {sm.label}
-                          </button>
-                        );
-                      })}
-                      <button onClick={() => setBulkStatusPickerOpen(false)} className="text-[9px] text-gray-500 hover:text-gray-300 ml-1">Cancel</button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between">
-                      <button
-                        onClick={handleSelectAll}
-                        className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
-                        data-testid="button-select-all"
-                      >
-                        {selectedOrders.size === 0
-                          ? 'Select all'
-                          : `${selectedOrders.size} selected · Deselect`}
-                      </button>
-                      {selectedOrders.size >= 1 && (
+                <div className="flex items-center justify-between px-4 pb-2.5">
+                  <button
+                    onClick={handleSelectAll}
+                    className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+                    data-testid="button-select-all"
+                  >
+                    {selectedOrders.size === 0
+                      ? 'Select all'
+                      : `${selectedOrders.size} selected · Deselect`}
+                  </button>
+                  {selectedOrders.size >= 1 && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
                         <button
-                          onClick={() => setBulkStatusPickerOpen(true)}
                           className="text-[9px] font-bold px-2 py-1 rounded border border-gray-600 text-gray-400 hover:text-gray-200 hover:border-gray-400 leading-none transition-colors"
                           data-testid="button-bulk-status"
+                          disabled={updateWorkflowStatusBulk.isPending}
                         >
                           Set status…
                         </button>
-                      )}
-                    </div>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="min-w-[130px]">
+                        {WORKFLOW_STATUSES.filter(s => s !== 'done').map(s => {
+                          const sm = WORKFLOW_META[s];
+                          return (
+                            <DropdownMenuItem
+                              key={s}
+                              onClick={() => updateWorkflowStatusBulk.mutate({ orderIds: [...selectedOrders], status: s })}
+                              data-testid={`bulk-workflow-${s}`}
+                            >
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border leading-none ${sm.badge}`}>
+                                {sm.label}
+                              </span>
+                            </DropdownMenuItem>
+                          );
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
                 </div>
               )}
