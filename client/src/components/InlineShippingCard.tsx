@@ -376,8 +376,7 @@ export default function InlineShippingCard({
         <div className="flex-1 min-w-0">
           <span className="text-sm font-bold text-green-300">{summary.orderNumber}</span>
           <span className="text-[11px] text-gray-400 ml-2">
-            {[purchasedLabel.carrier, purchasedLabel.service].filter(Boolean).join(" ")}
-            {purchasedLabel.rate != null && ` · $${purchasedLabel.rate.toFixed(2)}`}
+            {purchasedLabel.service}
           </span>
           <p className="text-[10px] font-mono text-gray-300 mt-0.5">{purchasedLabel.trackingNumber}</p>
         </div>

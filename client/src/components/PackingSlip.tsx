@@ -293,7 +293,7 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
     const rowY = y;
 
     // ── Row divider (between rows only, not before the first) ────────────────
-    if (y > panelTop(panel)) {
+    if (y > PAGE_PAD) {
       doc.setDrawColor(210, 210, 210);
       doc.setLineWidth(0.2);
       doc.line(MX, rowY, RIGHT_X, rowY);
