@@ -822,7 +822,11 @@ export default function FulfillmentTool() {
                               ? new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                               : null;
                             const isPickComplete = !!picklistOrderStatus[order.id];
-                            const country: string = ((order.shipTo as any)?.country || '').toUpperCase();
+                            const shipToParsed = (() => {
+                              try { return typeof order.shipTo === 'string' ? JSON.parse(order.shipTo) : (order.shipTo || {}); }
+                              catch { return {}; }
+                            })();
+                            const country: string = (shipToParsed?.country || '').toUpperCase();
                             const flag = countryFlag(country);
                             const wfStatus: WorkflowStatus = (order.workflowStatus as WorkflowStatus) || 'new';
                             const wfMeta = WORKFLOW_META[wfStatus];
@@ -830,21 +834,23 @@ export default function FulfillmentTool() {
                               <div key={order.id}>
                                 <div
                                   onClick={() => handleOrderToggle(order.id)}
-                                  className={`flex items-center gap-3 py-3 cursor-pointer transition-colors ${isSelected ? 'opacity-100' : 'opacity-90'}`}
+                                  className={`flex items-center gap-3 py-2.5 cursor-pointer transition-colors border-l-[3px] ${isSelected ? 'border-l-purple-500 bg-purple-950/30' : 'border-l-transparent'}`}
                                   data-testid={`order-${order.orderNumber}`}
                                 >
-                                  {/* Selection indicator */}
-                                  <div className={`shrink-0 w-2 h-2 rounded-full ${isSelected ? 'bg-purple-400' : 'bg-gray-700'}`} />
 
                                   {/* Order info */}
-                                  <div className="flex-1 min-w-0">
+                                  <div className="flex-1 min-w-0 pl-2">
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className={`font-mono text-xs font-semibold ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}>
-                                        {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
+                                      {/* Marketplace ref prefix — leading label */}
+                                      <span className="text-[9px] font-bold text-gray-500 font-mono shrink-0">
+                                        {order.marketplace === 'BrickOwl' ? 'BO' : 'BL'}
                                       </span>
                                       {flag && (
                                         <span className="text-sm leading-none shrink-0" data-testid={`flag-${order.id}`}>{flag}</span>
                                       )}
+                                      <span className={`font-mono text-xs font-semibold ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}>
+                                        {(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
+                                      </span>
                                       {tier === 'express' && (
                                         <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-blue-900/50 text-blue-300 border border-blue-700/40 shrink-0" data-testid={`badge-express-${order.id}`}>EXPRESS</span>
                                       )}
@@ -852,9 +858,6 @@ export default function FulfillmentTool() {
                                         <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-red-900/50 text-red-300 border border-red-700/40 shrink-0" data-testid={`badge-priority-${order.id}`}>PRIORITY</span>
                                       )}
                                       {isPickComplete && <CheckCircle2 className="w-3 h-3 text-green-400 fill-green-400 shrink-0" />}
-                                      {isSelected && (
-                                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded leading-none bg-purple-900/50 text-purple-400">Selected</span>
-                                      )}
                                     </div>
                                   </div>
 
