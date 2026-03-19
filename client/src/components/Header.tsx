@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Settings, ShieldCheck } from "lucide-react";
+import { Settings, ShieldCheck, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import elfieRobot from "@assets/PlanetBrick_good_robot_1760672362080.png";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "wouter";
 
@@ -15,6 +16,10 @@ interface HeaderProps {
 
 export default function Header({ onSettingsClick, onElfieClick, supportNotification, hideSettings }: HeaderProps) {
   const { user, superAdmin } = useAuth();
+  const logoutMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/logout'),
+    onSuccess: () => { window.location.href = '/'; },
+  });
   const { data: org } = useQuery<any>({
     queryKey: ['/api/org'],
   });
@@ -144,9 +149,21 @@ export default function Header({ onSettingsClick, onElfieClick, supportNotificat
           {org?.name ?? 'E.L.F.I.E.'}
         </h1>
 
-        {/* Settings - Right */}
+        {/* Settings / Sign-out - Right */}
         <div className="flex items-center gap-2">
-          {!hideSettings && (
+          {hideSettings ? (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => logoutMutation.mutate()}
+              disabled={logoutMutation.isPending}
+              data-testid="button-signout-header"
+              className="md:h-12 md:w-12 lg:h-14 lg:w-14"
+              title="Sign out"
+            >
+              <LogOut className="h-4 w-4 md:h-6 md:w-6 lg:h-7 lg:w-7" />
+            </Button>
+          ) : (
             <div className="relative">
               <Button
                 size="icon"
