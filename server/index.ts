@@ -201,9 +201,16 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
   // The port is already open and health checks pass. Everything below runs
   // asynchronously so it never delays accepting connections.
   (async () => {
+    // 4a. Run DB migrations (44 phases, can be slow)
+    // Isolated try/catch — a partial migration failure must not prevent routes
+    // and Vite from being registered (those failures would take down the whole app).
     try {
-      // 4a. Run DB migrations (44 phases, can be slow)
       await runMigrations();
+    } catch (err: any) {
+      console.error('[Startup] Background initialization error (non-fatal):', err.message);
+    }
+
+    try {
 
       // 4b. Warm up the DB connection (wakes Neon serverless from idle)
       try {
