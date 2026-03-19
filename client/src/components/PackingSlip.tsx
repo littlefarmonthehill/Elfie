@@ -241,7 +241,7 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
   const IMG_W      = 13.5;  // image cell width mm  (18 × 0.75)
   const IMG_H      = 13.5;  // image cell height mm (18 × 0.75)
   const IMG_GAP    = 3;     // gap between image and text block mm
-  const BASE_ROW_H = 17;    // minimum row height mm — snug around IMG_H=13.5
+  const BASE_ROW_H = 22;    // row height mm — extra gap for paper-cutter clarity
   const CMT_LINE_H = 4.5;   // mm per additional wrapped color+comment line
   const PANEL_H    = PAGE_H / 2;
   const PANEL_PAD  = 1;     // breathing room at panel top and bottom mm
@@ -335,9 +335,10 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(15, 15, 15);
-      // Centre horizontally within SC_W, align baseline with part number
+      // Centre horizontally within SC_W; vertically centred in the row
       const scW = doc.getTextWidth(sc);
-      doc.text(sc, MX + (SC_W - scW) / 2, L1_Y);
+      const SC_Y = rowY + BASE_ROW_H / 2 + 2.5; // 2.5 ≈ half cap-height of 14pt
+      doc.text(sc, MX + (SC_W - scW) / 2, SC_Y);
     }
 
     // ── Image — centred vertically in base row height, after SC column ────────
