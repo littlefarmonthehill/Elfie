@@ -238,8 +238,8 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
   // ── Layout constants ────────────────────────────────────────────────────────
   const SC_W       = 14;    // shortcode column width mm (left of image)
   const SC_GAP     = 2;     // gap between shortcode column and image mm
-  const IMG_W      = 18;    // image cell width mm
-  const IMG_H      = 18;    // image cell height mm
+  const IMG_W      = 13.5;  // image cell width mm  (18 × 0.75)
+  const IMG_H      = 13.5;  // image cell height mm (18 × 0.75)
   const IMG_GAP    = 3;     // gap between image and text block mm
   const BASE_ROW_H = 30;    // minimum row height mm — no-comment rows stay consistent
   const CMT_LINE_H = 4.5;   // mm per additional wrapped color+comment line
