@@ -11,8 +11,7 @@ import crypto from "crypto";
 import { pool, db } from "./db";
 import type { User } from "@shared/schema";
 import { plans } from "@shared/schema";
-import { eq } from "drizzle-orm";
-import { getAllPlanConfigs } from "./services/planConfigService";
+import { eq, and } from "drizzle-orm";
 
 // ─── Session type augmentation for impersonation ─────────────────────────────
 declare module 'express-session' {
@@ -188,17 +187,16 @@ export async function setupAuth(app: Express) {
         let newOrg;
 
         if (brickspotterSignup) {
-          // BrickSpotter-only signup — find the first active BS-only plan config and assign it.
-          // Fail fast if no plan has been configured yet — the admin must set one up first.
-          const allConfigs = await getAllPlanConfigs();
-          const bsPlanConfig = allConfigs.find(c => c.isBrickspotterOnly && !c.isSunset);
-          if (!bsPlanConfig) {
+          // BrickSpotter-only signup — find the first live BS-only billing plan.
+          // Fail fast if no plan has been configured yet — the admin must create one first.
+          const [bsPlan] = await db.select().from(plans).where(and(eq(plans.isBrickspotterOnly, true), eq(plans.status, 'live'))).limit(1);
+          if (!bsPlan) {
             return res.status(503).json({ error: 'BrickSpotter 3000 memberships are not yet available. Please check back soon or contact support.' });
           }
           const orgName = firstName ? `${firstName}'s Account` : `${email.split('@')[0]}'s Account`;
           newOrg = await storage.createOrganization({
             name: orgName, slug,
-            plan: bsPlanConfig.planKey,
+            planId: bsPlan.id,
             subscriptionStatus: 'active',
             billingStartDate: signupDate,
             onboardingCompleted: true, // no store setup needed

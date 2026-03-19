@@ -35,7 +35,6 @@ function maskSettingsSecrets(settings: Record<string, any> | null): Record<strin
 }
 import { storage } from "./storage";
 import { getEffectiveLimits } from "@shared/tierConfig";
-import { seedPlanConfigsIfEmpty, dbPlanToLimits, dbPlanToFeatures, getAllPlanConfigsWithCounts, updatePlanConfig, invalidatePlanCache } from "./services/planConfigService";
 import { setupAuth, isAuthenticated, isApproved, isOrgOwner, getOrgId, isSuperAdmin } from "./auth";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, bricklinkCatalogRequest, calculateSuggestedPriceWithSupply } from "./services/bricklink";
 import { getPomIsRunning, setPomIsRunning } from "./services/pom-scheduler";
@@ -45,7 +44,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, planConfigs, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -148,9 +147,6 @@ export async function getPlatformBrickLinkCredentials(): Promise<{
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Seed plan configs from static tierConfig.ts on first run (idempotent)
-  await seedPlanConfigsIfEmpty();
-
   // Auth middleware setup - Email/Password Authentication
   await setupAuth(app);
 
@@ -1395,45 +1391,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── Platform admin: Tier/Plan Configs (plan_configs table) ────────────────────
-  // GET /api/platform-admin/plan-configs — list all plan configs with org counts
-  app.get('/api/platform-admin/plan-configs', isSuperAdmin, async (_req, res) => {
-    try {
-      const configs = await getAllPlanConfigsWithCounts();
-      res.json(configs);
-    } catch (err: any) {
-      res.status(500).json({ message: err.message });
-    }
-  });
-
-  // PATCH /api/platform-admin/plan-configs/:planKey — update a plan config.
-  // Locked configs (orgs on them): only safe toggles allowed (isSunset, isBrickspotterOnly).
-  // Unlocked configs: all fields allowed.
-  app.patch('/api/platform-admin/plan-configs/:planKey', isSuperAdmin, async (req, res) => {
-    try {
-      const { planKey } = req.params;
-      const [orgCountRow] = await db
-        .select({ count: sql<number>`count(*)::int` })
-        .from(organizations)
-        .where(eq(organizations.plan, planKey));
-      const isLocked = Number(orgCountRow?.count ?? 0) > 0;
-
-      // Fields that are always safe to change regardless of lock status
-      const ALWAYS_ALLOWED: string[] = ['isSunset', 'isBrickspotterOnly'];
-      const body = req.body as Record<string, unknown>;
-      const hasLockedFields = Object.keys(body).some(k => !ALWAYS_ALLOWED.includes(k));
-
-      if (isLocked && hasLockedFields) {
-        return res.status(409).json({ message: `This plan has active orgs — only feature flags can be changed. Limits and pricing are locked.` });
-      }
-
-      const result = await updatePlanConfig(planKey, body, isLocked);
-      if (!result.success) return res.status(409).json({ message: result.error });
-      res.json(result.plan);
-    } catch (err: any) {
-      res.status(400).json({ message: err.message });
-    }
-  });
 
   // GET /api/platform-admin/org-usage/:orgId — admin view of any org's billing
   app.get('/api/platform-admin/org-usage/:orgId', isSuperAdmin, async (req: any, res) => {
@@ -2361,14 +2318,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [org] = await db.select().from(organizations).where(eq(organizations.id, orgId)).limit(1);
       if (!org) return res.status(404).json({ message: "Organization not found" });
       const overrides = (org.featureOverrides ?? {}) as Record<string, boolean>;
-      if (typeof overrides.elfieLiveSupport === 'boolean') {
-        if (!overrides.elfieLiveSupport) return res.status(403).json({ message: "Live support is not available on your current plan" });
-      } else {
-        const [planConfig] = await db.select().from(planConfigs).where(eq(planConfigs.planKey, org.plan ?? 'trial')).limit(1);
-        if (planConfig) {
-          const features = dbPlanToFeatures(planConfig);
-          if (!features.elfieLiveSupport) return res.status(403).json({ message: "Live support is not available on your current plan" });
-        }
+      if (overrides.elfieLiveSupport === false) {
+        return res.status(403).json({ message: "Live support is not available on your current plan" });
       }
       const { sessionId, subject } = req.body;
       if (!sessionId) return res.status(400).json({ message: "sessionId required" });

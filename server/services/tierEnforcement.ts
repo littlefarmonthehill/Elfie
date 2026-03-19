@@ -1,8 +1,7 @@
 import { db } from "../db";
-import { organizations, users, picklistItems, plans } from "@shared/schema";
+import { organizations, users, plans } from "@shared/schema";
 import { eq, sql, count } from "drizzle-orm";
-import { checkLimit, type TierFeatures } from "@shared/tierConfig";
-import { getPlanConfigByKey, dbPlanToFeatures } from "./planConfigService";
+import { checkLimit } from "@shared/tierConfig";
 
 export async function getOrgWithLimits(orgId: string) {
   const [org] = await db
@@ -13,7 +12,6 @@ export async function getOrgWithLimits(orgId: string) {
 
   if (!org) return null;
 
-  // BS limits live on the billing plan (plans table, via org.planId)
   let bsPlan: { limitBrickspotterScans: number; limitBrickspotterApiCalls: number; isBrickspotterOnly: boolean } | null = null;
   if (org.planId) {
     const [p] = await db.select({
@@ -75,7 +73,6 @@ export async function checkSeatLimit(orgId: string) {
 
   const currentSeats = userCountResult.count;
   const result = checkLimit(currentSeats, orgWithLimits.limits.seats, "team seats");
-
   return { ...result, current: currentSeats, limit: orgWithLimits.limits.seats };
 }
 
@@ -86,20 +83,4 @@ export async function checkAutomationLimit(orgId: string) {
   const currentRules = 0;
   const result = checkLimit(currentRules, orgWithLimits.limits.automationRules, "automation rules");
   return { ...result, current: currentRules, limit: orgWithLimits.limits.automationRules };
-}
-
-export async function isFeatureAllowed(orgId: string, feature: keyof TierFeatures) {
-  const [org] = await db
-    .select({ plan: organizations.plan })
-    .from(organizations)
-    .where(eq(organizations.id, orgId))
-    .limit(1);
-
-  if (!org) return false;
-
-  const planCfg = await getPlanConfigByKey(org.plan);
-  if (!planCfg) return false;
-
-  const features = dbPlanToFeatures(planCfg);
-  return features[feature] === true;
 }
