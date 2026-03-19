@@ -554,9 +554,8 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                       </div>
                     </div>
 
-                    {/* Summary: total qty + lot count */}
+                    {/* Summary: lot count + chevron */}
                     <div className="shrink-0 flex items-center gap-2 text-[10px] text-gray-400 tabular-nums">
-                      <span>{totalQty}×</span>
                       {variants.length > 1 && (
                         <span className="font-bold">{variants.length} lots</span>
                       )}
