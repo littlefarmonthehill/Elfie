@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle } from "lucide-react";
 import { printPackingSlips, printPicklist } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, PRIORITY_REGEX, toggleSetItem } from "@/lib/item-utils";
@@ -42,6 +42,7 @@ type Order = {
   orderStatus: string;
   marketplace: string | null;
   customerUsername: string | null;
+  customerNotes: string | null;
   shipTo: any;
   orderDate: string | null;
   requestedShippingService: string | null;
@@ -237,6 +238,7 @@ export default function FulfillmentTool() {
   // Split order state
   const [isSplitMode, setIsSplitMode] = useState(false);
   const [selectedItemsForSplit, setSelectedItemsForSplit] = useState<Set<string>>(new Set());
+  const [commentOrderId, setCommentOrderId] = useState<string | null>(null);
   const [showSplitConfirmDialog, setShowSplitConfirmDialog] = useState(false);
   const [splitOrderNumber, setSplitOrderNumber] = useState<string>("");
 
@@ -654,43 +656,61 @@ export default function FulfillmentTool() {
                     const lastName = fullName.trim().split(' ').pop() || '';
                     const isPickComplete = !!picklistOrderStatus[order.id];
                     return (
-                      <div
-                        key={order.id}
-                        onClick={() => handleOrderToggle(order.id)}
-                        className={`flex items-center gap-3 py-3 cursor-pointer transition-colors ${
-                          isSelected ? 'opacity-100' : 'opacity-90'
-                        }`}
-                        data-testid={`order-${order.orderNumber}`}
-                      >
-                        {/* Selection indicator */}
-                        <div className={`shrink-0 w-2 h-2 rounded-full ${isSelected ? 'bg-purple-400' : 'bg-gray-700'}`} />
+                      <div key={order.id}>
+                        <div
+                          onClick={() => handleOrderToggle(order.id)}
+                          className={`flex items-center gap-3 py-3 cursor-pointer transition-colors ${
+                            isSelected ? 'opacity-100' : 'opacity-90'
+                          }`}
+                          data-testid={`order-${order.orderNumber}`}
+                        >
+                          {/* Selection indicator */}
+                          <div className={`shrink-0 w-2 h-2 rounded-full ${isSelected ? 'bg-purple-400' : 'bg-gray-700'}`} />
 
-                        {/* Order info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className={`font-mono text-xs font-semibold ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}>
-                              {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
-                            </span>
-                            {isPriority && <Star className="w-3 h-3 fill-red-500 text-red-500 shrink-0" />}
-                            {isPickComplete && <CheckCircle2 className="w-3 h-3 text-green-400 fill-green-400 shrink-0" />}
-                            {isSelected && (
-                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded leading-none bg-purple-900/50 text-purple-400">Selected</span>
+                          {/* Order info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`font-mono text-xs font-semibold ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}>
+                                {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
+                              </span>
+                              {isPriority && <Star className="w-3 h-3 fill-red-500 text-red-500 shrink-0" />}
+                              {isPickComplete && <CheckCircle2 className="w-3 h-3 text-green-400 fill-green-400 shrink-0" />}
+                              {isSelected && (
+                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded leading-none bg-purple-900/50 text-purple-400">Selected</span>
+                              )}
+                            </div>
+                            {(lastName || order.marketplace) && (
+                              <p className="text-[11px] text-gray-500 truncate leading-tight mt-0.5">{lastName || order.marketplace}</p>
                             )}
                           </div>
-                          {(lastName || order.marketplace) && (
-                            <p className="text-[11px] text-gray-500 truncate leading-tight mt-0.5">{lastName || order.marketplace}</p>
-                          )}
+
+                          {/* Right side: comment flag + date + lot count */}
+                          <div className="shrink-0 flex items-center gap-2">
+                            {order.customerNotes && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setCommentOrderId(commentOrderId === order.id ? null : order.id); }}
+                                className={`rounded transition-colors ${commentOrderId === order.id ? 'text-amber-400' : 'text-amber-500/60 hover:text-amber-400'}`}
+                                data-testid={`button-customer-note-${order.id}`}
+                                title="Customer note"
+                              >
+                                <MessageCircle className="w-3.5 h-3.5 fill-current" />
+                              </button>
+                            )}
+                            {formattedDate && <span className="text-[10px] text-gray-500">{formattedDate}</span>}
+                            {lotCount > 0 && (
+                              <span className="w-5 h-5 rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] font-bold text-white tabular-nums">
+                                {lotCount}
+                              </span>
+                            )}
+                          </div>
                         </div>
 
-                        {/* Right side: date + lot count */}
-                        <div className="shrink-0 flex items-center gap-2">
-                          {formattedDate && <span className="text-[10px] text-gray-500">{formattedDate}</span>}
-                          {lotCount > 0 && (
-                            <span className="w-5 h-5 rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] font-bold text-white tabular-nums">
-                              {lotCount}
-                            </span>
-                          )}
-                        </div>
+                        {/* Inline customer note — expands below tile on tap */}
+                        {order.customerNotes && commentOrderId === order.id && (
+                          <div className="ml-5 mb-2 px-2.5 py-2 rounded border border-amber-500/25 bg-amber-500/5 text-[11px] text-amber-200/90 leading-relaxed">
+                            {order.customerNotes}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
