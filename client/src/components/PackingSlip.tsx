@@ -286,6 +286,14 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
   // Starts at 2 chars; expands to 3 only if two orders hash to the same code.
   const codeMap = buildShortCodeMap(items.map(i => i.orderNumber).filter(Boolean) as string[]);
 
+  // Count lots (line items) per order for the "X lots" label on line 2
+  const lotsPerOrder = new Map<string, number>();
+  for (const item of items) {
+    if (item.orderNumber) {
+      lotsPerOrder.set(item.orderNumber, (lotsPerOrder.get(item.orderNumber) ?? 0) + 1);
+    }
+  }
+
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
   let y = PAGE_PAD;
 
@@ -392,11 +400,13 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
     }
 
     if (orderRef) {
+      const lotCount = item.orderNumber ? (lotsPerOrder.get(item.orderNumber) ?? 0) : 0;
+      const lotsLabel = lotCount > 0 ? `  \u00b7  ${lotCount} lot${lotCount === 1 ? '' : 's'}` : '';
       const sep = prominentParts ? '  \u00b7  ' : '';
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(150, 150, 150);
-      doc.text(sep + orderRef, L2_cursor, L2_Y);
+      doc.text(sep + orderRef + lotsLabel, L2_cursor, L2_Y);
     }
 
     // ── Line 3+: Comment (italic, muted) — only if present ───────────────────
