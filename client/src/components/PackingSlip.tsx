@@ -94,31 +94,21 @@ export function shortCode(orderNumber: string): string {
 }
 
 /**
- * Build a collision-free order→code map for a batch of orders.
- * Starts at 2-char codes (441 combinations). If any two orders hash to the
- * same code at the current length, the whole batch is retried at length+1.
- * This means all codes in a given picklist have the same character count.
+ * Assign short codes to the active orders in this print batch.
+ * Codes are ephemeral — reused once an order ships — so sequential
+ * assignment is correct. Orders are sorted for stable output across
+ * re-prints of the same batch.
+ * Starts at 2 chars (AA–ZZ = 441 slots). Only grows to 3 when the
+ * batch genuinely exceeds 441 simultaneous active orders.
  */
 function buildShortCodeMap(orderNumbers: string[]): Map<string, string> {
-  const unique = [...new Set(orderNumbers.filter(Boolean))];
-  for (let len = 2; len <= 5; len++) {
-    const codeToOrder = new Map<string, string>();
-    const orderToCode = new Map<string, string>();
-    let collision = false;
-    for (const o of unique) {
-      const code = hashCode(o, len);
-      if (codeToOrder.has(code)) { collision = true; break; }
-      codeToOrder.set(code, o);
-      orderToCode.set(o, code);
-    }
-    if (!collision) return orderToCode;
-  }
-  // Ultimate fallback: sequential base-21 assignment (no collision possible)
+  const unique = [...new Set(orderNumbers.filter(Boolean))].sort();
+  const len = unique.length <= ALPHA.length ** 2 ? 2
+            : unique.length <= ALPHA.length ** 3 ? 3 : 4;
   const map = new Map<string, string>();
   unique.forEach((o, i) => {
     let n = i, code = '';
-    do { code = ALPHA[n % 21] + code; n = Math.floor(n / 21); } while (n > 0);
-    while (code.length < 2) code = ALPHA[0] + code;
+    for (let d = 0; d < len; d++) { code = ALPHA[n % ALPHA.length] + code; n = Math.floor(n / ALPHA.length); }
     map.set(o, code);
   });
   return map;
