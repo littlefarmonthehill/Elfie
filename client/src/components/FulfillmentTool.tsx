@@ -918,11 +918,8 @@ export default function FulfillmentTool() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-bold text-white">{result.orderNumber}</span>
-                          {result.carrier && result.service && (
-                            <span className="text-xs text-gray-400">{result.carrier} {result.service}</span>
-                          )}
-                          {result.rate != null && (
-                            <span className="text-xs font-semibold text-green-300">${result.rate.toFixed(2)}</span>
+                          {result.service && (
+                            <span className="text-xs text-gray-400">{result.service}</span>
                           )}
                         </div>
                         {result.trackingNumber ? (
