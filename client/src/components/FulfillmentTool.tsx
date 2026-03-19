@@ -1021,11 +1021,11 @@ export default function FulfillmentTool() {
                   const order = data?.orders.find(o => o.id === orderId);
                   const ready = readyToShip.get(orderId);
                   return (
-                    <div key={orderId} className="flex items-center justify-between gap-2 text-xs bg-gray-900/50 rounded px-2 py-1.5">
+                    <div key={orderId} className="flex items-center justify-between gap-2 text-xs bg-gray-900/50 rounded px-2 py-1.5 flex-wrap">
                       <span className="font-mono font-semibold text-white">{order?.orderNumber ?? orderId}</span>
                       {ready && (
-                        <span className="text-gray-400 tabular-nums">
-                          {ready.selectedRate.carrier} {ready.selectedRate.service} · ${ready.selectedRate.rate.toFixed(2)}
+                        <span className="text-gray-400">
+                          {ready.selectedRate.service}
                         </span>
                       )}
                     </div>
