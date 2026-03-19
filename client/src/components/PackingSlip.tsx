@@ -244,7 +244,7 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
   const BASE_ROW_H = 30;    // minimum row height mm — no-comment rows stay consistent
   const CMT_LINE_H = 4.5;   // mm per additional wrapped color+comment line
   const PANEL_H    = PAGE_H / 2;
-  const PANEL_PAD  = 4;     // breathing room at panel top and bottom mm
+  const PANEL_PAD  = 1;     // breathing room at panel top and bottom mm
   const IMG_X      = MX + SC_W + SC_GAP;               // image left edge
   const TEXT_X     = IMG_X + IMG_W + IMG_GAP;           // text block left edge
   const TEXT_W     = CONTENT_W - SC_W - SC_GAP - IMG_W - IMG_GAP;
