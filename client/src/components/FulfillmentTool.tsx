@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, Star, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle } from "lucide-react";
 import { printPackingSlips, printPicklist } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
-import { cleanItemName, PRIORITY_REGEX, toggleSetItem } from "@/lib/item-utils";
+import { cleanItemName, shippingTier, toggleSetItem } from "@/lib/item-utils";
 import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult, OrderItem } from "./InlineShippingCard";
 import PicklistTool from "./PicklistTool";
 
@@ -647,8 +647,7 @@ export default function FulfillmentTool() {
                   {sortedOrders.map((order) => {
                     const isSelected = selectedOrders.has(order.id);
                     const lotCount = data?.items.filter(i => i.orderId === order.id).length ?? 0;
-                    const isPriority = !!(order.requestedShippingService &&
-                      PRIORITY_REGEX.test(order.requestedShippingService));
+                    const tier = shippingTier(order.requestedShippingService);
                     const formattedDate = order.orderDate
                       ? new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                       : null;
@@ -673,7 +672,12 @@ export default function FulfillmentTool() {
                               <span className={`font-mono text-xs font-semibold ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}>
                                 {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
                               </span>
-                              {isPriority && <Star className="w-3 h-3 fill-red-500 text-red-500 shrink-0" />}
+                              {tier === 'express' && (
+                                <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-blue-900/50 text-blue-300 border border-blue-700/40 shrink-0" data-testid={`badge-express-${order.id}`}>EXPRESS</span>
+                              )}
+                              {tier === 'priority' && (
+                                <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-red-900/50 text-red-300 border border-red-700/40 shrink-0" data-testid={`badge-priority-${order.id}`}>PRIORITY</span>
+                              )}
                               {isPickComplete && <CheckCircle2 className="w-3 h-3 text-green-400 fill-green-400 shrink-0" />}
                               {isSelected && (
                                 <span className="text-[10px] font-medium px-1.5 py-0.5 rounded leading-none bg-purple-900/50 text-purple-400">Selected</span>
