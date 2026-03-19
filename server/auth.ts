@@ -184,13 +184,24 @@ export async function setupAuth(app: Express) {
         const signupDate = new Date();
         signupDate.setHours(0, 0, 0, 0); // normalize to start of day
 
-        // If there's a default plan, skip the trial and put the org on it directly
+        // Assign new org to the default plan (if set) or fall back to the 'trial' plan.
+        // Always honour trialDurationDays so every org gets a "try before you buy" window.
         const [defaultPlan] = await db.select().from(plans).where(eq(plans.isDefault, true)).limit(1);
         let newOrg;
         if (defaultPlan) {
-          newOrg = await storage.createOrganization({ name: orgName, slug, plan: defaultPlan.name, planId: defaultPlan.id, subscriptionStatus: 'active', billingStartDate: signupDate });
+          const trialDays = defaultPlan.trialDurationDays ?? 0;
+          const trialEndsAt = trialDays > 0 ? new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000) : null;
+          newOrg = await storage.createOrganization({
+            name: orgName, slug,
+            plan: defaultPlan.name,
+            planId: defaultPlan.id,
+            subscriptionStatus: trialEndsAt ? 'trial' : 'active',
+            trialEndsAt,
+            billingStartDate: signupDate,
+          });
         } else {
-          const trialEndsAt = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000);
+          // No default plan configured — fall back to the legacy 'trial' planKey with 14-day window
+          const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
           newOrg = await storage.createOrganization({ name: orgName, slug, plan: 'trial', trialEndsAt, billingStartDate: signupDate });
         }
         orgId = newOrg.id;

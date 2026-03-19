@@ -50,7 +50,7 @@ export default function Home() {
     onError: () => toast({ title: 'Failed to exit impersonation', variant: 'destructive' }),
   });
   const { data: org } = useQuery<Organization>({ queryKey: ['/api/org'] });
-  const { data: billingStatus } = useQuery<{ plan: string; status: string; planStatus?: string | null; planSunsetAt?: string | null }>({
+  const { data: billingStatus } = useQuery<{ plan: string; status: string; trialEndsAt?: string | null; planStatus?: string | null; planSunsetAt?: string | null }>({
     queryKey: ['/api/billing/status'],
   });
   const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024);
@@ -886,20 +886,29 @@ export default function Home() {
   // Grace period: hard block only fires 7 days after sunset.
   const GRACE_DAYS = 7;
 
-  const sunsetDate = billingStatus?.planSunsetAt ? new Date(billingStatus.planSunsetAt) : null;
-  const isSunsetPlan = !superAdmin && billingStatus?.planStatus === 'sunset' && !!sunsetDate;
   const now = new Date();
   const msPerDay = 86400000;
-  const daysSinceSunset = sunsetDate ? Math.floor((now.getTime() - sunsetDate.getTime()) / msPerDay) : null;
 
-  // Hard block: grace period has passed
-  const planExpired = isSunsetPlan && daysSinceSunset !== null && daysSinceSunset > GRACE_DAYS;
+  // Sunset-plan expiry: org is on a plan that has been sunset and the grace period has passed
+  const sunsetDate = billingStatus?.planSunsetAt ? new Date(billingStatus.planSunsetAt) : null;
+  const isSunsetPlan = !superAdmin && billingStatus?.planStatus === 'sunset' && !!sunsetDate;
+  const daysSinceSunset = sunsetDate ? Math.floor((now.getTime() - sunsetDate.getTime()) / msPerDay) : null;
+  const sunsetExpired = isSunsetPlan && daysSinceSunset !== null && daysSinceSunset > GRACE_DAYS;
+
+  // Trial expiry: org is on a trial and trialEndsAt has passed
+  const trialEndDate = billingStatus?.trialEndsAt ? new Date(billingStatus.trialEndsAt) : null;
+  const trialExpired = !superAdmin && billingStatus?.status === 'trial' && !!trialEndDate && trialEndDate < now;
+
+  const planExpired = sunsetExpired || trialExpired;
+  const expiredAt = sunsetExpired ? billingStatus!.planSunsetAt! : billingStatus?.trialEndsAt ?? '';
+  const expiredReason: 'sunset' | 'trial' = sunsetExpired ? 'sunset' : 'trial';
 
   if (planExpired && billingStatus) {
     return (
       <PlanExpiredScreen
-        sunsetAt={billingStatus.planSunsetAt!}
+        sunsetAt={expiredAt}
         planName={billingStatus.plan}
+        reason={expiredReason}
       />
     );
   }

@@ -21,9 +21,10 @@ interface Plan {
 interface PlanExpiredScreenProps {
   sunsetAt: string;
   planName: string;
+  reason?: 'trial' | 'sunset';
 }
 
-export default function PlanExpiredScreen({ sunsetAt, planName }: PlanExpiredScreenProps) {
+export default function PlanExpiredScreen({ sunsetAt, planName, reason = 'sunset' }: PlanExpiredScreenProps) {
   const { toast } = useToast();
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
 
@@ -91,7 +92,10 @@ export default function PlanExpiredScreen({ sunsetAt, planName }: PlanExpiredScr
             />
             <div className="bg-gray-900 border border-gray-700 rounded-xl rounded-bl-none px-4 py-3">
               <p className="text-sm text-gray-200 leading-snug">
-                Your <span className="text-white font-medium">{planName}</span> plan ended on {expiredDate}. To keep using E.L.F.I.E., pick a new plan below and I'll have you back up and running in seconds.
+                {reason === 'trial'
+                  ? <>Your free trial ended on {expiredDate}. Pick a plan below and I'll have you back up and running in seconds.</>
+                  : <>Your <span className="text-white font-medium">{planName}</span> plan ended on {expiredDate}. To keep using E.L.F.I.E., pick a new plan below and I'll have you back up and running in seconds.</>
+                }
               </p>
             </div>
           </div>
@@ -101,7 +105,9 @@ export default function PlanExpiredScreen({ sunsetAt, planName }: PlanExpiredScr
         <div className="flex items-start gap-3 rounded-lg border border-red-800/40 bg-red-950/20 px-4 py-3">
           <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-red-300">Plan expired on {expiredDate}</p>
+            <p className="text-sm font-medium text-red-300">
+              {reason === 'trial' ? `Free trial ended on ${expiredDate}` : `Plan expired on ${expiredDate}`}
+            </p>
             <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
               Your account is currently read-only. Inventory sync, order management, and other live features will resume as soon as you subscribe.
             </p>
