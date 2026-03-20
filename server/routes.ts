@@ -9113,7 +9113,7 @@ Format search_web URLs as markdown links.`;
       const [settingsRow] = await db.select({ channelSyncMode: appSettings.channelSyncMode })
         .from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
       const rawMode = settingsRow?.channelSyncMode;
-      const syncMode = (rawMode === 'quantity_only' ? 'quantity_only' : rawMode === 'analysis' ? 'analysis' : 'full_control') as 'analysis' | 'full_control' | 'quantity_only';
+      const syncMode = (rawMode === 'matched_sync' || rawMode === 'quantity_only' ? 'matched_sync' : rawMode === 'analysis' ? 'analysis' : 'full_control') as 'analysis' | 'full_control' | 'matched_sync';
 
       console.log(`[Platform Sync] Starting BrickLink → BrickOwl sync${limit ? ` (limit: ${limit})` : ''} (mode: ${syncMode})...`);
       

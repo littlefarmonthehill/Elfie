@@ -114,7 +114,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
 
   // Step 4 — BrickOwl
   const [boApiKey, setBoApiKey] = useState("");
-  const [channelSyncMode, setChannelSyncMode] = useState<'analysis' | 'full_control' | 'quantity_only'>('analysis');
+  const [channelSyncMode, setChannelSyncMode] = useState<'analysis' | 'full_control' | 'matched_sync'>('analysis');
 
   // Step 2 — IE Strategies
   const [ieStratVision, setIeStratVision] = useState("");
@@ -917,15 +917,15 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                       </div>
                     </button>
                     <button
-                      onClick={() => setChannelSyncMode('quantity_only')}
-                      className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-colors ${channelSyncMode === 'quantity_only' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
-                      data-testid="button-onboard-bo-qty"
+                      onClick={() => setChannelSyncMode('matched_sync')}
+                      className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-colors ${channelSyncMode === 'matched_sync' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
+                      data-testid="button-onboard-bo-matched"
                     >
-                      <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 ${channelSyncMode === 'quantity_only' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
+                      <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 ${channelSyncMode === 'matched_sync' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
                       <div>
-                        <span className="text-sm font-semibold text-gray-200">Quantity Only</span>
-                        <p className="text-xs text-gray-500 mt-0.5">Update counts on existing lots — never create new ones</p>
-                        <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">I'll only update quantities and prices on lots that already exist on the destination channel. Anything without a matching lot is skipped. Best for stores you prefer to manage manually.</p>
+                        <span className="text-sm font-semibold text-gray-200">Matched Sync</span>
+                        <p className="text-xs text-gray-500 mt-0.5">Full sync of matched lots — never create new ones</p>
+                        <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">Syncs quantity, price, remarks, and description for every lot already linked between BrickLink and BrickOwl. Anything without a match is skipped. Best for stores you prefer to manage manually.</p>
                       </div>
                     </button>
                   </div>

@@ -2494,7 +2494,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [rebrickableImageSyncEnabled, setRebrickableImageSyncEnabled] = useState(true);
   const [channelSyncEnabled, setChannelSyncEnabled] = useState(false);
   const [channelSyncTime, setChannelSyncTime] = useState("03:00");
-  const [channelSyncMode, setChannelSyncMode] = useState<'analysis' | 'full_control' | 'quantity_only'>('analysis');
+  const [channelSyncMode, setChannelSyncMode] = useState<'analysis' | 'full_control' | 'matched_sync'>('analysis');
   const [channelDetailsExpanded, setChannelDetailsExpanded] = useState(false);
   const [ordersSyncEnabled, setOrdersSyncEnabled] = useState(false);
   const [schedulerInventoryOpen, setSchedulerInventoryOpen] = useState(false);
@@ -3249,7 +3249,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setRebrickableImageSyncEnabled(settings.rebrickableImageSyncEnabled !== false);
       setChannelSyncEnabled(settings.channelSyncEnabled || false);
       setChannelSyncTime(settings.channelSyncTime || '03:00');
-      setChannelSyncMode((settings.channelSyncMode as 'analysis' | 'full_control' | 'quantity_only') || 'analysis');
+      const rawMode = settings.channelSyncMode as string;
+      const normalizedMode = (rawMode === 'quantity_only' ? 'matched_sync' : rawMode) as 'analysis' | 'full_control' | 'matched_sync';
+      setChannelSyncMode(normalizedMode || 'analysis');
       setOrdersSyncEnabled(settings.ordersSyncEnabled || false);
       setOrdersSyncFrequency(settings.ordersSyncFrequency || 15);
       setOrdersSyncFrequencyStr(String(settings.ordersSyncFrequency || 15));
@@ -5346,24 +5348,24 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             </div>
                           </button>
                           <button
-                            onClick={() => { setChannelSyncMode('quantity_only'); updateSettingsMutation.mutate({ channelSyncMode: 'quantity_only' }); }}
-                            className={`flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors ${channelSyncMode === 'quantity_only' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
-                            data-testid="button-sync-mode-qty"
+                            onClick={() => { setChannelSyncMode('matched_sync'); updateSettingsMutation.mutate({ channelSyncMode: 'matched_sync' }); }}
+                            className={`flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors ${channelSyncMode === 'matched_sync' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
+                            data-testid="button-sync-mode-matched"
                           >
-                            <div className={`mt-0.5 w-3 h-3 rounded-full border-2 shrink-0 ${channelSyncMode === 'quantity_only' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
+                            <div className={`mt-0.5 w-3 h-3 rounded-full border-2 shrink-0 ${channelSyncMode === 'matched_sync' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
                             <div>
                               <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-medium text-gray-200">Quantity Only</span>
+                                <span className="text-xs font-medium text-gray-200">Matched Sync</span>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Info className="w-2.5 h-2.5 text-gray-500 shrink-0 cursor-default" />
                                   </TooltipTrigger>
                                   <TooltipContent side="right" className="max-w-xs text-xs">
-                                    Only updates quantities and prices on lots that already exist on the destination channel. Items without a matching lot are skipped — nothing is created.
+                                    Full sync of all fields — quantity, price, remarks, and description — for lots already matched between BrickLink and BrickOwl. Unmatched items are skipped; nothing new is created.
                                   </TooltipContent>
                                 </Tooltip>
                               </div>
-                              <p className="text-[10px] text-gray-500 mt-0.5">Update counts on existing lots only — never create</p>
+                              <p className="text-[10px] text-gray-500 mt-0.5">Full sync of matched lots — never create new</p>
                             </div>
                           </button>
                         </div>

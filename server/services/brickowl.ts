@@ -344,7 +344,7 @@ export async function mapColorId(bricklinkColorId: number): Promise<number | nul
 export async function syncInventoryItem(
   blItem: typeof blInventory.$inferSelect,
   brickowlInventory?: any[],
-  mode: 'analysis' | 'full_control' | 'quantity_only' = 'full_control',
+  mode: 'analysis' | 'full_control' | 'matched_sync' = 'full_control',
   taggedLotMap?: Map<string, any>
 ): Promise<{
   success: boolean;
@@ -460,9 +460,9 @@ export async function syncInventoryItem(
       };
     }
 
-    if (mode === 'analysis' || mode === 'quantity_only') {
+    if (mode === 'analysis' || mode === 'matched_sync') {
       // Analysis mode: read-only, never write anything — just build comparison data
-      // Quantity-only mode: never create new listings, only update existing ones
+      // Matched-sync mode: only update already-matched lots — never create new listings
       console.log(`[Sync] Skipping ${blItem.itemNo} (${mode} mode — no existing BrickOwl lot)`);
       return { success: true, action: 'skipped' };
     }
@@ -508,7 +508,7 @@ export async function syncInventoryItem(
 
 export async function syncBrickLinkToBrickOwl(
   limit?: number,
-  mode: 'analysis' | 'full_control' | 'quantity_only' = 'full_control',
+  mode: 'analysis' | 'full_control' | 'matched_sync' = 'full_control',
   onProgress?: (processed: number, total: number) => void
 ): Promise<BrickOwlSyncResult> {
   const result: BrickOwlSyncResult = {
@@ -568,26 +568,21 @@ export async function syncBrickLinkToBrickOwl(
       const remarksChanged   = (taggedLot.personal_note || '') !== (item.remarks || '');
       const descChanged      = (taggedLot.public_note   || '') !== (item.description || '');
 
-      // quantity_only: only act when quantity differs — never touch price/notes
-      const hasChange = mode === 'quantity_only'
-        ? qtyChanged
-        : (qtyChanged || priceChanged || remarksChanged || descChanged);
+      const hasChange = qtyChanged || priceChanged || remarksChanged || descChanged;
 
       if (hasChange) {
         if (mode === 'analysis') {
           result.lotsSkipped++; // analysis: report discrepancy but don't write
         } else {
+          // matched_sync and full_control both sync all fields for matched lots
           toUpdate.push({
             blItemNo: item.itemNo,
             lot_id: taggedLot.lot_id,
             absolute_quantity: item.quantity,
-            // quantity_only: omit price/condition/notes so they are never sent
-            ...(mode !== 'quantity_only' && {
-              price: newPrice,
-              condition,
-              personal_note: decodeHtmlEntities(item.remarks  || '') || undefined,
-              public_note:   decodeHtmlEntities(item.description || '') || undefined,
-            }),
+            price: newPrice,
+            condition,
+            personal_note: decodeHtmlEntities(item.remarks  || '') || undefined,
+            public_note:   decodeHtmlEntities(item.description || '') || undefined,
           });
         }
       } else {
@@ -597,7 +592,7 @@ export async function syncBrickLinkToBrickOwl(
       // No tagged lot — queue for BOID lookup (Phase 2b)
       toAdopt.push(item);
     } else {
-      // quantity_only / analysis: nothing to do for untagged items
+      // matched_sync / analysis: skip untagged items — never create new lots
       result.lotsSkipped++;
     }
   }
