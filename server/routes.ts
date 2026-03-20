@@ -11709,6 +11709,42 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
+  // ── IE Strategies ────────────────────────────────────────────────────────────
+
+  // GET /api/ie-strategies — return per-agent strategy statements for the org
+  app.get("/api/ie-strategies", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { ieStrategies } = await import('@shared/schema');
+      const [row] = await db.select().from(ieStrategies).where(eq(ieStrategies.orgId, orgId)).limit(1);
+      res.json(row ?? { orgId, pricingStrategy: null, inventoryStrategy: null, ordersStrategy: null, customerStrategy: null, marketStrategy: null });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PUT /api/ie-strategies — upsert per-agent strategy statements
+  app.put("/api/ie-strategies", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { ieStrategies } = await import('@shared/schema');
+      const { pricingStrategy, inventoryStrategy, ordersStrategy, customerStrategy, marketStrategy } = req.body;
+      const set: Record<string, any> = { updatedAt: new Date() };
+      if (pricingStrategy !== undefined) set.pricingStrategy = pricingStrategy || null;
+      if (inventoryStrategy !== undefined) set.inventoryStrategy = inventoryStrategy || null;
+      if (ordersStrategy !== undefined) set.ordersStrategy = ordersStrategy || null;
+      if (customerStrategy !== undefined) set.customerStrategy = customerStrategy || null;
+      if (marketStrategy !== undefined) set.marketStrategy = marketStrategy || null;
+      const [updated] = await db.insert(ieStrategies)
+        .values({ orgId, ...set })
+        .onConflictDoUpdate({ target: ieStrategies.orgId, set })
+        .returning();
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── POM AI Pricing ───────────────────────────────────────────────────────────
 
   // GET  /api/pom/ai-settings — return AI pricing opt-in + strategy for the org
@@ -11805,7 +11841,10 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         .orderBy(sql`fetched_at DESC`)
         .limit(3);
 
-      const strategy = aiSettings.aiStrategy || 'Maximize revenue by selling at or above market value. Prefer fewer high-value sales over high volume at lower prices.';
+      // Prefer IE Strategies pricing strategy; fall back to legacy pomAiSettings.aiStrategy
+      const { ieStrategies: ieStrat } = await import('@shared/schema');
+      const [ieRow] = await db.select({ pricingStrategy: ieStrat.pricingStrategy }).from(ieStrat).where(eq(ieStrat.orgId, orgId)).limit(1);
+      const strategy = ieRow?.pricingStrategy || aiSettings.aiStrategy || 'Maximize revenue by selling at or above market value. Prefer fewer high-value sales over high volume at lower prices.';
       const condition = newOrUsed === 'U' ? 'Used' : 'New';
 
       const prompt = `You are a pricing advisor for a LEGO reseller marketplace (BrickLink). 

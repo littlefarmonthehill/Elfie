@@ -1813,6 +1813,20 @@ export const featureVotes = pgTable("feature_votes", {
 export type FeatureVote = typeof featureVotes.$inferSelect;
 
 // ── AI Pricing (Price-o-Matic AI opt-in) ─────────────────────────────────────
+// IE Strategies — per-org, per-agent business strategy statements.
+// Each agent reads its relevant strategy and uses it as a baseline for AI suggestions.
+export const ieStrategies = pgTable("ie_strategies", {
+  orgId: varchar("org_id", { length: 255 }).primaryKey(),
+  pricingStrategy: text("pricing_strategy"),
+  inventoryStrategy: text("inventory_strategy"),
+  ordersStrategy: text("orders_strategy"),
+  customerStrategy: text("customer_strategy"),
+  marketStrategy: text("market_strategy"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type IeStrategies = typeof ieStrategies.$inferSelect;
+
 export const pomAiSettings = pgTable("pom_ai_settings", {
   orgId: varchar("org_id", { length: 255 }).primaryKey(),
   aiEnabled: boolean("ai_enabled").default(false).notNull(),

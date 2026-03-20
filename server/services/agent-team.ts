@@ -14,7 +14,7 @@
 import { db } from "../db";
 import {
   businessInsights, blInventory, blCatalog,
-  marketNews, blForumPosts, appSettings, pomPriceDecisions,
+  marketNews, blForumPosts, appSettings, pomPriceDecisions, ieStrategies,
 } from "@shared/schema";
 import { eq, and, sql, desc, gte, ne, isNull, or, inArray } from "drizzle-orm";
 import OpenAI from "openai";
@@ -31,6 +31,20 @@ async function getOpenAI(): Promise<OpenAI | null> {
     if (!key) return null;
     return new OpenAI({ apiKey: key });
   } catch { return null; }
+}
+
+// Fetch all IE strategy fields for an org (returns empty object if none set)
+async function getOrgStrategies(orgId: string): Promise<Partial<Record<string, string>>> {
+  try {
+    const [row] = await db.select().from(ieStrategies).where(eq(ieStrategies.orgId, orgId)).limit(1);
+    return row ?? {};
+  } catch { return {}; }
+}
+
+// Append strategy context to a system prompt if the strategy is set
+function withStrategy(basePrompt: string, strategy: string | null | undefined, agentLabel: string): string {
+  if (!strategy?.trim()) return basePrompt;
+  return `${basePrompt}\n\nBUSINESS STRATEGY (${agentLabel}):\n"${strategy.trim()}"\nUse this strategy as your guiding principle when prioritising signals and framing suggestions.`;
 }
 
 async function upsertSignals(
@@ -151,12 +165,16 @@ LARGEST HOLDINGS BY VALUE:
 ${inventory.filter(i => parseFloat(i.unitPrice || '0') * i.quantity > 5).slice(0, 20).map(i => `${i.itemNo} "${i.itemName || '?'}" qty:${i.quantity} @$${i.unitPrice} = $${(i.quantity * parseFloat(i.unitPrice || '0')).toFixed(2)}`).join('\n')}
 `.trim();
 
-  const systemPrompt = `You are the Inventory Agent for a LEGO reseller. Analyze the inventory data and generate 3-6 specific, actionable signals about stock health. Focus on dead stock risk, reorder urgency, capital concentration, and stock imbalances.
+  const strategies = await getOrgStrategies(orgId);
+  const systemPrompt = withStrategy(
+    `You are the Inventory Agent for a LEGO reseller. Analyze the inventory data and generate 3-6 specific, actionable signals about stock health. Focus on dead stock risk, reorder urgency, capital concentration, and stock imbalances.
 
 Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences, specific numbers), "details": { "itemNos": [], "metric": "" } } ] }
 
 Categories: restock | overstock | dead_stock | capital_risk | opportunity
-Rules: cite specific item numbers and dollar amounts. No generic advice.`;
+Rules: cite specific item numbers and dollar amounts. No generic advice.`,
+    strategies.inventoryStrategy, 'Inventory'
+  );
 
   const signals = await callAgent(openai, orgId, systemPrompt, ctx);
   await upsertSignals(orgId, 'inventory', signals);
@@ -215,12 +233,16 @@ ${recentDecisions.slice(0, 10).map(d => `  ${d.itemNo} set $${Number(d.actualPri
 ${avgDelta !== null ? `Average pricing delta vs POM: ${avgDelta >= 0 ? '+' : ''}$${avgDelta.toFixed(3)} (${avgDelta > 0 ? 'pricing above' : 'pricing below'} POM suggestions on average)` : ''}
 `.trim();
 
-  const systemPrompt = `You are the Pricing Agent for a LEGO reseller. Analyze pricing gaps and repricing patterns to generate 3-5 specific, actionable pricing signals.
+  const strategies = await getOrgStrategies(orgId);
+  const systemPrompt = withStrategy(
+    `You are the Pricing Agent for a LEGO reseller. Analyze pricing gaps and repricing patterns to generate 3-5 specific, actionable pricing signals.
 
 Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences, cite specific items/prices), "details": { "itemNos": [], "potentialRevenue": 0 } } ] }
 
 Categories: pricing | opportunity | risk
-Rules: be specific. Cite item numbers, exact prices, potential revenue impact. Focus on the biggest opportunities.`;
+Rules: be specific. Cite item numbers, exact prices, potential revenue impact. Focus on the biggest opportunities.`,
+    strategies.pricingStrategy, 'Pricing'
+  );
 
   const signals = await callAgent(openai, orgId, systemPrompt, ctx);
   await upsertSignals(orgId, 'pricing', signals);
@@ -275,12 +297,16 @@ ITEMS WITH HIGH PRICE SPREAD (sold_max > 1.5x sold_avg — potential premium dem
 ${(priceMoves.rows as any[]).slice(0, 15).map((r: any) => `  ${r.item_no} "${r.item_name || '?'}" sold_avg:$${Number(r.sold_avg).toFixed(2)} sold_max:$${Number(r.sold_max).toFixed(2)} demand:${r.sold_quantity} lots${r.our_qty != null ? ` — WE HAVE: qty:${r.our_qty} @$${Number(r.our_price).toFixed(2)}` : ' — NOT IN STOCK'}`).join('\n')}
 `.trim();
 
-  const systemPrompt = `You are the Market Intelligence Agent for a LEGO reseller. Analyze market news, forum discussions, and price spread data to identify external signals that may affect the business.
+  const strategies = await getOrgStrategies(orgId);
+  const systemPrompt = withStrategy(
+    `You are the Market Intelligence Agent for a LEGO reseller. Analyze market news, forum discussions, and price spread data to identify external signals that may affect the business.
 
 Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences connecting external signal to business impact), "details": { "source": "", "itemNos": [] } } ] }
 
 Categories: trend | opportunity | risk | acquisition
-Rules: Connect news/forum signals to specific inventory implications. Identify retirement risks, demand surges, pricing opportunities. Be specific about which items are affected.`;
+Rules: Connect news/forum signals to specific inventory implications. Identify retirement risks, demand surges, pricing opportunities. Be specific about which items are affected.`,
+    strategies.marketStrategy, 'Market Intelligence'
+  );
 
   const signals = await callAgent(openai, orgId, systemPrompt, ctx);
   await upsertSignals(orgId, 'market', signals);
@@ -350,12 +376,16 @@ WEEKLY ORDER VOLUME (last 8 weeks):
 ${(velocityData.rows as any[]).slice(0, 16).map((r: any) => `  ${String(r.week).substring(0,10)} [${r.platform}]: ${r.order_count} orders $${Number(r.revenue).toFixed(2)}`).join('\n')}
 `.trim();
 
-  const systemPrompt = `You are the Orders Agent for a LEGO reseller. Analyze order velocity, channel performance, and SKU throughput to generate 3-5 specific operational signals.
+  const strategies = await getOrgStrategies(orgId);
+  const systemPrompt = withStrategy(
+    `You are the Orders Agent for a LEGO reseller. Analyze order velocity, channel performance, and SKU throughput to generate 3-5 specific operational signals.
 
 Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences, cite specific numbers and trends), "details": { "metric": "", "value": 0 } } ] }
 
 Categories: velocity | channel | revenue | opportunity | risk
-Rules: cite specific percentages, dollar amounts, and item numbers. Focus on actionable patterns — which channels are growing, which SKUs are driving volume, where there are gaps.`;
+Rules: cite specific percentages, dollar amounts, and item numbers. Focus on actionable patterns — which channels are growing, which SKUs are driving volume, where there are gaps.`,
+    strategies.ordersStrategy, 'Orders'
+  );
 
   const signals = await callAgent(openai, orgId, systemPrompt, ctx);
   await upsertSignals(orgId, 'orders', signals);
@@ -417,12 +447,16 @@ NEW BUYERS (first order in last 90d):
 ${(newBuyers.rows as any[]).map((r: any) => `  ${r.buyer_name}: ${r.order_count} orders, $${Number(r.total_spent).toFixed(2)} in first ${r.order_count > 1 ? `${r.order_count} orders` : 'order'}, since ${String(r.first_order).substring(0,10)}`).join('\n') || '  None in 90d'}
 `.trim();
 
-  const systemPrompt = `You are the Customer Agent for a LEGO reseller. Analyze buyer behavior patterns to generate 3-5 specific customer intelligence signals.
+  const strategies = await getOrgStrategies(orgId);
+  const systemPrompt = withStrategy(
+    `You are the Customer Agent for a LEGO reseller. Analyze buyer behavior patterns to generate 3-5 specific customer intelligence signals.
 
 Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences naming specific buyers with amounts), "details": { "buyerNames": [], "metric": "" } } ] }
 
 Categories: new_customer | top_spender | dormant | retention | risk
-Rules: name specific buyers with their exact spend and order counts. Identify retention risks, re-engagement opportunities, and emerging high-value relationships.`;
+Rules: name specific buyers with their exact spend and order counts. Identify retention risks, re-engagement opportunities, and emerging high-value relationships.`,
+    strategies.customerStrategy, 'Customer'
+  );
 
   const signals = await callAgent(openai, orgId, systemPrompt, ctx);
   await upsertSignals(orgId, 'customer', signals);

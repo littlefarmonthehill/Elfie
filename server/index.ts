@@ -278,6 +278,23 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       console.error('[Startup] Could not add agent_id column (non-fatal):', agentFixErr.message);
     }
 
+    // 4a-fix-5. Create ie_strategies table for per-agent business strategy statements.
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS ie_strategies (
+          org_id VARCHAR(255) PRIMARY KEY,
+          pricing_strategy TEXT,
+          inventory_strategy TEXT,
+          orders_strategy TEXT,
+          customer_strategy TEXT,
+          market_strategy TEXT,
+          updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+        )
+      `);
+    } catch (ieStratErr: any) {
+      console.warn('[Startup] ie_strategies migration (non-fatal):', ieStratErr.message);
+    }
+
     try {
 
       // 4b. Warm up the DB connection (wakes Neon serverless from idle)

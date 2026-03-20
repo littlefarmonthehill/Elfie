@@ -42,7 +42,7 @@ interface SettingsModalProps {
   isBrickspotterOnly?: boolean;
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'notifications' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'notifications' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | 'ieStrategies' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -2572,6 +2572,13 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [pomTrendingEnabled, setPomTrendingEnabled] = useState(false);
   const [pomTrendingDays, setPomTrendingDays] = useState(15);       // repurposed: max % adjustment
   const [pomTrendingThreshold, setPomTrendingThreshold] = useState(500);  // BL sold qty = "full demand"
+  // IE Strategies
+  const [ieStratPricing, setIeStratPricing] = useState('');
+  const [ieStratInventory, setIeStratInventory] = useState('');
+  const [ieStratOrders, setIeStratOrders] = useState('');
+  const [ieStratCustomer, setIeStratCustomer] = useState('');
+  const [ieStratMarket, setIeStratMarket] = useState('');
+
   // POM AI Pricing
   const [pomAiEnabled, setPomAiEnabled] = useState(false);
   const [pomAiStrategy, setPomAiStrategy] = useState('');
@@ -3286,6 +3293,31 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     },
   });
 
+  const { data: ieStratData } = useQuery<{ pricingStrategy: string | null; inventoryStrategy: string | null; ordersStrategy: string | null; customerStrategy: string | null; marketStrategy: string | null }>({
+    queryKey: ['/api/ie-strategies'],
+    enabled: open,
+  });
+  useEffect(() => {
+    if (ieStratData) {
+      setIeStratPricing(ieStratData.pricingStrategy ?? '');
+      setIeStratInventory(ieStratData.inventoryStrategy ?? '');
+      setIeStratOrders(ieStratData.ordersStrategy ?? '');
+      setIeStratCustomer(ieStratData.customerStrategy ?? '');
+      setIeStratMarket(ieStratData.marketStrategy ?? '');
+    }
+  }, [ieStratData]);
+
+  const saveIeStratMutation = useMutation({
+    mutationFn: async (patch: Record<string, string>) => apiRequest('PUT', '/api/ie-strategies', patch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/ie-strategies'] });
+      toast({ title: 'Strategy saved' });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Failed to save strategy', description: err.message, variant: 'destructive' });
+    },
+  });
+
   useEffect(() => {
     if (platformSettings) {
       setPriceOMaticEnabled(platformSettings.priceOMaticEnabled || false);
@@ -3726,6 +3758,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     { id: 'general' as const, label: 'Organization', icon: Settings, bsVisible: true },
     { id: 'platforms' as const, label: 'Platform Services', icon: Layers, bsVisible: false },
     { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: TrendingUp, bsVisible: false },
+    { id: 'ieStrategies' as const, label: 'IE Strategies', icon: Target, bsVisible: false },
     { id: 'data' as const, label: 'Store Data', icon: HardDrive, bsVisible: false },
     { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain, bsVisible: true },
     { id: 'warehouse' as const, label: 'Warehouse', icon: Warehouse, bsVisible: false },
@@ -6001,18 +6034,23 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         </button>
                       </div>
 
-                      {/* Strategy statement */}
-                      <div>
-                        <Label className="text-xs text-gray-400 mb-1.5 block">Pricing Strategy Statement</Label>
-                        <Textarea
-                          value={pomAiStrategy}
-                          onChange={(e) => setPomAiStrategy(e.target.value)}
-                          onBlur={() => { if (pomAiStrategy !== (pomAiData?.aiStrategy ?? '')) savePomAiMutation.mutate({ aiStrategy: pomAiStrategy }); }}
-                          placeholder="Describe your pricing philosophy in plain language. e.g. 'We price at a premium above market value. We hold prices on trending and retired items. We'd rather sell fewer orders at higher margins than chase volume.'"
-                          className="text-[11px] min-h-[90px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
-                          data-testid="textarea-pom-ai-strategy"
-                        />
-                        <p className="text-[10px] text-gray-600 mt-1">This statement is included in every AI pricing prompt — be specific about premiums, margins, and item types you prioritize.</p>
+                      {/* Strategy — now lives in IE Strategies */}
+                      <div className="flex items-start justify-between gap-3 py-2 px-3 rounded-md bg-gray-800/40 border border-gray-700/40">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-medium text-gray-300">Pricing Strategy</p>
+                          <p className="text-[10px] text-gray-500 mt-0.5 leading-relaxed">
+                            {ieStratPricing
+                              ? <span className="text-gray-400 italic line-clamp-2">"{ieStratPricing}"</span>
+                              : 'No pricing strategy set — add one in IE Strategies.'}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setActiveSection('ieStrategies')}
+                          className="flex-shrink-0 text-[10px] text-purple-400 hover:text-purple-300 underline underline-offset-2"
+                          data-testid="link-goto-ie-strategies"
+                        >
+                          Edit in IE Strategies
+                        </button>
                       </div>
 
                       {/* Training data counter */}
@@ -6033,6 +6071,112 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   )}
                 </div>
 
+              </div>
+            )}
+
+            {activeSection === 'ieStrategies' && (
+              <div className="space-y-6 min-h-[400px]">
+                <div>
+                  <h2 className="text-sm font-semibold text-white mb-1">IE Strategies</h2>
+                  <p className="text-[11px] text-gray-500 leading-relaxed">
+                    Write a plain-language strategy statement for each intelligence agent. Agents read these as guiding principles when generating signals and suggestions — the more specific you are, the more aligned their insights will be with your business goals.
+                  </p>
+                </div>
+
+                <Separator className="bg-gray-700/60" />
+
+                {/* Pricing */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
+                    <span className="text-xs font-semibold text-gray-300">Pricing Agent</span>
+                  </div>
+                  <Textarea
+                    value={ieStratPricing}
+                    onChange={(e) => setIeStratPricing(e.target.value)}
+                    onBlur={() => { if (ieStratPricing !== (ieStratData?.pricingStrategy ?? '')) saveIeStratMutation.mutate({ pricingStrategy: ieStratPricing }); }}
+                    placeholder="e.g. We price at a premium above market. Hold prices on retired sets. Prefer fewer high-margin orders over chasing volume."
+                    className="text-[11px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    data-testid="textarea-ie-strategy-pricing"
+                  />
+                  <p className="text-[10px] text-gray-600">Included in every Pricing Agent and POM AI prompt.</p>
+                </div>
+
+                <Separator className="bg-gray-700/40" />
+
+                {/* Inventory */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-3.5 h-3.5 text-blue-400" />
+                    <span className="text-xs font-semibold text-gray-300">Inventory Agent</span>
+                  </div>
+                  <Textarea
+                    value={ieStratInventory}
+                    onChange={(e) => setIeStratInventory(e.target.value)}
+                    onBlur={() => { if (ieStratInventory !== (ieStratData?.inventoryStrategy ?? '')) saveIeStratMutation.mutate({ inventoryStrategy: ieStratInventory }); }}
+                    placeholder="e.g. We keep tight stock on high-velocity parts. Liquidate dead stock over 180 days. Prioritise Technic and Creator Expert themes."
+                    className="text-[11px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    data-testid="textarea-ie-strategy-inventory"
+                  />
+                  <p className="text-[10px] text-gray-600">Guides dead stock, reorder urgency, and capital concentration signals.</p>
+                </div>
+
+                <Separator className="bg-gray-700/40" />
+
+                {/* Orders */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <ShoppingCart className="w-3.5 h-3.5 text-green-400" />
+                    <span className="text-xs font-semibold text-gray-300">Orders Agent</span>
+                  </div>
+                  <Textarea
+                    value={ieStratOrders}
+                    onChange={(e) => setIeStratOrders(e.target.value)}
+                    onBlur={() => { if (ieStratOrders !== (ieStratData?.ordersStrategy ?? '')) saveIeStratMutation.mutate({ ordersStrategy: ieStratOrders }); }}
+                    placeholder="e.g. Grow BrickOwl channel revenue. Aim for same-day dispatch. Flag orders over $50 that aren't on tracked shipping."
+                    className="text-[11px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    data-testid="textarea-ie-strategy-orders"
+                  />
+                  <p className="text-[10px] text-gray-600">Guides channel performance, velocity, and fulfillment signals.</p>
+                </div>
+
+                <Separator className="bg-gray-700/40" />
+
+                {/* Customer */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-3.5 h-3.5 text-yellow-400" />
+                    <span className="text-xs font-semibold text-gray-300">Customer Agent</span>
+                  </div>
+                  <Textarea
+                    value={ieStratCustomer}
+                    onChange={(e) => setIeStratCustomer(e.target.value)}
+                    onBlur={() => { if (ieStratCustomer !== (ieStratData?.customerStrategy ?? '')) saveIeStratMutation.mutate({ customerStrategy: ieStratCustomer }); }}
+                    placeholder="e.g. Retain repeat buyers over $200 lifetime spend. Flag dormant buyers after 90 days. Re-engage with bulk discount offers."
+                    className="text-[11px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    data-testid="textarea-ie-strategy-customer"
+                  />
+                  <p className="text-[10px] text-gray-600">Guides retention, re-engagement, and VIP buyer signals.</p>
+                </div>
+
+                <Separator className="bg-gray-700/40" />
+
+                {/* Market */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-3.5 h-3.5 text-orange-400" />
+                    <span className="text-xs font-semibold text-gray-300">Market Agent</span>
+                  </div>
+                  <Textarea
+                    value={ieStratMarket}
+                    onChange={(e) => setIeStratMarket(e.target.value)}
+                    onBlur={() => { if (ieStratMarket !== (ieStratData?.marketStrategy ?? '')) saveIeStratMutation.mutate({ marketStrategy: ieStratMarket }); }}
+                    placeholder="e.g. Watch for retiring Star Wars and Icons sets. Prioritise acquisition signals for minifig-heavy sets. Flag price spread opportunities above 1.8x."
+                    className="text-[11px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    data-testid="textarea-ie-strategy-market"
+                  />
+                  <p className="text-[10px] text-gray-600">Guides trend, retirement, and market opportunity signals.</p>
+                </div>
               </div>
             )}
 
