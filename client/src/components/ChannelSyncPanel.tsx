@@ -640,11 +640,11 @@ function AuditReportView({ discrepancyAreas, totalDiscrepancies, lastSyncTime }:
   const activeTypes = discrepancyAreas.map(a => a.type);
 
   const q = {
-    missing:     useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'missing'],     queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/missing').then(r => r.json()),     enabled: activeTypes.includes('missing'),     refetchOnWindowFocus: false }),
-    price:       useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'price'],       queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/price').then(r => r.json()),       enabled: activeTypes.includes('price'),       refetchOnWindowFocus: false }),
-    quantity:    useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'quantity'],    queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/quantity').then(r => r.json()),    enabled: activeTypes.includes('quantity'),    refetchOnWindowFocus: false }),
-    remarks:     useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'remarks'],     queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/remarks').then(r => r.json()),     enabled: activeTypes.includes('remarks'),     refetchOnWindowFocus: false }),
-    description: useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'description'],queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/description').then(r => r.json()), enabled: activeTypes.includes('description'), refetchOnWindowFocus: false }),
+    missing:     useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'missing',     'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/missing?limit=10000').then(r => r.json()),     enabled: activeTypes.includes('missing'),     refetchOnWindowFocus: false }),
+    price:       useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'price',       'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/price?limit=10000').then(r => r.json()),       enabled: activeTypes.includes('price'),       refetchOnWindowFocus: false }),
+    quantity:    useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'quantity',    'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/quantity?limit=10000').then(r => r.json()),    enabled: activeTypes.includes('quantity'),    refetchOnWindowFocus: false }),
+    remarks:     useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'remarks',     'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/remarks?limit=10000').then(r => r.json()),     enabled: activeTypes.includes('remarks'),     refetchOnWindowFocus: false }),
+    description: useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'description','all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/description?limit=10000').then(r => r.json()), enabled: activeTypes.includes('description'), refetchOnWindowFocus: false }),
   };
 
   const isLoading = Object.values(q).some(r => r.isLoading);
