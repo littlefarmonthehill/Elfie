@@ -10,6 +10,20 @@ import { eq, and, inArray, desc, sql } from 'drizzle-orm';
 import { getShippingVendor } from './easypost';
 import type { CreateShipmentRequest, BuyLabelRequest, Address, Parcel, CustomsInfo, TaxIdentifier } from './shipping-vendor';
 
+// ── Order shortcode — mirrors PackingSlip.tsx logic exactly ──────────────────
+// Deterministic 2-char code from the order number. Same alphabet/hash as the
+// client-side shortCode() so labels and packing slips always agree.
+const SC_ALPHA = 'ABCDEFGHJKMPQRSTVWXYZ'; // 21 letters — no I, L, O, N, U
+function orderShortCode(orderNumber: string): string {
+  const s = orderNumber.trim();
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h, 33) ^ s.charCodeAt(i);
+  h = h >>> 0;
+  let code = '';
+  for (let i = 0; i < 2; i++) { code += SC_ALPHA[h % SC_ALPHA.length]; h = Math.floor(h / SC_ALPHA.length); }
+  return code;
+}
+
 // EU member states (ISO 3166-1 alpha-2) — IOSS applies for B2C shipments under €150
 const EU_COUNTRIES = new Set([
   'AT','BE','BG','CY','CZ','DE','DK','EE','ES','FI',
@@ -340,7 +354,9 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
     toAddress: shipTo,
     fromAddress: request.fromAddress,
     parcel: request.parcel,
-    reference: order.orderNumber,
+    reference: order.orderNumber
+      ? `${orderShortCode(order.orderNumber)} ${order.orderNumber}`
+      : undefined,
     customsInfo,
     taxIdentifiers,
   };
