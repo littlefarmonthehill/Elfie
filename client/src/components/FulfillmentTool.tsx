@@ -1174,9 +1174,16 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                       variant="ghost"
                       className="text-gray-500"
                       onClick={() => {
+                        // Only deselect orders that were actually processed in this batch.
+                        // Orders that were selected but not shippable (no rate) stay selected.
+                        const shippedIds = new Set(batchResults.map(r => r.orderId));
+                        setSelectedOrders(prev => {
+                          const next = new Set(prev);
+                          shippedIds.forEach(id => next.delete(id));
+                          return next;
+                        });
                         setBatchResults([]);
                         setPurchasedLabels(new Map());
-                        setSelectedOrders(new Set());
                       }}
                       data-testid="button-dismiss-batch-results"
                     >
@@ -1279,6 +1286,16 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                 </p>
               </AlertDescription>
             </Alert>
+
+            {/* Warn if some selected orders don't have rates and will be skipped */}
+            {selectedOrders.size > shippableCount && (
+              <Alert className="bg-amber-500/10 border-amber-500/30">
+                <AlertTriangle className="h-4 w-4 text-amber-400" />
+                <AlertDescription className="text-amber-200 text-sm">
+                  <span className="font-semibold">{selectedOrders.size - shippableCount} selected order{selectedOrders.size - shippableCount !== 1 ? 's' : ''} will not be shipped</span> — no rate selected yet. They'll stay selected so you can finish configuring them after this batch.
+                </AlertDescription>
+              </Alert>
+            )}
 
             {/* List the orders being shipped */}
             <div className="app-card p-3">

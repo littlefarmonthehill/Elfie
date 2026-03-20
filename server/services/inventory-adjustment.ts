@@ -164,11 +164,17 @@ export async function updateOrderStatus(orderId: string, newStatus: string) {
     throw new Error(`Order ${orderId} not found`);
   }
 
+  // When returning to an active status, also reset workflowStatus so the order
+  // is not filtered out of the fulfillment queue (which hides 'done' orders).
+  const activeStatuses = ['awaiting_payment', 'awaiting_fulfillment', 'awaiting_shipment'];
+  const resetWorkflow = activeStatuses.includes(newStatus) && currentOrder.workflowStatus === 'done';
+
   await db
     .update(orders)
     .set({
       previousStatus: currentOrder.orderStatus,
       orderStatus: newStatus,
+      ...(resetWorkflow ? { workflowStatus: 'new' } : {}),
       updatedAt: new Date()
     })
     .where(eq(orders.id, orderId));
