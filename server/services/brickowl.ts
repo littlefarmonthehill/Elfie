@@ -631,14 +631,18 @@ export async function syncBrickLinkToBrickOwl(
           result.lotsSkipped++; // analysis: report discrepancy but don't write
         } else {
           // matched_sync and full_control both sync all fields for matched lots
+          const decodedRemarks = decodeHtmlEntities(item.remarks || '');
+          const decodedDesc   = decodeHtmlEntities(item.description || '');
           toUpdate.push({
             blItemNo: item.itemNo,
             lot_id: taggedLot.lot_id,
             absolute_quantity: item.quantity,
             price: newPrice,
             condition,
-            personal_note: decodeHtmlEntities(item.remarks  || '') || undefined,
-            public_note:   decodeHtmlEntities(item.description || '') || undefined,
+            // Always send notes so that clearing (BL empty, BO has text) actually
+            // propagates — omitting the field leaves BO's value unchanged.
+            ...(remarksChanged && { personal_note: decodedRemarks }),
+            ...(descChanged    && { public_note:   decodedDesc }),
             ...(tierPriceToSend !== undefined && { tier_price: tierPriceToSend }),
             ...(saleChanged && { sale_percentage: newSaleRate }),
           });
@@ -659,6 +663,24 @@ export async function syncBrickLinkToBrickOwl(
     `[ChannelSync] Phase 1 complete — ${toUpdate.length} to update, ` +
     `${toAdopt.length} to adopt/create, ${result.lotsSkipped} skipped`
   );
+
+  // ── Diagnostic: log first 5 update jobs so we can verify values ──────────
+  if (toUpdate.length > 0) {
+    const sample = toUpdate.slice(0, 5);
+    sample.forEach((job, i) => {
+      const taggedLot = taggedLotMap.get(
+        blItems.find(x => x.itemNo === job.blItemNo)?.id?.toString() ?? ''
+      );
+      console.log(
+        `[ChannelSync:DIAG] Update job ${i + 1}: item=${job.blItemNo} lot_id=${job.lot_id}` +
+        ` | BL qty=${job.absolute_quantity} price=${job.price.toFixed(3)}` +
+        ` | BO qty=${taggedLot?.qty} price=${taggedLot?.price}` +
+        ` | sending price=${job.price.toFixed(3)} qty=${job.absolute_quantity}` +
+        (job.sale_percentage !== undefined ? ` sale%=${job.sale_percentage}` : '') +
+        (job.tier_price !== undefined ? ` tier=${job.tier_price}` : '')
+      );
+    });
+  }
 
   if (mode === 'analysis') return result; // analysis stops here
 
@@ -703,13 +725,19 @@ export async function syncBrickLinkToBrickOwl(
         }],
       }));
 
+      const isFirstBatch = !firstBatchLogged;
+      if (isFirstBatch) {
+        firstBatchLogged = true;
+        console.log(`[ChannelSync:DIAG] First batch request JSON (${batchRequests.length} items, showing first 2):`,
+          JSON.stringify(batchRequests.slice(0, 2)));
+      }
+
       try {
         const responses = await brickowlBatch(batchRequests);
         result.totalApiCalls++;
 
-        if (!firstBatchLogged) {
-          firstBatchLogged = true;
-          console.log(`[ChannelSync] First batch raw response (${responses.length} items):`, JSON.stringify(responses.slice(0, 2)));
+        if (isFirstBatch) {
+          console.log(`[ChannelSync:DIAG] First batch raw response (${responses.length} items):`, JSON.stringify(responses.slice(0, 2)));
         }
 
         // BrickOwl's per-item response format for inventory/update is undocumented,
@@ -717,8 +745,12 @@ export async function syncBrickLinkToBrickOwl(
         responses.forEach((resp: any, idx: number) => {
           const job = chunk[idx];
           const isExplicitError = resp && typeof resp === 'object' && (resp.error || resp.errors);
+          const bodyStatus = resp?.body?.status;
           if (isExplicitError) {
             result.errors.push(`${job.blItemNo}: ${JSON.stringify(resp.error || resp.errors)}`);
+            result.lotsSkipped++;
+          } else if (bodyStatus && bodyStatus !== 'Success') {
+            result.errors.push(`${job.blItemNo}: unexpected status "${bodyStatus}"`);
             result.lotsSkipped++;
           } else {
             result.lotsUpdated++;
