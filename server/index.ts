@@ -210,7 +210,7 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       console.error('[Startup] Background initialization error (non-fatal):', err.message);
     }
 
-    // 4a-fix. One-time repair: reset workflow_status for orders stuck in an active
+    // 4a-fix-1. One-time repair: reset workflow_status for orders stuck in an active
     // orderStatus but with workflow_status='done' (caused by return-to-queue actions
     // before the automatic reset was added to updateOrderStatus).
     try {
@@ -225,6 +225,16 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       }
     } catch (fixErr: any) {
       console.error('[Startup] Could not fix stuck workflow_status (non-fatal):', fixErr.message);
+    }
+
+    // 4a-fix-2. Ensure is_test column exists on shipments (Phase-65 blocked by migration chain).
+    try {
+      await pool.query(`
+        ALTER TABLE shipments
+          ADD COLUMN IF NOT EXISTS is_test boolean NOT NULL DEFAULT false
+      `);
+    } catch (colErr: any) {
+      console.error('[Startup] Could not add is_test to shipments (non-fatal):', colErr.message);
     }
 
     try {

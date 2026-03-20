@@ -422,6 +422,7 @@ export const shipments = pgTable("shipments", {
   orgId: varchar("org_id"),                            // FK → organizations.id
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   eodFormId: integer("eod_form_id"), // FK to eodForms.id — set after SCAN form creation
+  isTest: boolean("is_test").default(false).notNull(), // true when purchased with test API key
 }, (table) => ({
   orgIdIdx: index("shipments_org_id_idx").on(table.orgId),
   orgIdStatusIdx: index("shipments_org_id_status_idx").on(table.orgId, table.status),

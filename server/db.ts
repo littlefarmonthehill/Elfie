@@ -1234,6 +1234,13 @@ export async function runMigrations() {
       console.log('[Migration] Phase-64 (fix stuck workflow_status on returned orders) complete — no rows needed fixing.');
     }
 
+    // ── Phase-65: is_test flag on shipments ──────────────────────────────────
+    await client.query(`
+      ALTER TABLE shipments
+        ADD COLUMN IF NOT EXISTS is_test boolean NOT NULL DEFAULT false
+    `);
+    console.log('[Migration] Phase-65 (is_test on shipments) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

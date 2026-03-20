@@ -376,12 +376,19 @@ export async function purchaseLabel(
   orderId: string,
   shipmentId: string,
   rateId: string,
-  insurance?: number
+  insurance?: number,
+  orgId: string = 'org_planetbrick'
 ): Promise<{
   shipment: any;
   order: any;
 }> {
-  const vendor = await getShippingVendor();
+  // Determine test/production mode so we can stamp the shipment record
+  const { appSettings } = await import('@shared/schema');
+  const { eq: eqLocal } = await import('drizzle-orm');
+  const [cfg] = await db.select().from(appSettings).where(eqLocal(appSettings.orgId, orgId)).limit(1);
+  const isTestMode = (cfg?.easypostKeyMode ?? 'test') !== 'production';
+
+  const vendor = await getShippingVendor(undefined, orgId);
 
   const buyRequest: BuyLabelRequest = {
     shipmentId,
@@ -406,6 +413,7 @@ export async function purchaseLabel(
       cost: label.cost.toString(),
       currency: label.currency,
       status: 'purchased',
+      isTest: isTestMode,
       metadata: JSON.stringify(label.metadata),
       purchasedAt: new Date(),
     })

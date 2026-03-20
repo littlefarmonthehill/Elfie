@@ -13419,12 +13419,15 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   app.get("/api/shipments/end-of-day", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
+      const cfg = await getOrgSettings(orgId);
+      const currentIsTest = (cfg?.easypostKeyMode ?? 'test') !== 'production';
       const eligibleShipments = await db.select().from(shipments)
         .where(
           and(
             eq(shipments.orgId, orgId),
             eq(shipments.vendorCode, 'easypost'),
             eq(shipments.status, 'purchased'),
+            eq(shipments.isTest, currentIsTest),
             isNull(shipments.eodFormId)
           )
         );
@@ -13439,13 +13442,17 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   app.post("/api/shipments/scan-form", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      // Eligible: purchased EasyPost shipments not yet assigned to any EOD form
+      const cfg2 = await getOrgSettings(orgId);
+      const currentIsTest2 = (cfg2?.easypostKeyMode ?? 'test') !== 'production';
+      // Eligible: purchased EasyPost shipments not yet assigned to any EOD form,
+      // matching the current key mode (test vs production).
       const eligibleShipments = await db.select().from(shipments)
         .where(
           and(
             eq(shipments.orgId, orgId),
             eq(shipments.vendorCode, 'easypost'),
             eq(shipments.status, 'purchased'),
+            eq(shipments.isTest, currentIsTest2),
             isNull(shipments.eodFormId)
           )
         );
@@ -14056,8 +14063,9 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         return res.status(400).json({ error: "orderId, shipmentId, and rateId are required" });
       }
       
+      const orgId = reqOrgId(req);
       const { purchaseLabel } = await import('./services/order-shipping');
-      const result = await purchaseLabel(orderId, shipmentId, rateId, insurance);
+      const result = await purchaseLabel(orderId, shipmentId, rateId, insurance, orgId);
       
       res.json(result);
     } catch (error: any) {
