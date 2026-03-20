@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { blCategories, blColors, blInventory, blCatalog, blApiCalls, appSettings, priceGuideCache, partPriceHistory, setPartRelationships, orderDetails, orders, organizations, PLATFORM_ORG_ID } from "@shared/schema";
+import { blCategories, blColors, blInventory, blCatalog, blApiCalls, appSettings, priceGuideCache, partPriceHistory, setPartRelationships, orderDetails, orders, organizations, PLATFORM_ORG_ID, pomAiSettings, pomPriceDecisions } from "@shared/schema";
 import { eq, gte, sql, inArray, and, gt, desc } from "drizzle-orm";
 import OAuth from "oauth-1.0a";
 import crypto from "crypto";
@@ -655,6 +655,18 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
       }
       
       const existingMap = new Map(existingDetails.map(item => [item.id, item]));
+
+      // Check if AI pricing is enabled for this org — used to auto-log repricing decisions
+      let aiLearningEnabled = false;
+      try {
+        const [aiRow] = await db.select({ aiEnabled: pomAiSettings.aiEnabled })
+          .from(pomAiSettings).where(eq(pomAiSettings.orgId, orgId)).limit(1);
+        aiLearningEnabled = aiRow?.aiEnabled ?? false;
+      } catch (_) { /* non-fatal */ }
+
+      // Track price-changed items for AI learning (itemNo, colorId, newOrUsed, newPrice)
+      type PriceChange = { itemNo: string; colorId: number; newOrUsed: string; newPrice: number };
+      const priceChangedItems: PriceChange[] = [];
       
       // Batch update items that have changed
       const BATCH_SIZE = 500;
@@ -671,9 +683,10 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
         const apiIsRetain = !!item.is_retain;
         const apiIsStockRoom = !!item.is_stock_room;
         
+        const priceChanged = Math.abs(existingUnitPrice - apiUnitPrice) > 0.001;
         const needsUpdate = (
           existing.quantity !== item.quantity || 
-          Math.abs(existingUnitPrice - apiUnitPrice) > 0.001 ||
+          priceChanged ||
           existing.itemNo !== item.item.no ||
           existing.itemType !== item.item.type ||
           existing.colorId !== (item.color_id || 0) ||
@@ -685,6 +698,16 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
           existing.isStockRoom !== apiIsStockRoom ||
           existing.bindId !== (item.bind_id || null)
         );
+
+        // Collect price-changed items for AI learning (only meaningful price changes > 0)
+        if (priceChanged && aiLearningEnabled && apiUnitPrice > 0) {
+          priceChangedItems.push({
+            itemNo: item.item.no,
+            colorId: item.color_id || 0,
+            newOrUsed: item.new_or_used,
+            newPrice: apiUnitPrice,
+          });
+        }
         
         // Log first few items that need updates to help debug
         if (needsUpdate && debugLogCount < 5) {
@@ -763,6 +786,62 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
         const updateProgress = 85 + Math.round(((i + batch.length) / itemsToUpdate.length) * 10); // 85-95%
         syncProgressTracker.update(`Updated ${updated}/${itemsToUpdate.length} items`, updateProgress, { itemsUpdated: updated });
         console.log(`Updated batch ${Math.floor(i / BATCH_SIZE) + 1}: ${updated}/${itemsToUpdate.length} items`);
+      }
+
+      // AI auto-learning: log price decisions for items whose price changed during sync
+      if (aiLearningEnabled && priceChangedItems.length > 0) {
+        try {
+          // Batch fetch POM suggested prices for all price-changed items
+          const uniqueItemNos = [...new Set(priceChangedItems.map(p => p.itemNo))];
+          const pgRows = await db.select({
+            itemNo: priceGuideCache.itemNo,
+            colorId: priceGuideCache.colorId,
+            newOrUsed: priceGuideCache.newOrUsed,
+            suggestedPrice: priceGuideCache.suggestedPrice,
+          })
+            .from(priceGuideCache)
+            .where(inArray(priceGuideCache.itemNo, uniqueItemNos));
+
+          // Build a lookup map: "itemNo_colorId_newOrUsed" → suggestedPrice
+          const pgMap = new Map<string, string | null>();
+          for (const r of pgRows) {
+            pgMap.set(`${r.itemNo}_${r.colorId}_${r.newOrUsed}`, r.suggestedPrice);
+          }
+
+          // Build decision records
+          const decisionRows = priceChangedItems.map(pc => {
+            const suggestedStr = pgMap.get(`${pc.itemNo}_${pc.colorId}_${pc.newOrUsed}`);
+            const suggestedPrice = suggestedStr ? parseFloat(suggestedStr) : null;
+            const delta = suggestedPrice != null ? pc.newPrice - suggestedPrice : null;
+            return {
+              orgId,
+              itemNo: pc.itemNo,
+              colorId: pc.colorId,
+              newOrUsed: pc.newOrUsed,
+              suggestedPrice: suggestedPrice != null ? String(suggestedPrice) : null,
+              actualPrice: String(pc.newPrice),
+              priceDelta: delta != null ? String(delta) : null,
+            };
+          });
+
+          if (decisionRows.length > 0) {
+            // Insert decisions in batches
+            const DEC_BATCH = 100;
+            for (let di = 0; di < decisionRows.length; di += DEC_BATCH) {
+              await db.insert(pomPriceDecisions).values(decisionRows.slice(di, di + DEC_BATCH));
+            }
+            // Bump decision counter
+            await db.insert(pomAiSettings)
+              .values({ orgId, decisionCount: decisionRows.length })
+              .onConflictDoUpdate({
+                target: pomAiSettings.orgId,
+                set: { decisionCount: sql`pom_ai_settings.decision_count + ${decisionRows.length}`, updatedAt: new Date() },
+              });
+            console.log(`[AI Pricing] Auto-logged ${decisionRows.length} price decisions from sync`);
+          }
+        } catch (aiErr) {
+          console.warn('[AI Pricing] Failed to auto-log sync decisions (non-fatal):', aiErr);
+        }
       }
     }
 
