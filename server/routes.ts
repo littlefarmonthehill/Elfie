@@ -8849,6 +8849,7 @@ Format search_web URLs as markdown links.`;
       let quantityDifferencesCount = 0;
       let remarksDifferencesCount = 0;
       let descriptionDifferencesCount = 0;
+      let unlinkedBoLotsCount = 0;
 
       if (brickowlEnabled) {
         try {
@@ -8868,6 +8869,7 @@ Format search_web URLs as markdown links.`;
           const quantityDiscrepancies: any[] = [];
           const remarksDiscrepancies: any[] = [];
           const descriptionDiscrepancies: any[] = [];
+          const unlinkedBoLots: any[] = [];
 
           // SIMPLIFIED COMPARISON: Use external_lot_ids.other (BrickLink inventory ID) for matching
           const blItemsMap = new Map<number, any>();
@@ -8888,7 +8890,16 @@ Format search_web URLs as markdown links.`;
               parseInt(boLot.external_lot_ids.other) : null;
             
             if (!blInventoryId) {
-              // No BrickLink inventory ID linked - skip
+              // No BrickLink inventory ID linked — collect as unlinked
+              unlinkedBoLotsCount++;
+              unlinkedBoLots.push({
+                lotId:     boLot.lot_id,
+                boid:      boLot.boid,
+                qty:       parseInt(boLot.qty || '0'),
+                price:     parseFloat(boLot.price || '0'),
+                condition: boLot.condition,
+                fullCon:   boLot.full_con,
+              });
               continue;
             }
             
@@ -9021,6 +9032,7 @@ Format search_web URLs as markdown links.`;
           discrepancyCache.set('BrickOwl:quantity', { data: quantityDiscrepancies, timestamp: now });
           discrepancyCache.set('BrickOwl:remarks', { data: remarksDiscrepancies, timestamp: now });
           discrepancyCache.set('BrickOwl:description', { data: descriptionDiscrepancies, timestamp: now });
+          discrepancyCache.set('BrickOwl:unlinked', { data: unlinkedBoLots, timestamp: now });
         } catch (error) {
           console.error('Failed to fetch BrickOwl inventory stats:', error);
         }
@@ -9043,6 +9055,7 @@ Format search_web URLs as markdown links.`;
               quantityDifferences: quantityDifferencesCount,
               remarksDifferences: remarksDifferencesCount,
               descriptionDifferences: descriptionDifferencesCount,
+              unlinkedBoLots: unlinkedBoLotsCount,
             },
           },
         ],
