@@ -585,6 +585,9 @@ export async function syncBrickLinkToBrickOwl(
     tier_price?: string;       // BrickOwl format: "100:0.050,200:0.040" or "remove"
     sale_percentage?: number;  // BrickLink saleRate; 0 = send "0" to clear
     external_id?: string;      // set when adopting an untagged lot
+    // true when price / notes / tier / sale changed — these MUST go via individual
+    // API calls because BrickOwl's batch /bulk/batch endpoint silently ignores them.
+    hasNonQtyChange: boolean;
   };
 
   const toUpdate: UpdateJob[] = [];
@@ -639,8 +642,7 @@ export async function syncBrickLinkToBrickOwl(
             absolute_quantity: item.quantity,
             price: newPrice,
             condition,
-            // Always send notes so that clearing (BL empty, BO has text) actually
-            // propagates — omitting the field leaves BO's value unchanged.
+            hasNonQtyChange: priceChanged || remarksChanged || descChanged || tierChanged || saleChanged,
             ...(remarksChanged && { personal_note: decodedRemarks }),
             ...(descChanged    && { public_note:   decodedDesc }),
             ...(tierPriceToSend !== undefined && { tier_price: tierPriceToSend }),
@@ -684,64 +686,56 @@ export async function syncBrickLinkToBrickOwl(
 
   if (mode === 'analysis') return result; // analysis stops here
 
-  // ── Phase 2a: Batch-update changed tagged lots ───────────────────────────
-  // BrickOwl bulk/batch: max 50 requests per call, 100 calls/min rate limit.
-  // We run CONCURRENCY batches in parallel per round. Each call takes ~2s;
-  // 4 concurrent calls finish in ~2s, then we wait 600ms before the next
-  // round → ~4 calls per 2.6s = ~92/min, safely under the 100/min limit.
-  const BATCH_SIZE = 50;
-  const BATCH_GAP_MS = 600;
-  const CONCURRENCY = 4;
+  // ── Phase 2a: Update changed tagged lots ─────────────────────────────────
+  //
+  // CONFIRMED behaviour of BrickOwl's /bulk/batch endpoint:
+  //   • absolute_quantity IS applied (10 s per batch → real DB writes)
+  //   • price, personal_note, public_note, tier_price, sale_percentage are
+  //     silently IGNORED — BrickOwl returns {"status":"Success"} but never
+  //     writes those fields. Sending any of them also causes the batch to
+  //     return in ~270 ms (no DB writes at all, causing rate-limit cascade).
+  //
+  // Strategy:
+  //   • qty-only changes  → batch API  (only lot_id + absolute_quantity)
+  //   • any non-qty field → individual /inventory/update calls (works for all)
+
+  const qtyOnlyJobs = toUpdate.filter(job => !job.hasNonQtyChange);
+  const fieldJobs   = toUpdate.filter(job =>  job.hasNonQtyChange);
+
+  console.log(
+    `[ChannelSync] Phase 2a — ${qtyOnlyJobs.length} qty-only (batch) + ${fieldJobs.length} field-changes (individual)`
+  );
+
   let updateProgress = 0;
   const totalPhase2 = toUpdate.length + toAdopt.length;
-  let firstBatchLogged = false;
 
-  // Split all lots into chunks of BATCH_SIZE, then process CONCURRENCY at once
-  const allChunks: (typeof toUpdate)[] = [];
-  for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
-    allChunks.push(toUpdate.slice(i, i + BATCH_SIZE));
+  // ── 2a-i: Batch qty-only lots (fast) ──────────────────────────────────────
+  // Send ONLY lot_id + absolute_quantity — no price, no notes, no extras.
+  // This prevents the "extra fields → instant 200ms no-op" BrickOwl bug.
+  const BATCH_SIZE        = 50;
+  const BATCH_CONCURRENCY = 4;
+  const BATCH_GAP_MS      = 1200; // 4 concurrent × (10 s process + 1.2 s gap) ≈ 90 calls/min
+
+  const qtyChunks: UpdateJob[][] = [];
+  for (let i = 0; i < qtyOnlyJobs.length; i += BATCH_SIZE) {
+    qtyChunks.push(qtyOnlyJobs.slice(i, i + BATCH_SIZE));
   }
 
-  for (let r = 0; r < allChunks.length; r += CONCURRENCY) {
-    const round = allChunks.slice(r, r + CONCURRENCY);
+  for (let r = 0; r < qtyChunks.length; r += BATCH_CONCURRENCY) {
+    const round = qtyChunks.slice(r, r + BATCH_CONCURRENCY);
 
     await Promise.all(round.map(async (chunk) => {
-      // BrickOwl batch API requires params as an ARRAY: [{"lot_id":"...","absolute_quantity":2}]
-      // NOT a plain object — the API returns {"error":"Invalid JSON"} if you send an object.
       const batchRequests = chunk.map(job => ({
         endpoint: 'inventory/update',
         request_method: 'POST' as const,
-        params: [{
-          lot_id: job.lot_id,
-          absolute_quantity: job.absolute_quantity,
-          price: job.price.toFixed(3),
-          condition: job.condition,
-          for_sale: 1,
-          ...(job.personal_note   !== undefined && { personal_note:   job.personal_note   }),
-          ...(job.public_note     !== undefined && { public_note:     job.public_note     }),
-          ...(job.tier_price      !== undefined && { tier_price:      job.tier_price      }),
-          ...(job.sale_percentage !== undefined && { sale_percentage: job.sale_percentage }),
-          ...(job.external_id     !== undefined && { external_id:     job.external_id     }),
-        }],
+        // qty-only: send only the two fields BrickOwl's batch actually applies
+        params: [{ lot_id: job.lot_id, absolute_quantity: job.absolute_quantity }],
       }));
-
-      const isFirstBatch = !firstBatchLogged;
-      if (isFirstBatch) {
-        firstBatchLogged = true;
-        console.log(`[ChannelSync:DIAG] First batch request JSON (${batchRequests.length} items, showing first 2):`,
-          JSON.stringify(batchRequests.slice(0, 2)));
-      }
 
       try {
         const responses = await brickowlBatch(batchRequests);
         result.totalApiCalls++;
 
-        if (isFirstBatch) {
-          console.log(`[ChannelSync:DIAG] First batch raw response (${responses.length} items):`, JSON.stringify(responses.slice(0, 2)));
-        }
-
-        // BrickOwl's per-item response format for inventory/update is undocumented,
-        // so treat as SUCCESS unless there's an explicit error field.
         responses.forEach((resp: any, idx: number) => {
           const job = chunk[idx];
           const isExplicitError = resp && typeof resp === 'object' && (resp.error || resp.errors);
@@ -776,9 +770,62 @@ export async function syncBrickLinkToBrickOwl(
     }));
 
     onProgress?.(updateProgress, totalPhase2);
-
-    if (r + CONCURRENCY < allChunks.length) {
+    if (r + BATCH_CONCURRENCY < qtyChunks.length) {
       await new Promise(resolve => setTimeout(resolve, BATCH_GAP_MS));
+    }
+  }
+
+  // ── 2a-ii: Individual calls for field-changed lots (price / notes / tier / sale) ──
+  // BrickOwl's individual /inventory/update endpoint applies ALL fields correctly.
+  // We process FIELD_CONCURRENCY lots in parallel, with a gap between rounds.
+  // Target rate: ~300-400 individual calls/min (well under API limits).
+  const FIELD_CONCURRENCY = 4;
+  const FIELD_GAP_MS      = 400; // 4 parallel × 400 ms gap ≈ 350 calls/min
+
+  let firstFieldLogged = false;
+
+  for (let r = 0; r < fieldJobs.length; r += FIELD_CONCURRENCY) {
+    const chunk = fieldJobs.slice(r, r + FIELD_CONCURRENCY);
+
+    await Promise.all(chunk.map(async (job) => {
+      if (!firstFieldLogged) {
+        firstFieldLogged = true;
+        console.log(
+          `[ChannelSync:DIAG] First individual field-update: lot_id=${job.lot_id}` +
+          ` price=${job.price.toFixed(3)} qty=${job.absolute_quantity}` +
+          (job.personal_note  !== undefined ? ` note_personal="${job.personal_note.slice(0, 30)}"` : '') +
+          (job.sale_percentage !== undefined ? ` sale%=${job.sale_percentage}` : '') +
+          (job.tier_price      !== undefined ? ` tier=${job.tier_price}` : '')
+        );
+      }
+
+      try {
+        await updateBrickOwlLot({
+          lot_id: job.lot_id,
+          absolute_quantity: job.absolute_quantity,
+          price: job.price,
+          condition: job.condition,
+          for_sale: 1,
+          ...(job.personal_note   !== undefined && { personal_note:   job.personal_note   }),
+          ...(job.public_note     !== undefined && { public_note:     job.public_note     }),
+          ...(job.tier_price      !== undefined && { tier_price:      job.tier_price      }),
+          ...(job.sale_percentage !== undefined && { sale_percentage: job.sale_percentage }),
+        });
+        result.totalApiCalls++;
+        result.lotsUpdated++;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        result.errors.push(`${job.blItemNo}: ${msg}`);
+        result.lotsSkipped++;
+        console.error(`[ChannelSync] Individual update error lot_id=${job.lot_id}:`, msg);
+      }
+
+      updateProgress++;
+    }));
+
+    onProgress?.(updateProgress, totalPhase2);
+    if (r + FIELD_CONCURRENCY < fieldJobs.length) {
+      await new Promise(resolve => setTimeout(resolve, FIELD_GAP_MS));
     }
   }
 
