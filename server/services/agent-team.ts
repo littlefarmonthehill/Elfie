@@ -41,10 +41,25 @@ async function getOrgStrategies(orgId: string): Promise<Partial<Record<string, s
   } catch { return {}; }
 }
 
-// Append strategy context to a system prompt if the strategy is set
-function withStrategy(basePrompt: string, strategy: string | null | undefined, agentLabel: string): string {
-  if (!strategy?.trim()) return basePrompt;
-  return `${basePrompt}\n\nBUSINESS STRATEGY (${agentLabel}):\n"${strategy.trim()}"\nUse this strategy as your guiding principle when prioritising signals and framing suggestions.`;
+// Build a system prompt with optional global org context (vision, success) and per-agent strategy.
+// Vision/mission and success factors are injected into every agent; the per-agent strategy is additive.
+function buildSystemPrompt(
+  basePrompt: string,
+  strategies: Partial<Record<string, string | null>>,
+  agentStrategy: string | null | undefined,
+  agentLabel: string,
+): string {
+  const parts: string[] = [basePrompt];
+  if (strategies.visionMission?.trim()) {
+    parts.push(`\nBUSINESS VISION & MISSION:\n"${strategies.visionMission.trim()}"\nThis is what the business stands for and where it is headed. Let it colour how you frame every signal.`);
+  }
+  if (strategies.successFactors?.trim()) {
+    parts.push(`\nDEFINING SUCCESS (Vivid Vision — what the future looks like when the business wins):\n"${strategies.successFactors.trim()}"\nUse this to understand the outcomes, feelings, and reputation the owner is driving toward. Signals that accelerate this future should be elevated.`);
+  }
+  if (agentStrategy?.trim()) {
+    parts.push(`\n${agentLabel.toUpperCase()} STRATEGY:\n"${agentStrategy.trim()}"\nThis is your domain-specific guiding directive — prioritise signals and recommendations that align with it.`);
+  }
+  return parts.join('\n');
 }
 
 async function upsertSignals(
@@ -166,14 +181,14 @@ ${inventory.filter(i => parseFloat(i.unitPrice || '0') * i.quantity > 5).slice(0
 `.trim();
 
   const strategies = await getOrgStrategies(orgId);
-  const systemPrompt = withStrategy(
+  const systemPrompt = buildSystemPrompt(
     `You are the Inventory Agent for a LEGO reseller. Analyze the inventory data and generate 3-6 specific, actionable signals about stock health. Focus on dead stock risk, reorder urgency, capital concentration, and stock imbalances.
 
 Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences, specific numbers), "details": { "itemNos": [], "metric": "" } } ] }
 
 Categories: restock | overstock | dead_stock | capital_risk | opportunity
 Rules: cite specific item numbers and dollar amounts. No generic advice.`,
-    strategies.inventoryStrategy, 'Inventory'
+    strategies, strategies.inventoryStrategy, 'Inventory'
   );
 
   const signals = await callAgent(openai, orgId, systemPrompt, ctx);
@@ -234,14 +249,14 @@ ${avgDelta !== null ? `Average pricing delta vs POM: ${avgDelta >= 0 ? '+' : ''}
 `.trim();
 
   const strategies = await getOrgStrategies(orgId);
-  const systemPrompt = withStrategy(
+  const systemPrompt = buildSystemPrompt(
     `You are the Pricing Agent for a LEGO reseller. Analyze pricing gaps and repricing patterns to generate 3-5 specific, actionable pricing signals.
 
 Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences, cite specific items/prices), "details": { "itemNos": [], "potentialRevenue": 0 } } ] }
 
 Categories: pricing | opportunity | risk
 Rules: be specific. Cite item numbers, exact prices, potential revenue impact. Focus on the biggest opportunities.`,
-    strategies.pricingStrategy, 'Pricing'
+    strategies, strategies.pricingStrategy, 'Pricing'
   );
 
   const signals = await callAgent(openai, orgId, systemPrompt, ctx);
@@ -298,14 +313,14 @@ ${(priceMoves.rows as any[]).slice(0, 15).map((r: any) => `  ${r.item_no} "${r.i
 `.trim();
 
   const strategies = await getOrgStrategies(orgId);
-  const systemPrompt = withStrategy(
+  const systemPrompt = buildSystemPrompt(
     `You are the Market Intelligence Agent for a LEGO reseller. Analyze market news, forum discussions, and price spread data to identify external signals that may affect the business.
 
 Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences connecting external signal to business impact), "details": { "source": "", "itemNos": [] } } ] }
 
 Categories: trend | opportunity | risk | acquisition
 Rules: Connect news/forum signals to specific inventory implications. Identify retirement risks, demand surges, pricing opportunities. Be specific about which items are affected.`,
-    strategies.marketStrategy, 'Market Intelligence'
+    strategies, strategies.marketStrategy, 'Market Intelligence'
   );
 
   const signals = await callAgent(openai, orgId, systemPrompt, ctx);
@@ -377,14 +392,14 @@ ${(velocityData.rows as any[]).slice(0, 16).map((r: any) => `  ${String(r.week).
 `.trim();
 
   const strategies = await getOrgStrategies(orgId);
-  const systemPrompt = withStrategy(
+  const systemPrompt = buildSystemPrompt(
     `You are the Orders Agent for a LEGO reseller. Analyze order velocity, channel performance, and SKU throughput to generate 3-5 specific operational signals.
 
 Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences, cite specific numbers and trends), "details": { "metric": "", "value": 0 } } ] }
 
 Categories: velocity | channel | revenue | opportunity | risk
 Rules: cite specific percentages, dollar amounts, and item numbers. Focus on actionable patterns — which channels are growing, which SKUs are driving volume, where there are gaps.`,
-    strategies.ordersStrategy, 'Orders'
+    strategies, strategies.ordersStrategy, 'Orders'
   );
 
   const signals = await callAgent(openai, orgId, systemPrompt, ctx);
@@ -448,14 +463,14 @@ ${(newBuyers.rows as any[]).map((r: any) => `  ${r.buyer_name}: ${r.order_count}
 `.trim();
 
   const strategies = await getOrgStrategies(orgId);
-  const systemPrompt = withStrategy(
+  const systemPrompt = buildSystemPrompt(
     `You are the Customer Agent for a LEGO reseller. Analyze buyer behavior patterns to generate 3-5 specific customer intelligence signals.
 
 Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences naming specific buyers with amounts), "details": { "buyerNames": [], "metric": "" } } ] }
 
 Categories: new_customer | top_spender | dormant | retention | risk
 Rules: name specific buyers with their exact spend and order counts. Identify retention risks, re-engagement opportunities, and emerging high-value relationships.`,
-    strategies.customerStrategy, 'Customer'
+    strategies, strategies.customerStrategy, 'Customer'
   );
 
   const signals = await callAgent(openai, orgId, systemPrompt, ctx);

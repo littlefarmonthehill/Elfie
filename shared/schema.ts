@@ -1817,6 +1817,10 @@ export type FeatureVote = typeof featureVotes.$inferSelect;
 // Each agent reads its relevant strategy and uses it as a baseline for AI suggestions.
 export const ieStrategies = pgTable("ie_strategies", {
   orgId: varchar("org_id", { length: 255 }).primaryKey(),
+  // Foundational context — injected into every agent
+  visionMission: text("vision_mission"),       // Where we're going and why we exist
+  successFactors: text("success_factors"),      // Vivid Vision: what changed, how it feels, what people say
+  // Per-agent strategy directives
   pricingStrategy: text("pricing_strategy"),
   inventoryStrategy: text("inventory_strategy"),
   ordersStrategy: text("orders_strategy"),

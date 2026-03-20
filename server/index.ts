@@ -295,6 +295,17 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       console.warn('[Startup] ie_strategies migration (non-fatal):', ieStratErr.message);
     }
 
+    // 4a-fix-6. Add foundational vision/mission and success factors columns to ie_strategies.
+    try {
+      await pool.query(`
+        ALTER TABLE ie_strategies
+          ADD COLUMN IF NOT EXISTS vision_mission TEXT,
+          ADD COLUMN IF NOT EXISTS success_factors TEXT
+      `);
+    } catch (ieStratColErr: any) {
+      console.warn('[Startup] ie_strategies column migration (non-fatal):', ieStratColErr.message);
+    }
+
     try {
 
       // 4b. Warm up the DB connection (wakes Neon serverless from idle)

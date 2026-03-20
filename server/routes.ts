@@ -11717,7 +11717,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       const orgId = reqOrgId(req);
       const { ieStrategies } = await import('@shared/schema');
       const [row] = await db.select().from(ieStrategies).where(eq(ieStrategies.orgId, orgId)).limit(1);
-      res.json(row ?? { orgId, pricingStrategy: null, inventoryStrategy: null, ordersStrategy: null, customerStrategy: null, marketStrategy: null });
+      res.json(row ?? { orgId, visionMission: null, successFactors: null, pricingStrategy: null, inventoryStrategy: null, ordersStrategy: null, customerStrategy: null, marketStrategy: null });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -11728,8 +11728,10 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     try {
       const orgId = reqOrgId(req);
       const { ieStrategies } = await import('@shared/schema');
-      const { pricingStrategy, inventoryStrategy, ordersStrategy, customerStrategy, marketStrategy } = req.body;
+      const { visionMission, successFactors, pricingStrategy, inventoryStrategy, ordersStrategy, customerStrategy, marketStrategy } = req.body;
       const set: Record<string, any> = { updatedAt: new Date() };
+      if (visionMission !== undefined) set.visionMission = visionMission || null;
+      if (successFactors !== undefined) set.successFactors = successFactors || null;
       if (pricingStrategy !== undefined) set.pricingStrategy = pricingStrategy || null;
       if (inventoryStrategy !== undefined) set.inventoryStrategy = inventoryStrategy || null;
       if (ordersStrategy !== undefined) set.ordersStrategy = ordersStrategy || null;

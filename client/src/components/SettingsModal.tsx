@@ -2573,6 +2573,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [pomTrendingDays, setPomTrendingDays] = useState(15);       // repurposed: max % adjustment
   const [pomTrendingThreshold, setPomTrendingThreshold] = useState(500);  // BL sold qty = "full demand"
   // IE Strategies
+  const [ieStratVision, setIeStratVision] = useState('');
+  const [ieStratSuccess, setIeStratSuccess] = useState('');
   const [ieStratPricing, setIeStratPricing] = useState('');
   const [ieStratInventory, setIeStratInventory] = useState('');
   const [ieStratOrders, setIeStratOrders] = useState('');
@@ -3293,12 +3295,14 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     },
   });
 
-  const { data: ieStratData } = useQuery<{ pricingStrategy: string | null; inventoryStrategy: string | null; ordersStrategy: string | null; customerStrategy: string | null; marketStrategy: string | null }>({
+  const { data: ieStratData } = useQuery<{ visionMission: string | null; successFactors: string | null; pricingStrategy: string | null; inventoryStrategy: string | null; ordersStrategy: string | null; customerStrategy: string | null; marketStrategy: string | null }>({
     queryKey: ['/api/ie-strategies'],
     enabled: open,
   });
   useEffect(() => {
     if (ieStratData) {
+      setIeStratVision(ieStratData.visionMission ?? '');
+      setIeStratSuccess(ieStratData.successFactors ?? '');
       setIeStratPricing(ieStratData.pricingStrategy ?? '');
       setIeStratInventory(ieStratData.inventoryStrategy ?? '');
       setIeStratOrders(ieStratData.ordersStrategy ?? '');
@@ -6079,11 +6083,55 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 <div>
                   <h2 className="text-sm font-semibold text-white mb-1">IE Strategies</h2>
                   <p className="text-[11px] text-gray-500 leading-relaxed">
-                    Write a plain-language strategy statement for each intelligence agent. Agents read these as guiding principles when generating signals and suggestions — the more specific you are, the more aligned their insights will be with your business goals.
+                    Tell the intelligence agents who you are, where you're going, and what winning looks like. The two foundational fields below are shared with every agent. The per-agent directives below give each agent its specific lens.
                   </p>
                 </div>
 
                 <Separator className="bg-gray-700/60" />
+
+                {/* Vision & Mission — global, injected into all agents */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Crosshair className="w-3.5 h-3.5 text-cyan-400" />
+                    <span className="text-xs font-semibold text-gray-300">Vision &amp; Mission</span>
+                    <span className="text-[9px] font-mono text-gray-600 bg-gray-800/60 border border-gray-700/40 rounded px-1.5 py-0.5">All agents</span>
+                  </div>
+                  <Textarea
+                    value={ieStratVision}
+                    onChange={(e) => setIeStratVision(e.target.value)}
+                    onBlur={() => { if (ieStratVision !== (ieStratData?.visionMission ?? '')) saveIeStratMutation.mutate({ visionMission: ieStratVision }); }}
+                    placeholder="e.g. We are PlanetBrick — a curated LEGO parts and sets retailer committed to fast dispatch, fair pricing, and helping builders find exactly what they need. We aim to become the most trusted independent LEGO seller in our region."
+                    className="text-[11px] min-h-[90px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    data-testid="textarea-ie-strategy-vision"
+                  />
+                  <p className="text-[10px] text-gray-600">Your business identity and direction. Every agent uses this to frame its signals in the context of who you are.</p>
+                </div>
+
+                <Separator className="bg-gray-700/40" />
+
+                {/* Success Factors — Vivid Vision methodology, global */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <ThumbsUp className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-xs font-semibold text-gray-300">Defining Success</span>
+                    <span className="text-[9px] font-mono text-gray-600 bg-gray-800/60 border border-gray-700/40 rounded px-1.5 py-0.5">All agents</span>
+                  </div>
+                  <Textarea
+                    value={ieStratSuccess}
+                    onChange={(e) => setIeStratSuccess(e.target.value)}
+                    onBlur={() => { if (ieStratSuccess !== (ieStratData?.successFactors ?? '')) saveIeStratMutation.mutate({ successFactors: ieStratSuccess }); }}
+                    placeholder="If successful: our sell-through rate is above 85%, customers leave unprompted positive feedback mentioning fast shipping and great prices, and we no longer stress about dead stock. We feel calm and in control of our inventory. Repeat buyers make up over 40% of revenue."
+                    className="text-[11px] min-h-[110px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    data-testid="textarea-ie-strategy-success"
+                  />
+                  <p className="text-[10px] text-gray-600">Describe the future in vivid terms — what has changed, how you and your customers feel, and what people are saying. Agents use this to elevate signals that move the business toward this future state.</p>
+                </div>
+
+                <Separator className="bg-gray-700/60" />
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Per-agent directives</span>
+                </div>
 
                 {/* Pricing */}
                 <div className="space-y-2">
