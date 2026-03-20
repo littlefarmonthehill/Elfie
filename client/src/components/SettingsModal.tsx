@@ -5319,7 +5319,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                     <Info className="w-2.5 h-2.5 text-gray-500 shrink-0 cursor-default" />
                                   </TooltipTrigger>
                                   <TooltipContent side="right" className="max-w-xs text-xs">
-                                    Runs a full comparison between your channels without making any changes. Builds the discrepancy data visible in the Channel Sync panel so you can review before committing to a sync mode.
+                                    Runs a full comparison between your channels without making any changes. Checks quantity, price, tier pricing, sale %, condition, remarks, and description. Builds the discrepancy data visible in the Channel Sync panel so you can review before committing to a sync mode.
                                   </TooltipContent>
                                 </Tooltip>
                               </div>
@@ -5340,11 +5340,11 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                     <Info className="w-2.5 h-2.5 text-gray-500 shrink-0 cursor-default" />
                                   </TooltipTrigger>
                                   <TooltipContent side="right" className="max-w-xs text-xs">
-                                    Creates new lots for any items that don't have a matching listing yet on the destination channel. Keeps both stores fully in sync.
+                                    Creates new lots for any BrickLink items that don't exist on BrickOwl yet, and keeps all matched lots fully in sync — quantity, price, tier pricing, sale %, condition, remarks, and description.
                                   </TooltipContent>
                                 </Tooltip>
                               </div>
-                              <p className="text-[10px] text-gray-500 mt-0.5">Push all items — create new lots + update existing</p>
+                              <p className="text-[10px] text-gray-500 mt-0.5">Create new lots + full sync of all fields on existing</p>
                             </div>
                           </button>
                           <button
@@ -5361,11 +5361,11 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                     <Info className="w-2.5 h-2.5 text-gray-500 shrink-0 cursor-default" />
                                   </TooltipTrigger>
                                   <TooltipContent side="right" className="max-w-xs text-xs">
-                                    Full sync of all fields — quantity, price, remarks, and description — for lots already matched between BrickLink and BrickOwl. Unmatched items are skipped; nothing new is created.
+                                    Full sync of all fields — quantity, price, tier pricing, sale %, condition, remarks, and description — for lots already matched between BrickLink and BrickOwl. Unmatched items are skipped; nothing new is created.
                                   </TooltipContent>
                                 </Tooltip>
                               </div>
-                              <p className="text-[10px] text-gray-500 mt-0.5">Full sync of matched lots — never create new</p>
+                              <p className="text-[10px] text-gray-500 mt-0.5">Full sync of all fields on matched lots — never create new</p>
                             </div>
                           </button>
                         </div>

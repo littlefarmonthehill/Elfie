@@ -901,7 +901,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                       <div>
                         <span className="text-sm font-semibold text-gray-200">Analysis</span>
                         <p className="text-xs text-gray-500 mt-0.5">Read-only — compare channels, no edits made</p>
-                        <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">I'll run a full comparison between your channels and build the discrepancy data for review — without changing anything on either side. A safe starting point you can upgrade at any time.</p>
+                        <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">I'll run a full comparison — checking quantity, price, tier pricing, sale %, condition, remarks, and description — without changing anything on either side. A safe starting point you can upgrade at any time.</p>
                       </div>
                     </button>
                     <button
@@ -912,8 +912,8 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                       <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 ${channelSyncMode === 'full_control' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
                       <div>
                         <span className="text-sm font-semibold text-gray-200">Full Control</span>
-                        <p className="text-xs text-gray-500 mt-0.5">Push all items — create new lots and update existing</p>
-                        <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">I'll create listings for any BrickLink items that don't exist on the destination channel yet, and keep everything in sync. Best for stores that aren't actively managed manually.</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Create new lots + full sync of all fields on existing</p>
+                        <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">I'll create listings for any BrickLink items that don't exist on BrickOwl yet, and fully sync all matched lots — quantity, price, tier pricing, sale %, condition, remarks, and description. Best for stores that aren't actively managed manually.</p>
                       </div>
                     </button>
                     <button
@@ -924,8 +924,8 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                       <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 ${channelSyncMode === 'matched_sync' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
                       <div>
                         <span className="text-sm font-semibold text-gray-200">Matched Sync</span>
-                        <p className="text-xs text-gray-500 mt-0.5">Full sync of matched lots — never create new ones</p>
-                        <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">Syncs quantity, price, remarks, and description for every lot already linked between BrickLink and BrickOwl. Anything without a match is skipped. Best for stores you prefer to manage manually.</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Full sync of all fields on matched lots — never create new ones</p>
+                        <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">Syncs quantity, price, tier pricing, sale %, condition, remarks, and description for every lot already linked between BrickLink and BrickOwl. Anything without a match is skipped. Best for stores you prefer to manage manually.</p>
                       </div>
                     </button>
                   </div>
