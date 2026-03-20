@@ -15,12 +15,29 @@ const retry = { count: 0, nextAt: 0 };
 
 let channelSyncProgress: { processed: number; total: number; phase: 'idle' | 'fetching' | 'syncing' } = { processed: 0, total: 0, phase: 'idle' };
 
+interface ChannelSyncLastResult {
+  completedAt: string;
+  mode: string;
+  status: 'success' | 'partial' | 'error';
+  lotsCreated: number;
+  lotsUpdated: number;
+  lotsSkipped: number;
+  totalApiCalls: number;
+  errorCount: number;
+  errors: string[];
+}
+let channelSyncLastResult: ChannelSyncLastResult | null = null;
+
 export function getChannelSyncIsRunning() {
   return syncLock.getActive().includes('Channel Sync');
 }
 
 export function getChannelSyncProgress() {
   return { ...channelSyncProgress };
+}
+
+export function getChannelSyncLastResult() {
+  return channelSyncLastResult ? { ...channelSyncLastResult } : null;
 }
 
 export async function startChannelSyncScheduler() {
@@ -138,6 +155,18 @@ async function runScheduledChannelSync() {
     const hasErrors = result.errors.length > 0;
     const status = hasErrors ? 'partial' : 'success';
     console.log(`\n✨ Channel sync complete! ${result.lotsCreated} created, ${result.lotsUpdated} updated, ${result.lotsSkipped} skipped, ${result.errors.length} errors (mode: ${syncMode})`);
+
+    channelSyncLastResult = {
+      completedAt: new Date().toISOString(),
+      mode: syncMode,
+      status,
+      lotsCreated: result.lotsCreated,
+      lotsUpdated: result.lotsUpdated,
+      lotsSkipped: result.lotsSkipped,
+      totalApiCalls: result.totalApiCalls,
+      errorCount: result.errors.length,
+      errors: result.errors.slice(0, 20), // keep first 20 for display
+    };
 
     await db.insert(syncMetadata).values({
       id: 'channel_sync',

@@ -2684,6 +2684,22 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     enabled: open && ((activeSection === 'platforms' && activePlatform === null && activePlatformInnerTab === 'scheduler') || activeSection === 'enrichment'),
   });
 
+  const { data: channelLastResult } = useQuery<{
+    completedAt: string;
+    mode: string;
+    status: 'success' | 'partial' | 'error';
+    lotsCreated: number;
+    lotsUpdated: number;
+    lotsSkipped: number;
+    totalApiCalls: number;
+    errorCount: number;
+    errors: string[];
+  } | null>({
+    queryKey: ['/api/channel-sync/last-result'],
+    refetchInterval: 30000,
+    enabled: open && activeSection === 'platforms' && activePlatform === null && activePlatformInnerTab === 'scheduler',
+  });
+
   type PlatformStats = { totalLots: number; totalParts: number; lastSyncedAt: string | null };
   type PlatformSyncData = {
     source: { name: string; stats: PlatformStats };
@@ -5288,6 +5304,57 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             data-testid="input-channel-sync-time"
                           />
                           <p className="text-[10px] md:text-sm text-gray-500">Run at least 1 hour after Inventory Sync</p>
+                        </div>
+                      )}
+
+                      {/* Last Sync Result Card */}
+                      {channelLastResult && (
+                        <div className="mt-3 rounded-md border border-gray-700 bg-gray-800/40 p-3 space-y-2" data-testid="card-channel-last-result">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Last Sync Result</span>
+                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                              channelLastResult.status === 'success' ? 'bg-green-900/50 text-green-400' :
+                              channelLastResult.status === 'partial' ? 'bg-yellow-900/50 text-yellow-400' :
+                              'bg-red-900/50 text-red-400'
+                            }`} data-testid="text-channel-last-status">
+                              {channelLastResult.status === 'success' ? 'Success' : channelLastResult.status === 'partial' ? 'Partial' : 'Error'}
+                            </span>
+                            <span className="text-[10px] text-gray-500" data-testid="text-channel-last-time">{formatRelativeTime(channelLastResult.completedAt)}</span>
+                            <span className="text-[10px] text-gray-600 capitalize" data-testid="text-channel-last-mode">
+                              {channelLastResult.mode === 'full_control' ? 'Full Control' : channelLastResult.mode === 'matched_sync' ? 'Matched Sync' : channelLastResult.mode === 'analysis' ? 'Analysis' : channelLastResult.mode}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-4 gap-2">
+                            <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-created">
+                              <div className="text-base font-bold text-green-400">{channelLastResult.lotsCreated}</div>
+                              <div className="text-[9px] text-gray-500 mt-0.5">Created</div>
+                            </div>
+                            <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-updated">
+                              <div className="text-base font-bold text-blue-400">{channelLastResult.lotsUpdated}</div>
+                              <div className="text-[9px] text-gray-500 mt-0.5">Updated</div>
+                            </div>
+                            <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-skipped">
+                              <div className="text-base font-bold text-gray-400">{channelLastResult.lotsSkipped}</div>
+                              <div className="text-[9px] text-gray-500 mt-0.5">Skipped</div>
+                            </div>
+                            <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-errors">
+                              <div className={`text-base font-bold ${channelLastResult.errorCount > 0 ? 'text-red-400' : 'text-gray-400'}`}>{channelLastResult.errorCount}</div>
+                              <div className="text-[9px] text-gray-500 mt-0.5">Errors</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 text-[10px] text-gray-500">
+                            <span>{channelLastResult.totalApiCalls} API calls</span>
+                          </div>
+                          {channelLastResult.errors.length > 0 && (
+                            <div className="space-y-1 mt-1" data-testid="list-channel-errors">
+                              {channelLastResult.errors.slice(0, 5).map((err, i) => (
+                                <p key={i} className="text-[10px] text-red-400/80 truncate">{err}</p>
+                              ))}
+                              {channelLastResult.errors.length > 5 && (
+                                <p className="text-[10px] text-gray-600">+{channelLastResult.errors.length - 5} more errors</p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
 
