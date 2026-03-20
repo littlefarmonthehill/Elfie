@@ -14858,6 +14858,43 @@ Your response MUST be valid JSON with these exact keys: title, refinedDescriptio
     }
   });
 
+  // POST /api/labels/combined — fetch multiple EasyPost label PDFs and merge into one
+  app.post("/api/labels/combined", isApproved, async (req, res) => {
+    try {
+      const { labelUrls } = req.body as { labelUrls: string[] };
+      if (!Array.isArray(labelUrls) || labelUrls.length === 0) {
+        return res.status(400).json({ error: "labelUrls array is required" });
+      }
+
+      const { PDFDocument } = await import('pdf-lib');
+
+      // Fetch all label PDFs in parallel
+      const pdfBuffers = await Promise.all(
+        labelUrls.map(async (url) => {
+          const r = await fetch(url);
+          if (!r.ok) throw new Error(`Failed to fetch label: ${r.status} ${url}`);
+          return Buffer.from(await r.arrayBuffer());
+        })
+      );
+
+      // Merge into one PDF document
+      const merged = await PDFDocument.create();
+      for (const buf of pdfBuffers) {
+        const src = await PDFDocument.load(buf);
+        const pages = await merged.copyPages(src, src.getPageIndices());
+        pages.forEach(p => merged.addPage(p));
+      }
+
+      const mergedBytes = await merged.save();
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline; filename="shipping-labels.pdf"');
+      res.send(Buffer.from(mergedBytes));
+    } catch (err: any) {
+      console.error('[Labels] Combined PDF error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

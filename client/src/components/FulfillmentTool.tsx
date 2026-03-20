@@ -1159,10 +1159,35 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                       size="sm"
                       variant="outline"
                       className="border-green-500/40 text-green-300"
-                      onClick={() => {
-                        batchResults.forEach(r => {
-                          if (r.labelUrl) window.open(r.labelUrl, "_blank");
-                        });
+                      onClick={async () => {
+                        const urls = batchResults.map(r => r.labelUrl).filter(Boolean) as string[];
+                        if (urls.length === 0) return;
+                        if (urls.length === 1) {
+                          window.open(urls[0], "_blank");
+                          return;
+                        }
+                        // Open the window SYNCHRONOUSLY within the click event so the
+                        // browser never considers it a popup. Then navigate it to the
+                        // merged PDF once the server responds.
+                        const pw = window.open("", "_blank");
+                        if (!pw) {
+                          toast({ title: "Popup blocked", description: "Allow popups for this site and try again.", variant: "destructive" });
+                          return;
+                        }
+                        pw.document.write('<html><body style="font-family:sans-serif;padding:2rem;color:#555;background:#111">Merging labels\u2026</body></html>');
+                        try {
+                          const resp = await fetch("/api/labels/combined", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ labelUrls: urls }),
+                          });
+                          if (!resp.ok) throw new Error(await resp.text());
+                          const blob = await resp.blob();
+                          pw.location.href = URL.createObjectURL(blob);
+                        } catch (e: any) {
+                          pw.close();
+                          toast({ title: "Failed to combine labels", description: e.message, variant: "destructive" });
+                        }
                       }}
                       data-testid="button-print-all-labels"
                     >
