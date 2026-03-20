@@ -124,6 +124,11 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
           toolParams = {};
         }
 
+        // Inject orgId so tools that need it can scope their queries correctly
+        if (options.orgId && !toolParams._orgId) {
+          toolParams._orgId = options.orgId;
+        }
+
         console.log(`📞 Calling tool: ${toolName}`, toolParams);
         const toolStart = Date.now();
 

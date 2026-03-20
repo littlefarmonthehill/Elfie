@@ -15,6 +15,7 @@ import { startEmbeddingWorker } from "./services/embedding-worker";
 import { startForumSyncScheduler } from "./services/bl-forum-scheduler";
 import { startMarketNewsSyncScheduler } from "./services/market-news-scheduler";
 import { startBusinessIntelScheduler } from "./services/business-intel-scheduler";
+import { startAgentTeamSchedulers } from "./services/agent-team-scheduler";
 import { startUniversalCatalogScheduler } from "./services/universal-catalog-scheduler";
 import { startRebrickableSetsScheduler } from "./services/rebrickable-sets-scheduler";
 import { startImageHarvester } from "./services/image-store";
@@ -267,6 +268,16 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       console.error('[Startup] Could not create POM AI tables (non-fatal):', aiErr.message);
     }
 
+    // 4a-fix-4. Add agent_id column to business_insights for the AI agent team system.
+    try {
+      await pool.query(`
+        ALTER TABLE business_insights ADD COLUMN IF NOT EXISTS agent_id text;
+        CREATE INDEX IF NOT EXISTS business_insights_agent_id_idx ON business_insights(agent_id);
+      `);
+    } catch (agentFixErr: any) {
+      console.error('[Startup] Could not add agent_id column (non-fatal):', agentFixErr.message);
+    }
+
     try {
 
       // 4b. Warm up the DB connection (wakes Neon serverless from idle)
@@ -341,6 +352,7 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       startForumSyncScheduler().catch(error => console.error('Failed to start forum sync scheduler:', error));
       startMarketNewsSyncScheduler().catch(error => console.error('Failed to start market news sync scheduler:', error));
       startBusinessIntelScheduler().catch(error => console.error('Failed to start business intel scheduler:', error));
+      startAgentTeamSchedulers();
       startEmbeddingWorker().catch(error => console.error('Failed to start embedding worker:', error));
       startImageHarvester();
 

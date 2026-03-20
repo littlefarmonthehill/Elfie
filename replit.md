@@ -159,6 +159,32 @@ Scheduled background job that cross-references each org's inventory, sales, and 
 - **UI (Settings)**: Platform Scheduler > Market tab — Business Intel job card below Market News. Enabled toggle, frequency input.
 - **UI (Dashboard)**: Sales Dashboard > Business Intel drawer (cyan Radar button). Shows insight cards grouped by category with filter chips. Each card shows category icon, urgency badge, title, summary. Expandable detail shows affected items and price gap. Dismiss button per insight.
 
+## Agent Team — Domain Background Intelligence Agents
+
+Five specialized AI agents that run independently in the background, each owning a single domain. Their signals are written to `business_insights` table (tagged with `agent_id`) and can be retrieved by E.L.F.I.E. via the `get_agent_signals` tool call.
+
+- **Schema**: `business_insights.agent_id` column (text, nullable) — added via startup fix `4a-fix-4` in `server/index.ts`. Existing rows with `agent_id IS NULL` are legacy general insights from `business-intel-engine.ts`.
+- **Service**: `server/services/agent-team.ts`
+  - **InventoryAgent** (`runInventoryAgent`): stock health, dead stock (qty>50, no 90d sales), reorder pressure (sold>20/90d, qty<5), capital concentration
+  - **PricingAgent** (`runPricingAgent`): pricing gaps >20% vs market sold avg, POM decision patterns, repricing opportunities
+  - **MarketAgent** (`runMarketAgent`): BrickLink forum hot topics, market news, high price spread items
+  - **OrdersAgent** (`runOrdersAgent`): order velocity (30d vs prior 30d), channel breakdown, top SKUs
+  - **CustomerAgent** (`runCustomerAgent`): top buyers, dormant high-value buyers (2+ orders, 90-180d inactive), new buyers
+  - `upsertSignals()`: deduplicates by title+orgId+agentId, updates if exists, inserts if new. Signals expire after 12h.
+  - `getAgentSignals(orgId, agentIds?, limit?)`: fetches non-dismissed, non-expired signals for E.L.F.I.E.
+  - `runAllAgents(orgId)`: runs all 5 agents in parallel, returns per-agent signal counts
+- **Scheduler**: `server/services/agent-team-scheduler.ts` — staggered starts after app boot to avoid API bursts
+  - Inventory: runs at startup+5min, then every 6h
+  - Pricing: startup+8min, every 6h
+  - Market: startup+11min, every 8h
+  - Orders: startup+14min, every 8h
+  - Customer: startup+17min, every 12h
+- **E.L.F.I.E. tool**: `get_agent_signals` in `server/services/ai-tools.ts` switch
+  - Params: `agents` (array of agent IDs to filter, optional), `limit` (default 20, max 40)
+  - Returns: `{ totalSignals, byAgent: { [agentId]: [ { urgency, category, title, summary, details, age } ] } }`
+  - `_orgId` is injected automatically by `ai-agent.ts` from the request context
+- **Registration**: `startAgentTeamSchedulers()` called in `server/index.ts` after `startBusinessIntelScheduler`
+
 ## Elfie Live Support / Escalation System
 
 - **Feature gating**: `elfieLiveSupport` tier feature — Core + Flagship only. Controlled via `feature_elfie_live_support` column in `plan_configs`.

@@ -1526,6 +1526,7 @@ export const businessInsights = pgTable("business_insights", {
   details: jsonb("details"), // structured data: affected items, numbers, sources
   sourceType: text("source_type"), // 'market_news' | 'forum' | 'sales' | 'inventory' | 'pricing'
   sourceRef: text("source_ref"), // reference ID or URL
+  agentId: text("agent_id"), // 'inventory' | 'pricing' | 'market' | 'orders' | 'customer' | null = legacy general
   dismissed: boolean("dismissed").default(false).notNull(),
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
