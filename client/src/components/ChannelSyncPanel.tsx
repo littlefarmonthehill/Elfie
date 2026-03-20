@@ -504,12 +504,22 @@ function DiscrepancyRow({ item, type, area }: {
     >
       {/* Item identity */}
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold text-gray-100 truncate">{item.itemName || item.itemNo}</p>
-          <p className="text-[10px] text-gray-400">
-            {item.itemNo}
-            {item.colorName ? <span className="ml-1.5 text-gray-500">· {item.colorName}</span> : null}
-          </p>
+          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+            <span className="text-[10px] text-gray-400">{item.itemNo}</span>
+            {item.lotId != null && (
+              <span className="font-mono text-[9px] text-gray-600 bg-gray-800 border border-gray-700 rounded px-1 py-px">#{item.lotId}</span>
+            )}
+            {item.colorName && (
+              <span className="text-[10px] text-gray-500">{item.colorName}</span>
+            )}
+            {item.condition && (
+              <span className={`text-[9px] font-medium px-1.5 py-px rounded border ${item.condition === 'N' ? 'text-blue-300 bg-blue-500/10 border-blue-500/25' : 'text-amber-300 bg-amber-500/10 border-amber-500/25'}`}>
+                {item.condition === 'N' ? 'New' : 'Used'}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

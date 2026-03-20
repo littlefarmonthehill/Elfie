@@ -8909,9 +8909,11 @@ Format search_web URLs as markdown links.`;
             if (boQty !== blItem.quantity) {
               quantityDifferencesCount++;
               quantityDiscrepancies.push({
+                lotId: blItem.id,
                 itemNo: blItem.itemNo,
                 itemName: blItem.itemName,
                 colorName: blItem.colorName,
+                condition: blItem.newOrUsed,
                 blQuantity: blItem.quantity,
                 blPrice,
                 boQuantity: boQty,
@@ -8925,9 +8927,11 @@ Format search_web URLs as markdown links.`;
             if (Math.abs(boPrice - blPrice) > 0.001) {
               priceDifferencesCount++;
               priceDiscrepancies.push({
+                lotId: blItem.id,
                 itemNo: blItem.itemNo,
                 itemName: blItem.itemName,
                 colorName: blItem.colorName,
+                condition: blItem.newOrUsed,
                 blQuantity: blItem.quantity,
                 blPrice,
                 boQuantity: boQty,
@@ -8946,9 +8950,11 @@ Format search_web URLs as markdown links.`;
             if (boRemarksDecoded !== blRemarksDecoded) {
               remarksDifferencesCount++;
               remarksDiscrepancies.push({
+                lotId: blItem.id,
                 itemNo: blItem.itemNo,
                 itemName: blItem.itemName,
                 colorName: blItem.colorName,
+                condition: blItem.newOrUsed,
                 blQuantity: blItem.quantity,
                 blPrice,
                 boQuantity: boQty,
@@ -8968,9 +8974,11 @@ Format search_web URLs as markdown links.`;
             if (boDescriptionDecoded !== blDescriptionDecoded) {
               descriptionDifferencesCount++;
               descriptionDiscrepancies.push({
+                lotId: blItem.id,
                 itemNo: blItem.itemNo,
                 itemName: blItem.itemName,
                 colorName: blItem.colorName,
+                condition: blItem.newOrUsed,
                 blQuantity: blItem.quantity,
                 blPrice,
                 boQuantity: boQty,
@@ -8990,9 +8998,11 @@ Format search_web URLs as markdown links.`;
               if (missingCount < 100) {
                 const blPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
                 missingItems.push({
+                  lotId: blItem.id,
                   itemNo: blItem.itemNo,
                   itemName: blItem.itemName,
                   colorName: blItem.colorName,
+                  condition: blItem.newOrUsed,
                   blQuantity: blItem.quantity,
                   blPrice,
                   boQuantity: 0,
