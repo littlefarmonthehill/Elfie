@@ -237,6 +237,36 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       console.error('[Startup] Could not add is_test to shipments (non-fatal):', colErr.message);
     }
 
+    // 4a-fix-3. Create POM AI settings tables (new tables, not touching app_settings).
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS pom_ai_settings (
+          org_id       varchar(255) PRIMARY KEY,
+          ai_enabled   boolean      NOT NULL DEFAULT false,
+          ai_strategy  text,
+          decision_count integer    NOT NULL DEFAULT 0,
+          created_at   timestamp    NOT NULL DEFAULT now(),
+          updated_at   timestamp    NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS pom_price_decisions (
+          id              serial PRIMARY KEY,
+          org_id          varchar(255) NOT NULL,
+          item_no         text         NOT NULL,
+          color_id        integer,
+          new_or_used     text         NOT NULL DEFAULT 'N',
+          suggested_price decimal(10,4),
+          actual_price    decimal(10,4) NOT NULL,
+          price_delta     decimal(10,4),
+          market_snapshot jsonb,
+          decision_at     timestamp    NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS pom_price_decisions_org_idx      ON pom_price_decisions(org_id);
+        CREATE INDEX IF NOT EXISTS pom_price_decisions_org_item_idx ON pom_price_decisions(org_id, item_no, color_id);
+      `);
+    } catch (aiErr: any) {
+      console.error('[Startup] Could not create POM AI tables (non-fatal):', aiErr.message);
+    }
+
     try {
 
       // 4b. Warm up the DB connection (wakes Neon serverless from idle)

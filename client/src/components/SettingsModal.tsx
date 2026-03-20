@@ -2572,6 +2572,11 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [pomTrendingEnabled, setPomTrendingEnabled] = useState(false);
   const [pomTrendingDays, setPomTrendingDays] = useState(15);       // repurposed: max % adjustment
   const [pomTrendingThreshold, setPomTrendingThreshold] = useState(500);  // BL sold qty = "full demand"
+  // POM AI Pricing
+  const [pomAiEnabled, setPomAiEnabled] = useState(false);
+  const [pomAiStrategy, setPomAiStrategy] = useState('');
+  const [pomAiDecisionCount, setPomAiDecisionCount] = useState(0);
+  const [pomAiOpen, setPomAiOpen] = useState(false);
   const [pomTrendingBonus, setPomTrendingBonus] = useState(60);     // demand weight 0–100
   const [pomHighSupplyThreshold, setPomHighSupplyThreshold] = useState(10000); // BL stock qty = "full supply"
   const [pomHighSupplyPenalty, setPomHighSupplyPenalty] = useState(40);  // supply weight 0–100
@@ -3257,6 +3262,29 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       fetchModels();
     }
   }, [settings]);
+
+  const { data: pomAiData } = useQuery<{ aiEnabled: boolean; aiStrategy: string | null; decisionCount: number }>({
+    queryKey: ['/api/pom/ai-settings'],
+  });
+  useEffect(() => {
+    if (pomAiData) {
+      setPomAiEnabled(pomAiData.aiEnabled ?? false);
+      setPomAiStrategy(pomAiData.aiStrategy ?? '');
+      setPomAiDecisionCount(pomAiData.decisionCount ?? 0);
+    }
+  }, [pomAiData]);
+
+  const savePomAiMutation = useMutation({
+    mutationFn: async (patch: { aiEnabled?: boolean; aiStrategy?: string }) =>
+      apiRequest('PATCH', '/api/pom/ai-settings', patch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/pom/ai-settings'] });
+      toast({ title: 'AI pricing settings saved' });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Failed to save AI settings', description: err.message, variant: 'destructive' });
+    },
+  });
 
   useEffect(() => {
     if (platformSettings) {
@@ -5929,6 +5957,78 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       </div>
 
 
+                    </div>
+                  )}
+                </div>
+
+                {/* AI Pricing collapsible */}
+                <div>
+                  <button
+                    onClick={() => setPomAiOpen(!pomAiOpen)}
+                    className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
+                    data-testid="button-pom-ai-toggle"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-200 uppercase tracking-wider">AI Pricing</span>
+                      {pomAiEnabled && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded border border-purple-500/40 bg-purple-500/10 text-purple-300 leading-none">ACTIVE</span>
+                      )}
+                    </div>
+                    {pomAiOpen ? <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" /> : <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-200 transition-colors" />}
+                  </button>
+                  {pomAiOpen && (
+                    <div className="space-y-4 px-3">
+                      <p className="text-[11px] text-gray-500 leading-relaxed">
+                        When enabled, the AI reads your pricing strategy and the current market data to provide a second opinion alongside the POM suggestion. It learns from your pricing decisions over time to align closer with your approach.
+                      </p>
+
+                      {/* Enable/Disable toggle */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-medium text-gray-300">Enable AI Pricing</p>
+                          <p className="text-[10px] text-gray-500 mt-0.5">Adds AI suggestions in Spot Lookup</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const next = !pomAiEnabled;
+                            setPomAiEnabled(next);
+                            savePomAiMutation.mutate({ aiEnabled: next });
+                          }}
+                          className={`relative w-10 h-5 rounded-full transition-colors ${pomAiEnabled ? 'bg-purple-600' : 'bg-gray-700'}`}
+                          data-testid="toggle-pom-ai-enabled"
+                        >
+                          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${pomAiEnabled ? 'left-[22px]' : 'left-0.5'}`} />
+                        </button>
+                      </div>
+
+                      {/* Strategy statement */}
+                      <div>
+                        <Label className="text-xs text-gray-400 mb-1.5 block">Pricing Strategy Statement</Label>
+                        <Textarea
+                          value={pomAiStrategy}
+                          onChange={(e) => setPomAiStrategy(e.target.value)}
+                          onBlur={() => { if (pomAiStrategy !== (pomAiData?.aiStrategy ?? '')) savePomAiMutation.mutate({ aiStrategy: pomAiStrategy }); }}
+                          placeholder="Describe your pricing philosophy in plain language. e.g. 'We price at a premium above market value. We hold prices on trending and retired items. We'd rather sell fewer orders at higher margins than chase volume.'"
+                          className="text-[11px] min-h-[90px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                          data-testid="textarea-pom-ai-strategy"
+                        />
+                        <p className="text-[10px] text-gray-600 mt-1">This statement is included in every AI pricing prompt — be specific about premiums, margins, and item types you prioritize.</p>
+                      </div>
+
+                      {/* Training data counter */}
+                      <div className="flex items-center justify-between py-2 px-3 rounded-md bg-gray-800/40 border border-gray-700/40">
+                        <div>
+                          <p className="text-[11px] font-medium text-gray-400">Pricing Decisions Logged</p>
+                          <p className="text-[10px] text-gray-600 mt-0.5">Applied via Spot Lookup while AI is active</p>
+                        </div>
+                        <span className="text-lg font-bold text-purple-400 tabular-nums" data-testid="text-pom-ai-decision-count">{pomAiDecisionCount}</span>
+                      </div>
+
+                      {pomAiEnabled && (
+                        <p className="text-[10px] text-purple-400/70 leading-relaxed">
+                          AI is active. Use Spot Lookup to see AI suggestions alongside POM prices. Each price you apply gets logged as a training signal.
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>

@@ -11708,6 +11708,153 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
+  // ── POM AI Pricing ───────────────────────────────────────────────────────────
+
+  // GET  /api/pom/ai-settings — return AI pricing opt-in + strategy for the org
+  app.get("/api/pom/ai-settings", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { pomAiSettings } = await import('@shared/schema');
+      const [row] = await db.select().from(pomAiSettings).where(eq(pomAiSettings.orgId, orgId)).limit(1);
+      res.json(row ?? { orgId, aiEnabled: false, aiStrategy: null, decisionCount: 0 });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PATCH /api/pom/ai-settings — create-or-update AI pricing settings
+  app.patch("/api/pom/ai-settings", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { aiEnabled, aiStrategy } = req.body as { aiEnabled?: boolean; aiStrategy?: string };
+      const { pomAiSettings } = await import('@shared/schema');
+      const updateSet: Record<string, any> = { updatedAt: new Date() };
+      if (aiEnabled !== undefined) updateSet.aiEnabled = aiEnabled;
+      if (aiStrategy !== undefined) updateSet.aiStrategy = aiStrategy;
+      const [updated] = await db.insert(pomAiSettings)
+        .values({ orgId, ...updateSet, createdAt: new Date() })
+        .onConflictDoUpdate({ target: pomAiSettings.orgId, set: updateSet })
+        .returning();
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/pom/price-decision — log a seller pricing decision for AI training
+  app.post("/api/pom/price-decision", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { itemNo, colorId, newOrUsed, suggestedPrice, actualPrice, marketSnapshot } = req.body;
+      if (!itemNo || !actualPrice) return res.status(400).json({ error: 'itemNo and actualPrice required' });
+      const { pomPriceDecisions, pomAiSettings } = await import('@shared/schema');
+      const delta = suggestedPrice != null ? (Number(actualPrice) - Number(suggestedPrice)) : null;
+      await db.insert(pomPriceDecisions).values({
+        orgId,
+        itemNo,
+        colorId: colorId ?? null,
+        newOrUsed: newOrUsed ?? 'N',
+        suggestedPrice: suggestedPrice != null ? String(suggestedPrice) : null,
+        actualPrice: String(actualPrice),
+        priceDelta: delta != null ? String(delta) : null,
+        marketSnapshot: marketSnapshot ?? null,
+        decisionAt: new Date(),
+      });
+      // Increment decision counter
+      await db.insert(pomAiSettings)
+        .values({ orgId, decisionCount: 1, createdAt: new Date(), updatedAt: new Date() })
+        .onConflictDoUpdate({ target: pomAiSettings.orgId, set: { decisionCount: sql`pom_ai_settings.decision_count + 1`, updatedAt: new Date() } });
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/pom/ai-suggest — AI-enhanced price suggestion for a specific item
+  app.post("/api/pom/ai-suggest", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { pomAiSettings } = await import('@shared/schema');
+      const [aiSettings] = await db.select().from(pomAiSettings).where(eq(pomAiSettings.orgId, orgId)).limit(1);
+      if (!aiSettings?.aiEnabled) return res.status(403).json({ error: 'AI pricing is not enabled' });
+
+      const { itemNo, colorId, newOrUsed, pomSuggested, marketData, itemName } = req.body as {
+        itemNo: string;
+        colorId?: number;
+        newOrUsed?: string;
+        pomSuggested?: number;
+        itemName?: string;
+        marketData?: {
+          soldAvgPrice?: string; soldMaxPrice?: string; stockMinPrice?: string;
+          soldQuantity?: number; stockQuantity?: number;
+        };
+      };
+
+      // Pull recent decisions for this item to give the AI context
+      const { pomPriceDecisions } = await import('@shared/schema');
+      const recentDecisions = await db.select().from(pomPriceDecisions)
+        .where(and(eq(pomPriceDecisions.orgId, orgId), eq(pomPriceDecisions.itemNo, itemNo)))
+        .orderBy(sql`decision_at DESC`)
+        .limit(5);
+
+      // Pull relevant market news (trending/retirement signals)
+      const recentNews = await db.select({ title: marketNews.title, snippet: marketNews.snippet })
+        .from(marketNews)
+        .where(and(eq(marketNews.orgId, orgId)))
+        .orderBy(sql`fetched_at DESC`)
+        .limit(3);
+
+      const strategy = aiSettings.aiStrategy || 'Maximize revenue by selling at or above market value. Prefer fewer high-value sales over high volume at lower prices.';
+      const condition = newOrUsed === 'U' ? 'Used' : 'New';
+
+      const prompt = `You are a pricing advisor for a LEGO reseller marketplace (BrickLink). 
+      
+Pricing Strategy: "${strategy}"
+
+Item: ${itemName || itemNo} (Part# ${itemNo}${colorId ? `, Color ID: ${colorId}` : ''}, ${condition})
+POM Algorithm Suggested Price: ${pomSuggested != null ? `$${pomSuggested.toFixed(2)}` : 'N/A'}
+
+Current Market Data:
+- Sold Average: ${marketData?.soldAvgPrice ? `$${marketData.soldAvgPrice}` : 'N/A'}
+- Sold Maximum: ${marketData?.soldMaxPrice ? `$${marketData.soldMaxPrice}` : 'N/A'}
+- Current Market Minimum: ${marketData?.stockMinPrice ? `$${marketData.stockMinPrice}` : 'N/A'}
+- Units Sold Recently: ${marketData?.soldQuantity ?? 'N/A'}
+- Current Listings: ${marketData?.stockQuantity ?? 'N/A'}
+
+${recentDecisions.length > 0 ? `Your Recent Pricing Decisions for This Item:
+${recentDecisions.map(d => `- Set $${Number(d.actualPrice).toFixed(2)}${d.suggestedPrice ? ` (POM suggested $${Number(d.suggestedPrice).toFixed(2)}, delta ${Number(d.priceDelta) >= 0 ? '+' : ''}${Number(d.priceDelta).toFixed(2)})` : ''}`).join('\n')}` : ''}
+
+${recentNews.length > 0 ? `Recent Market News (may signal trends):
+${recentNews.map(n => `- ${n.title}: ${n.snippet}`).join('\n')}` : ''}
+
+Based on the pricing strategy, market data, and any relevant trends, provide:
+1. A recommended price (single number, USD)
+2. One concise sentence (max 15 words) explaining why
+
+Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
+
+      const OpenAI = (await import('openai')).default;
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3,
+        max_tokens: 120,
+        response_format: { type: 'json_object' },
+      });
+
+      const raw = completion.choices[0]?.message?.content || '{}';
+      const parsed = JSON.parse(raw);
+      const price = typeof parsed.price === 'number' ? Number(parsed.price.toFixed(2)) : null;
+      const reasoning = typeof parsed.reasoning === 'string' ? parsed.reasoning : null;
+
+      res.json({ price, reasoning, decisionCount: aiSettings.decisionCount });
+    } catch (err: any) {
+      console.error('[POM AI] ai-suggest error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Get categories with their priority tiers — only categories that exist in our inventory
   app.get("/api/priceomatic/category-tiers", isApproved, async (req, res) => {
     try {

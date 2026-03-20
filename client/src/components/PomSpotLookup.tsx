@@ -16,7 +16,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Search, Package, RefreshCw, AlertCircle, X, Camera, DollarSign, ExternalLink } from "lucide-react";
+import { Search, Package, RefreshCw, AlertCircle, X, Camera, DollarSign, ExternalLink, Sparkles, Loader2 } from "lucide-react";
 
 interface Color {
   id: number;
@@ -51,6 +51,14 @@ interface SpotLookupResult {
   thresholds: { tooHigh: number; tooLow: number };
   marketPeakSoldPrice?: number | null;
   inventoryLots: InventoryLot[];
+  suggestedPriceNew?: number | null;
+  suggestedPriceUsed?: number | null;
+}
+
+interface AiSuggestionResult {
+  suggestedPrice: number;
+  reasoning: string;
+  confidence: 'high' | 'medium' | 'low';
 }
 
 interface PomSpotLookupProps {
@@ -112,6 +120,62 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
     queryKey: ["/api/colors"],
   });
 
+  const { data: pomAiSettings } = useQuery<{ aiEnabled: boolean; aiStrategy: string | null }>({
+    queryKey: ['/api/pom/ai-settings'],
+  });
+  const aiEnabled = pomAiSettings?.aiEnabled ?? false;
+
+  const [aiSuggestion, setAiSuggestion] = useState<AiSuggestionResult | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  const aiSuggestMutation = useMutation({
+    mutationFn: async (payload: {
+      itemNo: string;
+      colorId: number | null;
+      newOrUsed: string;
+      itemName: string | null;
+      pomSuggested?: number | null;
+      marketData: { stockAvgPrice?: number | null; soldAvgPrice?: number | null; marketPeakSoldPrice?: number | null; stockTotalLots?: number | null };
+    }) => apiRequest('POST', '/api/pom/ai-suggest', payload),
+    onSuccess: (data) => {
+      if (data?.suggestedPrice != null) {
+        setAiSuggestion({
+          suggestedPrice: Number(data.suggestedPrice),
+          reasoning: data.reasoning ?? '',
+          confidence: data.confidence ?? 'medium',
+        });
+        setAiError(null);
+      } else {
+        setAiError(data?.error ?? 'No suggestion returned');
+      }
+    },
+    onError: (err: Error) => {
+      setAiError(err.message);
+    },
+  });
+
+  const requestAiSuggestion = (newOrUsed: 'N' | 'U' = 'N') => {
+    if (!result) return;
+    const lotKey = `${colorId !== 'none' ? colorId : 'null'}_${newOrUsed}`;
+    const lpd = result.lotPriceData[lotKey] ?? result.priceData;
+    const pomSuggested = newOrUsed === 'N' ? result.suggestedPriceNew : result.suggestedPriceUsed;
+    setAiSuggestion(null);
+    setAiError(null);
+    aiSuggestMutation.mutate({
+      itemNo: result.priceData.itemNo,
+      colorId: colorId !== 'none' ? parseInt(colorId) : null,
+      newOrUsed,
+      itemName: result.priceData.itemName,
+      pomSuggested: pomSuggested ?? null,
+      marketData: {
+        stockAvgPrice: lpd.stockAvgPrice ? parseFloat(lpd.stockAvgPrice) : null,
+        soldAvgPrice: lpd.soldAvgPrice ? parseFloat(lpd.soldAvgPrice) : null,
+        marketPeakSoldPrice: result.marketPeakSoldPrice ?? null,
+        stockTotalLots: lpd.stockTotalLots ?? null,
+      },
+    });
+  };
+
   const invalidateDashboard = () => {
     queryClient.refetchQueries({ queryKey: ['/api/priceomatic/insights'] });
     queryClient.refetchQueries({ queryKey: ['/api/priceomatic/freshness'] });
@@ -135,6 +199,8 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
       } else {
         setResult(data);
         setLookupError(null);
+        setAiSuggestion(null);
+        setAiError(null);
         invalidateDashboard();
       }
     },
@@ -273,6 +339,8 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
     setResult(null);
     setLookupError(null);
     setScanResult(null);
+    setAiSuggestion(null);
+    setAiError(null);
   };
 
   const pd = result?.priceData;
@@ -627,6 +695,85 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
               )
             )}
           </div>
+
+          {/* AI Pricing Suggestion — only shown when AI is enabled */}
+          {aiEnabled && result && (
+            <div className="mt-2 pt-2 border-t border-purple-500/10">
+              {!aiSuggestion && !aiSuggestMutation.isPending && !aiError && (
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-3 h-3 text-purple-400 flex-shrink-0" />
+                  <span className="text-[10px] text-gray-600 flex-1">AI pricing available</span>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => requestAiSuggestion('N')}
+                      className="text-[10px] px-2 py-0.5 rounded border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 transition-colors"
+                      data-testid="button-ai-suggest-new"
+                    >
+                      New
+                    </button>
+                    <button
+                      onClick={() => requestAiSuggestion('U')}
+                      className="text-[10px] px-2 py-0.5 rounded border border-purple-500/30 text-purple-400 hover:bg-purple-500/10 transition-colors"
+                      data-testid="button-ai-suggest-used"
+                    >
+                      Used
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {aiSuggestMutation.isPending && (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-3 h-3 text-purple-400 animate-spin flex-shrink-0" />
+                  <span className="text-[10px] text-purple-400">AI is reviewing market data…</span>
+                </div>
+              )}
+
+              {aiError && !aiSuggestMutation.isPending && (
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-3 h-3 text-red-400 flex-shrink-0" />
+                  <span className="text-[10px] text-red-400 flex-1 truncate">{aiError}</span>
+                  <button onClick={() => { setAiError(null); setAiSuggestion(null); }} className="text-[10px] text-gray-600 hover:text-gray-400">Dismiss</button>
+                </div>
+              )}
+
+              {aiSuggestion && !aiSuggestMutation.isPending && (
+                <div className="bg-purple-950/30 border border-purple-500/20 rounded-md p-2 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="w-3 h-3 text-purple-400 flex-shrink-0" />
+                      <span className="text-[10px] font-semibold text-purple-300 uppercase tracking-wider">AI Suggestion</span>
+                      <span className={`text-[9px] px-1 py-0.5 rounded leading-none font-medium ${
+                        aiSuggestion.confidence === 'high' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' :
+                        aiSuggestion.confidence === 'medium' ? 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/25' :
+                        'bg-gray-500/15 text-gray-400 border border-gray-500/25'
+                      }`}>
+                        {aiSuggestion.confidence}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-bold text-purple-200 tabular-nums" data-testid="text-ai-suggested-price">
+                        {formatCurrency(aiSuggestion.suggestedPrice)}
+                      </span>
+                      <button
+                        onClick={() => { setAiSuggestion(null); setAiError(null); }}
+                        className="text-gray-600 hover:text-gray-400 transition-colors"
+                        data-testid="button-ai-dismiss"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                  {aiSuggestion.reasoning && (
+                    <p className="text-[10px] text-purple-300/60 leading-relaxed">
+                      {aiSuggestion.reasoning}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       )}
     </div>

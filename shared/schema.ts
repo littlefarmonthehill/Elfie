@@ -1810,3 +1810,32 @@ export const featureVotes = pgTable("feature_votes", {
 }));
 
 export type FeatureVote = typeof featureVotes.$inferSelect;
+
+// ── AI Pricing (Price-o-Matic AI opt-in) ─────────────────────────────────────
+export const pomAiSettings = pgTable("pom_ai_settings", {
+  orgId: varchar("org_id", { length: 255 }).primaryKey(),
+  aiEnabled: boolean("ai_enabled").default(false).notNull(),
+  aiStrategy: text("ai_strategy"), // Natural language pricing strategy statement
+  decisionCount: integer("decision_count").default(0).notNull(), // Logged pricing decisions
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type PomAiSettings = typeof pomAiSettings.$inferSelect;
+
+// Logs each time a seller applies a price (accepted, overridden, or custom)
+export const pomPriceDecisions = pgTable("pom_price_decisions", {
+  id: serial("id").primaryKey(),
+  orgId: varchar("org_id", { length: 255 }).notNull(),
+  itemNo: text("item_no").notNull(),
+  colorId: integer("color_id"),
+  newOrUsed: text("new_or_used").notNull().default('N'),
+  suggestedPrice: decimal("suggested_price", { precision: 10, scale: 4 }),
+  actualPrice: decimal("actual_price", { precision: 10, scale: 4 }).notNull(),
+  priceDelta: decimal("price_delta", { precision: 10, scale: 4 }), // actual - suggested
+  marketSnapshot: jsonb("market_snapshot"), // soldAvg, soldMax, stockMin snapshot at decision time
+  decisionAt: timestamp("decision_at").defaultNow().notNull(),
+}, (table) => ({
+  orgIdx: index("pom_price_decisions_org_idx").on(table.orgId),
+  orgItemIdx: index("pom_price_decisions_org_item_idx").on(table.orgId, table.itemNo, table.colorId),
+}));
