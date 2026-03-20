@@ -752,6 +752,7 @@ export const syncMetadata = pgTable("sync_metadata", {
   recordsUpdated: integer("records_updated").default(0),
   errorMessage: text("error_message"),
   orgId: varchar("org_id"),                            // FK → organizations.id
+  lastSyncMetaJson: text("last_sync_meta_json"),       // JSON blob of last full sync result (lotsCreated, updated, skipped, errors, mode, etc.)
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
   orgIdIdx: index("sync_metadata_org_id_idx").on(table.orgId),

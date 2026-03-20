@@ -306,6 +306,16 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       console.warn('[Startup] ie_strategies column migration (non-fatal):', ieStratColErr.message);
     }
 
+    // 4a-fix-7. Add last_sync_meta_json column to sync_metadata for persisting full channel sync results.
+    try {
+      await pool.query(`
+        ALTER TABLE sync_metadata
+          ADD COLUMN IF NOT EXISTS last_sync_meta_json TEXT
+      `);
+    } catch (syncMetaColErr: any) {
+      console.warn('[Startup] sync_metadata last_sync_meta_json column migration (non-fatal):', syncMetaColErr.message);
+    }
+
     try {
 
       // 4b. Warm up the DB connection (wakes Neon serverless from idle)
