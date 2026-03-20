@@ -565,8 +565,11 @@ export async function syncBrickLinkToBrickOwl(
     if (taggedLot) {
       const qtyChanged       = parseInt(taggedLot.qty) !== item.quantity;
       const priceChanged     = Math.abs(parseFloat(taggedLot.price) - newPrice) > 0.001;
-      const remarksChanged   = (taggedLot.personal_note || '') !== (item.remarks || '');
-      const descChanged      = (taggedLot.public_note   || '') !== (item.description || '');
+      // Decode BL side before comparing — BrickLink stores HTML entities (e.g. &#39;)
+      // but BrickOwl holds the decoded text (e.g. ') after the first sync.
+      // Without decoding first, these items always appear as different and never settle.
+      const remarksChanged   = (taggedLot.personal_note || '') !== decodeHtmlEntities(item.remarks || '');
+      const descChanged      = (taggedLot.public_note   || '') !== decodeHtmlEntities(item.description || '');
 
       const hasChange = qtyChanged || priceChanged || remarksChanged || descChanged;
 
