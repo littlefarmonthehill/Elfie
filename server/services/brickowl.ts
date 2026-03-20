@@ -311,7 +311,8 @@ export async function mapColorId(bricklinkColorId: number): Promise<number | nul
 export async function syncInventoryItem(
   blItem: typeof blInventory.$inferSelect,
   brickowlInventory?: any[],
-  mode: 'analysis' | 'full_control' | 'quantity_only' = 'full_control'
+  mode: 'analysis' | 'full_control' | 'quantity_only' = 'full_control',
+  taggedLotMap?: Map<string, any>
 ): Promise<{
   success: boolean;
   action: 'created' | 'updated' | 'skipped';
@@ -328,9 +329,10 @@ export async function syncInventoryItem(
 
     // ─── STEP 1: Match by BrickLink inventory ID tag (fast, reliable) ───────
     // Lots our sync previously created/tagged will always be found here.
-    const taggedLot = brickowlInventory.find((lot: any) =>
-      lot.external_lot_ids?.other === blItem.id.toString()
-    );
+    // Use the pre-built Map for O(1) lookup when available; fall back to linear scan.
+    const taggedLot = taggedLotMap
+      ? taggedLotMap.get(blItem.id.toString())
+      : brickowlInventory.find((lot: any) => lot.external_lot_ids?.other === blItem.id.toString());
 
     if (taggedLot) {
       const existingQty = parseInt(taggedLot.qty);
@@ -478,12 +480,20 @@ export async function syncBrickLinkToBrickOwl(limit?: number, mode: 'analysis' |
   const brickowlInventory = await getBrickOwlInventory(false);
   console.log(`Fetched ${brickowlInventory.length} lots from BrickOwl for comparison`);
 
+  // Build O(1) lookup map: BL inventory ID string → BrickOwl lot
+  // Avoids O(n×m) linear scan per item (previously 30k BL × 10k BO = 300M ops)
+  const taggedLotMap = new Map<string, any>();
+  for (const lot of brickowlInventory) {
+    const extId = lot.external_lot_ids?.other;
+    if (extId) taggedLotMap.set(extId, lot);
+  }
+
   // Sync each item
   let processed = 0;
   for (const item of blItems) {
     processed++;
     onProgress?.(processed, blItems.length);
-    const syncResult = await syncInventoryItem(item, brickowlInventory, mode);
+    const syncResult = await syncInventoryItem(item, brickowlInventory, mode, taggedLotMap);
     result.totalApiCalls += 2; // Estimate: lookup + create/update
     
     if (syncResult.success) {
@@ -501,8 +511,11 @@ export async function syncBrickLinkToBrickOwl(limit?: number, mode: 'analysis' |
       }
     }
 
-    // Add delay to avoid rate limiting (600 req/min = ~10 req/sec)
-    await new Promise(resolve => setTimeout(resolve, 120));
+    // Delay to respect BrickOwl rate limit (600 req/min ≈ 10 req/sec → 120ms gap).
+    // Analysis mode makes zero API calls, so no delay needed there.
+    if (mode !== 'analysis') {
+      await new Promise(resolve => setTimeout(resolve, 120));
+    }
   }
 
   return result;
