@@ -28,6 +28,7 @@ import {
   Download,
   ClipboardList,
   Unlink,
+  GitMerge,
 } from "lucide-react";
 import {
   Drawer,
@@ -38,7 +39,7 @@ import {
 } from "@/components/ui/drawer";
 import { Separator } from "@/components/ui/separator";
 
-type DiscrepancyType = 'missing' | 'price' | 'quantity' | 'remarks' | 'description' | 'unlinked';
+type DiscrepancyType = 'missing' | 'price' | 'quantity' | 'remarks' | 'description' | 'unlinked' | 'orphaned';
 
 interface DiscrepancyArea {
   type: DiscrepancyType;
@@ -115,7 +116,8 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
   const remarksDiffs = brickOwl?.discrepancies?.remarksDifferences ?? 0;
   const descriptionDiffs = brickOwl?.discrepancies?.descriptionDifferences ?? 0;
   const unlinkedDiffs = brickOwl?.discrepancies?.unlinkedBoLots ?? 0;
-  const totalDiscrepancies = missingLots + priceDiffs + qtyDiffs + remarksDiffs + descriptionDiffs + unlinkedDiffs;
+  const orphanedDiffs = brickOwl?.discrepancies?.orphanedBoLots ?? 0;
+  const totalDiscrepancies = missingLots + priceDiffs + qtyDiffs + remarksDiffs + descriptionDiffs + unlinkedDiffs + orphanedDiffs;
 
   const syncStatusColor =
     lastSync?.lastSyncStatus === 'success' ? 'text-green-400' :
@@ -202,6 +204,16 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
       bgColor: 'bg-gray-800/40',
       count: unlinkedDiffs,
       description: 'Exist on BrickOwl but not linked to any BrickLink item',
+    },
+    {
+      type: 'orphaned',
+      label: 'Orphaned BrickOwl Lots',
+      icon: GitMerge,
+      accentColor: 'text-rose-400',
+      borderColor: 'border-rose-500/40',
+      bgColor: 'bg-rose-950/30',
+      count: orphanedDiffs,
+      description: 'Linked to a BrickLink lot that no longer exists — likely merged or deleted',
     },
   ].filter(a => a.count > 0);
 
@@ -570,13 +582,13 @@ function DiscrepancyRow({ item, type, area }: {
       {/* Item identity */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          {type === 'unlinked' ? (
+          {(type === 'unlinked' || type === 'orphaned') ? (
             <p className="text-xs font-semibold text-gray-100 font-mono">BOID {item.boid}</p>
           ) : (
             <p className="text-xs font-semibold text-gray-100 truncate">{item.itemName || item.itemNo}</p>
           )}
           <div className="flex items-center gap-2 flex-wrap mt-0.5">
-            {type !== 'unlinked' && <span className="text-[10px] text-gray-400">{item.itemNo}</span>}
+            {type !== 'unlinked' && type !== 'orphaned' && <span className="text-[10px] text-gray-400">{item.itemNo}</span>}
             {item.lotId != null && (
               <span className="font-mono text-[9px] text-gray-600 bg-gray-800 border border-gray-700 rounded px-1 py-px">lot #{item.lotId}</span>
             )}
@@ -675,6 +687,18 @@ function DiscrepancyRow({ item, type, area }: {
           <span className="text-gray-500 italic">No BrickLink ID set — excluded from sync</span>
         </div>
       )}
+
+      {type === 'orphaned' && (
+        <div className="flex items-center gap-3 flex-wrap text-[11px]">
+          <span className="text-gray-400">Lot ID: <span className="text-white font-mono">{item.lotId}</span></span>
+          <span className="text-gray-400">BOID: <span className="text-white font-mono">{item.boid}</span></span>
+          <span className="text-gray-400">BL ID was: <span className="text-rose-300 font-mono line-through">{item.blId}</span></span>
+          <span className="text-gray-400">Qty: <span className="text-white font-mono">{item.qty}</span></span>
+          <span className="text-gray-400">Price: <span className="text-white font-mono">${Number(item.price ?? 0).toFixed(2)}</span></span>
+          {item.fullCon && <span className="text-gray-400">Cond: <span className="text-gray-300">{item.fullCon}</span></span>}
+          <span className="text-rose-400 italic">BL lot deleted — likely merged into another lot</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -686,6 +710,7 @@ const AUDIT_TYPES: Array<{ type: DiscrepancyType; label: string; color: string }
   { type: 'remarks',     label: 'Remark Differences',      color: '#a855f7' },
   { type: 'description', label: 'Description Differences', color: '#ec4899' },
   { type: 'unlinked',    label: 'Unlinked BrickOwl Lots',  color: '#9ca3af' },
+  { type: 'orphaned',   label: 'Orphaned BrickOwl Lots',  color: '#fb7185' },
 ];
 
 function AuditReportView({ discrepancyAreas, totalDiscrepancies, lastSyncTime }: {
@@ -702,6 +727,7 @@ function AuditReportView({ discrepancyAreas, totalDiscrepancies, lastSyncTime }:
     remarks:     useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'remarks',     'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/remarks?limit=10000').then(r => r.json()),     enabled: activeTypes.includes('remarks'),     refetchOnWindowFocus: false }),
     description: useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'description','all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/description?limit=10000').then(r => r.json()), enabled: activeTypes.includes('description'), refetchOnWindowFocus: false }),
     unlinked:    useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'unlinked',   'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/unlinked?limit=10000').then(r => r.json()),   enabled: activeTypes.includes('unlinked'),   refetchOnWindowFocus: false }),
+    orphaned:    useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'orphaned',  'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/orphaned?limit=10000').then(r => r.json()),  enabled: activeTypes.includes('orphaned'),  refetchOnWindowFocus: false }),
   };
 
   const isLoading = Object.values(q).some(r => r.isLoading);
@@ -740,6 +766,8 @@ function AuditReportView({ discrepancyAreas, totalDiscrepancies, lastSyncTime }:
           valHtml = `BL: "${(item.blDescription || '').slice(0, 60)}${(item.blDescription || '').length > 60 ? '…' : ''}" → BO: "${(item.boDescription || '').slice(0, 60)}${(item.boDescription || '').length > 60 ? '…' : ''}"`;
         } else if (section.type === 'unlinked') {
           valHtml = `BOID: ${item.boid ?? '—'} · Qty: ${item.qty ?? '—'} · Price: $${Number(item.price ?? 0).toFixed(2)} · No BrickLink ID`;
+        } else if (section.type === 'orphaned') {
+          valHtml = `BOID: ${item.boid ?? '—'} · BL ID was: ${item.blId ?? '—'} · Qty: ${item.qty ?? '—'} · Price: $${Number(item.price ?? 0).toFixed(2)} · BL lot deleted/merged`;
         }
         return `<tr>
           <td>#${item.lotId ?? '—'}</td>

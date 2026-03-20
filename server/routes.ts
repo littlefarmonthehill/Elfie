@@ -8850,6 +8850,7 @@ Format search_web URLs as markdown links.`;
       let remarksDifferencesCount = 0;
       let descriptionDifferencesCount = 0;
       let unlinkedBoLotsCount = 0;
+      let orphanedBoLotsCount = 0;
 
       if (brickowlEnabled) {
         try {
@@ -8870,6 +8871,7 @@ Format search_web URLs as markdown links.`;
           const remarksDiscrepancies: any[] = [];
           const descriptionDiscrepancies: any[] = [];
           const unlinkedBoLots: any[] = [];
+          const orphanedBoLots: any[] = [];
 
           // SIMPLIFIED COMPARISON: Use external_lot_ids.other (BrickLink inventory ID) for matching
           const blItemsMap = new Map<number, any>();
@@ -8906,7 +8908,18 @@ Format search_web URLs as markdown links.`;
             const blItem = blItemsMap.get(blInventoryId);
             
             if (!blItem) {
-              // BrickOwl lot references non-existent BrickLink item - skip
+              // BO lot has a BL ID tag but that BL lot no longer exists —
+              // likely merged/consolidated by BrickLink. Track as orphaned.
+              orphanedBoLotsCount++;
+              orphanedBoLots.push({
+                lotId:      boLot.lot_id,
+                boid:       boLot.boid,
+                blId:       blInventoryId,
+                qty:        parseInt(boLot.qty || '0'),
+                price:      parseFloat(boLot.price || '0'),
+                condition:  boLot.condition,
+                fullCon:    boLot.full_con,
+              });
               continue;
             }
             
@@ -9033,6 +9046,7 @@ Format search_web URLs as markdown links.`;
           discrepancyCache.set('BrickOwl:remarks', { data: remarksDiscrepancies, timestamp: now });
           discrepancyCache.set('BrickOwl:description', { data: descriptionDiscrepancies, timestamp: now });
           discrepancyCache.set('BrickOwl:unlinked', { data: unlinkedBoLots, timestamp: now });
+          discrepancyCache.set('BrickOwl:orphaned', { data: orphanedBoLots, timestamp: now });
         } catch (error) {
           console.error('Failed to fetch BrickOwl inventory stats:', error);
         }
@@ -9056,6 +9070,7 @@ Format search_web URLs as markdown links.`;
               remarksDifferences: remarksDifferencesCount,
               descriptionDifferences: descriptionDifferencesCount,
               unlinkedBoLots: unlinkedBoLotsCount,
+              orphanedBoLots: orphanedBoLotsCount,
             },
           },
         ],
