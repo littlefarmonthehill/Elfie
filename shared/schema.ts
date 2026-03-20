@@ -630,6 +630,18 @@ export const appSettings = pgTable("app_settings", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Learned shipping service mappings — one row per (org, marketplace label)
+export const shippingServiceMappings = pgTable("shipping_service_mappings", {
+  id: serial("id").primaryKey(),
+  orgId: varchar("org_id").notNull(),
+  label: text("label").notNull(),           // Marketplace label e.g. "Economy Shipping from China"
+  easypostService: text("easypost_service").notNull(), // EasyPost service name e.g. "GroundAdvantage"
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [uniqueIndex("ssm_org_label_idx").on(t.orgId, t.label)]);
+
+export const insertShippingServiceMappingSchema = createInsertSchema(shippingServiceMappings).omit({ id: true, updatedAt: true });
+export type ShippingServiceMapping = typeof shippingServiceMappings.$inferSelect;
+
 export const insertAppSettingsSchema = createInsertSchema(appSettings).omit({
   id: true,
   updatedAt: true,

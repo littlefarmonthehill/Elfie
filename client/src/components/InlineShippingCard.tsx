@@ -130,6 +130,17 @@ export default function InlineShippingCard({
     queryKey: ['/api/settings'],
   });
 
+  const { data: serviceMappings = {} } = useQuery<Record<string, string>>({
+    queryKey: ['/api/shipping/service-mappings'],
+    staleTime: 60000,
+  });
+
+  const saveServiceMapping = async (label: string, easypostService: string) => {
+    try {
+      await apiRequest('POST', '/api/shipping/service-mappings', { label, easypostService });
+    } catch { /* silent — learning failure shouldn't disrupt shipping */ }
+  };
+
   const [summary, setSummary] = useState<OrderShippingSummary | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(true);
 
@@ -326,12 +337,15 @@ export default function InlineShippingCard({
       const sorted: Rate[] = [...(result.rates || [])].sort((a, b) => a.rate - b.rate);
       setRates(sorted);
       if (sorted.length > 0) {
-        // Priority: 1) user's manual choice, 2) BrickLink requested service, 3) cheapest
+        // Priority: 1) user's pick this session, 2) learned mapping, 3) fuzzy requestedService, 4) cheapest
         const userSvc = userSelectedService.current;
-        if (userSvc) {
-          const userLower = userSvc.toLowerCase();
+        const learnedSvc = requestedService ? (serviceMappings[requestedService] ?? null) : null;
+        const resolveSvc = userSvc || learnedSvc;
+
+        if (resolveSvc) {
+          const svcLower = resolveSvc.toLowerCase();
           const match = sorted.find(r =>
-            r.service.toLowerCase().includes(userLower) || userLower.includes(r.service.toLowerCase())
+            r.service.toLowerCase().includes(svcLower) || svcLower.includes(r.service.toLowerCase())
           );
           setSelectedRateId(match?.id || sorted[0].id);
         } else if (requestedService) {
@@ -359,11 +373,18 @@ export default function InlineShippingCard({
   };
 
   const selectedRate = rates.find(r => r.id === selectedRateId);
-  const isCustomerPick = (rate: Rate) =>
-    summary?.requestedService
-      ? rate.service.toLowerCase().includes(summary.requestedService.toLowerCase()) ||
-        summary.requestedService.toLowerCase().includes(rate.service.toLowerCase())
-      : false;
+  const isCustomerPick = (rate: Rate) => {
+    if (!summary?.requestedService) return false;
+    const req = summary.requestedService;
+    // Check learned mapping first, then fall back to fuzzy match
+    const learnedSvc = serviceMappings[req];
+    if (learnedSvc) {
+      return rate.service.toLowerCase().includes(learnedSvc.toLowerCase()) ||
+        learnedSvc.toLowerCase().includes(rate.service.toLowerCase());
+    }
+    return rate.service.toLowerCase().includes(req.toLowerCase()) ||
+      req.toLowerCase().includes(rate.service.toLowerCase());
+  };
   const isReady = !!(shipmentId && selectedRateId && !isLoadingRates && !ratesError && weight !== "");
 
   // ── Loading skeleton ──
@@ -626,6 +647,10 @@ export default function InlineShippingCard({
                       setSelectedRateId(id);
                       const svc = rates.find(r => r.id === id)?.service ?? null;
                       userSelectedService.current = svc;
+                      // Learn: save marketplace label → EasyPost service for future orders
+                      if (svc && summary?.requestedService) {
+                        saveServiceMapping(summary.requestedService, svc);
+                      }
                     }}>
                       <SelectTrigger
                         className="h-8 w-full bg-gray-900 border-gray-600 truncate"
