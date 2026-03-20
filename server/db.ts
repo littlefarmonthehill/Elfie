@@ -1218,6 +1218,22 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-63 (workflow_status on orders) complete.');
 
+    // ── Phase-64: Fix orders returned-to-queue with stuck workflow_status='done' ─
+    // Orders that have an active orderStatus (awaiting_*) but workflow_status='done'
+    // were returned to queue before the automatic reset logic was in place.
+    // Reset them to 'new' so they appear in the fulfillment queue.
+    const fixedRows = await client.query(`
+      UPDATE orders
+         SET workflow_status = 'new'
+       WHERE order_status IN ('awaiting_payment', 'awaiting_shipment', 'awaiting_fulfillment')
+         AND workflow_status = 'done'
+    `);
+    if (fixedRows.rowCount && fixedRows.rowCount > 0) {
+      console.log(`[Migration] Phase-64: reset workflow_status for ${fixedRows.rowCount} stuck order(s).`);
+    } else {
+      console.log('[Migration] Phase-64 (fix stuck workflow_status on returned orders) complete — no rows needed fixing.');
+    }
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

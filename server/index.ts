@@ -210,6 +210,23 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       console.error('[Startup] Background initialization error (non-fatal):', err.message);
     }
 
+    // 4a-fix. One-time repair: reset workflow_status for orders stuck in an active
+    // orderStatus but with workflow_status='done' (caused by return-to-queue actions
+    // before the automatic reset was added to updateOrderStatus).
+    try {
+      const fixResult = await pool.query(`
+        UPDATE orders
+           SET workflow_status = 'new'
+         WHERE order_status IN ('awaiting_payment', 'awaiting_shipment', 'awaiting_fulfillment')
+           AND workflow_status = 'done'
+      `);
+      if (fixResult.rowCount && fixResult.rowCount > 0) {
+        console.log(`[Startup] Fixed ${fixResult.rowCount} order(s) with stuck workflow_status='done' in active status.`);
+      }
+    } catch (fixErr: any) {
+      console.error('[Startup] Could not fix stuck workflow_status (non-fatal):', fixErr.message);
+    }
+
     try {
 
       // 4b. Warm up the DB connection (wakes Neon serverless from idle)
