@@ -37,6 +37,7 @@ interface SettingsModalProps {
   onClose: () => void;
   initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'about' | 'priceomatic';
   initialPlatformTab?: 'platforms' | 'scheduler';
+  focusTarget?: 'channelSync';
   pricingExample?: PricingInsight;
   scoringExample?: PricingInsight;
   isBrickspotterOnly?: boolean;
@@ -2361,7 +2362,7 @@ function PlansAndPricingPanel() {
 }
 
 
-export default function SettingsModal({ open, onClose, initialSection, initialPlatformTab, pricingExample, scoringExample, isBrickspotterOnly = false }: SettingsModalProps) {
+export default function SettingsModal({ open, onClose, initialSection, initialPlatformTab, focusTarget, pricingExample, scoringExample, isBrickspotterOnly = false }: SettingsModalProps) {
   const { toast } = useToast();
   const { status: installStatus, promptInstall } = useInstallPrompt();
   const { isAdmin, superAdmin, user } = useAuth();
@@ -2615,6 +2616,12 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
         setActiveSection('platforms');
         setActivePlatformInnerTab('scheduler');
         setActivePlatform(null);
+        if (focusTarget === 'channelSync') {
+          setSchedulerChannelOpen(true);
+          setTimeout(() => {
+            document.getElementById('settings-channel-sync-header')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 120);
+        }
       } else {
         setActiveSection(initialSection);
         if (initialPlatformTab) setActivePlatformInnerTab(initialPlatformTab);
@@ -2623,7 +2630,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
         setPomScoringOpen(true);
       }
     }
-  }, [open, initialSection, initialPlatformTab]);
+  }, [open, initialSection, initialPlatformTab, focusTarget]);
 
   useEffect(() => {
     if (open && pricingExample) {
@@ -5188,6 +5195,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     {/* Channel Sync */}
                     <div>
                       <button
+                        id="settings-channel-sync-header"
                         onClick={() => setSchedulerChannelOpen(!schedulerChannelOpen)}
                         className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
                         data-testid="button-scheduler-channel-toggle"

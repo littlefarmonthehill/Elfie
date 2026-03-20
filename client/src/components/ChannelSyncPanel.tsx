@@ -51,7 +51,7 @@ interface DiscrepancyArea {
 }
 
 interface ChannelSyncPanelProps {
-  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing') => void;
+  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing', focusTarget?: 'channelSync') => void;
 }
 
 export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelProps) {
@@ -417,7 +417,7 @@ function OverviewContent({
         <Button
           size="sm"
           variant="ghost"
-          onClick={() => { setDrawerOpen(false); onOpenSettings?.('automation'); }}
+          onClick={() => { setDrawerOpen(false); onOpenSettings?.('automation', 'channelSync'); }}
           data-testid="button-channel-schedule"
         >
           <CalendarClock className="w-3.5 h-3.5 mr-1.5" />
@@ -426,7 +426,7 @@ function OverviewContent({
         <Button
           size="sm"
           variant="ghost"
-          onClick={() => { setDrawerOpen(false); onOpenSettings?.('automation'); }}
+          onClick={() => { setDrawerOpen(false); onOpenSettings?.('automation', 'channelSync'); }}
           data-testid="button-channel-sync-settings"
         >
           <SlidersHorizontal className="w-3.5 h-3.5 mr-1.5" />

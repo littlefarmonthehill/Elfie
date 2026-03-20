@@ -66,6 +66,7 @@ export default function Home() {
   const [employeeWelcomeDone, setEmployeeWelcomeDone] = useState(false);
   const [bsWelcomeDone, setBsWelcomeDone] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'priceomatic' | null>(null);
+  const [settingsFocusTarget, setSettingsFocusTarget] = useState<'channelSync' | undefined>(undefined);
   const [settingsPricingExample, setSettingsPricingExample] = useState<PricingInsight | undefined>(undefined);
   const [settingsScoringExample, setSettingsScoringExample] = useState<PricingInsight | undefined>(undefined);
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
@@ -382,7 +383,7 @@ export default function Home() {
   const renderDynamicDashboard = () => {
     switch (activeDashboard) {
       case 'inventory':
-        return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }} />;
+        return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} />;
       case 'orders':
         return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }} />;
       case 'sales':
@@ -1193,7 +1194,7 @@ export default function Home() {
         />
       )}
 
-      <SettingsModal open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsPricingExample(undefined); setSettingsScoringExample(undefined); }} initialSection={settingsInitialSection ?? undefined} pricingExample={settingsPricingExample} scoringExample={settingsScoringExample} isBrickspotterOnly={isBrickspotterOnly} />
+      <SettingsModal open={settingsOpen} onClose={() => { setSettingsOpen(false); setSettingsPricingExample(undefined); setSettingsScoringExample(undefined); setSettingsFocusTarget(undefined); }} initialSection={settingsInitialSection ?? undefined} focusTarget={settingsFocusTarget} pricingExample={settingsPricingExample} scoringExample={settingsScoringExample} isBrickspotterOnly={isBrickspotterOnly} />
       
       {/* Detail modal — mobile always; desktop only for BS-only layout (no center column overlay there) */}
       {(!isDesktop || isBrickspotterOnly) && (
