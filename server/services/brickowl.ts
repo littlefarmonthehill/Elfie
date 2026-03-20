@@ -209,7 +209,7 @@ export async function updateBrickOwlLot(data: {
 // Rate limit: 100 batch requests/min → 600ms between calls
 // Throughput: 50 items × 100 batches/min = 5,000 updates/min
 async function brickowlBatch(
-  requests: Array<{ endpoint: string; request_method: 'GET' | 'POST'; params: Record<string, any> }>
+  requests: Array<{ endpoint: string; request_method: 'GET' | 'POST'; params: Record<string, any>[] }>
 ): Promise<any[]> {
   const [settings] = await db.select().from(appSettings).where(isNotNull(appSettings.brickowlApiKey)).limit(1);
   const apiKey = settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY;
@@ -609,19 +609,21 @@ export async function syncBrickLinkToBrickOwl(
   for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
     const chunk = toUpdate.slice(i, i + BATCH_SIZE);
 
+    // BrickOwl batch API requires params as an ARRAY: [{"lot_id":"...","absolute_quantity":2}]
+    // NOT a plain object — the API returns {"error":"Invalid JSON"} if you send an object.
     const batchRequests = chunk.map(job => ({
       endpoint: 'inventory/update',
       request_method: 'POST' as const,
-      params: {
+      params: [{
         lot_id: job.lot_id,
-        absolute_quantity: job.absolute_quantity,
+        absolute_quantity: job.absolute_quantity, // number, not string — this is JSON
         price: job.price.toFixed(3),
         condition: job.condition,
-        for_sale: '1',
+        for_sale: 1,
         ...(job.personal_note !== undefined && { personal_note: job.personal_note }),
         ...(job.public_note   !== undefined && { public_note:   job.public_note   }),
         ...(job.external_id   !== undefined && { external_id:   job.external_id   }),
-      },
+      }],
     }));
 
     try {
