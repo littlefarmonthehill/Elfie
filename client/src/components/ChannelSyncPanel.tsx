@@ -708,6 +708,7 @@ function AuditReportView({ discrepancyAreas, totalDiscrepancies, lastSyncTime }:
 <head>
   <meta charset="UTF-8" />
   <title>BrickOwl Channel Sync Audit Report</title>
+  <script>window.onafterprint = function() { window.close(); };</script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #111; margin: 2rem; font-size: 13px; }
     h1 { font-size: 1.25rem; margin-bottom: 0.25rem; }
@@ -741,7 +742,13 @@ function AuditReportView({ discrepancyAreas, totalDiscrepancies, lastSyncTime }:
     win.document.write(html);
     win.document.close();
     win.focus();
-    setTimeout(() => win.print(), 400);
+    // Close the window after print/share sheet is dismissed (desktop + iOS Safari)
+    win.addEventListener('afterprint', () => win.close());
+    setTimeout(() => {
+      win.print();
+      // iOS fallback: if afterprint doesn't fire within 2s of print() returning, close anyway
+      // (iOS print() returns immediately, afterprint fires when sheet dismisses)
+    }, 400);
   }
 
   function handleDownloadCsv() {
