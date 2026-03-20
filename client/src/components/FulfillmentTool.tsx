@@ -1160,14 +1160,43 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                       variant="outline"
                       className="border-green-500/40 text-green-300"
                       onClick={() => {
-                        batchResults.forEach(r => {
-                          if (r.labelUrl) window.open(r.labelUrl, "_blank");
-                        });
+                        const urls = batchResults.filter(r => r.labelUrl).map(r => r.labelUrl!);
+                        if (urls.length === 0) return;
+                        if (urls.length === 1) {
+                          window.open(urls[0], "_blank");
+                          return;
+                        }
+                        // Open a single print window with all labels embedded so the
+                        // browser popup blocker doesn't strip anything after the first.
+                        const pw = window.open("", "_blank");
+                        if (!pw) return;
+                        const iframes = urls.map(url =>
+                          `<iframe src="${url}" style="width:100%;height:11in;border:none;display:block;page-break-after:always;"></iframe>`
+                        ).join('');
+                        pw.document.write(`<!DOCTYPE html><html><head>
+                          <title>Shipping Labels</title>
+                          <style>
+                            body { margin: 0; }
+                            @media print { @page { margin: 0; } }
+                          </style>
+                        </head><body>
+                          ${iframes}
+                          <script>
+                            // Auto-print once all iframes have loaded
+                            let loaded = 0;
+                            const frames = document.querySelectorAll('iframe');
+                            frames.forEach(f => f.addEventListener('load', () => {
+                              loaded++;
+                              if (loaded === frames.length) { window.print(); }
+                            }));
+                          </script>
+                        </body></html>`);
+                        pw.document.close();
                       }}
                       data-testid="button-print-all-labels"
                     >
-                      <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                      Open All Labels
+                      <Printer className="w-3.5 h-3.5 mr-1.5" />
+                      Print All Labels
                     </Button>
                     <Button
                       size="sm"
