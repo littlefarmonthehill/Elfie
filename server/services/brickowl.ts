@@ -366,6 +366,14 @@ export async function syncInventoryItem(
     // Pre-existing BrickOwl lots (created before external_id tagging was in place)
     // won't have external_lot_ids.other set. We identify them by BOID + condition
     // so we can update them in place instead of creating duplicates.
+
+    // Analysis mode: no tagged lot found, no writes allowed — skip BOID lookup entirely.
+    // BOID lookups are external API calls (~400ms each); skipping them makes analysis
+    // mode orders of magnitude faster when most items aren't yet tagged.
+    if (mode === 'analysis') {
+      return { success: true, action: 'skipped' };
+    }
+
     const boid = await lookupBoid(blItem.itemNo, blItem.itemType);
 
     if (boid) {
