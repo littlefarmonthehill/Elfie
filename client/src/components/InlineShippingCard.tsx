@@ -157,6 +157,8 @@ export default function InlineShippingCard({
   const hasUserChangedWeight = useRef(false);
   const hasUserChangedPackage = useRef(false);
   const isInitialLoad = useRef(true);
+  // Tracks the service name the user manually chose so rate refreshes re-select the same service
+  const userSelectedService = useRef<string | null>(null);
 
   // Auto-save all shipping fields to DB (debounced)
   const autoSave = (
@@ -324,7 +326,15 @@ export default function InlineShippingCard({
       const sorted: Rate[] = [...(result.rates || [])].sort((a, b) => a.rate - b.rate);
       setRates(sorted);
       if (sorted.length > 0) {
-        if (requestedService) {
+        // Priority: 1) user's manual choice, 2) BrickLink requested service, 3) cheapest
+        const userSvc = userSelectedService.current;
+        if (userSvc) {
+          const userLower = userSvc.toLowerCase();
+          const match = sorted.find(r =>
+            r.service.toLowerCase().includes(userLower) || userLower.includes(r.service.toLowerCase())
+          );
+          setSelectedRateId(match?.id || sorted[0].id);
+        } else if (requestedService) {
           const reqLower = requestedService.toLowerCase();
           const match = sorted.find(r =>
             r.service.toLowerCase().includes(reqLower) || reqLower.includes(r.service.toLowerCase())
@@ -612,7 +622,11 @@ export default function InlineShippingCard({
               <div className="space-y-1">
                 <div className="min-w-0">
                   <div className="min-w-0 overflow-hidden">
-                    <Select value={selectedRateId ?? ""} onValueChange={setSelectedRateId}>
+                    <Select value={selectedRateId ?? ""} onValueChange={id => {
+                      setSelectedRateId(id);
+                      const svc = rates.find(r => r.id === id)?.service ?? null;
+                      userSelectedService.current = svc;
+                    }}>
                       <SelectTrigger
                         className="h-8 w-full bg-gray-900 border-gray-600 truncate"
                         style={{ fontSize: '16px' }}
