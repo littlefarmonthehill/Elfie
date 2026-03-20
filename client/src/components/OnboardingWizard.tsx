@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, ArrowRight, Building2, Link, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2, Archive, Layers, MapPin, Upload, FileText, ChevronRight, AlertCircle, Package, Globe, CreditCard, Lock, BadgeCheck, X, TrendingUp } from "lucide-react";
+import { CheckCircle2, ArrowRight, Building2, Link, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2, Archive, Layers, MapPin, Upload, FileText, ChevronRight, AlertCircle, Package, Globe, CreditCard, Lock, BadgeCheck, X, TrendingUp, Target, ThumbsUp, Crosshair, ShoppingCart, Users } from "lucide-react";
 import { TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
 import type { Organization } from "@shared/schema";
@@ -21,10 +21,11 @@ interface Props {
 
 const STEPS = [
   { id: 1, label: "Company", icon: Building2 },
-  { id: 2, label: "BrickLink", icon: Link },
-  { id: 3, label: "Warehouse", icon: Archive },
-  { id: 4, label: "BrickOwl", icon: Globe },
-  { id: 5, label: "Subscribe", icon: CreditCard },
+  { id: 2, label: "Strategy", icon: Target },
+  { id: 3, label: "BrickLink", icon: Link },
+  { id: 4, label: "Warehouse", icon: Archive },
+  { id: 5, label: "BrickOwl", icon: Globe },
+  { id: 6, label: "Subscribe", icon: CreditCard },
 ];
 
 const DEPTH_OPTIONS = [
@@ -35,11 +36,12 @@ const DEPTH_OPTIONS = [
 
 const STEP_MESSAGES: Record<number, string> = {
   1: "Hi! I'm E.L.F.I.E. — your warehouse operations assistant. Let's start with your company info. This shows up on your packing slips and account profile.",
-  2: "BrickLink is the engine that drives everything. Connect your API keys and I'll automatically sync your inventory, orders, and pricing — all in one place.",
-  3: "Now let's map out your storage. Choose how your warehouse is laid out — once I know the structure, I can guide you to any part the moment an order comes in.",
-  4: "Do you sell on BrickOwl too? I can keep both stores in sync automatically. This is completely optional — you can add it any time from Settings.",
-  5: "You're on the free plan. When you're ready, pick a paid plan below — if it includes a trial, you won't be charged until it ends.",
-  6: "You're all set! Come find me in the sidebar whenever you need help managing inventory, filling orders, or just want to know what's going on.",
+  2: "This is optional, but the more you tell me about your vision, the smarter my suggestions become. Feel free to skip — you can fill this in anytime from the IE Strategies settings.",
+  3: "BrickLink is the engine that drives everything. Connect your API keys and I'll automatically sync your inventory, orders, and pricing — all in one place.",
+  4: "Now let's map out your storage. Choose how your warehouse is laid out — once I know the structure, I can guide you to any part the moment an order comes in.",
+  5: "Do you sell on BrickOwl too? I can keep both stores in sync automatically. This is completely optional — you can add it any time from Settings.",
+  6: "You're on the free plan. When you're ready, pick a paid plan below — if it includes a trial, you won't be charged until it ends.",
+  7: "You're all set! Come find me in the sidebar whenever you need help managing inventory, filling orders, or just want to know what's going on.",
 };
 
 function ElfieSpeechBubble({ step, large = false }: { step: number; large?: boolean }) {
@@ -114,7 +116,16 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   const [boApiKey, setBoApiKey] = useState("");
   const [channelSyncMode, setChannelSyncMode] = useState<'full_control' | 'quantity_only'>('full_control');
 
-  // Step 5 — Subscribe
+  // Step 2 — IE Strategies
+  const [ieStratVision, setIeStratVision] = useState("");
+  const [ieStratSuccess, setIeStratSuccess] = useState("");
+  const [ieStratPricing, setIeStratPricing] = useState("");
+  const [ieStratInventory, setIeStratInventory] = useState("");
+  const [ieStratOrders, setIeStratOrders] = useState("");
+  const [ieStratCustomer, setIeStratCustomer] = useState("");
+  const [ieStratMarket, setIeStratMarket] = useState("");
+
+  // Step 6 — Subscribe
   const [selectedPlan, setSelectedPlan] = useState<number | null>(null);
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [csvText, setCsvText] = useState("");
@@ -157,6 +168,11 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
     },
   });
 
+  const saveIeStratMutation = useMutation({
+    mutationFn: (data: Record<string, any>) => apiRequest("PUT", "/api/ie-strategies", data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/ie-strategies"] }),
+  });
+
   const checkoutMutation = useMutation({
     mutationFn: async ({ planId }: { planId: number }) => {
       const res = await apiRequest("POST", "/api/billing/checkout", { planId, context: "onboarding" });
@@ -188,6 +204,22 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   };
 
   const handleStep2 = async (skip = false) => {
+    const hasContent = ieStratVision || ieStratSuccess || ieStratPricing || ieStratInventory || ieStratOrders || ieStratCustomer || ieStratMarket;
+    if (!skip && hasContent) {
+      await saveIeStratMutation.mutateAsync({
+        visionMission: ieStratVision || null,
+        successFactors: ieStratSuccess || null,
+        pricingStrategy: ieStratPricing || null,
+        inventoryStrategy: ieStratInventory || null,
+        ordersStrategy: ieStratOrders || null,
+        customerStrategy: ieStratCustomer || null,
+        marketStrategy: ieStratMarket || null,
+      });
+    }
+    setStep(3);
+  };
+
+  const handleStep3 = async (skip = false) => {
     if (!skip && (blKey || blSecret || blToken || blTokenSecret)) {
       await saveSettingsMutation.mutateAsync({
         bricklinkConsumerKey: blKey || null,
@@ -196,34 +228,34 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
         bricklinkTokenSecret: blTokenSecret || null,
       });
     }
-    setStep(3);
-  };
-
-  const handleStep3 = async () => {
-    if (selectedDepth !== null) {
-      await saveDepthMutation.mutateAsync(selectedDepth);
-    }
     setStep(4);
   };
 
-  const handleStep4 = async (skip = false) => {
+  const handleStep4 = async () => {
+    if (selectedDepth !== null) {
+      await saveDepthMutation.mutateAsync(selectedDepth);
+    }
+    setStep(5);
+  };
+
+  const handleStep5 = async (skip = false) => {
     if (!skip && boApiKey.trim()) {
       await saveSettingsMutation.mutateAsync({
         brickowlApiKey: boApiKey.trim(),
         channelSyncMode,
       });
     }
-    setStep(5);
+    setStep(6);
   };
 
-  const handleStep5Skip = () => setStep(6);
+  const handleStep6Skip = () => setStep(7);
 
   const handleFinish = async () => {
     await saveOrgMutation.mutateAsync({ onboardingCompleted: true });
     onComplete();
   };
 
-  const isSaving = saveOrgMutation.isPending || saveSettingsMutation.isPending || saveDepthMutation.isPending;
+  const isSaving = saveOrgMutation.isPending || saveSettingsMutation.isPending || saveDepthMutation.isPending || saveIeStratMutation.isPending;
   const csvDepthHint = selectedDepth ?? 3;
 
   return (
@@ -231,7 +263,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
       <div className="w-full max-w-lg py-8">
 
         {/* Dismiss button */}
-        {onDismiss && step < 6 && (
+        {onDismiss && step < 7 && (
           <div className="flex justify-end mb-2">
             <button
               onClick={onDismiss}
@@ -245,11 +277,11 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
           </div>
         )}
 
-        {/* ELFIE speech bubble — steps 1–5 */}
-        {step < 6 && <ElfieSpeechBubble step={step} />}
+        {/* ELFIE speech bubble — steps 1–6 */}
+        {step < 7 && <ElfieSpeechBubble step={step} />}
 
         {/* Step indicator */}
-        {step < 6 && (
+        {step < 7 && (
           <div className="flex items-center justify-center gap-0 mb-6 overflow-x-auto pb-1">
             {STEPS.map((s, i) => (
               <div key={s.id} className="flex items-center flex-shrink-0">
@@ -381,8 +413,92 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
             </>
           )}
 
-          {/* ── Step 2: BrickLink ── */}
+          {/* ── Step 2: IE Strategy ── */}
           {step === 2 && (
+            <>
+              <div>
+                <h2 className="text-lg font-semibold text-white mb-1">Business strategy <span className="text-xs font-normal text-gray-500 ml-1">optional</span></h2>
+                <p className="text-sm text-gray-400">Help me understand your goals so I can frame signals and suggestions around what actually matters to you. Everything here is optional — skip anything you're not ready for.</p>
+              </div>
+
+              <div className="space-y-4">
+                {/* Vision & Mission */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Crosshair className="w-3.5 h-3.5 text-blue-400" />
+                    <Label className="text-xs font-medium text-gray-300">Vision &amp; Mission <span className="text-gray-600 font-normal">— All agents</span></Label>
+                  </div>
+                  <Textarea
+                    value={ieStratVision}
+                    onChange={(e) => setIeStratVision(e.target.value)}
+                    placeholder="Who are you, and why does this store exist? E.g. 'Trusted seller of rare space sets — fast, accurate, no hassle.'"
+                    className="bg-gray-800 border-gray-700 text-white text-xs resize-none"
+                    rows={3}
+                    data-testid="textarea-onboard-vision"
+                  />
+                </div>
+
+                {/* Defining Success */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <ThumbsUp className="w-3.5 h-3.5 text-green-400" />
+                    <Label className="text-xs font-medium text-gray-300">Defining Success <span className="text-gray-600 font-normal">— All agents</span></Label>
+                  </div>
+                  <p className="text-[10px] text-gray-600 leading-relaxed">Picture 12 months from now — what's different? Describe it in vivid, sensory terms: how you feel, what customers say, what the numbers look like.</p>
+                  <Textarea
+                    value={ieStratSuccess}
+                    onChange={(e) => setIeStratSuccess(e.target.value)}
+                    placeholder="E.g. 'Orders ship same day. Inbox is quiet. Customers leave 5-star reviews mentioning speed without prompting…'"
+                    className="bg-gray-800 border-gray-700 text-white text-xs resize-none"
+                    rows={3}
+                    data-testid="textarea-onboard-success"
+                  />
+                </div>
+
+                {/* Per-agent strategy accordion */}
+                <div className="border-t border-gray-800 pt-3 space-y-3">
+                  <p className="text-[10px] text-gray-600 uppercase tracking-wide font-medium">Agent-specific directives <span className="normal-case">(optional)</span></p>
+
+                  {[
+                    { icon: TrendingUp, color: "text-purple-400", label: "Pricing Agent", placeholder: "How aggressive or conservative should pricing be? Any rules on repricing?", value: ieStratPricing, setter: setIeStratPricing, testId: "textarea-onboard-strat-pricing" },
+                    { icon: Package, color: "text-yellow-400", label: "Inventory Agent", placeholder: "What matters most — dead stock alerts, low-stock warnings, lot hygiene?", value: ieStratInventory, setter: setIeStratInventory, testId: "textarea-onboard-strat-inventory" },
+                    { icon: ShoppingCart, color: "text-blue-400", label: "Orders Agent", placeholder: "Fulfilment priorities — speed, accuracy, bundling? Any order-level rules?", value: ieStratOrders, setter: setIeStratOrders, testId: "textarea-onboard-strat-orders" },
+                    { icon: Users, color: "text-pink-400", label: "Customer Agent", placeholder: "How to handle repeat buyers, problem orders, or VIP customers?", value: ieStratCustomer, setter: setIeStratCustomer, testId: "textarea-onboard-strat-customer" },
+                    { icon: Globe, color: "text-teal-400", label: "Market Agent", placeholder: "What market signals matter most — BrickLink trends, rare finds, forum buzz?", value: ieStratMarket, setter: setIeStratMarket, testId: "textarea-onboard-strat-market" },
+                  ].map(({ icon: Icon, color, label, placeholder, value, setter, testId }) => (
+                    <div key={label} className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <Icon className={`w-3.5 h-3.5 ${color}`} />
+                        <Label className="text-xs text-gray-400">{label}</Label>
+                      </div>
+                      <Textarea
+                        value={value}
+                        onChange={(e) => setter(e.target.value)}
+                        placeholder={placeholder}
+                        className="bg-gray-800 border-gray-700 text-white text-xs resize-none"
+                        rows={2}
+                        data-testid={testId}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-between items-center gap-3 flex-wrap">
+                <Button variant="ghost" onClick={() => handleStep2(true)} className="text-gray-500" data-testid="button-onboard-skip-2">
+                  Skip for now
+                </Button>
+                <Button onClick={() => handleStep2(false)} disabled={isSaving} data-testid="button-onboard-next-2">
+                  {isSaving ? "Saving…" : "Continue"}
+                  <ArrowRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* ── Step 3: BrickLink ── */}
+          {step === 3 && (
+
             <>
               <div>
                 <h2 className="text-lg font-semibold text-white mb-1">Connect BrickLink</h2>
@@ -519,10 +635,10 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                 </div>
               </div>
               <div className="pt-2 flex justify-between">
-                <Button variant="ghost" onClick={() => handleStep2(true)} className="text-gray-500" data-testid="button-onboard-skip-2">
+                <Button variant="ghost" onClick={() => handleStep3(true)} className="text-gray-500" data-testid="button-onboard-skip-3">
                   Skip for now
                 </Button>
-                <Button onClick={() => handleStep2(false)} disabled={isSaving} data-testid="button-onboard-next-2">
+                <Button onClick={() => handleStep3(false)} disabled={isSaving} data-testid="button-onboard-next-3">
                   {isSaving ? "Saving…" : "Continue"}
                   <ArrowRight className="w-4 h-4 ml-1" />
                 </Button>
@@ -530,8 +646,8 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
             </>
           )}
 
-          {/* ── Step 3: Warehouse Setup ── */}
-          {step === 3 && (
+          {/* ── Step 4: Warehouse Setup ── */}
+          {step === 4 && (
             <>
               <div>
                 <h2 className="text-lg font-semibold text-white mb-1">Warehouse setup</h2>
@@ -734,9 +850,9 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
 
               <div className="pt-2 flex justify-end">
                 <Button
-                  onClick={handleStep3}
+                  onClick={handleStep4}
                   disabled={isSaving || selectedDepth === null}
-                  data-testid="button-onboard-next-3"
+                  data-testid="button-onboard-next-4"
                 >
                   {isSaving ? "Saving…" : "Continue"}
                   <ArrowRight className="w-4 h-4 ml-1" />
@@ -745,8 +861,8 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
             </>
           )}
 
-          {/* ── Step 4: BrickOwl ── */}
-          {step === 4 && (
+          {/* ── Step 5: BrickOwl ── */}
+          {step === 5 && (
             <>
               <div>
                 <h2 className="text-lg font-semibold text-white mb-1">BrickOwl channel</h2>
@@ -805,13 +921,13 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
               )}
 
               <div className="pt-2 flex justify-between">
-                <Button variant="ghost" onClick={() => handleStep4(true)} className="text-gray-500" data-testid="button-onboard-skip-4">
+                <Button variant="ghost" onClick={() => handleStep5(true)} className="text-gray-500" data-testid="button-onboard-skip-5">
                   Skip — I don't use BrickOwl
                 </Button>
                 <Button
-                  onClick={() => handleStep4(false)}
+                  onClick={() => handleStep5(false)}
                   disabled={isSaving}
-                  data-testid="button-onboard-next-4"
+                  data-testid="button-onboard-next-5"
                 >
                   {isSaving ? "Saving…" : boApiKey.trim() ? "Connect & continue" : "Continue"}
                   <ArrowRight className="w-4 h-4 ml-1" />
@@ -820,8 +936,8 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
             </>
           )}
 
-          {/* ── Step 5: Subscribe ── */}
-          {step === 5 && (
+          {/* ── Step 6: Subscribe ── */}
+          {step === 6 && (
             <>
               <div>
                 <h2 className="text-lg font-semibold text-white mb-1">Choose your plan</h2>
@@ -889,7 +1005,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
 
               {/* Action buttons */}
               <div className="pt-1 flex justify-between items-center gap-3 flex-wrap">
-                <Button variant="ghost" onClick={handleStep5Skip} className="text-gray-500" data-testid="button-onboard-skip-5">
+                <Button variant="ghost" onClick={handleStep6Skip} className="text-gray-500" data-testid="button-onboard-skip-6">
                   I'll subscribe later
                 </Button>
                 <Button
@@ -918,8 +1034,8 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
             </>
           )}
 
-          {/* ── Step 6: Done ── */}
-          {step === 6 && (
+          {/* ── Step 7: Done ── */}
+          {step === 7 && (
             <>
               {/* ELFIE centered + speech bubble */}
               <div className="flex flex-col items-center gap-4 py-2">
@@ -929,7 +1045,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                   className="w-32 h-32 object-contain drop-shadow-2xl"
                 />
                 <div className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-4 text-center max-w-sm">
-                  <p className="text-base text-gray-200 leading-snug">{STEP_MESSAGES[6]}</p>
+                  <p className="text-base text-gray-200 leading-snug">{STEP_MESSAGES[7]}</p>
                 </div>
                 <div className="flex items-center gap-2 text-green-400">
                   <CheckCircle2 className="w-5 h-5" />
@@ -976,7 +1092,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
           )}
         </div>
 
-        {step < 6 && step !== 5 && (
+        {step < 7 && step !== 6 && (
           <p className="text-center text-[11px] text-gray-600 mt-4">
             All settings can be updated any time in the Warehouse or Settings tabs.
           </p>
