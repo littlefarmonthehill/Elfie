@@ -121,23 +121,19 @@ export async function getBrickOwlInventory(activeOnly: boolean = true): Promise<
   
   // BrickOwl API returns array directly or { inventory: [...] }
   const lots = Array.isArray(response) ? response : (response.inventory || []);
-  
-  // Debug: Check external_lot_ids structure
-  if (lots.length > 0) {
-    const firstLot = lots[0];
-    console.log(`[BrickOwl Inventory] First lot keys: ${Object.keys(firstLot).join(', ')}`);
-    console.log(`[BrickOwl Inventory] external_lot_ids:`, JSON.stringify(firstLot.external_lot_ids || null));
-    
-    // Find a lot that has external_id_1 set
-    const lotWithExternal = lots.find((lot: any) => lot.external_lot_ids?.external_id_1);
-    if (lotWithExternal) {
-      console.log(`[BrickOwl Inventory] Sample lot WITH external_id_1:`, JSON.stringify(lotWithExternal.external_lot_ids));
-    } else {
-      console.log(`[BrickOwl Inventory] No lots found with external_id_1 set!`);
-    }
-  }
-  
-  return lots;
+
+  // Normalize API field names to our interface:
+  //   sale_percent  → sale_percentage (number)
+  //   tier_price    → coerce to string (API may return array/object/number)
+  return lots.map((lot: any) => ({
+    ...lot,
+    sale_percentage: typeof lot.sale_percent === 'number'
+      ? lot.sale_percent
+      : parseFloat(lot.sale_percent ?? lot.sale_percentage ?? '0') || 0,
+    tier_price: lot.tier_price != null && typeof lot.tier_price !== 'string'
+      ? String(lot.tier_price)
+      : (lot.tier_price ?? undefined),
+  }));
 }
 
 // Build a BrickOwl tier_price string from BrickLink tier fields.
@@ -156,12 +152,19 @@ function buildTierPriceString(
 
 // Normalize a BrickOwl tier_price string so we can compare without formatting noise.
 // e.g. "100:0.05,200:0.04" → "100:0.050,200:0.040"
-function normalizeTierPrice(raw?: string | null): string {
+// BrickOwl may return tier_price as a non-string (array, object, number) — coerce defensively.
+function normalizeTierPrice(raw?: string | null | unknown): string {
   if (!raw || raw === 'remove') return '';
-  return raw.split(',').map(tier => {
+  // Coerce non-string values — if coercion yields a useless string, bail out
+  const str = typeof raw === 'string' ? raw : String(raw);
+  if (!str || str === '[object Object]' || str === 'null' || str === 'undefined') return '';
+  return str.split(',').map(tier => {
     const [q, p] = tier.trim().split(':');
-    return `${parseInt(q, 10)}:${parseFloat(p).toFixed(3)}`;
-  }).join(',');
+    const qty = parseInt(q, 10);
+    const price = parseFloat(p);
+    if (isNaN(qty) || isNaN(price)) return '';
+    return `${qty}:${price.toFixed(3)}`;
+  }).filter(Boolean).join(',');
 }
 
 // Create a new lot on BrickOwl
@@ -604,8 +607,10 @@ export async function syncBrickLinkToBrickOwl(
         item.tierQuantity2, item.tierPrice2,
         item.tierQuantity3, item.tierPrice3,
       );
-      // If BL has no tiers but BO does, send 'remove' to clear them
-      const tierPriceToSend = newTierPrice ?? (taggedLot.tier_price ? 'remove' : undefined);
+      // Normalize raw BO tier_price to a clean string (BrickOwl may return array/object/number)
+      const boTierPriceStr = normalizeTierPrice(taggedLot.tier_price);
+      // If BL has no tiers but BO has active tiers, send 'remove' to clear them
+      const tierPriceToSend = newTierPrice ?? (boTierPriceStr ? 'remove' : undefined);
 
       const newSaleRate = item.saleRate ?? 0;
 
@@ -616,7 +621,7 @@ export async function syncBrickLinkToBrickOwl(
       // Without decoding first, these items always appear as different and never settle.
       const remarksChanged   = (taggedLot.personal_note || '') !== decodeHtmlEntities(item.remarks || '');
       const descChanged      = (taggedLot.public_note   || '') !== decodeHtmlEntities(item.description || '');
-      const tierChanged      = normalizeTierPrice(taggedLot.tier_price) !== normalizeTierPrice(newTierPrice);
+      const tierChanged      = boTierPriceStr !== normalizeTierPrice(newTierPrice);
       const saleChanged      = (taggedLot.sale_percentage ?? 0) !== newSaleRate;
 
       const hasChange = qtyChanged || priceChanged || remarksChanged || descChanged || tierChanged || saleChanged;
