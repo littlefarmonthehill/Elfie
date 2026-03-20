@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Progress } from "@/components/ui/progress";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -95,6 +96,17 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
   const brickOwl = platformData?.targets?.find((t: any) => t.name === 'BrickOwl');
   const lastSync = syncStatuses?.channel;
   const isRunning = lastSync?.lastSyncStatus === 'in_progress' || syncMutation.isPending;
+
+  const { data: progressData } = useQuery<{ processed: number; total: number; phase: string }>({
+    queryKey: ['/api/channel-sync/progress'],
+    refetchInterval: isRunning ? 1500 : false,
+    enabled: isRunning,
+  });
+
+  const progressPct = progressData && progressData.total > 0
+    ? Math.round((progressData.processed / progressData.total) * 100)
+    : 0;
+  const showProgress = isRunning && !!progressData;
 
   const missingLots = brickOwl?.discrepancies?.missingLots ?? 0;
   const priceDiffs = brickOwl?.discrepancies?.priceDifferences ?? 0;
@@ -220,6 +232,22 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
           </div>
           <ChevronRight className="w-3.5 h-3.5 text-gray-600 shrink-0" />
         </div>
+
+        {showProgress && (
+          <div className="space-y-1" data-testid="channel-sync-progress">
+            <Progress value={progressPct} className="h-1.5" />
+            <div className="flex justify-between text-[10px] text-gray-500">
+              <span>
+                {progressData!.phase === 'fetching'
+                  ? 'Fetching inventory…'
+                  : `${progressData!.processed.toLocaleString()} / ${progressData!.total.toLocaleString()} items`}
+              </span>
+              {progressData!.phase === 'syncing' && (
+                <span className="tabular-nums">{progressPct}%</span>
+              )}
+            </div>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex gap-4">

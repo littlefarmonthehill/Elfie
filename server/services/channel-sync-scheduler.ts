@@ -13,8 +13,14 @@ const RETRY_BASE_MS = 5 * 60 * 1000;
 
 const retry = { count: 0, nextAt: 0 };
 
+let channelSyncProgress: { processed: number; total: number; phase: 'idle' | 'fetching' | 'syncing' } = { processed: 0, total: 0, phase: 'idle' };
+
 export function getChannelSyncIsRunning() {
   return syncLock.getActive().includes('Channel Sync');
+}
+
+export function getChannelSyncProgress() {
+  return { ...channelSyncProgress };
 }
 
 export async function startChannelSyncScheduler() {
@@ -125,7 +131,10 @@ async function runScheduledChannelSync() {
       else if (m === 'analysis') syncMode = 'analysis';
     } catch { /* default to full_control */ }
 
-    const result = await syncBrickLinkToBrickOwl(undefined, syncMode);
+    channelSyncProgress = { processed: 0, total: 0, phase: 'fetching' };
+    const result = await syncBrickLinkToBrickOwl(undefined, syncMode, (processed, total) => {
+      channelSyncProgress = { processed, total, phase: 'syncing' };
+    });
     const hasErrors = result.errors.length > 0;
     const status = hasErrors ? 'partial' : 'success';
     console.log(`\n✨ Channel sync complete! ${result.lotsCreated} created, ${result.lotsUpdated} updated, ${result.lotsSkipped} skipped, ${result.errors.length} errors (mode: ${syncMode})`);
@@ -184,6 +193,7 @@ async function runScheduledChannelSync() {
       metadata: { error: error.message, attempt: retry.count, maxRetries: MAX_RETRIES, timestamp: new Date().toISOString() },
     });
   } finally {
+    channelSyncProgress = { processed: 0, total: 0, phase: 'idle' };
     syncLock.release('Channel Sync');
   }
 }

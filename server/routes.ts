@@ -11026,6 +11026,11 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     res.json({ running: getChannelSyncIsRunning() });
   });
 
+  app.get("/api/channel-sync/progress", isApproved, async (req, res) => {
+    const { getChannelSyncProgress } = await import("./services/channel-sync-scheduler");
+    res.json(getChannelSyncProgress());
+  });
+
   // Manual channel sync trigger
   app.post("/api/sync/channel", isApproved, async (req, res) => {
     try {

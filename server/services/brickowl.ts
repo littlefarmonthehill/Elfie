@@ -455,7 +455,7 @@ export async function syncInventoryItem(
 }
 
 // Sync all BrickLink inventory to BrickOwl
-export async function syncBrickLinkToBrickOwl(limit?: number, mode: 'analysis' | 'full_control' | 'quantity_only' = 'full_control'): Promise<BrickOwlSyncResult> {
+export async function syncBrickLinkToBrickOwl(limit?: number, mode: 'analysis' | 'full_control' | 'quantity_only' = 'full_control', onProgress?: (processed: number, total: number) => void): Promise<BrickOwlSyncResult> {
   const result: BrickOwlSyncResult = {
     lotsCreated: 0,
     lotsUpdated: 0,
@@ -479,7 +479,10 @@ export async function syncBrickLinkToBrickOwl(limit?: number, mode: 'analysis' |
   console.log(`Fetched ${brickowlInventory.length} lots from BrickOwl for comparison`);
 
   // Sync each item
+  let processed = 0;
   for (const item of blItems) {
+    processed++;
+    onProgress?.(processed, blItems.length);
     const syncResult = await syncInventoryItem(item, brickowlInventory, mode);
     result.totalApiCalls += 2; // Estimate: lookup + create/update
     
