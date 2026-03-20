@@ -240,7 +240,19 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
   const actionRowRef = useRef<HTMLDivElement>(null);
   const shipBtnRef = useRef<HTMLButtonElement>(null);
   const swipeTouchStartX = useRef<number>(0);
-  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
+  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('elfie-fulfillment-selected');
+      return saved ? new Set<string>(JSON.parse(saved)) : new Set<string>();
+    } catch { return new Set<string>(); }
+  });
+
+  // Persist selections to localStorage so they survive drawer close/reopen
+  useEffect(() => {
+    try {
+      localStorage.setItem('elfie-fulfillment-selected', JSON.stringify([...selectedOrders]));
+    } catch { /* ignore */ }
+  }, [selectedOrders]);
 
   // Slide-in animation: one frame delay so CSS transition has something to transition from
   useEffect(() => {
