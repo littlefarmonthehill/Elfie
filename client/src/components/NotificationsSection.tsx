@@ -3,16 +3,32 @@ import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Bell, BellOff, BellRing, Loader2, ShieldAlert } from "lucide-react";
+import { Bell, BellOff, BellRing, Loader2, ShieldAlert, Share, SquarePlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-type SubStatus = "loading" | "unsupported" | "denied" | "unsubscribed" | "subscribed";
+type SubStatus = "loading" | "needs-pwa" | "needs-ios-update" | "unsupported" | "denied" | "unsubscribed" | "subscribed";
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
   const rawData = atob(base64);
   return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+}
+
+function isIOS() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
+function isStandalone() {
+  return (
+    ("standalone" in navigator && (navigator as any).standalone === true) ||
+    window.matchMedia("(display-mode: standalone)").matches
+  );
+}
+
+function getIOSVersion(): number {
+  const match = navigator.userAgent.match(/OS (\d+)_/);
+  return match ? parseInt(match[1], 10) : 0;
 }
 
 export default function NotificationsSection() {
@@ -28,20 +44,55 @@ export default function NotificationsSection() {
   });
 
   const detectStatus = useCallback(async () => {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      setStatus("unsupported");
+    const ios = isIOS();
+
+    // iOS: must be installed as PWA
+    if (ios && !isStandalone()) {
+      setStatus("needs-pwa");
       return;
     }
+
+    // iOS: must be 16.4+
+    if (ios && getIOSVersion() < 16) {
+      setStatus("needs-ios-update");
+      return;
+    }
+
+    // General browser support check
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      // On iOS 16.4+ in standalone mode, PushManager is sometimes only available
+      // after the service worker is fully activated — try waiting for it
+      if (ios) {
+        try {
+          await navigator.serviceWorker.ready;
+          if (!("PushManager" in window)) {
+            setStatus("needs-ios-update");
+            return;
+          }
+        } catch {
+          setStatus("needs-ios-update");
+          return;
+        }
+      } else {
+        setStatus("unsupported");
+        return;
+      }
+    }
+
     const perm = Notification.permission;
     if (perm === "denied") { setStatus("denied"); return; }
 
-    const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    if (sub) {
-      setSubscription(sub);
-      setStatus("subscribed");
-    } else {
-      setStatus(perm === "granted" ? "unsubscribed" : "unsubscribed");
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        setSubscription(sub);
+        setStatus("subscribed");
+      } else {
+        setStatus("unsubscribed");
+      }
+    } catch {
+      setStatus("unsubscribed");
     }
   }, []);
 
@@ -102,6 +153,7 @@ export default function NotificationsSection() {
   };
 
   const isSubscribed = status === "subscribed";
+  const isActionable = !["loading", "needs-pwa", "needs-ios-update", "unsupported", "denied"].includes(status);
 
   return (
     <div className="p-4 space-y-6 max-w-lg">
@@ -117,35 +169,96 @@ export default function NotificationsSection() {
       </div>
 
       {/* Status card */}
-      <div className="rounded-md border bg-card p-4 flex items-center gap-3">
-        {status === "loading" && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground shrink-0" />}
-        {status === "subscribed" && <Bell className="w-4 h-4 text-green-400 shrink-0" />}
-        {(status === "unsubscribed") && <BellOff className="w-4 h-4 text-muted-foreground shrink-0" />}
-        {status === "denied" && <ShieldAlert className="w-4 h-4 text-red-400 shrink-0" />}
-        {status === "unsupported" && <BellOff className="w-4 h-4 text-muted-foreground shrink-0" />}
+      <div className="rounded-md border bg-card p-4">
+        {status === "loading" && (
+          <div className="flex items-center gap-3">
+            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground shrink-0" />
+            <p className="text-sm text-muted-foreground">Checking notification status…</p>
+          </div>
+        )}
 
-        <div className="flex-1 min-w-0">
-          {status === "loading" && <p className="text-sm text-muted-foreground">Checking notification status…</p>}
-          {status === "subscribed" && <p className="text-sm text-green-400 font-medium">This device is receiving notifications</p>}
-          {status === "unsubscribed" && <p className="text-sm text-muted-foreground">Notifications are off for this device</p>}
-          {status === "denied" && (
+        {status === "subscribed" && (
+          <div className="flex items-center gap-3">
+            <Bell className="w-4 h-4 text-green-400 shrink-0" />
+            <p className="text-sm text-green-400 font-medium flex-1">This device is receiving notifications</p>
+            <Button size="sm" variant="ghost" onClick={handleDisable} disabled={isBusy} data-testid="button-disable-notifications">
+              {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Disable"}
+            </Button>
+          </div>
+        )}
+
+        {status === "unsubscribed" && (
+          <div className="flex items-center gap-3">
+            <BellOff className="w-4 h-4 text-muted-foreground shrink-0" />
+            <p className="text-sm text-muted-foreground flex-1">Notifications are off for this device</p>
+            <Button size="sm" onClick={handleEnable} disabled={isBusy || !vapidData?.publicKey} data-testid="button-enable-notifications">
+              {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Enable"}
+            </Button>
+          </div>
+        )}
+
+        {status === "denied" && (
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm text-red-400 font-medium">Notifications blocked</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Allow notifications for this site in your browser settings, then reload.</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Go to Settings &rsaquo; {isIOS() ? "E.L.F.I.E." : "your browser"} &rsaquo; Notifications and set to Allow, then come back here.
+              </p>
             </div>
-          )}
-          {status === "unsupported" && <p className="text-sm text-muted-foreground">Your browser doesn't support push notifications. Try Chrome or Edge.</p>}
-        </div>
-
-        {(status === "unsubscribed") && (
-          <Button size="sm" onClick={handleEnable} disabled={isBusy || !vapidData?.publicKey} data-testid="button-enable-notifications">
-            {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Enable"}
-          </Button>
+          </div>
         )}
-        {status === "subscribed" && (
-          <Button size="sm" variant="ghost" onClick={handleDisable} disabled={isBusy} data-testid="button-disable-notifications">
-            {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Disable"}
-          </Button>
+
+        {status === "needs-pwa" && (
+          <div className="space-y-3">
+            <div className="flex items-start gap-3">
+              <Share className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Install the app to enable notifications</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  iOS requires the app to be added to your Home Screen before push notifications can be enabled.
+                </p>
+              </div>
+            </div>
+            <div className="rounded-md bg-muted/50 p-3 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">How to install</p>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 text-xs text-foreground">
+                  <span className="w-4 h-4 rounded-full bg-amber-400/20 text-amber-400 flex items-center justify-center text-[10px] font-bold shrink-0">1</span>
+                  Tap the <Share className="w-3 h-3 inline mx-0.5 text-muted-foreground" /> Share button in Safari
+                </div>
+                <div className="flex items-center gap-2 text-xs text-foreground">
+                  <span className="w-4 h-4 rounded-full bg-amber-400/20 text-amber-400 flex items-center justify-center text-[10px] font-bold shrink-0">2</span>
+                  Tap <SquarePlus className="w-3 h-3 inline mx-0.5 text-muted-foreground" /> <strong>Add to Home Screen</strong>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-foreground">
+                  <span className="w-4 h-4 rounded-full bg-amber-400/20 text-amber-400 flex items-center justify-center text-[10px] font-bold shrink-0">3</span>
+                  Open E.L.F.I.E. from your Home Screen and return here
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {status === "needs-ios-update" && (
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-foreground">iOS 16.4 or later required</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Update your iPhone or iPad to iOS 16.4 or later in Settings &rsaquo; General &rsaquo; Software Update, then come back here.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {status === "unsupported" && (
+          <div className="flex items-start gap-3">
+            <BellOff className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+            <p className="text-sm text-muted-foreground">
+              Push notifications aren't supported in this browser. Try Chrome, Edge, or Safari on a supported device.
+            </p>
+          </div>
         )}
       </div>
 
@@ -188,7 +301,7 @@ export default function NotificationsSection() {
             />
           </div>
         </div>
-        {!isSubscribed && (
+        {!isActionable && status !== "loading" && (
           <p className="text-xs text-muted-foreground">Enable notifications above to configure these preferences.</p>
         )}
       </div>
