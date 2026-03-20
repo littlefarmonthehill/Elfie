@@ -123,10 +123,6 @@ export async function runMigrations() {
     console.log('[Migration] Phase-3 (operational tables) complete.');
 
     // ── Phase-4: Per-org credentials (app_settings + org_integrations) ───────
-    await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS paypal_client_id TEXT`);
-    await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS paypal_client_secret TEXT`);
-    await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS paypal_environment TEXT NOT NULL DEFAULT 'live'`);
-
     await client.query(`
       CREATE TABLE IF NOT EXISTS org_integrations (
         id             SERIAL PRIMARY KEY,
@@ -155,9 +151,7 @@ export async function runMigrations() {
         bricklink_consumer_key    = COALESCE(NULLIF(target.bricklink_consumer_key, ''),    source.bricklink_consumer_key),
         bricklink_consumer_secret = COALESCE(NULLIF(target.bricklink_consumer_secret, ''), source.bricklink_consumer_secret),
         bricklink_token_value     = COALESCE(NULLIF(target.bricklink_token_value, ''),     source.bricklink_token_value),
-        bricklink_token_secret    = COALESCE(NULLIF(target.bricklink_token_secret, ''),    source.bricklink_token_secret),
-        paypal_client_id          = COALESCE(NULLIF(target.paypal_client_id, ''),          source.paypal_client_id),
-        paypal_client_secret      = COALESCE(NULLIF(target.paypal_client_secret, ''),      source.paypal_client_secret)
+        bricklink_token_secret    = COALESCE(NULLIF(target.bricklink_token_secret, ''),    source.bricklink_token_secret)
       FROM app_settings AS source
       WHERE source.id     = 'default'
         AND target.id     = source.org_id
@@ -748,7 +742,6 @@ export async function runMigrations() {
         ['Performance dashboard', 'Sales Dashboards', 'built'],
         ['Revenue metrics', 'Sales Dashboards', 'built'],
         ['Refund tracking', 'Order Adjustments', 'built'],
-        ['PayPal capture polling', 'Order Adjustments', 'built'],
         ['Order adjustment log', 'Order Adjustments', 'built'],
         ['EasyPost multi-carrier integration', 'Shipping', 'built'],
         ['Rate shopping', 'Shipping', 'built'],

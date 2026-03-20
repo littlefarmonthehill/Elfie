@@ -9753,7 +9753,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   <div className="sm-card-divided">
                     {[
                       { name: 'Stripe', desc: 'Subscription billing and payment processing', url: 'https://stripe.com' },
-                      { name: 'PayPal', desc: 'Payment reconciliation for marketplace orders', url: 'https://www.paypal.com' },
                       { name: 'EasyPost', desc: 'Shipping label generation and scan forms', url: 'https://www.easypost.com' },
                     ].map(({ name, desc, url }) => (
                       <div key={name} className="flex items-start gap-3 px-4 py-2.5">
