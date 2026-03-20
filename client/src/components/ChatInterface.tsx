@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Sparkles, Brain, ChevronDown, ChevronRight, Globe, Newspaper, MessageSquare, Headphones, Lightbulb, Plus, History, Trash2, X, Map, ThumbsUp, Check } from "lucide-react";
+import { Send, RefreshCcw, Minimize2, Maximize2, ExternalLink, Sparkles, Brain, ChevronDown, ChevronRight, Globe, Newspaper, MessageSquare, Headphones, Lightbulb, Plus, History, Trash2, X, Map, ThumbsUp, Check, BarChart2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InventoryGroup } from "@/components/InventoryGroup";
 import { OrderGroup } from "@/components/OrderGroup";
@@ -1718,6 +1718,14 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
 
       {!isMinimized && (
         <div className={`flex gap-2 px-3 md:px-4 py-2 overflow-x-auto scrollbar-hide border-b border-purple-500/20`}>
+          <button
+            onClick={() => handlePromptClick('Give me a full business briefing — what are my agents seeing right now across inventory, pricing, market, orders, and customers?')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all bg-violet-500/20 hover:bg-violet-500/30 text-violet-300 border border-violet-500/30"
+            data-testid="prompt-business-briefing"
+          >
+            <BarChart2 className="h-3 w-3" />
+            <span>Business Briefing</span>
+          </button>
           <button
             onClick={() => handlePromptClick('Show me the latest headlines')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all ${colors.promptBg}`}
