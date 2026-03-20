@@ -127,6 +127,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
 
   const [aiSuggestion, setAiSuggestion] = useState<AiSuggestionResult | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [aiSuggestionMode, setAiSuggestionMode] = useState<'N' | 'U'>('N');
 
   const aiSuggestMutation = useMutation({
     mutationFn: async (payload: {
@@ -154,6 +155,17 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
     },
   });
 
+  const logDecisionMutation = useMutation({
+    mutationFn: async (payload: {
+      itemNo: string;
+      colorId: number | null;
+      newOrUsed: string;
+      suggestedPrice?: number | null;
+      actualPrice: number;
+      marketSnapshot?: object | null;
+    }) => apiRequest('POST', '/api/pom/price-decision', payload),
+  });
+
   const requestAiSuggestion = (newOrUsed: 'N' | 'U' = 'N') => {
     if (!result) return;
     const lotKey = `${colorId !== 'none' ? colorId : 'null'}_${newOrUsed}`;
@@ -161,6 +173,7 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
     const pomSuggested = newOrUsed === 'N' ? result.suggestedPriceNew : result.suggestedPriceUsed;
     setAiSuggestion(null);
     setAiError(null);
+    setAiSuggestionMode(newOrUsed);
     aiSuggestMutation.mutate({
       itemNo: result.priceData.itemNo,
       colorId: colorId !== 'none' ? parseInt(colorId) : null,
@@ -174,6 +187,21 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
         stockTotalLots: lpd.stockTotalLots ?? null,
       },
     });
+  };
+
+  const applyAiSuggestion = () => {
+    if (!result || !aiSuggestion) return;
+    const pomSuggested = aiSuggestionMode === 'N' ? result.suggestedPriceNew : result.suggestedPriceUsed;
+    navigator.clipboard.writeText(aiSuggestion.suggestedPrice.toFixed(2)).catch(() => {});
+    logDecisionMutation.mutate({
+      itemNo: result.priceData.itemNo,
+      colorId: colorId !== 'none' ? parseInt(colorId) : null,
+      newOrUsed: aiSuggestionMode,
+      suggestedPrice: pomSuggested ?? null,
+      actualPrice: aiSuggestion.suggestedPrice,
+      marketSnapshot: null,
+    });
+    toast({ title: `$${aiSuggestion.suggestedPrice.toFixed(2)} copied — decision logged` });
   };
 
   const invalidateDashboard = () => {
@@ -755,6 +783,14 @@ export function PomSpotLookup({ formatCurrency }: PomSpotLookupProps) {
                       <span className="text-sm font-bold text-purple-200 tabular-nums" data-testid="text-ai-suggested-price">
                         {formatCurrency(aiSuggestion.suggestedPrice)}
                       </span>
+                      <button
+                        onClick={applyAiSuggestion}
+                        className="text-[10px] px-2 py-0.5 rounded bg-purple-600/30 border border-purple-500/40 text-purple-300 hover:bg-purple-600/50 transition-colors"
+                        data-testid="button-ai-apply"
+                        title="Copy price & log decision"
+                      >
+                        Apply
+                      </button>
                       <button
                         onClick={() => { setAiSuggestion(null); setAiError(null); }}
                         className="text-gray-600 hover:text-gray-400 transition-colors"
