@@ -663,77 +663,89 @@ export async function syncBrickLinkToBrickOwl(
   if (mode === 'analysis') return result; // analysis stops here
 
   // ── Phase 2a: Batch-update changed tagged lots ───────────────────────────
-  // BrickOwl bulk/batch: max 50 requests per call, 100 calls/min (600ms gap)
+  // BrickOwl bulk/batch: max 50 requests per call, 100 calls/min rate limit.
+  // We run CONCURRENCY batches in parallel per round. Each call takes ~2s;
+  // 4 concurrent calls finish in ~2s, then we wait 600ms before the next
+  // round → ~4 calls per 2.6s = ~92/min, safely under the 100/min limit.
   const BATCH_SIZE = 50;
   const BATCH_GAP_MS = 600;
+  const CONCURRENCY = 4;
   let updateProgress = 0;
   const totalPhase2 = toUpdate.length + toAdopt.length;
+  let firstBatchLogged = false;
 
+  // Split all lots into chunks of BATCH_SIZE, then process CONCURRENCY at once
+  const allChunks: (typeof toUpdate)[] = [];
   for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
-    const chunk = toUpdate.slice(i, i + BATCH_SIZE);
+    allChunks.push(toUpdate.slice(i, i + BATCH_SIZE));
+  }
 
-    // BrickOwl batch API requires params as an ARRAY: [{"lot_id":"...","absolute_quantity":2}]
-    // NOT a plain object — the API returns {"error":"Invalid JSON"} if you send an object.
-    const batchRequests = chunk.map(job => ({
-      endpoint: 'inventory/update',
-      request_method: 'POST' as const,
-      params: [{
-        lot_id: job.lot_id,
-        absolute_quantity: job.absolute_quantity, // number, not string — this is JSON
-        price: job.price.toFixed(3),
-        condition: job.condition,
-        for_sale: 1,
-        ...(job.personal_note   !== undefined && { personal_note:   job.personal_note   }),
-        ...(job.public_note     !== undefined && { public_note:     job.public_note     }),
-        ...(job.tier_price      !== undefined && { tier_price:      job.tier_price      }),
-        ...(job.sale_percentage !== undefined && { sale_percentage: job.sale_percentage }),
-        ...(job.external_id     !== undefined && { external_id:     job.external_id     }),
-      }],
+  for (let r = 0; r < allChunks.length; r += CONCURRENCY) {
+    const round = allChunks.slice(r, r + CONCURRENCY);
+
+    await Promise.all(round.map(async (chunk) => {
+      // BrickOwl batch API requires params as an ARRAY: [{"lot_id":"...","absolute_quantity":2}]
+      // NOT a plain object — the API returns {"error":"Invalid JSON"} if you send an object.
+      const batchRequests = chunk.map(job => ({
+        endpoint: 'inventory/update',
+        request_method: 'POST' as const,
+        params: [{
+          lot_id: job.lot_id,
+          absolute_quantity: job.absolute_quantity,
+          price: job.price.toFixed(3),
+          condition: job.condition,
+          for_sale: 1,
+          ...(job.personal_note   !== undefined && { personal_note:   job.personal_note   }),
+          ...(job.public_note     !== undefined && { public_note:     job.public_note     }),
+          ...(job.tier_price      !== undefined && { tier_price:      job.tier_price      }),
+          ...(job.sale_percentage !== undefined && { sale_percentage: job.sale_percentage }),
+          ...(job.external_id     !== undefined && { external_id:     job.external_id     }),
+        }],
+      }));
+
+      try {
+        const responses = await brickowlBatch(batchRequests);
+        result.totalApiCalls++;
+
+        if (!firstBatchLogged) {
+          firstBatchLogged = true;
+          console.log(`[ChannelSync] First batch raw response (${responses.length} items):`, JSON.stringify(responses.slice(0, 2)));
+        }
+
+        // BrickOwl's per-item response format for inventory/update is undocumented,
+        // so treat as SUCCESS unless there's an explicit error field.
+        responses.forEach((resp: any, idx: number) => {
+          const job = chunk[idx];
+          const isExplicitError = resp && typeof resp === 'object' && (resp.error || resp.errors);
+          if (isExplicitError) {
+            result.errors.push(`${job.blItemNo}: ${JSON.stringify(resp.error || resp.errors)}`);
+            result.lotsSkipped++;
+          } else {
+            result.lotsUpdated++;
+          }
+        });
+
+        if (responses.length < chunk.length) {
+          for (let j = responses.length; j < chunk.length; j++) {
+            result.errors.push(`${chunk[j].blItemNo}: no response in batch`);
+            result.lotsSkipped++;
+          }
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        chunk.forEach(job => {
+          result.errors.push(`${job.blItemNo}: ${msg}`);
+          result.lotsSkipped++;
+        });
+        console.error(`[ChannelSync] Batch error:`, msg);
+      }
+
+      updateProgress += chunk.length;
     }));
 
-    try {
-      const responses = await brickowlBatch(batchRequests);
-      result.totalApiCalls++;
-
-      // Log the first batch response once so we can see BrickOwl's actual format
-      if (i === 0) {
-        console.log(`[ChannelSync] First batch raw response (${responses.length} items):`, JSON.stringify(responses.slice(0, 2)));
-      }
-
-      // BrickOwl's per-item response format for inventory/update is undocumented,
-      // so treat as SUCCESS unless there's an explicit error field.
-      // This is the inverse of the old check (which assumed failure unless proven success).
-      responses.forEach((resp: any, idx: number) => {
-        const job = chunk[idx];
-        const isExplicitError = resp && typeof resp === 'object' && (resp.error || resp.errors);
-        if (isExplicitError) {
-          result.errors.push(`${job.blItemNo}: ${JSON.stringify(resp.error || resp.errors)}`);
-          result.lotsSkipped++;
-        } else {
-          result.lotsUpdated++;
-        }
-      });
-
-      // If the batch returned fewer responses than requests, mark the rest as errors
-      if (responses.length < chunk.length) {
-        for (let j = responses.length; j < chunk.length; j++) {
-          result.errors.push(`${chunk[j].blItemNo}: no response in batch`);
-          result.lotsSkipped++;
-        }
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      chunk.forEach(job => {
-        result.errors.push(`${job.blItemNo}: ${msg}`);
-        result.lotsSkipped++;
-      });
-      console.error(`[ChannelSync] Batch error (chunk ${i}–${i + chunk.length}):`, msg);
-    }
-
-    updateProgress += chunk.length;
     onProgress?.(updateProgress, totalPhase2);
 
-    if (i + BATCH_SIZE < toUpdate.length) {
+    if (r + CONCURRENCY < allChunks.length) {
       await new Promise(resolve => setTimeout(resolve, BATCH_GAP_MS));
     }
   }

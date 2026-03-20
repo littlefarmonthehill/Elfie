@@ -42,6 +42,17 @@ export function getChannelSyncLastResult() {
 
 export async function startChannelSyncScheduler() {
   console.log('🌐 Channel sync scheduler initialized');
+  // Restore last sync result from DB so the UI shows data after a deploy
+  try {
+    const [meta] = await db.select().from(syncMetadata)
+      .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, 'channel_sync'))).limit(1);
+    if ((meta as any)?.lastSyncMetaJson) {
+      channelSyncLastResult = JSON.parse((meta as any).lastSyncMetaJson);
+      console.log('[Channel] Restored last sync result from DB');
+    }
+  } catch (e: any) {
+    console.warn('[Channel] Could not restore last sync result (non-fatal):', e.message);
+  }
   setInterval(async () => { await checkAndRunChannelSync(); }, 60 * 1000);
 }
 
@@ -168,6 +179,7 @@ async function runScheduledChannelSync() {
       errors: result.errors.slice(0, 20), // keep first 20 for display
     };
 
+    const metaJson = JSON.stringify(channelSyncLastResult);
     await db.insert(syncMetadata).values({
       id: 'channel_sync',
       lastSyncStatus: status,
@@ -176,7 +188,7 @@ async function runScheduledChannelSync() {
       recordsUpdated: result.lotsUpdated,
       errorMessage: hasErrors ? `${result.errors.length} lots failed` : null,
       orgId: ORG_ID,
-    }).onConflictDoUpdate({
+    } as any).onConflictDoUpdate({
       target: syncMetadata.id,
       set: {
         lastSyncStatus: status,
@@ -184,7 +196,8 @@ async function runScheduledChannelSync() {
         recordsAdded: result.lotsCreated,
         recordsUpdated: result.lotsUpdated,
         errorMessage: hasErrors ? `${result.errors.length} lots failed` : null,
-      },
+        lastSyncMetaJson: metaJson,
+      } as any,
     });
 
     retry.count = 0;
