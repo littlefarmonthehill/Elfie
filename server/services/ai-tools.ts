@@ -1596,13 +1596,13 @@ export async function searchForumDiscussions(params: {
   limit?: number;
 }) {
   const { query, limit = 10 } = params;
-  
+  const safeLimit = Math.min(limit, 20);
+
+  // Try vector (semantic) search first; fall back to plain-text if embedding fails
   try {
-    // Generate embedding for the search query
     const queryEmbedding = await generateEmbedding(query);
     const embeddingVector = JSON.stringify(queryEmbedding);
-    
-    // Search using cosine similarity
+
     const results = await db.execute(sql`
       SELECT 
         fp.id,
@@ -1619,19 +1619,61 @@ export async function searchForumDiscussions(params: {
       FROM bl_forum_embeddings fe
       JOIN bl_forum_posts fp ON fe.post_id = fp.id
       ORDER BY fe.embedding <=> ${embeddingVector}::vector
-      LIMIT ${Math.min(limit, 20)}
+      LIMIT ${safeLimit}
     `);
-    
-    if (results.rows.length === 0) {
+
+    if (results.rows.length > 0) {
+      const posts = (results.rows as any[]).map(row => ({
+        id: row.id,
+        threadId: row.thread_id,
+        title: row.title,
+        excerpt: row.excerpt,
+        username: row.username,
+        userFeedbackRating: row.user_feedback_count || 0,
+        postedAt: row.posted_at,
+        postUrl: row.post_url,
+        threadUrl: row.thread_url,
+        hasReplies: row.has_replies,
+        relevance: parseFloat(row.relevance || '0').toFixed(3),
+      }));
+      return {
+        success: true,
+        data: posts,
+        count: posts.length,
+        message: `Found ${posts.length} relevant forum discussion${posts.length !== 1 ? 's' : ''}`,
+        searchMode: 'semantic',
+      };
+    }
+    // Vector search returned nothing — fall through to text search
+  } catch (embeddingErr: any) {
+    console.warn('[searchForumDiscussions] Vector search failed, falling back to text search:', embeddingErr.message);
+  }
+
+  // Fallback: plain text search on title + excerpt
+  try {
+    const terms = query.split(/\s+/).filter(Boolean).slice(0, 6);
+    const likePattern = `%${terms.join('%')}%`;
+    const fallbackResults = await db.execute(sql`
+      SELECT id, thread_id, title, excerpt, username, user_feedback_count,
+             posted_at, post_url, thread_url, has_replies
+      FROM bl_forum_posts
+      WHERE title ILIKE ${likePattern}
+         OR excerpt ILIKE ${likePattern}
+      ORDER BY posted_at DESC
+      LIMIT ${safeLimit}
+    `);
+
+    if (fallbackResults.rows.length === 0) {
       return {
         success: true,
         message: 'No forum discussions found matching your query. The forum database may be empty or syncing.',
         data: [],
         count: 0,
+        searchMode: 'text',
       };
     }
-    
-    const posts = (results.rows as any[]).map(row => ({
+
+    const posts = (fallbackResults.rows as any[]).map(row => ({
       id: row.id,
       threadId: row.thread_id,
       title: row.title,
@@ -1642,20 +1684,21 @@ export async function searchForumDiscussions(params: {
       postUrl: row.post_url,
       threadUrl: row.thread_url,
       hasReplies: row.has_replies,
-      relevance: parseFloat(row.relevance || '0').toFixed(3),
+      relevance: null,
     }));
-    
+
     return {
       success: true,
       data: posts,
       count: posts.length,
-      message: `Found ${posts.length} relevant forum discussion${posts.length !== 1 ? 's' : ''}`,
+      message: `Found ${posts.length} forum discussion${posts.length !== 1 ? 's' : ''} (keyword match)`,
+      searchMode: 'text',
     };
-  } catch (error: any) {
-    console.error('Error searching forum discussions:', error);
+  } catch (textErr: any) {
+    console.error('[searchForumDiscussions] Text search also failed:', textErr.message);
     return {
       success: false,
-      message: error.message || 'Failed to search forum discussions',
+      message: 'Forum search is temporarily unavailable. Please try again shortly.',
       data: [],
       count: 0,
     };
@@ -1667,7 +1710,9 @@ export async function searchMarketNews(params: {
   limit?: number;
 }) {
   const { query, limit = 10 } = params;
+  const safeLimit = Math.min(limit, 20);
 
+  // Try vector (semantic) search first; fall back to plain-text if embedding fails
   try {
     const queryEmbedding = await generateEmbedding(query);
     const embeddingVector = JSON.stringify(queryEmbedding);
@@ -1685,19 +1730,59 @@ export async function searchMarketNews(params: {
       FROM market_news_embeddings mne
       JOIN market_news mn ON mne.article_id = mn.id
       ORDER BY mne.embedding <=> ${embeddingVector}::vector
-      LIMIT ${Math.min(limit, 20)}
+      LIMIT ${safeLimit}
     `);
 
-    if (results.rows.length === 0) {
+    if (results.rows.length > 0) {
+      const articles = (results.rows as any[]).map(row => ({
+        id: row.id,
+        title: row.title,
+        snippet: row.snippet,
+        url: row.url,
+        source: row.source,
+        topic: row.search_query,
+        fetchedAt: row.fetched_at,
+        relevance: parseFloat(row.relevance || '0').toFixed(3),
+      }));
+      return {
+        success: true,
+        data: articles,
+        count: articles.length,
+        message: `Found ${articles.length} relevant market news article${articles.length !== 1 ? 's' : ''}`,
+        searchMode: 'semantic',
+      };
+    }
+    // Vector search returned nothing — fall through to text search
+  } catch (embeddingErr: any) {
+    // Embedding or vector search failed (API down, quota, no embeddings yet) — fall through to text search
+    console.warn('[searchMarketNews] Vector search failed, falling back to text search:', embeddingErr.message);
+  }
+
+  // Fallback: plain text search on title + snippet
+  try {
+    const terms = query.split(/\s+/).filter(Boolean).slice(0, 6);
+    const likePattern = `%${terms.join('%')}%`;
+    const fallbackResults = await db.execute(sql`
+      SELECT id, title, snippet, url, source, query as search_query, fetched_at
+      FROM market_news
+      WHERE title ILIKE ${likePattern}
+         OR snippet ILIKE ${likePattern}
+         OR query ILIKE ${likePattern}
+      ORDER BY fetched_at DESC
+      LIMIT ${safeLimit}
+    `);
+
+    if (fallbackResults.rows.length === 0) {
       return {
         success: true,
         message: 'No market news found matching your query. The market news database may be empty — enable Market News sync in Settings > Platform Scheduler > Market.',
         data: [],
         count: 0,
+        searchMode: 'text',
       };
     }
 
-    const articles = (results.rows as any[]).map(row => ({
+    const articles = (fallbackResults.rows as any[]).map(row => ({
       id: row.id,
       title: row.title,
       snippet: row.snippet,
@@ -1705,20 +1790,21 @@ export async function searchMarketNews(params: {
       source: row.source,
       topic: row.search_query,
       fetchedAt: row.fetched_at,
-      relevance: parseFloat(row.relevance || '0').toFixed(3),
+      relevance: null,
     }));
 
     return {
       success: true,
       data: articles,
       count: articles.length,
-      message: `Found ${articles.length} relevant market news article${articles.length !== 1 ? 's' : ''}`,
+      message: `Found ${articles.length} market news article${articles.length !== 1 ? 's' : ''} (keyword match)`,
+      searchMode: 'text',
     };
-  } catch (error: any) {
-    console.error('Error searching market news:', error);
+  } catch (textErr: any) {
+    console.error('[searchMarketNews] Text search also failed:', textErr.message);
     return {
       success: false,
-      message: error.message || 'Failed to search market news',
+      message: 'Market news search is temporarily unavailable. Please try again shortly.',
       data: [],
       count: 0,
     };
