@@ -117,10 +117,12 @@ async function runScheduledChannelSync() {
 
   try {
     // Read sync mode from settings
-    let syncMode: 'full_control' | 'quantity_only' = 'full_control';
+    let syncMode: 'analysis' | 'full_control' | 'quantity_only' = 'full_control';
     try {
       const [settingsForMode] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
-      if (settingsForMode?.channelSyncMode === 'quantity_only') syncMode = 'quantity_only';
+      const m = settingsForMode?.channelSyncMode;
+      if (m === 'quantity_only') syncMode = 'quantity_only';
+      else if (m === 'analysis') syncMode = 'analysis';
     } catch { /* default to full_control */ }
 
     const result = await syncBrickLinkToBrickOwl(undefined, syncMode);

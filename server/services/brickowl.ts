@@ -311,7 +311,7 @@ export async function mapColorId(bricklinkColorId: number): Promise<number | nul
 export async function syncInventoryItem(
   blItem: typeof blInventory.$inferSelect,
   brickowlInventory?: any[],
-  mode: 'full_control' | 'quantity_only' = 'full_control'
+  mode: 'analysis' | 'full_control' | 'quantity_only' = 'full_control'
 ): Promise<{
   success: boolean;
   action: 'created' | 'updated' | 'skipped';
@@ -341,6 +341,10 @@ export async function syncInventoryItem(
       const descriptionChanged = (taggedLot.public_note || '') !== (blItem.description || '');
 
       if (qtyChanged || priceChanged || remarksChanged || descriptionChanged) {
+        if (mode === 'analysis') {
+          console.log(`[Sync] Analysis: ${blItem.itemNo} has changes (qty/price/remarks) — skipping write`);
+          return { success: true, action: 'skipped' };
+        }
         console.log(`[Sync] Updating ${blItem.itemNo} (BL inv ${blItem.id}): Qty ${existingQty} → ${blItem.quantity}, Price $${existingPrice} → $${newPrice}`);
         await updateBrickOwlLot({
           lot_id: taggedLot.lot_id,
@@ -372,6 +376,10 @@ export async function syncInventoryItem(
       if (untaggedMatches.length === 1) {
         // Exactly one pre-existing lot for this part + condition — safe to adopt it.
         const untaggedLot = untaggedMatches[0];
+        if (mode === 'analysis') {
+          console.log(`[Sync] Analysis: would adopt pre-existing BrickOwl lot ${untaggedLot.lot_id} for ${blItem.itemNo} — skipping write`);
+          return { success: true, action: 'skipped' };
+        }
         console.log(`[Sync] Adopting pre-existing BrickOwl lot ${untaggedLot.lot_id} for ${blItem.itemNo} (BOID ${boid}) and tagging with BL inv ID ${blItem.id}`);
         await updateBrickOwlLot({
           lot_id: untaggedLot.lot_id,
@@ -409,9 +417,10 @@ export async function syncInventoryItem(
       };
     }
 
-    if (mode === 'quantity_only') {
+    if (mode === 'analysis' || mode === 'quantity_only') {
+      // Analysis mode: read-only, never write anything — just build comparison data
       // Quantity-only mode: never create new listings, only update existing ones
-      console.log(`[Sync] Skipping ${blItem.itemNo} (quantity_only mode — no existing BrickOwl lot)`);
+      console.log(`[Sync] Skipping ${blItem.itemNo} (${mode} mode — no existing BrickOwl lot)`);
       return { success: true, action: 'skipped' };
     }
 
@@ -438,7 +447,7 @@ export async function syncInventoryItem(
 }
 
 // Sync all BrickLink inventory to BrickOwl
-export async function syncBrickLinkToBrickOwl(limit?: number, mode: 'full_control' | 'quantity_only' = 'full_control'): Promise<BrickOwlSyncResult> {
+export async function syncBrickLinkToBrickOwl(limit?: number, mode: 'analysis' | 'full_control' | 'quantity_only' = 'full_control'): Promise<BrickOwlSyncResult> {
   const result: BrickOwlSyncResult = {
     lotsCreated: 0,
     lotsUpdated: 0,

@@ -114,7 +114,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
 
   // Step 4 — BrickOwl
   const [boApiKey, setBoApiKey] = useState("");
-  const [channelSyncMode, setChannelSyncMode] = useState<'full_control' | 'quantity_only'>('full_control');
+  const [channelSyncMode, setChannelSyncMode] = useState<'analysis' | 'full_control' | 'quantity_only'>('analysis');
 
   // Step 2 — IE Strategies
   const [ieStratVision, setIeStratVision] = useState("");
@@ -893,6 +893,18 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                   <p className="text-xs font-medium text-gray-300">How should I manage your BrickOwl store?</p>
                   <div className="grid grid-cols-1 gap-1.5">
                     <button
+                      onClick={() => setChannelSyncMode('analysis')}
+                      className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-colors ${channelSyncMode === 'analysis' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
+                      data-testid="button-onboard-bo-analysis"
+                    >
+                      <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 ${channelSyncMode === 'analysis' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
+                      <div>
+                        <span className="text-sm font-semibold text-gray-200">Analysis</span>
+                        <p className="text-xs text-gray-500 mt-0.5">Read-only — compare channels, no edits made</p>
+                        <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">I'll run a full comparison between your channels and build the discrepancy data for review — without changing anything on either side. A safe starting point you can upgrade at any time.</p>
+                      </div>
+                    </button>
+                    <button
                       onClick={() => setChannelSyncMode('full_control')}
                       className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-colors ${channelSyncMode === 'full_control' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
                       data-testid="button-onboard-bo-full"
@@ -901,7 +913,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                       <div>
                         <span className="text-sm font-semibold text-gray-200">Full Control</span>
                         <p className="text-xs text-gray-500 mt-0.5">Push all items — create new lots and update existing</p>
-                        <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">I'll create BrickOwl listings for any BrickLink items that don't exist there yet, and keep everything in sync. Best for stores that aren't actively managed on BrickOwl.</p>
+                        <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">I'll create listings for any BrickLink items that don't exist on the destination channel yet, and keep everything in sync. Best for stores that aren't actively managed manually.</p>
                       </div>
                     </button>
                     <button
@@ -913,7 +925,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                       <div>
                         <span className="text-sm font-semibold text-gray-200">Quantity Only</span>
                         <p className="text-xs text-gray-500 mt-0.5">Update counts on existing lots — never create new ones</p>
-                        <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">I'll only update quantities and prices on lots that already exist on BrickOwl. Anything without a matching lot is skipped. Best for stores you prefer to manage manually on BrickOwl.</p>
+                        <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">I'll only update quantities and prices on lots that already exist on the destination channel. Anything without a matching lot is skipped. Best for stores you prefer to manage manually.</p>
                       </div>
                     </button>
                   </div>

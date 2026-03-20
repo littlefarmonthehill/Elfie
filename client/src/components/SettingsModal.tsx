@@ -2493,7 +2493,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [rebrickableImageSyncEnabled, setRebrickableImageSyncEnabled] = useState(true);
   const [channelSyncEnabled, setChannelSyncEnabled] = useState(false);
   const [channelSyncTime, setChannelSyncTime] = useState("03:00");
-  const [channelSyncMode, setChannelSyncMode] = useState<'full_control' | 'quantity_only'>('full_control');
+  const [channelSyncMode, setChannelSyncMode] = useState<'analysis' | 'full_control' | 'quantity_only'>('analysis');
   const [channelDetailsExpanded, setChannelDetailsExpanded] = useState(false);
   const [ordersSyncEnabled, setOrdersSyncEnabled] = useState(false);
   const [schedulerInventoryOpen, setSchedulerInventoryOpen] = useState(false);
@@ -3242,7 +3242,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setRebrickableImageSyncEnabled(settings.rebrickableImageSyncEnabled !== false);
       setChannelSyncEnabled(settings.channelSyncEnabled || false);
       setChannelSyncTime(settings.channelSyncTime || '03:00');
-      setChannelSyncMode((settings.channelSyncMode as 'full_control' | 'quantity_only') || 'full_control');
+      setChannelSyncMode((settings.channelSyncMode as 'analysis' | 'full_control' | 'quantity_only') || 'analysis');
       setOrdersSyncEnabled(settings.ordersSyncEnabled || false);
       setOrdersSyncFrequency(settings.ordersSyncFrequency || 15);
       setOrdersSyncFrequencyStr(String(settings.ordersSyncFrequency || 15));
@@ -5290,11 +5290,32 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               <Info className="w-3 h-3 text-gray-500 shrink-0 cursor-default" />
                             </TooltipTrigger>
                             <TooltipContent side="right" className="max-w-xs text-xs">
-                              Controls what happens when a BrickLink item has no matching BrickOwl lot.
+                              Controls how the channel sync behaves across all connected sales channels.
                             </TooltipContent>
                           </Tooltip>
                         </div>
                         <div className="grid grid-cols-1 gap-1.5">
+                          <button
+                            onClick={() => { setChannelSyncMode('analysis'); updateSettingsMutation.mutate({ channelSyncMode: 'analysis' }); }}
+                            className={`flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors ${channelSyncMode === 'analysis' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
+                            data-testid="button-sync-mode-analysis"
+                          >
+                            <div className={`mt-0.5 w-3 h-3 rounded-full border-2 shrink-0 ${channelSyncMode === 'analysis' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-medium text-gray-200">Analysis</span>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="w-2.5 h-2.5 text-gray-500 shrink-0 cursor-default" />
+                                  </TooltipTrigger>
+                                  <TooltipContent side="right" className="max-w-xs text-xs">
+                                    Runs a full comparison between your channels without making any changes. Builds the discrepancy data visible in the Channel Sync panel so you can review before committing to a sync mode.
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
+                              <p className="text-[10px] text-gray-500 mt-0.5">Read-only — compare channels, no edits made</p>
+                            </div>
+                          </button>
                           <button
                             onClick={() => { setChannelSyncMode('full_control'); updateSettingsMutation.mutate({ channelSyncMode: 'full_control' }); }}
                             className={`flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors ${channelSyncMode === 'full_control' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
@@ -5309,7 +5330,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                     <Info className="w-2.5 h-2.5 text-gray-500 shrink-0 cursor-default" />
                                   </TooltipTrigger>
                                   <TooltipContent side="right" className="max-w-xs text-xs">
-                                    Creates new BrickOwl lots for any BrickLink items that don't have a matching listing yet. Keeps both stores fully in sync.
+                                    Creates new lots for any items that don't have a matching listing yet on the destination channel. Keeps both stores fully in sync.
                                   </TooltipContent>
                                 </Tooltip>
                               </div>
@@ -5330,7 +5351,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                     <Info className="w-2.5 h-2.5 text-gray-500 shrink-0 cursor-default" />
                                   </TooltipTrigger>
                                   <TooltipContent side="right" className="max-w-xs text-xs">
-                                    Only updates quantities and prices on lots that already exist in BrickOwl. Items without a matching lot are skipped — nothing is created. Safer for stores where you manage listings manually on BrickOwl.
+                                    Only updates quantities and prices on lots that already exist on the destination channel. Items without a matching lot are skipped — nothing is created.
                                   </TooltipContent>
                                 </Tooltip>
                               </div>

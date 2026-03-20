@@ -9112,7 +9112,8 @@ Format search_web URLs as markdown links.`;
       const orgId = reqOrgId(req);
       const [settingsRow] = await db.select({ channelSyncMode: appSettings.channelSyncMode })
         .from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
-      const syncMode = (settingsRow?.channelSyncMode === 'quantity_only' ? 'quantity_only' : 'full_control') as 'full_control' | 'quantity_only';
+      const rawMode = settingsRow?.channelSyncMode;
+      const syncMode = (rawMode === 'quantity_only' ? 'quantity_only' : rawMode === 'analysis' ? 'analysis' : 'full_control') as 'analysis' | 'full_control' | 'quantity_only';
 
       console.log(`[Platform Sync] Starting BrickLink → BrickOwl sync${limit ? ` (limit: ${limit})` : ''} (mode: ${syncMode})...`);
       
