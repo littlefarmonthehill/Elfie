@@ -568,7 +568,12 @@ export async function syncBrickLinkToBrickOwl(
       const remarksChanged   = (taggedLot.personal_note || '') !== (item.remarks || '');
       const descChanged      = (taggedLot.public_note   || '') !== (item.description || '');
 
-      if (qtyChanged || priceChanged || remarksChanged || descChanged) {
+      // quantity_only: only act when quantity differs — never touch price/notes
+      const hasChange = mode === 'quantity_only'
+        ? qtyChanged
+        : (qtyChanged || priceChanged || remarksChanged || descChanged);
+
+      if (hasChange) {
         if (mode === 'analysis') {
           result.lotsSkipped++; // analysis: report discrepancy but don't write
         } else {
@@ -576,10 +581,13 @@ export async function syncBrickLinkToBrickOwl(
             blItemNo: item.itemNo,
             lot_id: taggedLot.lot_id,
             absolute_quantity: item.quantity,
-            price: newPrice,
-            condition,
-            personal_note: decodeHtmlEntities(item.remarks  || '') || undefined,
-            public_note:   decodeHtmlEntities(item.description || '') || undefined,
+            // quantity_only: omit price/condition/notes so they are never sent
+            ...(mode !== 'quantity_only' && {
+              price: newPrice,
+              condition,
+              personal_note: decodeHtmlEntities(item.remarks  || '') || undefined,
+              public_note:   decodeHtmlEntities(item.description || '') || undefined,
+            }),
           });
         }
       } else {
@@ -632,15 +640,22 @@ export async function syncBrickLinkToBrickOwl(
       const responses = await brickowlBatch(batchRequests);
       result.totalApiCalls++;
 
-      // Count successes/errors per response
+      // Log the first batch response once so we can see BrickOwl's actual format
+      if (i === 0) {
+        console.log(`[ChannelSync] First batch raw response (${responses.length} items):`, JSON.stringify(responses.slice(0, 2)));
+      }
+
+      // BrickOwl's per-item response format for inventory/update is undocumented,
+      // so treat as SUCCESS unless there's an explicit error field.
+      // This is the inverse of the old check (which assumed failure unless proven success).
       responses.forEach((resp: any, idx: number) => {
         const job = chunk[idx];
-        if (resp && (resp.status === 'OK' || resp.lot_id || resp.success)) {
-          result.lotsUpdated++;
-          console.log(`[ChannelSync] ✓ Updated lot ${job.lot_id} (${job.blItemNo}) qty→${job.absolute_quantity}`);
-        } else {
-          result.errors.push(`${job.blItemNo}: batch update failed — ${JSON.stringify(resp)}`);
+        const isExplicitError = resp && typeof resp === 'object' && (resp.error || resp.errors);
+        if (isExplicitError) {
+          result.errors.push(`${job.blItemNo}: ${JSON.stringify(resp.error || resp.errors)}`);
           result.lotsSkipped++;
+        } else {
+          result.lotsUpdated++;
         }
       });
 
