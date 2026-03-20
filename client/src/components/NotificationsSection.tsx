@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Bell, BellOff, BellRing, Loader2, ShieldAlert, Share, SquarePlus } from "lucide-react";
+import { Bell, BellOff, BellRing, Loader2, ShieldAlert, Share, SquarePlus, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type SubStatus = "loading" | "needs-pwa" | "needs-ios-update" | "unsupported" | "denied" | "unsubscribed" | "subscribed";
@@ -38,30 +38,40 @@ export default function NotificationsSection() {
   const [notifyAll, setNotifyAll] = useState(true);
   const [notifyPriority, setNotifyPriority] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
+  const [enableError, setEnableError] = useState<string | null>(null);
 
-  const { data: vapidData } = useQuery<{ publicKey: string | null }>({
+  const { data: vapidData, isLoading: vapidLoading } = useQuery<{ publicKey: string | null }>({
     queryKey: ["/api/notifications/vapid-public-key"],
+  });
+
+  const testMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/notifications/test"),
+    onSuccess: (data: any) => {
+      if (data.sent > 0) {
+        toast({ title: "Test notification sent", description: "Check your lock screen, Commander." });
+      } else {
+        toast({ title: "Nothing sent", description: "The subscription may have expired. Try disabling and re-enabling.", variant: "destructive" });
+      }
+    },
+    onError: (e: any) => {
+      toast({ title: "Could not send test", description: e.message, variant: "destructive" });
+    },
   });
 
   const detectStatus = useCallback(async () => {
     const ios = isIOS();
 
-    // iOS: must be installed as PWA
     if (ios && !isStandalone()) {
       setStatus("needs-pwa");
       return;
     }
 
-    // iOS: must be 16.4+
     if (ios && getIOSVersion() < 16) {
       setStatus("needs-ios-update");
       return;
     }
 
-    // General browser support check
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      // On iOS 16.4+ in standalone mode, PushManager is sometimes only available
-      // after the service worker is fully activated — try waiting for it
       if (ios) {
         try {
           await navigator.serviceWorker.ready;
@@ -101,17 +111,35 @@ export default function NotificationsSection() {
   const handleEnable = async () => {
     if (!vapidData?.publicKey) return;
     setIsBusy(true);
+    setEnableError(null);
     try {
       const perm = await Notification.requestPermission();
-      if (perm !== "granted") { setStatus("denied"); return; }
+      if (perm === "denied") { setStatus("denied"); return; }
+      if (perm !== "granted") {
+        setEnableError("Permission was not granted. Please allow notifications when prompted.");
+        return;
+      }
 
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidData.publicKey),
-      });
+      let reg: ServiceWorkerRegistration;
+      try {
+        reg = await navigator.serviceWorker.ready;
+      } catch (e: any) {
+        setEnableError("Service worker failed to load. Try closing and reopening the app.");
+        return;
+      }
+
+      let sub: PushSubscription;
+      try {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidData.publicKey),
+        });
+      } catch (e: any) {
+        setEnableError(e.message || "Could not subscribe to push notifications.");
+        return;
+      }
+
       setSubscription(sub);
-
       const subJson = sub.toJSON();
       await apiRequest("POST", "/api/notifications/subscribe", {
         endpoint: subJson.endpoint,
@@ -120,10 +148,13 @@ export default function NotificationsSection() {
         notifyPriorityOrders: notifyPriority,
       });
       setStatus("subscribed");
+      setEnableError(null);
       toast({ title: "Notifications enabled", description: "E.L.F.I.E. will alert you when orders arrive, Commander." });
     } catch (e: any) {
-      toast({ title: "Could not enable notifications", description: e.message, variant: "destructive" });
-    } finally { setIsBusy(false); }
+      setEnableError(e.message || "An unexpected error occurred.");
+    } finally {
+      setIsBusy(false);
+    }
   };
 
   const handleDisable = async () => {
@@ -153,7 +184,7 @@ export default function NotificationsSection() {
   };
 
   const isSubscribed = status === "subscribed";
-  const isActionable = !["loading", "needs-pwa", "needs-ios-update", "unsupported", "denied"].includes(status);
+  const ios = isIOS();
 
   return (
     <div className="p-4 space-y-6 max-w-lg">
@@ -169,7 +200,8 @@ export default function NotificationsSection() {
       </div>
 
       {/* Status card */}
-      <div className="rounded-md border bg-card p-4">
+      <div className="rounded-md border bg-card p-4 space-y-3">
+
         {status === "loading" && (
           <div className="flex items-center gap-3">
             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground shrink-0" />
@@ -188,13 +220,28 @@ export default function NotificationsSection() {
         )}
 
         {status === "unsubscribed" && (
-          <div className="flex items-center gap-3">
-            <BellOff className="w-4 h-4 text-muted-foreground shrink-0" />
-            <p className="text-sm text-muted-foreground flex-1">Notifications are off for this device</p>
-            <Button size="sm" onClick={handleEnable} disabled={isBusy || !vapidData?.publicKey} data-testid="button-enable-notifications">
-              {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Enable"}
-            </Button>
-          </div>
+          <>
+            <div className="flex items-center gap-3">
+              <BellOff className="w-4 h-4 text-muted-foreground shrink-0" />
+              <p className="text-sm text-muted-foreground flex-1">Notifications are off for this device</p>
+              <Button
+                size="sm"
+                onClick={handleEnable}
+                disabled={isBusy || vapidLoading || !vapidData?.publicKey}
+                data-testid="button-enable-notifications"
+              >
+                {isBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : vapidLoading ? "Loading…" : "Enable"}
+              </Button>
+            </div>
+            {enableError && (
+              <div className="rounded-md bg-destructive/10 border border-destructive/20 p-2">
+                <p className="text-xs text-destructive">{enableError}</p>
+              </div>
+            )}
+            {!vapidData?.publicKey && !vapidLoading && (
+              <p className="text-xs text-amber-400">Push notifications are not configured on this server.</p>
+            )}
+          </>
         )}
 
         {status === "denied" && (
@@ -203,7 +250,9 @@ export default function NotificationsSection() {
             <div>
               <p className="text-sm text-red-400 font-medium">Notifications blocked</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Go to Settings &rsaquo; {isIOS() ? "E.L.F.I.E." : "your browser"} &rsaquo; Notifications and set to Allow, then come back here.
+                {ios
+                  ? "Go to Settings › E.L.F.I.E. › Notifications and set to Allow, then come back here."
+                  : "Allow notifications for this site in your browser or OS settings, then reload."}
               </p>
             </div>
           </div>
@@ -246,7 +295,7 @@ export default function NotificationsSection() {
             <div>
               <p className="text-sm font-medium text-foreground">iOS 16.4 or later required</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Update your iPhone or iPad to iOS 16.4 or later in Settings &rsaquo; General &rsaquo; Software Update, then come back here.
+                Update your iPhone or iPad in Settings › General › Software Update, then come back here.
               </p>
             </div>
           </div>
@@ -256,18 +305,36 @@ export default function NotificationsSection() {
           <div className="flex items-start gap-3">
             <BellOff className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
             <p className="text-sm text-muted-foreground">
-              Push notifications aren't supported in this browser. Try Chrome, Edge, or Safari on a supported device.
+              Push notifications aren't supported in this browser. Try Chrome, Edge, or Safari on iOS 16.4+.
             </p>
           </div>
         )}
       </div>
 
-      {/* Preference toggles — Orders section */}
+      {/* Test notification button — only shown when subscribed */}
+      {isSubscribed && (
+        <div className="rounded-md border bg-card p-3 flex items-center gap-3">
+          <Send className="w-4 h-4 text-muted-foreground shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-foreground">Send a test notification</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Check that alerts are reaching this device.</p>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => testMutation.mutate()}
+            disabled={testMutation.isPending}
+            data-testid="button-test-notification"
+          >
+            {testMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Send"}
+          </Button>
+        </div>
+      )}
+
+      {/* Preference toggles */}
       <div className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Orders</p>
-
         <div className="rounded-md border bg-card divide-y divide-border">
-          {/* All orders */}
           <div className="flex items-start gap-3 p-3">
             <Bell className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
@@ -283,8 +350,6 @@ export default function NotificationsSection() {
               data-testid="switch-notify-all-orders"
             />
           </div>
-
-          {/* Priority only */}
           <div className="flex items-start gap-3 p-3">
             <BellRing className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
@@ -301,7 +366,7 @@ export default function NotificationsSection() {
             />
           </div>
         </div>
-        {!isActionable && status !== "loading" && (
+        {!isSubscribed && !["loading", "needs-pwa", "needs-ios-update", "unsupported", "denied"].includes(status) && (
           <p className="text-xs text-muted-foreground">Enable notifications above to configure these preferences.</p>
         )}
       </div>

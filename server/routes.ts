@@ -5167,6 +5167,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  app.post("/api/notifications/test", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const subs = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.orgId, orgId));
+      if (subs.length === 0) return res.status(404).json({ error: "No subscriptions found for this org" });
+      const webpush = (await import('web-push')).default;
+      if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+        webpush.setVapidDetails(
+          process.env.VAPID_EMAIL || 'mailto:admin@planetbrick.com',
+          process.env.VAPID_PUBLIC_KEY,
+          process.env.VAPID_PRIVATE_KEY
+        );
+      }
+      let sent = 0;
+      const stale: number[] = [];
+      for (const sub of subs) {
+        try {
+          await webpush.sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            JSON.stringify({
+              title: 'E.L.F.I.E. · Test Notification',
+              body: 'Comms check, Commander! If you can read this, the notification pipeline is fully operational. 🧱',
+              tag: 'elfie-test',
+              url: '/',
+            })
+          );
+          sent++;
+        } catch (err: any) {
+          if (err.statusCode === 410 || err.statusCode === 404) stale.push(sub.id);
+        }
+      }
+      for (const id of stale) {
+        await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, id));
+      }
+      res.json({ ok: true, sent, stale: stale.length });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // Org Integrations (selling channels: BrickOwl, eBay, Amazon, etc.)
   app.get("/api/org/integrations", isApproved, async (req: any, res) => {
     try {
