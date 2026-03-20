@@ -215,9 +215,11 @@ async function brickowlBatch(
   const apiKey = settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY;
   if (!apiKey) throw new Error('BrickOwl API key not configured. Please add it in Settings > API Credentials.');
 
+  // BrickOwl expects the requests field value to be the full JSON object
+  // {"requests":[...]}, not just the raw array [...] — see API docs example.
   const formData = new URLSearchParams({
     key: apiKey,
-    requests: JSON.stringify(requests),
+    requests: JSON.stringify({ requests }),
   });
 
   const response = await fetch('https://api.brickowl.com/v1/bulk/batch', {
