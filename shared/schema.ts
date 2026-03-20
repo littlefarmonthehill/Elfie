@@ -642,6 +642,20 @@ export const shippingServiceMappings = pgTable("shipping_service_mappings", {
 export const insertShippingServiceMappingSchema = createInsertSchema(shippingServiceMappings).omit({ id: true, updatedAt: true });
 export type ShippingServiceMapping = typeof shippingServiceMappings.$inferSelect;
 
+// Push notification subscriptions — one row per device per org
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  orgId: varchar("org_id").notNull(),
+  userId: varchar("user_id"),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  notifyAllOrders: boolean("notify_all_orders").notNull().default(true),
+  notifyPriorityOrders: boolean("notify_priority_orders").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+
 export const insertAppSettingsSchema = createInsertSchema(appSettings).omit({
   id: true,
   updatedAt: true,

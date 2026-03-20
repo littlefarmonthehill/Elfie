@@ -41,3 +41,10 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_database:1.0.0", "javascript_log_in_with_replit:1.0.0", "javascript_stripe:1.0.0", "javascript_anthropic_ai_integrations:2.0.0"]
+
+[userenv]
+
+[userenv.shared]
+VAPID_PUBLIC_KEY = "BPCvf6GNuW__Vl6NlOKRNiHJNevog9-_c3UdtawgLPY_hdEh0gCGlHpWTHp7d3kH0mBp2tj6wD-uo2qlPWfRLdw"
+VAPID_PRIVATE_KEY = "g_oQ1_9SGGtciba4pUxxPnU22KCU7HKu-Q8HuUX5reI"
+VAPID_EMAIL = "mailto:admin@planetbrick.com"

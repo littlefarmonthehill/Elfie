@@ -44,7 +44,7 @@ import { syncBrickLinkToBrickOwl } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -5124,6 +5124,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) {
       res.status(500).json({ error: "Failed to save service mapping" });
     }
+  });
+
+  // ── Push Notifications ──────────────────────────────────────────────────────
+  app.get("/api/notifications/vapid-public-key", isApproved, (_req, res) => {
+    res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || null });
+  });
+
+  app.post("/api/notifications/subscribe", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const userId = req.user?.id ?? null;
+      const { endpoint, keys, notifyAllOrders = true, notifyPriorityOrders = true } = req.body;
+      if (!endpoint || !keys?.p256dh || !keys?.auth) return res.status(400).json({ error: "Invalid subscription" });
+      await db.insert(pushSubscriptions)
+        .values({ orgId, userId, endpoint, p256dh: keys.p256dh, auth: keys.auth, notifyAllOrders, notifyPriorityOrders })
+        .onConflictDoUpdate({
+          target: pushSubscriptions.endpoint,
+          set: { orgId, userId, notifyAllOrders, notifyPriorityOrders },
+        });
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.put("/api/notifications/subscription", isApproved, async (req: any, res) => {
+    try {
+      const { endpoint, notifyAllOrders, notifyPriorityOrders } = req.body;
+      if (!endpoint) return res.status(400).json({ error: "endpoint required" });
+      await db.update(pushSubscriptions)
+        .set({ notifyAllOrders, notifyPriorityOrders })
+        .where(eq(pushSubscriptions.endpoint, endpoint));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.delete("/api/notifications/unsubscribe", isApproved, async (req: any, res) => {
+    try {
+      const { endpoint } = req.body;
+      if (!endpoint) return res.status(400).json({ error: "endpoint required" });
+      await db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   // Org Integrations (selling channels: BrickOwl, eBay, Amazon, etc.)
@@ -10859,12 +10900,19 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   });
 
   // BrickLink order sync endpoint
-  app.post("/api/sync/bricklink/orders", isApproved, async (req, res) => {
+  app.post("/api/sync/bricklink/orders", isApproved, async (req: any, res) => {
     try {
       const { limit, fullSync } = req.body;
       const { runPlatformOrderSync } = await import("./services/order-sync-core");
       const result = await runPlatformOrderSync("bricklink", { limit, fullSync });
       res.json({ success: true, data: result });
+      if ((result.bricklink.ordersAdded ?? 0) > 0) {
+        const orgId = reqOrgId(req);
+        const { sendOrderSyncNotifications } = await import("./services/push-notifications");
+        const newRows = await db.select({ orderNumber: orders.orderNumber, shippingTier: orders.shippingTier })
+          .from(orders).where(eq(orders.orgId, orgId)).orderBy(desc(orders.syncedAt)).limit(result.bricklink.ordersAdded!);
+        sendOrderSyncNotifications(orgId, newRows).catch(() => {});
+      }
     } catch (error: any) {
       console.error("BrickLink order sync error:", error);
       const isConflict = error?.message?.toLowerCase().includes('blocked');
@@ -10873,12 +10921,19 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   });
 
   // BrickOwl order sync endpoint
-  app.post("/api/sync/brickowl/orders", isApproved, async (req, res) => {
+  app.post("/api/sync/brickowl/orders", isApproved, async (req: any, res) => {
     try {
       const { limit, fullSync } = req.body;
       const { runPlatformOrderSync } = await import("./services/order-sync-core");
       const result = await runPlatformOrderSync("brickowl", { limit, fullSync });
       res.json({ success: true, data: result });
+      if ((result.brickowl.ordersAdded ?? 0) > 0) {
+        const orgId = reqOrgId(req);
+        const { sendOrderSyncNotifications } = await import("./services/push-notifications");
+        const newRows = await db.select({ orderNumber: orders.orderNumber, shippingTier: orders.shippingTier })
+          .from(orders).where(eq(orders.orgId, orgId)).orderBy(desc(orders.syncedAt)).limit(result.brickowl.ordersAdded!);
+        sendOrderSyncNotifications(orgId, newRows).catch(() => {});
+      }
     } catch (error: any) {
       console.error("BrickOwl order sync error:", error);
       const isConflict = error?.message?.toLowerCase().includes('blocked');
@@ -10887,14 +10942,22 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   });
 
   // Multi-platform order sync endpoint (BrickLink + BrickOwl + Stripe + PayPal)
-  app.post("/api/sync/all-platforms/orders", isApproved, async (req, res) => {
+  app.post("/api/sync/all-platforms/orders", isApproved, async (req: any, res) => {
     try {
       const { limit = 50, fullSync = false } = req.body;
       const { runPlatformOrderSync } = await import("./services/order-sync-core");
       const result = await runPlatformOrderSync("all", { limit, fullSync });
       const anySuccess = result.bricklink.success || result.brickowl.success;
       const allSkipped = result.bricklink.skipped && result.brickowl.skipped;
+      const totalAdded = (result.bricklink.ordersAdded ?? 0) + (result.brickowl.ordersAdded ?? 0);
       res.json({ success: anySuccess, allSkipped, results: result });
+      if (totalAdded > 0) {
+        const orgId = reqOrgId(req);
+        const { sendOrderSyncNotifications } = await import("./services/push-notifications");
+        const newRows = await db.select({ orderNumber: orders.orderNumber, shippingTier: orders.shippingTier })
+          .from(orders).where(eq(orders.orgId, orgId)).orderBy(desc(orders.syncedAt)).limit(totalAdded);
+        sendOrderSyncNotifications(orgId, newRows).catch(() => {});
+      }
     } catch (error: any) {
       const isConflict = error?.message?.toLowerCase().includes('blocked');
       console.error("❌ Multi-platform order sync error:", error);

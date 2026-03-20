@@ -5,8 +5,9 @@ import type { AppSettings, User, Organization, OrgIntegration } from "@shared/sc
 import { DimensionWheel, ScoringWheel, type PricingInsight } from "@/components/PriceOMaticDashboard";
 import { APP_VERSION, APP_NAME } from "@shared/version";
 import { CAPABILITY_STATUS_STYLES, CAPABILITY_STATUS_LABELS, CAPABILITY_STATUS_DOT_COLORS, TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Flag, Zap, Globe, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save, ClipboardPaste, Headphones, MessageCircle, Send, Target, Map, ListTodo, Crosshair, ThumbsUp, BarChart3, Warehouse } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Flag, Zap, Globe, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save, ClipboardPaste, Headphones, MessageCircle, Send, Target, Map, ListTodo, Crosshair, ThumbsUp, BarChart3, Warehouse, Bell, BellRing, BellOff } from "lucide-react";
 import WarehouseManagement from "@/components/WarehouseManagement";
+import NotificationsSection from "@/components/NotificationsSection";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
 import { Badge } from "@/components/ui/badge";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
@@ -41,7 +42,7 @@ interface SettingsModalProps {
   isBrickspotterOnly?: boolean;
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'notifications' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -3700,6 +3701,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     { id: 'data' as const, label: 'Store Data', icon: HardDrive, bsVisible: false },
     { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain, bsVisible: true },
     { id: 'warehouse' as const, label: 'Warehouse', icon: Warehouse, bsVisible: false },
+    { id: 'notifications' as const, label: 'Notifications', icon: Bell, bsVisible: false },
     { id: 'about' as const, label: 'About & Credits', icon: Info, bsVisible: true },
     { id: 'legal' as const, label: 'Legal & Terms', icon: FileText, bsVisible: true },
   ];
@@ -9315,6 +9317,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 <WarehouseManagement />
               </div>
             )}
+
+            {/* Notifications */}
+            {activeSection === 'notifications' && <NotificationsSection />}
 
             {/* About & Credits */}
             {activeSection === 'about' && (

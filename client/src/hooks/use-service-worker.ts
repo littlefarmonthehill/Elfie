@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 export function useServiceWorker() {
   useEffect(() => {
-    if ('serviceWorker' in navigator && import.meta.env.PROD) {
+    if ('serviceWorker' in navigator) {
       let newWorker: ServiceWorker | null = null;
 
       // Register service worker with stable URL (no dynamic timestamp)
