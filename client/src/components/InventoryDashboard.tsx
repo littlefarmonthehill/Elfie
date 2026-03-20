@@ -351,7 +351,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 <Input
                   value={browseSearchInput}
                   onChange={(e) => setBrowseSearchInput(e.target.value)}
-                  placeholder={browseDrawer === 'categories' ? 'Search categories…' : 'Search by part #, name, or color…'}
+                  placeholder={browseDrawer === 'categories' ? 'Search categories…' : 'Search by lot ID, part #, name, or color…'}
                   className="pl-8 pr-8 text-xs h-9 bg-gray-900 border-gray-700"
                   data-testid="input-browse-search"
                 />
@@ -397,9 +397,10 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                         />
                       )}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-xs font-mono text-gray-300">{row.itemNo}</span>
                           {row.newOrUsed === 'U' && <span className="text-[9px] px-1 py-0 rounded bg-yellow-900/40 text-yellow-400 border border-yellow-700/30">Used</span>}
+                          <span className="text-[9px] font-mono text-gray-600">#{row.id}</span>
                         </div>
                         <div className="text-[10px] text-gray-500 truncate">{row.itemName ?? row.colorName ?? ''}{row.itemName && row.colorName ? ` · ${row.colorName}` : ''}</div>
                       </div>

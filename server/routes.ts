@@ -9861,6 +9861,7 @@ Format search_web URLs as markdown links.`;
               ilike(blInventory.itemNo, `%${search}%`),
               ilike(blCatalog.itemName, `%${search}%`),
               ilike(blColors.name, `%${search}%`),
+              sql`${blInventory.id}::text ILIKE ${'%' + search + '%'}`,
             )
           )
         : eq(blInventory.orgId, orgId);
