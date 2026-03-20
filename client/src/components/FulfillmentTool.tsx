@@ -288,6 +288,8 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
   const { data, isLoading } = useQuery<FulfillmentData>({
     queryKey: ['/api/fulfillment'],
     staleTime: 0,
+    refetchInterval: 10000,
+    refetchIntervalInBackground: false,
   });
 
   // Fetch settings to determine EasyPost key mode
