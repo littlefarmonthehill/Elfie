@@ -23,6 +23,9 @@ import {
   FileText,
   TrendingUp,
   TrendingDown,
+  Printer,
+  Download,
+  ClipboardList,
 } from "lucide-react";
 import {
   Drawer,
@@ -54,6 +57,7 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
   const { toast } = useToast();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedArea, setSelectedArea] = useState<DiscrepancyType | null>(null);
+  const [showAuditReport, setShowAuditReport] = useState(false);
 
   const { data: platformData, isLoading: platformLoading } = useQuery<any>({
     queryKey: ['/api/platform-sync/status'],
@@ -278,16 +282,16 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
         )}
       </button>
 
-      <Drawer open={drawerOpen} onOpenChange={(open) => { setDrawerOpen(open); if (!open) setSelectedArea(null); }}>
+      <Drawer open={drawerOpen} onOpenChange={(open) => { setDrawerOpen(open); if (!open) { setSelectedArea(null); setShowAuditReport(false); } }}>
         <DrawerContent className="bg-gray-950 border-gray-800 h-[75vh] flex flex-col rounded-t-2xl">
           <DrawerHeader className="p-0 flex-shrink-0">
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 rounded-full bg-gray-600" />
             </div>
             <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-gray-800">
-              {selectedArea ? (
+              {(selectedArea || showAuditReport) ? (
                 <button
-                  onClick={() => setSelectedArea(null)}
+                  onClick={() => { setSelectedArea(null); setShowAuditReport(false); }}
                   className="text-gray-400 hover:text-gray-200 transition-colors mr-1 flex-shrink-0"
                   data-testid="button-discrepancy-back"
                 >
@@ -297,7 +301,9 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
                 <Globe className="w-4 h-4 text-green-400 flex-shrink-0" />
               )}
               <DrawerTitle className="text-sm font-semibold text-gray-100 flex-1">
-                {selectedArea && activeArea
+                {showAuditReport
+                  ? <span className="flex items-center gap-1.5"><ClipboardList className="w-4 h-4 text-gray-400 flex-shrink-0" />Audit Report</span>
+                  : selectedArea && activeArea
                   ? <span className="flex items-center gap-1.5">
                       <activeArea.icon className={`w-4 h-4 ${activeArea.accentColor} flex-shrink-0`} />
                       {activeArea.label}
@@ -307,7 +313,7 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
               <DrawerClose
                 className="ml-2 text-gray-500 hover:text-gray-200 transition-colors"
                 data-testid="button-close-channel-drawer"
-                onClick={() => setSelectedArea(null)}
+                onClick={() => { setSelectedArea(null); setShowAuditReport(false); }}
               >
                 <X className="w-5 h-5" />
                 <span className="sr-only">Close</span>
@@ -316,7 +322,13 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
           </DrawerHeader>
 
           <div className="flex-1 overflow-y-auto min-h-0">
-            {selectedArea ? (
+            {showAuditReport ? (
+              <AuditReportView
+                discrepancyAreas={discrepancyAreas}
+                totalDiscrepancies={totalDiscrepancies}
+                lastSyncTime={lastSync?.lastSyncTime}
+              />
+            ) : selectedArea ? (
               <DiscrepancyDetail
                 area={activeArea!}
                 data={detailData}
@@ -334,6 +346,7 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
                 discrepancyAreas={discrepancyAreas}
                 totalDiscrepancies={totalDiscrepancies}
                 onSelectArea={(type) => setSelectedArea(type)}
+                onShowAuditReport={() => setShowAuditReport(true)}
               />
             )}
           </div>
@@ -354,6 +367,7 @@ function OverviewContent({
   discrepancyAreas,
   totalDiscrepancies,
   onSelectArea,
+  onShowAuditReport,
 }: any) {
   return (
     <div className="px-4 pt-3 pb-6 space-y-4">
@@ -390,6 +404,17 @@ function OverviewContent({
           <SlidersHorizontal className="w-3.5 h-3.5 mr-1.5" />
           Settings
         </Button>
+        {totalDiscrepancies > 0 && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onShowAuditReport}
+            data-testid="button-channel-audit-report"
+          >
+            <ClipboardList className="w-3.5 h-3.5 mr-1.5" />
+            Audit Report
+          </Button>
+        )}
       </div>
 
       <Separator className="bg-gray-700/60" />
@@ -595,6 +620,288 @@ function DiscrepancyRow({ item, type, area }: {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+const AUDIT_TYPES: Array<{ type: DiscrepancyType; label: string; color: string }> = [
+  { type: 'missing',     label: 'Missing Lots',            color: '#f97316' },
+  { type: 'price',       label: 'Price Differences',       color: '#eab308' },
+  { type: 'quantity',    label: 'Quantity Differences',    color: '#60a5fa' },
+  { type: 'remarks',     label: 'Remark Differences',      color: '#a855f7' },
+  { type: 'description', label: 'Description Differences', color: '#ec4899' },
+];
+
+function AuditReportView({ discrepancyAreas, totalDiscrepancies, lastSyncTime }: {
+  discrepancyAreas: DiscrepancyArea[];
+  totalDiscrepancies: number;
+  lastSyncTime?: string | null;
+}) {
+  const activeTypes = discrepancyAreas.map(a => a.type);
+
+  const q = {
+    missing:     useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'missing'],     queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/missing').then(r => r.json()),     enabled: activeTypes.includes('missing'),     refetchOnWindowFocus: false }),
+    price:       useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'price'],       queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/price').then(r => r.json()),       enabled: activeTypes.includes('price'),       refetchOnWindowFocus: false }),
+    quantity:    useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'quantity'],    queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/quantity').then(r => r.json()),    enabled: activeTypes.includes('quantity'),    refetchOnWindowFocus: false }),
+    remarks:     useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'remarks'],     queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/remarks').then(r => r.json()),     enabled: activeTypes.includes('remarks'),     refetchOnWindowFocus: false }),
+    description: useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'description'],queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/description').then(r => r.json()), enabled: activeTypes.includes('description'), refetchOnWindowFocus: false }),
+  };
+
+  const isLoading = Object.values(q).some(r => r.isLoading);
+
+  const allSections: Array<{ type: DiscrepancyType; label: string; color: string; items: any[]; total: number }> = AUDIT_TYPES
+    .filter(t => activeTypes.includes(t.type))
+    .map(t => ({
+      ...t,
+      items: q[t.type].data?.discrepancies ?? [],
+      total: q[t.type].data?.total ?? 0,
+    }));
+
+  function formatCondition(c: string | undefined) {
+    if (c === 'N') return 'New';
+    if (c === 'U') return 'Used';
+    return c ?? '';
+  }
+
+  function buildPrintHtml() {
+    const date = new Date().toLocaleString();
+    const syncDate = lastSyncTime ? new Date(lastSyncTime).toLocaleString() : 'unknown';
+
+    const sectionHtml = allSections.map(section => {
+      const rowsHtml = section.items.map((item: any) => {
+        let valHtml = '';
+        if (section.type === 'missing') {
+          valHtml = `BL qty: ${item.blQuantity ?? '—'} · BL price: $${Number(item.blPrice ?? 0).toFixed(2)} · Not on BrickOwl`;
+        } else if (section.type === 'price') {
+          const diff = Number(item.priceDiff ?? 0);
+          valHtml = `BL: $${Number(item.blPrice ?? 0).toFixed(2)} → BO: $${Number(item.boPrice ?? 0).toFixed(2)} (${diff >= 0 ? '+' : ''}$${diff.toFixed(2)})`;
+        } else if (section.type === 'quantity') {
+          valHtml = `BL: ${item.blQuantity ?? '—'} → BO: ${item.boQuantity ?? '—'} (${item.qtyDiff >= 0 ? '+' : ''}${item.qtyDiff})`;
+        } else if (section.type === 'remarks') {
+          valHtml = `BL: "${item.blRemarks || ''}" → BO: "${item.boRemarks || ''}"`;
+        } else if (section.type === 'description') {
+          valHtml = `BL: "${(item.blDescription || '').slice(0, 60)}${(item.blDescription || '').length > 60 ? '…' : ''}" → BO: "${(item.boDescription || '').slice(0, 60)}${(item.boDescription || '').length > 60 ? '…' : ''}"`;
+        }
+        return `<tr>
+          <td>#${item.lotId ?? '—'}</td>
+          <td>${item.itemNo ?? ''}</td>
+          <td>${item.itemName ?? ''}</td>
+          <td>${item.colorName ?? ''}</td>
+          <td>${formatCondition(item.condition)}</td>
+          <td>${valHtml}</td>
+        </tr>`;
+      }).join('');
+
+      return `<section>
+        <h2 style="color:${section.color};margin:1.5rem 0 0.5rem;font-size:1rem;border-bottom:1px solid #ddd;padding-bottom:0.25rem;">
+          ${section.label} <span style="font-size:0.8rem;color:#666;">(${section.total} item${section.total !== 1 ? 's' : ''}${section.items.length < section.total ? `, showing ${section.items.length}` : ''})</span>
+        </h2>
+        <table>
+          <thead><tr><th>Lot ID</th><th>Part No</th><th>Item Name</th><th>Color</th><th>Cond.</th><th>Discrepancy</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </section>`;
+    }).join('');
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>BrickOwl Channel Sync Audit Report</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #111; margin: 2rem; font-size: 13px; }
+    h1 { font-size: 1.25rem; margin-bottom: 0.25rem; }
+    .meta { color: #555; font-size: 0.8rem; margin-bottom: 1.5rem; }
+    .summary { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1rem; padding: 0.75rem 1rem; background: #f5f5f5; border-radius: 6px; }
+    .summary-item { text-align: center; }
+    .summary-item .count { font-size: 1.5rem; font-weight: 700; }
+    .summary-item .label { font-size: 0.7rem; color: #555; text-transform: uppercase; letter-spacing: 0.05em; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 12px; }
+    th { background: #f0f0f0; text-align: left; padding: 5px 8px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: #444; border-bottom: 1px solid #ccc; }
+    td { padding: 4px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+    tr:hover td { background: #fafafa; }
+    @media print { body { margin: 1cm; } }
+  </style>
+</head>
+<body>
+  <h1>BrickOwl Channel Sync — Audit Report</h1>
+  <p class="meta">Generated: ${date} · Last sync: ${syncDate} · Total discrepancies: ${totalDiscrepancies}</p>
+  <div class="summary">
+    ${allSections.map(s => `<div class="summary-item"><div class="count" style="color:${s.color}">${s.total}</div><div class="label">${s.label}</div></div>`).join('')}
+  </div>
+  ${sectionHtml}
+</body>
+</html>`;
+  }
+
+  function handlePrint() {
+    const html = buildPrintHtml();
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 400);
+  }
+
+  function handleDownloadCsv() {
+    const rows: string[][] = [['Type', 'Lot ID', 'Part No', 'Item Name', 'Color', 'Condition', 'BL Value', 'BO Value', 'Difference']];
+    allSections.forEach(section => {
+      section.items.forEach((item: any) => {
+        let blVal = '', boVal = '', diff = '';
+        if (section.type === 'missing') {
+          blVal = `qty:${item.blQuantity ?? ''} price:${Number(item.blPrice ?? 0).toFixed(2)}`;
+          boVal = 'Not listed';
+          diff = 'Missing';
+        } else if (section.type === 'price') {
+          blVal = `$${Number(item.blPrice ?? 0).toFixed(2)}`;
+          boVal = `$${Number(item.boPrice ?? 0).toFixed(2)}`;
+          diff = `${Number(item.priceDiff ?? 0) >= 0 ? '+' : ''}$${Number(item.priceDiff ?? 0).toFixed(2)}`;
+        } else if (section.type === 'quantity') {
+          blVal = String(item.blQuantity ?? '');
+          boVal = String(item.boQuantity ?? '');
+          diff = `${item.qtyDiff >= 0 ? '+' : ''}${item.qtyDiff}`;
+        } else if (section.type === 'remarks') {
+          blVal = item.blRemarks ?? '';
+          boVal = item.boRemarks ?? '';
+          diff = 'Mismatch';
+        } else if (section.type === 'description') {
+          blVal = (item.blDescription ?? '').slice(0, 80);
+          boVal = (item.boDescription ?? '').slice(0, 80);
+          diff = 'Mismatch';
+        }
+        rows.push([
+          section.label,
+          String(item.lotId ?? ''),
+          item.itemNo ?? '',
+          item.itemName ?? '',
+          item.colorName ?? '',
+          formatCondition(item.condition),
+          blVal, boVal, diff,
+        ]);
+      });
+    });
+
+    const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `brickowl-audit-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  if (isLoading) {
+    return (
+      <div className="px-4 pt-6 space-y-3">
+        <div className="flex items-center gap-2 text-sm text-gray-400">
+          <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+          Loading all discrepancy data…
+        </div>
+        {[1, 2, 3, 4, 5].map(i => (
+          <div key={i} className="h-12 rounded-lg bg-gray-800/60 animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col min-h-0">
+      {/* Action bar */}
+      <div className="px-4 pt-3 pb-2 flex items-center gap-2 border-b border-gray-800 flex-shrink-0">
+        <Button size="sm" variant="secondary" onClick={handlePrint} data-testid="button-audit-print">
+          <Printer className="w-3.5 h-3.5 mr-1.5" />
+          Print / Save PDF
+        </Button>
+        <Button size="sm" variant="ghost" onClick={handleDownloadCsv} data-testid="button-audit-csv">
+          <Download className="w-3.5 h-3.5 mr-1.5" />
+          Download CSV
+        </Button>
+      </div>
+
+      {/* Summary chips */}
+      <div className="px-4 pt-3 pb-1 flex flex-wrap gap-2">
+        {allSections.map(s => {
+          const area = discrepancyAreas.find((a: DiscrepancyArea) => a.type === s.type);
+          return (
+            <div
+              key={s.type}
+              className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium ${area?.borderColor ?? 'border-gray-700'} ${area?.bgColor ?? ''}`}
+            >
+              {area && <area.icon className={`w-3 h-3 ${area.accentColor} flex-shrink-0`} />}
+              <span className={area?.accentColor?.replace('400','200') ?? 'text-gray-200'}>{s.label}</span>
+              <span className={`font-mono font-bold ${area?.accentColor ?? 'text-white'}`}>{s.total}</span>
+            </div>
+          );
+        })}
+        <div className="flex items-center gap-1.5 rounded-md border border-gray-700 bg-gray-800/40 px-2.5 py-1 text-[11px]">
+          <span className="text-gray-400">Total</span>
+          <span className="font-mono font-bold text-white">{totalDiscrepancies}</span>
+        </div>
+      </div>
+
+      {/* Per-section item lists */}
+      <div className="flex-1 overflow-y-auto px-4 pb-6 pt-2 space-y-5">
+        {allSections.map(section => {
+          const area = discrepancyAreas.find((a: DiscrepancyArea) => a.type === section.type);
+          if (!area) return null;
+          return (
+            <div key={section.type}>
+              <div className={`flex items-center gap-2 mb-2`}>
+                <area.icon className={`w-3.5 h-3.5 ${area.accentColor} flex-shrink-0`} />
+                <span className={`text-xs font-semibold ${area.accentColor.replace('400','200')}`}>{section.label}</span>
+                <span className={`text-xs font-mono font-bold ${area.accentColor}`}>{section.total}</span>
+                {section.items.length < section.total && (
+                  <span className="text-[10px] text-gray-500">(showing {section.items.length})</span>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                {section.items.map((item: any, i: number) => (
+                  <div
+                    key={`${item.lotId}-${i}`}
+                    className={`rounded-md border ${area.borderColor} bg-gray-900/50 px-3 py-2`}
+                    data-testid={`audit-row-${section.type}-${i}`}
+                  >
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      <span className="text-[11px] font-semibold text-gray-100 truncate max-w-[180px]">{item.itemName || item.itemNo}</span>
+                      {item.lotId != null && <span className="font-mono text-[9px] text-gray-600 bg-gray-800 border border-gray-700 rounded px-1">#{item.lotId}</span>}
+                      <span className="text-[10px] text-gray-500">{item.itemNo}</span>
+                      {item.colorName && <span className="text-[10px] text-gray-500">{item.colorName}</span>}
+                      {item.condition && (
+                        <span className={`text-[9px] font-medium px-1.5 py-px rounded border ${item.condition === 'N' ? 'text-blue-300 bg-blue-500/10 border-blue-500/25' : 'text-amber-300 bg-amber-500/10 border-amber-500/25'}`}>
+                          {item.condition === 'N' ? 'New' : 'Used'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-gray-400">
+                      {section.type === 'missing' && (
+                        <span>BL qty: <span className="text-white font-mono">{item.blQuantity ?? '—'}</span> · BL price: <span className="text-white font-mono">${Number(item.blPrice ?? 0).toFixed(2)}</span> · <span className="text-orange-400 font-medium">Not on BrickOwl</span></span>
+                      )}
+                      {section.type === 'price' && (
+                        <span>BL: <span className="text-white font-mono">${Number(item.blPrice ?? 0).toFixed(2)}</span> → BO: <span className="text-white font-mono">${Number(item.boPrice ?? 0).toFixed(2)}</span>
+                          {item.priceDiff != null && <span className={`ml-2 font-semibold ${item.priceDiff > 0 ? 'text-green-400' : 'text-red-400'}`}>{item.priceDiff > 0 ? '+' : ''}${Number(item.priceDiff).toFixed(2)} on BO</span>}
+                        </span>
+                      )}
+                      {section.type === 'quantity' && (
+                        <span>BL: <span className="text-white font-mono">{item.blQuantity ?? '—'}</span> → BO: <span className="text-white font-mono">{item.boQuantity ?? '—'}</span>
+                          {item.qtyDiff != null && <span className={`ml-2 font-semibold ${item.qtyDiff > 0 ? 'text-green-400' : 'text-red-400'}`}>{item.qtyDiff > 0 ? '+' : ''}{item.qtyDiff} on BO</span>}
+                        </span>
+                      )}
+                      {section.type === 'remarks' && (
+                        <span>BL: "<span className="text-gray-300">{item.blRemarks || '—'}</span>" → BO: "<span className="text-gray-300">{item.boRemarks || '—'}</span>"</span>
+                      )}
+                      {section.type === 'description' && (
+                        <span className="line-clamp-2">BL: "<span className="text-gray-300">{(item.blDescription || '').slice(0, 60)}{(item.blDescription || '').length > 60 ? '…' : ''}</span>" → BO: "<span className="text-gray-300">{(item.boDescription || '').slice(0, 60)}{(item.boDescription || '').length > 60 ? '…' : ''}</span>"</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
