@@ -1907,7 +1907,7 @@ export default function ChatInterface({ dashboardContext, themeColor, prompts, o
         <>
           <div 
             ref={scrollContainerRef}
-            className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto relative" 
+            className="flex-1 min-h-0 p-4 md:p-6 lg:p-8 overflow-y-auto relative" 
             style={{ WebkitOverflowScrolling: 'touch' }}
             onClick={(e) => e.stopPropagation()}
           >
