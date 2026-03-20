@@ -204,6 +204,37 @@ export async function updateBrickOwlLot(data: {
   return brickowlPost('/inventory/update', updateData);
 }
 
+// ─── Batch up to 50 inventory/update calls in one HTTP request ──────────────
+// BrickOwl bulk/batch endpoint: POST /v1/bulk/batch
+// Rate limit: 100 batch requests/min → 600ms between calls
+// Throughput: 50 items × 100 batches/min = 5,000 updates/min
+async function brickowlBatch(
+  requests: Array<{ endpoint: string; request_method: 'GET' | 'POST'; params: Record<string, any> }>
+): Promise<any[]> {
+  const [settings] = await db.select().from(appSettings).where(isNotNull(appSettings.brickowlApiKey)).limit(1);
+  const apiKey = settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY;
+  if (!apiKey) throw new Error('BrickOwl API key not configured. Please add it in Settings > API Credentials.');
+
+  const formData = new URLSearchParams({
+    key: apiKey,
+    requests: JSON.stringify(requests),
+  });
+
+  const response = await fetch('https://api.brickowl.com/v1/bulk/batch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: formData.toString(),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`BrickOwl Batch API error: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data : (data.responses || []);
+}
+
 // Normalize BrickLink item type to BrickOwl format
 function normalizeBrickLinkItemType(blType: string): string {
   // BrickLink uses uppercase (e.g., "PART"), BrickOwl expects proper case (e.g., "Part")
@@ -456,8 +487,28 @@ export async function syncInventoryItem(
   }
 }
 
-// Sync all BrickLink inventory to BrickOwl
-export async function syncBrickLinkToBrickOwl(limit?: number, mode: 'analysis' | 'full_control' | 'quantity_only' = 'full_control', onProgress?: (processed: number, total: number) => void): Promise<BrickOwlSyncResult> {
+// ─── Industry-standard delta sync with bulk batching ─────────────────────────
+//
+// Strategy:
+//   Phase 1 — Pure in-memory comparison (no API calls, no delays).
+//             Classify every BL item into one of three buckets:
+//               toUpdate  — tagged lot exists in BO and fields have changed
+//               toAdopt   — no tagged lot; needs BOID lookup (full_control only)
+//               skipped   — no changes or read-only mode
+//
+//   Phase 2 — Apply writes via BrickOwl's bulk/batch endpoint (max 50 per call,
+//             100 calls/min → 600ms gap between batches).
+//             Throughput: 50 × 100 = 5,000 lots/min for changed items only.
+//             Items with no changes never touch the API.
+//
+// Compared to the old per-item loop (120ms × N items regardless of changes),
+// this is typically 10–100× faster for a normal sync where most lots are stable.
+
+export async function syncBrickLinkToBrickOwl(
+  limit?: number,
+  mode: 'analysis' | 'full_control' | 'quantity_only' = 'full_control',
+  onProgress?: (processed: number, total: number) => void
+): Promise<BrickOwlSyncResult> {
   const result: BrickOwlSyncResult = {
     lotsCreated: 0,
     lotsUpdated: 0,
@@ -466,57 +517,230 @@ export async function syncBrickLinkToBrickOwl(limit?: number, mode: 'analysis' |
     totalApiCalls: 0,
   };
 
-  // Get BrickLink inventory
+  // ── Fetch both inventories once ──────────────────────────────────────────
   let query = db.select().from(blInventory);
-  if (limit) {
-    query = query.limit(limit) as any;
-  }
-  
+  if (limit) query = query.limit(limit) as any;
   const blItems = await query;
-  
-  console.log(`Syncing ${blItems.length} items from BrickLink to BrickOwl...`);
 
-  // Fetch BrickOwl inventory once for efficiency
+  console.log(`[ChannelSync] ${blItems.length} BrickLink items to compare`);
+
   const brickowlInventory = await getBrickOwlInventory(false);
-  console.log(`Fetched ${brickowlInventory.length} lots from BrickOwl for comparison`);
+  console.log(`[ChannelSync] ${brickowlInventory.length} BrickOwl lots fetched`);
 
-  // Build O(1) lookup map: BL inventory ID string → BrickOwl lot
-  // Avoids O(n×m) linear scan per item (previously 30k BL × 10k BO = 300M ops)
+  // O(1) lookup: BL inventory ID → BrickOwl lot (tagged lots only)
   const taggedLotMap = new Map<string, any>();
   for (const lot of brickowlInventory) {
     const extId = lot.external_lot_ids?.other;
     if (extId) taggedLotMap.set(extId, lot);
   }
 
-  // Sync each item
-  let processed = 0;
+  // ── Phase 1: In-memory delta detection (no API calls) ────────────────────
+  type UpdateJob = {
+    blItemNo: string;
+    lot_id: string;
+    absolute_quantity: number;
+    price: number;
+    condition: string;
+    personal_note?: string;
+    public_note?: string;
+    external_id?: string; // set when adopting an untagged lot
+  };
+
+  const toUpdate: UpdateJob[] = [];
+  const toAdopt: Array<typeof blItems[number]> = []; // needs BOID lookup
+
+  let phaseProgress = 0;
   for (const item of blItems) {
-    processed++;
-    onProgress?.(processed, blItems.length);
-    const syncResult = await syncInventoryItem(item, brickowlInventory, mode, taggedLotMap);
-    result.totalApiCalls += 2; // Estimate: lookup + create/update
-    
-    if (syncResult.success) {
-      if (syncResult.action === 'created') {
-        result.lotsCreated++;
-      } else if (syncResult.action === 'updated') {
-        result.lotsUpdated++;
-      } else if (syncResult.action === 'skipped') {
+    phaseProgress++;
+    // In analysis mode report progress during Phase 1 (there is no Phase 2)
+    if (mode === 'analysis') onProgress?.(phaseProgress, blItems.length);
+
+    const newPrice = item.unitPrice ? parseFloat(item.unitPrice) : 0;
+    const condition = item.newOrUsed === 'N' ? 'new' : 'usedg';
+
+    const taggedLot = taggedLotMap.get(item.id.toString());
+
+    if (taggedLot) {
+      const qtyChanged       = parseInt(taggedLot.qty) !== item.quantity;
+      const priceChanged     = Math.abs(parseFloat(taggedLot.price) - newPrice) > 0.001;
+      const remarksChanged   = (taggedLot.personal_note || '') !== (item.remarks || '');
+      const descChanged      = (taggedLot.public_note   || '') !== (item.description || '');
+
+      if (qtyChanged || priceChanged || remarksChanged || descChanged) {
+        if (mode === 'analysis') {
+          result.lotsSkipped++; // analysis: report discrepancy but don't write
+        } else {
+          toUpdate.push({
+            blItemNo: item.itemNo,
+            lot_id: taggedLot.lot_id,
+            absolute_quantity: item.quantity,
+            price: newPrice,
+            condition,
+            personal_note: decodeHtmlEntities(item.remarks  || '') || undefined,
+            public_note:   decodeHtmlEntities(item.description || '') || undefined,
+          });
+        }
+      } else {
         result.lotsSkipped++;
       }
+    } else if (mode === 'full_control') {
+      // No tagged lot — queue for BOID lookup (Phase 2b)
+      toAdopt.push(item);
     } else {
+      // quantity_only / analysis: nothing to do for untagged items
       result.lotsSkipped++;
-      if (syncResult.error) {
-        result.errors.push(`${item.itemNo}: ${syncResult.error}`);
+    }
+  }
+
+  console.log(
+    `[ChannelSync] Phase 1 complete — ${toUpdate.length} to update, ` +
+    `${toAdopt.length} to adopt/create, ${result.lotsSkipped} skipped`
+  );
+
+  if (mode === 'analysis') return result; // analysis stops here
+
+  // ── Phase 2a: Batch-update changed tagged lots ───────────────────────────
+  // BrickOwl bulk/batch: max 50 requests per call, 100 calls/min (600ms gap)
+  const BATCH_SIZE = 50;
+  const BATCH_GAP_MS = 600;
+  let updateProgress = 0;
+  const totalPhase2 = toUpdate.length + toAdopt.length;
+
+  for (let i = 0; i < toUpdate.length; i += BATCH_SIZE) {
+    const chunk = toUpdate.slice(i, i + BATCH_SIZE);
+
+    const batchRequests = chunk.map(job => ({
+      endpoint: 'inventory/update',
+      request_method: 'POST' as const,
+      params: {
+        lot_id: job.lot_id,
+        absolute_quantity: job.absolute_quantity,
+        price: job.price.toFixed(3),
+        condition: job.condition,
+        for_sale: '1',
+        ...(job.personal_note !== undefined && { personal_note: job.personal_note }),
+        ...(job.public_note   !== undefined && { public_note:   job.public_note   }),
+        ...(job.external_id   !== undefined && { external_id:   job.external_id   }),
+      },
+    }));
+
+    try {
+      const responses = await brickowlBatch(batchRequests);
+      result.totalApiCalls++;
+
+      // Count successes/errors per response
+      responses.forEach((resp: any, idx: number) => {
+        const job = chunk[idx];
+        if (resp && (resp.status === 'OK' || resp.lot_id || resp.success)) {
+          result.lotsUpdated++;
+          console.log(`[ChannelSync] ✓ Updated lot ${job.lot_id} (${job.blItemNo}) qty→${job.absolute_quantity}`);
+        } else {
+          result.errors.push(`${job.blItemNo}: batch update failed — ${JSON.stringify(resp)}`);
+          result.lotsSkipped++;
+        }
+      });
+
+      // If the batch returned fewer responses than requests, mark the rest as errors
+      if (responses.length < chunk.length) {
+        for (let j = responses.length; j < chunk.length; j++) {
+          result.errors.push(`${chunk[j].blItemNo}: no response in batch`);
+          result.lotsSkipped++;
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      chunk.forEach(job => {
+        result.errors.push(`${job.blItemNo}: ${msg}`);
+        result.lotsSkipped++;
+      });
+      console.error(`[ChannelSync] Batch error (chunk ${i}–${i + chunk.length}):`, msg);
+    }
+
+    updateProgress += chunk.length;
+    onProgress?.(updateProgress, totalPhase2);
+
+    if (i + BATCH_SIZE < toUpdate.length) {
+      await new Promise(resolve => setTimeout(resolve, BATCH_GAP_MS));
+    }
+  }
+
+  // ── Phase 2b: Adopt / create untagged lots (full_control only) ───────────
+  // Each item needs an individual BOID lookup first, so these remain sequential.
+  // Rate limit: individual calls at 600 req/min → 100ms gap.
+  const INDIVIDUAL_GAP_MS = 100;
+
+  for (const item of toAdopt) {
+    const newPrice = item.unitPrice ? parseFloat(item.unitPrice) : 0;
+    const condition = item.newOrUsed === 'N' ? 'new' : 'usedg';
+
+    const boid = await lookupBoid(item.itemNo, item.itemType);
+    result.totalApiCalls++;
+
+    if (!boid) {
+      result.errors.push(`${item.itemNo}: BOID lookup failed`);
+      result.lotsSkipped++;
+    } else {
+      const untagged = brickowlInventory.filter(
+        (lot: any) => lot.boid === boid && lot.condition === condition
+      );
+
+      if (untagged.length === 1) {
+        // Adopt single pre-existing untagged lot
+        try {
+          await updateBrickOwlLot({
+            lot_id: untagged[0].lot_id,
+            external_id: item.id.toString(),
+            absolute_quantity: item.quantity,
+            price: newPrice,
+            condition,
+            for_sale: 1,
+            personal_note: item.remarks    || undefined,
+            public_note:   item.description || undefined,
+          });
+          result.lotsUpdated++;
+          result.totalApiCalls++;
+          console.log(`[ChannelSync] ✓ Adopted lot ${untagged[0].lot_id} for ${item.itemNo}`);
+        } catch (err) {
+          result.errors.push(`${item.itemNo}: adopt failed — ${err instanceof Error ? err.message : err}`);
+          result.lotsSkipped++;
+        }
+      } else if (untagged.length > 1) {
+        const ids = untagged.map((l: any) => l.lot_id).join(', ');
+        result.errors.push(`${item.itemNo}: ${untagged.length} ambiguous untagged lots (${ids}) — resolve on BrickOwl first`);
+        result.lotsSkipped++;
+      } else {
+        // Create new lot
+        try {
+          await createBrickOwlLot({
+            boid,
+            quantity: item.quantity,
+            price: newPrice,
+            condition,
+            for_sale: 1,
+            external_id: item.id.toString(),
+            personal_note: item.remarks    || undefined,
+            public_note:   item.description || undefined,
+          });
+          result.lotsCreated++;
+          result.totalApiCalls++;
+          console.log(`[ChannelSync] ✓ Created lot for ${item.itemNo} (BOID ${boid})`);
+        } catch (err) {
+          result.errors.push(`${item.itemNo}: create failed — ${err instanceof Error ? err.message : err}`);
+          result.lotsSkipped++;
+        }
       }
     }
 
-    // Delay to respect BrickOwl rate limit (600 req/min ≈ 10 req/sec → 120ms gap).
-    // Analysis mode makes zero API calls, so no delay needed there.
-    if (mode !== 'analysis') {
-      await new Promise(resolve => setTimeout(resolve, 120));
-    }
+    updateProgress++;
+    onProgress?.(updateProgress, totalPhase2);
+    await new Promise(resolve => setTimeout(resolve, INDIVIDUAL_GAP_MS));
   }
+
+  console.log(
+    `[ChannelSync] Done — ${result.lotsUpdated} updated, ${result.lotsCreated} created, ` +
+    `${result.lotsSkipped} skipped, ${result.errors.length} errors, ` +
+    `${result.totalApiCalls} API calls`
+  );
 
   return result;
 }
