@@ -656,13 +656,7 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
       
       const existingMap = new Map(existingDetails.map(item => [item.id, item]));
 
-      // Check if AI pricing is enabled for this org — used to auto-log repricing decisions
-      let aiLearningEnabled = false;
-      try {
-        const [aiRow] = await db.select({ aiEnabled: pomAiSettings.aiEnabled })
-          .from(pomAiSettings).where(eq(pomAiSettings.orgId, orgId)).limit(1);
-        aiLearningEnabled = aiRow?.aiEnabled ?? false;
-      } catch (_) { /* non-fatal */ }
+      // Always record price decisions for training — AI suggestions are a separate opt-in
 
       // Track price-changed items for AI learning (itemNo, colorId, newOrUsed, newPrice)
       type PriceChange = { itemNo: string; colorId: number; newOrUsed: string; newPrice: number };
@@ -699,8 +693,8 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
           existing.bindId !== (item.bind_id || null)
         );
 
-        // Collect price-changed items for AI learning (only meaningful price changes > 0)
-        if (priceChanged && aiLearningEnabled && apiUnitPrice > 0) {
+        // Collect price-changed items for training (only meaningful price changes > 0)
+        if (priceChanged && apiUnitPrice > 0) {
           priceChangedItems.push({
             itemNo: item.item.no,
             colorId: item.color_id || 0,
@@ -788,8 +782,8 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
         console.log(`Updated batch ${Math.floor(i / BATCH_SIZE) + 1}: ${updated}/${itemsToUpdate.length} items`);
       }
 
-      // AI auto-learning: log price decisions for items whose price changed during sync
-      if (aiLearningEnabled && priceChangedItems.length > 0) {
+      // Record price decisions for training whenever prices changed during sync
+      if (priceChangedItems.length > 0) {
         try {
           // Batch fetch POM suggested prices for all price-changed items
           const uniqueItemNos = [...new Set(priceChangedItems.map(p => p.itemNo))];
