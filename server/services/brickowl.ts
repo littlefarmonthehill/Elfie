@@ -340,6 +340,15 @@ function normalizeBrickLinkItemType(blType: string): string {
   return typeMap[blType.toUpperCase()] || 'Part';
 }
 
+// ── Abort flag ───────────────────────────────────────────────────────────────
+// Set via requestChannelSyncStop(); cleared automatically at the start of each
+// new sync run. Checked at the boundary of every loop round so the sync can
+// exit cleanly after finishing the current batch, without leaving partial writes.
+let channelSyncAbortFlag = false;
+export function requestChannelSyncStop() { channelSyncAbortFlag = true; }
+export function clearChannelSyncAbort()  { channelSyncAbortFlag = false; }
+export function isChannelSyncAbortRequested() { return channelSyncAbortFlag; }
+
 // In-process BOID cache: survives for the lifetime of the server process.
 // Key: "<blItemNo>:<normalizedType>", Value: BOID string or null (not found).
 // Warm syncs skip the catalog/id_lookup API call entirely for known items.
@@ -628,6 +637,9 @@ export async function syncBrickLinkToBrickOwl(
     totalApiCalls: 0,
   };
 
+  // Clear any stale abort flag from a previous run.
+  channelSyncAbortFlag = false;
+
   // Initialise the preview breakdown — only fully populated in analysis mode.
   const preview: SyncPreviewBreakdown = {
     matchedLots: 0, unmatchedLots: 0, wouldUpdate: 0, wouldCreate: 0,
@@ -880,6 +892,10 @@ export async function syncBrickLinkToBrickOwl(
   }
 
   for (let r = 0; r < qtyChunks.length; r += BATCH_CONCURRENCY) {
+    if (channelSyncAbortFlag) {
+      console.log('[ChannelSync] Abort requested — stopping after batch qty round');
+      break;
+    }
     const round = qtyChunks.slice(r, r + BATCH_CONCURRENCY);
 
     await Promise.all(round.map(async (chunk) => {
@@ -943,6 +959,10 @@ export async function syncBrickLinkToBrickOwl(
   let fieldResponsesLogged = 0;
 
   for (let r = 0; r < fieldJobs.length; r += FIELD_CONCURRENCY) {
+    if (channelSyncAbortFlag) {
+      console.log('[ChannelSync] Abort requested — stopping after field update round');
+      break;
+    }
     const chunk = fieldJobs.slice(r, r + FIELD_CONCURRENCY);
 
     await Promise.all(chunk.map(async (job) => {
@@ -1018,6 +1038,10 @@ export async function syncBrickLinkToBrickOwl(
   console.log(`[ChannelSync] Phase 2b BOID pre-fetch done — ${boidMap.size} resolved`);
 
   for (let adoptIdx = 0; adoptIdx < toAdopt.length; adoptIdx++) {
+    if (channelSyncAbortFlag) {
+      console.log('[ChannelSync] Abort requested — stopping adopt/create loop');
+      break;
+    }
     const item = toAdopt[adoptIdx];
     const newPrice = item.unitPrice ? parseFloat(item.unitPrice) : 0;
     const condition = item.newOrUsed === 'N' ? 'new' : 'usedg';

@@ -33,6 +33,7 @@ import {
   Banknote,
   Scale,
   EyeOff,
+  StopCircle,
 } from "lucide-react";
 import {
   Drawer,
@@ -137,6 +138,21 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
     },
     onError: () => {
       toast({ title: 'Preview failed', description: 'Could not run sync preview. Check your BrickOwl API key.', variant: 'destructive' });
+    },
+  });
+
+  const stopMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/channel-sync/stop', {}),
+    onSuccess: (data: any) => {
+      if (data?.success) {
+        toast({ title: 'Stop signal sent', description: 'The sync will halt after its current batch finishes.' });
+      } else {
+        toast({ title: 'Nothing to stop', description: data?.message ?? 'No sync is currently running.', variant: 'destructive' });
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/sync/statuses'] });
+    },
+    onError: () => {
+      toast({ title: 'Stop failed', description: 'Could not stop the sync.', variant: 'destructive' });
     },
   });
 
@@ -485,6 +501,7 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
                 isLoading={isLoading}
                 isRunning={isRunning}
                 syncMutation={syncMutation}
+                stopMutation={stopMutation}
                 previewMutation={previewMutation}
                 previewResult={previewResult}
                 showPreview={showPreview}
@@ -538,6 +555,7 @@ function OverviewContent({
   isLoading,
   isRunning,
   syncMutation,
+  stopMutation,
   previewMutation,
   previewResult,
   showPreview,
@@ -566,6 +584,23 @@ function OverviewContent({
           )}
           {isRunning ? 'Syncing…' : 'Sync Now'}
         </Button>
+        {isRunning && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={stopMutation.isPending}
+            onClick={() => stopMutation.mutate()}
+            data-testid="button-channel-sync-stop"
+            className="text-destructive"
+          >
+            {stopMutation.isPending ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+            ) : (
+              <StopCircle className="w-3.5 h-3.5 mr-1.5" />
+            )}
+            {stopMutation.isPending ? 'Stopping…' : 'Stop Sync'}
+          </Button>
+        )}
         <Button
           size="sm"
           variant="ghost"

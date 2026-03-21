@@ -9262,6 +9262,23 @@ Format search_web URLs as markdown links.`;
     }
   });
 
+  // Stop a running channel sync cleanly (sets abort flag — sync exits after current batch)
+  app.post("/api/channel-sync/stop", isApproved, async (req, res) => {
+    try {
+      const { getChannelSyncIsRunning } = await import("./services/channel-sync-scheduler");
+      const { requestChannelSyncStop } = await import('./services/brickowl');
+      if (!getChannelSyncIsRunning()) {
+        return res.json({ success: false, message: 'No sync is currently running.' });
+      }
+      requestChannelSyncStop();
+      console.log('[ChannelSync] Stop requested by user');
+      res.json({ success: true, message: 'Stop signal sent — sync will finish its current batch then halt.' });
+    } catch (error) {
+      console.error('[ChannelSync] Stop error:', error);
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Failed to stop sync' });
+    }
+  });
+
   // Preview sync — runs Phase 1 comparison in analysis mode (no writes)
   // and returns a per-field breakdown of what would be changed.
   app.post("/api/channel-sync/preview", isApproved, async (req, res) => {

@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { appSettings, syncMetadata, channelSyncConfig } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
-import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig } from "./brickowl";
+import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig, isChannelSyncAbortRequested } from "./brickowl";
 import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 
@@ -177,9 +177,11 @@ async function runScheduledChannelSync() {
     const result = await syncBrickLinkToBrickOwl(undefined, syncMode, (processed, total) => {
       channelSyncProgress = { processed, total, phase: 'syncing' };
     }, syncFields);
+    const wasAborted = isChannelSyncAbortRequested();
     const hasErrors = result.errors.length > 0;
-    const status = hasErrors ? 'partial' : 'success';
-    console.log(`\n✨ Channel sync complete! ${result.lotsCreated} created, ${result.lotsUpdated} updated, ${result.lotsSkipped} skipped, ${result.errors.length} errors (mode: ${syncMode})`);
+    const status = wasAborted ? 'partial' : hasErrors ? 'partial' : 'success';
+    const completionNote = wasAborted ? '(stopped by user)' : '';
+    console.log(`\n✨ Channel sync ${wasAborted ? 'stopped' : 'complete'}! ${result.lotsCreated} created, ${result.lotsUpdated} updated, ${result.lotsSkipped} skipped, ${result.errors.length} errors (mode: ${syncMode}) ${completionNote}`);
 
     channelSyncLastResult = {
       completedAt: new Date().toISOString(),
