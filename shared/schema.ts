@@ -1856,6 +1856,7 @@ export const pomAiSettings = pgTable("pom_ai_settings", {
   aiEnabled: boolean("ai_enabled").default(false).notNull(),
   aiStrategy: text("ai_strategy"), // Natural language pricing strategy statement
   decisionCount: integer("decision_count").default(0).notNull(), // Logged pricing decisions
+  sortMode: text("sort_mode").default('scoring').notNull(), // 'scoring' | 'suggested' — primary sort mode for POM inventory screen
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

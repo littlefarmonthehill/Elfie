@@ -2593,6 +2593,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [pomAiEnabled, setPomAiEnabled] = useState(false);
   const [pomAiStrategy, setPomAiStrategy] = useState('');
   const [pomAiDecisionCount, setPomAiDecisionCount] = useState(0);
+  const [pomSortMode, setPomSortMode] = useState<'scoring' | 'suggested'>('scoring');
   const [pomAiOpen, setPomAiOpen] = useState(false);
   const [pomTrendingBonus, setPomTrendingBonus] = useState(60);     // demand weight 0–100
   const [pomHighSupplyThreshold, setPomHighSupplyThreshold] = useState(10000); // BL stock qty = "full supply"
@@ -3336,7 +3337,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     }
   }, [settings]);
 
-  const { data: pomAiData } = useQuery<{ aiEnabled: boolean; aiStrategy: string | null; decisionCount: number }>({
+  const { data: pomAiData } = useQuery<{ aiEnabled: boolean; aiStrategy: string | null; decisionCount: number; sortMode: string }>({
     queryKey: ['/api/pom/ai-settings'],
   });
   useEffect(() => {
@@ -3344,11 +3345,12 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setPomAiEnabled(pomAiData.aiEnabled ?? false);
       setPomAiStrategy(pomAiData.aiStrategy ?? '');
       setPomAiDecisionCount(pomAiData.decisionCount ?? 0);
+      setPomSortMode((pomAiData.sortMode as 'scoring' | 'suggested') ?? 'scoring');
     }
   }, [pomAiData]);
 
   const savePomAiMutation = useMutation({
-    mutationFn: async (patch: { aiEnabled?: boolean; aiStrategy?: string }) =>
+    mutationFn: async (patch: { aiEnabled?: boolean; aiStrategy?: string; sortMode?: string }) =>
       apiRequest('PATCH', '/api/pom/ai-settings', patch),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/pom/ai-settings'] });
@@ -5855,6 +5857,38 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   </button>
                   {pomScoringOpen && (
                     <div ref={scoringWheelRef} className="space-y-4">
+
+                      {/* Sort mode toggle */}
+                      <div className="px-3 py-2.5 rounded-md bg-gray-800/30 border border-gray-700/40 space-y-2">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div>
+                            <p className="text-xs font-medium text-gray-200">Inventory Sort Mode</p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">Controls how items are ranked on the POM screen</p>
+                          </div>
+                          <div className="flex items-center gap-1 p-0.5 rounded bg-gray-800/60 border border-gray-700/50">
+                            <button
+                              onClick={() => { setPomSortMode('scoring'); savePomAiMutation.mutate({ sortMode: 'scoring' }); }}
+                              className={`px-2.5 py-1 rounded text-[10px] font-medium transition-colors ${pomSortMode === 'scoring' ? 'bg-gray-600 text-gray-100' : 'text-gray-500 hover:text-gray-300'}`}
+                              data-testid="button-pom-sort-scoring"
+                            >
+                              Scoring
+                            </button>
+                            <button
+                              onClick={() => { setPomSortMode('suggested'); savePomAiMutation.mutate({ sortMode: 'suggested' }); }}
+                              className={`px-2.5 py-1 rounded text-[10px] font-medium transition-colors ${pomSortMode === 'suggested' ? 'bg-violet-600/80 text-violet-100' : 'text-gray-500 hover:text-gray-300'}`}
+                              data-testid="button-pom-sort-suggested"
+                            >
+                              Opportunity
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-gray-500 leading-relaxed">
+                          {pomSortMode === 'scoring'
+                            ? 'Items ranked by repricing score — ceiling ratio, demand velocity, scarcity, and undercut margin. Best for systematic repricing.'
+                            : 'Items ranked by dollar opportunity — (suggested \u2212 current) \u00d7 quantity. Surfaces the highest-revenue repricing wins first. Beta.'}
+                        </p>
+                      </div>
+
                       <div className="px-3">
                         <div className="relative">
                           {scoringWheelExample ? (

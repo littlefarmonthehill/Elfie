@@ -12110,7 +12110,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       const orgId = reqOrgId(req);
       const { pomAiSettings } = await import('@shared/schema');
       const [row] = await db.select().from(pomAiSettings).where(eq(pomAiSettings.orgId, orgId)).limit(1);
-      res.json(row ?? { orgId, aiEnabled: false, aiStrategy: null, decisionCount: 0 });
+      res.json(row ?? { orgId, aiEnabled: false, aiStrategy: null, decisionCount: 0, sortMode: 'scoring' });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -12120,11 +12120,12 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   app.patch("/api/pom/ai-settings", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const { aiEnabled, aiStrategy } = req.body as { aiEnabled?: boolean; aiStrategy?: string };
+      const { aiEnabled, aiStrategy, sortMode } = req.body as { aiEnabled?: boolean; aiStrategy?: string; sortMode?: string };
       const { pomAiSettings } = await import('@shared/schema');
       const updateSet: Record<string, any> = { updatedAt: new Date() };
       if (aiEnabled !== undefined) updateSet.aiEnabled = aiEnabled;
       if (aiStrategy !== undefined) updateSet.aiStrategy = aiStrategy;
+      if (sortMode !== undefined) updateSet.sortMode = sortMode;
       const [updated] = await db.insert(pomAiSettings)
         .values({ orgId, ...updateSet, createdAt: new Date() })
         .onConflictDoUpdate({ target: pomAiSettings.orgId, set: updateSet })
@@ -12733,6 +12734,9 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
       // Load scoring weights from org settings
       const scoringSettings = await getOrgSettings(orgId);
       const wCeiling = scoringSettings?.pomWeightCeiling ?? 0.4;
+      // Load sort mode from POM AI settings (separate table, fewer columns)
+      const { pomAiSettings: pomAiSettingsTable } = await import("@shared/schema");
+      const [pomAiRow] = await db.select({ sortMode: pomAiSettingsTable.sortMode }).from(pomAiSettingsTable).where(eq(pomAiSettingsTable.orgId, orgId)).limit(1);
       const wVelocity = scoringSettings?.pomWeightVelocity ?? 0.3;
       const wScarcity = scoringSettings?.pomWeightScarcity ?? 0.2;
       const wUndercut = scoringSettings?.pomWeightUndercut ?? 0.1;
@@ -12831,6 +12835,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
             wScarcity: wScarcity,
             wUndercut: wUndercut,
           },
+          sortMode: pomAiRow?.sortMode ?? 'scoring',
         },
       });
     } catch (error) {

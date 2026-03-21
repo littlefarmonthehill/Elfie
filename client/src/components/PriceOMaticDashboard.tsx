@@ -206,6 +206,7 @@ interface InsightsData {
   };
   sugConfig?: SugConfig;
   scoreConfig?: ScoreConfig;
+  sortMode?: 'scoring' | 'suggested';
 }
 
 interface GroupedInsight {
@@ -1522,6 +1523,7 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
   const insightsData = insights?.data;
   const sugCfg: SugConfig = insightsData?.sugConfig ?? DEFAULT_SUG_CONFIG;
   const scoreCfg: ScoreConfig = insightsData?.scoreConfig ?? DEFAULT_SCORE_CONFIG;
+  const pomSortMode: 'scoring' | 'suggested' = insightsData?.sortMode ?? 'scoring';
 
   const getGroupScoreValue = (g: GroupedInsight, field: SortField): number => {
     switch (field) {
@@ -1561,7 +1563,20 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
       g.bestVelocity = pick(l => l.demandVelocity);
       g.bestScarcity = pick(l => l.marketScarcity);
       g.bestUndercut = pick(l => l.undercutRatio);
-      g.bestCombined = pick(l => calcHybridScore(l, scoreCfg, sugCfg));
+      if (pomSortMode === 'suggested') {
+        // Opportunity sort: total dollar impact = sum of (suggested − current) × qty across both lots
+        const oppScore = (l: PricingInsight): number => {
+          const current = parseFloat(l.unitPrice || '0');
+          const { suggested } = calcSuggested(l, sugCfg);
+          const qty = l.quantity ?? 0;
+          return (suggested - current) * qty;
+        };
+        const nOpp = g.newLot ? oppScore(g.newLot) : 0;
+        const uOpp = g.usedLot ? oppScore(g.usedLot) : 0;
+        g.bestCombined = nOpp + uOpp;
+      } else {
+        g.bestCombined = pick(l => calcHybridScore(l, scoreCfg, sugCfg));
+      }
     }
     return Array.from(map.values()).sort((a, b) => {
       const aScore = getGroupScoreValue(a, sortField);
@@ -1695,7 +1710,7 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
               }`}
               data-testid={`sort-${field}`}
             >
-              {label}
+              {field === 'combined' && pomSortMode === 'suggested' ? 'Opp$' : label}
               {sortField === field && (
                 sortDir === 'desc' ? <ArrowDown className="w-2.5 h-2.5" /> : <ArrowUp className="w-2.5 h-2.5" />
               )}
