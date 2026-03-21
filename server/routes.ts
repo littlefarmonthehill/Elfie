@@ -11081,6 +11081,50 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     res.json(result ?? null);
   });
 
+  // Diagnostic: test a single BrickOwl price update and return before/after
+  app.post("/api/channel-sync/test-price-update", isApproved, async (req, res) => {
+    try {
+      const { lot_id, test_price } = req.body;
+      if (!lot_id) return res.status(400).json({ error: 'lot_id required' });
+      const { getBrickOwlInventory, updateBrickOwlLot } = await import('./services/brickowl');
+
+      // 1. Fetch current state from BrickOwl
+      const inventory = await getBrickOwlInventory(false);
+      const lot = inventory.find((l: any) => String(l.lot_id) === String(lot_id));
+      if (!lot) return res.status(404).json({ error: `lot_id ${lot_id} not found in BrickOwl inventory` });
+
+      const priceBefore = parseFloat(lot.price || '0');
+      const qtyBefore   = parseInt(lot.qty || '0');
+      const sendPrice   = test_price ?? parseFloat((priceBefore + 0.001).toFixed(3));
+
+      // 2. Send price update
+      const updateResponse = await updateBrickOwlLot({
+        lot_id: String(lot_id),
+        absolute_quantity: qtyBefore,
+        price: sendPrice,
+      });
+
+      // 3. Re-fetch from BrickOwl to see if it stuck
+      await new Promise(r => setTimeout(r, 2000));
+      const inventoryAfter = await getBrickOwlInventory(false);
+      const lotAfter = inventoryAfter.find((l: any) => String(l.lot_id) === String(lot_id));
+      const priceAfter = parseFloat(lotAfter?.price || '0');
+
+      res.json({
+        lot_id,
+        price_before: priceBefore,
+        price_sent:   sendPrice,
+        price_after:  priceAfter,
+        price_changed: Math.abs(priceAfter - sendPrice) < 0.001,
+        brickowl_response: updateResponse,
+        lot_before: { price: lot.price, qty: lot.qty, condition: lot.condition },
+        lot_after:  lotAfter ? { price: lotAfter.price, qty: lotAfter.qty } : null,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Manual channel sync trigger
   app.post("/api/sync/channel", isApproved, async (req, res) => {
     try {

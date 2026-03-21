@@ -800,7 +800,7 @@ export async function syncBrickLinkToBrickOwl(
       }
 
       try {
-        await updateBrickOwlLot({
+        const updateResp = await updateBrickOwlLot({
           lot_id: job.lot_id,
           absolute_quantity: job.absolute_quantity,
           price: job.price,
@@ -811,6 +811,10 @@ export async function syncBrickLinkToBrickOwl(
           ...(job.tier_price      !== undefined && { tier_price:      job.tier_price      }),
           ...(job.sale_percentage !== undefined && { sale_percentage: job.sale_percentage }),
         });
+        // Log first 3 responses so we can see what BrickOwl actually applies
+        if (result.lotsUpdated < 3) {
+          console.log(`[ChannelSync:DIAG] BO response lot_id=${job.lot_id} price_sent=${job.price.toFixed(3)}:`, JSON.stringify(updateResp));
+        }
         result.totalApiCalls++;
         result.lotsUpdated++;
       } catch (err) {
