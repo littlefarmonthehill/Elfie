@@ -725,13 +725,13 @@ export async function syncBrickLinkToBrickOwl(
       const newForSale  = item.isStockRoom ? 0 : 1;
       const boForSale   = parseInt(String(taggedLot.for_sale ?? '1'));
 
-      // New fields: bulk_qty, my_cost, lot_weight
+      // bulk_qty: BO does return this in inventory/list — delta-detection is safe.
       const newBulkQty  = item.bulk ?? 1;
       const boBulkQty   = parseInt(taggedLot.bulk_qty ?? '1') || 1;
-      const newMyCost   = item.myCost ? parseFloat(item.myCost) : 0;
-      const boMyCost    = taggedLot.my_cost ? parseFloat(taggedLot.my_cost) : 0;
+      // my_cost / lot_weight: BO does NOT return these in inventory/list.
+      // We need the BL-side values to piggyback onto other updates; BO-side is not read.
+      const newMyCost    = item.myCost   ? parseFloat(item.myCost)   : 0;
       const newLotWeight = item.myWeight ? parseFloat(item.myWeight) : 0;
-      const boLotWeight  = taggedLot.lot_weight ? parseFloat(taggedLot.lot_weight) : 0;
 
       const qtyChanged = isNaN(boQty) || boQty !== item.quantity;
 
@@ -751,12 +751,21 @@ export async function syncBrickLinkToBrickOwl(
       const saleChanged     = fields.salePercent && (taggedLot.sale_percentage ?? 0) !== newSaleRate;
       // for_sale is always synced — stockroom state is authoritative from BL
       const forSaleChanged  = !isNaN(boForSale) && boForSale !== newForSale;
-      // New opt-in fields
+      // bulk_qty: BO returns this in inventory/list so delta-detection works correctly.
       const bulkQtyChanged  = fields.bulkQty  && boBulkQty !== newBulkQty;
-      const myCostChanged   = fields.myCost   && Math.abs(boMyCost - newMyCost) > 0.0001;
-      const lotWeightChanged = fields.lotWeight && Math.abs(boLotWeight - newLotWeight) > 0.0001;
 
-      const hasChange = qtyChanged || priceChanged || remarksChanged || descChanged || tierChanged || saleChanged || forSaleChanged || bulkQtyChanged || myCostChanged || lotWeightChanged;
+      // WRITE-THROUGH FIELDS — my_cost and lot_weight are NOT returned by BrickOwl's
+      // /inventory/list endpoint, so boMyCost/boLotWeight are always 0 regardless of
+      // what BrickOwl actually stores. Using them as change-triggers produces a false
+      // positive on EVERY item that has a cost/weight set in BrickLink (i.e. all of
+      // them), which turns a 5-minute sync into a multi-hour one.
+      //
+      // Strategy: never use these as update triggers. Instead, piggyback them onto any
+      // update that already fires for a genuine reason (qty/price/notes/etc.), so the
+      // values are pushed to BrickOwl over time without causing wasteful extra calls.
+      // (myCostChanged / lotWeightChanged are intentionally omitted from hasChange.)
+
+      const hasChange = qtyChanged || priceChanged || remarksChanged || descChanged || tierChanged || saleChanged || forSaleChanged || bulkQtyChanged;
 
       // Always track for preview breakdown (populated regardless of mode)
       preview.matchedLots++;
@@ -770,8 +779,6 @@ export async function syncBrickLinkToBrickOwl(
         if (saleChanged)        preview.byField.salePercent++;
         if (forSaleChanged)     preview.byField.forSale++;
         if (bulkQtyChanged)     preview.byField.bulkQty++;
-        if (myCostChanged)      preview.byField.myCost++;
-        if (lotWeightChanged)   preview.byField.lotWeight++;
       }
 
       if (hasChange) {
@@ -781,7 +788,11 @@ export async function syncBrickLinkToBrickOwl(
           // matched_sync and full_control both sync all fields for matched lots
           const decodedRemarks = decodeHtmlEntities(item.remarks || '');
           const decodedDesc   = decodeHtmlEntities(item.description || '');
-          const hasNonQty = priceChanged || remarksChanged || descChanged || tierChanged || saleChanged || forSaleChanged || bulkQtyChanged || myCostChanged || lotWeightChanged;
+          // hasNonQtyChange drives the batch vs individual routing decision.
+          // Write-through fields (my_cost, lot_weight) are included in the payload
+          // but never make a lot "non-qty-only" by themselves — they piggyback on
+          // whatever else already needs an individual call.
+          const hasNonQty = priceChanged || remarksChanged || descChanged || tierChanged || saleChanged || forSaleChanged || bulkQtyChanged;
           toUpdate.push({
             blItemNo: item.itemNo,
             lot_id: taggedLot.lot_id,
@@ -797,8 +808,9 @@ export async function syncBrickLinkToBrickOwl(
             ...(saleChanged     && { sale_percentage: newSaleRate }),
             ...(forSaleChanged  && { for_sale: newForSale }),
             ...(bulkQtyChanged  && { bulk_qty: newBulkQty }),
-            ...(myCostChanged   && { my_cost: newMyCost }),
-            ...(lotWeightChanged && { lot_weight: newLotWeight }),
+            // Write-through: always push when enabled and lot is being updated anyway
+            ...(fields.myCost    && newMyCost   > 0 && { my_cost:    newMyCost   }),
+            ...(fields.lotWeight && newLotWeight > 0 && { lot_weight: newLotWeight }),
           });
         }
       } else {
