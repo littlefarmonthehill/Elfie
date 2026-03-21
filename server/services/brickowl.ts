@@ -711,7 +711,9 @@ export async function syncBrickLinkToBrickOwl(
   );
 
   let updateProgress = 0;
-  const totalPhase2 = toUpdate.length + toAdopt.length;
+  // Batch phase covers ALL toUpdate lots; individual phase covers only fieldJobs.
+  // Total "steps" = both passes combined so the progress bar doesn't exceed 100%.
+  const totalPhase2 = allQtyJobs.length + fieldJobs.length + toAdopt.length;
 
   // ── 2a-i: Batch ALL changed lots for quantity (fast) ──────────────────────
   // Send ONLY lot_id + absolute_quantity — no price, no notes, no extras.
