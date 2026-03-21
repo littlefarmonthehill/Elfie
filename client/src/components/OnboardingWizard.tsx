@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, ArrowRight, Building2, Link, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2, Archive, Layers, MapPin, Upload, FileText, ChevronRight, AlertCircle, Package, Globe, CreditCard, Lock, BadgeCheck, X, TrendingUp, Target, ThumbsUp, Crosshair, ShoppingCart, Users } from "lucide-react";
+import { CheckCircle2, ArrowRight, Building2, Link, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2, Archive, Layers, MapPin, Upload, FileText, ChevronRight, AlertCircle, Package, Globe, CreditCard, Lock, BadgeCheck, X, TrendingUp, Target, ThumbsUp, Crosshair, ShoppingCart, Users, ChevronDown, BarChart2, Zap } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
 import type { Organization } from "@shared/schema";
@@ -115,6 +116,20 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   // Step 4 — BrickOwl
   const [boApiKey, setBoApiKey] = useState("");
   const [channelSyncMode, setChannelSyncMode] = useState<'analysis' | 'full_control' | 'matched_sync'>('analysis');
+  const [showBoAdvanced, setShowBoAdvanced] = useState(false);
+  // Field config — defaults match server defaultSyncFields
+  const [boSyncPrice, setBoSyncPrice] = useState(true);
+  const [boSyncRemarks, setBoSyncRemarks] = useState(true);
+  const [boSyncDescription, setBoSyncDescription] = useState(true);
+  const [boSyncTierPrice, setBoSyncTierPrice] = useState(true);
+  const [boSyncSalePercent, setBoSyncSalePercent] = useState(false);
+  const [boSyncBulkQty, setBoSyncBulkQty] = useState(true);
+  const [boSyncMyCost, setBoSyncMyCost] = useState(false);
+  const [boSyncLotWeight, setBoSyncLotWeight] = useState(true);
+  const [analysisResult, setAnalysisResult] = useState<null | {
+    matchedLots: number; unmatchedLots: number; wouldUpdate: number; wouldCreate: number;
+    byField: Record<string, number>;
+  }>(null);
 
   // Step 2 — IE Strategies
   const [ieStratVision, setIeStratVision] = useState("");
@@ -238,11 +253,46 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
     setStep(5);
   };
 
+  const analysisMutation = useMutation({
+    mutationFn: async () => {
+      // Save the API key first so the sync engine can authenticate
+      if (boApiKey.trim()) {
+        await apiRequest('POST', '/api/settings', { brickowlApiKey: boApiKey.trim() });
+      }
+      // Run preview with the current local field config (before saving to config table)
+      return apiRequest('POST', '/api/channel-sync/preview', {
+        syncFields: {
+          price: boSyncPrice, remarks: boSyncRemarks, description: boSyncDescription,
+          tierPrice: boSyncTierPrice, salePercent: boSyncSalePercent,
+          bulkQty: boSyncBulkQty, myCost: boSyncMyCost, lotWeight: boSyncLotWeight,
+        },
+      });
+    },
+    onSuccess: (data: any) => {
+      if (data?.preview) setAnalysisResult(data.preview);
+    },
+    onError: (err: any) => {
+      toast({
+        title: 'Analysis failed',
+        description: err?.message?.includes('API key') || err?.message?.includes('401')
+          ? 'Invalid API key — check your BrickOwl credentials and try again.'
+          : 'Could not reach BrickOwl. Verify your API key and try again.',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleStep5 = async (skip = false) => {
     if (!skip && boApiKey.trim()) {
       await saveSettingsMutation.mutateAsync({
         brickowlApiKey: boApiKey.trim(),
         channelSyncMode,
+      });
+      // Save field config preferences to their own table
+      await apiRequest('PATCH', '/api/channel-sync/config', {
+        syncPrice: boSyncPrice, syncRemarks: boSyncRemarks, syncDescription: boSyncDescription,
+        syncTierPrice: boSyncTierPrice, syncSalePercent: boSyncSalePercent,
+        syncBulkQty: boSyncBulkQty, syncMyCost: boSyncMyCost, syncLotWeight: boSyncLotWeight,
       });
     }
     setStep(6);
@@ -255,7 +305,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
     onComplete();
   };
 
-  const isSaving = saveOrgMutation.isPending || saveSettingsMutation.isPending || saveDepthMutation.isPending || saveIeStratMutation.isPending;
+  const isSaving = saveOrgMutation.isPending || saveSettingsMutation.isPending || saveDepthMutation.isPending || saveIeStratMutation.isPending || analysisMutation.isPending;
   const csvDepthHint = selectedDepth ?? 3;
 
   return (
@@ -872,13 +922,14 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                 </p>
               </div>
 
+              {/* API Key */}
               <div className="space-y-1.5">
                 <Label htmlFor="onboard-bo-key" className="text-xs text-gray-400">BrickOwl API Key <span className="text-gray-600">(optional)</span></Label>
                 <Input
                   id="onboard-bo-key"
                   type="password"
                   value={boApiKey}
-                  onChange={(e) => setBoApiKey(e.target.value)}
+                  onChange={(e) => { setBoApiKey(e.target.value); setAnalysisResult(null); }}
                   placeholder="Paste your BrickOwl API key…"
                   className="bg-gray-800 border-gray-700 text-white"
                   data-testid="input-onboard-bo-key"
@@ -889,47 +940,186 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
               </div>
 
               {boApiKey.trim() && (
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-gray-300">How should I manage your BrickOwl store?</p>
-                  <div className="grid grid-cols-1 gap-1.5">
-                    <button
-                      onClick={() => setChannelSyncMode('analysis')}
-                      className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-colors ${channelSyncMode === 'analysis' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
-                      data-testid="button-onboard-bo-analysis"
-                    >
-                      <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 ${channelSyncMode === 'analysis' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
-                      <div>
-                        <span className="text-sm font-semibold text-gray-200">Analysis</span>
-                        <p className="text-xs text-gray-500 mt-0.5">Read-only — compare channels, no edits made</p>
-                        <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">I'll run a full comparison — checking quantity, price, tier pricing, sale %, condition, remarks, and description — without changing anything on either side. A safe starting point you can upgrade at any time.</p>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => setChannelSyncMode('full_control')}
-                      className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-colors ${channelSyncMode === 'full_control' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
-                      data-testid="button-onboard-bo-full"
-                    >
-                      <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 ${channelSyncMode === 'full_control' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
-                      <div>
-                        <span className="text-sm font-semibold text-gray-200">Full Control</span>
-                        <p className="text-xs text-gray-500 mt-0.5">Create new lots + full sync of all fields on existing</p>
-                        <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">I'll create listings for any BrickLink items that don't exist on BrickOwl yet, and fully sync all matched lots — quantity, price, tier pricing, sale %, condition, remarks, and description. Best for stores that aren't actively managed manually.</p>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => setChannelSyncMode('matched_sync')}
-                      className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-colors ${channelSyncMode === 'matched_sync' ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
-                      data-testid="button-onboard-bo-matched"
-                    >
-                      <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 ${channelSyncMode === 'matched_sync' ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
-                      <div>
-                        <span className="text-sm font-semibold text-gray-200">Matched Sync</span>
-                        <p className="text-xs text-gray-500 mt-0.5">Full sync of all fields on matched lots — never create new ones</p>
-                        <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">Syncs quantity, price, tier pricing, sale %, condition, remarks, and description for every lot already linked between BrickLink and BrickOwl. Anything without a match is skipped. Best for stores you prefer to manage manually.</p>
-                      </div>
-                    </button>
+                <>
+                  {/* Sync mode */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-gray-300">How should I manage your BrickOwl store?</p>
+                    <div className="grid grid-cols-1 gap-1.5">
+                      {([
+                        {
+                          value: 'analysis' as const,
+                          label: 'Analysis Only',
+                          sub: 'Read-only — compare channels, no edits made',
+                          body: 'Safe starting point. I compare both stores and report differences without touching anything. Upgrade to an active mode whenever you\'re ready.',
+                          testId: 'button-onboard-bo-analysis',
+                        },
+                        {
+                          value: 'full_control' as const,
+                          label: 'Full Control',
+                          sub: 'Create new lots + sync all fields on existing matched lots',
+                          body: 'I\'ll create BrickOwl listings for any BrickLink item that doesn\'t exist there yet, and keep all matched lots fully in sync. Best for stores you don\'t manage manually.',
+                          testId: 'button-onboard-bo-full',
+                        },
+                        {
+                          value: 'matched_sync' as const,
+                          label: 'Matched Sync',
+                          sub: 'Sync all fields on matched lots only — never create new ones',
+                          body: 'Syncs every matched lot but skips anything without a match. Best for stores where you prefer to create new listings manually.',
+                          testId: 'button-onboard-bo-matched',
+                        },
+                      ]).map((opt) => (
+                        <button
+                          key={opt.value}
+                          onClick={() => setChannelSyncMode(opt.value)}
+                          className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-colors ${channelSyncMode === opt.value ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
+                          data-testid={opt.testId}
+                        >
+                          <div className={`mt-0.5 w-3.5 h-3.5 rounded-full border-2 shrink-0 ${channelSyncMode === opt.value ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
+                          <div>
+                            <span className="text-sm font-semibold text-gray-200">{opt.label}</span>
+                            <p className="text-xs text-gray-500 mt-0.5">{opt.sub}</p>
+                            <p className="text-[10px] text-gray-600 mt-1 leading-relaxed">{opt.body}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+
+                  {/* Advanced options — collapsible */}
+                  <div>
+                    <button
+                      onClick={() => setShowBoAdvanced(v => !v)}
+                      className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors py-1"
+                      data-testid="button-onboard-bo-advanced-toggle"
+                    >
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showBoAdvanced ? 'rotate-180' : ''}`} />
+                      Advanced: field sync options
+                    </button>
+
+                    {showBoAdvanced && (
+                      <div className="mt-2 rounded-lg border border-gray-700/60 bg-gray-800/30 divide-y divide-gray-700/40 overflow-hidden">
+                        {/* Qty — always on */}
+                        <div className="flex items-center justify-between gap-3 px-3 py-2.5 opacity-50">
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-gray-200">Quantity</p>
+                            <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Always synced — cannot be disabled</p>
+                          </div>
+                          <Switch checked disabled />
+                        </div>
+
+                        {/* Base Price */}
+                        <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-gray-200">Base Price</p>
+                            <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Syncs the listing price from BrickLink to existing lots. Always included when creating new items in Full Control.</p>
+                          </div>
+                          <Switch checked={boSyncPrice} onCheckedChange={setBoSyncPrice} data-testid="switch-onboard-bo-price" />
+                        </div>
+
+                        {([
+                          { key: 'remarks',     label: 'Remarks',          desc: 'Internal notes (BrickLink Remarks → BrickOwl personal note)',              checked: boSyncRemarks,     set: setBoSyncRemarks },
+                          { key: 'description', label: 'Description',      desc: 'Public description (BrickLink Description → BrickOwl public note)',         checked: boSyncDescription, set: setBoSyncDescription },
+                          { key: 'tierPrice',   label: 'Tier Pricing',     desc: 'Bulk discount tiers from BrickLink',                                        checked: boSyncTierPrice,   set: setBoSyncTierPrice },
+                          { key: 'salePercent', label: 'Sale %',           desc: 'BrickLink sale rate → BrickOwl sale %. Disable if you manage BO sales separately.', checked: boSyncSalePercent, set: setBoSyncSalePercent },
+                          { key: 'bulkQty',     label: 'Min. Quantity',    desc: 'Minimum order quantity (BrickLink Bulk → BrickOwl bulk_qty)',               checked: boSyncBulkQty,     set: setBoSyncBulkQty },
+                          { key: 'myCost',      label: 'Cost Price',       desc: 'Your cost price (BrickLink My Cost → BrickOwl my_cost). Private data, opt-in.', checked: boSyncMyCost, set: setBoSyncMyCost },
+                          { key: 'lotWeight',   label: 'Custom Lot Weight',desc: 'Custom weight per lot (BrickLink My Weight → BrickOwl lot_weight)',        checked: boSyncLotWeight,   set: setBoSyncLotWeight },
+                        ] as const).map(({ key, label, desc, checked, set }) => (
+                          <div key={key} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-gray-200">{label}</p>
+                              <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{desc}</p>
+                            </div>
+                            <Switch checked={checked} onCheckedChange={set} data-testid={`switch-onboard-bo-${key}`} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Run Analysis */}
+                  <div className="space-y-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={analysisMutation.isPending}
+                      onClick={() => analysisMutation.mutate()}
+                      className="text-blue-400 border border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10"
+                      data-testid="button-onboard-bo-run-analysis"
+                    >
+                      {analysisMutation.isPending ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                      ) : (
+                        <BarChart2 className="w-3.5 h-3.5 mr-1.5" />
+                      )}
+                      {analysisMutation.isPending ? 'Scanning both stores…' : 'Run Analysis'}
+                    </Button>
+                    {analysisMutation.isPending && (
+                      <p className="text-[10px] text-gray-600">This reads your BrickLink and BrickOwl inventories — may take 30–60 s for large stores.</p>
+                    )}
+                  </div>
+
+                  {/* Analysis result panel */}
+                  {analysisResult && (
+                    <div className="rounded-lg border border-gray-700/60 bg-gray-800/30 p-3 space-y-3">
+                      <div className="flex items-center gap-1.5">
+                        <BarChart2 className="w-3.5 h-3.5 text-blue-400" />
+                        <p className="text-xs font-semibold text-gray-200">Analysis Results</p>
+                        <span className="ml-auto text-[10px] text-gray-600">read-only scan</span>
+                      </div>
+
+                      {/* Summary stats */}
+                      <div className="grid grid-cols-2 gap-2">
+                        {([
+                          { label: 'Matched lots',  value: analysisResult.matchedLots,   color: 'text-gray-200' },
+                          { label: 'Unmatched',      value: analysisResult.unmatchedLots, color: 'text-amber-400' },
+                          { label: 'Would update',   value: analysisResult.wouldUpdate,   color: 'text-blue-400'  },
+                          { label: 'Would create',   value: analysisResult.wouldCreate,   color: 'text-green-400' },
+                        ] as const).map(({ label, value, color }) => (
+                          <div key={label} className="rounded-md bg-gray-900/50 border border-gray-700/40 px-3 py-2">
+                            <p className={`text-lg font-mono font-bold ${color}`}>{value.toLocaleString()}</p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">{label}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Field breakdown */}
+                      {(() => {
+                        const fieldLabels: Record<string, string> = {
+                          qty: 'Quantity', price: 'Base Price', remarks: 'Remarks',
+                          description: 'Description', tierPrice: 'Tier Pricing',
+                          salePercent: 'Sale %', forSale: 'For Sale status',
+                          bulkQty: 'Min. Quantity', myCost: 'Cost Price', lotWeight: 'Lot Weight',
+                        };
+                        const entries = Object.entries(analysisResult.byField).filter(([, v]) => v > 0);
+                        if (entries.length === 0) return null;
+                        return (
+                          <div>
+                            <p className="text-[10px] font-medium text-gray-500 mb-1.5">Changes by field:</p>
+                            <div className="space-y-0.5">
+                              {entries.map(([key, count]) => (
+                                <div key={key} className="flex items-center justify-between text-[11px]">
+                                  <span className="text-gray-400">{fieldLabels[key] ?? key}</span>
+                                  <span className="font-mono text-gray-300">{count.toLocaleString()} lots</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Nudge to switch mode if still on analysis */}
+                      {channelSyncMode === 'analysis' && (analysisResult.wouldUpdate > 0 || analysisResult.wouldCreate > 0) && (
+                        <div className="flex items-start gap-2 rounded-md bg-amber-500/10 border border-amber-500/25 px-3 py-2">
+                          <Zap className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
+                          <p className="text-[10px] text-amber-300 leading-relaxed">
+                            Ready to go live? Switch to <strong>Matched Sync</strong> or <strong>Full Control</strong> above to start pushing these changes to BrickOwl.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
 
               <div className="pt-2 flex justify-between">

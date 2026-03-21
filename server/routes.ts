@@ -9286,17 +9286,34 @@ Format search_web URLs as markdown links.`;
       const orgId = reqOrgId(req);
       const { syncBrickLinkToBrickOwl, defaultSyncFields } = await import('./services/brickowl');
 
-      const [cfgRow] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
-      const syncFields: typeof defaultSyncFields = cfgRow ? {
-        price:       cfgRow.syncPrice,
-        remarks:     cfgRow.syncRemarks,
-        description: cfgRow.syncDescription,
-        tierPrice:   cfgRow.syncTierPrice,
-        salePercent: cfgRow.syncSalePercent,
-        bulkQty:     cfgRow.syncBulkQty,
-        myCost:      cfgRow.syncMyCost,
-        lotWeight:   cfgRow.syncLotWeight,
-      } : { ...defaultSyncFields };
+      // Optional inline syncFields from request body (used during onboarding before config row is saved).
+      const bodySyncFields = req.body?.syncFields as Partial<typeof defaultSyncFields> | undefined;
+
+      let syncFields: typeof defaultSyncFields;
+      if (bodySyncFields) {
+        syncFields = {
+          price:       bodySyncFields.price       ?? defaultSyncFields.price,
+          remarks:     bodySyncFields.remarks     ?? defaultSyncFields.remarks,
+          description: bodySyncFields.description ?? defaultSyncFields.description,
+          tierPrice:   bodySyncFields.tierPrice   ?? defaultSyncFields.tierPrice,
+          salePercent: bodySyncFields.salePercent ?? defaultSyncFields.salePercent,
+          bulkQty:     bodySyncFields.bulkQty     ?? defaultSyncFields.bulkQty,
+          myCost:      bodySyncFields.myCost      ?? defaultSyncFields.myCost,
+          lotWeight:   bodySyncFields.lotWeight   ?? defaultSyncFields.lotWeight,
+        };
+      } else {
+        const [cfgRow] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
+        syncFields = cfgRow ? {
+          price:       cfgRow.syncPrice,
+          remarks:     cfgRow.syncRemarks,
+          description: cfgRow.syncDescription,
+          tierPrice:   cfgRow.syncTierPrice,
+          salePercent: cfgRow.syncSalePercent,
+          bulkQty:     cfgRow.syncBulkQty,
+          myCost:      cfgRow.syncMyCost,
+          lotWeight:   cfgRow.syncLotWeight,
+        } : { ...defaultSyncFields };
+      }
 
       // Always run in analysis mode (read-only) regardless of the org's configured sync mode.
       const result = await syncBrickLinkToBrickOwl(undefined, 'analysis', undefined, syncFields);
