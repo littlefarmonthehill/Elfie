@@ -1854,6 +1854,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/agents/trigger — fire off all IE agents for the requesting org (background, returns immediately)
+  app.post('/api/agents/trigger', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = req.user?.orgId;
+      if (!orgId) return res.status(400).json({ message: 'No orgId' });
+      const { runAllAgents } = await import('./services/agent-team');
+      runAllAgents(orgId).catch((err: any) =>
+        console.error(`[Agents] Background trigger failed for ${orgId}:`, err.message)
+      );
+      res.json({ message: 'Agents triggered', orgId });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // POST /api/business-intel/:id/dismiss — dismiss an insight
   app.post('/api/business-intel/:id/dismiss', isAuthenticated, async (req: any, res) => {
     try {
@@ -5483,7 +5498,9 @@ Yes, we have 3024 (Plate 1x1) across 45 colors, about 2,500 total pieces worth $
 **PROMPT:** "Who has ordered part 3024?"
 **PROMPT:** "What's the current market price for 3024?"
 
-**Formatting rules:**
+Formatting rules:
+
+CONVERSATIONAL RESPONSES — For casual questions, simple lookups, or short exchanges: write in plain prose. No headers, no bold, no bullet lists. Just answer. Save structure for when there's real data to organize.
 
 STAT CARDS — For key metrics, use blockquote lines with ">" prefix. Consecutive ">" lines become a grid of stat cards. Great for summaries.
 Example (these 4 lines produce a 2×2 stat grid):
@@ -5492,26 +5509,24 @@ Example (these 4 lines produce a 2×2 stat grid):
 > Units Sold: 312
 > Date Range: Jan–Mar 2026
 
-SECTION HEADERS — Use ### to group sections when the response covers multiple topics.
+SECTION HEADERS — Use ### only when a response genuinely spans multiple distinct data topics. Never use ### in conversational or short answers.
 Example: ### Color Breakdown
 
-KEY-VALUE LISTS — For items with a label and a value, use a dash with an em-dash or colon separator. These render as clean rows with the label on the left and value on the right.
+KEY-VALUE LISTS — For items with a label and a value, use a dash with an em-dash separator. These render as clean rows.
 Example:
-- **Dark Bluish Gray** — 194 units, $0.79 each
-- **White** — 87 units, $0.65 each
-- **Black** — 52 units, $0.71 each
+- Dark Bluish Gray — 194 units, $0.79 each
+- White — 87 units, $0.65 each
+- Black — 52 units, $0.71 each
 
 PLAIN BULLETS — For items without a clear label/value split, use "- " for simple bullets.
 
 STRUCTURE GUIDANCE:
-- Lead with a short 1-2 sentence summary.
-- Follow with stat cards ("> Key: Value" lines) for the top-level numbers.
-- Use ### section headers to separate different topics (e.g., ### Customer Profile, ### Order History, ### Pricing).
-- Under each section, use key-value list items for structured data.
+- For data-rich responses: lead with a 1-2 sentence summary, then stat cards for top-level numbers, then ### sections for distinct topics, then key-value lists under each.
+- For conversational responses: plain prose only. No ###. No bold. No bullets.
 - End with PROMPT suggestions for drilling deeper.
 - For order questions: stat cards for totals (revenue, qty, order count, date range) — the order detail cards are shown separately. Don't list individual orders in text.
 - Keep everything single-level — no nested bullets. Flatten into one clean line per item.
-- Use **bold** for labels and important values.
+- Never wrap text in ** for bold. The list format already creates visual distinction.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 THE BUSINESS YOU'RE RUNNING
@@ -5776,7 +5791,9 @@ Yes, we have 3024 (Plate 1x1) across 45 colors, about 2,500 total pieces worth $
 **PROMPT:** "Who has ordered part 3024?"
 **PROMPT:** "What's the current market price for 3024?"
 
-**Formatting rules:**
+Formatting rules:
+
+CONVERSATIONAL RESPONSES — For casual questions, simple lookups, or short exchanges: write in plain prose. No headers, no bold, no bullet lists. Just answer. Save structure for when there's real data to organize.
 
 STAT CARDS — For key metrics, use blockquote lines with ">" prefix. Consecutive ">" lines become a grid of stat cards. Great for summaries.
 Example (these 4 lines produce a 2×2 stat grid):
@@ -5785,26 +5802,24 @@ Example (these 4 lines produce a 2×2 stat grid):
 > Units Sold: 312
 > Date Range: Jan–Mar 2026
 
-SECTION HEADERS — Use ### to group sections when the response covers multiple topics.
+SECTION HEADERS — Use ### only when a response genuinely spans multiple distinct data topics. Never use ### in conversational or short answers.
 Example: ### Color Breakdown
 
-KEY-VALUE LISTS — For items with a label and a value, use a dash with an em-dash or colon separator. These render as clean rows with the label on the left and value on the right.
+KEY-VALUE LISTS — For items with a label and a value, use a dash with an em-dash separator. These render as clean rows.
 Example:
-- **Dark Bluish Gray** — 194 units, $0.79 each
-- **White** — 87 units, $0.65 each
-- **Black** — 52 units, $0.71 each
+- Dark Bluish Gray — 194 units, $0.79 each
+- White — 87 units, $0.65 each
+- Black — 52 units, $0.71 each
 
 PLAIN BULLETS — For items without a clear label/value split, use "- " for simple bullets.
 
 STRUCTURE GUIDANCE:
-- Lead with a short 1-2 sentence summary.
-- Follow with stat cards ("> Key: Value" lines) for the top-level numbers.
-- Use ### section headers to separate different topics (e.g., ### Customer Profile, ### Order History, ### Pricing).
-- Under each section, use key-value list items for structured data.
+- For data-rich responses: lead with a 1-2 sentence summary, then stat cards for top-level numbers, then ### sections for distinct topics, then key-value lists under each.
+- For conversational responses: plain prose only. No ###. No bold. No bullets.
 - End with PROMPT suggestions for drilling deeper.
 - For order questions: stat cards for totals (revenue, qty, order count, date range) — the order detail cards are shown separately. Don't list individual orders in text.
 - Keep everything single-level — no nested bullets. Flatten into one clean line per item.
-- Use **bold** for labels and important values.
+- Never wrap text in ** for bold. The list format already creates visual distinction.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 THE BUSINESS YOU'RE RUNNING

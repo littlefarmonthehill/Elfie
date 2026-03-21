@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, ArrowRight, Building2, Link, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2, Archive, Layers, MapPin, Upload, FileText, ChevronRight, AlertCircle, Package, Globe, CreditCard, Lock, BadgeCheck, X, TrendingUp, Target, ThumbsUp, Crosshair, ShoppingCart, Users, ChevronDown, BarChart2, Zap } from "lucide-react";
+import { CheckCircle2, ArrowRight, Building2, Link, Smartphone, Share2, PlusSquare, ClipboardPaste, ExternalLink, Loader2, Archive, Layers, MapPin, Upload, FileText, ChevronRight, AlertCircle, Package, Globe, CreditCard, Lock, BadgeCheck, X, TrendingUp, Target, ThumbsUp, Crosshair, ShoppingCart, Users, ChevronDown, BarChart2, Zap, BookOpen, DollarSign, Search, Brain } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
@@ -42,7 +42,7 @@ const STEP_MESSAGES: Record<number, string> = {
   4: "Now let's map out your storage. Choose how your warehouse is laid out — once I know the structure, I can guide you to any part the moment an order comes in.",
   5: "Do you sell on BrickOwl too? I can keep both stores in sync automatically. This is completely optional — you can add it any time from Settings.",
   6: "You're on the free plan. When you're ready, pick a paid plan below — if it includes a trial, you won't be charged until it ends.",
-  7: "You're all set! Come find me in the sidebar whenever you need help managing inventory, filling orders, or just want to know what's going on.",
+  8: "You're all set! Come find me in the sidebar whenever you need help managing inventory, filling orders, or just want to know what's going on.",
 };
 
 function ElfieSpeechBubble({ step, large = false }: { step: number; large?: boolean }) {
@@ -300,6 +300,40 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
 
   const handleStep6Skip = () => setStep(7);
 
+  // Step 7 — IE Agents
+  const [agentsTriggered, setAgentsTriggered] = useState(false);
+  const [agentSignals, setAgentSignals] = useState<any[]>([]);
+  const [minWaitDone, setMinWaitDone] = useState(false);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (step === 7 && !agentsTriggered) {
+      setAgentsTriggered(true);
+      apiRequest('POST', '/api/agents/trigger').catch(() => {});
+      setTimeout(() => setMinWaitDone(true), 25000);
+
+      const poll = async () => {
+        try {
+          const res = await apiRequest('GET', '/api/business-intel');
+          const data = await res.json();
+          if (Array.isArray(data)) setAgentSignals(data);
+        } catch {}
+      };
+      poll();
+      pollIntervalRef.current = setInterval(poll, 6000);
+    }
+    if (step !== 7 && pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, [step, agentsTriggered]);
+
+  const agentsWithSignals = Array.from(new Set(agentSignals.map((s: any) => s.agentId).filter(Boolean)));
+  const canContinue = minWaitDone || agentsWithSignals.length >= 3;
+
   const handleFinish = async () => {
     await saveOrgMutation.mutateAsync({ onboardingCompleted: true });
     onComplete();
@@ -313,7 +347,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
       <div className="w-full max-w-lg py-8">
 
         {/* Dismiss button */}
-        {onDismiss && step < 7 && (
+        {onDismiss && step < 8 && (
           <div className="flex justify-end mb-2">
             <button
               onClick={onDismiss}
@@ -1236,8 +1270,105 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
             </>
           )}
 
-          {/* ── Step 7: Done ── */}
+          {/* ── Step 7: IE Agents ── */}
           {step === 7 && (
+            <>
+              {/* ELFIE + intro */}
+              <div className="flex flex-col items-center gap-3 pb-2">
+                <img src={elfieRobot} alt="E.L.F.I.E." className="w-20 h-20 object-contain drop-shadow-lg" />
+                <div className="bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-center max-w-sm">
+                  <p className="text-sm text-gray-200 leading-snug">
+                    While you were getting set up, I put your 6 IE agents to work analyzing your data. Here's what they found.
+                  </p>
+                </div>
+              </div>
+
+              {/* Agent grid */}
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Intelligent Element Agents</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { id: 'catalog',   icon: Search,      name: 'Catalog',   desc: 'Market demand & acquisitions' },
+                    { id: 'inventory', icon: Package,      name: 'Inventory', desc: 'Stock health & dead stock' },
+                    { id: 'pricing',   icon: DollarSign,  name: 'Pricing',   desc: 'Price gaps vs. market' },
+                    { id: 'market',    icon: Globe,       name: 'Market',    desc: 'News & external signals' },
+                    { id: 'orders',    icon: ShoppingCart,name: 'Orders',    desc: 'Revenue & velocity trends' },
+                    { id: 'customer',  icon: Users,       name: 'Customer',  desc: 'Buyer patterns & retention' },
+                  ] as const).map(({ id, icon: Icon, name, desc }) => {
+                    const count = agentSignals.filter((s: any) => s.agentId === id).length;
+                    const done = agentsWithSignals.includes(id);
+                    return (
+                      <div key={id} className={`rounded-lg border p-3 flex items-start gap-2.5 transition-colors ${done ? 'border-blue-500/30 bg-blue-500/5' : 'border-gray-700 bg-gray-800/40'}`}>
+                        <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${done ? 'bg-blue-500/15 text-blue-400' : 'bg-gray-700/60 text-gray-500'}`}>
+                          <Icon className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold text-gray-200">{name}</span>
+                            {done ? (
+                              <span className="text-[9px] bg-blue-500/15 text-blue-400 border border-blue-500/25 rounded px-1 py-0.5">{count} signal{count !== 1 ? 's' : ''}</span>
+                            ) : (
+                              <span className="flex items-center gap-0.5 text-[9px] text-gray-600">
+                                <Loader2 className="w-2 h-2 animate-spin" />analyzing
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{desc}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Top signals preview */}
+              {agentSignals.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">First look</p>
+                  <div className="space-y-2">
+                    {agentSignals.slice(0, 4).map((signal: any, i: number) => (
+                      <div key={i} className="rounded-lg border border-gray-700/60 bg-gray-800/30 px-3 py-2.5">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded border ${
+                            signal.urgency === 'high' ? 'bg-red-500/15 text-red-400 border-red-500/25' :
+                            signal.urgency === 'medium' ? 'bg-amber-500/15 text-amber-400 border-amber-500/25' :
+                            'bg-gray-700/60 text-gray-400 border-gray-600/40'
+                          }`}>{signal.urgency}</span>
+                          <span className="text-[10px] text-gray-500 capitalize">{signal.agentId}</span>
+                        </div>
+                        <p className="text-xs font-medium text-gray-200 leading-snug">{signal.title}</p>
+                        <p className="text-[11px] text-gray-400 mt-1 leading-relaxed line-clamp-2">{signal.summary}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-1 flex justify-between items-center gap-3">
+                {!canContinue && agentSignals.length === 0 && (
+                  <p className="text-[11px] text-gray-600 flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Agents analyzing your data...
+                  </p>
+                )}
+                {!canContinue && agentSignals.length > 0 && (
+                  <p className="text-[11px] text-gray-600">More agents working...</p>
+                )}
+                {canContinue && <span />}
+                <Button
+                  onClick={() => setStep(8)}
+                  disabled={!canContinue}
+                  data-testid="button-onboard-next-7"
+                >
+                  {canContinue ? 'Enter dashboard' : 'Please wait…'}
+                  <ArrowRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* ── Step 8: Done ── */}
+          {step === 8 && (
             <>
               {/* ELFIE centered + speech bubble */}
               <div className="flex flex-col items-center gap-4 py-2">
@@ -1247,7 +1378,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                   className="w-32 h-32 object-contain drop-shadow-2xl"
                 />
                 <div className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-4 text-center max-w-sm">
-                  <p className="text-base text-gray-200 leading-snug">{STEP_MESSAGES[7]}</p>
+                  <p className="text-base text-gray-200 leading-snug">{STEP_MESSAGES[8]}</p>
                 </div>
                 <div className="flex items-center gap-2 text-green-400">
                   <CheckCircle2 className="w-5 h-5" />
