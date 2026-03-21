@@ -3,6 +3,8 @@ import { appSettings, blInventory, blColors } from "@shared/schema";
 import { eq, isNotNull, sql } from "drizzle-orm";
 
 // Decode HTML entities from BrickLink notes (&#39; → ', &#40; → (, &#41; → ), etc.)
+// Also trims leading/trailing whitespace (including \r\n) — BrickLink sometimes stores
+// notes with trailing CRLF that BrickOwl strips on storage, causing infinite update loops.
 function decodeHtmlEntities(text: string | null | undefined): string {
   if (!text) return '';
   
@@ -23,7 +25,7 @@ function decodeHtmlEntities(text: string | null | undefined): string {
     decoded = decoded.replace(new RegExp(entity, 'g'), char);
   }
   
-  return decoded;
+  return decoded.trim();
 }
 
 export interface SyncPreviewBreakdown {
@@ -742,8 +744,8 @@ export async function syncBrickLinkToBrickOwl(
       const priceChanged    = fields.price && (isNaN(boBase) || Math.abs(boBase - newPrice) > 0.001);
       // Decode BL side before comparing — BrickLink stores HTML entities (e.g. &#39;)
       // but BrickOwl holds the decoded text after the first sync.
-      const remarksChanged  = fields.remarks     && (taggedLot.personal_note || '') !== decodeHtmlEntities(item.remarks || '');
-      const descChanged     = fields.description && (taggedLot.public_note   || '') !== decodeHtmlEntities(item.description || '');
+      const remarksChanged  = fields.remarks     && (taggedLot.personal_note || '').trim() !== decodeHtmlEntities(item.remarks      || '');
+      const descChanged     = fields.description && (taggedLot.public_note   || '').trim() !== decodeHtmlEntities(item.description || '');
       const tierChanged     = fields.tierPrice   && boTierPriceStr !== normalizeTierPrice(newTierPrice);
       // salePercent is opt-in — users may manage BO sales independently.
       // When enabled: sync BL saleRate (0–100) → BO sale_percent.
