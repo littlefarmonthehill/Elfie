@@ -9262,6 +9262,35 @@ Format search_web URLs as markdown links.`;
     }
   });
 
+  // Preview sync — runs Phase 1 comparison in analysis mode (no writes)
+  // and returns a per-field breakdown of what would be changed.
+  app.post("/api/channel-sync/preview", isApproved, async (req, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { syncBrickLinkToBrickOwl, defaultSyncFields } = await import('./services/brickowl');
+
+      const [cfgRow] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
+      const syncFields: typeof defaultSyncFields = cfgRow ? {
+        price:       cfgRow.syncPrice,
+        remarks:     cfgRow.syncRemarks,
+        description: cfgRow.syncDescription,
+        tierPrice:   cfgRow.syncTierPrice,
+        salePercent: cfgRow.syncSalePercent,
+        bulkQty:     cfgRow.syncBulkQty,
+        myCost:      cfgRow.syncMyCost,
+        lotWeight:   cfgRow.syncLotWeight,
+      } : { ...defaultSyncFields };
+
+      // Always run in analysis mode (read-only) regardless of the org's configured sync mode.
+      const result = await syncBrickLinkToBrickOwl(undefined, 'analysis', undefined, syncFields);
+
+      res.json({ success: true, preview: result.preview });
+    } catch (error) {
+      console.error('[Preview] error:', error);
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Preview failed' });
+    }
+  });
+
   // Sync BrickLink inventory to platform
   app.post("/api/platform-sync/sync", isApproved, async (req, res) => {
     try {

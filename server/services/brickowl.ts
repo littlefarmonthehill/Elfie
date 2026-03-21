@@ -26,12 +26,32 @@ function decodeHtmlEntities(text: string | null | undefined): string {
   return decoded;
 }
 
+export interface SyncPreviewBreakdown {
+  matchedLots:   number; // BL lots that have a linked BO lot
+  unmatchedLots: number; // BL lots with no BO match (would be created in full_control)
+  wouldUpdate:   number; // matched lots with at least one enabled field changed
+  wouldCreate:   number; // unmatched lots that would be created (full_control only, counted in analysis)
+  byField: {
+    qty:         number;
+    price:       number;
+    remarks:     number;
+    description: number;
+    tierPrice:   number;
+    salePercent: number;
+    forSale:     number;
+    bulkQty:     number;
+    myCost:      number;
+    lotWeight:   number;
+  };
+}
+
 export interface BrickOwlSyncResult {
   lotsCreated: number;
   lotsUpdated: number;
   lotsSkipped: number;
   errors: string[];
   totalApiCalls: number;
+  preview?: SyncPreviewBreakdown; // populated when mode === 'analysis'
 }
 
 export interface BrickOwlInventoryLot {
@@ -608,6 +628,13 @@ export async function syncBrickLinkToBrickOwl(
     totalApiCalls: 0,
   };
 
+  // Initialise the preview breakdown — only fully populated in analysis mode.
+  const preview: SyncPreviewBreakdown = {
+    matchedLots: 0, unmatchedLots: 0, wouldUpdate: 0, wouldCreate: 0,
+    byField: { qty: 0, price: 0, remarks: 0, description: 0, tierPrice: 0,
+               salePercent: 0, forSale: 0, bulkQty: 0, myCost: 0, lotWeight: 0 },
+  };
+
   // ── Fetch both inventories once ──────────────────────────────────────────
   let query = db.select().from(blInventory);
   if (limit) query = query.limit(limit) as any;
@@ -719,6 +746,22 @@ export async function syncBrickLinkToBrickOwl(
 
       const hasChange = qtyChanged || priceChanged || remarksChanged || descChanged || tierChanged || saleChanged || forSaleChanged || bulkQtyChanged || myCostChanged || lotWeightChanged;
 
+      // Always track for preview breakdown (populated regardless of mode)
+      preview.matchedLots++;
+      if (hasChange) {
+        preview.wouldUpdate++;
+        if (qtyChanged)         preview.byField.qty++;
+        if (priceChanged)       preview.byField.price++;
+        if (remarksChanged)     preview.byField.remarks++;
+        if (descChanged)        preview.byField.description++;
+        if (tierChanged)        preview.byField.tierPrice++;
+        if (saleChanged)        preview.byField.salePercent++;
+        if (forSaleChanged)     preview.byField.forSale++;
+        if (bulkQtyChanged)     preview.byField.bulkQty++;
+        if (myCostChanged)      preview.byField.myCost++;
+        if (lotWeightChanged)   preview.byField.lotWeight++;
+      }
+
       if (hasChange) {
         if (mode === 'analysis') {
           result.lotsSkipped++; // analysis: report discrepancy but don't write
@@ -751,9 +794,12 @@ export async function syncBrickLinkToBrickOwl(
       }
     } else if (mode === 'full_control') {
       // No tagged lot — queue for BOID lookup (Phase 2b)
+      preview.unmatchedLots++;
+      preview.wouldCreate++;
       toAdopt.push(item);
     } else {
       // matched_sync / analysis: skip untagged items — never create new lots
+      preview.unmatchedLots++;
       result.lotsSkipped++;
     }
   }
@@ -781,7 +827,10 @@ export async function syncBrickLinkToBrickOwl(
     });
   }
 
-  if (mode === 'analysis') return result; // analysis stops here
+  if (mode === 'analysis') {
+    result.preview = preview; // attach field-level breakdown for preview UI
+    return result;
+  }
 
   // ── Phase 2a: Update changed tagged lots ─────────────────────────────────
   //

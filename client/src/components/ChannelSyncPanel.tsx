@@ -45,6 +45,18 @@ import { Separator } from "@/components/ui/separator";
 
 type SyncMode = 'analysis' | 'matched_sync' | 'full_control';
 
+interface SyncPreviewBreakdown {
+  matchedLots:   number;
+  unmatchedLots: number;
+  wouldUpdate:   number;
+  wouldCreate:   number;
+  byField: {
+    qty: number; price: number; remarks: number; description: number;
+    tierPrice: number; salePercent: number; forSale: number;
+    bulkQty: number; myCost: number; lotWeight: number;
+  };
+}
+
 function SyncModeBadge({ mode, size = 'sm' }: { mode?: SyncMode; size?: 'sm' | 'md' }) {
   if (!mode) return null;
   const cfg = {
@@ -81,6 +93,8 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedArea, setSelectedArea] = useState<DiscrepancyType | null>(null);
   const [showAuditReport, setShowAuditReport] = useState(false);
+  const [previewResult, setPreviewResult] = useState<SyncPreviewBreakdown | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
 
   const { data: platformData, isLoading: platformLoading } = useQuery<any>({
     queryKey: ['/api/platform-sync/status'],
@@ -112,6 +126,17 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
     },
     onError: () => {
       toast({ title: 'Sync failed', description: 'Could not start channel sync.', variant: 'destructive' });
+    },
+  });
+
+  const previewMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/channel-sync/preview', {}),
+    onSuccess: (data: any) => {
+      setPreviewResult(data?.preview ?? null);
+      setShowPreview(true);
+    },
+    onError: () => {
+      toast({ title: 'Preview failed', description: 'Could not run sync preview. Check your BrickOwl API key.', variant: 'destructive' });
     },
   });
 
@@ -460,6 +485,10 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
                 isLoading={isLoading}
                 isRunning={isRunning}
                 syncMutation={syncMutation}
+                previewMutation={previewMutation}
+                previewResult={previewResult}
+                showPreview={showPreview}
+                onDismissPreview={() => setShowPreview(false)}
                 onOpenSettings={onOpenSettings}
                 setDrawerOpen={setDrawerOpen}
                 discrepancyAreas={discrepancyAreas}
@@ -509,6 +538,10 @@ function OverviewContent({
   isLoading,
   isRunning,
   syncMutation,
+  previewMutation,
+  previewResult,
+  showPreview,
+  onDismissPreview,
   onOpenSettings,
   setDrawerOpen,
   discrepancyAreas,
@@ -532,6 +565,20 @@ function OverviewContent({
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
           )}
           {isRunning ? 'Syncing…' : 'Sync Now'}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={previewMutation.isPending || isRunning}
+          onClick={() => previewMutation.mutate()}
+          data-testid="button-channel-preview"
+        >
+          {previewMutation.isPending ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+          ) : (
+            <ClipboardList className="w-3.5 h-3.5 mr-1.5" />
+          )}
+          {previewMutation.isPending ? 'Scanning…' : 'Preview Run'}
         </Button>
         <Button
           size="sm"
@@ -575,6 +622,65 @@ function OverviewContent({
             {brickOwl.syncMode === 'matched_sync' && '— updates matched lots only, no new listings'}
             {brickOwl.syncMode === 'full_control' && '— updates matched lots and creates new listings'}
           </span>
+        </div>
+      )}
+
+      {/* Preview result panel */}
+      {showPreview && previewResult && (
+        <div className="rounded-lg border border-blue-500/30 bg-blue-950/30 p-3 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold text-blue-200">Preview Run — No changes were made</span>
+            <button
+              onClick={onDismissPreview}
+              className="text-gray-500 hover:text-gray-300"
+              data-testid="button-dismiss-preview"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { label: 'Matched lots',   value: previewResult.matchedLots,   color: 'text-gray-200' },
+              { label: 'Would update',   value: previewResult.wouldUpdate,   color: 'text-yellow-300' },
+              { label: 'Unmatched',      value: previewResult.unmatchedLots, color: 'text-orange-300' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="rounded bg-gray-800/60 px-2 py-1.5 text-center">
+                <p className={`text-base font-mono font-bold ${color}`}>{value.toLocaleString()}</p>
+                <p className="text-[9px] text-gray-500 mt-0.5">{label}</p>
+              </div>
+            ))}
+          </div>
+
+          {previewResult.wouldUpdate > 0 && (
+            <div className="space-y-1">
+              <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">Changes by field</p>
+              <div className="flex flex-wrap gap-1.5">
+                {([
+                  ['Qty',         previewResult.byField.qty],
+                  ['Price',       previewResult.byField.price],
+                  ['Remarks',     previewResult.byField.remarks],
+                  ['Description', previewResult.byField.description],
+                  ['Tier price',  previewResult.byField.tierPrice],
+                  ['Sale %',      previewResult.byField.salePercent],
+                  ['For sale',    previewResult.byField.forSale],
+                  ['Bulk qty',    previewResult.byField.bulkQty],
+                  ['My cost',     previewResult.byField.myCost],
+                  ['Lot weight',  previewResult.byField.lotWeight],
+                ] as [string, number][]).filter(([, n]) => n > 0).map(([label, n]) => (
+                  <span key={label} className="inline-flex items-center gap-1 rounded border border-blue-500/20 bg-blue-900/30 px-1.5 py-0.5 text-[10px] text-blue-200">
+                    {label}: <span className="font-mono font-semibold">{n.toLocaleString()}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {previewResult.wouldUpdate === 0 && (
+            <p className="text-[11px] text-green-400">
+              Everything is in sync — no lots would be changed with your current field settings.
+            </p>
+          )}
         </div>
       )}
 
