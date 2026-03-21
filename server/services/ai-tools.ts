@@ -343,12 +343,16 @@ export async function getOrderAnalytics(params?: {
   customerUsername?: string;
   startDate?: string;
   endDate?: string;
+  _orgId?: string;
 }) {
-  const { marketplace, customerUsername, startDate, endDate } = params || {};
+  const { marketplace, customerUsername, startDate, endDate, _orgId } = params || {};
   
   try {
     const conditions: any[] = [];
     
+    if (_orgId) {
+      conditions.push(eq(orders.orgId, _orgId));
+    }
     if (marketplace) {
       conditions.push(eq(orders.marketplace, marketplace));
     }

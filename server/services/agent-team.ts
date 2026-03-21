@@ -119,7 +119,12 @@ async function callAgent(openai: OpenAI, orgId: string, systemPrompt: string, da
     }
   } catch { /* non-fatal */ }
   const content = completion.choices[0]?.message?.content || '{}';
-  const parsed = JSON.parse(content);
+  let parsed: any = {};
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    // Truncated or malformed JSON — return empty; agent will retry on next cycle
+  }
   return Array.isArray(parsed.signals) ? parsed.signals : [];
 }
 
@@ -342,12 +347,12 @@ export async function runOrdersAgent(orgId: string): Promise<number> {
     SELECT
       DATE_TRUNC('week', o.order_date) as week,
       COUNT(*) as order_count,
-      SUM(o.grand_total::numeric) as revenue,
-      o.platform
+      SUM(o.order_total::numeric) as revenue,
+      o.marketplace
     FROM orders o
     WHERE o.org_id=${orgId} AND o.order_date >= ${sixtyDaysAgo}
-      AND o.status NOT IN ('cancelled','purged')
-    GROUP BY week, o.platform
+      AND o.order_status NOT IN ('cancelled','purged')
+    GROUP BY week, o.marketplace
     ORDER BY week DESC, revenue DESC
   `);
 
@@ -356,16 +361,16 @@ export async function runOrdersAgent(orgId: string): Promise<number> {
     FROM order_details od
     JOIN orders o ON od.order_id=o.id
     LEFT JOIN bl_catalog bc ON od.item_no=bc.item_no AND od.item_type=bc.item_type
-    WHERE o.org_id=${orgId} AND o.order_date >= ${thirtyDaysAgo} AND o.status NOT IN ('cancelled','purged')
+    WHERE o.org_id=${orgId} AND o.order_date >= ${thirtyDaysAgo} AND o.order_status NOT IN ('cancelled','purged')
     GROUP BY od.item_no, bc.item_name
     ORDER BY sold_qty DESC
     LIMIT 20
   `);
 
   const channelData = (velocityData.rows as any[]).reduce((acc: any, r: any) => {
-    if (!acc[r.platform]) acc[r.platform] = { revenue: 0, orders: 0 };
-    acc[r.platform].revenue += Number(r.revenue || 0);
-    acc[r.platform].orders += Number(r.order_count || 0);
+    if (!acc[r.marketplace]) acc[r.marketplace] = { revenue: 0, orders: 0 };
+    acc[r.marketplace].revenue += Number(r.revenue || 0);
+    acc[r.marketplace].orders += Number(r.order_count || 0);
     return acc;
   }, {});
 
@@ -388,7 +393,7 @@ TOP SELLING SKUs (last 30d):
 ${(topSKUs.rows as any[]).map((r: any) => `  ${r.item_no} "${r.item_name || '?'}" — sold:${r.sold_qty} units across ${r.order_count} orders @avg $${Number(r.avg_price).toFixed(2)}`).join('\n')}
 
 WEEKLY ORDER VOLUME (last 8 weeks):
-${(velocityData.rows as any[]).slice(0, 16).map((r: any) => `  ${String(r.week).substring(0,10)} [${r.platform}]: ${r.order_count} orders $${Number(r.revenue).toFixed(2)}`).join('\n')}
+${(velocityData.rows as any[]).slice(0, 16).map((r: any) => `  ${String(r.week).substring(0,10)} [${r.marketplace}]: ${r.order_count} orders $${Number(r.revenue).toFixed(2)}`).join('\n')}
 `.trim();
 
   const strategies = await getOrgStrategies(orgId);
@@ -418,22 +423,22 @@ export async function runCustomerAgent(orgId: string): Promise<number> {
   const oneEightyDaysAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
 
   const topBuyers = await db.execute(sql`
-    SELECT buyer_name, COUNT(*) as order_count, SUM(grand_total::numeric) as total_spent,
+    SELECT customer_username, COUNT(*) as order_count, SUM(order_total::numeric) as total_spent,
            MAX(order_date) as last_order, MIN(order_date) as first_order,
-           AVG(grand_total::numeric) as avg_order
+           AVG(order_total::numeric) as avg_order
     FROM orders
-    WHERE org_id=${orgId} AND status NOT IN ('cancelled','purged')
-    GROUP BY buyer_name
+    WHERE org_id=${orgId} AND order_status NOT IN ('cancelled','purged')
+    GROUP BY customer_username
     ORDER BY total_spent DESC
     LIMIT 20
   `);
 
   const dormant = await db.execute(sql`
-    SELECT buyer_name, MAX(order_date) as last_order, COUNT(*) as order_count,
-           SUM(grand_total::numeric) as lifetime_spent
+    SELECT customer_username, MAX(order_date) as last_order, COUNT(*) as order_count,
+           SUM(order_total::numeric) as lifetime_spent
     FROM orders
-    WHERE org_id=${orgId} AND status NOT IN ('cancelled','purged')
-    GROUP BY buyer_name
+    WHERE org_id=${orgId} AND order_status NOT IN ('cancelled','purged')
+    GROUP BY customer_username
     HAVING MAX(order_date) < ${ninetyDaysAgo} AND MAX(order_date) >= ${oneEightyDaysAgo}
        AND COUNT(*) >= 2
     ORDER BY lifetime_spent DESC
@@ -441,11 +446,11 @@ export async function runCustomerAgent(orgId: string): Promise<number> {
   `);
 
   const newBuyers = await db.execute(sql`
-    SELECT buyer_name, COUNT(*) as order_count, SUM(grand_total::numeric) as total_spent,
+    SELECT customer_username, COUNT(*) as order_count, SUM(order_total::numeric) as total_spent,
            MIN(order_date) as first_order
     FROM orders
-    WHERE org_id=${orgId} AND status NOT IN ('cancelled','purged')
-    GROUP BY buyer_name
+    WHERE org_id=${orgId} AND order_status NOT IN ('cancelled','purged')
+    GROUP BY customer_username
     HAVING MIN(order_date) >= ${ninetyDaysAgo}
     ORDER BY total_spent DESC
     LIMIT 15
@@ -453,13 +458,13 @@ export async function runCustomerAgent(orgId: string): Promise<number> {
 
   const ctx = `
 TOP BUYERS ALL TIME:
-${(topBuyers.rows as any[]).map((r: any) => `  ${r.buyer_name}: ${r.order_count} orders, $${Number(r.total_spent).toFixed(2)} total, avg $${Number(r.avg_order).toFixed(2)}/order, last order: ${String(r.last_order).substring(0,10)}`).join('\n')}
+${(topBuyers.rows as any[]).map((r: any) => `  ${r.customer_username}: ${r.order_count} orders, $${Number(r.total_spent).toFixed(2)} total, avg $${Number(r.avg_order).toFixed(2)}/order, last order: ${String(r.last_order).substring(0,10)}`).join('\n')}
 
 DORMANT HIGH-VALUE BUYERS (2+ orders, last order 90-180d ago):
-${(dormant.rows as any[]).map((r: any) => `  ${r.buyer_name}: ${r.order_count} past orders, $${Number(r.lifetime_spent).toFixed(2)} lifetime, last order: ${String(r.last_order).substring(0,10)}`).join('\n') || '  None detected'}
+${(dormant.rows as any[]).map((r: any) => `  ${r.customer_username}: ${r.order_count} past orders, $${Number(r.lifetime_spent).toFixed(2)} lifetime, last order: ${String(r.last_order).substring(0,10)}`).join('\n') || '  None detected'}
 
 NEW BUYERS (first order in last 90d):
-${(newBuyers.rows as any[]).map((r: any) => `  ${r.buyer_name}: ${r.order_count} orders, $${Number(r.total_spent).toFixed(2)} in first ${r.order_count > 1 ? `${r.order_count} orders` : 'order'}, since ${String(r.first_order).substring(0,10)}`).join('\n') || '  None in 90d'}
+${(newBuyers.rows as any[]).map((r: any) => `  ${r.customer_username}: ${r.order_count} orders, $${Number(r.total_spent).toFixed(2)} in first ${r.order_count > 1 ? `${r.order_count} orders` : 'order'}, since ${String(r.first_order).substring(0,10)}`).join('\n') || '  None in 90d'}
 `.trim();
 
   const strategies = await getOrgStrategies(orgId);
