@@ -2500,6 +2500,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [syncFieldDescription, setSyncFieldDescription] = useState(true);
   const [syncFieldTierPrice,   setSyncFieldTierPrice]   = useState(true);
   const [syncFieldSalePercent, setSyncFieldSalePercent] = useState(false);
+  const [syncFieldBulkQty,     setSyncFieldBulkQty]     = useState(true);
+  const [syncFieldMyCost,      setSyncFieldMyCost]      = useState(false);
+  const [syncFieldLotWeight,   setSyncFieldLotWeight]   = useState(true);
   const [channelDetailsExpanded, setChannelDetailsExpanded] = useState(false);
   const [ordersSyncEnabled, setOrdersSyncEnabled] = useState(false);
   const [schedulerInventoryOpen, setSchedulerInventoryOpen] = useState(false);
@@ -2730,6 +2733,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const { data: channelSyncFieldConfig } = useQuery<{
     syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean;
     syncTierPrice: boolean; syncSalePercent: boolean;
+    syncBulkQty: boolean; syncMyCost: boolean; syncLotWeight: boolean;
   }>({
     queryKey: ['/api/channel-sync/config'],
     enabled: open && activeSection === 'platforms',
@@ -2744,10 +2748,13 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     setSyncFieldDescription(channelSyncFieldConfig.syncDescription);
     setSyncFieldTierPrice(channelSyncFieldConfig.syncTierPrice);
     setSyncFieldSalePercent(channelSyncFieldConfig.syncSalePercent);
+    setSyncFieldBulkQty(channelSyncFieldConfig.syncBulkQty ?? true);
+    setSyncFieldMyCost(channelSyncFieldConfig.syncMyCost ?? false);
+    setSyncFieldLotWeight(channelSyncFieldConfig.syncLotWeight ?? true);
   }, [channelSyncFieldConfig]);
 
   const updateSyncFieldMutation = useMutation({
-    mutationFn: (patch: Partial<{ syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean; syncTierPrice: boolean; syncSalePercent: boolean }>) =>
+    mutationFn: (patch: Partial<{ syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean; syncTierPrice: boolean; syncSalePercent: boolean; syncBulkQty: boolean; syncMyCost: boolean; syncLotWeight: boolean }>) =>
       apiRequest('PATCH', '/api/channel-sync/config', patch),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/channel-sync/config'] });
@@ -5487,11 +5494,14 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         </div>
                         <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
                           {([
-                            { key: 'syncPrice',       label: 'Price',         desc: 'Syncs the listing price (base price) from BrickLink',                           value: syncFieldPrice,       set: setSyncFieldPrice       },
-                            { key: 'syncRemarks',     label: 'Remarks',       desc: 'Syncs the internal/private notes (BrickLink Remarks → BrickOwl personal note)', value: syncFieldRemarks,     set: setSyncFieldRemarks     },
-                            { key: 'syncDescription', label: 'Description',   desc: 'Syncs the public description (BrickLink Description → BrickOwl public note)',    value: syncFieldDescription, set: setSyncFieldDescription },
-                            { key: 'syncTierPrice',   label: 'Tier Pricing',  desc: 'Syncs bulk discount tiers from BrickLink',                                       value: syncFieldTierPrice,   set: setSyncFieldTierPrice   },
-                            { key: 'syncSalePercent', label: 'Sale %',        desc: 'Syncs the BrickLink sale rate to BrickOwl sale %. Disable if you manage BrickOwl sales independently.',   value: syncFieldSalePercent, set: setSyncFieldSalePercent },
+                            { key: 'syncPrice',       label: 'Price',                  desc: 'Syncs the listing price (base price) from BrickLink',                                           value: syncFieldPrice,       set: setSyncFieldPrice       },
+                            { key: 'syncRemarks',     label: 'Remarks',                desc: 'Syncs the internal/private notes (BrickLink Remarks → BrickOwl personal note)',                 value: syncFieldRemarks,     set: setSyncFieldRemarks     },
+                            { key: 'syncDescription', label: 'Description',            desc: 'Syncs the public description (BrickLink Description → BrickOwl public note)',                    value: syncFieldDescription, set: setSyncFieldDescription },
+                            { key: 'syncTierPrice',   label: 'Tier Pricing',           desc: 'Syncs bulk discount tiers from BrickLink',                                                       value: syncFieldTierPrice,   set: setSyncFieldTierPrice   },
+                            { key: 'syncSalePercent', label: 'Sale %',                 desc: 'Syncs the BrickLink sale rate to BrickOwl sale %. Disable if you manage BrickOwl sales independently.', value: syncFieldSalePercent, set: setSyncFieldSalePercent },
+                            { key: 'syncBulkQty',     label: 'Minimum Quantity',       desc: 'Syncs the minimum order quantity (BrickLink Bulk → BrickOwl bulk_qty)',                          value: syncFieldBulkQty,     set: setSyncFieldBulkQty     },
+                            { key: 'syncMyCost',      label: 'Cost Price',             desc: 'Syncs your cost price (BrickLink My Cost → BrickOwl my_cost). Opt-in — cost data is private.',  value: syncFieldMyCost,      set: setSyncFieldMyCost      },
+                            { key: 'syncLotWeight',   label: 'Custom Lot Weight',      desc: 'Syncs the custom weight per lot (BrickLink My Weight → BrickOwl lot_weight)',                   value: syncFieldLotWeight,   set: setSyncFieldLotWeight   },
                           ] as const).map(({ key, label, desc, value, set }) => (
                             <div key={key} className="flex items-center justify-between gap-3 px-3 py-2.5">
                               <div className="min-w-0">

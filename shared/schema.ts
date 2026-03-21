@@ -674,6 +674,9 @@ export const channelSyncConfig = pgTable("channel_sync_config", {
   syncDescription: boolean("sync_description").default(true).notNull(),   // public_note (BL description)
   syncTierPrice:   boolean("sync_tier_price").default(true).notNull(),
   syncSalePercent: boolean("sync_sale_percent").default(false).notNull(), // sale_percent — opt-in; BO sales may be independent
+  syncBulkQty:     boolean("sync_bulk_qty").default(true).notNull(),      // bulk_qty — min order quantity (BL bulk)
+  syncMyCost:      boolean("sync_my_cost").default(false).notNull(),      // my_cost — cost price (BL myCost) — opt-in
+  syncLotWeight:   boolean("sync_lot_weight").default(true).notNull(),    // lot_weight — custom weight (BL myWeight)
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 export type ChannelSyncConfig = typeof channelSyncConfig.$inferSelect;

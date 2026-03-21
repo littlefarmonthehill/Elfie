@@ -9183,6 +9183,9 @@ Format search_web URLs as markdown links.`;
         description: cfgRow.syncDescription,
         tierPrice:   cfgRow.syncTierPrice,
         salePercent: cfgRow.syncSalePercent,
+        bulkQty:     cfgRow.syncBulkQty,
+        myCost:      cfgRow.syncMyCost,
+        lotWeight:   cfgRow.syncLotWeight,
       } : { ...defaultSyncFields };
 
       console.log(`[Platform Sync] Starting BrickLink → BrickOwl sync${limit ? ` (limit: ${limit})` : ''} (mode: ${syncMode}, fields: price=${syncFields.price} remarks=${syncFields.remarks} desc=${syncFields.description} tier=${syncFields.tierPrice} sale=${syncFields.salePercent})...`);
@@ -9221,6 +9224,9 @@ Format search_web URLs as markdown links.`;
         syncDescription: true,
         syncTierPrice:   true,
         syncSalePercent: false,
+        syncBulkQty:     true,
+        syncMyCost:      false,
+        syncLotWeight:   true,
       });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
@@ -9230,7 +9236,7 @@ Format search_web URLs as markdown links.`;
   app.patch('/api/channel-sync/config', isApproved, async (req, res) => {
     try {
       const orgId = reqOrgId(req);
-      const allowed = ['syncPrice', 'syncRemarks', 'syncDescription', 'syncTierPrice', 'syncSalePercent'] as const;
+      const allowed = ['syncPrice', 'syncRemarks', 'syncDescription', 'syncTierPrice', 'syncSalePercent', 'syncBulkQty', 'syncMyCost', 'syncLotWeight'] as const;
       const patch: Record<string, boolean> = {};
       for (const key of allowed) {
         if (key in req.body && typeof req.body[key] === 'boolean') patch[key] = req.body[key];
@@ -9250,6 +9256,9 @@ Format search_web URLs as markdown links.`;
           syncDescription: patch.syncDescription  ?? true,
           syncTierPrice:   patch.syncTierPrice    ?? true,
           syncSalePercent: patch.syncSalePercent  ?? false,
+          syncBulkQty:     patch.syncBulkQty      ?? true,
+          syncMyCost:      patch.syncMyCost       ?? false,
+          syncLotWeight:   patch.syncLotWeight    ?? true,
         }).returning();
         return res.json(inserted);
       }

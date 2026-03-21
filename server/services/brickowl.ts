@@ -50,7 +50,7 @@ export interface BrickOwlInventoryLot {
   final_price?: string;
   condition: string;
   full_con?: string; // Full condition name
-  for_sale: number;
+  for_sale: number | string;
   sale_percent?: string;    // BrickOwl store sale discount % — intentionally set by user, do NOT sync from BL
   external_lot_ids?: {
     other?: string;
@@ -60,6 +60,9 @@ export interface BrickOwlInventoryLot {
   public_note?: string;    // Public notes (BrickLink description)
   tier_price?: string;     // e.g. "100:0.050,200:0.040,500:0.030"
   sale_percentage?: number; // Normalized sale_percent (number)
+  bulk_qty?: string | null; // Minimum order quantity (BrickLink bulk)
+  my_cost?: string | null;  // Cost price (BrickLink myCost)
+  lot_weight?: string | null; // Custom lot weight (BrickLink myWeight)
 }
 
 // Make a BrickOwl API GET request
@@ -192,6 +195,9 @@ export async function createBrickOwlLot(data: {
   public_note?: string;
   tier_price?: string;       // e.g. "100:0.050,200:0.040"
   sale_percentage?: number;  // BrickLink saleRate
+  bulk_qty?: number;         // Minimum order quantity (BrickLink bulk)
+  my_cost?: number;          // Cost price (BrickLink myCost)
+  lot_weight?: number;       // Custom lot weight (BrickLink myWeight)
 }): Promise<any> {
   // Decode HTML entities from notes before sending to BrickOwl
   const decodedPersonalNote = data.personal_note ? decodeHtmlEntities(data.personal_note) : undefined;
@@ -210,6 +216,9 @@ export async function createBrickOwlLot(data: {
     ...(decodedPublicNote && { public_note: decodedPublicNote }),
     ...(data.tier_price && { tier_price: data.tier_price }),
     ...(data.sale_percentage !== undefined && data.sale_percentage > 0 && { sale_percentage: data.sale_percentage.toString() }),
+    ...(data.bulk_qty !== undefined && data.bulk_qty > 0 && { bulk_qty: data.bulk_qty.toString() }),
+    ...(data.my_cost !== undefined && data.my_cost > 0 && { my_cost: data.my_cost.toFixed(4) }),
+    ...(data.lot_weight !== undefined && data.lot_weight > 0 && { lot_weight: data.lot_weight.toFixed(4) }),
   };
   console.log('[BrickOwl] Creating lot with payload:', JSON.stringify(payload));
   return brickowlPost('/inventory/create', payload);
@@ -228,6 +237,9 @@ export async function updateBrickOwlLot(data: {
   public_note?: string;
   tier_price?: string;       // e.g. "100:0.050,200:0.040" or "remove"
   sale_percentage?: number;  // BrickLink saleRate; 0 = remove
+  bulk_qty?: number;         // Minimum order quantity (BrickLink bulk)
+  my_cost?: number;          // Cost price (BrickLink myCost)
+  lot_weight?: number;       // Custom lot weight (BrickLink myWeight)
 }): Promise<any> {
   const updateData: Record<string, string> = {};
   
@@ -242,6 +254,10 @@ export async function updateBrickOwlLot(data: {
   // BrickOwl API field is `sale_percent` (not `sale_percentage`) — confirmed from API docs.
   // Wrong field name = sale updates silently ignored, causing permanent price discrepancies.
   if (data.sale_percentage !== undefined) updateData.sale_percent = data.sale_percentage.toString();
+  // New fields
+  if (data.bulk_qty !== undefined) updateData.bulk_qty = data.bulk_qty.toString();
+  if (data.my_cost !== undefined) updateData.my_cost = data.my_cost.toFixed(4);
+  if (data.lot_weight !== undefined) updateData.lot_weight = data.lot_weight.toFixed(4);
   
   // Decode HTML entities from notes before sending to BrickOwl
   if (data.personal_note !== undefined) {
@@ -564,9 +580,13 @@ export interface SyncFieldConfig {
   description: boolean; // public_note (BL description)
   tierPrice:   boolean; // tier pricing
   salePercent: boolean; // sale_percent — opt-in, BO sales may be independently managed
+  bulkQty:     boolean; // bulk_qty — minimum order quantity (BL bulk)
+  myCost:      boolean; // my_cost — cost price (BL myCost) — opt-in
+  lotWeight:   boolean; // lot_weight — custom lot weight (BL myWeight)
 }
 export const defaultSyncFields: SyncFieldConfig = {
   price: true, remarks: true, description: true, tierPrice: true, salePercent: false,
+  bulkQty: true, myCost: false, lotWeight: true,
 };
 
 export async function syncBrickLinkToBrickOwl(
@@ -607,10 +627,14 @@ export async function syncBrickLinkToBrickOwl(
     absolute_quantity: number;
     price: number;
     condition: string;
+    for_sale?: number;         // 0 = stockroom / not for sale, 1 = for sale
     personal_note?: string;
     public_note?: string;
     tier_price?: string;       // BrickOwl format: "100:0.050,200:0.040" or "remove"
     sale_percentage?: number;  // only present when fields.salePercent=true and sale changed
+    bulk_qty?: number;         // minimum order quantity
+    my_cost?: number;          // cost price
+    lot_weight?: number;       // custom lot weight
     external_id?: string;      // set when adopting an untagged lot
     // true when quantity changed — must sync via batch (or individual qty call)
     qtyChanged: boolean;
@@ -653,22 +677,40 @@ export async function syncBrickLinkToBrickOwl(
       const boBase      = parseFloat(taggedLot.base_price ?? taggedLot.price);
       const newSaleRate = item.saleRate ?? 0;
 
+      // for_sale: BL stockroom items → BO for_sale=0 (hidden from buyers)
+      const newForSale  = item.isStockRoom ? 0 : 1;
+      const boForSale   = parseInt(String(taggedLot.for_sale ?? '1'));
+
+      // New fields: bulk_qty, my_cost, lot_weight
+      const newBulkQty  = item.bulk ?? 1;
+      const boBulkQty   = parseInt(taggedLot.bulk_qty ?? '1') || 1;
+      const newMyCost   = item.myCost ? parseFloat(item.myCost) : 0;
+      const boMyCost    = taggedLot.my_cost ? parseFloat(taggedLot.my_cost) : 0;
+      const newLotWeight = item.myWeight ? parseFloat(item.myWeight) : 0;
+      const boLotWeight  = taggedLot.lot_weight ? parseFloat(taggedLot.lot_weight) : 0;
+
       const qtyChanged = isNaN(boQty) || boQty !== item.quantity;
 
       // Each optional field is only compared when its sync flag is enabled.
       // If disabled, the field is treated as unchanged (never included in updates).
       // If BO returns no price (undefined/NaN), treat as changed so it gets corrected.
-      const priceChanged   = fields.price       && (isNaN(boBase) || Math.abs(boBase - newPrice) > 0.001);
+      const priceChanged    = fields.price       && (isNaN(boBase) || Math.abs(boBase - newPrice) > 0.001);
       // Decode BL side before comparing — BrickLink stores HTML entities (e.g. &#39;)
       // but BrickOwl holds the decoded text after the first sync.
-      const remarksChanged = fields.remarks     && (taggedLot.personal_note || '') !== decodeHtmlEntities(item.remarks || '');
-      const descChanged    = fields.description && (taggedLot.public_note   || '') !== decodeHtmlEntities(item.description || '');
-      const tierChanged    = fields.tierPrice   && boTierPriceStr !== normalizeTierPrice(newTierPrice);
+      const remarksChanged  = fields.remarks     && (taggedLot.personal_note || '') !== decodeHtmlEntities(item.remarks || '');
+      const descChanged     = fields.description && (taggedLot.public_note   || '') !== decodeHtmlEntities(item.description || '');
+      const tierChanged     = fields.tierPrice   && boTierPriceStr !== normalizeTierPrice(newTierPrice);
       // salePercent is opt-in — users may manage BO sales independently.
       // When enabled: sync BL saleRate (0–100) → BO sale_percent.
-      const saleChanged    = fields.salePercent && (taggedLot.sale_percentage ?? 0) !== newSaleRate;
+      const saleChanged     = fields.salePercent && (taggedLot.sale_percentage ?? 0) !== newSaleRate;
+      // for_sale is always synced — stockroom state is authoritative from BL
+      const forSaleChanged  = !isNaN(boForSale) && boForSale !== newForSale;
+      // New opt-in fields
+      const bulkQtyChanged  = fields.bulkQty  && boBulkQty !== newBulkQty;
+      const myCostChanged   = fields.myCost   && Math.abs(boMyCost - newMyCost) > 0.0001;
+      const lotWeightChanged = fields.lotWeight && Math.abs(boLotWeight - newLotWeight) > 0.0001;
 
-      const hasChange = qtyChanged || priceChanged || remarksChanged || descChanged || tierChanged || saleChanged;
+      const hasChange = qtyChanged || priceChanged || remarksChanged || descChanged || tierChanged || saleChanged || forSaleChanged || bulkQtyChanged || myCostChanged || lotWeightChanged;
 
       if (hasChange) {
         if (mode === 'analysis') {
@@ -677,6 +719,7 @@ export async function syncBrickLinkToBrickOwl(
           // matched_sync and full_control both sync all fields for matched lots
           const decodedRemarks = decodeHtmlEntities(item.remarks || '');
           const decodedDesc   = decodeHtmlEntities(item.description || '');
+          const hasNonQty = priceChanged || remarksChanged || descChanged || tierChanged || saleChanged || forSaleChanged || bulkQtyChanged || myCostChanged || lotWeightChanged;
           toUpdate.push({
             blItemNo: item.itemNo,
             lot_id: taggedLot.lot_id,
@@ -685,11 +728,15 @@ export async function syncBrickLinkToBrickOwl(
             condition,
             qtyChanged,
             priceChanged,
-            hasNonQtyChange: priceChanged || remarksChanged || descChanged || tierChanged || saleChanged,
-            ...(remarksChanged && { personal_note: decodedRemarks }),
-            ...(descChanged    && { public_note:   decodedDesc }),
+            hasNonQtyChange: hasNonQty,
+            ...(remarksChanged  && { personal_note: decodedRemarks }),
+            ...(descChanged     && { public_note:   decodedDesc }),
             ...(tierPriceToSend !== undefined && { tier_price: tierPriceToSend }),
-            ...(saleChanged    && { sale_percentage: newSaleRate }),
+            ...(saleChanged     && { sale_percentage: newSaleRate }),
+            ...(forSaleChanged  && { for_sale: newForSale }),
+            ...(bulkQtyChanged  && { bulk_qty: newBulkQty }),
+            ...(myCostChanged   && { my_cost: newMyCost }),
+            ...(lotWeightChanged && { lot_weight: newLotWeight }),
           });
         }
       } else {
@@ -847,11 +894,15 @@ export async function syncBrickLinkToBrickOwl(
           lot_id: job.lot_id,
           // Only include price if the price field sync is enabled.
           // If price sync is off, we update qty/notes/tier/sale without touching price.
-          ...(fields.price       && { price: job.price }),
-          ...(job.personal_note  !== undefined && { personal_note:   job.personal_note   }),
-          ...(job.public_note    !== undefined && { public_note:     job.public_note     }),
-          ...(job.tier_price     !== undefined && { tier_price:      job.tier_price      }),
+          ...(fields.price        && { price: job.price }),
+          ...(job.personal_note   !== undefined && { personal_note:   job.personal_note   }),
+          ...(job.public_note     !== undefined && { public_note:     job.public_note     }),
+          ...(job.tier_price      !== undefined && { tier_price:      job.tier_price      }),
           ...(job.sale_percentage !== undefined && { sale_percentage: job.sale_percentage }),
+          ...(job.for_sale        !== undefined && { for_sale:        job.for_sale        }),
+          ...(job.bulk_qty        !== undefined && { bulk_qty:        job.bulk_qty        }),
+          ...(job.my_cost         !== undefined && { my_cost:         job.my_cost         }),
+          ...(job.lot_weight      !== undefined && { lot_weight:      job.lot_weight      }),
         };
 
         const updateResp = await updateBrickOwlLot(fieldPayload);
@@ -904,6 +955,10 @@ export async function syncBrickLinkToBrickOwl(
       );
 
       const itemTierPrice = buildTierPriceString(item.tierQuantity1, item.tierPrice1, item.tierQuantity2, item.tierPrice2, item.tierQuantity3, item.tierPrice3);
+      const itemForSale   = item.isStockRoom ? 0 : 1;
+      const itemBulkQty   = (fields.bulkQty  && item.bulk  && item.bulk  > 1) ? item.bulk  : undefined;
+      const itemMyCost    = (fields.myCost   && item.myCost)                   ? parseFloat(item.myCost)   : undefined;
+      const itemLotWeight = (fields.lotWeight && item.myWeight)                 ? parseFloat(item.myWeight) : undefined;
 
       if (untagged.length === 1) {
         // Adopt single pre-existing untagged lot
@@ -914,10 +969,13 @@ export async function syncBrickLinkToBrickOwl(
             absolute_quantity: item.quantity,
             price: newPrice,
             condition,
-            for_sale: 1,
+            for_sale: itemForSale,
             personal_note:   item.remarks     || undefined,
             public_note:     item.description || undefined,
-            ...(itemTierPrice !== undefined && { tier_price: itemTierPrice }),
+            ...(itemTierPrice  !== undefined && { tier_price:  itemTierPrice  }),
+            ...(itemBulkQty   !== undefined && { bulk_qty:    itemBulkQty   }),
+            ...(itemMyCost    !== undefined && { my_cost:     itemMyCost    }),
+            ...(itemLotWeight !== undefined && { lot_weight:  itemLotWeight }),
           });
           result.lotsUpdated++;
           result.totalApiCalls++;
@@ -938,11 +996,14 @@ export async function syncBrickLinkToBrickOwl(
             quantity: item.quantity,
             price: newPrice,
             condition,
-            for_sale: 1,
+            for_sale: itemForSale,
             external_id: item.id.toString(),
             personal_note:   item.remarks     || undefined,
             public_note:     item.description || undefined,
-            ...(itemTierPrice !== undefined && { tier_price: itemTierPrice }),
+            ...(itemTierPrice  !== undefined && { tier_price:  itemTierPrice  }),
+            ...(itemBulkQty   !== undefined && { bulk_qty:    itemBulkQty   }),
+            ...(itemMyCost    !== undefined && { my_cost:     itemMyCost    }),
+            ...(itemLotWeight !== undefined && { lot_weight:  itemLotWeight }),
           });
           result.lotsCreated++;
           result.totalApiCalls++;
