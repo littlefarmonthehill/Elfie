@@ -5947,6 +5947,7 @@ Format search_web URLs as markdown links.`;
       try {
         const { ieStrategies: ieStrat } = await import('@shared/schema');
         const [stratRow] = await db.select().from(ieStrat).where(eq(ieStrat.orgId, orgId)).limit(1);
+        console.log(`[Chat:Strategy] orgId=${orgId} found=${!!stratRow} vm=${!!stratRow?.visionMission?.trim()} sf=${!!stratRow?.successFactors?.trim()} pricing=${!!stratRow?.pricingStrategy?.trim()}`);
         const stratParts: string[] = [];
         if (stratRow?.visionMission?.trim()) {
           stratParts.push(`BUSINESS VISION & MISSION:\n"${stratRow.visionMission.trim()}"`);
@@ -5954,10 +5955,26 @@ Format search_web URLs as markdown links.`;
         if (stratRow?.successFactors?.trim()) {
           stratParts.push(`DEFINING SUCCESS (VIVID VISION — the future state the owner is driving toward):\n"${stratRow.successFactors.trim()}"`);
         }
+        // Also inject per-agent strategies if present — they give E.L.F.I.E. richer context
+        const agentStratParts: string[] = [];
+        if (stratRow?.pricingStrategy?.trim())   agentStratParts.push(`Pricing: ${stratRow.pricingStrategy.trim()}`);
+        if (stratRow?.inventoryStrategy?.trim())  agentStratParts.push(`Inventory: ${stratRow.inventoryStrategy.trim()}`);
+        if (stratRow?.ordersStrategy?.trim())     agentStratParts.push(`Orders: ${stratRow.ordersStrategy.trim()}`);
+        if (stratRow?.customerStrategy?.trim())   agentStratParts.push(`Customers: ${stratRow.customerStrategy.trim()}`);
+        if (stratRow?.marketStrategy?.trim())     agentStratParts.push(`Market: ${stratRow.marketStrategy.trim()}`);
+        if (agentStratParts.length > 0) {
+          stratParts.push(`OPERATIONAL DIRECTIVES (per-domain strategies):\n${agentStratParts.join('\n')}`);
+        }
         if (stratParts.length > 0) {
           systemPrompt += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nOWNER'S BUSINESS STRATEGY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${stratParts.join('\n\n')}\n\nAlways interpret data through this lens. Frame every insight and recommendation in terms of what moves the business toward this vision.`;
+          console.log(`[Chat:Strategy] Injected ${stratParts.length} strategy section(s) into system prompt for orgId=${orgId}`);
+        } else {
+          console.log(`[Chat:Strategy] No strategy content to inject for orgId=${orgId} — row exists but all fields empty`);
         }
-      } catch { /* non-fatal — chat still works without strategy context */ }
+      } catch (stratErr: any) {
+        console.error(`[Chat:Strategy] ERROR fetching strategy for orgId=${orgId}:`, stratErr?.message);
+        /* non-fatal — chat still works without strategy context */
+      }
 
       // Use agent loop with function calling (with error recovery)
       const { runAgentLoop } = await import('./services/ai-agent');
