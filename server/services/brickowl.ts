@@ -40,7 +40,6 @@ export interface SyncPreviewBreakdown {
     salePercent: number;
     forSale:     number;
     bulkQty:     number;
-    myCost:      number;
     lotWeight:   number;
   };
 }
@@ -216,7 +215,6 @@ export async function createBrickOwlLot(data: {
   tier_price?: string;       // e.g. "100:0.050,200:0.040"
   sale_percentage?: number;  // BrickLink saleRate
   bulk_qty?: number;         // Minimum order quantity (BrickLink bulk)
-  my_cost?: number;          // Cost price (BrickLink myCost)
   lot_weight?: number;       // Custom lot weight (BrickLink myWeight)
 }): Promise<any> {
   // Decode HTML entities from notes before sending to BrickOwl
@@ -237,7 +235,6 @@ export async function createBrickOwlLot(data: {
     ...(data.tier_price && { tier_price: data.tier_price }),
     ...(data.sale_percentage !== undefined && data.sale_percentage > 0 && { sale_percentage: data.sale_percentage.toString() }),
     ...(data.bulk_qty !== undefined && data.bulk_qty > 0 && { bulk_qty: data.bulk_qty.toString() }),
-    ...(data.my_cost !== undefined && data.my_cost > 0 && { my_cost: data.my_cost.toFixed(4) }),
     ...(data.lot_weight !== undefined && data.lot_weight > 0 && { lot_weight: data.lot_weight.toFixed(4) }),
   };
   console.log('[BrickOwl] Creating lot with payload:', JSON.stringify(payload));
@@ -258,7 +255,6 @@ export async function updateBrickOwlLot(data: {
   tier_price?: string;       // e.g. "100:0.050,200:0.040" or "remove"
   sale_percentage?: number;  // BrickLink saleRate; 0 = remove
   bulk_qty?: number;         // Minimum order quantity (BrickLink bulk)
-  my_cost?: number;          // Cost price (BrickLink myCost)
   lot_weight?: number;       // Custom lot weight (BrickLink myWeight)
 }): Promise<any> {
   const updateData: Record<string, string> = {};
@@ -276,7 +272,6 @@ export async function updateBrickOwlLot(data: {
   if (data.sale_percentage !== undefined) updateData.sale_percent = data.sale_percentage.toString();
   // New fields
   if (data.bulk_qty !== undefined) updateData.bulk_qty = data.bulk_qty.toString();
-  if (data.my_cost !== undefined) updateData.my_cost = data.my_cost.toFixed(4);
   if (data.lot_weight !== undefined) updateData.lot_weight = data.lot_weight.toFixed(4);
   
   // Decode HTML entities from notes before sending to BrickOwl
@@ -615,12 +610,11 @@ export interface SyncFieldConfig {
   tierPrice:   boolean; // tier pricing
   salePercent: boolean; // sale_percent — opt-in, BO sales may be independently managed
   bulkQty:     boolean; // bulk_qty — minimum order quantity (BL bulk)
-  myCost:      boolean; // my_cost — cost price (BL myCost) — opt-in
   lotWeight:   boolean; // lot_weight — custom lot weight (BL myWeight)
 }
 export const defaultSyncFields: SyncFieldConfig = {
   price: true, remarks: true, description: true, tierPrice: true, salePercent: false,
-  bulkQty: true, myCost: false, lotWeight: true,
+  bulkQty: true, lotWeight: true,
 };
 
 export async function syncBrickLinkToBrickOwl(
@@ -644,7 +638,7 @@ export async function syncBrickLinkToBrickOwl(
   const preview: SyncPreviewBreakdown = {
     matchedLots: 0, unmatchedLots: 0, wouldUpdate: 0, wouldCreate: 0,
     byField: { qty: 0, price: 0, remarks: 0, description: 0, tierPrice: 0,
-               salePercent: 0, forSale: 0, bulkQty: 0, myCost: 0, lotWeight: 0 },
+               salePercent: 0, forSale: 0, bulkQty: 0, lotWeight: 0 },
   };
 
   // ── Fetch both inventories once ──────────────────────────────────────────
@@ -677,7 +671,6 @@ export async function syncBrickLinkToBrickOwl(
     tier_price?: string;       // BrickOwl format: "100:0.050,200:0.040" or "remove"
     sale_percentage?: number;  // only present when fields.salePercent=true and sale changed
     bulk_qty?: number;         // minimum order quantity
-    my_cost?: number;          // cost price
     lot_weight?: number;       // custom lot weight
     external_id?: string;      // set when adopting an untagged lot
     // true when quantity changed — must sync via batch (or individual qty call)
@@ -728,9 +721,8 @@ export async function syncBrickLinkToBrickOwl(
       // bulk_qty: BO does return this in inventory/list — delta-detection is safe.
       const newBulkQty  = item.bulk ?? 1;
       const boBulkQty   = parseInt(taggedLot.bulk_qty ?? '1') || 1;
-      // my_cost / lot_weight: BO does NOT return these in inventory/list.
-      // We need the BL-side values to piggyback onto other updates; BO-side is not read.
-      const newMyCost    = item.myCost   ? parseFloat(item.myCost)   : 0;
+      // lot_weight: BO does NOT return this in inventory/list.
+      // We need the BL-side value to piggyback onto other updates; BO-side is not read.
       const newLotWeight = item.myWeight ? parseFloat(item.myWeight) : 0;
 
       const qtyChanged = isNaN(boQty) || boQty !== item.quantity;
@@ -754,16 +746,12 @@ export async function syncBrickLinkToBrickOwl(
       // bulk_qty: BO returns this in inventory/list so delta-detection works correctly.
       const bulkQtyChanged  = fields.bulkQty  && boBulkQty !== newBulkQty;
 
-      // WRITE-THROUGH FIELDS — my_cost and lot_weight are NOT returned by BrickOwl's
-      // /inventory/list endpoint, so boMyCost/boLotWeight are always 0 regardless of
-      // what BrickOwl actually stores. Using them as change-triggers produces a false
-      // positive on EVERY item that has a cost/weight set in BrickLink (i.e. all of
-      // them), which turns a 5-minute sync into a multi-hour one.
-      //
-      // Strategy: never use these as update triggers. Instead, piggyback them onto any
-      // update that already fires for a genuine reason (qty/price/notes/etc.), so the
-      // values are pushed to BrickOwl over time without causing wasteful extra calls.
-      // (myCostChanged / lotWeightChanged are intentionally omitted from hasChange.)
+      // WRITE-THROUGH FIELD — lot_weight is NOT returned by BrickOwl's /inventory/list
+      // endpoint, so boLotWeight is always 0 regardless of what BrickOwl actually stores.
+      // Strategy: never use it as an update trigger. Instead, piggyback onto any update
+      // that already fires for a genuine reason (qty/price/notes/etc.), so the value is
+      // pushed to BrickOwl over time without causing wasteful extra calls.
+      // (lotWeightChanged is intentionally omitted from hasChange.)
 
       const hasChange = qtyChanged || priceChanged || remarksChanged || descChanged || tierChanged || saleChanged || forSaleChanged || bulkQtyChanged;
 
@@ -808,8 +796,7 @@ export async function syncBrickLinkToBrickOwl(
             ...(saleChanged     && { sale_percentage: newSaleRate }),
             ...(forSaleChanged  && { for_sale: newForSale }),
             ...(bulkQtyChanged  && { bulk_qty: newBulkQty }),
-            // Write-through: always push when enabled and lot is being updated anyway
-            ...(fields.myCost    && newMyCost   > 0 && { my_cost:    newMyCost   }),
+            // Write-through: push lot_weight when updating for any other reason
             ...(fields.lotWeight && newLotWeight > 0 && { lot_weight: newLotWeight }),
           });
         }
@@ -993,7 +980,6 @@ export async function syncBrickLinkToBrickOwl(
           ...(job.sale_percentage !== undefined && { sale_percentage: job.sale_percentage }),
           ...(job.for_sale        !== undefined && { for_sale:        job.for_sale        }),
           ...(job.bulk_qty        !== undefined && { bulk_qty:        job.bulk_qty        }),
-          ...(job.my_cost         !== undefined && { my_cost:         job.my_cost         }),
           ...(job.lot_weight      !== undefined && { lot_weight:      job.lot_weight      }),
         };
 
@@ -1071,7 +1057,6 @@ export async function syncBrickLinkToBrickOwl(
       const itemTierPrice = buildTierPriceString(item.tierQuantity1, item.tierPrice1, item.tierQuantity2, item.tierPrice2, item.tierQuantity3, item.tierPrice3);
       const itemForSale   = item.isStockRoom ? 0 : 1;
       const itemBulkQty   = (fields.bulkQty  && item.bulk  && item.bulk  > 1) ? item.bulk  : undefined;
-      const itemMyCost    = (fields.myCost   && item.myCost)                   ? parseFloat(item.myCost)   : undefined;
       const itemLotWeight = (fields.lotWeight && item.myWeight)                 ? parseFloat(item.myWeight) : undefined;
 
       if (untagged.length === 1) {
@@ -1088,7 +1073,6 @@ export async function syncBrickLinkToBrickOwl(
             public_note:     item.description || undefined,
             ...(itemTierPrice  !== undefined && { tier_price:  itemTierPrice  }),
             ...(itemBulkQty   !== undefined && { bulk_qty:    itemBulkQty   }),
-            ...(itemMyCost    !== undefined && { my_cost:     itemMyCost    }),
             ...(itemLotWeight !== undefined && { lot_weight:  itemLotWeight }),
           });
           result.lotsUpdated++;
@@ -1116,7 +1100,6 @@ export async function syncBrickLinkToBrickOwl(
             public_note:     item.description || undefined,
             ...(itemTierPrice  !== undefined && { tier_price:  itemTierPrice  }),
             ...(itemBulkQty   !== undefined && { bulk_qty:    itemBulkQty   }),
-            ...(itemMyCost    !== undefined && { my_cost:     itemMyCost    }),
             ...(itemLotWeight !== undefined && { lot_weight:  itemLotWeight }),
           });
           result.lotsCreated++;

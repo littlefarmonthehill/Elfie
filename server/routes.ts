@@ -8901,7 +8901,6 @@ Format search_web URLs as markdown links.`;
       let unlinkedBoLotsCount = 0;
       let orphanedBoLotsCount = 0;
       let bulkQtyDifferencesCount = 0;
-      let myCostDifferencesCount = 0;
       let lotWeightDifferencesCount = 0;
       let forSaleDifferencesCount = 0;
 
@@ -8926,7 +8925,6 @@ Format search_web URLs as markdown links.`;
           const unlinkedBoLots: any[] = [];
           const orphanedBoLots: any[] = [];
           const bulkQtyDiscrepancies: any[] = [];
-          const myCostDiscrepancies: any[] = [];
           const lotWeightDiscrepancies: any[] = [];
           const forSaleDiscrepancies: any[] = [];
 
@@ -9090,26 +9088,6 @@ Format search_web URLs as markdown links.`;
               });
             }
 
-            // Check for my_cost differences (BL myCost vs BO my_cost)
-            const boMyCost = boLot.my_cost ? parseFloat(boLot.my_cost) : 0;
-            const blMyCost = blItem.myCost ? parseFloat(blItem.myCost) : 0;
-            if (Math.abs(boMyCost - blMyCost) > 0.001) {
-              myCostDifferencesCount++;
-              myCostDiscrepancies.push({
-                lotId: blItem.id,
-                itemNo: blItem.itemNo,
-                itemName: blItem.itemName,
-                colorName: blItem.colorName,
-                condition: blItem.newOrUsed,
-                blQuantity: blItem.quantity,
-                blPrice,
-                difference: 'my_cost',
-                blMyCost,
-                boMyCost,
-                costDiff: boMyCost - blMyCost,
-              });
-            }
-
             // Check for lot_weight differences (BL myWeight vs BO lot_weight)
             const boLotWeight = boLot.lot_weight ? parseFloat(boLot.lot_weight) : 0;
             const blLotWeight = blItem.myWeight ? parseFloat(blItem.myWeight) : 0;
@@ -9185,7 +9163,6 @@ Format search_web URLs as markdown links.`;
           discrepancyCache.set('BrickOwl:unlinked', { data: unlinkedBoLots, timestamp: now });
           discrepancyCache.set('BrickOwl:orphaned', { data: orphanedBoLots, timestamp: now });
           discrepancyCache.set('BrickOwl:bulk_qty', { data: bulkQtyDiscrepancies, timestamp: now });
-          discrepancyCache.set('BrickOwl:my_cost', { data: myCostDiscrepancies, timestamp: now });
           discrepancyCache.set('BrickOwl:lot_weight', { data: lotWeightDiscrepancies, timestamp: now });
           discrepancyCache.set('BrickOwl:for_sale', { data: forSaleDiscrepancies, timestamp: now });
         } catch (error) {
@@ -9221,7 +9198,6 @@ Format search_web URLs as markdown links.`;
               unlinkedBoLots: unlinkedBoLotsCount,
               orphanedBoLots: orphanedBoLotsCount,
               bulkQtyDifferences: bulkQtyDifferencesCount,
-              myCostDifferences: myCostDifferencesCount,
               lotWeightDifferences: lotWeightDifferencesCount,
               forSaleDifferences: forSaleDifferencesCount,
             },
@@ -9314,7 +9290,6 @@ Format search_web URLs as markdown links.`;
           tierPrice:   bodySyncFields.tierPrice   ?? defaultSyncFields.tierPrice,
           salePercent: bodySyncFields.salePercent ?? defaultSyncFields.salePercent,
           bulkQty:     bodySyncFields.bulkQty     ?? defaultSyncFields.bulkQty,
-          myCost:      bodySyncFields.myCost      ?? defaultSyncFields.myCost,
           lotWeight:   bodySyncFields.lotWeight   ?? defaultSyncFields.lotWeight,
         };
       } else {
@@ -9326,7 +9301,6 @@ Format search_web URLs as markdown links.`;
           tierPrice:   cfgRow.syncTierPrice,
           salePercent: cfgRow.syncSalePercent,
           bulkQty:     cfgRow.syncBulkQty,
-          myCost:      cfgRow.syncMyCost,
           lotWeight:   cfgRow.syncLotWeight,
         } : { ...defaultSyncFields };
       }
@@ -9367,7 +9341,6 @@ Format search_web URLs as markdown links.`;
         tierPrice:   cfgRow.syncTierPrice,
         salePercent: cfgRow.syncSalePercent,
         bulkQty:     cfgRow.syncBulkQty,
-        myCost:      cfgRow.syncMyCost,
         lotWeight:   cfgRow.syncLotWeight,
       } : { ...defaultSyncFields };
 
@@ -9408,7 +9381,6 @@ Format search_web URLs as markdown links.`;
         syncTierPrice:   true,
         syncSalePercent: false,
         syncBulkQty:     true,
-        syncMyCost:      false,
         syncLotWeight:   true,
       });
     } catch (err) {
@@ -9419,7 +9391,7 @@ Format search_web URLs as markdown links.`;
   app.patch('/api/channel-sync/config', isApproved, async (req, res) => {
     try {
       const orgId = reqOrgId(req);
-      const allowed = ['syncPrice', 'syncRemarks', 'syncDescription', 'syncTierPrice', 'syncSalePercent', 'syncBulkQty', 'syncMyCost', 'syncLotWeight'] as const;
+      const allowed = ['syncPrice', 'syncRemarks', 'syncDescription', 'syncTierPrice', 'syncSalePercent', 'syncBulkQty', 'syncLotWeight'] as const;
       const patch: Record<string, boolean> = {};
       for (const key of allowed) {
         if (key in req.body && typeof req.body[key] === 'boolean') patch[key] = req.body[key];
@@ -9440,7 +9412,6 @@ Format search_web URLs as markdown links.`;
           syncTierPrice:   patch.syncTierPrice    ?? true,
           syncSalePercent: patch.syncSalePercent  ?? false,
           syncBulkQty:     patch.syncBulkQty      ?? true,
-          syncMyCost:      patch.syncMyCost       ?? false,
           syncLotWeight:   patch.syncLotWeight    ?? true,
         }).returning();
         return res.json(inserted);

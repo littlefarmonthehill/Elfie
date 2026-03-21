@@ -30,7 +30,6 @@ import {
   Unlink,
   GitMerge,
   Layers,
-  Banknote,
   Scale,
   EyeOff,
   StopCircle,
@@ -54,7 +53,7 @@ interface SyncPreviewBreakdown {
   byField: {
     qty: number; price: number; remarks: number; description: number;
     tierPrice: number; salePercent: number; forSale: number;
-    bulkQty: number; myCost: number; lotWeight: number;
+    bulkQty: number; lotWeight: number;
   };
 }
 
@@ -72,7 +71,7 @@ function SyncModeBadge({ mode, size = 'sm' }: { mode?: SyncMode; size?: 'sm' | '
   );
 }
 
-type DiscrepancyType = 'missing' | 'price' | 'quantity' | 'remarks' | 'description' | 'unlinked' | 'orphaned' | 'bulk_qty' | 'my_cost' | 'lot_weight' | 'for_sale';
+type DiscrepancyType = 'missing' | 'price' | 'quantity' | 'remarks' | 'description' | 'unlinked' | 'orphaned' | 'bulk_qty' | 'lot_weight' | 'for_sale';
 
 interface DiscrepancyArea {
   type: DiscrepancyType;
@@ -179,10 +178,9 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
   const unlinkedDiffs = brickOwl?.discrepancies?.unlinkedBoLots ?? 0;
   const orphanedDiffs = brickOwl?.discrepancies?.orphanedBoLots ?? 0;
   const bulkQtyDiffs = brickOwl?.discrepancies?.bulkQtyDifferences ?? 0;
-  const myCostDiffs = brickOwl?.discrepancies?.myCostDifferences ?? 0;
   const lotWeightDiffs = brickOwl?.discrepancies?.lotWeightDifferences ?? 0;
   const forSaleDiffs = brickOwl?.discrepancies?.forSaleDifferences ?? 0;
-  const totalDiscrepancies = missingLots + priceDiffs + qtyDiffs + remarksDiffs + descriptionDiffs + unlinkedDiffs + orphanedDiffs + bulkQtyDiffs + myCostDiffs + lotWeightDiffs + forSaleDiffs;
+  const totalDiscrepancies = missingLots + priceDiffs + qtyDiffs + remarksDiffs + descriptionDiffs + unlinkedDiffs + orphanedDiffs + bulkQtyDiffs + lotWeightDiffs + forSaleDiffs;
 
   const syncStatusColor =
     lastSync?.lastSyncStatus === 'success' ? 'text-green-400' :
@@ -289,16 +287,6 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
       bgColor: 'bg-cyan-950/30',
       count: bulkQtyDiffs,
       description: 'Minimum order quantity differs between platforms',
-    },
-    {
-      type: 'my_cost',
-      label: 'Cost Price Differences',
-      icon: Banknote,
-      accentColor: 'text-emerald-400',
-      borderColor: 'border-emerald-500/40',
-      bgColor: 'bg-emerald-950/30',
-      count: myCostDiffs,
-      description: 'Internal cost price differs between platforms',
     },
     {
       type: 'lot_weight',
@@ -700,7 +688,6 @@ function OverviewContent({
                   ['Sale %',      previewResult.byField.salePercent],
                   ['For sale',    previewResult.byField.forSale],
                   ['Bulk qty',    previewResult.byField.bulkQty],
-                  ['My cost',     previewResult.byField.myCost],
                   ['Lot weight',  previewResult.byField.lotWeight],
                 ] as [string, number][]).filter(([, n]) => n > 0).map(([label, n]) => (
                   <span key={label} className="inline-flex items-center gap-1 rounded border border-blue-500/20 bg-blue-900/30 px-1.5 py-0.5 text-[10px] text-blue-200">
@@ -744,7 +731,7 @@ function OverviewContent({
 
           {/* Field Issues group */}
           {(() => {
-            const FIELD_TYPES: DiscrepancyType[] = ['price', 'quantity', 'remarks', 'description', 'bulk_qty', 'my_cost', 'lot_weight', 'for_sale'];
+            const FIELD_TYPES: DiscrepancyType[] = ['price', 'quantity', 'remarks', 'description', 'bulk_qty', 'lot_weight', 'for_sale'];
             const fieldAreas = discrepancyAreas.filter(a => FIELD_TYPES.includes(a.type));
             if (fieldAreas.length === 0) return null;
             return (
@@ -966,7 +953,6 @@ const AUDIT_TYPES: Array<{ type: DiscrepancyType; label: string; color: string }
   { type: 'remarks',     label: 'Remark Differences',      color: '#a855f7' },
   { type: 'description', label: 'Description Differences', color: '#ec4899' },
   { type: 'bulk_qty',    label: 'Bulk Qty Differences',    color: '#22d3ee' },
-  { type: 'my_cost',     label: 'Cost Price Differences',  color: '#34d399' },
   { type: 'lot_weight',  label: 'Lot Weight Differences',  color: '#2dd4bf' },
   { type: 'for_sale',    label: 'Stockroom Mismatch',      color: '#a78bfa' },
 ];
@@ -987,7 +973,6 @@ function AuditReportView({ discrepancyAreas, totalDiscrepancies, lastSyncTime }:
     unlinked:    useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'unlinked',   'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/unlinked?limit=10000').then(r => r.json()),   enabled: activeTypes.includes('unlinked'),   refetchOnWindowFocus: false }),
     orphaned:    useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'orphaned',  'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/orphaned?limit=10000').then(r => r.json()),  enabled: activeTypes.includes('orphaned'),  refetchOnWindowFocus: false }),
     bulk_qty:    useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'bulk_qty',  'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/bulk_qty?limit=10000').then(r => r.json()),  enabled: activeTypes.includes('bulk_qty'),  refetchOnWindowFocus: false }),
-    my_cost:     useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'my_cost',   'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/my_cost?limit=10000').then(r => r.json()),   enabled: activeTypes.includes('my_cost'),   refetchOnWindowFocus: false }),
     lot_weight:  useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'lot_weight','all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/lot_weight?limit=10000').then(r => r.json()), enabled: activeTypes.includes('lot_weight'), refetchOnWindowFocus: false }),
     for_sale:    useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'for_sale',  'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/for_sale?limit=10000').then(r => r.json()),  enabled: activeTypes.includes('for_sale'),  refetchOnWindowFocus: false }),
   };
@@ -1032,9 +1017,6 @@ function AuditReportView({ discrepancyAreas, totalDiscrepancies, lastSyncTime }:
           valHtml = `BOID: ${item.boid ?? '—'} · BL ID was: ${item.blId ?? '—'} · Qty: ${item.qty ?? '—'} · Price: $${Number(item.price ?? 0).toFixed(2)} · BL lot deleted/merged`;
         } else if (section.type === 'bulk_qty') {
           valHtml = `BL min qty: ${item.blBulkQty ?? 1} → BO bulk qty: ${item.boBulkQty ?? 1} (${item.bulkQtyDiff >= 0 ? '+' : ''}${item.bulkQtyDiff})`;
-        } else if (section.type === 'my_cost') {
-          const diff = Number(item.costDiff ?? 0);
-          valHtml = `BL cost: $${Number(item.blMyCost ?? 0).toFixed(4)} → BO cost: $${Number(item.boMyCost ?? 0).toFixed(4)} (${diff >= 0 ? '+' : ''}$${diff.toFixed(4)})`;
         } else if (section.type === 'lot_weight') {
           const diff = Number(item.weightDiff ?? 0);
           valHtml = `BL weight: ${Number(item.blLotWeight ?? 0).toFixed(4)}g → BO weight: ${Number(item.boLotWeight ?? 0).toFixed(4)}g (${diff >= 0 ? '+' : ''}${diff.toFixed(4)}g)`;
@@ -1139,10 +1121,6 @@ function AuditReportView({ discrepancyAreas, totalDiscrepancies, lastSyncTime }:
           blVal = String(item.blBulkQty ?? 1);
           boVal = String(item.boBulkQty ?? 1);
           diff = `${item.bulkQtyDiff >= 0 ? '+' : ''}${item.bulkQtyDiff}`;
-        } else if (section.type === 'my_cost') {
-          blVal = `$${Number(item.blMyCost ?? 0).toFixed(4)}`;
-          boVal = `$${Number(item.boMyCost ?? 0).toFixed(4)}`;
-          diff = `${Number(item.costDiff ?? 0) >= 0 ? '+' : ''}$${Number(item.costDiff ?? 0).toFixed(4)}`;
         } else if (section.type === 'lot_weight') {
           blVal = `${Number(item.blLotWeight ?? 0).toFixed(4)}g`;
           boVal = `${Number(item.boLotWeight ?? 0).toFixed(4)}g`;
@@ -1279,11 +1257,6 @@ function AuditReportView({ discrepancyAreas, totalDiscrepancies, lastSyncTime }:
                       {section.type === 'bulk_qty' && (
                         <span>BL min qty: <span className="text-white font-mono">{item.blBulkQty ?? 1}</span> → BO bulk qty: <span className="text-white font-mono">{item.boBulkQty ?? 1}</span>
                           {item.bulkQtyDiff != null && <span className={`ml-2 font-semibold ${item.bulkQtyDiff > 0 ? 'text-green-400' : 'text-red-400'}`}>{item.bulkQtyDiff > 0 ? '+' : ''}{item.bulkQtyDiff} on BO</span>}
-                        </span>
-                      )}
-                      {section.type === 'my_cost' && (
-                        <span>BL cost: <span className="text-white font-mono">${Number(item.blMyCost ?? 0).toFixed(4)}</span> → BO cost: <span className="text-white font-mono">${Number(item.boMyCost ?? 0).toFixed(4)}</span>
-                          {item.costDiff != null && <span className={`ml-2 font-semibold ${item.costDiff > 0 ? 'text-green-400' : 'text-red-400'}`}>{item.costDiff > 0 ? '+' : ''}${Number(item.costDiff).toFixed(4)} on BO</span>}
                         </span>
                       )}
                       {section.type === 'lot_weight' && (

@@ -168,7 +168,6 @@ async function runScheduledChannelSync() {
         tierPrice:   cfgRow.syncTierPrice,
         salePercent: cfgRow.syncSalePercent,
         bulkQty:     cfgRow.syncBulkQty,
-        myCost:      cfgRow.syncMyCost,
         lotWeight:   cfgRow.syncLotWeight,
       };
     } catch { /* use defaults */ }

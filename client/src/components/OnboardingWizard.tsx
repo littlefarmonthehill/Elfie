@@ -124,7 +124,6 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   const [boSyncTierPrice, setBoSyncTierPrice] = useState(true);
   const [boSyncSalePercent, setBoSyncSalePercent] = useState(false);
   const [boSyncBulkQty, setBoSyncBulkQty] = useState(true);
-  const [boSyncMyCost, setBoSyncMyCost] = useState(false);
   const [boSyncLotWeight, setBoSyncLotWeight] = useState(true);
   const [analysisResult, setAnalysisResult] = useState<null | {
     matchedLots: number; unmatchedLots: number; wouldUpdate: number; wouldCreate: number;
@@ -264,7 +263,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
         syncFields: {
           price: boSyncPrice, remarks: boSyncRemarks, description: boSyncDescription,
           tierPrice: boSyncTierPrice, salePercent: boSyncSalePercent,
-          bulkQty: boSyncBulkQty, myCost: boSyncMyCost, lotWeight: boSyncLotWeight,
+          bulkQty: boSyncBulkQty, lotWeight: boSyncLotWeight,
         },
       });
     },
@@ -292,7 +291,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
       await apiRequest('PATCH', '/api/channel-sync/config', {
         syncPrice: boSyncPrice, syncRemarks: boSyncRemarks, syncDescription: boSyncDescription,
         syncTierPrice: boSyncTierPrice, syncSalePercent: boSyncSalePercent,
-        syncBulkQty: boSyncBulkQty, syncMyCost: boSyncMyCost, syncLotWeight: boSyncLotWeight,
+        syncBulkQty: boSyncBulkQty, syncLotWeight: boSyncLotWeight,
       });
     }
     setStep(6);
@@ -1056,7 +1055,6 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                           { key: 'tierPrice',   label: 'Tier Pricing',     desc: 'Bulk discount tiers from BrickLink',                                        checked: boSyncTierPrice,   set: setBoSyncTierPrice },
                           { key: 'salePercent', label: 'Sale %',           desc: 'BrickLink sale rate → BrickOwl sale %. Disable if you manage BO sales separately.', checked: boSyncSalePercent, set: setBoSyncSalePercent },
                           { key: 'bulkQty',     label: 'Min. Quantity',    desc: 'Minimum order quantity (BrickLink Bulk → BrickOwl bulk_qty)',               checked: boSyncBulkQty,     set: setBoSyncBulkQty },
-                          { key: 'myCost',      label: 'Cost Price',       desc: 'Your cost price (BrickLink My Cost → BrickOwl my_cost). Private data, opt-in.', checked: boSyncMyCost, set: setBoSyncMyCost },
                           { key: 'lotWeight',   label: 'Custom Lot Weight',desc: 'Custom weight per lot (BrickLink My Weight → BrickOwl lot_weight)',        checked: boSyncLotWeight,   set: setBoSyncLotWeight },
                         ] as const).map(({ key, label, desc, checked, set }) => (
                           <div key={key} className="flex items-center justify-between gap-3 px-3 py-2.5">
@@ -1123,7 +1121,7 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                           qty: 'Quantity', price: 'Base Price', remarks: 'Remarks',
                           description: 'Description', tierPrice: 'Tier Pricing',
                           salePercent: 'Sale %', forSale: 'For Sale status',
-                          bulkQty: 'Min. Quantity', myCost: 'Cost Price', lotWeight: 'Lot Weight',
+                          bulkQty: 'Min. Quantity', lotWeight: 'Lot Weight',
                         };
                         const entries = Object.entries(analysisResult.byField).filter(([, v]) => v > 0);
                         if (entries.length === 0) return null;
