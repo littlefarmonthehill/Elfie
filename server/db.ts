@@ -1248,6 +1248,13 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-66 (enable sync_sale_percent on channel_sync_config) complete.');
 
+    // ── Phase-67: add sync_include_stockroom to channel_sync_config ──────────
+    await client.query(`
+      ALTER TABLE channel_sync_config
+        ADD COLUMN IF NOT EXISTS sync_include_stockroom boolean NOT NULL DEFAULT false
+    `);
+    console.log('[Migration] Phase-67 (sync_include_stockroom on channel_sync_config) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

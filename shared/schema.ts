@@ -676,9 +676,10 @@ export const channelSyncConfig = pgTable("channel_sync_config", {
   syncRemarks:     boolean("sync_remarks").default(true).notNull(),       // personal_note (BL remarks)
   syncDescription: boolean("sync_description").default(true).notNull(),   // public_note (BL description)
   syncTierPrice:   boolean("sync_tier_price").default(true).notNull(),
-  syncSalePercent: boolean("sync_sale_percent").default(true).notNull(),  // sale_percent — syncs BL saleRate → BO sale_percent (clears per-lot discounts when BL rate is 0)
-  syncBulkQty:     boolean("sync_bulk_qty").default(true).notNull(),      // bulk_qty — min order quantity (BL bulk)
-  syncLotWeight:   boolean("sync_lot_weight").default(true).notNull(),    // lot_weight — custom weight (BL myWeight)
+  syncSalePercent:      boolean("sync_sale_percent").default(true).notNull(),       // sale_percent — syncs BL saleRate → BO sale_percent (clears per-lot discounts when BL rate is 0)
+  syncBulkQty:          boolean("sync_bulk_qty").default(true).notNull(),           // bulk_qty — min order quantity (BL bulk)
+  syncLotWeight:        boolean("sync_lot_weight").default(true).notNull(),         // lot_weight — custom weight (BL myWeight)
+  syncIncludeStockroom: boolean("sync_include_stockroom").default(false).notNull(), // when false, BL stockroom items are skipped entirely (not created/updated on BO)
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 export type ChannelSyncConfig = typeof channelSyncConfig.$inferSelect;

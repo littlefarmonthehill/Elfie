@@ -2499,9 +2499,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [syncFieldRemarks,     setSyncFieldRemarks]     = useState(true);
   const [syncFieldDescription, setSyncFieldDescription] = useState(true);
   const [syncFieldTierPrice,   setSyncFieldTierPrice]   = useState(true);
-  const [syncFieldSalePercent, setSyncFieldSalePercent] = useState(true);
-  const [syncFieldBulkQty,     setSyncFieldBulkQty]     = useState(true);
-  const [syncFieldLotWeight,   setSyncFieldLotWeight]   = useState(true);
+  const [syncFieldSalePercent,      setSyncFieldSalePercent]      = useState(true);
+  const [syncFieldBulkQty,          setSyncFieldBulkQty]          = useState(true);
+  const [syncFieldLotWeight,        setSyncFieldLotWeight]        = useState(true);
+  const [syncFieldIncludeStockroom, setSyncFieldIncludeStockroom] = useState(false);
   const [channelDetailsExpanded, setChannelDetailsExpanded] = useState(false);
   const [ordersSyncEnabled, setOrdersSyncEnabled] = useState(false);
   const [schedulerInventoryOpen, setSchedulerInventoryOpen] = useState(false);
@@ -2750,10 +2751,11 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     setSyncFieldSalePercent(channelSyncFieldConfig.syncSalePercent);
     setSyncFieldBulkQty(channelSyncFieldConfig.syncBulkQty ?? true);
     setSyncFieldLotWeight(channelSyncFieldConfig.syncLotWeight ?? true);
+    setSyncFieldIncludeStockroom(channelSyncFieldConfig.syncIncludeStockroom ?? false);
   }, [channelSyncFieldConfig]);
 
   const updateSyncFieldMutation = useMutation({
-    mutationFn: (patch: Partial<{ syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean; syncTierPrice: boolean; syncSalePercent: boolean; syncBulkQty: boolean; syncLotWeight: boolean }>) =>
+    mutationFn: (patch: Partial<{ syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean; syncTierPrice: boolean; syncSalePercent: boolean; syncBulkQty: boolean; syncLotWeight: boolean; syncIncludeStockroom: boolean }>) =>
       apiRequest('PATCH', '/api/channel-sync/config', patch),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/channel-sync/config'] });
@@ -5532,12 +5534,13 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
                           {/* Remaining optional fields */}
                           {([
-                            { key: 'syncRemarks',     label: 'Remarks',           desc: 'Syncs the internal/private notes (BrickLink Remarks → BrickOwl personal note)',                       value: syncFieldRemarks,     set: setSyncFieldRemarks     },
-                            { key: 'syncDescription', label: 'Description',        desc: 'Syncs the public description (BrickLink Description → BrickOwl public note)',                          value: syncFieldDescription, set: setSyncFieldDescription },
-                            { key: 'syncTierPrice',   label: 'Tier Pricing',       desc: 'Syncs bulk discount tiers from BrickLink',                                                             value: syncFieldTierPrice,   set: setSyncFieldTierPrice   },
-                            { key: 'syncSalePercent', label: 'Sale %',             desc: 'Syncs the BrickLink sale rate to BrickOwl sale %. Disable if you manage BrickOwl sales independently.', value: syncFieldSalePercent, set: setSyncFieldSalePercent },
-                            { key: 'syncBulkQty',     label: 'Minimum Quantity',   desc: 'Syncs the minimum order quantity (BrickLink Bulk → BrickOwl bulk_qty)',                                value: syncFieldBulkQty,     set: setSyncFieldBulkQty     },
-                            { key: 'syncLotWeight',   label: 'Custom Lot Weight',  desc: 'Syncs the custom weight per lot (BrickLink My Weight → BrickOwl lot_weight)',                         value: syncFieldLotWeight,   set: setSyncFieldLotWeight   },
+                            { key: 'syncRemarks',          label: 'Remarks',              desc: 'Syncs the internal/private notes (BrickLink Remarks → BrickOwl personal note)',                                   value: syncFieldRemarks,          set: setSyncFieldRemarks          },
+                            { key: 'syncDescription',      label: 'Description',          desc: 'Syncs the public description (BrickLink Description → BrickOwl public note)',                              value: syncFieldDescription,      set: setSyncFieldDescription      },
+                            { key: 'syncTierPrice',        label: 'Tier Pricing',         desc: 'Syncs bulk discount tiers from BrickLink',                                                                 value: syncFieldTierPrice,        set: setSyncFieldTierPrice        },
+                            { key: 'syncSalePercent',      label: 'Sale %',               desc: 'Syncs the BrickLink sale rate to BrickOwl sale %. Disable if you manage BrickOwl sales independently.',   value: syncFieldSalePercent,      set: setSyncFieldSalePercent      },
+                            { key: 'syncBulkQty',          label: 'Minimum Quantity',     desc: 'Syncs the minimum order quantity (BrickLink Bulk → BrickOwl bulk_qty)',                                    value: syncFieldBulkQty,          set: setSyncFieldBulkQty          },
+                            { key: 'syncLotWeight',        label: 'Custom Lot Weight',    desc: 'Syncs the custom weight per lot (BrickLink My Weight → BrickOwl lot_weight)',                              value: syncFieldLotWeight,        set: setSyncFieldLotWeight        },
+                            { key: 'syncIncludeStockroom', label: 'Include Stockroom',    desc: 'When enabled, BrickLink stockroom items are synced to BrickOwl as hidden lots (not visible to buyers). When disabled, stockroom items are skipped entirely.', value: syncFieldIncludeStockroom, set: setSyncFieldIncludeStockroom },
                           ] as const).map(({ key, label, desc, value, set }) => (
                             <div key={key} className="flex items-center justify-between gap-3 px-3 py-2.5">
                               <div className="min-w-0">
