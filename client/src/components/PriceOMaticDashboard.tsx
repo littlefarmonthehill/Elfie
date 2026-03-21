@@ -156,17 +156,46 @@ export function calcScore(lot: PricingInsight, cfg: ScoreConfig): number {
   return c + v + s + u;
 }
 
-export function calcScoreBreakdown(lot: PricingInsight, cfg: ScoreConfig) {
+// Weight applied to the suggestion-alignment signal when blending into the combined score.
+// Keeps the familiar score dominant while letting the strategy-based suggestion quietly
+// nudge items up (underpriced) or down (overpriced) as the model earns trust.
+const SUG_INFLUENCE_WEIGHT = 0.25;
+
+export function calcHybridScore(lot: PricingInsight, scoreCfg: ScoreConfig, sugCfg: SugConfig): number {
+  const base = calcScore(lot, scoreCfg);
+  const current = parseFloat(lot.unitPrice || '0');
+  if (current <= 0) return base;
+  const { suggested } = calcSuggested(lot, sugCfg);
+  if (suggested == null) return base;
+  const divergence = Math.max(-1, Math.min(1, (suggested - current) / current));
+  return base + divergence * SUG_INFLUENCE_WEIGHT;
+}
+
+export function calcScoreBreakdown(lot: PricingInsight, cfg: ScoreConfig, sugCfg?: SugConfig) {
   const cRaw = lot.priceCeilingRatio ?? 0;
   const vRaw = lot.demandVelocity ?? 0;
   const sRaw = lot.marketScarcity ?? 0;
   const uRaw = (lot.undercutRatio && lot.undercutRatio > 0) ? 1 / lot.undercutRatio : 0;
+  const baseTotal = cRaw * cfg.wCeiling + vRaw * cfg.wVelocity + sRaw * cfg.wScarcity + uRaw * cfg.wUndercut;
+
+  let sugRaw: number | null = null;
+  let sugWeighted: number | null = null;
+  if (sugCfg) {
+    const current = parseFloat(lot.unitPrice || '0');
+    const { suggested } = calcSuggested(lot, sugCfg);
+    if (suggested != null && current > 0) {
+      sugRaw = Math.max(-1, Math.min(1, (suggested - current) / current));
+      sugWeighted = sugRaw * SUG_INFLUENCE_WEIGHT;
+    }
+  }
+
   return {
     ceiling: { raw: cRaw, weight: cfg.wCeiling, weighted: cRaw * cfg.wCeiling },
     velocity: { raw: vRaw, weight: cfg.wVelocity, weighted: vRaw * cfg.wVelocity },
     scarcity: { raw: sRaw, weight: cfg.wScarcity, weighted: sRaw * cfg.wScarcity },
     undercut: { raw: uRaw, weight: cfg.wUndercut, weighted: uRaw * cfg.wUndercut },
-    total: cRaw * cfg.wCeiling + vRaw * cfg.wVelocity + sRaw * cfg.wScarcity + uRaw * cfg.wUndercut,
+    suggestion: sugRaw != null ? { raw: sugRaw, weight: SUG_INFLUENCE_WEIGHT, weighted: sugWeighted! } : null,
+    total: baseTotal + (sugWeighted ?? 0),
   };
 }
 
@@ -928,14 +957,15 @@ function BreakdownPopover({ bd, label, children, onOpenSettings, lot }: {
 }
 
 
-function ScoreBreakdownPopover({ lot, cfg, children, onOpenSettings }: {
+function ScoreBreakdownPopover({ lot, cfg, sugCfg, children, onOpenSettings }: {
   lot: PricingInsight;
   cfg: ScoreConfig;
+  sugCfg?: SugConfig;
   children: React.ReactNode;
   onOpenSettings?: (lot: PricingInsight) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const bd = calcScoreBreakdown(lot, cfg);
+  const bd = calcScoreBreakdown(lot, cfg, sugCfg);
   const dims = [
     { key: 'ceiling', label: 'Ceiling', color: '#60a5fa', raw: bd.ceiling.raw, weight: bd.ceiling.weight, weighted: bd.ceiling.weighted, suffix: '×' },
     { key: 'velocity', label: 'Velocity', color: '#34d399', raw: bd.velocity.raw, weight: bd.velocity.weight, weighted: bd.velocity.weighted },
@@ -963,6 +993,23 @@ function ScoreBreakdownPopover({ lot, cfg, children, onOpenSettings }: {
               </span>
             </div>
           ))}
+          {bd.suggestion != null && (
+            <div className="flex justify-between gap-2 text-gray-400 border-t border-gray-700/20 pt-1">
+              <span style={{ color: '#f472b6' }}>
+                Strategy {' '}
+                <span className="text-gray-600">(influence)</span>
+              </span>
+              <span className="font-mono">
+                <span className="text-gray-600">
+                  {bd.suggestion.raw >= 0 ? '+' : ''}{(bd.suggestion.raw * 100).toFixed(0)}%
+                </span>
+                {' '}
+                <span style={{ color: bd.suggestion.weighted >= 0 ? '#86efac' : '#fca5a5' }}>
+                  {bd.suggestion.weighted >= 0 ? '+' : ''}{bd.suggestion.weighted.toFixed(3)}
+                </span>
+              </span>
+            </div>
+          )}
           <div className="flex justify-between gap-2 text-purple-300 font-semibold border-t border-gray-700/40 pt-1">
             <span>= Combined</span>
             <span className="font-mono">{bd.total.toFixed(3)}</span>
@@ -1249,10 +1296,11 @@ const SORT_TO_SCORE_LABEL: Record<SortField, string> = {
   ceiling: 'Ceil', velocity: 'Vel', scarcity: 'Scarc', undercut: 'Undr', combined: 'Score',
 };
 
-function ScoresBar({ group, activeSort, scoreCfg, onOpenScoringSettings }: {
+function ScoresBar({ group, activeSort, scoreCfg, sugCfg, onOpenScoringSettings }: {
   group: GroupedInsight;
   activeSort: SortField;
   scoreCfg: ScoreConfig;
+  sugCfg?: SugConfig;
   onOpenScoringSettings?: (lot: PricingInsight) => void;
 }) {
   const items: Array<{ label: string; value: number | null; suffix?: string }> = [
@@ -1288,7 +1336,7 @@ function ScoresBar({ group, activeSort, scoreCfg, onOpenScoringSettings }: {
   if (!bestLot) return bar;
 
   return (
-    <ScoreBreakdownPopover lot={bestLot} cfg={scoreCfg} onOpenSettings={onOpenScoringSettings}>
+    <ScoreBreakdownPopover lot={bestLot} cfg={scoreCfg} sugCfg={sugCfg} onOpenSettings={onOpenScoringSettings}>
       {bar}
     </ScoreBreakdownPopover>
   );
@@ -1513,7 +1561,7 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
       g.bestVelocity = pick(l => l.demandVelocity);
       g.bestScarcity = pick(l => l.marketScarcity);
       g.bestUndercut = pick(l => l.undercutRatio);
-      g.bestCombined = pick(l => l.repricingScore);
+      g.bestCombined = pick(l => calcHybridScore(l, scoreCfg, sugCfg));
     }
     return Array.from(map.values()).sort((a, b) => {
       const aScore = getGroupScoreValue(a, sortField);
@@ -1766,7 +1814,7 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
                       </div>
 
                       <PricingGrid group={group} activeSort={sortField} cfg={sugCfg} onOpenSettings={onOpenSettings ? (lot) => onOpenSettings('priceomatic', lot) : undefined} />
-                      <ScoresBar group={group} activeSort={sortField} scoreCfg={scoreCfg} onOpenScoringSettings={onOpenSettings ? (lot) => onOpenSettings('priceomatic', undefined, lot) : undefined} />
+                      <ScoresBar group={group} activeSort={sortField} scoreCfg={scoreCfg} sugCfg={sugCfg} onOpenScoringSettings={onOpenSettings ? (lot) => onOpenSettings('priceomatic', undefined, lot) : undefined} />
                     </div>
                   </SwipeableTile>
                 );
