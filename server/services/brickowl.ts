@@ -585,6 +585,8 @@ export async function syncBrickLinkToBrickOwl(
     tier_price?: string;       // BrickOwl format: "100:0.050,200:0.040" or "remove"
     sale_percentage?: number;  // BrickLink saleRate; 0 = send "0" to clear
     external_id?: string;      // set when adopting an untagged lot
+    // true when quantity changed — must sync via batch (or individual qty call)
+    qtyChanged: boolean;
     // true when price / notes / tier / sale changed — these MUST go via individual
     // API calls because BrickOwl's batch /bulk/batch endpoint silently ignores them.
     hasNonQtyChange: boolean;
@@ -642,6 +644,7 @@ export async function syncBrickLinkToBrickOwl(
             absolute_quantity: item.quantity,
             price: newPrice,
             condition,
+            qtyChanged,
             hasNonQtyChange: priceChanged || remarksChanged || descChanged || tierChanged || saleChanged,
             ...(remarksChanged && { personal_note: decodedRemarks }),
             ...(descChanged    && { public_note:   decodedDesc }),
@@ -701,31 +704,35 @@ export async function syncBrickLinkToBrickOwl(
 
   const qtyOnlyJobs = toUpdate.filter(job => !job.hasNonQtyChange);
   const fieldJobs   = toUpdate.filter(job =>  job.hasNonQtyChange);
-
-  // ALL changed lots need their qty synced via batch (lot_id + absolute_quantity only).
-  // Field-changed lots additionally get an individual call for price/notes/tier/sale.
-  const allQtyJobs  = toUpdate; // qtyOnlyJobs + fieldJobs — batch syncs qty for both
+  // fieldJobs that ALSO have a qty change need an extra individual qty-only call
+  const fieldJobsWithQtyChange = fieldJobs.filter(job => job.qtyChanged);
 
   console.log(
-    `[ChannelSync] Phase 2a — ${qtyOnlyJobs.length} qty-only (batch) + ${fieldJobs.length} field-changes (batch qty + individual fields)`
+    `[ChannelSync] Phase 2a — ${qtyOnlyJobs.length} qty-only (batch) + ${fieldJobs.length} field-changes` +
+    ` (individual; ${fieldJobsWithQtyChange.length} also need qty call)`
   );
 
   let updateProgress = 0;
-  // Batch phase covers ALL toUpdate lots; individual phase covers only fieldJobs.
-  // Total "steps" = both passes combined so the progress bar doesn't exceed 100%.
-  const totalPhase2 = allQtyJobs.length + fieldJobs.length + toAdopt.length;
+  // Steps: batch (qtyOnly) + individual field calls + extra qty calls for field+qty lots + adoptions
+  const totalPhase2 = qtyOnlyJobs.length + fieldJobs.length + fieldJobsWithQtyChange.length + toAdopt.length;
 
-  // ── 2a-i: Batch ALL changed lots for quantity (fast) ──────────────────────
+  // ── 2a-i: Batch qty-only lots (fast) ──────────────────────────────────────
   // Send ONLY lot_id + absolute_quantity — no price, no notes, no extras.
   // This prevents the "extra fields → instant 200ms no-op" BrickOwl bug.
-  // Runs for EVERY changed lot (qty-only and field-changed alike).
+  // Only runs for lots where ONLY quantity changed (field-changed lots handle
+  // qty via a separate individual call in Phase 2a-ii to avoid 429 storms).
   const BATCH_SIZE        = 50;
   const BATCH_CONCURRENCY = 4;
   const BATCH_GAP_MS      = 1200; // 4 concurrent × (10 s process + 1.2 s gap) ≈ 90 calls/min
 
+  // Both qtyOnly AND field-changed-with-qty lots need their qty synced via batch.
+  // fieldJobsWithQtyChange is typically very small (lots rarely have BOTH price AND qty
+  // changes at the same time), so adding them here won't cause 429 storms.
+  const batchQtyJobs = [...qtyOnlyJobs, ...fieldJobsWithQtyChange];
+
   const qtyChunks: UpdateJob[][] = [];
-  for (let i = 0; i < allQtyJobs.length; i += BATCH_SIZE) {
-    qtyChunks.push(allQtyJobs.slice(i, i + BATCH_SIZE));
+  for (let i = 0; i < batchQtyJobs.length; i += BATCH_SIZE) {
+    qtyChunks.push(batchQtyJobs.slice(i, i + BATCH_SIZE));
   }
 
   for (let r = 0; r < qtyChunks.length; r += BATCH_CONCURRENCY) {
