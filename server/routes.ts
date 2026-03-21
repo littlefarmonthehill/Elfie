@@ -11097,11 +11097,12 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       const qtyBefore   = parseInt(lot.qty || '0');
       const sendPrice   = test_price ?? parseFloat((priceBefore + 0.001).toFixed(3));
 
-      // 2. Send price update
+      // 2. Send price-only update — strips all extra fields to match the new sync strategy
+      // (BrickOwl silently ignores price when absolute_quantity, condition, or for_sale are bundled)
       const updateResponse = await updateBrickOwlLot({
         lot_id: String(lot_id),
-        absolute_quantity: qtyBefore,
         price: sendPrice,
+        // NO absolute_quantity — qty-only calls go through the batch endpoint separately
       });
 
       // 3. Re-fetch from BrickOwl to see if it stuck

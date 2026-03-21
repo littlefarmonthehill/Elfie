@@ -702,23 +702,28 @@ export async function syncBrickLinkToBrickOwl(
   const qtyOnlyJobs = toUpdate.filter(job => !job.hasNonQtyChange);
   const fieldJobs   = toUpdate.filter(job =>  job.hasNonQtyChange);
 
+  // ALL changed lots need their qty synced via batch (lot_id + absolute_quantity only).
+  // Field-changed lots additionally get an individual call for price/notes/tier/sale.
+  const allQtyJobs  = toUpdate; // qtyOnlyJobs + fieldJobs — batch syncs qty for both
+
   console.log(
-    `[ChannelSync] Phase 2a — ${qtyOnlyJobs.length} qty-only (batch) + ${fieldJobs.length} field-changes (individual)`
+    `[ChannelSync] Phase 2a — ${qtyOnlyJobs.length} qty-only (batch) + ${fieldJobs.length} field-changes (batch qty + individual fields)`
   );
 
   let updateProgress = 0;
   const totalPhase2 = toUpdate.length + toAdopt.length;
 
-  // ── 2a-i: Batch qty-only lots (fast) ──────────────────────────────────────
+  // ── 2a-i: Batch ALL changed lots for quantity (fast) ──────────────────────
   // Send ONLY lot_id + absolute_quantity — no price, no notes, no extras.
   // This prevents the "extra fields → instant 200ms no-op" BrickOwl bug.
+  // Runs for EVERY changed lot (qty-only and field-changed alike).
   const BATCH_SIZE        = 50;
   const BATCH_CONCURRENCY = 4;
   const BATCH_GAP_MS      = 1200; // 4 concurrent × (10 s process + 1.2 s gap) ≈ 90 calls/min
 
   const qtyChunks: UpdateJob[][] = [];
-  for (let i = 0; i < qtyOnlyJobs.length; i += BATCH_SIZE) {
-    qtyChunks.push(qtyOnlyJobs.slice(i, i + BATCH_SIZE));
+  for (let i = 0; i < allQtyJobs.length; i += BATCH_SIZE) {
+    qtyChunks.push(allQtyJobs.slice(i, i + BATCH_SIZE));
   }
 
   for (let r = 0; r < qtyChunks.length; r += BATCH_CONCURRENCY) {
@@ -776,13 +781,16 @@ export async function syncBrickLinkToBrickOwl(
   }
 
   // ── 2a-ii: Individual calls for field-changed lots (price / notes / tier / sale) ──
-  // BrickOwl's individual /inventory/update endpoint applies ALL fields correctly.
+  // Sends ONLY the non-qty fields — BrickOwl silently drops price/notes when bundled
+  // with absolute_quantity or condition/for_sale in the same call (confirmed bug).
+  // Qty was already sent via batch above; these calls handle only the field differences.
   // We process FIELD_CONCURRENCY lots in parallel, with a gap between rounds.
   // Target rate: ~300-400 individual calls/min (well under API limits).
   const FIELD_CONCURRENCY = 4;
   const FIELD_GAP_MS      = 400; // 4 parallel × 400 ms gap ≈ 350 calls/min
 
   let firstFieldLogged = false;
+  let fieldResponsesLogged = 0;
 
   for (let r = 0; r < fieldJobs.length; r += FIELD_CONCURRENCY) {
     const chunk = fieldJobs.slice(r, r + FIELD_CONCURRENCY);
@@ -800,20 +808,28 @@ export async function syncBrickLinkToBrickOwl(
       }
 
       try {
-        const updateResp = await updateBrickOwlLot({
+        // CONFIRMED BrickOwl behaviour: /inventory/update silently ignores price/notes/tier/sale
+        // when extra fields like absolute_quantity, condition, or for_sale are bundled in the
+        // same call. Send ONLY the non-qty fields that actually changed — nothing else.
+        // Quantity changes for these lots are already handled by the batch phase above.
+        const fieldPayload: Parameters<typeof updateBrickOwlLot>[0] = {
           lot_id: job.lot_id,
-          absolute_quantity: job.absolute_quantity,
           price: job.price,
-          condition: job.condition,
-          for_sale: 1,
           ...(job.personal_note   !== undefined && { personal_note:   job.personal_note   }),
           ...(job.public_note     !== undefined && { public_note:     job.public_note     }),
           ...(job.tier_price      !== undefined && { tier_price:      job.tier_price      }),
           ...(job.sale_percentage !== undefined && { sale_percentage: job.sale_percentage }),
-        });
-        // Log first 3 responses so we can see what BrickOwl actually applies
-        if (result.lotsUpdated < 3) {
-          console.log(`[ChannelSync:DIAG] BO response lot_id=${job.lot_id} price_sent=${job.price.toFixed(3)}:`, JSON.stringify(updateResp));
+        };
+        const updateResp = await updateBrickOwlLot(fieldPayload);
+        // Log first 3 individual responses to confirm BrickOwl is now applying price
+        if (fieldResponsesLogged < 3) {
+          fieldResponsesLogged++;
+          console.log(
+            `[ChannelSync:DIAG] BO response lot_id=${job.lot_id}` +
+            ` price_sent=${job.price.toFixed(3)}` +
+            ` fields_sent=${Object.keys(fieldPayload).join(',')}:`,
+            JSON.stringify(updateResp)
+          );
         }
         result.totalApiCalls++;
         result.lotsUpdated++;
