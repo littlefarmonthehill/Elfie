@@ -610,13 +610,13 @@ export interface SyncFieldConfig {
   description:      boolean; // public_note (BL description)
   tierPrice:        boolean; // tier pricing
   salePercent:      boolean; // sale_percent — opt-in, BO sales may be independently managed
-  bulkQty:          boolean; // bulk_qty — minimum order quantity (BL bulk)
-  lotWeight:        boolean; // lot_weight — custom lot weight (BL myWeight)
-  includeStockroom: boolean; // when false, BL stockroom items are skipped entirely (not created/updated on BO)
+  bulkQty:          boolean;  // bulk_qty — minimum order quantity (BL bulk)
+  lotWeight:        boolean;  // lot_weight — custom lot weight (BL myWeight)
+  stockroomIds:     string[]; // which BL stockroom IDs to sync (e.g. ['A','C']); empty = skip all stockrooms
 }
 export const defaultSyncFields: SyncFieldConfig = {
   price: true, remarks: true, description: true, tierPrice: true, salePercent: true,
-  bulkQty: true, lotWeight: true, includeStockroom: false,
+  bulkQty: true, lotWeight: true, stockroomIds: [],
 };
 
 export async function syncBrickLinkToBrickOwl(
@@ -693,9 +693,9 @@ export async function syncBrickLinkToBrickOwl(
     // In analysis mode report progress during Phase 1 (there is no Phase 2)
     if (mode === 'analysis') onProgress?.(phaseProgress, blItems.length);
 
-    // Skip stockroom items entirely when includeStockroom is off.
-    // They won't be created or updated on BrickOwl.
-    if (item.isStockRoom && !fields.includeStockroom) {
+    // Skip stockroom items whose stockroom ID is not in the allow-list.
+    // An empty stockroomIds array means "skip all stockrooms".
+    if (item.isStockRoom && !fields.stockroomIds.includes(item.stockRoomId ?? '')) {
       result.lotsSkipped++;
       continue;
     }

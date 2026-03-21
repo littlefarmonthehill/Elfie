@@ -9290,10 +9290,10 @@ Format search_web URLs as markdown links.`;
           remarks:          bodySyncFields.remarks          ?? defaultSyncFields.remarks,
           description:      bodySyncFields.description      ?? defaultSyncFields.description,
           tierPrice:        bodySyncFields.tierPrice        ?? defaultSyncFields.tierPrice,
-          salePercent:      bodySyncFields.salePercent      ?? defaultSyncFields.salePercent,
-          bulkQty:          bodySyncFields.bulkQty          ?? defaultSyncFields.bulkQty,
-          lotWeight:        bodySyncFields.lotWeight        ?? defaultSyncFields.lotWeight,
-          includeStockroom: bodySyncFields.includeStockroom ?? defaultSyncFields.includeStockroom,
+          salePercent:  bodySyncFields.salePercent  ?? defaultSyncFields.salePercent,
+          bulkQty:      bodySyncFields.bulkQty      ?? defaultSyncFields.bulkQty,
+          lotWeight:    bodySyncFields.lotWeight     ?? defaultSyncFields.lotWeight,
+          stockroomIds: bodySyncFields.stockroomIds  ?? defaultSyncFields.stockroomIds,
         };
       } else {
         const [cfgRow] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
@@ -9302,10 +9302,10 @@ Format search_web URLs as markdown links.`;
           remarks:          cfgRow.syncRemarks,
           description:      cfgRow.syncDescription,
           tierPrice:        cfgRow.syncTierPrice,
-          salePercent:      cfgRow.syncSalePercent,
-          bulkQty:          cfgRow.syncBulkQty,
-          lotWeight:        cfgRow.syncLotWeight,
-          includeStockroom: cfgRow.syncIncludeStockroom,
+          salePercent:  cfgRow.syncSalePercent,
+          bulkQty:      cfgRow.syncBulkQty,
+          lotWeight:    cfgRow.syncLotWeight,
+          stockroomIds: cfgRow.syncStockroomIds ?? [],
         } : { ...defaultSyncFields };
       }
 
@@ -9343,13 +9343,13 @@ Format search_web URLs as markdown links.`;
         remarks:          cfgRow.syncRemarks,
         description:      cfgRow.syncDescription,
         tierPrice:        cfgRow.syncTierPrice,
-        salePercent:      cfgRow.syncSalePercent,
-        bulkQty:          cfgRow.syncBulkQty,
-        lotWeight:        cfgRow.syncLotWeight,
-        includeStockroom: cfgRow.syncIncludeStockroom,
+        salePercent:  cfgRow.syncSalePercent,
+        bulkQty:      cfgRow.syncBulkQty,
+        lotWeight:    cfgRow.syncLotWeight,
+        stockroomIds: cfgRow.syncStockroomIds ?? [],
       } : { ...defaultSyncFields };
 
-      console.log(`[Platform Sync] Starting BrickLink → BrickOwl sync${limit ? ` (limit: ${limit})` : ''} (mode: ${syncMode}, fields: price=${syncFields.price} remarks=${syncFields.remarks} desc=${syncFields.description} tier=${syncFields.tierPrice} sale=${syncFields.salePercent} stockroom=${syncFields.includeStockroom})...`);
+      console.log(`[Platform Sync] Starting BrickLink → BrickOwl sync${limit ? ` (limit: ${limit})` : ''} (mode: ${syncMode}, fields: price=${syncFields.price} remarks=${syncFields.remarks} desc=${syncFields.description} tier=${syncFields.tierPrice} sale=${syncFields.salePercent} stockrooms=[${syncFields.stockroomIds.join(',')}])...`);
       
       const result = await syncBrickLinkToBrickOwl(limit, syncMode, undefined, syncFields);
       
@@ -9380,14 +9380,14 @@ Format search_web URLs as markdown links.`;
       // Return defaults — no row yet
       return res.json({
         orgId,
-        syncPrice:            true,
-        syncRemarks:          true,
-        syncDescription:      true,
-        syncTierPrice:        true,
-        syncSalePercent:      true,
-        syncBulkQty:          true,
-        syncLotWeight:        true,
-        syncIncludeStockroom: false,
+        syncPrice:        true,
+        syncRemarks:      true,
+        syncDescription:  true,
+        syncTierPrice:    true,
+        syncSalePercent:  true,
+        syncBulkQty:      true,
+        syncLotWeight:    true,
+        syncStockroomIds: [],
       });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
@@ -9397,10 +9397,17 @@ Format search_web URLs as markdown links.`;
   app.patch('/api/channel-sync/config', isApproved, async (req, res) => {
     try {
       const orgId = reqOrgId(req);
-      const allowed = ['syncPrice', 'syncRemarks', 'syncDescription', 'syncTierPrice', 'syncSalePercent', 'syncBulkQty', 'syncLotWeight', 'syncIncludeStockroom'] as const;
-      const patch: Record<string, boolean> = {};
-      for (const key of allowed) {
+      const boolAllowed = ['syncPrice', 'syncRemarks', 'syncDescription', 'syncTierPrice', 'syncSalePercent', 'syncBulkQty', 'syncLotWeight'] as const;
+      const patch: Record<string, boolean | string[]> = {};
+      for (const key of boolAllowed) {
         if (key in req.body && typeof req.body[key] === 'boolean') patch[key] = req.body[key];
+      }
+      // syncStockroomIds is a string[] — validate each element is a single uppercase letter
+      if ('syncStockroomIds' in req.body) {
+        const raw = req.body.syncStockroomIds;
+        if (Array.isArray(raw) && raw.every((v: unknown) => typeof v === 'string')) {
+          patch.syncStockroomIds = raw as string[];
+        }
       }
       if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'No valid fields provided' });
 
@@ -9412,14 +9419,14 @@ Format search_web URLs as markdown links.`;
       } else {
         const [inserted] = await db.insert(channelSyncConfig).values({
           orgId,
-          syncPrice:            patch.syncPrice            ?? true,
-          syncRemarks:          patch.syncRemarks           ?? true,
-          syncDescription:      patch.syncDescription       ?? true,
-          syncTierPrice:        patch.syncTierPrice         ?? true,
-          syncSalePercent:      patch.syncSalePercent       ?? true,
-          syncBulkQty:          patch.syncBulkQty           ?? true,
-          syncLotWeight:        patch.syncLotWeight         ?? true,
-          syncIncludeStockroom: patch.syncIncludeStockroom  ?? false,
+          syncPrice:        (patch.syncPrice        as boolean)  ?? true,
+          syncRemarks:      (patch.syncRemarks       as boolean)  ?? true,
+          syncDescription:  (patch.syncDescription   as boolean)  ?? true,
+          syncTierPrice:    (patch.syncTierPrice      as boolean)  ?? true,
+          syncSalePercent:  (patch.syncSalePercent    as boolean)  ?? true,
+          syncBulkQty:      (patch.syncBulkQty        as boolean)  ?? true,
+          syncLotWeight:    (patch.syncLotWeight       as boolean)  ?? true,
+          syncStockroomIds: (patch.syncStockroomIds   as string[]) ?? [],
         }).returning();
         return res.json(inserted);
       }

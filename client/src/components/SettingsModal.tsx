@@ -2502,7 +2502,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [syncFieldSalePercent,      setSyncFieldSalePercent]      = useState(true);
   const [syncFieldBulkQty,          setSyncFieldBulkQty]          = useState(true);
   const [syncFieldLotWeight,        setSyncFieldLotWeight]        = useState(true);
-  const [syncFieldIncludeStockroom, setSyncFieldIncludeStockroom] = useState(false);
+  const [syncStockroomIds, setSyncStockroomIds] = useState<string[]>([]);
   const [channelDetailsExpanded, setChannelDetailsExpanded] = useState(false);
   const [ordersSyncEnabled, setOrdersSyncEnabled] = useState(false);
   const [schedulerInventoryOpen, setSchedulerInventoryOpen] = useState(false);
@@ -2751,11 +2751,11 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     setSyncFieldSalePercent(channelSyncFieldConfig.syncSalePercent);
     setSyncFieldBulkQty(channelSyncFieldConfig.syncBulkQty ?? true);
     setSyncFieldLotWeight(channelSyncFieldConfig.syncLotWeight ?? true);
-    setSyncFieldIncludeStockroom(channelSyncFieldConfig.syncIncludeStockroom ?? false);
+    setSyncStockroomIds((channelSyncFieldConfig as any).syncStockroomIds ?? []);
   }, [channelSyncFieldConfig]);
 
   const updateSyncFieldMutation = useMutation({
-    mutationFn: (patch: Partial<{ syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean; syncTierPrice: boolean; syncSalePercent: boolean; syncBulkQty: boolean; syncLotWeight: boolean; syncIncludeStockroom: boolean }>) =>
+    mutationFn: (patch: Partial<{ syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean; syncTierPrice: boolean; syncSalePercent: boolean; syncBulkQty: boolean; syncLotWeight: boolean; syncStockroomIds: string[] }>) =>
       apiRequest('PATCH', '/api/channel-sync/config', patch),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/channel-sync/config'] });
@@ -5539,8 +5539,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             { key: 'syncTierPrice',        label: 'Tier Pricing',         desc: 'Syncs bulk discount tiers from BrickLink',                                                                 value: syncFieldTierPrice,        set: setSyncFieldTierPrice        },
                             { key: 'syncSalePercent',      label: 'Sale %',               desc: 'Syncs the BrickLink sale rate to BrickOwl sale %. Disable if you manage BrickOwl sales independently.',   value: syncFieldSalePercent,      set: setSyncFieldSalePercent      },
                             { key: 'syncBulkQty',          label: 'Minimum Quantity',     desc: 'Syncs the minimum order quantity (BrickLink Bulk → BrickOwl bulk_qty)',                                    value: syncFieldBulkQty,          set: setSyncFieldBulkQty          },
-                            { key: 'syncLotWeight',        label: 'Custom Lot Weight',    desc: 'Syncs the custom weight per lot (BrickLink My Weight → BrickOwl lot_weight)',                              value: syncFieldLotWeight,        set: setSyncFieldLotWeight        },
-                            { key: 'syncIncludeStockroom', label: 'Include Stockroom',    desc: 'When enabled, BrickLink stockroom items are synced to BrickOwl as hidden lots (not visible to buyers). When disabled, stockroom items are skipped entirely.', value: syncFieldIncludeStockroom, set: setSyncFieldIncludeStockroom },
+                            { key: 'syncLotWeight', label: 'Custom Lot Weight', desc: 'Syncs the custom weight per lot (BrickLink My Weight → BrickOwl lot_weight)', value: syncFieldLotWeight, set: setSyncFieldLotWeight },
                           ] as const).map(({ key, label, desc, value, set }) => (
                             <div key={key} className="flex items-center justify-between gap-3 px-3 py-2.5">
                               <div className="min-w-0">
@@ -5557,6 +5556,33 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               />
                             </div>
                           ))}
+
+                          {/* Per-stockroom toggles */}
+                          <div className="px-3 pt-2 pb-1">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">BrickLink Stockrooms</p>
+                            <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Choose which stockrooms are synced to BrickOwl as hidden lots. Disabled stockrooms are skipped entirely.</p>
+                          </div>
+                          {(['A', 'B', 'C'] as const).map((id) => {
+                            const isEnabled = syncStockroomIds.includes(id);
+                            return (
+                              <div key={id} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-medium text-gray-200">Stockroom {id}</p>
+                                </div>
+                                <Switch
+                                  checked={isEnabled}
+                                  onCheckedChange={(checked) => {
+                                    const next = checked
+                                      ? [...syncStockroomIds, id]
+                                      : syncStockroomIds.filter(s => s !== id);
+                                    setSyncStockroomIds(next);
+                                    updateSyncFieldMutation.mutate({ syncStockroomIds: next });
+                                  }}
+                                  data-testid={`switch-sync-stockroom-${id}`}
+                                />
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
 

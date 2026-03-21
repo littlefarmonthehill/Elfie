@@ -1255,6 +1255,25 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-67 (sync_include_stockroom on channel_sync_config) complete.');
 
+    // ── Phase-68: replace sync_include_stockroom with sync_stockroom_ids[] ──────
+    // Migrate: rows with sync_include_stockroom=true get all known stockroom IDs;
+    // rows with false (default) get an empty array (skip all stockrooms).
+    await client.query(`
+      ALTER TABLE channel_sync_config
+        ADD COLUMN IF NOT EXISTS sync_stockroom_ids text[] NOT NULL DEFAULT '{}'
+    `);
+    await client.query(`
+      UPDATE channel_sync_config
+         SET sync_stockroom_ids = ARRAY['A','B','C']::text[]
+       WHERE sync_include_stockroom = true
+         AND sync_stockroom_ids = '{}'
+    `);
+    await client.query(`
+      ALTER TABLE channel_sync_config
+        DROP COLUMN IF EXISTS sync_include_stockroom
+    `);
+    console.log('[Migration] Phase-68 (sync_stockroom_ids replaces sync_include_stockroom) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
