@@ -694,7 +694,9 @@ export async function syncBrickLinkToBrickOwl(
       // Each optional field is only compared when its sync flag is enabled.
       // If disabled, the field is treated as unchanged (never included in updates).
       // If BO returns no price (undefined/NaN), treat as changed so it gets corrected.
-      const priceChanged    = fields.price       && (isNaN(boBase) || Math.abs(boBase - newPrice) > 0.001);
+      // base_price follows the fields.price toggle for existing matched lots in all modes.
+      // (For new lots created via adopt/create, price is always included regardless.)
+      const priceChanged    = fields.price && (isNaN(boBase) || Math.abs(boBase - newPrice) > 0.001);
       // Decode BL side before comparing — BrickLink stores HTML entities (e.g. &#39;)
       // but BrickOwl holds the decoded text after the first sync.
       const remarksChanged  = fields.remarks     && (taggedLot.personal_note || '') !== decodeHtmlEntities(item.remarks || '');

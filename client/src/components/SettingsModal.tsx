@@ -5488,20 +5488,57 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               <Info className="w-3 h-3 text-gray-500 shrink-0 cursor-default" />
                             </TooltipTrigger>
                             <TooltipContent side="right" className="max-w-xs text-xs">
-                              Choose which fields are pushed from BrickLink to BrickOwl. Quantity is always synced. Disable a field to let BrickOwl manage it independently.
+                              Choose which fields are pushed from BrickLink to BrickOwl. Locked fields are always synced in the selected mode and cannot be disabled.
                             </TooltipContent>
                           </Tooltip>
                         </div>
                         <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
+
+                          {/* Quantity — mandatory in matched_sync and full_control */}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center justify-between gap-3 px-3 py-2.5 opacity-60 cursor-default">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-medium text-gray-200 flex items-center gap-1.5">
+                                    Quantity
+                                    {channelSyncMode !== 'analysis' && (
+                                      <Lock className="w-2.5 h-2.5 text-gray-500 shrink-0" />
+                                    )}
+                                  </p>
+                                  <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Syncs the lot quantity from BrickLink</p>
+                                </div>
+                                <Switch checked disabled data-testid="switch-sync-field-qty" />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="left" className="max-w-xs text-xs">
+                              {channelSyncMode === 'analysis'
+                                ? 'Analysis mode — no writes. Quantity will sync when an active mode is selected.'
+                                : 'Quantity is always synced and cannot be disabled.'}
+                            </TooltipContent>
+                          </Tooltip>
+
+                          {/* Price — optional in all modes; always included when creating new lots in full_control */}
+                          <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-gray-200">Base Price</p>
+                              <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Syncs the listing price (base price) from BrickLink to existing lots</p>
+                            </div>
+                            <Switch
+                              checked={syncFieldPrice}
+                              onCheckedChange={(checked) => { setSyncFieldPrice(checked); updateSyncFieldMutation.mutate({ syncPrice: checked }); }}
+                              data-testid="switch-sync-field-syncPrice"
+                            />
+                          </div>
+
+                          {/* Remaining optional fields */}
                           {([
-                            { key: 'syncPrice',       label: 'Price',                  desc: 'Syncs the listing price (base price) from BrickLink',                                           value: syncFieldPrice,       set: setSyncFieldPrice       },
-                            { key: 'syncRemarks',     label: 'Remarks',                desc: 'Syncs the internal/private notes (BrickLink Remarks → BrickOwl personal note)',                 value: syncFieldRemarks,     set: setSyncFieldRemarks     },
-                            { key: 'syncDescription', label: 'Description',            desc: 'Syncs the public description (BrickLink Description → BrickOwl public note)',                    value: syncFieldDescription, set: setSyncFieldDescription },
-                            { key: 'syncTierPrice',   label: 'Tier Pricing',           desc: 'Syncs bulk discount tiers from BrickLink',                                                       value: syncFieldTierPrice,   set: setSyncFieldTierPrice   },
-                            { key: 'syncSalePercent', label: 'Sale %',                 desc: 'Syncs the BrickLink sale rate to BrickOwl sale %. Disable if you manage BrickOwl sales independently.', value: syncFieldSalePercent, set: setSyncFieldSalePercent },
-                            { key: 'syncBulkQty',     label: 'Minimum Quantity',       desc: 'Syncs the minimum order quantity (BrickLink Bulk → BrickOwl bulk_qty)',                          value: syncFieldBulkQty,     set: setSyncFieldBulkQty     },
-                            { key: 'syncMyCost',      label: 'Cost Price',             desc: 'Syncs your cost price (BrickLink My Cost → BrickOwl my_cost). Opt-in — cost data is private.',  value: syncFieldMyCost,      set: setSyncFieldMyCost      },
-                            { key: 'syncLotWeight',   label: 'Custom Lot Weight',      desc: 'Syncs the custom weight per lot (BrickLink My Weight → BrickOwl lot_weight)',                   value: syncFieldLotWeight,   set: setSyncFieldLotWeight   },
+                            { key: 'syncRemarks',     label: 'Remarks',           desc: 'Syncs the internal/private notes (BrickLink Remarks → BrickOwl personal note)',                       value: syncFieldRemarks,     set: setSyncFieldRemarks     },
+                            { key: 'syncDescription', label: 'Description',        desc: 'Syncs the public description (BrickLink Description → BrickOwl public note)',                          value: syncFieldDescription, set: setSyncFieldDescription },
+                            { key: 'syncTierPrice',   label: 'Tier Pricing',       desc: 'Syncs bulk discount tiers from BrickLink',                                                             value: syncFieldTierPrice,   set: setSyncFieldTierPrice   },
+                            { key: 'syncSalePercent', label: 'Sale %',             desc: 'Syncs the BrickLink sale rate to BrickOwl sale %. Disable if you manage BrickOwl sales independently.', value: syncFieldSalePercent, set: setSyncFieldSalePercent },
+                            { key: 'syncBulkQty',     label: 'Minimum Quantity',   desc: 'Syncs the minimum order quantity (BrickLink Bulk → BrickOwl bulk_qty)',                                value: syncFieldBulkQty,     set: setSyncFieldBulkQty     },
+                            { key: 'syncMyCost',      label: 'Cost Price',         desc: 'Syncs your cost price (BrickLink My Cost → BrickOwl my_cost). Opt-in — cost data is private.',        value: syncFieldMyCost,      set: setSyncFieldMyCost      },
+                            { key: 'syncLotWeight',   label: 'Custom Lot Weight',  desc: 'Syncs the custom weight per lot (BrickLink My Weight → BrickOwl lot_weight)',                         value: syncFieldLotWeight,   set: setSyncFieldLotWeight   },
                           ] as const).map(({ key, label, desc, value, set }) => (
                             <div key={key} className="flex items-center justify-between gap-3 px-3 py-2.5">
                               <div className="min-w-0">
