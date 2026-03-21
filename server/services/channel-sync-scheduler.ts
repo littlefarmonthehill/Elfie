@@ -162,13 +162,14 @@ async function runScheduledChannelSync() {
     try {
       const [cfgRow] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, ORG_ID)).limit(1);
       if (cfgRow) syncFields = {
-        price:       cfgRow.syncPrice,
-        remarks:     cfgRow.syncRemarks,
-        description: cfgRow.syncDescription,
-        tierPrice:   cfgRow.syncTierPrice,
-        salePercent: cfgRow.syncSalePercent,
-        bulkQty:     cfgRow.syncBulkQty,
-        lotWeight:   cfgRow.syncLotWeight,
+        price:        cfgRow.syncPrice,
+        remarks:      cfgRow.syncRemarks,
+        description:  cfgRow.syncDescription,
+        tierPrice:    cfgRow.syncTierPrice,
+        salePercent:  cfgRow.syncSalePercent,
+        bulkQty:      cfgRow.syncBulkQty,
+        lotWeight:    cfgRow.syncLotWeight,
+        stockroomIds: cfgRow.syncStockroomIds ?? [],
       };
     } catch { /* use defaults */ }
 
