@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Progress } from "@/components/ui/progress";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -158,6 +158,19 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
   const brickOwl = platformData?.targets?.find((t: any) => t.name === 'BrickOwl');
   const lastSync = syncStatuses?.channel;
   const isRunning = lastSync?.lastSyncStatus === 'in_progress' || syncMutation.isPending;
+
+  // When sync transitions from running → done, sequence a fresh status fetch (which repopulates
+  // the server-side discrepancy cache) then invalidate the detail drawer so it re-reads fresh data.
+  const prevIsRunningRef = useRef(isRunning);
+  useEffect(() => {
+    const wasRunning = prevIsRunningRef.current;
+    prevIsRunningRef.current = isRunning;
+    if (wasRunning && !isRunning) {
+      queryClient.refetchQueries({ queryKey: ['/api/platform-sync/status'] }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl'] });
+      });
+    }
+  }, [isRunning]);
 
   const { data: progressData } = useQuery<{ processed: number; total: number; phase: string }>({
     queryKey: ['/api/channel-sync/progress'],
