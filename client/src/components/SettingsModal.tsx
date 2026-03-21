@@ -2495,6 +2495,11 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [channelSyncEnabled, setChannelSyncEnabled] = useState(false);
   const [channelSyncTime, setChannelSyncTime] = useState("03:00");
   const [channelSyncMode, setChannelSyncMode] = useState<'analysis' | 'full_control' | 'matched_sync'>('analysis');
+  const [syncFieldPrice,       setSyncFieldPrice]       = useState(true);
+  const [syncFieldRemarks,     setSyncFieldRemarks]     = useState(true);
+  const [syncFieldDescription, setSyncFieldDescription] = useState(true);
+  const [syncFieldTierPrice,   setSyncFieldTierPrice]   = useState(true);
+  const [syncFieldSalePercent, setSyncFieldSalePercent] = useState(false);
   const [channelDetailsExpanded, setChannelDetailsExpanded] = useState(false);
   const [ordersSyncEnabled, setOrdersSyncEnabled] = useState(false);
   const [schedulerInventoryOpen, setSchedulerInventoryOpen] = useState(false);
@@ -2719,6 +2724,35 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const channelSyncMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/platform-sync/sync', { platform: 'BrickOwl', limit: 10 }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['/api/platform-sync/status'] }); },
+  });
+
+  // Channel sync field configuration
+  const { data: channelSyncFieldConfig } = useQuery<{
+    syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean;
+    syncTierPrice: boolean; syncSalePercent: boolean;
+  }>({
+    queryKey: ['/api/channel-sync/config'],
+    enabled: open && activeSection === 'platforms',
+    staleTime: 30000,
+  });
+  // Sync local state from server config whenever the data arrives or modal re-opens.
+  // Switches save immediately on change so there's no partially-committed local state to protect.
+  useEffect(() => {
+    if (!channelSyncFieldConfig) return;
+    setSyncFieldPrice(channelSyncFieldConfig.syncPrice);
+    setSyncFieldRemarks(channelSyncFieldConfig.syncRemarks);
+    setSyncFieldDescription(channelSyncFieldConfig.syncDescription);
+    setSyncFieldTierPrice(channelSyncFieldConfig.syncTierPrice);
+    setSyncFieldSalePercent(channelSyncFieldConfig.syncSalePercent);
+  }, [channelSyncFieldConfig]);
+
+  const updateSyncFieldMutation = useMutation({
+    mutationFn: (patch: Partial<{ syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean; syncTierPrice: boolean; syncSalePercent: boolean }>) =>
+      apiRequest('PATCH', '/api/channel-sync/config', patch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/channel-sync/config'] });
+      channelSyncFieldConfigLoaded.current = false; // allow re-init on next load
+    },
   });
 
   const { data: orgIntegrationsList = [] } = useQuery<OrgIntegration[]>({
@@ -5437,6 +5471,46 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           </button>
                         </div>
                       </div>
+
+                      {/* Field sync toggles — which fields to push from BL → BO */}
+                      <div className="mt-4 space-y-2">
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-xs text-gray-200">Fields to Sync</Label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="w-3 h-3 text-gray-500 shrink-0 cursor-default" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-xs text-xs">
+                              Choose which fields are pushed from BrickLink to BrickOwl. Quantity is always synced. Disable a field to let BrickOwl manage it independently.
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
+                          {([
+                            { key: 'syncPrice',       label: 'Price',         desc: 'Syncs the listing price (base price) from BrickLink',                           value: syncFieldPrice,       set: setSyncFieldPrice       },
+                            { key: 'syncRemarks',     label: 'Remarks',       desc: 'Syncs the internal/private notes (BrickLink Remarks → BrickOwl personal note)', value: syncFieldRemarks,     set: setSyncFieldRemarks     },
+                            { key: 'syncDescription', label: 'Description',   desc: 'Syncs the public description (BrickLink Description → BrickOwl public note)',    value: syncFieldDescription, set: setSyncFieldDescription },
+                            { key: 'syncTierPrice',   label: 'Tier Pricing',  desc: 'Syncs bulk discount tiers from BrickLink',                                       value: syncFieldTierPrice,   set: setSyncFieldTierPrice   },
+                            { key: 'syncSalePercent', label: 'Sale %',        desc: 'Syncs the BrickLink sale rate to BrickOwl sale %. Disable if you manage BrickOwl sales independently.',   value: syncFieldSalePercent, set: setSyncFieldSalePercent },
+                          ] as const).map(({ key, label, desc, value, set }) => (
+                            <div key={key} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-gray-200">{label}</p>
+                                <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{desc}</p>
+                              </div>
+                              <Switch
+                                checked={value}
+                                onCheckedChange={(checked) => {
+                                  set(checked);
+                                  updateSyncFieldMutation.mutate({ [key]: checked });
+                                }}
+                                data-testid={`switch-sync-field-${key}`}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
                           </div>
                           )}
                         </div>

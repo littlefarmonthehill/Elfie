@@ -663,6 +663,22 @@ export const insertAppSettingsSchema = createInsertSchema(appSettings).omit({
 export type InsertAppSettings = z.infer<typeof insertAppSettingsSchema>;
 export type AppSettings = typeof appSettings.$inferSelect;
 
+// Channel Sync per-field configuration — which fields are synced from BL → BO
+// Stored separately to avoid adding columns to the 1600-column-limited app_settings table.
+// Qty is always synced; only these optional fields are user-configurable.
+export const channelSyncConfig = pgTable("channel_sync_config", {
+  id: serial("id").primaryKey(),
+  orgId: varchar("org_id").notNull().unique(),
+  syncPrice:       boolean("sync_price").default(true).notNull(),
+  syncRemarks:     boolean("sync_remarks").default(true).notNull(),       // personal_note (BL remarks)
+  syncDescription: boolean("sync_description").default(true).notNull(),   // public_note (BL description)
+  syncTierPrice:   boolean("sync_tier_price").default(true).notNull(),
+  syncSalePercent: boolean("sync_sale_percent").default(false).notNull(), // sale_percent — opt-in; BO sales may be independent
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type ChannelSyncConfig = typeof channelSyncConfig.$inferSelect;
+export const insertChannelSyncConfigSchema = createInsertSchema(channelSyncConfig).omit({ id: true, updatedAt: true });
+
 // Conversation Threads — chat session metadata
 export const conversationThreads = pgTable("conversation_threads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

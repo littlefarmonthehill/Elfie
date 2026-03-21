@@ -40,11 +40,11 @@ import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, sy
 import { getPomIsRunning, setPomIsRunning } from "./services/pom-scheduler";
 import { syncLock } from "./services/sync-lock";
 import { syncShipStationOrders } from "./services/shipstation";
-import { syncBrickLinkToBrickOwl } from "./services/brickowl";
+import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions, channelSyncConfig } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -9176,9 +9176,18 @@ Format search_web URLs as markdown links.`;
       const rawMode = settingsRow?.channelSyncMode;
       const syncMode = (rawMode === 'matched_sync' || rawMode === 'quantity_only' ? 'matched_sync' : rawMode === 'analysis' ? 'analysis' : 'full_control') as 'analysis' | 'full_control' | 'matched_sync';
 
-      console.log(`[Platform Sync] Starting BrickLink → BrickOwl sync${limit ? ` (limit: ${limit})` : ''} (mode: ${syncMode})...`);
+      const [cfgRow] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
+      const syncFields: SyncFieldConfig = cfgRow ? {
+        price:       cfgRow.syncPrice,
+        remarks:     cfgRow.syncRemarks,
+        description: cfgRow.syncDescription,
+        tierPrice:   cfgRow.syncTierPrice,
+        salePercent: cfgRow.syncSalePercent,
+      } : { ...defaultSyncFields };
+
+      console.log(`[Platform Sync] Starting BrickLink → BrickOwl sync${limit ? ` (limit: ${limit})` : ''} (mode: ${syncMode}, fields: price=${syncFields.price} remarks=${syncFields.remarks} desc=${syncFields.description} tier=${syncFields.tierPrice} sale=${syncFields.salePercent})...`);
       
-      const result = await syncBrickLinkToBrickOwl(limit, syncMode);
+      const result = await syncBrickLinkToBrickOwl(limit, syncMode, undefined, syncFields);
       
       console.log(`[Platform Sync] Complete: ${result.lotsCreated} created, ${result.lotsUpdated} updated, ${result.lotsSkipped} skipped`);
 
@@ -9193,6 +9202,59 @@ Format search_web URLs as markdown links.`;
         success: false,
         error: error instanceof Error ? error.message : "Failed to sync platform",
       });
+    }
+  });
+
+  // ── Channel Sync field config ────────────────────────────────────────────
+  // GET  /api/channel-sync/config  — returns current field sync preferences (with defaults if none saved)
+  // PATCH /api/channel-sync/config — updates field sync preferences
+  app.get('/api/channel-sync/config', isApproved, async (req, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const [row] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
+      if (row) return res.json(row);
+      // Return defaults — no row yet
+      return res.json({
+        orgId,
+        syncPrice:       true,
+        syncRemarks:     true,
+        syncDescription: true,
+        syncTierPrice:   true,
+        syncSalePercent: false,
+      });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.patch('/api/channel-sync/config', isApproved, async (req, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const allowed = ['syncPrice', 'syncRemarks', 'syncDescription', 'syncTierPrice', 'syncSalePercent'] as const;
+      const patch: Record<string, boolean> = {};
+      for (const key of allowed) {
+        if (key in req.body && typeof req.body[key] === 'boolean') patch[key] = req.body[key];
+      }
+      if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'No valid fields provided' });
+
+      // Upsert
+      const [existing] = await db.select({ id: channelSyncConfig.id }).from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
+      if (existing) {
+        const [updated] = await db.update(channelSyncConfig).set({ ...patch, updatedAt: new Date() }).where(eq(channelSyncConfig.orgId, orgId)).returning();
+        return res.json(updated);
+      } else {
+        const [inserted] = await db.insert(channelSyncConfig).values({
+          orgId,
+          syncPrice:       patch.syncPrice       ?? true,
+          syncRemarks:     patch.syncRemarks      ?? true,
+          syncDescription: patch.syncDescription  ?? true,
+          syncTierPrice:   patch.syncTierPrice    ?? true,
+          syncSalePercent: patch.syncSalePercent  ?? false,
+        }).returning();
+        return res.json(inserted);
+      }
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
     }
   });
 

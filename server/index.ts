@@ -316,6 +316,24 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       console.warn('[Startup] sync_metadata last_sync_meta_json column migration (non-fatal):', syncMetaColErr.message);
     }
 
+    // 4a-fix-8. Create channel_sync_config table for per-field sync preferences (separate from app_settings).
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS channel_sync_config (
+          id SERIAL PRIMARY KEY,
+          org_id VARCHAR(255) NOT NULL UNIQUE,
+          sync_price BOOLEAN NOT NULL DEFAULT true,
+          sync_remarks BOOLEAN NOT NULL DEFAULT true,
+          sync_description BOOLEAN NOT NULL DEFAULT true,
+          sync_tier_price BOOLEAN NOT NULL DEFAULT true,
+          sync_sale_percent BOOLEAN NOT NULL DEFAULT false,
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+    } catch (cscErr: any) {
+      console.warn('[Startup] channel_sync_config migration (non-fatal):', cscErr.message);
+    }
+
     try {
 
       // 4b. Warm up the DB connection (wakes Neon serverless from idle)

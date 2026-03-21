@@ -1,7 +1,7 @@
 import { db } from "../db";
-import { appSettings, syncMetadata } from "@shared/schema";
+import { appSettings, syncMetadata, channelSyncConfig } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
-import { syncBrickLinkToBrickOwl } from "./brickowl";
+import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig } from "./brickowl";
 import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 
@@ -150,19 +150,30 @@ async function runScheduledChannelSync() {
   });
 
   try {
-    // Read sync mode from settings
+    // Read sync mode + field config from settings
     let syncMode: 'analysis' | 'full_control' | 'matched_sync' = 'full_control';
+    let syncFields: SyncFieldConfig = { ...defaultSyncFields };
     try {
       const [settingsForMode] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
       const m = settingsForMode?.channelSyncMode;
       if (m === 'matched_sync' || m === 'quantity_only') syncMode = 'matched_sync'; // quantity_only is legacy name
       else if (m === 'analysis') syncMode = 'analysis';
     } catch { /* default to full_control */ }
+    try {
+      const [cfgRow] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, ORG_ID)).limit(1);
+      if (cfgRow) syncFields = {
+        price:       cfgRow.syncPrice,
+        remarks:     cfgRow.syncRemarks,
+        description: cfgRow.syncDescription,
+        tierPrice:   cfgRow.syncTierPrice,
+        salePercent: cfgRow.syncSalePercent,
+      };
+    } catch { /* use defaults */ }
 
     channelSyncProgress = { processed: 0, total: 0, phase: 'fetching' };
     const result = await syncBrickLinkToBrickOwl(undefined, syncMode, (processed, total) => {
       channelSyncProgress = { processed, total, phase: 'syncing' };
-    });
+    }, syncFields);
     const hasErrors = result.errors.length > 0;
     const status = hasErrors ? 'partial' : 'success';
     console.log(`\n✨ Channel sync complete! ${result.lotsCreated} created, ${result.lotsUpdated} updated, ${result.lotsSkipped} skipped, ${result.errors.length} errors (mode: ${syncMode})`);
