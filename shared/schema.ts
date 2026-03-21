@@ -679,7 +679,8 @@ export const channelSyncConfig = pgTable("channel_sync_config", {
   syncSalePercent:      boolean("sync_sale_percent").default(true).notNull(),    // sale_percent — syncs BL saleRate → BO sale_percent (clears per-lot discounts when BL rate is 0)
   syncBulkQty:          boolean("sync_bulk_qty").default(true).notNull(),        // bulk_qty — min order quantity (BL bulk)
   syncLotWeight:        boolean("sync_lot_weight").default(true).notNull(),      // lot_weight — custom weight (BL myWeight)
-  syncStockroomIds:     text("sync_stockroom_ids").array().notNull().default([]), // which BL stockrooms to sync; empty = skip all stockrooms
+  // Per-stockroom sync mode: 'skip' = ignore entirely, 'hidden' = sync but force for_sale=0 on BO, 'active' = sync as normal for-sale lot
+  syncStockroomModes:   jsonb("sync_stockroom_modes").$type<Record<string, 'skip' | 'hidden' | 'active'>>().notNull().default({ A: 'skip', B: 'skip', C: 'skip' }),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 export type ChannelSyncConfig = typeof channelSyncConfig.$inferSelect;

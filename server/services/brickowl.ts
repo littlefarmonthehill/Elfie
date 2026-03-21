@@ -612,11 +612,12 @@ export interface SyncFieldConfig {
   salePercent:      boolean; // sale_percent — opt-in, BO sales may be independently managed
   bulkQty:          boolean;  // bulk_qty — minimum order quantity (BL bulk)
   lotWeight:        boolean;  // lot_weight — custom lot weight (BL myWeight)
-  stockroomIds:     string[]; // which BL stockroom IDs to sync (e.g. ['A','C']); empty = skip all stockrooms
+  // Per-stockroom mode: 'skip' = ignore, 'hidden' = sync with for_sale=0, 'active' = sync as normal for-sale lot
+  stockroomModes:   Record<string, 'skip' | 'hidden' | 'active'>;
 }
 export const defaultSyncFields: SyncFieldConfig = {
   price: true, remarks: true, description: true, tierPrice: true, salePercent: true,
-  bulkQty: true, lotWeight: true, stockroomIds: [],
+  bulkQty: true, lotWeight: true, stockroomModes: { A: 'skip', B: 'skip', C: 'skip' },
 };
 
 export async function syncBrickLinkToBrickOwl(
@@ -693,9 +694,12 @@ export async function syncBrickLinkToBrickOwl(
     // In analysis mode report progress during Phase 1 (there is no Phase 2)
     if (mode === 'analysis') onProgress?.(phaseProgress, blItems.length);
 
-    // Skip stockroom items whose stockroom ID is not in the allow-list.
-    // An empty stockroomIds array means "skip all stockrooms".
-    if (item.isStockRoom && !fields.stockroomIds.includes(item.stockRoomId ?? '')) {
+    // Determine the sync mode for this item's stockroom.
+    // Non-stockroom items always proceed as 'active'.
+    const stockroomMode: 'skip' | 'hidden' | 'active' = item.isStockRoom
+      ? (fields.stockroomModes[item.stockRoomId ?? ''] ?? 'skip')
+      : 'active';
+    if (stockroomMode === 'skip') {
       result.lotsSkipped++;
       continue;
     }
@@ -723,8 +727,9 @@ export async function syncBrickLinkToBrickOwl(
       const boBase      = parseFloat(taggedLot.base_price ?? taggedLot.price);
       const newSaleRate = item.saleRate ?? 0;
 
-      // for_sale: BL stockroom items → BO for_sale=0 (hidden from buyers)
-      const newForSale  = item.isStockRoom ? 0 : 1;
+      // for_sale: 'active' stockroom mode keeps the lot visible on BO (for_sale=1).
+      // 'hidden' stockroom mode and non-stockroom items use the standard isStockRoom rule.
+      const newForSale  = (stockroomMode === 'active') ? 1 : (item.isStockRoom ? 0 : 1);
       const boForSale   = parseInt(String(taggedLot.for_sale ?? '1'));
 
       // bulk_qty: BO does return this in inventory/list — delta-detection is safe.

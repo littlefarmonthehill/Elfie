@@ -169,7 +169,7 @@ async function runScheduledChannelSync() {
         salePercent:  cfgRow.syncSalePercent,
         bulkQty:      cfgRow.syncBulkQty,
         lotWeight:    cfgRow.syncLotWeight,
-        stockroomIds: cfgRow.syncStockroomIds ?? [],
+        stockroomModes: (cfgRow.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
       };
     } catch { /* use defaults */ }
 

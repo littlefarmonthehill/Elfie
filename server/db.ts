@@ -1274,6 +1274,29 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-68 (sync_stockroom_ids replaces sync_include_stockroom) complete.');
 
+    // ── Phase-69: replace sync_stockroom_ids[] with sync_stockroom_modes jsonb ─
+    // Three modes per stockroom: 'skip' (ignore), 'hidden' (for_sale=0), 'active' (for_sale=1)
+    // Migrate existing data: IDs present in sync_stockroom_ids become 'active', others become 'skip'.
+    await client.query(`
+      ALTER TABLE channel_sync_config
+        ADD COLUMN IF NOT EXISTS sync_stockroom_modes jsonb NOT NULL
+          DEFAULT '{"A":"skip","B":"skip","C":"skip"}'::jsonb
+    `);
+    await client.query(`
+      UPDATE channel_sync_config
+         SET sync_stockroom_modes = jsonb_build_object(
+           'A', CASE WHEN 'A' = ANY(sync_stockroom_ids) THEN 'active' ELSE 'skip' END,
+           'B', CASE WHEN 'B' = ANY(sync_stockroom_ids) THEN 'active' ELSE 'skip' END,
+           'C', CASE WHEN 'C' = ANY(sync_stockroom_ids) THEN 'active' ELSE 'skip' END
+         )
+       WHERE sync_stockroom_ids IS NOT NULL
+    `);
+    await client.query(`
+      ALTER TABLE channel_sync_config
+        DROP COLUMN IF EXISTS sync_stockroom_ids
+    `);
+    console.log('[Migration] Phase-69 (sync_stockroom_modes replaces sync_stockroom_ids) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

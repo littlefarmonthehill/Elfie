@@ -8932,10 +8932,11 @@ Format search_web URLs as markdown links.`;
 
           // Read the sync config so the discrepancy view matches the sync engine's filters.
           const [syncCfgRow] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
-          const syncStockroomIds: string[] = syncCfgRow?.syncStockroomIds ?? [];
+          const syncStockroomModes: Record<string, string> = (syncCfgRow?.syncStockroomModes as any) ?? { A: 'skip', B: 'skip', C: 'skip' };
           // Helper: returns true when the sync engine would skip this BL item (stockroom filter).
+          // Only 'skip' mode items are excluded — 'hidden' and 'active' items appear in reports.
           const isStockroomFiltered = (blItem: any) =>
-            !!blItem.isStockRoom && !syncStockroomIds.includes(blItem.stockRoomId ?? '');
+            !!blItem.isStockRoom && (syncStockroomModes[blItem.stockRoomId ?? ''] ?? 'skip') === 'skip';
 
           // SIMPLIFIED COMPARISON: Use external_lot_ids.other (BrickLink inventory ID) for matching
           const blItemsMap = new Map<number, any>();
@@ -9329,7 +9330,7 @@ Format search_web URLs as markdown links.`;
           salePercent:  bodySyncFields.salePercent  ?? defaultSyncFields.salePercent,
           bulkQty:      bodySyncFields.bulkQty      ?? defaultSyncFields.bulkQty,
           lotWeight:    bodySyncFields.lotWeight     ?? defaultSyncFields.lotWeight,
-          stockroomIds: bodySyncFields.stockroomIds  ?? defaultSyncFields.stockroomIds,
+          stockroomModes: bodySyncFields.stockroomModes ?? defaultSyncFields.stockroomModes,
         };
       } else {
         const [cfgRow] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
@@ -9341,7 +9342,7 @@ Format search_web URLs as markdown links.`;
           salePercent:  cfgRow.syncSalePercent,
           bulkQty:      cfgRow.syncBulkQty,
           lotWeight:    cfgRow.syncLotWeight,
-          stockroomIds: cfgRow.syncStockroomIds ?? [],
+          stockroomModes: (cfgRow.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
         } : { ...defaultSyncFields };
       }
 
@@ -9382,10 +9383,11 @@ Format search_web URLs as markdown links.`;
         salePercent:  cfgRow.syncSalePercent,
         bulkQty:      cfgRow.syncBulkQty,
         lotWeight:    cfgRow.syncLotWeight,
-        stockroomIds: cfgRow.syncStockroomIds ?? [],
+        stockroomModes: (cfgRow.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
       } : { ...defaultSyncFields };
 
-      console.log(`[Platform Sync] Starting BrickLink → BrickOwl sync${limit ? ` (limit: ${limit})` : ''} (mode: ${syncMode}, fields: price=${syncFields.price} remarks=${syncFields.remarks} desc=${syncFields.description} tier=${syncFields.tierPrice} sale=${syncFields.salePercent} stockrooms=[${syncFields.stockroomIds.join(',')}])...`);
+      const modesStr = Object.entries(syncFields.stockroomModes).map(([k, v]) => `${k}:${v}`).join(',');
+      console.log(`[Platform Sync] Starting BrickLink → BrickOwl sync${limit ? ` (limit: ${limit})` : ''} (mode: ${syncMode}, fields: price=${syncFields.price} remarks=${syncFields.remarks} desc=${syncFields.description} tier=${syncFields.tierPrice} sale=${syncFields.salePercent} stockrooms=[${modesStr}])...`);
       
       const result = await syncBrickLinkToBrickOwl(limit, syncMode, undefined, syncFields);
       
@@ -9423,7 +9425,7 @@ Format search_web URLs as markdown links.`;
         syncSalePercent:  true,
         syncBulkQty:      true,
         syncLotWeight:    true,
-        syncStockroomIds: [],
+        syncStockroomModes: { A: 'skip', B: 'skip', C: 'skip' },
       });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
@@ -9434,15 +9436,17 @@ Format search_web URLs as markdown links.`;
     try {
       const orgId = reqOrgId(req);
       const boolAllowed = ['syncPrice', 'syncRemarks', 'syncDescription', 'syncTierPrice', 'syncSalePercent', 'syncBulkQty', 'syncLotWeight'] as const;
-      const patch: Record<string, boolean | string[]> = {};
+      const patch: Record<string, boolean | Record<string, string>> = {};
       for (const key of boolAllowed) {
         if (key in req.body && typeof req.body[key] === 'boolean') patch[key] = req.body[key];
       }
-      // syncStockroomIds is a string[] — validate each element is a single uppercase letter
-      if ('syncStockroomIds' in req.body) {
-        const raw = req.body.syncStockroomIds;
-        if (Array.isArray(raw) && raw.every((v: unknown) => typeof v === 'string')) {
-          patch.syncStockroomIds = raw as string[];
+      // syncStockroomModes: { A: 'skip'|'hidden'|'active', B: ..., C: ... }
+      if ('syncStockroomModes' in req.body) {
+        const raw = req.body.syncStockroomModes;
+        const validModes = new Set(['skip', 'hidden', 'active']);
+        if (raw && typeof raw === 'object' && !Array.isArray(raw) &&
+            Object.values(raw).every((v: unknown) => typeof v === 'string' && validModes.has(v as string))) {
+          patch.syncStockroomModes = raw as Record<string, string>;
         }
       }
       if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'No valid fields provided' });
@@ -9462,7 +9466,7 @@ Format search_web URLs as markdown links.`;
           syncSalePercent:  (patch.syncSalePercent    as boolean)  ?? true,
           syncBulkQty:      (patch.syncBulkQty        as boolean)  ?? true,
           syncLotWeight:    (patch.syncLotWeight       as boolean)  ?? true,
-          syncStockroomIds: (patch.syncStockroomIds   as string[]) ?? [],
+          syncStockroomModes: (patch.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
         }).returning();
         return res.json(inserted);
       }
