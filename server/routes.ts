@@ -8903,6 +8903,7 @@ Format search_web URLs as markdown links.`;
       let bulkQtyDifferencesCount = 0;
       let lotWeightDifferencesCount = 0;
       let forSaleDifferencesCount = 0;
+      let salePercentDifferencesCount = 0;
 
       if (brickowlEnabled) {
         try {
@@ -8927,6 +8928,7 @@ Format search_web URLs as markdown links.`;
           const bulkQtyDiscrepancies: any[] = [];
           const lotWeightDiscrepancies: any[] = [];
           const forSaleDiscrepancies: any[] = [];
+          const salePercentDiscrepancies: any[] = [];
 
           // SIMPLIFIED COMPARISON: Use external_lot_ids.other (BrickLink inventory ID) for matching
           const blItemsMap = new Map<number, any>();
@@ -9129,6 +9131,27 @@ Format search_web URLs as markdown links.`;
                 blIsStockRoom: !!blItem.isStockRoom,
               });
             }
+
+            // Check sale_percent differences (BL saleRate → BO sale_percent)
+            // BO inventory returns the field as sale_percent (or sale_percentage); check both.
+            const boSalePercent = parseInt(String(boLot.sale_percent ?? boLot.sale_percentage ?? '0')) || 0;
+            const blSaleRate = blItem.saleRate ?? 0;
+            if (boSalePercent !== blSaleRate) {
+              salePercentDifferencesCount++;
+              salePercentDiscrepancies.push({
+                lotId: blItem.id,
+                itemNo: blItem.itemNo,
+                itemName: blItem.itemName,
+                colorName: blItem.colorName,
+                condition: blItem.newOrUsed,
+                blQuantity: blItem.quantity,
+                blPrice,
+                difference: 'sale_percent',
+                blSalePercent: blSaleRate,
+                boSalePercent,
+                saleDiff: boSalePercent - blSaleRate,
+              });
+            }
           }
 
           // Find missing items (BrickLink items not matched in BrickOwl)
@@ -9166,7 +9189,8 @@ Format search_web URLs as markdown links.`;
           discrepancyCache.set('BrickOwl:orphaned', { data: orphanedBoLots, timestamp: now });
           discrepancyCache.set('BrickOwl:bulk_qty', { data: bulkQtyDiscrepancies, timestamp: now });
           discrepancyCache.set('BrickOwl:lot_weight', { data: lotWeightDiscrepancies, timestamp: now });
-          discrepancyCache.set('BrickOwl:for_sale', { data: forSaleDiscrepancies, timestamp: now });
+          discrepancyCache.set('BrickOwl:for_sale',       { data: forSaleDiscrepancies,       timestamp: now });
+          discrepancyCache.set('BrickOwl:sale_percent',   { data: salePercentDiscrepancies,   timestamp: now });
         } catch (error) {
           console.error('Failed to fetch BrickOwl inventory stats:', error);
         }
@@ -9201,7 +9225,8 @@ Format search_web URLs as markdown links.`;
               orphanedBoLots: orphanedBoLotsCount,
               bulkQtyDifferences: bulkQtyDifferencesCount,
               lotWeightDifferences: lotWeightDifferencesCount,
-              forSaleDifferences: forSaleDifferencesCount,
+              forSaleDifferences:      forSaleDifferencesCount,
+              salePercentDifferences:  salePercentDifferencesCount,
             },
           },
         ],

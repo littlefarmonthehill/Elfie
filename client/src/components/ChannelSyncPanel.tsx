@@ -33,6 +33,7 @@ import {
   Scale,
   EyeOff,
   StopCircle,
+  Percent,
 } from "lucide-react";
 import {
   Drawer,
@@ -71,7 +72,7 @@ function SyncModeBadge({ mode, size = 'sm' }: { mode?: SyncMode; size?: 'sm' | '
   );
 }
 
-type DiscrepancyType = 'missing' | 'price' | 'quantity' | 'remarks' | 'description' | 'unlinked' | 'orphaned' | 'bulk_qty' | 'lot_weight' | 'for_sale';
+type DiscrepancyType = 'missing' | 'price' | 'quantity' | 'remarks' | 'description' | 'unlinked' | 'orphaned' | 'bulk_qty' | 'lot_weight' | 'for_sale' | 'sale_percent';
 
 interface DiscrepancyArea {
   type: DiscrepancyType;
@@ -192,8 +193,9 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
   const orphanedDiffs = brickOwl?.discrepancies?.orphanedBoLots ?? 0;
   const bulkQtyDiffs = brickOwl?.discrepancies?.bulkQtyDifferences ?? 0;
   const lotWeightDiffs = brickOwl?.discrepancies?.lotWeightDifferences ?? 0;
-  const forSaleDiffs = brickOwl?.discrepancies?.forSaleDifferences ?? 0;
-  const totalDiscrepancies = missingLots + priceDiffs + qtyDiffs + remarksDiffs + descriptionDiffs + unlinkedDiffs + orphanedDiffs + bulkQtyDiffs + lotWeightDiffs + forSaleDiffs;
+  const forSaleDiffs       = brickOwl?.discrepancies?.forSaleDifferences ?? 0;
+  const salePercentDiffs   = brickOwl?.discrepancies?.salePercentDifferences ?? 0;
+  const totalDiscrepancies = missingLots + priceDiffs + qtyDiffs + remarksDiffs + descriptionDiffs + unlinkedDiffs + orphanedDiffs + bulkQtyDiffs + lotWeightDiffs + forSaleDiffs + salePercentDiffs;
 
   const syncStatusColor =
     lastSync?.lastSyncStatus === 'success' ? 'text-green-400' :
@@ -310,6 +312,16 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
       bgColor: 'bg-teal-950/30',
       count: lotWeightDiffs,
       description: 'Custom lot weight differs between platforms',
+    },
+    {
+      type: 'sale_percent',
+      label: 'Sale % Differences',
+      icon: Percent,
+      accentColor: 'text-orange-400',
+      borderColor: 'border-orange-500/40',
+      bgColor: 'bg-orange-950/30',
+      count: salePercentDiffs,
+      description: 'BrickOwl sale discount % differs from BrickLink sale rate',
     },
     {
       type: 'for_sale',
@@ -744,7 +756,7 @@ function OverviewContent({
 
           {/* Field Issues group */}
           {(() => {
-            const FIELD_TYPES: DiscrepancyType[] = ['price', 'quantity', 'remarks', 'description', 'bulk_qty', 'lot_weight', 'for_sale'];
+            const FIELD_TYPES: DiscrepancyType[] = ['price', 'quantity', 'remarks', 'description', 'bulk_qty', 'lot_weight', 'for_sale', 'sale_percent'];
             const fieldAreas = discrepancyAreas.filter(a => FIELD_TYPES.includes(a.type));
             if (fieldAreas.length === 0) return null;
             return (
@@ -953,6 +965,23 @@ function DiscrepancyRow({ item, type, area }: {
           <span className="text-rose-400 italic">BL lot deleted — likely merged into another lot</span>
         </div>
       )}
+
+      {type === 'sale_percent' && (
+        <div className="flex items-center gap-3 flex-wrap text-[11px]">
+          <span className="text-gray-400">
+            BrickLink: <span className="text-white font-mono ml-0.5">{item.blSalePercent ?? 0}%</span>
+          </span>
+          <span className="text-gray-400">
+            BrickOwl: <span className="text-white font-mono ml-0.5">{item.boSalePercent ?? 0}%</span>
+          </span>
+          {item.saleDiff != null && (
+            <span className={`flex items-center gap-0.5 font-semibold ${item.saleDiff > 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {item.saleDiff > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              {item.saleDiff > 0 ? '+' : ''}{item.saleDiff}% on BO
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -965,9 +994,10 @@ const AUDIT_TYPES: Array<{ type: DiscrepancyType; label: string; color: string }
   { type: 'quantity',    label: 'Quantity Differences',    color: '#60a5fa' },
   { type: 'remarks',     label: 'Remark Differences',      color: '#a855f7' },
   { type: 'description', label: 'Description Differences', color: '#ec4899' },
-  { type: 'bulk_qty',    label: 'Bulk Qty Differences',    color: '#22d3ee' },
-  { type: 'lot_weight',  label: 'Lot Weight Differences',  color: '#2dd4bf' },
-  { type: 'for_sale',    label: 'Stockroom Mismatch',      color: '#a78bfa' },
+  { type: 'bulk_qty',     label: 'Bulk Qty Differences',    color: '#22d3ee' },
+  { type: 'lot_weight',   label: 'Lot Weight Differences',  color: '#2dd4bf' },
+  { type: 'for_sale',     label: 'Stockroom Mismatch',      color: '#a78bfa' },
+  { type: 'sale_percent', label: 'Sale % Differences',      color: '#fb923c' },
 ];
 
 function AuditReportView({ discrepancyAreas, totalDiscrepancies, lastSyncTime }: {
@@ -987,7 +1017,8 @@ function AuditReportView({ discrepancyAreas, totalDiscrepancies, lastSyncTime }:
     orphaned:    useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'orphaned',  'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/orphaned?limit=10000').then(r => r.json()),  enabled: activeTypes.includes('orphaned'),  refetchOnWindowFocus: false }),
     bulk_qty:    useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'bulk_qty',  'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/bulk_qty?limit=10000').then(r => r.json()),  enabled: activeTypes.includes('bulk_qty'),  refetchOnWindowFocus: false }),
     lot_weight:  useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'lot_weight','all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/lot_weight?limit=10000').then(r => r.json()), enabled: activeTypes.includes('lot_weight'), refetchOnWindowFocus: false }),
-    for_sale:    useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'for_sale',  'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/for_sale?limit=10000').then(r => r.json()),  enabled: activeTypes.includes('for_sale'),  refetchOnWindowFocus: false }),
+    for_sale:     useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'for_sale',     'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/for_sale?limit=10000').then(r => r.json()),     enabled: activeTypes.includes('for_sale'),     refetchOnWindowFocus: false }),
+    sale_percent: useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'sale_percent', 'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/sale_percent?limit=10000').then(r => r.json()), enabled: activeTypes.includes('sale_percent'), refetchOnWindowFocus: false }),
   };
 
   const isLoading = Object.values(q).some(r => r.isLoading);
@@ -1035,6 +1066,9 @@ function AuditReportView({ discrepancyAreas, totalDiscrepancies, lastSyncTime }:
           valHtml = `BL weight: ${Number(item.blLotWeight ?? 0).toFixed(4)}g → BO weight: ${Number(item.boLotWeight ?? 0).toFixed(4)}g (${diff >= 0 ? '+' : ''}${diff.toFixed(4)}g)`;
         } else if (section.type === 'for_sale') {
           valHtml = `BL: ${item.blIsStockRoom ? 'Stockroom (hidden)' : 'For sale'} → BO: ${item.boForSale === 0 ? 'Stockroom (hidden)' : 'For sale'}`;
+        } else if (section.type === 'sale_percent') {
+          const diff = Number(item.saleDiff ?? 0);
+          valHtml = `BL sale rate: ${item.blSalePercent ?? 0}% → BO sale %: ${item.boSalePercent ?? 0}% (${diff >= 0 ? '+' : ''}${diff}%)`;
         }
         return `<tr>
           <td>#${item.lotId ?? '—'}</td>
