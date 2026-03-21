@@ -8983,7 +8983,7 @@ Format search_web URLs as markdown links.`;
             const boQty = parseInt(boLot.qty || '0');
             // Use base_price (the listing price we set) not price (which is sale-adjusted).
             // This matches the channel sync comparison so the report agrees with what sync will do.
-            const boPrice = parseFloat(boLot.base_price ?? boLot.price || '0');
+            const boPrice = parseFloat((boLot.base_price ?? boLot.price) ?? '0');
             const blPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
             
             // Check for quantity differences
