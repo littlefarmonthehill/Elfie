@@ -742,10 +742,13 @@ export async function syncBrickLinkToBrickOwl(
       // base_price follows the fields.price toggle for existing matched lots in all modes.
       // (For new lots created via adopt/create, price is always included regardless.)
       const priceChanged    = fields.price && (isNaN(boBase) || Math.abs(boBase - newPrice) > 0.001);
-      // Decode BL side before comparing — BrickLink stores HTML entities (e.g. &#39;)
-      // but BrickOwl holds the decoded text after the first sync.
-      const remarksChanged  = fields.remarks     && (taggedLot.personal_note || '').trim() !== decodeHtmlEntities(item.remarks      || '');
-      const descChanged     = fields.description && (taggedLot.public_note   || '').trim() !== decodeHtmlEntities(item.description || '');
+      // Decode both sides before comparing so the sync engine and discrepancy
+      // detection always agree.  BrickLink stores HTML entities (e.g. &#39;);
+      // BrickOwl normally stores decoded text, but can also hold entities when
+      // an older sync pushed un-decoded BL text.  decodeHtmlEntities() handles
+      // both and trims trailing whitespace on each side.
+      const remarksChanged  = fields.remarks     && decodeHtmlEntities(taggedLot.personal_note || '') !== decodeHtmlEntities(item.remarks      || '');
+      const descChanged     = fields.description && decodeHtmlEntities(taggedLot.public_note   || '') !== decodeHtmlEntities(item.description || '');
       const tierChanged     = fields.tierPrice   && boTierPriceStr !== normalizeTierPrice(newTierPrice);
       // salePercent is opt-in — users may manage BO sales independently.
       // When enabled: sync BL saleRate (0–100) → BO sale_percent.
