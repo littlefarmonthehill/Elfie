@@ -8884,6 +8884,10 @@ Format search_web URLs as markdown links.`;
       let descriptionDifferencesCount = 0;
       let unlinkedBoLotsCount = 0;
       let orphanedBoLotsCount = 0;
+      let bulkQtyDifferencesCount = 0;
+      let myCostDifferencesCount = 0;
+      let lotWeightDifferencesCount = 0;
+      let forSaleDifferencesCount = 0;
 
       if (brickowlEnabled) {
         try {
@@ -8905,6 +8909,10 @@ Format search_web URLs as markdown links.`;
           const descriptionDiscrepancies: any[] = [];
           const unlinkedBoLots: any[] = [];
           const orphanedBoLots: any[] = [];
+          const bulkQtyDiscrepancies: any[] = [];
+          const myCostDiscrepancies: any[] = [];
+          const lotWeightDiscrepancies: any[] = [];
+          const forSaleDiscrepancies: any[] = [];
 
           // SIMPLIFIED COMPARISON: Use external_lot_ids.other (BrickLink inventory ID) for matching
           const blItemsMap = new Map<number, any>();
@@ -9045,6 +9053,86 @@ Format search_web URLs as markdown links.`;
                 boDescription: boDescriptionDecoded,
               });
             }
+
+            // Check for bulk_qty differences (BL bulk vs BO bulk_qty)
+            const boBulkQty = parseInt(boLot.bulk_qty ?? '1') || 1;
+            const blBulkQty = blItem.bulk ?? 1;
+            if (boBulkQty !== blBulkQty) {
+              bulkQtyDifferencesCount++;
+              bulkQtyDiscrepancies.push({
+                lotId: blItem.id,
+                itemNo: blItem.itemNo,
+                itemName: blItem.itemName,
+                colorName: blItem.colorName,
+                condition: blItem.newOrUsed,
+                blQuantity: blItem.quantity,
+                blPrice,
+                difference: 'bulk_qty',
+                blBulkQty,
+                boBulkQty,
+                bulkQtyDiff: boBulkQty - blBulkQty,
+              });
+            }
+
+            // Check for my_cost differences (BL myCost vs BO my_cost)
+            const boMyCost = boLot.my_cost ? parseFloat(boLot.my_cost) : 0;
+            const blMyCost = blItem.myCost ? parseFloat(blItem.myCost) : 0;
+            if (Math.abs(boMyCost - blMyCost) > 0.001) {
+              myCostDifferencesCount++;
+              myCostDiscrepancies.push({
+                lotId: blItem.id,
+                itemNo: blItem.itemNo,
+                itemName: blItem.itemName,
+                colorName: blItem.colorName,
+                condition: blItem.newOrUsed,
+                blQuantity: blItem.quantity,
+                blPrice,
+                difference: 'my_cost',
+                blMyCost,
+                boMyCost,
+                costDiff: boMyCost - blMyCost,
+              });
+            }
+
+            // Check for lot_weight differences (BL myWeight vs BO lot_weight)
+            const boLotWeight = boLot.lot_weight ? parseFloat(boLot.lot_weight) : 0;
+            const blLotWeight = blItem.myWeight ? parseFloat(blItem.myWeight) : 0;
+            if (Math.abs(boLotWeight - blLotWeight) > 0.001) {
+              lotWeightDifferencesCount++;
+              lotWeightDiscrepancies.push({
+                lotId: blItem.id,
+                itemNo: blItem.itemNo,
+                itemName: blItem.itemName,
+                colorName: blItem.colorName,
+                condition: blItem.newOrUsed,
+                blQuantity: blItem.quantity,
+                blPrice,
+                difference: 'lot_weight',
+                blLotWeight,
+                boLotWeight,
+                weightDiff: boLotWeight - blLotWeight,
+              });
+            }
+
+            // Check for_sale differences (BL isStockRoom → BO for_sale)
+            const boForSale = parseInt(String(boLot.for_sale ?? '1'));
+            const blForSale = blItem.isStockRoom ? 0 : 1;
+            if (boForSale !== blForSale) {
+              forSaleDifferencesCount++;
+              forSaleDiscrepancies.push({
+                lotId: blItem.id,
+                itemNo: blItem.itemNo,
+                itemName: blItem.itemName,
+                colorName: blItem.colorName,
+                condition: blItem.newOrUsed,
+                blQuantity: blItem.quantity,
+                blPrice,
+                difference: 'for_sale',
+                blForSale,
+                boForSale,
+                blIsStockRoom: !!blItem.isStockRoom,
+              });
+            }
           }
 
           // Find missing items (BrickLink items not matched in BrickOwl)
@@ -9080,6 +9168,10 @@ Format search_web URLs as markdown links.`;
           discrepancyCache.set('BrickOwl:description', { data: descriptionDiscrepancies, timestamp: now });
           discrepancyCache.set('BrickOwl:unlinked', { data: unlinkedBoLots, timestamp: now });
           discrepancyCache.set('BrickOwl:orphaned', { data: orphanedBoLots, timestamp: now });
+          discrepancyCache.set('BrickOwl:bulk_qty', { data: bulkQtyDiscrepancies, timestamp: now });
+          discrepancyCache.set('BrickOwl:my_cost', { data: myCostDiscrepancies, timestamp: now });
+          discrepancyCache.set('BrickOwl:lot_weight', { data: lotWeightDiscrepancies, timestamp: now });
+          discrepancyCache.set('BrickOwl:for_sale', { data: forSaleDiscrepancies, timestamp: now });
         } catch (error) {
           console.error('Failed to fetch BrickOwl inventory stats:', error);
         }
@@ -9104,6 +9196,10 @@ Format search_web URLs as markdown links.`;
               descriptionDifferences: descriptionDifferencesCount,
               unlinkedBoLots: unlinkedBoLotsCount,
               orphanedBoLots: orphanedBoLotsCount,
+              bulkQtyDifferences: bulkQtyDifferencesCount,
+              myCostDifferences: myCostDifferencesCount,
+              lotWeightDifferences: lotWeightDifferencesCount,
+              forSaleDifferences: forSaleDifferencesCount,
             },
           },
         ],
