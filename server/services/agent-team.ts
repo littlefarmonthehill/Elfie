@@ -19,7 +19,7 @@ import {
 import { eq, and, sql, desc, gte, ne, isNull, or, inArray } from "drizzle-orm";
 import OpenAI from "openai";
 
-export type AgentId = 'inventory' | 'pricing' | 'market' | 'orders' | 'customer';
+export type AgentId = 'inventory' | 'pricing' | 'market' | 'orders' | 'customer' | 'catalog';
 
 const SIGNAL_TTL_HOURS = 12;
 
@@ -128,6 +128,183 @@ async function callAgent(openai: OpenAI, orgId: string, systemPrompt: string, da
   return Array.isArray(parsed.signals) ? parsed.signals : [];
 }
 
+// ─── CATALOG ENRICHMENT HELPERS ─────────────────────────────────────────────
+
+/**
+ * Builds a rich catalog-enrichment context for a given org by cross-referencing
+ * their live inventory against the platform price guide cache and BL catalog
+ * metadata. Used as supplemental context in domain agents.
+ */
+async function buildCatalogEnrichmentContext(orgId: string): Promise<string> {
+  try {
+    const enriched = await db.execute(sql`
+      SELECT bi.item_no, bc.item_name, bc.category_name,
+             bi.quantity, bi.unit_price::numeric as our_price,
+             pgc.sold_avg_price::numeric  as market_avg,
+             pgc.sold_max_price::numeric  as market_max,
+             pgc.sold_quantity            as market_demand,
+             pgc.stock_total_lots         as competing_lots,
+             ROUND(
+               ((bi.unit_price::numeric - pgc.sold_avg_price::numeric)
+                / NULLIF(pgc.sold_avg_price::numeric, 0)) * 100, 1
+             ) as price_gap_pct
+      FROM bl_inventory bi
+      LEFT JOIN bl_catalog bc
+        ON  bi.item_no   = bc.item_no
+        AND bi.item_type = bc.item_type
+        AND bi.color_id  = bc.color_id
+      LEFT JOIN price_guide_cache pgc
+        ON  bi.item_no      = pgc.item_no
+        AND bi.item_type    = pgc.item_type
+        AND bi.color_id     = pgc.color_id
+        AND bi.new_or_used  = pgc.new_or_used
+      WHERE bi.org_id = ${orgId}
+        AND bi.quantity > 0
+        AND pgc.sold_avg_price IS NOT NULL
+        AND pgc.sold_avg_price::numeric > 0
+      ORDER BY (bi.quantity::numeric * pgc.sold_avg_price::numeric) DESC
+      LIMIT 40
+    `);
+
+    const highDemand = (enriched.rows as any[]).filter((r: any) => Number(r.market_demand || 0) > 100);
+    const underpriced = (enriched.rows as any[]).filter((r: any) => Number(r.price_gap_pct || 0) < -25).slice(0, 8);
+    const overpriced  = (enriched.rows as any[]).filter((r: any) => Number(r.price_gap_pct || 0) > 25).slice(0, 8);
+
+    const lines: string[] = ['CATALOG & MARKET ENRICHMENT (platform data cross-referenced with org inventory):'];
+
+    if (highDemand.length > 0) {
+      lines.push(`\nHIGH-DEMAND HELD ITEMS (market sold_qty > 100):`);
+      highDemand.slice(0, 10).forEach((r: any) =>
+        lines.push(`  ${r.item_no} "${r.item_name || '?'}" [${r.category_name || '?'}] qty:${r.quantity} @$${Number(r.our_price).toFixed(3)} | mkt_avg:$${Number(r.market_avg).toFixed(3)} demand:${r.market_demand} lots:${r.competing_lots || '?'}`)
+      );
+    }
+
+    if (underpriced.length > 0) {
+      lines.push(`\nSIGNIFICANTLY UNDERPRICED (>25% below market sold avg):`);
+      underpriced.forEach((r: any) =>
+        lines.push(`  ${r.item_no} "${r.item_name || '?'}" our:$${Number(r.our_price).toFixed(3)} mkt_avg:$${Number(r.market_avg).toFixed(3)} gap:${r.price_gap_pct}% qty:${r.quantity}`)
+      );
+    }
+
+    if (overpriced.length > 0) {
+      lines.push(`\nSIGNIFICANTLY OVERPRICED (>25% above market sold avg):`);
+      overpriced.forEach((r: any) =>
+        lines.push(`  ${r.item_no} "${r.item_name || '?'}" our:$${Number(r.our_price).toFixed(3)} mkt_avg:$${Number(r.market_avg).toFixed(3)} gap:${r.price_gap_pct}% qty:${r.quantity}`)
+      );
+    }
+
+    return lines.join('\n');
+  } catch { return ''; }
+}
+
+/**
+ * Reads already-generated catalog signals and returns them as a short text
+ * context block that other agents can prepend to their own data context.
+ */
+async function getExistingCatalogSignals(orgId: string): Promise<string> {
+  try {
+    const signals = await db.select({
+      title: businessInsights.title,
+      summary: businessInsights.summary,
+      urgency: businessInsights.urgency,
+    })
+      .from(businessInsights)
+      .where(and(
+        eq(businessInsights.orgId, orgId),
+        eq(businessInsights.agentId, 'catalog' as any),
+        eq(businessInsights.dismissed, false),
+        or(isNull(businessInsights.expiresAt), sql`${businessInsights.expiresAt} > NOW()`),
+      ))
+      .orderBy(desc(businessInsights.createdAt))
+      .limit(6);
+
+    if (signals.length === 0) return '';
+
+    const lines = ['CATALOG INTELLIGENCE (from catalog agent, use for context):'];
+    signals.forEach(s => lines.push(`  [${s.urgency}] ${s.title}: ${s.summary}`));
+    return lines.join('\n');
+  } catch { return ''; }
+}
+
+// ─── CATALOG AGENT ──────────────────────────────────────────────────────────
+
+export async function runCatalogAgent(orgId: string): Promise<number> {
+  const openai = await getOpenAI();
+  if (!openai) return 0;
+
+  const catalogEnrichment = await buildCatalogEnrichmentContext(orgId);
+
+  // Platform-level: high price-spread items the org can source or already holds
+  const priceSpread = await db.execute(sql`
+    SELECT pgc.item_no, bc.item_name, bc.category_name,
+           pgc.sold_avg_price::numeric  as sold_avg,
+           pgc.sold_max_price::numeric  as sold_max,
+           pgc.sold_quantity,
+           pgc.stock_total_lots,
+           bi.quantity                  as our_qty,
+           bi.unit_price::numeric       as our_price
+    FROM price_guide_cache pgc
+    LEFT JOIN bl_catalog bc
+      ON pgc.item_no = bc.item_no AND pgc.item_type = bc.item_type AND pgc.color_id = bc.color_id
+    LEFT JOIN bl_inventory bi
+      ON pgc.item_no = bi.item_no AND pgc.item_type = bi.item_type
+     AND pgc.color_id = bi.color_id AND bi.org_id = ${orgId}
+    WHERE pgc.sold_quantity > 30
+      AND pgc.sold_max_price::numeric > pgc.sold_avg_price::numeric * 1.5
+    ORDER BY pgc.sold_quantity DESC
+    LIMIT 20
+  `);
+
+  // Market news for catalog context
+  const news = await db.select({ title: marketNews.title, snippet: marketNews.snippet, source: marketNews.source })
+    .from(marketNews)
+    .where(gte(marketNews.publishedAt, new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)))
+    .orderBy(desc(marketNews.publishedAt))
+    .limit(8);
+
+  // Hot forum topics as additional catalog signal
+  const forum = await db.select({ title: blForumPosts.title, replyCount: blForumPosts.replyCount })
+    .from(blForumPosts)
+    .where(gte(blForumPosts.postedAt, new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)))
+    .orderBy(desc(blForumPosts.replyCount))
+    .limit(6);
+
+  const ctx = `${catalogEnrichment}
+
+HIGH PRICE-SPREAD CATALOG ITEMS (sold_max > 1.5x sold_avg — premium demand signal):
+${(priceSpread.rows as any[]).map((r: any) =>
+  `  ${r.item_no} "${r.item_name || '?'}" [${r.category_name || '?'}] avg:$${Number(r.sold_avg).toFixed(3)} max:$${Number(r.sold_max).toFixed(3)} demand:${r.sold_quantity} lots:${r.stock_total_lots}${r.our_qty != null ? ` | WE HAVE:${r.our_qty} @$${Number(r.our_price).toFixed(3)}` : ' | NOT IN STOCK'}`
+).join('\n')}
+
+MARKET HEADLINES (last 7d):
+${news.map(n => `  [${n.source || '?'}] ${n.title}${n.snippet ? ' — ' + String(n.snippet).substring(0, 80) : ''}`).join('\n') || '  None'}
+
+COMMUNITY HOT TOPICS (last 7d, by replies):
+${forum.map(f => `  [${f.replyCount} replies] ${f.title}`).join('\n') || '  None'}`.trim();
+
+  const strategies = await getOrgStrategies(orgId);
+  const systemPrompt = buildSystemPrompt(
+    `You are the Catalog Intelligence Agent for a LEGO reseller. You cross-reference the org's inventory and order history against the platform-wide parts catalog, price guide data, market news, and community signals to identify catalog-level intelligence that the other domain agents may miss.
+
+Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences connecting catalog data to a specific business opportunity, risk, or action), "details": { "itemNos": [], "metric": "" } } ] }
+
+Categories: demand_trend | price_opportunity | acquisition | market_intel | risk
+Rules:
+- Identify which held items have strong market demand relative to competing supply
+- Surface premium-demand items where max price far exceeds average (collectors or speculators)
+- Flag market news or forum trends that could affect held inventory value
+- Identify in-demand parts the org does NOT currently stock (acquisition opportunity)
+- Connect BrickLink community discussions to specific inventory or pricing implications
+- Always cite specific item numbers and dollar amounts`,
+    strategies, strategies.marketStrategy, 'Catalog Intelligence'
+  );
+
+  const signals = await callAgent(openai, orgId, systemPrompt, ctx);
+  await upsertSignals(orgId, 'catalog', signals);
+  console.log(`[AgentTeam] Catalog agent generated ${signals.length} signals for ${orgId}`);
+  return signals.length;
+}
+
 // ─── INVENTORY AGENT ────────────────────────────────────────────────────────
 
 export async function runInventoryAgent(orgId: string): Promise<number> {
@@ -185,9 +362,12 @@ LARGEST HOLDINGS BY VALUE:
 ${inventory.filter(i => parseFloat(i.unitPrice || '0') * i.quantity > 5).slice(0, 20).map(i => `${i.itemNo} "${i.itemName || '?'}" qty:${i.quantity} @$${i.unitPrice} = $${(i.quantity * parseFloat(i.unitPrice || '0')).toFixed(2)}`).join('\n')}
 `.trim();
 
+  const catalogCtx = await getExistingCatalogSignals(orgId);
+  const fullCtx = catalogCtx ? `${ctx}\n\n${catalogCtx}` : ctx;
+
   const strategies = await getOrgStrategies(orgId);
   const systemPrompt = buildSystemPrompt(
-    `You are the Inventory Agent for a LEGO reseller. Analyze the inventory data and generate 3-6 specific, actionable signals about stock health. Focus on dead stock risk, reorder urgency, capital concentration, and stock imbalances.
+    `You are the Inventory Agent for a LEGO reseller. Analyze the inventory data and generate 3-6 specific, actionable signals about stock health. Focus on dead stock risk, reorder urgency, capital concentration, and stock imbalances. Use any catalog intelligence signals provided to enrich your analysis with market demand and pricing context.
 
 Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences, specific numbers), "details": { "itemNos": [], "metric": "" } } ] }
 
@@ -196,7 +376,7 @@ Rules: cite specific item numbers and dollar amounts. No generic advice.`,
     strategies, strategies.inventoryStrategy, 'Inventory'
   );
 
-  const signals = await callAgent(openai, orgId, systemPrompt, ctx);
+  const signals = await callAgent(openai, orgId, systemPrompt, fullCtx);
   await upsertSignals(orgId, 'inventory', signals);
   console.log(`[AgentTeam] Inventory agent generated ${signals.length} signals for ${orgId}`);
   return signals.length;
@@ -253,9 +433,12 @@ ${recentDecisions.slice(0, 10).map(d => `  ${d.itemNo} set $${Number(d.actualPri
 ${avgDelta !== null ? `Average pricing delta vs POM: ${avgDelta >= 0 ? '+' : ''}$${avgDelta.toFixed(3)} (${avgDelta > 0 ? 'pricing above' : 'pricing below'} POM suggestions on average)` : ''}
 `.trim();
 
+  const catalogCtxP = await getExistingCatalogSignals(orgId);
+  const fullCtxP = catalogCtxP ? `${ctx}\n\n${catalogCtxP}` : ctx;
+
   const strategies = await getOrgStrategies(orgId);
   const systemPrompt = buildSystemPrompt(
-    `You are the Pricing Agent for a LEGO reseller. Analyze pricing gaps and repricing patterns to generate 3-5 specific, actionable pricing signals.
+    `You are the Pricing Agent for a LEGO reseller. Analyze pricing gaps and repricing patterns to generate 3-5 specific, actionable pricing signals. Use any catalog intelligence signals provided to understand market demand context for your pricing recommendations.
 
 Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences, cite specific items/prices), "details": { "itemNos": [], "potentialRevenue": 0 } } ] }
 
@@ -264,7 +447,7 @@ Rules: be specific. Cite item numbers, exact prices, potential revenue impact. F
     strategies, strategies.pricingStrategy, 'Pricing'
   );
 
-  const signals = await callAgent(openai, orgId, systemPrompt, ctx);
+  const signals = await callAgent(openai, orgId, systemPrompt, fullCtxP);
   await upsertSignals(orgId, 'pricing', signals);
   console.log(`[AgentTeam] Pricing agent generated ${signals.length} signals for ${orgId}`);
   return signals.length;
@@ -317,9 +500,12 @@ ITEMS WITH HIGH PRICE SPREAD (sold_max > 1.5x sold_avg — potential premium dem
 ${(priceMoves.rows as any[]).slice(0, 15).map((r: any) => `  ${r.item_no} "${r.item_name || '?'}" sold_avg:$${Number(r.sold_avg).toFixed(2)} sold_max:$${Number(r.sold_max).toFixed(2)} demand:${r.sold_quantity} lots${r.our_qty != null ? ` — WE HAVE: qty:${r.our_qty} @$${Number(r.our_price).toFixed(2)}` : ' — NOT IN STOCK'}`).join('\n')}
 `.trim();
 
+  const catalogCtxM = await getExistingCatalogSignals(orgId);
+  const fullCtxM = catalogCtxM ? `${ctx}\n\n${catalogCtxM}` : ctx;
+
   const strategies = await getOrgStrategies(orgId);
   const systemPrompt = buildSystemPrompt(
-    `You are the Market Intelligence Agent for a LEGO reseller. Analyze market news, forum discussions, and price spread data to identify external signals that may affect the business.
+    `You are the Market Intelligence Agent for a LEGO reseller. Analyze market news, forum discussions, and price spread data to identify external signals that may affect the business. Use any catalog intelligence signals provided to understand which specific held items are most relevant to the external signals you observe.
 
 Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences connecting external signal to business impact), "details": { "source": "", "itemNos": [] } } ] }
 
@@ -328,7 +514,7 @@ Rules: Connect news/forum signals to specific inventory implications. Identify r
     strategies, strategies.marketStrategy, 'Market Intelligence'
   );
 
-  const signals = await callAgent(openai, orgId, systemPrompt, ctx);
+  const signals = await callAgent(openai, orgId, systemPrompt, fullCtxM);
   await upsertSignals(orgId, 'market', signals);
   console.log(`[AgentTeam] Market agent generated ${signals.length} signals for ${orgId}`);
   return signals.length;
@@ -396,9 +582,12 @@ WEEKLY ORDER VOLUME (last 8 weeks):
 ${(velocityData.rows as any[]).slice(0, 16).map((r: any) => `  ${String(r.week).substring(0,10)} [${r.marketplace}]: ${r.order_count} orders $${Number(r.revenue).toFixed(2)}`).join('\n')}
 `.trim();
 
+  const catalogCtxO = await getExistingCatalogSignals(orgId);
+  const fullCtxO = catalogCtxO ? `${ctx}\n\n${catalogCtxO}` : ctx;
+
   const strategies = await getOrgStrategies(orgId);
   const systemPrompt = buildSystemPrompt(
-    `You are the Orders Agent for a LEGO reseller. Analyze order velocity, channel performance, and SKU throughput to generate 3-5 specific operational signals.
+    `You are the Orders Agent for a LEGO reseller. Analyze order velocity, channel performance, and SKU throughput to generate 3-5 specific operational signals. Use any catalog intelligence signals provided to connect sales patterns to broader market demand context.
 
 Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences, cite specific numbers and trends), "details": { "metric": "", "value": 0 } } ] }
 
@@ -407,7 +596,7 @@ Rules: cite specific percentages, dollar amounts, and item numbers. Focus on act
     strategies, strategies.ordersStrategy, 'Orders'
   );
 
-  const signals = await callAgent(openai, orgId, systemPrompt, ctx);
+  const signals = await callAgent(openai, orgId, systemPrompt, fullCtxO);
   await upsertSignals(orgId, 'orders', signals);
   console.log(`[AgentTeam] Orders agent generated ${signals.length} signals for ${orgId}`);
   return signals.length;
@@ -467,9 +656,12 @@ NEW BUYERS (first order in last 90d):
 ${(newBuyers.rows as any[]).map((r: any) => `  ${r.customer_username}: ${r.order_count} orders, $${Number(r.total_spent).toFixed(2)} in first ${r.order_count > 1 ? `${r.order_count} orders` : 'order'}, since ${String(r.first_order).substring(0,10)}`).join('\n') || '  None in 90d'}
 `.trim();
 
+  const catalogCtxC = await getExistingCatalogSignals(orgId);
+  const fullCtxC = catalogCtxC ? `${ctx}\n\n${catalogCtxC}` : ctx;
+
   const strategies = await getOrgStrategies(orgId);
   const systemPrompt = buildSystemPrompt(
-    `You are the Customer Agent for a LEGO reseller. Analyze buyer behavior patterns to generate 3-5 specific customer intelligence signals.
+    `You are the Customer Agent for a LEGO reseller. Analyze buyer behavior patterns to generate 3-5 specific customer intelligence signals. Use any catalog intelligence signals provided to understand which product categories are in high demand that could be relevant for outreach to dormant or high-value customers.
 
 Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences naming specific buyers with amounts), "details": { "buyerNames": [], "metric": "" } } ] }
 
@@ -478,7 +670,7 @@ Rules: name specific buyers with their exact spend and order counts. Identify re
     strategies, strategies.customerStrategy, 'Customer'
   );
 
-  const signals = await callAgent(openai, orgId, systemPrompt, ctx);
+  const signals = await callAgent(openai, orgId, systemPrompt, fullCtxC);
   await upsertSignals(orgId, 'customer', signals);
   console.log(`[AgentTeam] Customer agent generated ${signals.length} signals for ${orgId}`);
   return signals.length;
@@ -487,15 +679,24 @@ Rules: name specific buyers with their exact spend and order counts. Identify re
 // ─── RUN ALL AGENTS ──────────────────────────────────────────────────────────
 
 export async function runAllAgents(orgId: string): Promise<Record<AgentId, number>> {
-  const results: Record<AgentId, number> = { inventory: 0, pricing: 0, market: 0, orders: 0, customer: 0 };
-  const agents: [AgentId, (orgId: string) => Promise<number>][] = [
+  const results: Record<AgentId, number> = { catalog: 0, inventory: 0, pricing: 0, market: 0, orders: 0, customer: 0 };
+
+  // Run catalog agent first so domain agents can use its signals as enrichment
+  try {
+    results.catalog = await runCatalogAgent(orgId);
+  } catch (err: any) {
+    console.error(`[AgentTeam] catalog agent failed for ${orgId} (non-fatal):`, err.message);
+  }
+
+  // Run domain agents in parallel after catalog completes
+  const domainAgents: [AgentId, (orgId: string) => Promise<number>][] = [
     ['inventory', runInventoryAgent],
     ['pricing', runPricingAgent],
     ['market', runMarketAgent],
     ['orders', runOrdersAgent],
     ['customer', runCustomerAgent],
   ];
-  await Promise.all(agents.map(async ([id, fn]) => {
+  await Promise.all(domainAgents.map(async ([id, fn]) => {
     try {
       results[id] = await fn(orgId);
     } catch (err: any) {

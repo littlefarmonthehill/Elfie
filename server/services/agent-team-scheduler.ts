@@ -3,18 +3,19 @@
  * All agents are independent; failures are non-fatal.
  *
  * Cadences (approximate, staggered to avoid API bursts):
- *   inventory  — every 6 hours
- *   pricing    — every 6 hours (offset +30min)
- *   market     — every 8 hours (offset +60min)
- *   orders     — every 8 hours (offset +90min)
- *   customer   — every 12 hours (offset +120min)
+ *   catalog    — every 6 hours (offset +2min) — runs first so domain agents can use signals
+ *   inventory  — every 6 hours (offset +5min)
+ *   pricing    — every 6 hours (offset +8min)
+ *   market     — every 8 hours (offset +11min)
+ *   orders     — every 8 hours (offset +14min)
+ *   customer   — every 12 hours (offset +17min)
  */
 
 import { db } from "../db";
 import { organizations } from "@shared/schema";
 import { ne, isNull, or } from "drizzle-orm";
 import {
-  runInventoryAgent, runPricingAgent, runMarketAgent, runOrdersAgent, runCustomerAgent,
+  runCatalogAgent, runInventoryAgent, runPricingAgent, runMarketAgent, runOrdersAgent, runCustomerAgent,
 } from "./agent-team";
 
 const HOUR = 60 * 60 * 1000;
@@ -41,14 +42,19 @@ async function runAgentForAllOrgs(agentName: string, fn: (orgId: string) => Prom
 }
 
 export function startAgentTeamSchedulers() {
+  const CATALOG_INTERVAL   = 6 * HOUR;
   const INVENTORY_INTERVAL = 6 * HOUR;
   const PRICING_INTERVAL   = 6 * HOUR;
   const MARKET_INTERVAL    = 8 * HOUR;
   const ORDERS_INTERVAL    = 8 * HOUR;
   const CUSTOMER_INTERVAL  = 12 * HOUR;
 
-  // Stagger initial runs so they don't all fire at once on startup
-  // First run happens after a delay so the rest of startup completes
+  // Catalog runs first so domain agents can use catalog signals as enrichment context
+
+  setTimeout(() => {
+    runAgentForAllOrgs('Catalog', runCatalogAgent);
+    setInterval(() => runAgentForAllOrgs('Catalog', runCatalogAgent), CATALOG_INTERVAL);
+  }, 2 * 60 * 1000); // 2 min after startup
 
   setTimeout(() => {
     runAgentForAllOrgs('Inventory', runInventoryAgent);
@@ -75,5 +81,5 @@ export function startAgentTeamSchedulers() {
     setInterval(() => runAgentForAllOrgs('Customer', runCustomerAgent), CUSTOMER_INTERVAL);
   }, 17 * 60 * 1000); // 17 min after startup
 
-  console.log('[AgentTeam] All 5 domain agents scheduled');
+  console.log('[AgentTeam] All 6 agents scheduled (catalog + 5 domain agents)');
 }

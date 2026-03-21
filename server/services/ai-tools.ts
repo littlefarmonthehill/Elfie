@@ -2381,8 +2381,8 @@ export const AI_TOOLS = [
         properties: {
           agents: {
             type: 'array',
-            items: { type: 'string', enum: ['inventory', 'pricing', 'market', 'orders', 'customer'] },
-            description: 'Which agents to query. Omit (or pass all 5) for a full briefing. Pass a subset when the question is domain-specific (e.g., ["pricing"] for a pricing question, ["inventory","orders"] for fulfillment questions).',
+            items: { type: 'string', enum: ['catalog', 'inventory', 'pricing', 'market', 'orders', 'customer'] },
+            description: 'Which agents to query. Omit (or pass all 6) for a full briefing including catalog intelligence. Pass a subset when the question is domain-specific (e.g., ["pricing"] for a pricing question, ["inventory","orders"] for fulfillment questions, ["catalog"] for market/acquisition opportunities).',
           },
           limit: {
             type: 'number',

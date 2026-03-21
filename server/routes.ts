@@ -5887,7 +5887,7 @@ Use the minimum tools needed to answer the question. Only call what the question
 ORG-LEVEL (this store's data):
 - "Do we have X?" → search_local_inventory (org inventory — quantities, colors, pricing)
 - "Who ordered X?" / "Sales of X?" → search_orders_by_item (org order history)
-- "What's going on?" / "Give me a briefing" / "What should I know?" / "What are the agents seeing?" → get_agent_signals FIRST (specialist background agents — Inventory, Pricing, Market, Orders, Customer — run continuously and provide curated, data-driven insights fresher than direct queries). Use agents: ["orders"] for order questions, ["inventory"] for stock questions, or omit for a full briefing.
+- "What's going on?" / "Give me a briefing" / "What should I know?" / "What are the agents seeing?" → get_agent_signals FIRST (specialist background agents — Catalog, Inventory, Pricing, Market, Orders, Customer — run continuously and provide curated, data-driven insights fresher than direct queries). Use agents: ["orders"] for order questions, ["inventory"] for stock questions, ["catalog"] for market/acquisition opportunities, or omit for a full briefing across all 6 agents.
 - "How's the business?" / business health / performance metrics → get_agent_signals first for curated intel, then follow up with get_order_analytics, get_inventory_stats, get_customer_metrics, get_sales_by_category, get_sales_by_geography, get_business_customers, get_category_throughput, get_inventory_aging, get_margin_analysis, get_sku_performance, get_copurchased_items for deeper dives
 - "Find me red castle pieces" → semantic_search (AI embedding search across org inventory)
 
