@@ -9177,6 +9177,13 @@ Format search_web URLs as markdown links.`;
         }
       }
 
+      const rawSyncMode = settings?.channelSyncMode;
+      const resolvedSyncMode = rawSyncMode === 'matched_sync' || rawSyncMode === 'quantity_only'
+        ? 'matched_sync'
+        : rawSyncMode === 'analysis'
+        ? 'analysis'
+        : 'full_control';
+
       const platformSyncStatus = {
         source: {
           name: 'BrickLink',
@@ -9186,6 +9193,7 @@ Format search_web URLs as markdown links.`;
           {
             name: 'BrickOwl',
             enabled: brickowlEnabled,
+            syncMode: resolvedSyncMode,
             stats: brickowlStats,
             discrepancies: {
               missingLots: Math.max(0, brickLinkStats.totalLots - brickowlStats.totalLots),

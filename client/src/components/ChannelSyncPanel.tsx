@@ -43,6 +43,22 @@ import {
 } from "@/components/ui/drawer";
 import { Separator } from "@/components/ui/separator";
 
+type SyncMode = 'analysis' | 'matched_sync' | 'full_control';
+
+function SyncModeBadge({ mode, size = 'sm' }: { mode?: SyncMode; size?: 'sm' | 'md' }) {
+  if (!mode) return null;
+  const cfg = {
+    analysis:     { label: 'Analyze Only', classes: 'bg-blue-900/50 text-blue-300 border-blue-500/30' },
+    matched_sync: { label: 'Matched Sync', classes: 'bg-amber-900/50 text-amber-300 border-amber-500/30' },
+    full_control: { label: 'Full Sync',    classes: 'bg-green-900/50 text-green-300 border-green-500/30' },
+  }[mode];
+  return (
+    <span className={`inline-flex items-center rounded border px-1.5 font-medium ${cfg.classes} ${size === 'sm' ? 'text-[9px] py-0' : 'text-[10px] py-0.5'}`}>
+      {cfg.label}
+    </span>
+  );
+}
+
 type DiscrepancyType = 'missing' | 'price' | 'quantity' | 'remarks' | 'description' | 'unlinked' | 'orphaned' | 'bulk_qty' | 'my_cost' | 'lot_weight' | 'for_sale';
 
 interface DiscrepancyArea {
@@ -302,7 +318,10 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
               </span>
             )}
           </div>
-          <ChevronRight className="w-3.5 h-3.5 text-gray-600 shrink-0" />
+          <div className="flex items-center gap-2">
+            <SyncModeBadge mode={brickOwl?.syncMode} size="sm" />
+            <ChevronRight className="w-3.5 h-3.5 text-gray-600 shrink-0" />
+          </div>
         </div>
 
         {showProgress && (
@@ -546,6 +565,18 @@ function OverviewContent({
       </div>
 
       <Separator className="bg-gray-700/60" />
+
+      {brickOwl?.syncMode && (
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-gray-500">Mode:</span>
+          <SyncModeBadge mode={brickOwl.syncMode} size="md" />
+          <span className="text-[10px] text-gray-600">
+            {brickOwl.syncMode === 'analysis'     && '— read-only scan, no changes made'}
+            {brickOwl.syncMode === 'matched_sync' && '— updates matched lots only, no new listings'}
+            {brickOwl.syncMode === 'full_control' && '— updates matched lots and creates new listings'}
+          </span>
+        </div>
+      )}
 
       {totalDiscrepancies > 0 ? (
         <>
