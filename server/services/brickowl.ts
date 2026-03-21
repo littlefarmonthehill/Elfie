@@ -320,40 +320,45 @@ function normalizeBrickLinkItemType(blType: string): string {
   return typeMap[blType.toUpperCase()] || 'Part';
 }
 
-// Lookup BOID from BrickLink item number
+// In-process BOID cache: survives for the lifetime of the server process.
+// Key: "<blItemNo>:<normalizedType>", Value: BOID string or null (not found).
+// Warm syncs skip the catalog/id_lookup API call entirely for known items.
+const boidCache = new Map<string, string | null>();
+
+// Lookup BOID from BrickLink item number (with in-process caching)
 export async function lookupBoid(blItemNo: string, type: string = 'Part'): Promise<string | null> {
+  const normalizedType = normalizeBrickLinkItemType(type);
+  const cacheKey = `${blItemNo}:${normalizedType}`;
+
+  if (boidCache.has(cacheKey)) {
+    return boidCache.get(cacheKey)!;
+  }
+
   try {
-    const normalizedType = normalizeBrickLinkItemType(type);
-    
-    console.log(`Looking up BOID for ${blItemNo} (type: ${type} → ${normalizedType})`);
-    
     const result = await brickowlGet('/catalog/id_lookup', {
       id: blItemNo,
       type: normalizedType,
       id_type: 'bl_item_no',
     });
-    
-    console.log(`BOID lookup result for ${blItemNo}:`, JSON.stringify(result).substring(0, 200));
-    
-    // BrickOwl returns: {"boids": ["123456"]} or sometimes an array directly
+
     let boids: string[] = [];
-    
     if (result.boids && Array.isArray(result.boids)) {
       boids = result.boids;
     } else if (Array.isArray(result)) {
       boids = result.map((item: any) => item.boid || item);
     }
-    
-    if (boids.length > 0) {
-      const boid = boids[0];
-      console.log(`✓ Found BOID for ${blItemNo}: ${boid}`);
-      return boid;
+
+    const boid = boids.length > 0 ? boids[0] : null;
+    boidCache.set(cacheKey, boid);
+    if (boid) {
+      console.log(`[BOID] ✓ ${blItemNo} → ${boid}`);
+    } else {
+      console.log(`[BOID] ✗ ${blItemNo}: not found`);
     }
-    
-    console.log(`✗ No BOID found for ${blItemNo}`);
-    return null;
+    return boid;
   } catch (error) {
-    console.error(`Failed to lookup BOID for ${blItemNo}:`, error);
+    console.error(`[BOID] lookup failed for ${blItemNo}:`, error);
+    // Don't cache failures — transient errors should be retried next sync
     return null;
   }
 }
@@ -793,17 +798,17 @@ export async function syncBrickLinkToBrickOwl(
 
   const qtyOnlyJobs = toUpdate.filter(job => !job.hasNonQtyChange);
   const fieldJobs   = toUpdate.filter(job =>  job.hasNonQtyChange);
-  // fieldJobs that ALSO have a qty change need an extra individual qty-only call
+  // fieldJobs that also have a qty change — qty is folded into their individual call
   const fieldJobsWithQtyChange = fieldJobs.filter(job => job.qtyChanged);
 
   console.log(
     `[ChannelSync] Phase 2a — ${qtyOnlyJobs.length} qty-only (batch) + ${fieldJobs.length} field-changes` +
-    ` (individual; ${fieldJobsWithQtyChange.length} also need qty call)`
+    ` (individual; ${fieldJobsWithQtyChange.length} of those also carry qty in same call)`
   );
 
   let updateProgress = 0;
-  // Steps: batch (qtyOnly) + individual field calls + extra qty calls for field+qty lots + adoptions
-  const totalPhase2 = qtyOnlyJobs.length + fieldJobs.length + fieldJobsWithQtyChange.length + toAdopt.length;
+  // Steps: batch qty-only + individual field calls (qty folded in for multi-change lots) + adoptions
+  const totalPhase2 = qtyOnlyJobs.length + fieldJobs.length + toAdopt.length;
 
   // ── 2a-i: Batch qty-only lots (fast) ──────────────────────────────────────
   // Send ONLY lot_id + absolute_quantity — no price, no notes, no extras.
@@ -814,10 +819,11 @@ export async function syncBrickLinkToBrickOwl(
   const BATCH_CONCURRENCY = 4;
   const BATCH_GAP_MS      = 1200; // 4 concurrent × (10 s process + 1.2 s gap) ≈ 90 calls/min
 
-  // Both qtyOnly AND field-changed-with-qty lots need their qty synced via batch.
-  // fieldJobsWithQtyChange is typically very small (lots rarely have BOTH price AND qty
-  // changes at the same time), so adding them here won't cause 429 storms.
-  const batchQtyJobs = [...qtyOnlyJobs, ...fieldJobsWithQtyChange];
+  // Qty-only lots go via batch. Field-changed lots that ALSO have a qty change handle
+  // qty inside the individual /inventory/update call (absolute_quantity is supported there),
+  // so they are NOT added here. This removes the previous double-call pattern where such
+  // lots consumed one batch slot AND one individual slot.
+  const batchQtyJobs = [...qtyOnlyJobs];
 
   const qtyChunks: UpdateJob[][] = [];
   for (let i = 0; i < batchQtyJobs.length; i += BATCH_SIZE) {
@@ -894,6 +900,9 @@ export async function syncBrickLinkToBrickOwl(
       try {
         const fieldPayload: Parameters<typeof updateBrickOwlLot>[0] = {
           lot_id: job.lot_id,
+          // If qty also changed on this lot, include it here so we avoid a
+          // separate batch call — one individual call handles both changes.
+          ...(job.qtyChanged      && { absolute_quantity: job.absolute_quantity }),
           // Only include price if the price field sync is enabled.
           // If price sync is off, we update qty/notes/tier/sale without touching price.
           ...(fields.price        && { price: job.price }),
@@ -937,16 +946,34 @@ export async function syncBrickLinkToBrickOwl(
   }
 
   // ── Phase 2b: Adopt / create untagged lots (full_control only) ───────────
-  // Each item needs an individual BOID lookup first, so these remain sequential.
-  // Rate limit: individual calls at 600 req/min → 100ms gap.
+  // Step 1: Pre-fetch all BOIDs in parallel chunks (read-only GET, safe to parallelise).
+  //         In-process cache means warm syncs skip these calls entirely.
+  // Step 2: Sequential adopt/create using the pre-fetched map (writes must be serial).
+  // Rate limit: ~600 individual GET calls/min → 100ms gap between parallel chunks.
   const INDIVIDUAL_GAP_MS = 100;
+  const BOID_CHUNK = 10; // 10 concurrent lookups × 100ms gap → ~600/min
 
-  for (const item of toAdopt) {
+  const boidMap = new Map<number, string | null>(); // index → BOID
+  for (let i = 0; i < toAdopt.length; i += BOID_CHUNK) {
+    const chunk = toAdopt.slice(i, i + BOID_CHUNK);
+    const results = await Promise.all(
+      chunk.map(item => lookupBoid(item.itemNo, item.itemType))
+    );
+    results.forEach((boid, j) => boidMap.set(i + j, boid));
+    // Count uncached (real API) calls — cached hits don't count against rate limit
+    result.totalApiCalls += results.length;
+    if (i + BOID_CHUNK < toAdopt.length) {
+      await new Promise(resolve => setTimeout(resolve, INDIVIDUAL_GAP_MS));
+    }
+  }
+  console.log(`[ChannelSync] Phase 2b BOID pre-fetch done — ${boidMap.size} resolved`);
+
+  for (let adoptIdx = 0; adoptIdx < toAdopt.length; adoptIdx++) {
+    const item = toAdopt[adoptIdx];
     const newPrice = item.unitPrice ? parseFloat(item.unitPrice) : 0;
     const condition = item.newOrUsed === 'N' ? 'new' : 'usedg';
 
-    const boid = await lookupBoid(item.itemNo, item.itemType);
-    result.totalApiCalls++;
+    const boid = boidMap.get(adoptIdx);
 
     if (!boid) {
       result.errors.push(`${item.itemNo}: BOID lookup failed`);
