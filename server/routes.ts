@@ -13346,31 +13346,65 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     }
   });
 
-  // GET warehouse settings (depth preference)
+  // GET warehouse settings (depth + format preferences)
   app.get("/api/warehouse/settings", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const [org] = await db.select({ warehouseDepth: organizations.warehouseDepth })
-        .from(organizations)
-        .where(eq(organizations.id, orgId));
-      res.json({ depth: org?.warehouseDepth ?? 3 });
+      const [org] = await db.select({
+        warehouseDepth: organizations.warehouseDepth,
+        aisleFormat: organizations.aisleFormat,
+        shelfFormat: organizations.shelfFormat,
+        binFormat: organizations.binFormat,
+      }).from(organizations).where(eq(organizations.id, orgId));
+      res.json({
+        depth: org?.warehouseDepth ?? 3,
+        aisleFormat: org?.aisleFormat ?? 'numeric',
+        shelfFormat: org?.shelfFormat ?? 'alpha',
+        binFormat: org?.binFormat ?? 'numeric',
+      });
     } catch (error) {
       console.error("Error fetching warehouse settings:", error);
       res.status(500).json({ error: "Failed to fetch warehouse settings" });
     }
   });
 
-  // PATCH warehouse settings (depth preference)
+  // PATCH warehouse settings (depth + format preferences)
   app.patch("/api/warehouse/settings", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const depth = parseInt(req.body.depth);
-      if (![1, 2, 3].includes(depth)) return res.status(400).json({ error: "depth must be 1, 2, or 3" });
-      const [updated] = await db.update(organizations)
-        .set({ warehouseDepth: depth, updatedAt: new Date() })
-        .where(eq(organizations.id, orgId))
-        .returning({ warehouseDepth: organizations.warehouseDepth });
-      res.json({ depth: updated.warehouseDepth });
+      const { depth, aisleFormat, shelfFormat, binFormat } = req.body;
+      const validFormats = ['alpha', 'numeric', 'alphanumeric'];
+      const updates: any = { updatedAt: new Date() };
+      if (depth !== undefined) {
+        const d = parseInt(depth);
+        if (![1, 2, 3].includes(d)) return res.status(400).json({ error: "depth must be 1, 2, or 3" });
+        updates.warehouseDepth = d;
+      }
+      if (aisleFormat !== undefined) {
+        if (!validFormats.includes(aisleFormat)) return res.status(400).json({ error: "Invalid aisleFormat" });
+        updates.aisleFormat = aisleFormat;
+      }
+      if (shelfFormat !== undefined) {
+        if (!validFormats.includes(shelfFormat)) return res.status(400).json({ error: "Invalid shelfFormat" });
+        updates.shelfFormat = shelfFormat;
+      }
+      if (binFormat !== undefined) {
+        if (!validFormats.includes(binFormat)) return res.status(400).json({ error: "Invalid binFormat" });
+        updates.binFormat = binFormat;
+      }
+      await db.update(organizations).set(updates).where(eq(organizations.id, orgId));
+      const [updated] = await db.select({
+        warehouseDepth: organizations.warehouseDepth,
+        aisleFormat: organizations.aisleFormat,
+        shelfFormat: organizations.shelfFormat,
+        binFormat: organizations.binFormat,
+      }).from(organizations).where(eq(organizations.id, orgId));
+      res.json({
+        depth: updated.warehouseDepth,
+        aisleFormat: updated.aisleFormat,
+        shelfFormat: updated.shelfFormat,
+        binFormat: updated.binFormat,
+      });
     } catch (error) {
       console.error("Error updating warehouse settings:", error);
       res.status(500).json({ error: "Failed to update warehouse settings" });
@@ -13382,7 +13416,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     try {
       const orgId = reqOrgId(req);
       const { prefix, start, end, padLength, shelfId } = req.body;
-      if (!prefix || start == null || end == null) return res.status(400).json({ error: "prefix, start, and end are required" });
+      if (prefix == null || start == null || end == null) return res.status(400).json({ error: "start and end are required" });
       const from = parseInt(start);
       const to = parseInt(end);
       if (isNaN(from) || isNaN(to) || from > to || to - from > 499) {

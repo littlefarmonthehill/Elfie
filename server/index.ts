@@ -238,6 +238,18 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       console.error('[Startup] Could not add is_test to shipments (non-fatal):', colErr.message);
     }
 
+    // 4a-fix-2b. Add warehouse naming-format columns to organizations.
+    try {
+      await pool.query(`
+        ALTER TABLE organizations
+          ADD COLUMN IF NOT EXISTS aisle_format text NOT NULL DEFAULT 'numeric',
+          ADD COLUMN IF NOT EXISTS shelf_format  text NOT NULL DEFAULT 'alpha',
+          ADD COLUMN IF NOT EXISTS bin_format    text NOT NULL DEFAULT 'numeric'
+      `);
+    } catch (colErr: any) {
+      console.error('[Startup] Could not add warehouse format columns (non-fatal):', colErr.message);
+    }
+
     // 4a-fix-3. Create POM AI settings tables (new tables, not touching app_settings).
     try {
       await pool.query(`

@@ -96,6 +96,9 @@ export const organizations = pgTable("organizations", {
   planId: integer("plan_id"),
   // Warehouse depth: 1 = bins only, 2 = shelves + bins, 3 = aisles + shelves + bins (default)
   warehouseDepth: integer("warehouse_depth").default(3).notNull(),
+  aisleFormat: text("aisle_format").default('numeric').notNull(),
+  shelfFormat: text("shelf_format").default('alpha').notNull(),
+  binFormat: text("bin_format").default('numeric').notNull(),
 });
 
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({

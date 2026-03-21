@@ -75,6 +75,35 @@ const DEPTH_OPTIONS = [
   },
 ];
 
+type LocationFormat = 'numeric' | 'alpha' | 'alphanumeric';
+
+function applyFormat(value: string, format: LocationFormat): string {
+  if (format === 'numeric') return value.replace(/[^0-9]/g, '');
+  if (format === 'alpha') return value.replace(/[^A-Za-z]/g, '').toUpperCase();
+  return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+}
+
+function formatHint(format: LocationFormat): string {
+  if (format === 'numeric') return 'Numbers only';
+  if (format === 'alpha') return 'Letters only';
+  return 'Letters and numbers';
+}
+
+function formatExample(format: LocationFormat, level: 'aisle' | 'shelf' | 'bin'): string {
+  const examples: Record<LocationFormat, Record<string, string>> = {
+    numeric:      { aisle: '1',  shelf: '1',  bin: '01' },
+    alpha:        { aisle: 'A',  shelf: 'A',  bin: 'A'  },
+    alphanumeric: { aisle: '1A', shelf: 'A1', bin: '01A' },
+  };
+  return examples[format][level];
+}
+
+const FORMAT_LABELS: Record<LocationFormat, string> = {
+  numeric:      'Numbers',
+  alpha:        'Letters',
+  alphanumeric: 'Both',
+};
+
 export default function WarehouseManagement({ onItemClick }: WarehouseManagementProps) {
   const { toast } = useToast();
   const [activeView, setActiveView] = useState<ViewType>(null);
@@ -119,8 +148,10 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [printLabelSize, setPrintLabelSize] = useState<'avery5160' | 'avery5163' | 'avery5164' | 'dymo30252' | 'dymo30336'>('avery5163');
 
+  // Controlled name input for create/edit dialogs
+  const [createName, setCreateName] = useState('');
+
   // Bulk bin state
-  const [bulkPrefix, setBulkPrefix] = useState("BIN-");
   const [bulkStart, setBulkStart] = useState("1");
   const [bulkEnd, setBulkEnd] = useState("20");
   const [bulkPad, setBulkPad] = useState("2");
@@ -144,10 +175,13 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [importCsvText, setImportCsvText] = useState("");
   const [importResult, setImportResult] = useState<{ created?: { aisles: number; shelves: number; bins: number; skipped: number }; stats?: { assigned: number; skipped: number; notFound: number }; errors: string[] } | null>(null);
 
-  const { data: warehouseSettings, isLoading: settingsLoading } = useQuery<{ depth: number }>({
+  const { data: warehouseSettings, isLoading: settingsLoading } = useQuery<{ depth: number; aisleFormat: string; shelfFormat: string; binFormat: string }>({
     queryKey: ['/api/warehouse/settings'],
   });
   const depth = warehouseSettings?.depth ?? 3;
+  const aisleFormat = warehouseSettings?.aisleFormat ?? 'numeric';
+  const shelfFormat = warehouseSettings?.shelfFormat ?? 'alpha';
+  const binFormat  = warehouseSettings?.binFormat  ?? 'numeric';
 
   const { data: aisles = [] } = useQuery<any[]>({ queryKey: ['/api/warehouse/aisles'] });
   const { data: shelves = [] } = useQuery<any[]>({ queryKey: ['/api/warehouse/shelves'] });
@@ -235,6 +269,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       setShowDepthSetup(false);
       toast({ title: "Warehouse depth updated" });
     },
+  });
+
+  const updateFormatMutation = useMutation({
+    mutationFn: (data: { aisleFormat?: string; shelfFormat?: string; binFormat?: string }) =>
+      apiRequest('PATCH', '/api/warehouse/settings', data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/warehouse/settings'] }),
   });
 
   const createAisleMutation = useMutation({
@@ -359,7 +399,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const handleCreateSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    const name = fd.get('name') as string;
+    const name = createName.trim();
+    if (!name) return;
     const description = fd.get('description') as string;
     if (createType === 'aisle') {
       createAisleMutation.mutate({ name, description });
@@ -638,6 +679,18 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     }
   };
 
+  // Auto-compute bulk prefix from selected shelf's hierarchy
+  const bulkComputedPrefix = (() => {
+    if (!bulkShelfForBins) return '';
+    const shelf = shelves.find((s: any) => String(s.id) === bulkShelfForBins);
+    if (!shelf) return '';
+    if (depth >= 3 && shelf.aisleId) {
+      const aisle = aisles.find((a: any) => a.id === shelf.aisleId);
+      return aisle ? `${aisle.name}-${shelf.name}-` : `${shelf.name}-`;
+    }
+    return `${shelf.name}-`;
+  })();
+
   // Bulk bin preview
   const bulkPreviewCount = (() => {
     const s = parseInt(bulkStart), e = parseInt(bulkEnd);
@@ -649,9 +702,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     if (isNaN(s) || isNaN(e) || s > e) return [];
     const names = [];
     for (let i = s; i <= Math.min(e, s + 2); i++) {
-      names.push(`${bulkPrefix}${pad > 0 ? String(i).padStart(pad, '0') : i}`);
+      names.push(`${bulkComputedPrefix}${pad > 0 ? String(i).padStart(pad, '0') : i}`);
     }
-    if (e - s > 2) names.push(`…${bulkPrefix}${pad > 0 ? String(e).padStart(pad, '0') : e}`);
+    if (e - s > 2) names.push(`…${bulkComputedPrefix}${pad > 0 ? String(e).padStart(pad, '0') : e}`);
     return names;
   })();
 
@@ -848,6 +901,44 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
           <p className="text-[10px] text-muted-foreground/60 pt-1 border-t border-border">
             Upgrading to a deeper level is safe — your existing bins and all lot assignments are preserved. You simply gain the ability to organise bins onto shelves or aisles.
           </p>
+
+          {/* Naming Format */}
+          <div className="pt-1 border-t border-border space-y-3">
+            <div>
+              <p className="text-sm font-semibold">Naming Format</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Controls what characters are accepted when creating locations.
+                Industry standard: Aisles = Numbers, Shelves = Letters, Bins = Numbers (e.g. <span className="font-mono">1-A-01</span>).
+              </p>
+            </div>
+            {(['aisle', 'shelf', 'bin'] as const).filter(level =>
+              level === 'bin' || (level === 'shelf' && depth >= 2) || (level === 'aisle' && depth >= 3)
+            ).map(level => {
+              const current = level === 'aisle' ? aisleFormat : level === 'shelf' ? shelfFormat : binFormat;
+              const label = level.charAt(0).toUpperCase() + level.slice(1);
+              return (
+                <div key={level} className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs font-medium text-muted-foreground w-10 shrink-0">{label}</span>
+                    <span className="text-[10px] text-muted-foreground/60 font-mono">e.g. {formatExample(current as LocationFormat, level)}</span>
+                  </div>
+                  <div className="flex rounded-md border border-border overflow-hidden shrink-0">
+                    {(['numeric', 'alpha', 'alphanumeric'] as LocationFormat[]).map(opt => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => updateFormatMutation.mutate({ [`${level}Format`]: opt })}
+                        className={`text-[11px] px-2.5 py-1 border-l first:border-l-0 border-border transition-colors ${current === opt ? 'bg-yellow-500/20 text-yellow-300 font-medium' : 'text-muted-foreground hover:bg-muted/40'}`}
+                        data-testid={`button-format-${level}-${opt}`}
+                      >
+                        {FORMAT_LABELS[opt]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </Card>
       ) : (
         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1502,15 +1593,32 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       </Dialog>
 
       {/* Create Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+      <Dialog open={createDialogOpen} onOpenChange={open => { setCreateDialogOpen(open); if (!open) setCreateName(''); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create {createType.charAt(0).toUpperCase() + createType.slice(1)}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleCreateSubmit} className="space-y-4">
             <div>
-              <Label>Name *</Label>
-              <Input name="name" required data-testid="input-create-name" />
+              {(() => {
+                const fmt = (createType === 'aisle' ? aisleFormat : createType === 'shelf' ? shelfFormat : binFormat) as LocationFormat;
+                const level = createType;
+                return (
+                  <>
+                    <div className="flex items-center justify-between mb-1">
+                      <Label>Name *</Label>
+                      <span className="text-[10px] text-muted-foreground">{formatHint(fmt)} — e.g. {formatExample(fmt, level)}</span>
+                    </div>
+                    <Input
+                      value={createName}
+                      onChange={e => setCreateName(applyFormat(e.target.value, fmt))}
+                      required
+                      placeholder={formatExample(fmt, level)}
+                      data-testid="input-create-name"
+                    />
+                  </>
+                );
+              })()}
             </div>
             {createType === 'shelf' && depth >= 3 && (
               <div>
@@ -1562,30 +1670,12 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
             <DialogDescription>Generate a numbered series of bins at once.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Prefix</Label>
-                <Input value={bulkPrefix} onChange={e => setBulkPrefix(e.target.value)} placeholder="BIN-" data-testid="input-bulk-prefix" />
-              </div>
-              <div>
-                <Label>Number padding</Label>
-                <Input type="number" min={0} max={6} value={bulkPad} onChange={e => setBulkPad(e.target.value)} placeholder="2 = 01, 02…" data-testid="input-bulk-pad" />
-              </div>
-              <div>
-                <Label>From #</Label>
-                <Input type="number" value={bulkStart} onChange={e => setBulkStart(e.target.value)} data-testid="input-bulk-start" />
-              </div>
-              <div>
-                <Label>To #</Label>
-                <Input type="number" value={bulkEnd} onChange={e => setBulkEnd(e.target.value)} data-testid="input-bulk-end" />
-              </div>
-            </div>
             {depth >= 2 && (
               <div>
                 <Label>Assign to shelf <span className="text-muted-foreground">(optional)</span></Label>
                 <Select value={bulkShelfForBins} onValueChange={setBulkShelfForBins}>
                   <SelectTrigger data-testid="select-bulk-shelf">
-                    <SelectValue placeholder="No shelf" />
+                    <SelectValue placeholder="No shelf — bins will be unassigned" />
                   </SelectTrigger>
                   <SelectContent>
                     {shelves.map((s: any) => (
@@ -1595,9 +1685,31 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                 </Select>
               </div>
             )}
+            {/* Auto prefix display */}
+            {bulkComputedPrefix && (
+              <div className="flex items-center gap-2 text-xs bg-muted/30 rounded-md px-3 py-2">
+                <span className="text-muted-foreground shrink-0">Auto prefix:</span>
+                <span className="font-mono text-foreground font-medium">{bulkComputedPrefix}</span>
+                <span className="text-muted-foreground/60">derived from shelf hierarchy</span>
+              </div>
+            )}
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label>From #</Label>
+                <Input type="number" value={bulkStart} onChange={e => setBulkStart(e.target.value)} data-testid="input-bulk-start" />
+              </div>
+              <div>
+                <Label>To #</Label>
+                <Input type="number" value={bulkEnd} onChange={e => setBulkEnd(e.target.value)} data-testid="input-bulk-end" />
+              </div>
+              <div>
+                <Label>Zero-pad</Label>
+                <Input type="number" min={0} max={6} value={bulkPad} onChange={e => setBulkPad(e.target.value)} placeholder="2 → 01" data-testid="input-bulk-pad" />
+              </div>
+            </div>
             {bulkPreviewCount > 0 && (
               <div className="bg-muted/30 rounded-md p-3 text-xs space-y-1">
-                <p className="font-medium">Preview — up to {bulkPreviewCount} bins (existing names on this shelf are skipped)</p>
+                <p className="font-medium">Preview — {bulkPreviewCount} bins (existing names on this shelf are skipped)</p>
                 <p className="text-muted-foreground font-mono">{bulkPreviewNames.join(', ')}</p>
               </div>
             )}
@@ -1605,7 +1717,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
               className="w-full"
               disabled={bulkPreviewCount === 0 || bulkCreateBinsMutation.isPending}
               onClick={() => bulkCreateBinsMutation.mutate({
-                prefix: bulkPrefix,
+                prefix: bulkComputedPrefix,
                 start: parseInt(bulkStart),
                 end: parseInt(bulkEnd),
                 padLength: parseInt(bulkPad) || 0,
