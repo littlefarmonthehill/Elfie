@@ -5521,7 +5521,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           <div className="flex items-center justify-between gap-3 px-3 py-2.5">
                             <div className="min-w-0">
                               <p className="text-xs font-medium text-gray-200">Base Price</p>
-                              <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Syncs the listing price (base price) from BrickLink to existing lots</p>
+                              <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Syncs the listing price (base price) from BrickLink to existing lots. Always included when new items are added in Full Sync.</p>
                             </div>
                             <Switch
                               checked={syncFieldPrice}
