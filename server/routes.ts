@@ -8930,6 +8930,13 @@ Format search_web URLs as markdown links.`;
           const forSaleDiscrepancies: any[] = [];
           const salePercentDiscrepancies: any[] = [];
 
+          // Read the sync config so the discrepancy view matches the sync engine's filters.
+          const [syncCfgRow] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
+          const syncStockroomIds: string[] = syncCfgRow?.syncStockroomIds ?? [];
+          // Helper: returns true when the sync engine would skip this BL item (stockroom filter).
+          const isStockroomFiltered = (blItem: any) =>
+            !!blItem.isStockRoom && !syncStockroomIds.includes(blItem.stockRoomId ?? '');
+
           // SIMPLIFIED COMPARISON: Use external_lot_ids.other (BrickLink inventory ID) for matching
           const blItemsMap = new Map<number, any>();
           const blItems = await db.select().from(blInventory).where(eq(blInventory.orgId, orgId));
@@ -8981,7 +8988,11 @@ Format search_web URLs as markdown links.`;
             }
             
             matchedBlIds.add(blInventoryId);
-            
+
+            // Skip field comparisons for BL stockroom items the sync engine won't touch.
+            // (still tracked in matchedBlIds so they don't appear as "missing" either)
+            if (isStockroomFiltered(blItem)) continue;
+
             const boQty = parseInt(boLot.qty || '0');
             // Use base_price (the listing price we set) not price (which is sale-adjusted).
             // This matches the channel sync comparison so the report agrees with what sync will do.
@@ -9158,7 +9169,7 @@ Format search_web URLs as markdown links.`;
           // Limit to 100 for display performance
           let missingCount = 0;
           for (const [inventoryId, blItem] of Array.from(blItemsMap.entries())) {
-            if (!matchedBlIds.has(inventoryId)) {
+            if (!matchedBlIds.has(inventoryId) && !isStockroomFiltered(blItem)) {
               if (missingCount < 100) {
                 const blPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
                 missingItems.push({
