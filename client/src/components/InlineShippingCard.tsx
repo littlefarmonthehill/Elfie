@@ -143,6 +143,7 @@ export default function InlineShippingCard({
 
   const [summary, setSummary] = useState<OrderShippingSummary | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(true);
+  const [summaryLoadError, setSummaryLoadError] = useState(false);
 
   const [weight, setWeight] = useState<string>("");
   const [weightUnits, setWeightUnits] = useState<string>("oz");
@@ -221,6 +222,7 @@ export default function InlineShippingCard({
 
   const loadSummary = async () => {
     setIsLoadingSummary(true);
+    setSummaryLoadError(false);
     try {
       const data: OrderShippingSummary = await fetch(
         `/api/fulfillment/order-shipping/${encodeURIComponent(orderId)}`
@@ -246,7 +248,8 @@ export default function InlineShippingCard({
       validateAddress(data.address);
       fetchRates(data.address, w, wu, pkg, l, pw, ph, data.requestedService);
     } catch (e: any) {
-      toast({ title: "Load Failed", description: e.message, variant: "destructive" });
+      console.warn('[ShippingCard] loadSummary failed (transient):', e.message);
+      setSummaryLoadError(true);
     } finally {
       setIsLoadingSummary(false);
     }
@@ -393,6 +396,18 @@ export default function InlineShippingCard({
       <div className="border border-gray-700 rounded-lg p-3 flex items-center gap-2 bg-gray-800/30">
         <Loader2 className="w-4 h-4 animate-spin text-blue-400 shrink-0" />
         <span className="text-xs text-gray-400">Loading shipping info...</span>
+      </div>
+    );
+  }
+
+  // ── Transient load error — quiet retry, no alarm ──
+  if (summaryLoadError) {
+    return (
+      <div className="border border-gray-700 rounded-lg p-3 flex items-center justify-between gap-3 bg-gray-800/30">
+        <span className="text-xs text-gray-400">Shipping info unavailable — still loading.</span>
+        <Button size="sm" variant="outline" onClick={loadSummary} data-testid="button-retry-shipping-load">
+          Retry
+        </Button>
       </div>
     );
   }
