@@ -9381,7 +9381,7 @@ Format search_web URLs as markdown links.`;
         syncRemarks:     true,
         syncDescription: true,
         syncTierPrice:   true,
-        syncSalePercent: false,
+        syncSalePercent: true,
         syncBulkQty:     true,
         syncLotWeight:   true,
       });
@@ -9412,7 +9412,7 @@ Format search_web URLs as markdown links.`;
           syncRemarks:     patch.syncRemarks      ?? true,
           syncDescription: patch.syncDescription  ?? true,
           syncTierPrice:   patch.syncTierPrice    ?? true,
-          syncSalePercent: patch.syncSalePercent  ?? false,
+          syncSalePercent: patch.syncSalePercent  ?? true,
           syncBulkQty:     patch.syncBulkQty      ?? true,
           syncLotWeight:   patch.syncLotWeight    ?? true,
         }).returning();

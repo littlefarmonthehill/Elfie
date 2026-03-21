@@ -1234,6 +1234,20 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-65 (is_test on shipments) complete.');
 
+    // ── Phase-66: enable sync_sale_percent on existing channel_sync_config rows ─
+    // Default was incorrectly false; existing rows need to be flipped to true so
+    // the sync clears per-lot BrickOwl sale_percent fields when BL saleRate is 0.
+    await client.query(`
+      ALTER TABLE channel_sync_config
+        ALTER COLUMN sync_sale_percent SET DEFAULT true
+    `);
+    await client.query(`
+      UPDATE channel_sync_config
+         SET sync_sale_percent = true
+       WHERE sync_sale_percent = false
+    `);
+    console.log('[Migration] Phase-66 (enable sync_sale_percent on channel_sync_config) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

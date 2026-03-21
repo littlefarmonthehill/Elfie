@@ -2499,7 +2499,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [syncFieldRemarks,     setSyncFieldRemarks]     = useState(true);
   const [syncFieldDescription, setSyncFieldDescription] = useState(true);
   const [syncFieldTierPrice,   setSyncFieldTierPrice]   = useState(true);
-  const [syncFieldSalePercent, setSyncFieldSalePercent] = useState(false);
+  const [syncFieldSalePercent, setSyncFieldSalePercent] = useState(true);
   const [syncFieldBulkQty,     setSyncFieldBulkQty]     = useState(true);
   const [syncFieldLotWeight,   setSyncFieldLotWeight]   = useState(true);
   const [channelDetailsExpanded, setChannelDetailsExpanded] = useState(false);

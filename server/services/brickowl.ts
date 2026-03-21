@@ -158,8 +158,7 @@ export async function getBrickOwlInventory(activeOnly: boolean = true): Promise<
   return lots.map((lot: any) => ({
     ...lot,
     // Normalize sale_percent → sale_percentage (number) for internal use.
-    // NOTE: We do NOT sync BL saleRate → BO sale_percent. BrickOwl sales are
-    // intentional store promotions set by the user independently of BrickLink.
+    // Whether BL saleRate is pushed to BO sale_percent is controlled by fields.salePercent toggle.
     sale_percentage: typeof lot.sale_percent === 'number'
       ? lot.sale_percent
       : parseFloat(lot.sale_percent ?? lot.sale_percentage ?? '0') || 0,
@@ -613,7 +612,7 @@ export interface SyncFieldConfig {
   lotWeight:   boolean; // lot_weight — custom lot weight (BL myWeight)
 }
 export const defaultSyncFields: SyncFieldConfig = {
-  price: true, remarks: true, description: true, tierPrice: true, salePercent: false,
+  price: true, remarks: true, description: true, tierPrice: true, salePercent: true,
   bulkQty: true, lotWeight: true,
 };
 
