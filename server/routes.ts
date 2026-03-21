@@ -5939,9 +5939,25 @@ All tools query local data (bl_catalog, price_guide_cache, inventory, orders). T
 Format search_web URLs as markdown links.`;
 
       const toolInstructions = enhancedDefaultPrompt.substring(enhancedDefaultPrompt.indexOf('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nTOOLS AT YOUR DISPOSAL'));
-      const systemPrompt = settings?.systemPrompt 
+      let systemPrompt = settings?.systemPrompt 
         ? `${settings.systemPrompt}\n\n${toolInstructions}` 
         : enhancedDefaultPrompt;
+
+      // Inject the owner's business vision & per-agent strategies into every chat
+      try {
+        const { ieStrategies: ieStrat } = await import('@shared/schema');
+        const [stratRow] = await db.select().from(ieStrat).where(eq(ieStrat.orgId, orgId)).limit(1);
+        const stratParts: string[] = [];
+        if (stratRow?.visionMission?.trim()) {
+          stratParts.push(`BUSINESS VISION & MISSION:\n"${stratRow.visionMission.trim()}"`);
+        }
+        if (stratRow?.successFactors?.trim()) {
+          stratParts.push(`DEFINING SUCCESS (VIVID VISION — the future state the owner is driving toward):\n"${stratRow.successFactors.trim()}"`);
+        }
+        if (stratParts.length > 0) {
+          systemPrompt += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nOWNER'S BUSINESS STRATEGY\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${stratParts.join('\n\n')}\n\nAlways interpret data through this lens. Frame every insight and recommendation in terms of what moves the business toward this vision.`;
+        }
+      } catch { /* non-fatal — chat still works without strategy context */ }
 
       // Use agent loop with function calling (with error recovery)
       const { runAgentLoop } = await import('./services/ai-agent');
