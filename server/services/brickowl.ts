@@ -204,13 +204,6 @@ export async function createBrickOwlLot(data: {
   return brickowlPost('/inventory/create', payload);
 }
 
-// Delete a lot from BrickOwl — used before recreating with a corrected price.
-// BrickOwl's /inventory/update silently ignores price changes; delete+create is the
-// only reliable way to update prices on existing lots.
-export async function deleteBrickOwlLot(lot_id: string): Promise<any> {
-  return brickowlPost('/inventory/delete', { lot_id });
-}
-
 // Update an existing lot on BrickOwl
 export async function updateBrickOwlLot(data: {
   lot_id?: string;
@@ -235,7 +228,9 @@ export async function updateBrickOwlLot(data: {
   if (data.condition) updateData.condition = data.condition;
   if (data.for_sale !== undefined) updateData.for_sale = data.for_sale.toString();
   if (data.tier_price !== undefined) updateData.tier_price = data.tier_price;
-  if (data.sale_percentage !== undefined) updateData.sale_percentage = data.sale_percentage.toString();
+  // BrickOwl API field is `sale_percent` (not `sale_percentage`) — confirmed from API docs.
+  // Wrong field name = sale updates silently ignored, causing permanent price discrepancies.
+  if (data.sale_percentage !== undefined) updateData.sale_percent = data.sale_percentage.toString();
   
   // Decode HTML entities from notes before sending to BrickOwl
   if (data.personal_note !== undefined) {
@@ -584,20 +579,17 @@ export async function syncBrickLinkToBrickOwl(
   type UpdateJob = {
     blItemNo: string;
     lot_id: string;
-    boid: string;              // BrickOwl catalog ID — required to recreate the lot
-    blInvId: string;           // BrickLink inventory lot ID — stored as external_id to re-link
     absolute_quantity: number;
     price: number;
     condition: string;
     personal_note?: string;
     public_note?: string;
     tier_price?: string;       // BrickOwl format: "100:0.050,200:0.040" or "remove"
-    sale_percentage?: number;  // BrickLink saleRate; 0 = send "0" to clear
+    sale_percentage?: number;  // BrickLink saleRate; 0 = clear any BO sale (sent as sale_percent)
     external_id?: string;      // set when adopting an untagged lot
     // true when quantity changed — must sync via batch (or individual qty call)
     qtyChanged: boolean;
-    // true when price changed — requires DELETE + CREATE (BrickOwl /inventory/update
-    // silently ignores price; only /inventory/create reliably sets it)
+    // true when price changed (for diagnostics)
     priceChanged: boolean;
     // true when price / notes / tier / sale changed — these MUST go via individual
     // API calls because BrickOwl's batch /bulk/batch endpoint silently ignores them.
@@ -634,7 +626,7 @@ export async function syncBrickLinkToBrickOwl(
       const boQty            = parseInt(taggedLot.qty);
       const boPrice          = parseFloat(taggedLot.price);
       const qtyChanged       = isNaN(boQty)   || boQty   !== item.quantity;
-      // If BO returns no price (undefined/NaN), treat as changed so delete+create runs
+      // If BO returns no price (undefined/NaN), treat as changed so it gets corrected
       const priceChanged     = isNaN(boPrice) || Math.abs(boPrice - newPrice) > 0.001;
       // Decode BL side before comparing — BrickLink stores HTML entities (e.g. &#39;)
       // but BrickOwl holds the decoded text (e.g. ') after the first sync.
@@ -656,8 +648,6 @@ export async function syncBrickLinkToBrickOwl(
           toUpdate.push({
             blItemNo: item.itemNo,
             lot_id: taggedLot.lot_id,
-            boid: taggedLot.boid,
-            blInvId: item.id.toString(),
             absolute_quantity: item.quantity,
             price: newPrice,
             condition,
@@ -697,9 +687,10 @@ export async function syncBrickLinkToBrickOwl(
       console.log(
         `[ChannelSync:DIAG] Update job ${i + 1}: item=${job.blItemNo} lot_id=${job.lot_id}` +
         ` | BL qty=${job.absolute_quantity} price=${job.price.toFixed(3)}` +
-        ` | BO qty=${taggedLot?.qty} price=${taggedLot?.price}` +
+        ` | BO qty=${taggedLot?.qty} price=${taggedLot?.price} bo_sale%=${taggedLot?.sale_percentage ?? 0}` +
+        ` | priceChanged=${job.priceChanged}` +
         ` | sending price=${job.price.toFixed(3)} qty=${job.absolute_quantity}` +
-        (job.sale_percentage !== undefined ? ` sale%=${job.sale_percentage}` : '') +
+        (job.sale_percentage !== undefined ? ` target_sale%=${job.sale_percentage}` : '') +
         (job.tier_price !== undefined ? ` tier=${job.tier_price}` : '')
       );
     });
@@ -807,86 +798,47 @@ export async function syncBrickLinkToBrickOwl(
     }
   }
 
-  // ── 2a-ii: Individual calls for field-changed lots ─────────────────────────
-  // CONFIRMED: BrickOwl's /inventory/update silently ignores price changes regardless
-  // of which fields are bundled. Only /inventory/create reliably sets price.
-  //
-  // Strategy per lot:
-  //   priceChanged=true  → DELETE existing lot + CREATE new lot (guarantees price applies)
-  //   priceChanged=false → plain UPDATE (notes/tier/sale — update works for non-price fields)
-  //
-  // DELETE+CREATE safety: if create fails after delete, the lot is gone until the next
-  // full_control sync recreates it. Each such failure is logged as a CRITICAL error.
-  // The external_id (BL inventory ID) on the new lot preserves the BL↔BO link.
+  // ── 2a-ii: Individual calls for field-changed lots (price / notes / tier / sale) ──
+  // BrickOwl's /inventory/update supports all of these fields per the API docs.
+  // NOTE: The correct field name for sale discount is `sale_percent` (not `sale_percentage`).
+  // We process FIELD_CONCURRENCY lots in parallel with a gap between rounds.
   const FIELD_CONCURRENCY = 4;
-  const FIELD_GAP_MS      = 500; // slightly wider gap to account for 2 calls per price lot
+  const FIELD_GAP_MS      = 400;
 
-  let recreateLogged = 0;
+  let fieldResponsesLogged = 0;
 
   for (let r = 0; r < fieldJobs.length; r += FIELD_CONCURRENCY) {
     const chunk = fieldJobs.slice(r, r + FIELD_CONCURRENCY);
 
     await Promise.all(chunk.map(async (job) => {
       try {
-        if (job.priceChanged) {
-          // ── Delete + Recreate ────────────────────────────────────────────────
-          // This is the ONLY reliable way to update a price in BrickOwl via API.
-          const delResp = await deleteBrickOwlLot(job.lot_id);
-          result.totalApiCalls++;
+        const fieldPayload: Parameters<typeof updateBrickOwlLot>[0] = {
+          lot_id: job.lot_id,
+          price:  job.price,
+          ...(job.personal_note   !== undefined && { personal_note:   job.personal_note   }),
+          ...(job.public_note     !== undefined && { public_note:     job.public_note     }),
+          ...(job.tier_price      !== undefined && { tier_price:      job.tier_price      }),
+          ...(job.sale_percentage !== undefined && { sale_percentage: job.sale_percentage }),
+        };
 
-          if (recreateLogged < 3) {
-            recreateLogged++;
-            console.log(
-              `[ChannelSync:DIAG] DELETE lot_id=${job.lot_id} boid=${job.boid}` +
-              ` old_price=? new_price=${job.price.toFixed(3)} qty=${job.absolute_quantity}:`,
-              JSON.stringify(delResp)
-            );
-          }
+        const updateResp = await updateBrickOwlLot(fieldPayload);
+        result.totalApiCalls++;
+        result.lotsUpdated++;
 
-          const createResp = await createBrickOwlLot({
-            boid:             job.boid,
-            quantity:         job.absolute_quantity,
-            price:            job.price,
-            condition:        job.condition,
-            external_id:      job.blInvId,   // re-links this new lot to the BL inventory lot
-            ...(job.personal_note  !== undefined && { personal_note:  job.personal_note  }),
-            ...(job.public_note    !== undefined && { public_note:    job.public_note    }),
-            ...(job.tier_price     !== undefined && job.tier_price !== 'remove' && { tier_price: job.tier_price }),
-            ...(job.sale_percentage !== undefined && job.sale_percentage > 0 && { sale_percentage: job.sale_percentage }),
-          });
-          result.totalApiCalls++;
-
-          if (recreateLogged <= 3) {
-            console.log(
-              `[ChannelSync:DIAG] CREATE boid=${job.boid} price=${job.price.toFixed(3)}` +
-              ` external_id=${job.blInvId}:`,
-              JSON.stringify(createResp)
-            );
-          }
-
-          result.lotsUpdated++;
-        } else {
-          // ── Notes / tier / sale update only (no price change) ───────────────
-          // /inventory/update appears to work for non-price fields.
-          const updateResp = await updateBrickOwlLot({
-            lot_id:           job.lot_id,
-            ...(job.personal_note   !== undefined && { personal_note:   job.personal_note   }),
-            ...(job.public_note     !== undefined && { public_note:     job.public_note     }),
-            ...(job.tier_price      !== undefined && { tier_price:      job.tier_price      }),
-            ...(job.sale_percentage !== undefined && { sale_percentage: job.sale_percentage }),
-          });
-          result.totalApiCalls++;
-          result.lotsUpdated++;
-          void updateResp; // logged only if needed
+        if (fieldResponsesLogged < 5) {
+          fieldResponsesLogged++;
+          console.log(
+            `[ChannelSync:DIAG] UPDATE lot_id=${job.lot_id}` +
+            ` price=${job.price.toFixed(3)} priceChanged=${job.priceChanged}` +
+            ` fields=${Object.keys(fieldPayload).join(',')}` +
+            ` resp=${JSON.stringify(updateResp)}`
+          );
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         result.errors.push(`${job.blItemNo} lot_id=${job.lot_id}: ${msg}`);
         result.lotsSkipped++;
-        console.error(
-          `[ChannelSync] ${job.priceChanged ? 'DELETE+CREATE' : 'UPDATE'} error` +
-          ` lot_id=${job.lot_id} boid=${job.boid}:`, msg
-        );
+        console.error(`[ChannelSync] Individual update error lot_id=${job.lot_id}:`, msg);
       }
 
       updateProgress++;

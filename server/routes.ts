@@ -11130,13 +11130,15 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
 
       res.json({
         lot_id,
-        price_before: priceBefore,
-        price_sent:   sendPrice,
-        price_after:  priceAfter,
-        price_changed: Math.abs(priceAfter - sendPrice) < 0.001,
+        price_before:   priceBefore,
+        sale_pct_before: lot.sale_percentage ?? lot.sale_percent ?? 0,
+        price_sent:     sendPrice,
+        price_after:    priceAfter,
+        sale_pct_after: lotAfter?.sale_percentage ?? lotAfter?.sale_percent ?? 0,
+        price_changed:  Math.abs(priceAfter - sendPrice) < 0.001,
         brickowl_response: updateResponse,
-        lot_before: { price: lot.price, qty: lot.qty, condition: lot.condition },
-        lot_after:  lotAfter ? { price: lotAfter.price, qty: lotAfter.qty } : null,
+        lot_before: lot,
+        lot_after:  lotAfter ?? null,
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
