@@ -2924,7 +2924,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const { title, description, level, parentId, sortOrder, status } = req.body;
-      const validStatuses = ['built', 'new', 'now', 'next', 'later'];
+      const validStatuses = ['built', 'new', 'now', 'next', 'testing', 'later'];
       const updates: any = {};
       if (title !== undefined) updates.title = title;
       if (description !== undefined) updates.description = description;

@@ -3,6 +3,7 @@ export const CAPABILITY_STATUS_STYLES: Record<string, string> = {
   new: 'bg-violet-500/20 text-violet-300 border-violet-500/30',
   now: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
   next: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+  testing: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
   later: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
 };
 
@@ -11,6 +12,7 @@ export const CAPABILITY_STATUS_LABELS: Record<string, string> = {
   new: 'New',
   now: 'Now',
   next: 'Next',
+  testing: 'Testing',
   later: 'Later',
 };
 
@@ -19,6 +21,7 @@ export const CAPABILITY_STATUS_DOT_COLORS: Record<string, string> = {
   new: 'bg-violet-500',
   now: 'bg-blue-500',
   next: 'bg-amber-500',
+  testing: 'bg-cyan-500',
   later: 'bg-gray-500',
 };
 

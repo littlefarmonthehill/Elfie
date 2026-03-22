@@ -929,7 +929,7 @@ function CapStatusBadge({ status, onClick, onSelect }: { status: string; onClick
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
   if (onSelect) {
-    const statuses = ['built', 'new', 'now', 'next', 'later'];
+    const statuses = ['built', 'new', 'now', 'next', 'testing', 'later'];
     return (
       <div ref={ref} className="relative inline-block">
         <button onClick={(e) => { e.stopPropagation(); setOpen(!open); }} className={`px-1.5 py-0.5 text-[9px] font-medium rounded border shrink-0 cursor-pointer ${CAPABILITY_STATUS_STYLES[status] || CAPABILITY_STATUS_STYLES.later}`} data-testid={`badge-status-${status}`}>
@@ -1123,7 +1123,7 @@ function ProductRoadmapPanel() {
   const { toast } = useToast();
   const { data: caps, isLoading } = useQuery<any[]>({ queryKey: ['/api/platform-admin/product/capabilities'] });
   const { data: voteCounts } = useQuery<Record<number, number>>({ queryKey: ['/api/feature-votes/counts'] });
-  const [statusFilter, setStatusFilter] = useState<'all' | 'built' | 'new' | 'now' | 'next' | 'later'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'built' | 'new' | 'now' | 'next' | 'testing' | 'later'>('all');
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
   const [newL1, setNewL1] = useState('');
   const [newL2, setNewL2] = useState<Record<number, string>>({});
@@ -1177,6 +1177,7 @@ function ProductRoadmapPanel() {
     if (statuses.includes('new')) return 'new';
     if (statuses.includes('now')) return 'now';
     if (statuses.includes('next')) return 'next';
+    if (statuses.includes('testing')) return 'testing';
     return 'later';
   };
 
@@ -1196,7 +1197,7 @@ function ProductRoadmapPanel() {
       </div>
 
       <div className="flex items-center gap-1.5 flex-wrap">
-        {(['all', 'built', 'new', 'now', 'next', 'later'] as const).map(f => {
+        {(['all', 'built', 'new', 'now', 'next', 'testing', 'later'] as const).map(f => {
           const colors: Record<string, string> = { all: 'bg-blue-500/20 text-blue-300 border-blue-500/30', ...CAPABILITY_STATUS_STYLES };
           const count = f === 'all' ? features.length : features.filter((c: any) => (c.status || 'built') === f).length;
           return (
