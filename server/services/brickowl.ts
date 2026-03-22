@@ -895,8 +895,8 @@ export async function syncBrickLinkToBrickOwl(
   // Only runs for lots where ONLY quantity changed (field-changed lots handle
   // qty via a separate individual call in Phase 2a-ii to avoid 429 storms).
   const BATCH_SIZE        = 50;
-  const BATCH_CONCURRENCY = 4;
-  const BATCH_GAP_MS      = 1200; // 4 concurrent × (10 s process + 1.2 s gap) ≈ 90 calls/min
+  const BATCH_CONCURRENCY = 6;
+  const BATCH_GAP_MS      = 700;  // 6 concurrent × (250ms process + 700ms gap) ≈ 370 calls/min — safely under 600/min
 
   // Qty-only lots go via batch. Field-changed lots that ALSO have a qty change handle
   // qty inside the individual /inventory/update call (absolute_quantity is supported there),
@@ -971,8 +971,8 @@ export async function syncBrickLinkToBrickOwl(
   // BrickOwl's /inventory/update supports all of these fields per the API docs.
   // NOTE: The correct field name for sale discount is `sale_percent` (not `sale_percentage`).
   // We process FIELD_CONCURRENCY lots in parallel with a gap between rounds.
-  const FIELD_CONCURRENCY = 4;
-  const FIELD_GAP_MS      = 400;
+  const FIELD_CONCURRENCY = 6;
+  const FIELD_GAP_MS      = 400; // 6 concurrent × (250ms process + 400ms gap) ≈ 554/min — safely under 600/min
 
   const saleFieldJobs = fieldJobs.filter(j => j.sale_percentage !== undefined);
   console.log(`[ChannelSync:DIAG] fieldJobs total=${fieldJobs.length}, with sale_percentage=${saleFieldJobs.length}`);
