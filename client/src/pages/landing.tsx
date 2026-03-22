@@ -480,99 +480,115 @@ function TvPanel({
         {/* TV body */}
         <div style={{
           flex: 1, display: "flex", flexDirection: "column",
-          background: "linear-gradient(160deg, #0e1340 0%, #090f28 50%, #060b1c 100%)",
-          borderRadius: "0 0 clamp(18px,4vw,28px) clamp(18px,4vw,28px)",
+          background: "linear-gradient(165deg, #1E1E3A 0%, #161628 35%, #101020 70%, #0C0C1A 100%)",
+          borderRadius: "0 0 clamp(20px,4vw,32px) clamp(20px,4vw,32px)",
           border: `2px solid rgba(255,255,255,0.07)`,
           borderTop: "none",
-          boxShadow: `0 24px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.03), inset 0 1px 0 rgba(255,255,255,0.05)`,
-          overflow: "hidden",
-          padding: "clamp(8px,1.5vw,14px) clamp(12px,2vw,20px) clamp(6px,1vw,10px)",
-          gap: "clamp(6px,1vw,10px)",
+          boxShadow: `0 0 0 1px rgba(100,120,220,0.22) inset, 0 0 0 2px rgba(60,80,160,0.12) inset, 0 24px 80px rgba(0,0,0,0.85), 0 0 80px ${TEAL}14, 0 0 160px ${TEAL}07`,
+          position: "relative",
+          padding: "clamp(10px,1.8vw,18px) clamp(14px,2.2vw,24px) clamp(8px,1.2vw,14px)",
+          gap: "clamp(8px,1.2vw,12px)",
         }}>
 
-          {/* Screen area */}
-          <div style={{
-            flex: 1, position: "relative",
-            background: SCR_BG,
-            borderRadius: "clamp(10px,2vw,16px)",
-            border: `1.5px solid ${TEAL}22`,
-            overflow: "hidden",
-            boxShadow: `inset 0 0 40px rgba(0,0,0,0.8), 0 0 20px ${panelColor}11`,
-          }}>
-            {/* Inner orbital rings on screen */}
-            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-              <div style={{ position: "absolute", left: "50%", top: "50%", width: "180%", height: "180%", border: `1px solid ${TEAL}07`, borderRadius: "50%", animation: "pb-bgring 80s linear infinite" }} />
-              <div style={{ position: "absolute", left: "50%", top: "50%", width: "140%", height: "140%", border: `1px solid ${PURP}06`, borderRadius: "50%", transform: "translate(-50%,-50%) rotate(30deg)", animation: "pb-bgring-r 55s linear infinite" }} />
-              <div style={{ position: "absolute", left: "50%", top: "50%", width: "110%", height: "110%", border: `1px solid ${MGNT}05`, borderRadius: "50%", transform: "translate(-50%,-50%) rotate(-20deg)", animation: "pb-bgring 40s linear infinite" }} />
-            </div>
+          {/* Top highlight edge */}
+          <div style={{ position: "absolute", top: 0, left: "8%", right: "8%", height: "1px", background: `linear-gradient(90deg, transparent, ${TEAL}44, transparent)`, pointerEvents: "none" }} />
 
-            {/* CRT scan line */}
-            <div style={{ position: "absolute", left: 0, right: 0, height: "2px", background: `linear-gradient(90deg, transparent, ${panelColor}55, transparent)`, animation: "pb-scan 4s linear infinite", pointerEvents: "none", zIndex: 10 }} />
+          {/* Corner accent marks */}
+          {([{ top: "10px", left: "14px" }, { top: "10px", right: "14px" }, { bottom: "10px", left: "14px" }, { bottom: "10px", right: "14px" }] as const).map((pos, i) => (
+            <div key={i} style={{ position: "absolute", ...pos, width: "14px", height: "14px", border: `1px solid ${TEAL}33`, borderRadius: "3px", pointerEvents: "none" }} />
+          ))}
 
-            {/* Flash transition */}
-            {flash && <div style={{ position: "absolute", inset: 0, background: `${SCR_BG}EE`, zIndex: 20 }} />}
-
-            {/* Channel content */}
-            <div style={{ position: "absolute", inset: "clamp(4px,0.8vw,8px)" }}>
-              {!flash && panel === "shop" && shopCh === "owl"  && <ShopStoreScreen store="owl"  />}
-              {!flash && panel === "shop" && shopCh === "link" && <ShopStoreScreen store="link" />}
-              {!flash && (panel === "studio" || panel === "signin") && studioCh === "home"     && <StudioHomeScreen tune={id => tune(id as ChId)} />}
-              {!flash && (panel === "studio" || panel === "signin") && studioCh === "ops"      && <OpsScreen slideIndex={slideIdx} />}
-              {!flash && (panel === "studio" || panel === "signin") && studioCh === "tools"    && <ToolsScreen slideIndex={slideIdx} />}
-              {!flash && (panel === "studio" || panel === "signin") && studioCh === "services" && <ServicesScreen />}
-              {!flash && (panel === "studio" || panel === "signin") && studioCh === "live"     && <LiveScreen onSignIn={navigateToLogin} canPromptInstall={canPromptInstall} showInstallOption={showInstallOption} isInstalled={isInstalled} isInstalling={isInstalling} isIos={isIos} onInstall={onInstall} />}
-            </div>
-
-            {/* Slide dots */}
-            {totalSlides > 1 && !flash && (
-              <div style={{ position: "absolute", bottom: "clamp(6px,1.2vw,10px)", left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", pointerEvents: "none", zIndex: 15 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "clamp(6px,0.6vw,8px)", fontFamily: "monospace", color: `${TEAL}88`, letterSpacing: "0.15em", animation: "pb-swipehint 3s ease-in-out 1s 2" }}>
-                  <span>‹</span>SWIPE<span>›</span>
+          {/* Chrome bezel + screen */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+            <div style={{
+              flex: 1, display: "flex", flexDirection: "column",
+              background: "linear-gradient(145deg, #3A3A5A 0%, #555578 20%, #2A2A44 55%, #404068 80%, #222238 100%)",
+              borderRadius: "clamp(12px,2vw,20px)",
+              padding: "clamp(5px,0.8vw,9px)",
+              boxShadow: `inset 0 3px 8px rgba(0,0,0,0.7), 0 2px 6px rgba(0,0,0,0.5), 0 0 0 1px ${TEAL}22`,
+            }}>
+              {/* Glass screen */}
+              <div style={{
+                flex: 1, position: "relative",
+                background: SCR_BG,
+                borderRadius: "clamp(8px,1.4vw,16px)",
+                overflow: "hidden",
+              }}>
+                {/* Repeating scanlines */}
+                <div style={{ position: "absolute", inset: 0, zIndex: 15, pointerEvents: "none", backgroundImage: "repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px)" }} />
+                {/* Teal phosphor glow */}
+                <div style={{ position: "absolute", inset: 0, zIndex: 14, pointerEvents: "none", background: `radial-gradient(ellipse 75% 60% at 50% 40%, ${panelColor}0C 0%, transparent 70%)` }} />
+                {/* Glass reflection */}
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "18%", zIndex: 16, pointerEvents: "none", background: "linear-gradient(to bottom, rgba(255,255,255,0.035), transparent)", borderRadius: "14px 14px 0 0" }} />
+                {/* Animated scan line sweep */}
+                <div style={{ position: "absolute", left: 0, right: 0, height: "2px", background: `linear-gradient(90deg, transparent 0%, ${panelColor}44 30%, ${panelColor}88 50%, ${panelColor}44 70%, transparent 100%)`, animation: "pb-scan 7s ease-in-out 2s infinite", pointerEvents: "none", zIndex: 17 }} />
+                {/* Inner orbital rings */}
+                <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", left: "50%", top: "50%", width: "180%", height: "180%", border: `1px solid ${TEAL}07`, borderRadius: "50%", animation: "pb-bgring 80s linear infinite" }} />
+                  <div style={{ position: "absolute", left: "50%", top: "50%", width: "140%", height: "140%", border: `1px solid ${PURP}06`, borderRadius: "50%", transform: "translate(-50%,-50%) rotate(30deg)", animation: "pb-bgring-r 55s linear infinite" }} />
+                  <div style={{ position: "absolute", left: "50%", top: "50%", width: "110%", height: "110%", border: `1px solid ${MGNT}05`, borderRadius: "50%", transform: "translate(-50%,-50%) rotate(-20deg)", animation: "pb-bgring 40s linear infinite" }} />
                 </div>
-                <div style={{ display: "flex", gap: "4px" }}>
-                  {Array.from({ length: totalSlides }).map((_, i) => (
-                    <div key={i} style={{ width: i === slideIdx ? "16px" : "5px", height: "5px", borderRadius: "3px", background: i === slideIdx ? TEAL : `${TEAL}44`, boxShadow: i === slideIdx ? `0 0 5px ${TEAL}` : "none", transition: "width 0.25s ease, background 0.25s ease" }} />
-                  ))}
+                {/* Channel flash static */}
+                {flash && (
+                  <div style={{ position: "absolute", inset: 0, zIndex: 20, backgroundImage: `repeating-linear-gradient(0deg, ${TEAL}1A 0px, transparent 1px, rgba(0,0,0,0.5) 3px, rgba(255,255,255,0.1) 5px), repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0px, transparent 2px)`, opacity: 0.9 }} />
+                )}
+                {/* Channel content */}
+                <div style={{ position: "absolute", inset: "clamp(4px,0.8vw,8px)", zIndex: 5, opacity: flash ? 0 : 1, transition: "opacity 0.1s ease", overflow: "hidden" }}>
+                  {!flash && panel === "shop" && shopCh === "owl"  && <ShopStoreScreen store="owl"  />}
+                  {!flash && panel === "shop" && shopCh === "link" && <ShopStoreScreen store="link" />}
+                  {!flash && (panel === "studio" || panel === "signin") && studioCh === "home"     && <StudioHomeScreen tune={id => tune(id as ChId)} />}
+                  {!flash && (panel === "studio" || panel === "signin") && studioCh === "ops"      && <OpsScreen slideIndex={slideIdx} />}
+                  {!flash && (panel === "studio" || panel === "signin") && studioCh === "tools"    && <ToolsScreen slideIndex={slideIdx} />}
+                  {!flash && (panel === "studio" || panel === "signin") && studioCh === "services" && <ServicesScreen />}
+                  {!flash && (panel === "studio" || panel === "signin") && studioCh === "live"     && <LiveScreen onSignIn={navigateToLogin} canPromptInstall={canPromptInstall} showInstallOption={showInstallOption} isInstalled={isInstalled} isInstalling={isInstalling} isIos={isIos} onInstall={onInstall} />}
                 </div>
+                {/* Slide dots */}
+                {totalSlides > 1 && !flash && (
+                  <div style={{ position: "absolute", bottom: "clamp(6px,1.2vw,10px)", left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: "5px", pointerEvents: "none", zIndex: 18 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "clamp(6px,0.6vw,8px)", fontFamily: "monospace", color: `${TEAL}88`, letterSpacing: "0.15em", animation: "pb-swipehint 3s ease-in-out 1s 2" }}>
+                      <span>‹</span>SWIPE<span>›</span>
+                    </div>
+                    <div style={{ display: "flex", gap: "5px" }}>
+                      {Array.from({ length: totalSlides }).map((_, i) => (
+                        <div key={i} style={{ width: i === slideIdx ? "18px" : "5px", height: "5px", borderRadius: "3px", background: i === slideIdx ? TEAL : `${TEAL}44`, boxShadow: i === slideIdx ? `0 0 6px ${TEAL}` : "none", transition: "width 0.25s ease, background 0.25s ease" }} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Touch/swipe handlers */}
+                {totalSlides > 1 && (
+                  <div style={{ position: "absolute", inset: 0, zIndex: 5 }} onTouchStart={e => { touchX.current = e.touches[0].clientX; }} onTouchEnd={e => { const dx = e.changedTouches[0].clientX - touchX.current; if (Math.abs(dx) > 36) goSlide(dx < 0 ? 1 : -1); }} />
+                )}
               </div>
-            )}
-
-            {/* Touch/swipe handlers */}
-            {totalSlides > 1 && (
-              <div
-                style={{ position: "absolute", inset: 0, zIndex: 5 }}
-                onTouchStart={e => { touchX.current = e.touches[0].clientX; }}
-                onTouchEnd={e => { const dx = e.changedTouches[0].clientX - touchX.current; if (Math.abs(dx) > 36) goSlide(dx < 0 ? 1 : -1); }}
-              />
-            )}
+            </div>
           </div>
 
           {/* Bottom controls strip */}
-          <div style={{ display: "flex", alignItems: "center", gap: "clamp(6px,1.2vw,12px)", flexShrink: 0, flexWrap: "nowrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "clamp(8px,1.2vw,16px)", flexShrink: 0, flexWrap: "nowrap", paddingTop: "clamp(6px,0.9vw,10px)", borderTop: `1px solid ${TEAL}18` }}>
             {/* LED channel display */}
-            <div style={{ background: "#060612", border: `1px solid ${panelColor}55`, borderRadius: "8px", padding: "clamp(3px,0.5vw,6px) clamp(6px,0.9vw,12px)", textAlign: "center", fontFamily: "monospace", color: panelColor, fontWeight: 900, lineHeight: 1, fontSize: "clamp(13px,1.6vw,20px)", boxShadow: `0 0 12px ${panelColor}33, inset 0 0 10px rgba(0,0,0,0.95)`, animation: "pb-ledpulse 2.5s ease-in-out infinite", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: "1px" }}>
+            <div style={{ background: "#060612", border: `1px solid ${panelColor}55`, borderRadius: "10px", padding: "clamp(4px,0.6vw,7px) clamp(8px,1vw,14px)", textAlign: "center", fontFamily: "monospace", color: panelColor, fontWeight: 900, lineHeight: 1, fontSize: "clamp(15px,1.8vw,22px)", boxShadow: `0 0 14px ${panelColor}33, inset 0 0 12px rgba(0,0,0,0.95)`, animation: "pb-ledpulse 2.5s ease-in-out infinite", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
               {chNum}
-              <div style={{ fontSize: "clamp(5px,0.45vw,7px)", letterSpacing: "0.2em", color: `${panelColor}BB` }}>CH</div>
+              <div style={{ fontSize: "clamp(5px,0.5vw,7px)", letterSpacing: "0.2em", color: `${panelColor}BB` }}>CH</div>
             </div>
 
             {/* Channel buttons */}
-            <div style={{ display: "flex", gap: "clamp(3px,0.6vw,7px)", flex: 1, justifyContent: "center", minWidth: 0 }}>
+            <div style={{ display: "flex", gap: "clamp(4px,0.7vw,9px)", flex: 1, justifyContent: "center", minWidth: 0 }}>
               {(channels as { id: ChId; num: string; label: string }[]).map(c => {
                 const isActive = panel === "shop" ? c.id === shopCh : c.id === studioCh;
                 return (
-                  <button key={c.id} onClick={() => tune(c.id)} className="pb-btn" style={{ background: isActive ? `${panelColor}18` : "rgba(255,255,255,0.04)", border: `1px solid ${isActive ? panelColor : "rgba(200,220,255,0.15)"}`, borderRadius: "7px", padding: "clamp(4px,0.6vw,8px) clamp(6px,1vw,14px)", cursor: "pointer", color: isActive ? panelColor : "rgba(215,230,255,0.75)", fontFamily: "monospace", fontWeight: 700, letterSpacing: "0.06em", animation: isActive ? "pb-chglow 2s ease-in-out infinite" : "none", textAlign: "center", lineHeight: 1.3, textShadow: isActive ? `0 0 8px ${panelColor}` : "none", display: "flex", flexDirection: "column", alignItems: "center", gap: "1px", flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: "clamp(8px,1vw,13px)" }}>{c.num}</div>
-                    <div style={{ fontSize: "clamp(5px,0.55vw,8px)", opacity: 0.85, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{c.label}</div>
+                  <button key={c.id} onClick={() => tune(c.id)} className="pb-btn" style={{ background: isActive ? `${panelColor}18` : "rgba(255,255,255,0.04)", border: `1px solid ${isActive ? panelColor : "rgba(200,220,255,0.2)"}`, borderRadius: "8px", padding: "clamp(5px,0.7vw,9px) clamp(8px,1.2vw,16px)", cursor: "pointer", color: isActive ? panelColor : "rgba(215,230,255,0.82)", fontFamily: "monospace", fontWeight: 700, letterSpacing: "0.08em", animation: isActive ? "pb-chglow 2s ease-in-out infinite" : "none", transition: "all 0.15s", textAlign: "center", lineHeight: 1.3, textShadow: isActive ? `0 0 8px ${panelColor}` : "none", display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: "clamp(9px,1.1vw,14px)" }}>{c.num}</div>
+                    <div style={{ fontSize: "clamp(6px,0.6vw,9px)", opacity: 0.85, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{c.label}</div>
                   </button>
                 );
               })}
             </div>
 
             {/* PWR/HUE knobs */}
-            <div style={{ display: "flex", gap: "clamp(5px,0.8vw,10px)", flexShrink: 0, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: "clamp(6px,0.9vw,12px)", flexShrink: 0, alignItems: "center" }}>
               {[{ label: "PWR", color: TEAL }, { label: "HUE", color: PURP }].map(k => (
                 <div key={k.label} style={{ textAlign: "center" }}>
-                  <div style={{ width: "clamp(18px,2.2vw,28px)", height: "clamp(18px,2.2vw,28px)", borderRadius: "50%", background: `radial-gradient(circle at 35% 30%, rgba(100,100,180,0.3), rgba(10,10,40,0.95))`, border: `1px solid ${k.color}44`, boxShadow: `0 0 8px ${k.color}33, inset 0 0 8px rgba(0,0,0,0.9)`, margin: "0 auto", position: "relative" }}>
+                  <div style={{ width: "clamp(22px,2.4vw,32px)", height: "clamp(22px,2.4vw,32px)", borderRadius: "50%", background: `radial-gradient(circle at 35% 30%, rgba(100,100,180,0.3), rgba(10,10,40,0.95))`, border: `1px solid ${k.color}44`, boxShadow: `0 0 10px ${k.color}33, inset 0 0 8px rgba(0,0,0,0.9)`, margin: "0 auto", position: "relative" }}>
                     <div style={{ position: "absolute", width: "2px", height: "36%", background: k.color, top: "14%", left: "50%", transform: "translateX(-50%)", borderRadius: "2px", boxShadow: `0 0 4px ${k.color}` }} />
                   </div>
                   <div style={{ fontSize: "clamp(4px,0.45vw,6px)", color: `${k.color}88`, letterSpacing: "0.15em", marginTop: "2px" }}>{k.label}</div>
@@ -583,7 +599,7 @@ function TvPanel({
             {/* Signal bars */}
             <div style={{ display: "flex", alignItems: "flex-end", gap: "2px", flexShrink: 0 }}>
               {[3, 5, 7, 9, 11].map((h, i) => (
-                <div key={i} style={{ width: "clamp(2px,0.25vw,3px)", height: `${h}px`, borderRadius: "1px", background: i < 3 ? TEAL : `${TEAL}28`, boxShadow: i < 3 ? `0 0 3px ${TEAL}` : "none" }} />
+                <div key={i} style={{ width: "clamp(2px,0.28vw,4px)", height: `${h}px`, borderRadius: "1px", background: i < 3 ? TEAL : `${TEAL}28`, boxShadow: i < 3 ? `0 0 4px ${TEAL}` : "none" }} />
               ))}
             </div>
           </div>
