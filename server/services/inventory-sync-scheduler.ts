@@ -99,7 +99,7 @@ async function checkAndRunInventorySync() {
         platform: 'scheduler',
         issueType: 'scheduler_blocked',
         issueDescription: `Scheduled inventory sync (${scheduledTime}) is blocked by: ${blocker}. Retrying every minute until the lock clears.`,
-        severity: 'high',
+        severity: 'medium',
         metadata: { blockedBy: blocker, scheduledTime, timestamp: new Date().toISOString() },
       });
       return;

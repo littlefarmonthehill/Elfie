@@ -106,6 +106,30 @@ async function checkAndRunChannelSync() {
       return;
     }
 
+    // Warn if today's BL inventory sync failed — channel sync will still run but
+    // BrickOwl data may not reflect the latest inventory state.
+    try {
+      const [invMeta] = await db.select().from(syncMetadata)
+        .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, 'bricklink_inventory'))).limit(1);
+      if (invMeta?.lastSyncStatus === 'error' && invMeta.lastSyncTime) {
+        const todayStr = now.toLocaleDateString('en-US', { timeZone: tz });
+        const invDateStr = new Date(invMeta.lastSyncTime).toLocaleDateString('en-US', { timeZone: tz });
+        if (todayStr === invDateStr) {
+          console.warn('[Channel] ⚠️  BrickLink inventory sync failed today — channel sync will run with yesterday\'s inventory data');
+          recordSyncIssue({
+            syncType: SYNC_TYPE,
+            platform: 'scheduler',
+            issueType: 'stale_source_data',
+            issueDescription: `Channel sync is running but today's BrickLink inventory sync failed. BrickOwl quantities and prices may not reflect the latest inventory state.`,
+            severity: 'high',
+            metadata: { inventorySyncStatus: 'error', inventorySyncError: invMeta.errorMessage, timestamp: new Date().toISOString() },
+          });
+        }
+      }
+    } catch (e: any) {
+      console.warn('[Channel] Could not check inventory sync status (non-fatal):', e.message);
+    }
+
     if (syncLock.isRunning()) {
       const blocker = syncLock.getActive().join(', ');
       console.log(`⏭️ Channel sync blocked by: ${blocker} — will retry next minute`);
@@ -114,7 +138,7 @@ async function checkAndRunChannelSync() {
         platform: 'scheduler',
         issueType: 'scheduler_blocked',
         issueDescription: `Scheduled channel sync (${scheduledTime}) is blocked by: ${blocker}. Retrying every minute.`,
-        severity: 'high',
+        severity: 'medium',
         metadata: { blockedBy: blocker, scheduledTime, timestamp: new Date().toISOString() },
       });
       return;
