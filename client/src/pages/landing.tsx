@@ -286,8 +286,7 @@ function ServicesScreen() {
   );
 }
 
-function LiveScreen({ onSignIn, canPromptInstall, showInstallOption, isInstalled, isInstalling, isIos, onInstall }: {
-  onSignIn: () => void;
+function LiveScreen({ canPromptInstall, showInstallOption, isInstalled, isInstalling, isIos, onInstall }: {
   canPromptInstall: boolean;
   showInstallOption: boolean;
   isInstalled: boolean;
@@ -295,7 +294,94 @@ function LiveScreen({ onSignIn, canPromptInstall, showInstallOption, isInstalled
   isIos: boolean;
   onInstall: () => void;
 }) {
+  const [step, setStep] = useState<"welcome" | "email" | "password">("welcome");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
   const showBtn = showInstallOption && !isInstalled;
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%", background: "rgba(0,255,238,0.06)", border: `1px solid ${TEAL}44`,
+    borderRadius: "8px", padding: "clamp(8px,1vw,11px) 12px", color: "#E8F4FF",
+    fontSize: "clamp(11px,1.1vw,14px)", fontFamily: "monospace", outline: "none",
+    boxSizing: "border-box",
+  };
+
+  async function handleCheckEmail(e: React.FormEvent) {
+    e.preventDefault();
+    setError(""); setIsLoading(true);
+    try {
+      const res = await fetch("/api/check-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email.trim() }) });
+      if (!res.ok) throw new Error("check failed");
+      const data = await res.json();
+      if (data.exists) setStep("password");
+      else window.location.href = `/signup?email=${encodeURIComponent(email.trim())}`;
+    } catch { setError("Could not verify email. Try again."); }
+    finally { setIsLoading(false); }
+  }
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setError(""); setIsLoading(true);
+    try {
+      const res = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email.trim(), password }) });
+      if (!res.ok) throw new Error("login failed");
+      window.location.href = "/";
+    } catch { setError("Invalid password. Please try again."); }
+    finally { setIsLoading(false); }
+  }
+
+  if (step === "email") return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", padding: "clamp(14px,3vw,28px)", gap: "clamp(10px,1.6vw,18px)", animation: "pb-slidein 0.25s ease-out" }}>
+      <div>
+        <div style={{ fontSize: "clamp(8px,0.9vw,10px)", fontFamily: "monospace", color: MGNT, letterSpacing: "0.35em", marginBottom: "6px" }}>▸ ON AIR — STUDIO ACCESS</div>
+        <h2 style={{ fontSize: "clamp(16px,2vw,22px)", fontWeight: 900, color: "#FFF", margin: "0 0 4px" }}>Sign In</h2>
+        <p style={{ fontSize: "clamp(10px,1vw,12px)", color: "rgba(210,230,255,0.55)", margin: 0 }}>Enter your email to continue</p>
+      </div>
+      <form onSubmit={handleCheckEmail} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        <div>
+          <div style={{ fontSize: "clamp(9px,0.85vw,11px)", fontFamily: "monospace", color: `${TEAL}AA`, letterSpacing: "0.1em", marginBottom: "5px" }}>EMAIL</div>
+          <input type="email" required autoFocus value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" style={inputStyle} />
+        </div>
+        {error && <div style={{ fontSize: "clamp(9px,0.85vw,11px)", color: "#FF6B88", fontFamily: "monospace" }}>{error}</div>}
+        <button type="submit" disabled={isLoading} className="pb-btn" style={{ background: `linear-gradient(135deg, ${TEAL}DD, #00BBDD)`, border: "none", borderRadius: "100px", padding: "clamp(9px,1.1vw,13px) 20px", cursor: "pointer", color: SCR_BG, fontWeight: 800, fontSize: "clamp(11px,1.1vw,14px)", boxShadow: `0 0 22px ${TEAL}44` }}>
+          {isLoading ? "Checking…" : "Continue →"}
+        </button>
+        <button type="button" onClick={() => { setStep("welcome"); setError(""); }} className="pb-btn" style={{ background: "transparent", border: "none", color: `${TEAL}88`, fontSize: "clamp(9px,0.9vw,11px)", fontFamily: "monospace", cursor: "pointer", padding: "2px" }}>
+          ← Back
+        </button>
+      </form>
+    </div>
+  );
+
+  if (step === "password") return (
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", padding: "clamp(14px,3vw,28px)", gap: "clamp(10px,1.6vw,18px)", animation: "pb-slidein 0.25s ease-out" }}>
+      <div>
+        <div style={{ fontSize: "clamp(8px,0.9vw,10px)", fontFamily: "monospace", color: MGNT, letterSpacing: "0.35em", marginBottom: "6px" }}>▸ ON AIR — STUDIO ACCESS</div>
+        <h2 style={{ fontSize: "clamp(16px,2vw,22px)", fontWeight: 900, color: "#FFF", margin: "0 0 4px" }}>Welcome back</h2>
+        <div style={{ fontSize: "clamp(9px,0.9vw,11px)", fontFamily: "monospace", color: TEAL, background: `${TEAL}11`, border: `1px solid ${TEAL}33`, borderRadius: "6px", padding: "5px 10px", display: "inline-block" }}>{email}</div>
+      </div>
+      <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        <div>
+          <div style={{ fontSize: "clamp(9px,0.85vw,11px)", fontFamily: "monospace", color: `${TEAL}AA`, letterSpacing: "0.1em", marginBottom: "5px" }}>PASSWORD</div>
+          <input type="password" required autoFocus value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" style={inputStyle} />
+        </div>
+        {error && <div style={{ fontSize: "clamp(9px,0.85vw,11px)", color: "#FF6B88", fontFamily: "monospace" }}>{error}</div>}
+        <button type="submit" disabled={isLoading} className="pb-btn" style={{ background: `linear-gradient(135deg, ${TEAL}DD, #00BBDD)`, border: "none", borderRadius: "100px", padding: "clamp(9px,1.1vw,13px) 20px", cursor: "pointer", color: SCR_BG, fontWeight: 800, fontSize: "clamp(11px,1.1vw,14px)", boxShadow: `0 0 22px ${TEAL}44` }}>
+          {isLoading ? "Signing in…" : "Sign In"}
+        </button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <button type="button" onClick={() => { setStep("email"); setError(""); setPassword(""); }} className="pb-btn" style={{ background: "transparent", border: "none", color: `${TEAL}88`, fontSize: "clamp(9px,0.9vw,11px)", fontFamily: "monospace", cursor: "pointer", padding: "2px" }}>
+            ← Back
+          </button>
+          <a href="/forgot-password" style={{ color: `${TEAL}88`, fontSize: "clamp(9px,0.9vw,11px)", fontFamily: "monospace", textDecoration: "none" }}>Forgot password?</a>
+        </div>
+      </form>
+    </div>
+  );
+
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "clamp(14px,3vw,28px)", color: "#E8F4FF", textAlign: "center", gap: "clamp(8px,1.5vw,16px)", animation: "pb-slidein 0.3s ease-out" }}>
       <div style={{ position: "relative", marginBottom: "4px" }}>
@@ -314,7 +400,7 @@ function LiveScreen({ onSignIn, canPromptInstall, showInstallOption, isInstalled
         </p>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "8px", width: "100%", maxWidth: "240px" }}>
-        <button onClick={onSignIn} className="pb-btn" style={{ background: `linear-gradient(135deg, ${TEAL}DD, #00BBDD)`, border: "none", borderRadius: "100px", padding: "clamp(9px,1.1vw,13px) 20px", cursor: "pointer", color: SCR_BG, fontWeight: 800, fontSize: "clamp(11px,1.1vw,14px)", boxShadow: `0 0 22px ${TEAL}44`, letterSpacing: "0.04em" }}>
+        <button onClick={() => setStep("email")} className="pb-btn" style={{ background: `linear-gradient(135deg, ${TEAL}DD, #00BBDD)`, border: "none", borderRadius: "100px", padding: "clamp(9px,1.1vw,13px) 20px", cursor: "pointer", color: SCR_BG, fontWeight: 800, fontSize: "clamp(11px,1.1vw,14px)", boxShadow: `0 0 22px ${TEAL}44`, letterSpacing: "0.04em" }}>
           Sign In
         </button>
         <Link href="/signup">
@@ -439,10 +525,6 @@ function TvPanel({
     setSlideIdx(i => Math.min(Math.max(i + dir, 0), totalSlides - 1));
   }
 
-  function navigateToLogin() {
-    window.location.href = "/login";
-  }
-
   return (
     <>
       {/* Backdrop */}
@@ -540,7 +622,7 @@ function TvPanel({
                   {!flash && (panel === "studio" || panel === "signin") && studioCh === "ops"      && <OpsScreen slideIndex={slideIdx} />}
                   {!flash && (panel === "studio" || panel === "signin") && studioCh === "tools"    && <ToolsScreen slideIndex={slideIdx} />}
                   {!flash && (panel === "studio" || panel === "signin") && studioCh === "services" && <ServicesScreen />}
-                  {!flash && (panel === "studio" || panel === "signin") && studioCh === "live"     && <LiveScreen onSignIn={navigateToLogin} canPromptInstall={canPromptInstall} showInstallOption={showInstallOption} isInstalled={isInstalled} isInstalling={isInstalling} isIos={isIos} onInstall={onInstall} />}
+                  {!flash && (panel === "studio" || panel === "signin") && studioCh === "live"     && <LiveScreen canPromptInstall={canPromptInstall} showInstallOption={showInstallOption} isInstalled={isInstalled} isInstalling={isInstalling} isIos={isIos} onInstall={onInstall} />}
                 </div>
                 {/* Slide dots */}
                 {totalSlides > 1 && !flash && (
