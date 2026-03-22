@@ -179,6 +179,11 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
     enabled: isRunning,
   });
 
+  const { data: lastResult } = useQuery<any>({
+    queryKey: ['/api/channel-sync/last-result'],
+    refetchInterval: isRunning ? false : 60000,
+  });
+
   const progressPct = progressData && progressData.total > 0
     ? Math.round((progressData.processed / progressData.total) * 100)
     : 0;
@@ -511,6 +516,7 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
               <OverviewContent
                 brickOwl={brickOwl}
                 lastSync={lastSync}
+                lastResult={lastResult}
                 isLoading={isLoading}
                 isRunning={isRunning}
                 syncMutation={syncMutation}
@@ -565,6 +571,7 @@ function DiscrepancyAreaButton({ area, onSelectArea }: { area: DiscrepancyArea; 
 function OverviewContent({
   brickOwl,
   lastSync,
+  lastResult,
   isLoading,
   isRunning,
   syncMutation,
@@ -783,6 +790,41 @@ function OverviewContent({
           ))}
         </div>
       ) : null}
+
+      {/* Last sync errors — shown below discrepancies when the last run had failures */}
+      {lastResult && lastResult.errorCount > 0 && !isRunning && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-red-400/80 px-0.5">
+            Last Sync Errors · {lastResult.errorCount} item{lastResult.errorCount !== 1 ? 's' : ''} failed
+          </p>
+          <div className="rounded-lg border border-red-500/30 bg-red-950/20 divide-y divide-red-500/15 overflow-hidden">
+            {(lastResult.errors as string[]).map((err, i) => {
+              const colonIdx = err.indexOf(':');
+              const itemRef = colonIdx > 0 ? err.slice(0, colonIdx).trim() : null;
+              const reason  = colonIdx > 0 ? err.slice(colonIdx + 1).trim() : err;
+              return (
+                <div key={i} className="px-3 py-2 flex items-start gap-2" data-testid={`sync-error-row-${i}`}>
+                  <XCircle className="w-3 h-3 text-red-400 shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    {itemRef && (
+                      <span className="font-mono text-[10px] font-semibold text-red-300 mr-1.5">{itemRef}</span>
+                    )}
+                    <span className="text-[10px] text-red-200/70">{reason}</span>
+                  </div>
+                </div>
+              );
+            })}
+            {lastResult.errorCount > lastResult.errors.length && (
+              <div className="px-3 py-1.5 text-[10px] text-red-400/60 italic">
+                …and {lastResult.errorCount - lastResult.errors.length} more (run a new sync for a fresh error log)
+              </div>
+            )}
+          </div>
+          <p className="text-[10px] text-gray-600 px-0.5">
+            From sync completed {lastResult.completedAt ? new Date(lastResult.completedAt).toLocaleString() : '—'}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

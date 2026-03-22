@@ -9276,6 +9276,7 @@ Format search_web URLs as markdown links.`;
         lastSyncedAt: null as string | null,
       };
 
+      let missingLotsCount = 0;
       let priceDifferencesCount = 0;
       let quantityDifferencesCount = 0;
       let remarksDifferencesCount = 0;
@@ -9573,6 +9574,7 @@ Format search_web URLs as markdown links.`;
               missingCount++;
             }
           }
+          missingLotsCount = missingCount;
 
           // Cache the detailed discrepancies
           const now = Date.now();
@@ -9611,7 +9613,7 @@ Format search_web URLs as markdown links.`;
             syncMode: resolvedSyncMode,
             stats: brickowlStats,
             discrepancies: {
-              missingLots: Math.max(0, brickLinkStats.totalLots - brickowlStats.totalLots),
+              missingLots: missingLotsCount,
               missingParts: Math.max(0, brickLinkStats.totalParts - brickowlStats.totalParts),
               priceDifferences: priceDifferencesCount,
               quantityDifferences: quantityDifferencesCount,
