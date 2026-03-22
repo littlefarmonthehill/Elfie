@@ -4,6 +4,7 @@ import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity } from "lucide-react";
 import ChannelSyncPanel from "./ChannelSyncPanel";
+import BrickLinkSyncPanel from "./BrickLinkSyncPanel";
 import InventoryHealthPanel from "./InventoryHealthPanel";
 import { Input } from "@/components/ui/input";
 import {
@@ -333,6 +334,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             </div>
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Selling Channels</h3>
           </div>
+          <BrickLinkSyncPanel onOpenSettings={onOpenSettings} />
           <ChannelSyncPanel onOpenSettings={onOpenSettings} />
         </div>
 
