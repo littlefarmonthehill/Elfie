@@ -1,31 +1,31 @@
 import { db } from "../db";
 import { appSettings, blInventory, blColors } from "@shared/schema";
 import { eq, isNotNull, isNull, inArray, sql, and } from "drizzle-orm";
+import { decodeHTML } from "entities";
 
-// Decode HTML entities from BrickLink notes (&#39; → ', &#40; → (, &#41; → ), etc.)
-// Also trims leading/trailing whitespace (including \r\n) — BrickLink sometimes stores
-// notes with trailing CRLF that BrickOwl strips on storage, causing infinite update loops.
+// Normalize a note/description string so both sides of a BL↔BO comparison are
+// always in the same canonical form before being compared or pushed to BrickOwl.
+//
+// Problems this solves:
+//  1. BrickLink stores notes with HTML entities (&#39;, &#40;, &#41;, &#8217;, &nbsp;, …)
+//     The old hand-rolled decoder only handled 9 specific entities.  Any entity
+//     outside that set (e.g. &#160; for non-breaking space, &#8230; for ellipsis,
+//     &#44; for comma, etc.) would pass through un-decoded, causing BrickOwl (which
+//     decodes everything on storage) to return a different string next time, so the
+//     diff never resolved no matter how many syncs ran.
+//  2. BrickOwl's /inventory/list response may itself HTML-encode the stored text
+//     (returning &#40; for ( etc.), which also needs decoding before comparison.
+//  3. Non-breaking spaces (\u00a0 / &nbsp; / &#160;) render identically to a regular
+//     space in every UI but compare differently — normalise to ASCII space.
+//  4. Windows CRLF / bare CR line-endings from BrickLink are normalised to LF so
+//     they don't cause spurious differences vs BrickOwl which always stores LF.
 function decodeHtmlEntities(text: string | null | undefined): string {
   if (!text) return '';
-  
-  const entityMap: Record<string, string> = {
-    '&#39;': "'",
-    '&#40;': '(',
-    '&#41;': ')',
-    '&quot;': '"',
-    '&amp;': '&',
-    '&lt;': '<',
-    '&gt;': '>',
-    '&#x27;': "'",
-    '&#x2F;': '/',
-  };
-  
-  let decoded = text;
-  for (const [entity, char] of Object.entries(entityMap)) {
-    decoded = decoded.replace(new RegExp(entity, 'g'), char);
-  }
-  
-  return decoded.trim();
+  return decodeHTML(text)          // handles ALL named + numeric entities
+    .replace(/\u00a0/g, ' ')       // non-breaking space → regular space
+    .replace(/\r\n/g, '\n')        // Windows CRLF → LF
+    .replace(/\r/g, '\n')          // old Mac CR → LF
+    .trim();
 }
 
 export interface SyncPreviewBreakdown {
@@ -474,8 +474,10 @@ export async function syncInventoryItem(
       const existingPrice = parseFloat(taggedLot.price);
       const qtyChanged = existingQty !== blItem.quantity;
       const priceChanged = Math.abs(existingPrice - newPrice) > 0.001;
-      const remarksChanged = (taggedLot.personal_note || '') !== (blItem.remarks || '');
-      const descriptionChanged = (taggedLot.public_note || '') !== (blItem.description || '');
+      // Decode both sides before comparing so HTML entities (&#39;, &#160;, &nbsp;, etc.)
+      // and whitespace differences don't cause spurious change-detections.
+      const remarksChanged = decodeHtmlEntities(taggedLot.personal_note) !== decodeHtmlEntities(blItem.remarks);
+      const descriptionChanged = decodeHtmlEntities(taggedLot.public_note) !== decodeHtmlEntities(blItem.description);
 
       if (qtyChanged || priceChanged || remarksChanged || descriptionChanged) {
         if (mode === 'analysis') {

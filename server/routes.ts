@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { getRecentLogs, clearLogs } from "./services/server-log-buffer";
+import { decodeHTML } from "entities";
 
 const SECRET_FIELDS = [
   'openaiApiKey',
@@ -55,15 +56,9 @@ import { checkBrickspotterLimit, incrementBrickspotterScan, getOrgWithLimits, ch
 import { stripeClient, createCheckoutSession, createCheckoutSessionByPlan, createPortalSession, handleStripeWebhook, changePlan, setAutoRenew, cancelSubscriptionNow } from "./services/stripe";
 
 // Decode HTML entities from BrickLink notes for accurate comparison.
-// Regex compiled once at module level; single-pass replace with a lookup table.
-const HTML_ENTITIES: Record<string, string> = {
-  '&#39;': "'", '&#40;': '(', '&#41;': ')', '&quot;': '"',
-  '&amp;': '&', '&lt;': '<', '&gt;': '>', '&#x27;': "'", '&#x2F;': '/',
-};
-const HTML_ENTITY_RE = new RegExp(
-  Object.keys(HTML_ENTITIES).map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
-  'g'
-);
+// Normalize a note/description for comparison or display — see brickowl.ts for full rationale.
+// Uses the `entities` package so ALL named + numeric HTML entities are decoded, not just 9.
+// Non-breaking spaces are normalised to ASCII space; CRLF/CR → LF.
 
 // Resolves an item name from bl_catalog with a colorId=0 (Rebrickable universal) fallback,
 // then falls back to price_guide_cache.item_name if bl_catalog has no entry at all.
@@ -78,7 +73,11 @@ const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: a
 
 function decodeHtmlEntities(text: string | null | undefined): string {
   if (!text) return '';
-  return text.replace(HTML_ENTITY_RE, m => HTML_ENTITIES[m] ?? m);
+  return decodeHTML(text)
+    .replace(/\u00a0/g, ' ')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .trim();
 }
 
 // Shared WHERE clause for "active" orders used across picklist routes.
