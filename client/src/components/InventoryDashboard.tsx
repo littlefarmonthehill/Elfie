@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import { InfoIcon, Package, Sparkles, RefreshCw, Info, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity } from "lucide-react";
+import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity } from "lucide-react";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import InventoryHealthPanel from "./InventoryHealthPanel";
 import { Input } from "@/components/ui/input";
@@ -149,18 +148,25 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
       <div className={cn("space-y-3")}>
 
         {/* Combined Inventory Info + Values */}
-        <div className={cn("relative bg-gradient-to-b from-blue-950/25 to-gray-900/85 border border-blue-500/40 rounded-lg shadow-[0_0_22px_rgba(59,130,246,0.12)] overflow-hidden", "p-2.5 xl:p-3")} data-testid="section-inventory-overview">
-          <div className={cn("absolute top-0 left-0 right-0 bg-gradient-to-r from-transparent via-blue-400/50 to-transparent", "h-px")} />
-          <div className={cn("flex items-center gap-2", "mb-2 xl:mb-2.5")}>
-            <div className="p-1.5 rounded-md bg-blue-900/60 ring-1 ring-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.25)]">
-              <Package className={cn("w-3 h-3 text-blue-200", "md:w-4 md:h-4")} />
+        <div
+          className="relative rounded-lg border border-blue-500/40 shadow-[0_0_28px_rgba(59,130,246,0.16)] overflow-hidden p-3"
+          style={{ background: 'linear-gradient(175deg, #0c1a2e 0%, #080f1d 100%)' }}
+          data-testid="section-inventory-overview"
+        >
+          {/* Top shine line */}
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-400/60 to-transparent" />
+
+          {/* Header */}
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="p-1.5 rounded-lg bg-blue-800/70 ring-1 ring-blue-500/60 shadow-[0_0_14px_rgba(59,130,246,0.32)]">
+              <Package className="w-4 h-4 md:w-5 md:h-5 text-blue-100" />
             </div>
-            <h3 className={cn("text-xs font-semibold text-blue-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Inventory</h3>
-            <div className="flex items-center gap-1.5 ml-auto">
+            <h3 className="text-sm md:text-base font-bold text-white uppercase tracking-widest">Inventory</h3>
+            <div className="ml-auto">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button className="text-gray-500 hover:text-gray-400" data-testid="button-cost-info">
-                    <InfoIcon className="h-3 w-3" />
+                  <button className="text-gray-600 hover:text-gray-400 transition-colors" data-testid="button-cost-info">
+                    <InfoIcon className="h-3.5 w-3.5" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
@@ -173,30 +179,49 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               </Tooltip>
             </div>
           </div>
-          <div className={cn("grid grid-cols-3 gap-1.5", "mb-2")} data-testid="section-inventory-info">
+
+          {/* Top row: Lots, Parts, Categories */}
+          <div className="grid grid-cols-3 gap-2 mb-2" data-testid="section-inventory-info">
             {([
-              { key: 'lots', label: 'Lots', value: stats ? formatNumber(stats.totalLots) : '0' },
-              { key: 'parts', label: 'Parts', value: stats ? formatNumber(stats.totalParts) : '0' },
-              { key: 'categories', label: 'Categories', value: stats ? formatNumber(stats.totalCategories) : '0' },
+              { key: 'lots', label: 'Lots', value: stats ? formatNumber(stats.totalLots) : '—' },
+              { key: 'parts', label: 'Parts', value: stats ? formatNumber(stats.totalParts) : '—' },
+              { key: 'categories', label: 'Categories', value: stats ? formatNumber(stats.totalCategories) : '—' },
             ] as const).map(({ key, label, value }) => (
               <button
                 key={key}
                 onClick={() => openBrowse(key)}
                 data-testid={`metric-${key}`}
-                className={cn("relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-md border border-lego-blue/20 bg-gray-900/50 p-1.5", "md:p-2.5 lg:p-3")}
+                className="relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-lg border border-blue-900/60 bg-[#0a1628]/80 p-2.5 md:p-3"
               >
-                <span className={cn("text-[9px] text-gray-400 mb-0.5 leading-tight", "md:text-xs lg:text-sm")}>{label}</span>
-                <span className={cn("text-xs font-semibold font-mono text-lego-blue", "md:text-base lg:text-lg")}>{value}</span>
-                <span className={cn("absolute top-1.5 right-1.5 flex items-center justify-center w-4 h-4 rounded-full bg-lego-blue/20 group-hover:bg-lego-blue/50 transition-colors", "md:w-5 md:h-5")}>
-                  <ChevronRight className={cn("w-2.5 h-2.5 text-white", "md:w-3 md:h-3 xl:w-4 xl:h-4")} />
+                <span className="text-[9px] md:text-[10px] text-gray-400 mb-1 leading-tight">{label}</span>
+                <span className="text-base md:text-xl font-bold font-mono text-lego-blue leading-none">{value}</span>
+                <span className="absolute top-2 right-2 flex items-center justify-center w-5 h-5 rounded-full bg-lego-blue/20 group-hover:bg-lego-blue/40 transition-colors">
+                  <ChevronRight className="w-3 h-3 text-white" />
                 </span>
               </button>
             ))}
           </div>
-          <div className="grid grid-cols-3 gap-1.5" data-testid="section-values">
-            <MetricCard label="My Cost" value={stats ? formatCurrency(stats.totalCost) : '$0.00'} color="red" data-testid="metric-cost" />
-            <MetricCard label="Listed" value={stats ? formatCurrency(stats.totalValue) : '$0.00'} color="blue" data-testid="metric-listed" />
-            <MetricCard label="Profit Potential" value={formatCurrency(profitPotential)} color="green" data-testid="metric-profit" />
+
+          {/* Bottom row: My Cost, Listed, Profit Potential */}
+          <div className="grid grid-cols-3 gap-2" data-testid="section-values">
+            <div className="rounded-lg border border-red-500/50 bg-[#0a1628]/80 p-2.5 md:p-3" data-testid="metric-cost">
+              <div className="text-[9px] md:text-[10px] text-gray-300 mb-1 leading-tight">My Cost</div>
+              <div className="text-sm md:text-lg font-bold font-mono text-lego-red leading-none truncate">
+                {stats ? formatCurrency(stats.totalCost) : '$0.00'}
+              </div>
+            </div>
+            <div className="rounded-lg border border-blue-500/30 bg-[#0a1628]/80 p-2.5 md:p-3" data-testid="metric-listed">
+              <div className="text-[9px] md:text-[10px] text-gray-300 mb-1 leading-tight">Listed</div>
+              <div className="text-sm md:text-lg font-bold font-mono text-lego-blue leading-none truncate">
+                {stats ? formatCurrency(stats.totalValue) : '$0.00'}
+              </div>
+            </div>
+            <div className="rounded-lg border border-green-500/50 bg-[#0a1628]/80 p-2.5 md:p-3" data-testid="metric-profit">
+              <div className="text-[9px] md:text-[10px] text-gray-300 mb-1 leading-tight">Profit Potential</div>
+              <div className="text-sm md:text-lg font-bold font-mono text-lego-green leading-none truncate">
+                {formatCurrency(profitPotential)}
+              </div>
+            </div>
           </div>
         </div>
 
