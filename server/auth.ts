@@ -363,26 +363,27 @@ export async function setupAuth(app: Express) {
     }
   });
 
-  // Emergency password reset — protected by RESET_TOKEN env var, no session required
-  app.post("/api/auth/emergency-reset", async (req, res) => {
-    const { token, email, newPassword } = req.body;
+  // Emergency password reset — open this URL in browser after deploying
+  // GET /api/auth/emergency-reset?t=TOKEN&e=EMAIL&p=NEWPASSWORD
+  app.get("/api/auth/emergency-reset", async (req, res) => {
+    const { t: token, e: email, p: newPassword } = req.query as Record<string, string>;
     const expectedToken = process.env.RESET_TOKEN;
     if (!expectedToken || token !== expectedToken) {
-      return res.status(403).json({ message: "Invalid token" });
+      return res.status(403).send("Invalid token");
     }
     if (!email || !newPassword || newPassword.length < 8) {
-      return res.status(400).json({ message: "email and newPassword (min 8 chars) required" });
+      return res.status(400).send("Missing or invalid params");
     }
     try {
       const user = await storage.getUserByEmail(email.toLowerCase().trim());
-      if (!user) return res.status(404).json({ message: "User not found" });
+      if (!user) return res.status(404).send("User not found");
       const hashed = await bcrypt.hash(newPassword, 12);
       await storage.updateUserPassword(user.id, hashed);
       console.log(`[Emergency] Password reset for ${email}`);
-      res.json({ success: true, email });
+      res.send(`<h2>Done! Password for ${email} has been reset. <a href="/">Log in</a></h2>`);
     } catch (err: any) {
       console.error("Emergency reset error:", err);
-      res.status(500).json({ message: "Reset failed" });
+      res.status(500).send("Reset failed: " + err.message);
     }
   });
 
