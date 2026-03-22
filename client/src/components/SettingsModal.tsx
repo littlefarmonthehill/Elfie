@@ -2619,6 +2619,17 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [impersonationSearch, setImpersonationSearch] = useState('');
   const [orgSearch, setOrgSearch] = useState('');
 
+  // When the settings modal closes, proactively close the org-health drawer so vaul
+  // can run its own cleanup before being abruptly unmounted alongside the Dialog.
+  // Without this, the Dialog and Drawer both try to release the iOS scroll lock at the
+  // same time, which can corrupt the react-remove-scroll ref counter and leave
+  // the body permanently locked (touch scrolling frozen app-wide).
+  useEffect(() => {
+    if (!open && orgHealthDrawer.open) {
+      setOrgHealthDrawer(prev => ({ ...prev, open: false }));
+    }
+  }, [open, orgHealthDrawer.open]);
+
   // Sync activeSection whenever the modal opens with a specific initialSection.
   // useState only uses its initial value on first mount, so without this effect
   // clicking a dashboard action item with a different section would have no effect.
@@ -3906,6 +3917,18 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
             ? { height: '100dvh', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }
             : { height: 'min(640px, calc(96dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)))' }
           }
+          onCloseAutoFocus={() => {
+            // After the closing animation fully completes, sweep any body styles that
+            // vaul or react-remove-scroll may have left behind. Safe to call here
+            // because focus is being returned and all overlay cleanup should be done.
+            document.body.style.overflow = '';
+            document.body.style.position = '';
+            document.body.style.top = '';
+            document.body.style.marginTop = '';
+            document.body.style.touchAction = '';
+            document.body.style.userSelect = '';
+            document.body.removeAttribute('data-scroll-locked');
+          }}
         >
           <div
             className="flex flex-col h-full min-h-0 min-w-0 w-full"

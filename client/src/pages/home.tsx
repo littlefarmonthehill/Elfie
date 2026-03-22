@@ -96,6 +96,35 @@ export default function Home() {
       window.history.replaceState({}, '', url.toString());
     }
   }, []);
+  // Global iOS scroll-freeze recovery.
+  // If the body gets stuck with scroll-locking styles (e.g. a vaul Drawer or Radix
+  // Dialog fails to clean up on abrupt unmount), the next touch interaction will
+  // detect the inconsistent state and restore the body — without needing an app restart.
+  useEffect(() => {
+    const recover = () => {
+      const isLocked =
+        document.body.hasAttribute('data-scroll-locked') ||
+        document.body.style.overflow === 'hidden' ||
+        document.body.style.touchAction === 'none';
+      if (!isLocked) return;
+      const hasOpenOverlay =
+        !!document.querySelector('[data-radix-dialog-content][data-state="open"]') ||
+        !!document.querySelector('[data-vaul-drawer][data-state="open"]') ||
+        !!document.querySelector('[data-radix-alert-dialog-content][data-state="open"]');
+      if (!hasOpenOverlay) {
+        document.body.removeAttribute('data-scroll-locked');
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.marginTop = '';
+        document.body.style.touchAction = '';
+        document.body.style.userSelect = '';
+      }
+    };
+    document.addEventListener('touchstart', recover, { passive: true });
+    return () => document.removeEventListener('touchstart', recover);
+  }, []);
+
   useEffect(() => {
     const check = () => {
       const nowDesktop = window.innerWidth >= 1024;
