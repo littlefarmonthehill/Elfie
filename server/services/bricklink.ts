@@ -690,7 +690,8 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
           existing.bulk !== (item.bulk || null) ||
           existing.isRetain !== apiIsRetain ||
           existing.isStockRoom !== apiIsStockRoom ||
-          existing.bindId !== (item.bind_id || null)
+          existing.bindId !== (item.bind_id || null) ||
+          existing.saleRate !== (item.sale_rate || null)
         );
 
         // Collect price-changed items for training (only meaningful price changes > 0)
