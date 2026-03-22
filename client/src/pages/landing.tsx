@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { Zap, ScanLine, Globe, ExternalLink, Wrench, Users, BarChart2, Sparkles } from "lucide-react";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
-import logoUrl from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
+import logoUrl  from "@assets/PlanetBrick_dotcom_with_planet_1774203379040.png";
+import elfieUrl from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -72,6 +73,7 @@ const GLOBAL_CSS = `
   @keyframes pb-swipehint{ 0%,100%{opacity:0;transform:translateX(0)} 20%{opacity:0.7} 50%{opacity:0.9;transform:translateX(6px)} 80%{opacity:0.7} }
   @keyframes pb-radiowave{ 0%{opacity:0;transform:scale(0.8)} 20%{opacity:0.6} 100%{opacity:0;transform:scale(2.2)} }
   @keyframes pb-herocard { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes pb-bglogo   { 0%,100%{opacity:0.055;transform:scale(1) rotate(-1deg)} 50%{opacity:0.09;transform:scale(1.05) rotate(2deg)} }
 
   .pb-btn { -webkit-tap-highlight-color:transparent; outline:none; }
   .pb-btn:active { opacity:0.8; transform:scale(0.96); }
@@ -143,46 +145,6 @@ function RetroShip({ size = 70, glow = TEAL }: { size?: number; glow?: string })
   );
 }
 
-function ElfieHero() {
-  return (
-    <svg width="100%" height="100%" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="hslate" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#78909C" /><stop offset="100%" stopColor="#546E7A" /></linearGradient>
-        <linearGradient id="hbeige" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#E8C4A0" /><stop offset="100%" stopColor="#D4A574" /></linearGradient>
-        <linearGradient id="hwheel" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#A04545" /><stop offset="100%" stopColor="#8B3A3A" /></linearGradient>
-      </defs>
-      <rect x="48" y="4" width="4" height="10" rx="2" fill="#37474F" />
-      <circle cx="50" cy="4" r="3.5" fill={TEAL} style={{ animation: "pb-pulse 2s ease-in-out infinite" }} />
-      <ellipse cx="50" cy="4" rx="9" ry="3.5" fill="none" stroke={TEAL} strokeWidth="1" opacity="0.35" style={{ animation: "pb-pulse 2s ease-in-out 0.6s infinite" }} />
-      <ellipse cx="50" cy="22" rx="12" ry="3" fill="#546E7A" />
-      <rect x="38" y="19" width="24" height="20" fill="url(#hslate)" />
-      <ellipse cx="50" cy="39" rx="12" ry="3" fill="#37474F" />
-      <rect x="41" y="23" width="18" height="14" rx="1" fill="url(#hbeige)" />
-      <circle cx="46" cy="29" r="3" fill="#37474F" />
-      <circle cx="46" cy="29" r="2" fill="#E8A84D"><animate attributeName="opacity" values="1;0.25;1" dur="3s" repeatCount="indefinite" /></circle>
-      <circle cx="54" cy="29" r="3" fill="#37474F" />
-      <circle cx="54" cy="29" r="2" fill="#E8A84D"><animate attributeName="opacity" values="1;0.25;1" dur="3s" begin="0.5s" repeatCount="indefinite" /></circle>
-      <path d="M44 33 Q50 36 56 33" stroke="#37474F" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-      <ellipse cx="50" cy="40" rx="8" ry="2" fill="#546E7A" />
-      <ellipse cx="50" cy="50" rx="20" ry="6" fill="#546E7A" />
-      <rect x="30" y="50" width="40" height="28" fill="url(#hslate)" />
-      <ellipse cx="50" cy="78" rx="20" ry="6" fill="#37474F" />
-      <ellipse cx="50" cy="64" rx="12" ry="8" fill="url(#hbeige)" />
-      <circle cx="50" cy="64" r="4" fill="#37474F" opacity="0.3" />
-      <rect x="22" y="56" width="6" height="14" rx="3" fill="#546E7A" stroke="#37474F" strokeWidth="1" />
-      <circle cx="25" cy="71" r="3" fill="#78909C" />
-      <rect x="72" y="56" width="6" height="14" rx="3" fill="#546E7A" stroke="#37474F" strokeWidth="1" />
-      <circle cx="75" cy="71" r="3" fill="#78909C" />
-      <rect x="28" y="82" width="44" height="7" rx="2" fill="url(#hwheel)" stroke="#37474F" strokeWidth="1" />
-      <ellipse cx="36" cy="95" rx="10" ry="12" fill="#37474F" stroke="#546E7A" strokeWidth="2" />
-      <ellipse cx="36" cy="95" rx="7" ry="9" fill="#546E7A" />
-      <ellipse cx="36" cy="95" rx="4" ry="6" fill="#E8C4A0" />
-      <ellipse cx="64" cy="95" rx="10" ry="12" fill="#37474F" stroke="#546E7A" strokeWidth="2" />
-      <ellipse cx="64" cy="95" rx="7" ry="9" fill="#546E7A" />
-      <ellipse cx="64" cy="95" rx="4" ry="6" fill="#E8C4A0" />
-    </svg>
-  );
-}
 
 // ─── Channel Content Screens ──────────────────────────────────────────────────
 
@@ -503,7 +465,13 @@ function TvPanel({
       }}>
 
         {/* Antennae row (visible as TV descends first) */}
-        <div style={{ display: "flex", justifyContent: "center", gap: "clamp(100px,22vw,200px)", flexShrink: 0, zIndex: 2, marginBottom: "-2px" }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: "clamp(100px,22vw,200px)", flexShrink: 0, zIndex: 2, marginBottom: "-2px", position: "relative" }}>
+          {/* Radio waves between antennae */}
+          <div style={{ position: "absolute", left: "50%", top: "2px", transform: "translateX(-50%)", pointerEvents: "none" }}>
+            {[0, 1, 2].map(i => (
+              <div key={i} style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", width: `${40 + i * 22}px`, height: `${26 + i * 14}px`, borderRadius: "50%", border: `1px solid ${TEAL}`, opacity: 0, animation: `pb-radiowave ${1.4 + i * 0.45}s ease-out ${i * 0.4}s infinite` }} />
+            ))}
+          </div>
           {([-12, 12] as const).map((deg, i) => (
             <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
               <div style={{ width: "clamp(6px,1vw,10px)", height: "clamp(6px,1vw,10px)", borderRadius: "50%", background: `radial-gradient(circle at 35% 35%, #FFFFFF, ${TEAL}AA)`, boxShadow: `0 0 8px ${TEAL}BB, 0 0 16px ${TEAL}55`, marginBottom: "-1px" }} />
@@ -548,7 +516,7 @@ function TvPanel({
             {flash && <div style={{ position: "absolute", inset: 0, background: `${SCR_BG}EE`, zIndex: 20 }} />}
 
             {/* Channel content */}
-            <div style={{ position: "absolute", inset: 0 }}>
+            <div style={{ position: "absolute", inset: "clamp(8px,1.8vw,16px)" }}>
               {!flash && panel === "shop" && shopCh === "owl"  && <ShopStoreScreen store="owl"  />}
               {!flash && panel === "shop" && shopCh === "link" && <ShopStoreScreen store="link" />}
               {!flash && (panel === "studio" || panel === "signin") && studioCh === "home"     && <StudioHomeScreen tune={id => tune(id as ChId)} />}
@@ -654,10 +622,12 @@ function Hero({ onSelect }: { onSelect: (p: NonNullable<Panel>) => void }) {
 
       {/* Center content */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: "clamp(10px,2.5vw,20px)" }}>
-        {/* Floating E.L.F.I.E. */}
-        <div style={{ width: "clamp(80px,20vw,120px)", aspectRatio: "100/120", animation: "pb-float 4s ease-in-out infinite", filter: `drop-shadow(0 0 20px ${TEAL}44)` }}>
-          <ElfieHero />
-        </div>
+        {/* Floating E.L.F.I.E. PNG */}
+        <img
+          src={elfieUrl}
+          alt="E.L.F.I.E."
+          style={{ width: "clamp(80px,20vw,120px)", height: "auto", animation: "pb-float 4s ease-in-out infinite", filter: `drop-shadow(0 0 24px ${TEAL}55)` }}
+        />
 
         <div>
           <div style={{ fontSize: "clamp(7px,1.8vw,10px)", fontFamily: "monospace", color: TEAL, letterSpacing: "0.4em", marginBottom: "clamp(8px,2vw,12px)", textTransform: "uppercase" }}>
@@ -734,6 +704,11 @@ export default function LandingPage() {
       {/* Background planet */}
       <div style={{ position: "fixed", right: "-12vw", bottom: "-10vh", width: "45vw", height: "45vw", borderRadius: "50%", background: "radial-gradient(circle at 30% 30%, rgba(80,20,180,0.35), rgba(20,5,80,0.6) 60%, rgba(5,3,15,0.9))", border: "1px solid rgba(120,60,200,0.12)", pointerEvents: "none" }} />
       <div style={{ position: "fixed", left: "4vw", top: "10vh", width: "clamp(32px,5.5vw,64px)", height: "clamp(32px,5.5vw,64px)", borderRadius: "50%", background: "radial-gradient(circle at 35% 30%, rgba(0,220,200,0.4), rgba(0,100,120,0.6) 60%, rgba(0,40,60,0.9))", border: "1px solid rgba(0,200,180,0.15)", pointerEvents: "none" }} />
+
+      {/* Animated background PlanetBrick logo */}
+      <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", zIndex: 0 }}>
+        <img src={logoUrl} alt="" style={{ width: "clamp(280px,72vw,640px)", maxWidth: "90%", height: "auto", animation: "pb-bglogo 18s ease-in-out infinite", filter: "blur(1px) saturate(0.4)", mixBlendMode: "screen", userSelect: "none" }} />
+      </div>
 
       {/* TV Drop Panel */}
       <TvPanel
