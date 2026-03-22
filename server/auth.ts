@@ -252,7 +252,12 @@ export async function setupAuth(app: Express) {
           if (loginErr) {
             return res.status(500).json({ message: "Failed to log in after signup" });
           }
-          res.json(sanitizeUser(user));
+          req.session.save((saveErr) => {
+            if (saveErr) {
+              return res.status(500).json({ message: "Failed to save session" });
+            }
+            res.json(sanitizeUser(user));
+          });
         });
       });
     } catch (error) {
@@ -314,7 +319,15 @@ export async function setupAuth(app: Express) {
           if (loginErr) {
             return res.status(500).json({ message: "Failed to log in" });
           }
-          res.json(user);
+          // Explicitly save to the store before responding so the session is
+          // guaranteed to be persisted before the client's follow-up /api/auth/user
+          // request arrives (prevents the "blip and redirect" race condition).
+          req.session.save((saveErr) => {
+            if (saveErr) {
+              return res.status(500).json({ message: "Failed to save session" });
+            }
+            res.json(user);
+          });
         });
       });
     })(req, res, next);
