@@ -176,6 +176,7 @@ export const blInventory = pgTable("bl_inventory", {
   orgId: varchar("org_id"),                          // FK → organizations.id
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),               // Soft delete: set when item disappears from BL; cleared if it reappears
 }, (table) => ({
   // Index for quantity-based filtering (general queries)
   quantityIdx: index("bl_inv_qty_idx").on(table.quantity),

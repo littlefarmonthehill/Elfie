@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { appSettings, blInventory, blColors } from "@shared/schema";
-import { eq, isNotNull, sql } from "drizzle-orm";
+import { eq, isNotNull, isNull, inArray, sql, and } from "drizzle-orm";
 
 // Decode HTML entities from BrickLink notes (&#39; → ', &#40; → (, &#41; → ), etc.)
 // Also trims leading/trailing whitespace (including \r\n) — BrickLink sometimes stores
@@ -50,6 +50,7 @@ export interface BrickOwlSyncResult {
   lotsCreated: number;
   lotsUpdated: number;
   lotsSkipped: number;
+  lotsDeleted?: number;
   errors: string[];
   totalApiCalls: number;
   preview?: SyncPreviewBreakdown; // populated when mode === 'analysis'
@@ -240,6 +241,11 @@ export async function createBrickOwlLot(data: {
   };
   console.log('[BrickOwl] Creating lot with payload:', JSON.stringify(payload));
   return brickowlPost('/inventory/create', payload);
+}
+
+// Delete a lot from BrickOwl by lot_id
+async function brickowlDeleteLot(lotId: string): Promise<any> {
+  return brickowlPost('/inventory/delete', { lot_id: lotId });
 }
 
 // Update an existing lot on BrickOwl
@@ -645,11 +651,12 @@ export async function syncBrickLinkToBrickOwl(
   };
 
   // ── Fetch both inventories once ──────────────────────────────────────────
-  let query = db.select().from(blInventory);
+  // Only active (non-soft-deleted) BL items participate in field sync
+  let query = db.select().from(blInventory).where(isNull(blInventory.deletedAt));
   if (limit) query = query.limit(limit) as any;
   const blItems = await query;
 
-  console.log(`[ChannelSync] ${blItems.length} BrickLink items to compare`);
+  console.log(`[ChannelSync] ${blItems.length} BrickLink items to compare (soft-deleted excluded)`);
   const blWithSale = blItems.filter(i => (i.saleRate ?? 0) > 0).length;
   console.log(`[ChannelSync:DIAG] BL items with saleRate>0: ${blWithSale}`);
 
@@ -1146,10 +1153,43 @@ export async function syncBrickLinkToBrickOwl(
     await new Promise(resolve => setTimeout(resolve, INDIVIDUAL_GAP_MS));
   }
 
+  // ── Phase 3: Cascade-delete BO lots for soft-deleted BL items (full_control only) ──
+  // Soft-deleted BL items still have tagged BO lots — remove them from BrickOwl.
+  if (mode === 'full_control') {
+    const softDeletedBl = await db.select({ id: blInventory.id, itemNo: blInventory.itemNo })
+      .from(blInventory)
+      .where(isNotNull(blInventory.deletedAt));
+
+    const softDeletedIds = new Set(softDeletedBl.map(i => i.id.toString()));
+    const lotsToDelete = brickowlInventory.filter((lot: any) => {
+      const extId = lot.external_lot_ids?.bl_inventory_id || lot.external_id_1;
+      return extId && softDeletedIds.has(extId.toString());
+    });
+
+    if (lotsToDelete.length > 0) {
+      console.log(`[ChannelSync] Phase 3: deleting ${lotsToDelete.length} BO lots for soft-deleted BL items`);
+      for (const lot of lotsToDelete) {
+        if (channelSyncAbortFlag) {
+          console.log('[ChannelSync] Abort requested — stopping delete loop');
+          break;
+        }
+        try {
+          await brickowlDeleteLot(lot.lot_id);
+          result.lotsDeleted = (result.lotsDeleted ?? 0) + 1;
+          result.totalApiCalls++;
+          console.log(`[ChannelSync] ✓ Deleted BO lot ${lot.lot_id} (BL item gone)`);
+        } catch (err) {
+          result.errors.push(`lot ${lot.lot_id}: delete failed — ${err instanceof Error ? err.message : err}`);
+        }
+        await new Promise(resolve => setTimeout(resolve, INDIVIDUAL_GAP_MS));
+      }
+    }
+  }
+
   console.log(
     `[ChannelSync] Done — ${result.lotsUpdated} updated, ${result.lotsCreated} created, ` +
-    `${result.lotsSkipped} skipped, ${result.errors.length} errors, ` +
-    `${result.totalApiCalls} API calls`
+    `${result.lotsDeleted ?? 0} deleted, ${result.lotsSkipped} skipped, ` +
+    `${result.errors.length} errors, ${result.totalApiCalls} API calls`
   );
 
   return result;

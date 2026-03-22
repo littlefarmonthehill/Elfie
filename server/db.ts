@@ -1297,6 +1297,15 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-69 (sync_stockroom_modes replaces sync_stockroom_ids) complete.');
 
+    // ── Phase-70: soft-delete column on bl_inventory ──────────────────────────
+    // deleted_at is NULL for active items; set to a timestamp when BL stops returning the item.
+    // A subsequent successful full BL sync clears it if the item reappears.
+    await client.query(`
+      ALTER TABLE bl_inventory
+        ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP
+    `);
+    console.log('[Migration] Phase-70 (bl_inventory soft-delete column) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

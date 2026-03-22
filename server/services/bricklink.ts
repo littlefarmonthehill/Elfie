@@ -525,9 +525,11 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
 
     console.log(`First item sample:`, JSON.stringify(items[0]).substring(0, 200));
     
-    // Get all existing inventory IDs for this org in one query for comparison
-    const existingItems = await db.select({ id: blInventory.id }).from(blInventory).where(eq(blInventory.orgId, orgId));
+    // Get all existing inventory IDs for this org in one query for comparison (including soft-deleted)
+    const existingItems = await db.select({ id: blInventory.id, deletedAt: blInventory.deletedAt }).from(blInventory).where(eq(blInventory.orgId, orgId));
     const existingIds = new Set(existingItems.map(item => item.id));
+    // Track active (non-deleted) IDs separately for the soft-delete guard
+    const activeExistingIds = new Set(existingItems.filter(i => !i.deletedAt).map(i => i.id));
     
     // Separate items into new and existing - explicitly convert inventory_id to number for comparison
     const newItems = items.filter(item => !existingIds.has(Number(item.inventory_id)));
@@ -882,14 +884,59 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
     }
     console.log(`[CatalogBackfill] Upserted ${catalogUpserted} bl_catalog rows from inventory sync`);
 
-    console.log(`BrickLink inventory sync complete: ${added} added, ${updated} updated`);
+    // ── Soft-delete detection ────────────────────────────────────────────────
+    // Compare BL response IDs to active DB IDs. Items missing from BL are soft-deleted.
+    // Guard: only process if BL returned ≥ 95% of active items (protects against partial fetch).
+    const returnedIds = new Set(items.map(item => Number(item.inventory_id)));
+    let softDeleted = 0;
+    let restored = 0;
+
+    const SOFT_DELETE_THRESHOLD = 0.95;
+    if (activeExistingIds.size > 0 && returnedIds.size < activeExistingIds.size * SOFT_DELETE_THRESHOLD) {
+      console.warn(
+        `[BLSync] Soft-delete guard triggered: BL returned ${returnedIds.size} items but DB has ` +
+        `${activeExistingIds.size} active items (< ${SOFT_DELETE_THRESHOLD * 100}% threshold). ` +
+        `Skipping soft-delete pass — likely a partial API response.`
+      );
+    } else {
+      const now = new Date();
+
+      // 1. Soft-delete active items not returned by BL
+      const toSoftDelete = [...activeExistingIds].filter(id => !returnedIds.has(id));
+      if (toSoftDelete.length > 0) {
+        const BATCH = 500;
+        for (let i = 0; i < toSoftDelete.length; i += BATCH) {
+          await db.update(blInventory)
+            .set({ deletedAt: now })
+            .where(and(eq(blInventory.orgId, orgId), inArray(blInventory.id, toSoftDelete.slice(i, i + BATCH))));
+        }
+        softDeleted = toSoftDelete.length;
+        console.log(`[BLSync] Soft-deleted ${softDeleted} items no longer in BL inventory`);
+      }
+
+      // 2. Restore previously soft-deleted items that reappeared in BL response
+      const softDeletedIds = existingItems.filter(i => i.deletedAt).map(i => i.id);
+      const toRestore = softDeletedIds.filter(id => returnedIds.has(id));
+      if (toRestore.length > 0) {
+        const BATCH = 500;
+        for (let i = 0; i < toRestore.length; i += BATCH) {
+          await db.update(blInventory)
+            .set({ deletedAt: null })
+            .where(and(eq(blInventory.orgId, orgId), inArray(blInventory.id, toRestore.slice(i, i + BATCH))));
+        }
+        restored = toRestore.length;
+        console.log(`[BLSync] Restored ${restored} items that reappeared in BL inventory`);
+      }
+    }
+
+    console.log(`BrickLink inventory sync complete: ${added} added, ${updated} updated, ${softDeleted} soft-deleted, ${restored} restored`);
     if (callComplete) {
       syncProgressTracker.complete(added, updated);
     } else {
       // Called from comprehensive sync — stay 'syncing', let the outer function complete
       syncProgressTracker.update('BrickLink inventory synced, continuing…', 70, { itemsAdded: added, itemsUpdated: updated });
     }
-    return { added, updated, apiCalls };
+    return { added, updated, apiCalls, softDeleted, restored };
   } catch (error) {
     console.error('Error syncing BrickLink inventory:', error);
     const { syncProgressTracker } = await import('./sync-progress');
