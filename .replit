@@ -50,4 +50,3 @@ VAPID_PRIVATE_KEY = "g_oQ1_9SGGtciba4pUxxPnU22KCU7HKu-Q8HuUX5reI"
 VAPID_EMAIL = "mailto:admin@planetbrick.com"
 
 [userenv.production]
-RESET_TOKEN = "1421a8be6dbda97b3f526dc7c782ca67c609876eb882acb3"
