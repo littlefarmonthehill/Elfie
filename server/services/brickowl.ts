@@ -352,25 +352,35 @@ export function clearChannelSyncAbort()  { channelSyncAbortFlag = false; }
 export function isChannelSyncAbortRequested() { return channelSyncAbortFlag; }
 
 // In-process BOID cache: survives for the lifetime of the server process.
-// Key: "<blItemNo>:<normalizedType>", Value: BOID string or null (not found).
-// Warm syncs skip the catalog/id_lookup API call entirely for known items.
+// Key: "<blItemNo>:<normalizedType>:<boColorId|any>" — color-aware so the same
+// part in different colors gets distinct BOIDs.
 const boidCache = new Map<string, string | null>();
 
-// Lookup BOID from BrickLink item number (with in-process caching)
-export async function lookupBoid(blItemNo: string, type: string = 'Part'): Promise<string | null> {
+// In-process BrickLink→BrickOwl color ID cache (finite set, safe to hold forever).
+const boColorCache = new Map<number, number | null>(); // BL color ID → BO color ID
+
+// Lookup BOID from BrickLink item number + optional BrickOwl color ID (with in-process caching).
+// When boColorId is supplied the API returns only the BOID for that specific color variant,
+// which is essential for any item type that has per-color lots (Parts, Gear, etc.).
+export async function lookupBoid(blItemNo: string, type: string = 'Part', boColorId?: number): Promise<string | null> {
   const normalizedType = normalizeBrickLinkItemType(type);
-  const cacheKey = `${blItemNo}:${normalizedType}`;
+  const cacheKey = `${blItemNo}:${normalizedType}:${boColorId ?? 'any'}`;
 
   if (boidCache.has(cacheKey)) {
     return boidCache.get(cacheKey)!;
   }
 
   try {
-    const result = await brickowlGet('/catalog/id_lookup', {
+    const params: Record<string, string> = {
       id: blItemNo,
       type: normalizedType,
       id_type: 'bl_item_no',
-    });
+    };
+    if (boColorId !== undefined) {
+      params.color_id = boColorId.toString();
+    }
+
+    const result = await brickowlGet('/catalog/id_lookup', params);
 
     let boids: string[] = [];
     if (result.boids && Array.isArray(result.boids)) {
@@ -382,9 +392,9 @@ export async function lookupBoid(blItemNo: string, type: string = 'Part'): Promi
     const boid = boids.length > 0 ? boids[0] : null;
     boidCache.set(cacheKey, boid);
     if (boid) {
-      console.log(`[BOID] ✓ ${blItemNo} → ${boid}`);
+      console.log(`[BOID] ✓ ${blItemNo} (color=${boColorId ?? 'any'}) → ${boid}`);
     } else {
-      console.log(`[BOID] ✗ ${blItemNo}: not found`);
+      console.log(`[BOID] ✗ ${blItemNo} (color=${boColorId ?? 'any'}): not found`);
     }
     return boid;
   } catch (error) {
@@ -392,6 +402,16 @@ export async function lookupBoid(blItemNo: string, type: string = 'Part'): Promi
     // Don't cache failures — transient errors should be retried next sync
     return null;
   }
+}
+
+// Resolve a BrickLink color ID to a BrickOwl color ID (cached per-process).
+// Returns null when the color cannot be mapped (e.g. BL-only colors).
+async function resolveBoColorId(blColorId: number | null | undefined): Promise<number | null> {
+  if (blColorId == null) return null;
+  if (boColorCache.has(blColorId)) return boColorCache.get(blColorId)!;
+  const boColorId = await mapColorId(blColorId);
+  boColorCache.set(blColorId, boColorId);
+  return boColorId;
 }
 
 // Map BrickLink color ID to BrickOwl color ID
@@ -896,7 +916,7 @@ export async function syncBrickLinkToBrickOwl(
 
   let updateProgress = 0;
   // Steps: batch qty-only + individual field calls (qty folded in for multi-change lots) + adoptions
-  const totalPhase2 = qtyOnlyJobs.length + fieldJobs.length + toAdopt.length;
+  const totalPhase2 = qtyOnlyJobs.length + fieldJobs.length + toAdopt.length; // toAdopt used for display; zero-qty already filtered into adoptCandidates
 
   // ── 2a-i: Batch qty-only lots (fast) ──────────────────────────────────────
   // Send ONLY lot_id + absolute_quantity — no price, no notes, no extras.
@@ -1054,27 +1074,48 @@ export async function syncBrickLinkToBrickOwl(
   const INDIVIDUAL_GAP_MS = 100;
   const BOID_CHUNK = 10; // 10 concurrent lookups × 100ms gap → ~600/min
 
+  // Skip 0-qty items — BrickOwl rejects creating lots with qty=0, and they
+  // should not exist on BO at all.  Log and count them as skipped.
+  const zeroQtyAdopt = toAdopt.filter(item => item.quantity <= 0);
+  const adoptCandidates = toAdopt.filter(item => item.quantity > 0);
+  if (zeroQtyAdopt.length > 0) {
+    console.log(`[ChannelSync] Phase 2b: skipping ${zeroQtyAdopt.length} zero-qty items (not created on BrickOwl)`);
+    result.lotsSkipped += zeroQtyAdopt.length;
+  }
+
+  // Pre-resolve BrickOwl color IDs for all unique BL color IDs in this batch.
+  // Cached per-process — warm syncs skip the API call entirely.
+  const uniqueBlColorIds = [...new Set(adoptCandidates.map(i => i.colorId).filter((c): c is number => c != null))];
+  const boColorMap = new Map<number, number | null>();
+  for (const blColorId of uniqueBlColorIds) {
+    boColorMap.set(blColorId, await resolveBoColorId(blColorId));
+  }
+  console.log(`[ChannelSync] Phase 2b: resolved ${boColorMap.size} color mappings`);
+
   const boidMap = new Map<number, string | null>(); // index → BOID
-  for (let i = 0; i < toAdopt.length; i += BOID_CHUNK) {
-    const chunk = toAdopt.slice(i, i + BOID_CHUNK);
+  for (let i = 0; i < adoptCandidates.length; i += BOID_CHUNK) {
+    const chunk = adoptCandidates.slice(i, i + BOID_CHUNK);
     const results = await Promise.all(
-      chunk.map(item => lookupBoid(item.itemNo, item.itemType))
+      chunk.map(item => {
+        const boColorId = item.colorId != null ? boColorMap.get(item.colorId) ?? undefined : undefined;
+        return lookupBoid(item.itemNo, item.itemType, boColorId ?? undefined);
+      })
     );
     results.forEach((boid, j) => boidMap.set(i + j, boid));
     // Count uncached (real API) calls — cached hits don't count against rate limit
     result.totalApiCalls += results.length;
-    if (i + BOID_CHUNK < toAdopt.length) {
+    if (i + BOID_CHUNK < adoptCandidates.length) {
       await new Promise(resolve => setTimeout(resolve, INDIVIDUAL_GAP_MS));
     }
   }
   console.log(`[ChannelSync] Phase 2b BOID pre-fetch done — ${boidMap.size} resolved`);
 
-  for (let adoptIdx = 0; adoptIdx < toAdopt.length; adoptIdx++) {
+  for (let adoptIdx = 0; adoptIdx < adoptCandidates.length; adoptIdx++) {
     if (channelSyncAbortFlag) {
       console.log('[ChannelSync] Abort requested — stopping adopt/create loop');
       break;
     }
-    const item = toAdopt[adoptIdx];
+    const item = adoptCandidates[adoptIdx];
     const newPrice = item.unitPrice ? parseFloat(item.unitPrice) : 0;
     const condition = item.newOrUsed === 'N' ? 'new' : 'usedg';
 

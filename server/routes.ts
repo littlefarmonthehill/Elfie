@@ -9549,10 +9549,12 @@ Format search_web URLs as markdown links.`;
           }
 
           // Find missing items (BrickLink items not matched in BrickOwl)
+          // Excludes qty=0 items — BrickOwl doesn't hold 0-qty lots (BO rejects create with qty=0),
+          // so those are intentionally absent and should not be flagged as "missing".
           // Limit to 100 for display performance
           let missingCount = 0;
           for (const [inventoryId, blItem] of Array.from(blItemsMap.entries())) {
-            if (!matchedBlIds.has(inventoryId) && !isStockroomFiltered(blItem)) {
+            if (!matchedBlIds.has(inventoryId) && !isStockroomFiltered(blItem) && (blItem.quantity ?? 0) > 0) {
               if (missingCount < 100) {
                 const blPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
                 missingItems.push({
