@@ -2613,6 +2613,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [activeAuditOrgTab, setActiveAuditOrgTab] = useState<'overview' | 'bricklink'>('overview');
   const [activeAuditPlatformTab, setActiveAuditPlatformTab] = useState<'enrichment' | 'bricklink' | 'logs' | 'database'>('enrichment');
   const [orgHealthDrawer, setOrgHealthDrawer] = useState<{ open: boolean; metric: string; orgId: string; orgName: string }>({ open: false, metric: '', orgId: '', orgName: '' });
+  const [selectedOrgMetric, setSelectedOrgMetric] = useState<string | null>(null);
   const [blBreakdownSort, setBlBreakdownSort] = useState<{ col: string; dir: 'asc' | 'desc' }>({ col: 'total', dir: 'desc' });
   const [showBlSchedulePopup, setShowBlSchedulePopup] = useState(false);
   const [impersonationSearch, setImpersonationSearch] = useState('');
@@ -7404,13 +7405,49 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   const avgBsScans = bsOrgs.length > 0 ? Math.round(bsOrgs.reduce((sum, o) => sum + (o.brickspotter?.totalScans ?? 0), 0) / bsOrgs.length) : 0;
 
                   type MetricId = 'running' | 'successful' | 'failed' | 'blapi' | 'brickspotter' | 'errors';
-                  const metrics: { id: MetricId; label: string; value: string; color: string; desc: string; Icon: any }[] = [
-                    { id: 'running', label: 'Jobs Running', value: runningOrgs.length.toString(), color: runningOrgs.length > 0 ? 'text-yellow-400' : 'text-gray-500', desc: 'orgs with active job', Icon: Loader2 },
-                    { id: 'successful', label: 'Last Run OK', value: successOrgs.length.toString(), color: 'text-emerald-400', desc: 'orgs all-clear', Icon: CheckCircle2 },
-                    { id: 'failed', label: 'Failed', value: failedOrgs.length.toString(), color: failedOrgs.length > 0 ? 'text-red-400' : 'text-gray-500', desc: 'unrecovered failures', Icon: AlertTriangle },
-                    { id: 'blapi', label: 'Avg BL API / 24h', value: blApiBreakdownLoading ? '…' : avgBlCalls.toLocaleString(), color: 'text-blue-400', desc: 'avg calls per org', Icon: BarChart2 },
-                    { id: 'brickspotter', label: 'Avg BrickSpotter', value: avgBsScans.toLocaleString(), color: 'text-violet-400', desc: 'avg scans per org', Icon: Eye },
-                    { id: 'errors', label: 'Sync Errors', value: errorOrgs.length.toString(), color: errorOrgs.length > 0 ? 'text-orange-400' : 'text-gray-500', desc: 'orgs with error msgs', Icon: AlertTriangle },
+
+                  type MetricDef = {
+                    id: MetricId; label: string; value: string; desc: string; Icon: any;
+                    border: string; ring: string; headerBg: string; cardBg: string; glow: string; iconColor: string; numColor: string;
+                  };
+
+                  const metrics: MetricDef[] = [
+                    {
+                      id: 'failed', label: 'Failed', value: failedOrgs.length.toString(), desc: 'unrecovered failures',
+                      Icon: AlertTriangle, iconColor: 'text-red-400', numColor: failedOrgs.length > 0 ? 'text-red-400' : 'text-gray-600',
+                      border: 'border-red-500/40', ring: 'ring-red-400/60', headerBg: 'from-red-950/50 to-gray-900/80',
+                      cardBg: 'bg-gradient-to-br from-red-950/40 via-gray-950/70 to-red-950/20', glow: 'shadow-[0_0_15px_rgba(239,68,68,0.12)]',
+                    },
+                    {
+                      id: 'errors', label: 'Sync Errors', value: errorOrgs.length.toString(), desc: 'orgs with error msgs',
+                      Icon: AlertTriangle, iconColor: 'text-orange-400', numColor: errorOrgs.length > 0 ? 'text-orange-400' : 'text-gray-600',
+                      border: 'border-orange-500/40', ring: 'ring-orange-400/60', headerBg: 'from-orange-950/50 to-gray-900/80',
+                      cardBg: 'bg-gradient-to-br from-orange-950/40 via-gray-950/70 to-orange-950/20', glow: 'shadow-[0_0_15px_rgba(251,146,60,0.12)]',
+                    },
+                    {
+                      id: 'running', label: 'Jobs Running', value: runningOrgs.length.toString(), desc: 'orgs with active job',
+                      Icon: Loader2, iconColor: 'text-yellow-400', numColor: runningOrgs.length > 0 ? 'text-yellow-400' : 'text-gray-600',
+                      border: 'border-yellow-500/40', ring: 'ring-yellow-400/60', headerBg: 'from-yellow-950/50 to-gray-900/80',
+                      cardBg: 'bg-gradient-to-br from-yellow-950/40 via-gray-950/70 to-yellow-950/20', glow: 'shadow-[0_0_15px_rgba(234,179,8,0.12)]',
+                    },
+                    {
+                      id: 'successful', label: 'Last Run OK', value: successOrgs.length.toString(), desc: 'orgs all-clear',
+                      Icon: CheckCircle2, iconColor: 'text-emerald-400', numColor: 'text-emerald-400',
+                      border: 'border-emerald-500/40', ring: 'ring-emerald-400/60', headerBg: 'from-emerald-950/50 to-gray-900/80',
+                      cardBg: 'bg-gradient-to-br from-emerald-950/40 via-gray-950/70 to-emerald-950/20', glow: 'shadow-[0_0_15px_rgba(16,185,129,0.12)]',
+                    },
+                    {
+                      id: 'blapi', label: 'Avg BL API / 24h', value: blApiBreakdownLoading ? '…' : avgBlCalls.toLocaleString(), desc: 'avg calls per org',
+                      Icon: BarChart2, iconColor: 'text-blue-400', numColor: 'text-blue-400',
+                      border: 'border-blue-500/40', ring: 'ring-blue-400/60', headerBg: 'from-blue-950/50 to-gray-900/80',
+                      cardBg: 'bg-gradient-to-br from-blue-950/40 via-gray-950/70 to-blue-950/20', glow: 'shadow-[0_0_15px_rgba(59,130,246,0.12)]',
+                    },
+                    {
+                      id: 'brickspotter', label: 'Avg BrickSpotter', value: avgBsScans.toLocaleString(), desc: 'avg scans per org',
+                      Icon: Eye, iconColor: 'text-violet-400', numColor: 'text-violet-400',
+                      border: 'border-violet-500/40', ring: 'ring-violet-400/60', headerBg: 'from-violet-950/50 to-gray-900/80',
+                      cardBg: 'bg-gradient-to-br from-violet-950/40 via-gray-950/70 to-violet-950/20', glow: 'shadow-[0_0_15px_rgba(139,92,246,0.12)]',
+                    },
                   ];
 
                   const metricOrgs: Record<MetricId, any[]> = {
@@ -7421,6 +7458,12 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     brickspotter: [...bsOrgs].sort((a, b) => (b.brickspotter?.totalScans ?? 0) - (a.brickspotter?.totalScans ?? 0)),
                     errors: errorOrgs,
                   };
+
+                  const priorityOrder: MetricId[] = ['failed', 'errors', 'running', 'blapi', 'brickspotter', 'successful'];
+                  const defaultMetric = priorityOrder.find(id => metricOrgs[id].length > 0) ?? 'successful';
+                  const activeMetric = (selectedOrgMetric as MetricId | null) ?? defaultMetric;
+                  const activeMetricDef = metrics.find(m => m.id === activeMetric)!;
+                  const activeOrgs = metricOrgs[activeMetric];
 
                   const orgSummaryLine = (id: MetricId, org: any): string => {
                     if (id === 'running') return org.syncs.filter((s: any) => s.lastSyncStatus === 'in_progress').map((s: any) => syncLabels[s.id] || s.id).join(', ');
@@ -7435,47 +7478,56 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   return (
                     <>
                       <div className="grid grid-cols-2 gap-2">
-                        {metrics.map(m => (
-                          <div key={m.id} className="sm-card-inset p-3" data-testid={`org-health-metric-${m.id}`}>
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <m.Icon className={`h-3 w-3 ${m.color} shrink-0 ${m.id === 'running' && runningOrgs.length > 0 ? 'animate-spin' : ''}`} />
-                              <span className="text-[10px] text-gray-500 uppercase tracking-wider truncate">{m.label}</span>
-                            </div>
-                            <div className={`text-2xl font-bold font-mono leading-none ${m.color}`}>{m.value}</div>
-                            <div className="text-[10px] text-gray-600 mt-0.5">{m.desc}</div>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="space-y-3">
                         {metrics.map(m => {
-                          const orgs = metricOrgs[m.id];
-                          if (orgs.length === 0) return null;
+                          const isActive = activeMetric === m.id;
                           return (
-                            <div key={m.id}>
-                              <p className="sm-group-label px-1 mb-1 flex items-center gap-1.5">
-                                <m.Icon className={`h-3 w-3 ${m.color}`} />
-                                <span>{m.label}</span>
-                                <span className="ml-auto text-[10px] font-mono text-gray-500">{orgs.length}</span>
-                              </p>
-                              <div className="space-y-0.5">
-                                {orgs.map((org: any) => (
-                                  <button
-                                    key={org.orgId ?? org.orgName}
-                                    data-testid={`org-health-row-${m.id}-${org.orgId ?? org.orgName}`}
-                                    onClick={() => setOrgHealthDrawer({ open: true, metric: m.id, orgId: org.orgId, orgName: org.orgName })}
-                                    className="w-full sm-card-inset px-3 py-2 flex items-center gap-2 hover-elevate active-elevate-2 cursor-pointer text-left"
-                                  >
-                                    <Building2 className="h-3 w-3 text-gray-500 shrink-0" />
-                                    <span className="text-[11px] text-gray-200 flex-1 min-w-0 truncate">{org.orgName}</span>
-                                    <span className="text-[10px] text-gray-500 shrink-0">{orgSummaryLine(m.id, org)}</span>
-                                    <ChevronRight className="h-3 w-3 text-gray-600 shrink-0" />
-                                  </button>
-                                ))}
+                            <button
+                              key={m.id}
+                              onClick={() => setSelectedOrgMetric(m.id)}
+                              data-testid={`org-health-metric-${m.id}`}
+                              className={`rounded-lg border overflow-hidden text-left w-full transition-all ${m.border} ${m.cardBg} ${m.glow} ${isActive ? `ring-1 ${m.ring}` : 'opacity-70 hover:opacity-90'}`}
+                            >
+                              <div className={`flex items-center gap-2 px-3 py-2 bg-gradient-to-r ${m.headerBg}`}>
+                                <m.Icon className={`h-3 w-3 shrink-0 ${m.iconColor} ${m.id === 'running' && runningOrgs.length > 0 ? 'animate-spin' : ''}`} />
+                                <span className="text-[9px] uppercase tracking-widest font-bold text-gray-400 truncate flex-1">{m.label}</span>
                               </div>
-                            </div>
+                              <div className="px-3 pt-2 pb-2.5">
+                                <div className={`text-2xl font-bold font-mono leading-none ${m.numColor}`}>{m.value}</div>
+                                <div className="text-[10px] text-gray-600 mt-0.5">{m.desc}</div>
+                              </div>
+                            </button>
                           );
                         })}
+                      </div>
+
+                      <div>
+                        <p className="sm-group-label px-1 mb-1.5 flex items-center gap-1.5">
+                          <activeMetricDef.Icon className={`h-3 w-3 ${activeMetricDef.iconColor}`} />
+                          <span>{activeMetricDef.label}</span>
+                          <span className="ml-auto text-[10px] font-mono text-gray-500">{activeOrgs.length}</span>
+                        </p>
+                        {activeOrgs.length === 0 ? (
+                          <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-5 text-center">
+                            <CheckCircle2 className="h-4 w-4 text-emerald-400/50 mx-auto mb-1.5" />
+                            <p className="text-[11px] text-gray-500">No orgs in this state</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-0.5">
+                            {activeOrgs.map((org: any) => (
+                              <button
+                                key={org.orgId ?? org.orgName}
+                                data-testid={`org-health-row-${activeMetric}-${org.orgId ?? org.orgName}`}
+                                onClick={() => setOrgHealthDrawer({ open: true, metric: activeMetric, orgId: org.orgId, orgName: org.orgName })}
+                                className="w-full sm-card-inset px-3 py-2 flex items-center gap-2 hover-elevate active-elevate-2 cursor-pointer text-left"
+                              >
+                                <Building2 className="h-3 w-3 text-gray-500 shrink-0" />
+                                <span className="text-[11px] text-gray-200 flex-1 min-w-0 truncate">{org.orgName}</span>
+                                <span className="text-[10px] text-gray-500 shrink-0">{orgSummaryLine(activeMetric, org)}</span>
+                                <ChevronRight className="h-3 w-3 text-gray-600 shrink-0" />
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       <Drawer open={orgHealthDrawer.open} onOpenChange={(o) => setOrgHealthDrawer(prev => ({ ...prev, open: o }))}>
