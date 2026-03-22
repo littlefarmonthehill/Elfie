@@ -616,25 +616,21 @@ function Hero({ onSelect }: { onSelect: (p: NonNullable<Panel>) => void }) {
       display: "flex", flexDirection: "column",
       padding: "max(env(safe-area-inset-top,0px) + 14px, 18px) clamp(16px,4vw,28px) max(env(safe-area-inset-bottom,0px) + 12px, 14px)",
     }}>
-      <div style={{ flexShrink: 0 }}>
-        <img src={logoUrl} alt="PlanetBrick" style={{ height: "clamp(20px,5vw,32px)", width: "auto", objectFit: "contain", objectPosition: "left", opacity: 0.92 }} />
-      </div>
-
       {/* Center content */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: "clamp(10px,2.5vw,20px)" }}>
-        {/* Logo + E.L.F.I.E. stacked — logo behind, Elfie in front */}
-        <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", width: "clamp(200px,55vw,380px)", aspectRatio: "2/1" }}>
-          {/* PlanetBrick logo — centered behind Elfie, large */}
+        {/* Brand composition — large logo with Elfie floating nearby */}
+        <div style={{ position: "relative", display: "inline-block", marginBottom: "clamp(4px,1.5vw,12px)" }}>
+          {/* PlanetBrick logo — main brand, centered and prominent */}
           <img
             src={logoUrl}
             alt="PlanetBrick"
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", opacity: 0.18, animation: "pb-bglogo 18s ease-in-out infinite", filter: "blur(0.5px)", userSelect: "none", pointerEvents: "none" }}
+            style={{ display: "block", width: "clamp(210px,54vw,400px)", height: "auto", opacity: 0.93 }}
           />
-          {/* E.L.F.I.E. — in front, floating */}
+          {/* E.L.F.I.E. — floating bottom-right, like a mascot beside the brand */}
           <img
             src={elfieUrl}
             alt="E.L.F.I.E."
-            style={{ position: "relative", zIndex: 1, width: "clamp(80px,20vw,130px)", height: "auto", animation: "pb-float 4s ease-in-out infinite", filter: `drop-shadow(0 0 24px ${TEAL}55)` }}
+            style={{ position: "absolute", right: "-10%", bottom: "-38%", width: "clamp(60px,14vw,90px)", height: "auto", animation: "pb-float 4s ease-in-out infinite", filter: `drop-shadow(0 0 20px ${TEAL}66)`, zIndex: 2 }}
           />
         </div>
 
