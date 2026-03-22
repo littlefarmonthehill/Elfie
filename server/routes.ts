@@ -11471,13 +11471,30 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
 
   // Sync Routes
   app.post("/api/sync/bricklink/inventory", isApproved, async (req: any, res) => {
+    const orgId = reqOrgId(req);
+    const SYNC_ID = 'bricklink_inventory';
     try {
-      const orgId = reqOrgId(req);
-      const result = await syncBricklinkData(orgId);
-      res.json({
-        success: true,
-        data: result,
+      await db.insert(syncMetadata).values({
+        id: SYNC_ID, orgId, lastSyncStatus: 'in_progress', lastSyncTime: new Date(),
+        recordsAdded: 0, recordsUpdated: 0,
+      }).onConflictDoUpdate({
+        target: syncMetadata.id,
+        set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: null },
       });
+
+      const result = await syncBricklinkData(orgId);
+
+      await db.insert(syncMetadata).values({
+        id: SYNC_ID, orgId, lastSyncStatus: 'success', lastSyncTime: new Date(),
+        recordsAdded: result.inventoryAdded ?? 0, recordsUpdated: result.inventoryUpdated ?? 0, errorMessage: null,
+      }).onConflictDoUpdate({
+        target: syncMetadata.id,
+        set: { lastSyncStatus: 'success', lastSyncTime: new Date(), updatedAt: new Date(),
+          recordsAdded: result.inventoryAdded ?? 0, recordsUpdated: result.inventoryUpdated ?? 0, errorMessage: null },
+      });
+
+      res.json({ success: true, data: result });
+
       // Fire-and-forget: embed any new items that don't yet have a CLIP catalog embedding.
       (async () => {
         try {
@@ -11494,6 +11511,15 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     } catch (error: any) {
       const isConflict = error?.message?.toLowerCase().includes('blocked') || error?.message?.toLowerCase().includes('already in progress') || error?.message?.toLowerCase().includes('already running');
       console.error("BrickLink sync error:", error);
+      if (!isConflict) {
+        await db.insert(syncMetadata).values({
+          id: SYNC_ID, orgId, lastSyncStatus: 'error', lastSyncTime: new Date(),
+          recordsAdded: 0, recordsUpdated: 0, errorMessage: error.message,
+        }).onConflictDoUpdate({
+          target: syncMetadata.id,
+          set: { lastSyncStatus: 'error', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: error.message },
+        }).catch(() => {});
+      }
       res.status(isConflict ? 409 : 500).json({
         success: false,
         error: isConflict ? error.message : "Failed to sync BrickLink inventory",

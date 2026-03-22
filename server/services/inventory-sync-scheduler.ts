@@ -145,6 +145,7 @@ async function runAutomatedInventorySync() {
       target: syncMetadata.id,
       set: {
         lastSyncStatus: 'success',
+        lastSyncTime: new Date(),
         updatedAt: new Date(),
         recordsAdded: result.inventoryAdded ?? 0,
         recordsUpdated: result.inventoryUpdated ?? 0,
