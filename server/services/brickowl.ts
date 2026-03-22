@@ -650,6 +650,8 @@ export async function syncBrickLinkToBrickOwl(
   const blItems = await query;
 
   console.log(`[ChannelSync] ${blItems.length} BrickLink items to compare`);
+  const blWithSale = blItems.filter(i => (i.saleRate ?? 0) > 0).length;
+  console.log(`[ChannelSync:DIAG] BL items with saleRate>0: ${blWithSale}`);
 
   const brickowlInventory = await getBrickOwlInventory(false);
   console.log(`[ChannelSync] ${brickowlInventory.length} BrickOwl lots fetched`);
@@ -972,6 +974,12 @@ export async function syncBrickLinkToBrickOwl(
   const FIELD_CONCURRENCY = 4;
   const FIELD_GAP_MS      = 400;
 
+  const saleFieldJobs = fieldJobs.filter(j => j.sale_percentage !== undefined);
+  console.log(`[ChannelSync:DIAG] fieldJobs total=${fieldJobs.length}, with sale_percentage=${saleFieldJobs.length}`);
+  if (saleFieldJobs.length > 0) {
+    console.log(`[ChannelSync:DIAG] First 5 sale fieldJobs: ${saleFieldJobs.slice(0, 5).map(j => `lot_id=${j.lot_id} sale%=${j.sale_percentage}`).join(', ')}`);
+  }
+
   let fieldResponsesLogged = 0;
 
   for (let r = 0; r < fieldJobs.length; r += FIELD_CONCURRENCY) {
@@ -1079,6 +1087,7 @@ export async function syncBrickLinkToBrickOwl(
       if (untagged.length === 1) {
         // Adopt single pre-existing untagged lot
         try {
+          const itemSalePercent = fields.salePercent ? (item.saleRate ?? 0) : undefined;
           await updateBrickOwlLot({
             lot_id: untagged[0].lot_id,
             external_id: item.id.toString(),
@@ -1089,6 +1098,7 @@ export async function syncBrickLinkToBrickOwl(
             personal_note:   item.remarks     || undefined,
             public_note:     item.description || undefined,
             ...(itemTierPrice  !== undefined && { tier_price:  itemTierPrice  }),
+            ...(itemSalePercent !== undefined && { sale_percentage: itemSalePercent }),
             ...(itemBulkQty   !== undefined && { bulk_qty:    itemBulkQty   }),
             ...(itemLotWeight !== undefined && { lot_weight:  itemLotWeight }),
           });
@@ -1106,6 +1116,7 @@ export async function syncBrickLinkToBrickOwl(
       } else {
         // Create new lot
         try {
+          const itemSalePercent = fields.salePercent ? (item.saleRate ?? 0) : undefined;
           await createBrickOwlLot({
             boid,
             quantity: item.quantity,
@@ -1116,6 +1127,7 @@ export async function syncBrickLinkToBrickOwl(
             personal_note:   item.remarks     || undefined,
             public_note:     item.description || undefined,
             ...(itemTierPrice  !== undefined && { tier_price:  itemTierPrice  }),
+            ...(itemSalePercent !== undefined && itemSalePercent > 0 && { sale_percentage: itemSalePercent }),
             ...(itemBulkQty   !== undefined && { bulk_qty:    itemBulkQty   }),
             ...(itemLotWeight !== undefined && { lot_weight:  itemLotWeight }),
           });
