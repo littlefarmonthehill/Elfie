@@ -616,21 +616,27 @@ function Hero({ onSelect }: { onSelect: (p: NonNullable<Panel>) => void }) {
       display: "flex", flexDirection: "column",
       padding: "max(env(safe-area-inset-top,0px) + 14px, 18px) clamp(16px,4vw,28px) max(env(safe-area-inset-bottom,0px) + 12px, 14px)",
     }}>
+      {/* Top-left logo lockup */}
+      <div style={{ flexShrink: 0 }}>
+        <img src={logoUrl} alt="PlanetBrick" style={{ height: "clamp(22px,5vw,34px)", width: "auto", objectFit: "contain", objectPosition: "left", opacity: 0.92 }} />
+      </div>
+
       {/* Center content */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: "clamp(10px,2.5vw,20px)" }}>
-        {/* Brand composition — large logo with Elfie floating nearby */}
-        <div style={{ position: "relative", display: "inline-block", marginBottom: "clamp(4px,1.5vw,12px)" }}>
-          {/* PlanetBrick logo — main brand, centered and prominent */}
+        {/* Brand composition — large faded logo behind, Elfie centered in front */}
+        <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", width: "clamp(220px,58vw,420px)", aspectRatio: "2.2/1" }}>
+          {/* PlanetBrick logo — large, faded, behind Elfie */}
           <img
             src={logoUrl}
-            alt="PlanetBrick"
-            style={{ display: "block", width: "clamp(210px,54vw,400px)", height: "auto", opacity: 0.93 }}
+            alt=""
+            aria-hidden="true"
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", opacity: 0.22, animation: "pb-bglogo 18s ease-in-out infinite", filter: "blur(0.5px)", userSelect: "none", pointerEvents: "none" }}
           />
-          {/* E.L.F.I.E. — floating bottom-right, like a mascot beside the brand */}
+          {/* E.L.F.I.E. — centered, floating in front of the logo */}
           <img
             src={elfieUrl}
             alt="E.L.F.I.E."
-            style={{ position: "absolute", right: "-10%", bottom: "-38%", width: "clamp(60px,14vw,90px)", height: "auto", animation: "pb-float 4s ease-in-out infinite", filter: `drop-shadow(0 0 20px ${TEAL}66)`, zIndex: 2 }}
+            style={{ position: "relative", zIndex: 1, width: "clamp(90px,22vw,145px)", height: "auto", animation: "pb-float 4s ease-in-out infinite", filter: `drop-shadow(0 0 28px ${TEAL}66)` }}
           />
         </div>
 
