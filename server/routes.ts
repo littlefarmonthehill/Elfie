@@ -8810,7 +8810,7 @@ Format search_web URLs as markdown links.`;
           SELECT
             COUNT(*) as count,
             COUNT(CASE WHEN EXISTS (
-              SELECT 1 FROM order_details od WHERE od.inventory_id = bi.id
+              SELECT 1 FROM order_details od WHERE od.bricklink_inventory_id = bi.id
             ) THEN 1 END) as linked_count
           FROM bl_inventory bi
           WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NOT NULL
@@ -8863,7 +8863,7 @@ Format search_web URLs as markdown links.`;
           WHERE bi.org_id = ${orgId}
             AND bi.deleted_at IS NULL AND bi.quantity > 0
             AND NOT EXISTS (
-              SELECT 1 FROM order_details od WHERE od.inventory_id = bi.id
+              SELECT 1 FROM order_details od WHERE od.bricklink_inventory_id = bi.id
             )
         `),
 
@@ -8880,17 +8880,18 @@ Format search_web URLs as markdown links.`;
           .groupBy(blInventory.isStockRoom, blInventory.stockRoomId),
 
         // 9. Product mix — category concentration
+        // bl_categories PK is "id"; the name column is "name" (not category_id / category_name)
         db.execute(sql`
-          SELECT bc.category_id, bcat.category_name,
+          SELECT bc.category_id, bcat.name AS category_name,
                  COUNT(bi.id) as lot_count,
                  SUM(bi.quantity) as total_qty,
                  SUM(COALESCE(CAST(bi.unit_price AS numeric), 0) * bi.quantity) as total_value
           FROM bl_inventory bi
           LEFT JOIN bl_catalog bc ON bi.item_no = bc.item_no AND bi.item_type = bc.item_type
             AND COALESCE(bi.color_id, 0) = bc.color_id
-          LEFT JOIN bl_categories bcat ON bc.category_id = bcat.category_id
+          LEFT JOIN bl_categories bcat ON bc.category_id = bcat.id
           WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NULL AND bi.quantity > 0
-          GROUP BY bc.category_id, bcat.category_name
+          GROUP BY bc.category_id, bcat.name
           ORDER BY lot_count DESC
           LIMIT 12
         `),
@@ -8988,7 +8989,7 @@ Format search_web URLs as markdown links.`;
       if (category === 'soft_deleted') {
         result = await db.execute(sql`
           SELECT ${selectCols},
-                 (EXISTS (SELECT 1 FROM order_details od WHERE od.inventory_id = bi.id)) as is_linked
+                 (EXISTS (SELECT 1 FROM order_details od WHERE od.bricklink_inventory_id = bi.id)) as is_linked
           FROM bl_inventory bi LEFT JOIN ${catalogJoin}
           WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NOT NULL
           ORDER BY bi.deleted_at DESC LIMIT ${limit} OFFSET ${offset}
@@ -9047,7 +9048,7 @@ Format search_web URLs as markdown links.`;
           SELECT ${selectCols}
           FROM bl_inventory bi LEFT JOIN ${catalogJoin}
           WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NULL AND bi.quantity > 0
-            AND NOT EXISTS (SELECT 1 FROM order_details od WHERE od.inventory_id = bi.id)
+            AND NOT EXISTS (SELECT 1 FROM order_details od WHERE od.bricklink_inventory_id = bi.id)
           ORDER BY bi.quantity DESC LIMIT ${limit} OFFSET ${offset}
         `);
       } else if (category === 'overpriced') {
