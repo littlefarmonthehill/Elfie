@@ -622,12 +622,21 @@ function Hero({ onSelect }: { onSelect: (p: NonNullable<Panel>) => void }) {
 
       {/* Center content */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: "clamp(10px,2.5vw,20px)" }}>
-        {/* Floating E.L.F.I.E. PNG */}
-        <img
-          src={elfieUrl}
-          alt="E.L.F.I.E."
-          style={{ width: "clamp(80px,20vw,120px)", height: "auto", animation: "pb-float 4s ease-in-out infinite", filter: `drop-shadow(0 0 24px ${TEAL}55)` }}
-        />
+        {/* Logo + E.L.F.I.E. stacked — logo behind, Elfie in front */}
+        <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", width: "clamp(200px,55vw,380px)", aspectRatio: "2/1" }}>
+          {/* PlanetBrick logo — centered behind Elfie, large */}
+          <img
+            src={logoUrl}
+            alt="PlanetBrick"
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", opacity: 0.18, animation: "pb-bglogo 18s ease-in-out infinite", filter: "blur(0.5px)", userSelect: "none", pointerEvents: "none" }}
+          />
+          {/* E.L.F.I.E. — in front, floating */}
+          <img
+            src={elfieUrl}
+            alt="E.L.F.I.E."
+            style={{ position: "relative", zIndex: 1, width: "clamp(80px,20vw,130px)", height: "auto", animation: "pb-float 4s ease-in-out infinite", filter: `drop-shadow(0 0 24px ${TEAL}55)` }}
+          />
+        </div>
 
         <div>
           <div style={{ fontSize: "clamp(7px,1.8vw,10px)", fontFamily: "monospace", color: TEAL, letterSpacing: "0.4em", marginBottom: "clamp(8px,2vw,12px)", textTransform: "uppercase" }}>
@@ -704,11 +713,6 @@ export default function LandingPage() {
       {/* Background planet */}
       <div style={{ position: "fixed", right: "-12vw", bottom: "-10vh", width: "45vw", height: "45vw", borderRadius: "50%", background: "radial-gradient(circle at 30% 30%, rgba(80,20,180,0.35), rgba(20,5,80,0.6) 60%, rgba(5,3,15,0.9))", border: "1px solid rgba(120,60,200,0.12)", pointerEvents: "none" }} />
       <div style={{ position: "fixed", left: "4vw", top: "10vh", width: "clamp(32px,5.5vw,64px)", height: "clamp(32px,5.5vw,64px)", borderRadius: "50%", background: "radial-gradient(circle at 35% 30%, rgba(0,220,200,0.4), rgba(0,100,120,0.6) 60%, rgba(0,40,60,0.9))", border: "1px solid rgba(0,200,180,0.15)", pointerEvents: "none" }} />
-
-      {/* Animated background PlanetBrick logo */}
-      <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", zIndex: 0 }}>
-        <img src={logoUrl} alt="" style={{ width: "clamp(280px,72vw,640px)", maxWidth: "90%", height: "auto", animation: "pb-bglogo 18s ease-in-out infinite", filter: "blur(1px) saturate(0.4)", mixBlendMode: "screen", userSelect: "none" }} />
-      </div>
 
       {/* TV Drop Panel */}
       <TvPanel
