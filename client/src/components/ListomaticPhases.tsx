@@ -237,6 +237,16 @@ export function ListomaticPhases() {
     }
   }, [drag, handlePointerMove, handlePointerUp]);
 
+  // Guarantee body styles are restored if the component unmounts mid-drag
+  // (e.g. modal closes while user is dragging on iOS). Without this, touchAction
+  // stays "none" on the body permanently, freezing all touch scrolling app-wide.
+  useEffect(() => {
+    return () => {
+      document.body.style.userSelect = "";
+      document.body.style.touchAction = "";
+    };
+  }, []);
+
   function startDrag(e: React.PointerEvent, cat: PhaseCategory) {
     e.preventDefault();
     e.currentTarget.releasePointerCapture(e.pointerId);
