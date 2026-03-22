@@ -14,30 +14,24 @@ import {
   ArrowLeftRight,
   ChevronRight,
   X,
-  Trash2,
   Tag,
   DollarSign,
   TrendingDown,
   Copy,
   Archive,
-  Palette,
   Package,
   BarChart3,
   AlertTriangle,
   CheckCircle2,
   Loader2,
-  Link,
-  Unlink,
   ChevronLeft,
   Replace,
 } from "lucide-react";
 
 interface HealthSummary {
-  softDeleted: { total: number; linked: number; standalone: number };
   zeroPriced: number;
   missingCost: number;
   negativeMargin: number;
-  missingColor: number;
   duplicates: { groups: number; lots: number };
   deadStock: number;
   overpriced: number;
@@ -52,11 +46,9 @@ interface HealthSummary {
 }
 
 type HealthCategory =
-  | 'soft_deleted'
   | 'zero_priced'
   | 'missing_cost'
   | 'negative_margin'
-  | 'missing_color'
   | 'duplicates'
   | 'dead_stock'
   | 'overpriced'
@@ -76,16 +68,6 @@ interface CategoryCard {
   severity: 'critical' | 'warning' | 'info';
 }
 
-function relTime(iso: string | null | undefined): string {
-  if (!iso) return '';
-  const diff = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
 
 function fmt(n: number | string | undefined | null, decimals = 2): string {
   const v = Number(n ?? 0);
@@ -277,23 +259,10 @@ function DetailRow({ row, category }: { row: any; category: HealthCategory }) {
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-xs font-mono text-gray-300">{row.item_no}</span>
           <ConditionBadge cond={row.new_or_used} />
-          {row.is_linked && (
-            <span className="flex items-center gap-0.5 text-[9px] px-1 py-0 rounded bg-blue-900/40 text-blue-300 border border-blue-700/30">
-              <Link className="w-2 h-2" /> order
-            </span>
-          )}
-          {category === 'soft_deleted' && !row.is_linked && (
-            <span className="flex items-center gap-0.5 text-[9px] px-1 py-0 rounded bg-gray-800/60 text-gray-400 border border-gray-700/30">
-              <Unlink className="w-2 h-2" /> standalone
-            </span>
-          )}
           <span className="text-[9px] font-mono text-gray-600">#{row.id}</span>
         </div>
         <div className="text-[10px] text-gray-500 truncate">
           {row.item_name}{row.color_name && row.color_name !== 'No Color' ? ` · ${row.color_name}` : ''}
-          {category === 'soft_deleted' && row.deleted_at && (
-            <span className="ml-1 text-red-400/70">deleted {relTime(row.deleted_at)}</span>
-          )}
         </div>
       </div>
       <div className="text-right flex-shrink-0 space-y-0.5">
@@ -411,18 +380,6 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
 
   const categories: CategoryCard[] = health ? [
     {
-      id: 'soft_deleted',
-      label: 'Removed from BrickLink',
-      description: `${health.softDeleted.linked} linked to orders · ${health.softDeleted.standalone} standalone`,
-      icon: Trash2,
-      accentColor: 'text-red-400',
-      borderColor: 'border-red-500/40',
-      bgColor: 'bg-red-950/30',
-      count: health.softDeleted.total,
-      countLabel: 'items',
-      severity: health.softDeleted.linked > 0 ? 'critical' : 'warning',
-    },
-    {
       id: 'zero_priced',
       label: 'No Price Set',
       description: 'Active lots with quantity but no unit price',
@@ -491,18 +448,6 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
       borderColor: 'border-sky-500/40',
       bgColor: 'bg-sky-950/30',
       count: health.deadStock,
-      countLabel: 'lots',
-      severity: 'info',
-    },
-    {
-      id: 'missing_color',
-      label: 'Parts Missing Color',
-      description: 'Parts or minifigs with color ID = 0 (no color assigned)',
-      icon: Palette,
-      accentColor: 'text-pink-400',
-      borderColor: 'border-pink-500/40',
-      bgColor: 'bg-pink-950/30',
-      count: health.missingColor,
       countLabel: 'lots',
       severity: 'info',
     },
