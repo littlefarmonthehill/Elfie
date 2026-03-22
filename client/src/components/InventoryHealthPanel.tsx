@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import {
   Activity,
   ArrowLeft,
+  ArrowLeftRight,
   ChevronRight,
   X,
   Trash2,
@@ -28,6 +29,7 @@ import {
   Link,
   Unlink,
   ChevronLeft,
+  Replace,
 } from "lucide-react";
 
 interface HealthSummary {
@@ -39,6 +41,8 @@ interface HealthSummary {
   duplicates: { groups: number; lots: number };
   deadStock: number;
   overpriced: number;
+  crossConditionDupes: { groups: number; lots: number };
+  obsoleteCatalog: number;
   stockroom: Record<string, { lotCount: number; totalQty: number; totalValue: number }>;
   productMix: {
     totalCategories: number;
@@ -55,7 +59,9 @@ type HealthCategory =
   | 'missing_color'
   | 'duplicates'
   | 'dead_stock'
-  | 'overpriced';
+  | 'overpriced'
+  | 'cross_condition_dupes'
+  | 'obsolete_catalog';
 
 interface CategoryCard {
   id: HealthCategory;
@@ -311,6 +317,16 @@ function DetailRow({ row, category }: { row: any; category: HealthCategory }) {
         {category === 'dead_stock' && row.unit_price && (
           <div className="text-[10px] text-gray-500">{formatCurrency(row.unit_price)}</div>
         )}
+        {category === 'cross_condition_dupes' && (
+          <div className="text-[10px] font-mono text-fuchsia-400">
+            {row.new_or_used === 'N' ? 'New' : row.new_or_used === 'U' ? 'Used' : row.new_or_used}
+          </div>
+        )}
+        {category === 'obsolete_catalog' && (
+          <div className="text-[10px] font-mono text-rose-400">
+            {row.alternate_no ? `→ ${row.alternate_no}` : 'obsolete'}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -489,6 +505,30 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
       count: health.missingColor,
       countLabel: 'lots',
       severity: 'info',
+    },
+    {
+      id: 'cross_condition_dupes',
+      label: 'Listed as Both New & Used',
+      description: `${health.crossConditionDupes.groups} items · same part/color active in N and U`,
+      icon: ArrowLeftRight,
+      accentColor: 'text-fuchsia-400',
+      borderColor: 'border-fuchsia-500/40',
+      bgColor: 'bg-fuchsia-950/30',
+      count: health.crossConditionDupes.lots,
+      countLabel: 'lots',
+      severity: 'warning',
+    },
+    {
+      id: 'obsolete_catalog',
+      label: 'Superseded BL Item IDs',
+      description: 'BrickLink has replaced these item numbers — update before they are removed',
+      icon: Replace,
+      accentColor: 'text-rose-400',
+      borderColor: 'border-rose-500/40',
+      bgColor: 'bg-rose-950/30',
+      count: health.obsoleteCatalog,
+      countLabel: 'lots',
+      severity: 'warning',
     },
   ] : [];
 

@@ -218,6 +218,10 @@ export const blCatalog = pgTable("bl_catalog", {
   storedImageKey: text("stored_image_key"),
   // Set true when all CDN sources 404 — harvester skips rows with this flag
   imageFetchFailed: boolean("image_fetch_failed").default(false),
+  // BrickLink catalog lifecycle: is_obsolete=true means BL has retired this item ID;
+  // alternate_no is the replacement item_no (new ID created while old is maintained temporarily).
+  isObsolete: boolean("is_obsolete").default(false),
+  alternateNo: text("alternate_no"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
   pk: primaryKey({ columns: [table.itemNo, table.itemType, table.colorId] }),

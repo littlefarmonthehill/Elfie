@@ -1306,6 +1306,16 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-70 (bl_inventory soft-delete column) complete.');
 
+    // ── Phase-71: BrickLink catalog lifecycle columns ──────────────────────────
+    // is_obsolete: BL has retired this item ID (item will eventually be removed from catalog)
+    // alternate_no: the replacement item_no BL created (new ID while old is temporarily kept)
+    await client.query(`
+      ALTER TABLE bl_catalog
+        ADD COLUMN IF NOT EXISTS is_obsolete BOOLEAN NOT NULL DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS alternate_no TEXT
+    `);
+    console.log('[Migration] Phase-71 (bl_catalog lifecycle columns: is_obsolete + alternate_no) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

@@ -8804,6 +8804,8 @@ Format search_web URLs as markdown links.`;
         stockroomRows,
         productMixResult,
         overPricedResult,
+        crossConditionResult,
+        obsoleteCatalogResult,
       ] = await Promise.all([
         // 1. Soft-deleted items (total + how many are linked to an order)
         db.execute(sql`
@@ -8909,6 +8911,35 @@ Format search_web URLs as markdown links.`;
             AND CAST(pgc.max_price AS numeric) > 0
             AND CAST(bi.unit_price AS numeric) > CAST(pgc.max_price AS numeric) * 1.5
         `),
+
+        // 11. Cross-condition duplicates: same item_no + color_id listed as both N and U
+        // Returns how many item+color groups have this problem and total lots involved.
+        db.execute(sql`
+          SELECT COUNT(*) as group_count, COALESCE(SUM(lot_count), 0) as total_lots
+          FROM (
+            SELECT item_no, color_id, SUM(cnt) as lot_count
+            FROM (
+              SELECT item_no, color_id, new_or_used, COUNT(*) as cnt
+              FROM bl_inventory
+              WHERE org_id = ${orgId} AND deleted_at IS NULL AND quantity > 0
+                AND new_or_used IN ('N', 'U')
+              GROUP BY item_no, color_id, new_or_used
+            ) sub
+            GROUP BY item_no, color_id
+            HAVING COUNT(DISTINCT new_or_used) > 1
+          ) grp
+        `),
+
+        // 12. Obsolete / superseded catalog items: active lots whose BL catalog entry
+        // is marked obsolete (is_obsolete=TRUE) or has been given a replacement ID (alternate_no).
+        db.execute(sql`
+          SELECT COUNT(*) as count
+          FROM bl_inventory bi
+          JOIN bl_catalog bc ON bi.item_no = bc.item_no AND bi.item_type = bc.item_type
+            AND COALESCE(bi.color_id, 0) = bc.color_id
+          WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NULL AND bi.quantity > 0
+            AND (bc.is_obsolete = TRUE OR (bc.alternate_no IS NOT NULL AND bc.alternate_no != ''))
+        `),
       ]);
 
       // Stockroom breakdown aggregation
@@ -8942,6 +8973,14 @@ Format search_web URLs as markdown links.`;
       const softDeletedTotal = Number(sdRow.count ?? 0);
       const softDeletedLinked = Number(sdRow.linked_count ?? 0);
 
+      // Cross-condition duplicate summary
+      const ccRow = (crossConditionResult as any).rows?.[0] ?? {};
+      const crossConditionGroups = Number(ccRow.group_count ?? 0);
+      const crossConditionLots = Number(ccRow.total_lots ?? 0);
+
+      // Obsolete/superseded catalog items
+      const obsoleteCount = Number(((obsoleteCatalogResult as any).rows?.[0]?.count) ?? 0);
+
       res.json({
         softDeleted: {
           total: softDeletedTotal,
@@ -8955,6 +8994,8 @@ Format search_web URLs as markdown links.`;
         duplicates: { groups: duplicateGroupCount, lots: duplicateLotCount },
         deadStock: Number(((deadStockResult as any).rows?.[0]?.count) ?? 0),
         overpriced: Number(((overPricedResult as any).rows?.[0]?.count) ?? 0),
+        crossConditionDupes: { groups: crossConditionGroups, lots: crossConditionLots },
+        obsoleteCatalog: obsoleteCount,
         stockroom,
         productMix: {
           totalCategories: mixRows.length,
@@ -9066,6 +9107,35 @@ Format search_web URLs as markdown links.`;
             AND CAST(pgc.max_price AS numeric) > 0
             AND CAST(bi.unit_price AS numeric) > CAST(pgc.max_price AS numeric) * 1.5
           ORDER BY pct_above DESC LIMIT ${limit} OFFSET ${offset}
+        `);
+      } else if (category === 'cross_condition_dupes') {
+        // Show all active lots that share item_no + color_id across both N and U conditions.
+        // Grouped so the user can see which items have both conditions listed.
+        result = await db.execute(sql`
+          SELECT ${selectCols}
+          FROM bl_inventory bi LEFT JOIN ${catalogJoin}
+          WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NULL AND bi.quantity > 0
+            AND bi.new_or_used IN ('N', 'U')
+            AND (bi.item_no, COALESCE(bi.color_id, 0)) IN (
+              SELECT item_no, COALESCE(color_id, 0)
+              FROM bl_inventory
+              WHERE org_id = ${orgId} AND deleted_at IS NULL AND quantity > 0
+                AND new_or_used IN ('N', 'U')
+              GROUP BY item_no, COALESCE(color_id, 0)
+              HAVING COUNT(DISTINCT new_or_used) > 1
+            )
+          ORDER BY bi.item_no, bi.color_id, bi.new_or_used LIMIT ${limit} OFFSET ${offset}
+        `);
+      } else if (category === 'obsolete_catalog') {
+        // Active lots whose BL catalog entry is marked obsolete or has a replacement item_no.
+        result = await db.execute(sql`
+          SELECT ${selectCols}, bc.alternate_no, bc.is_obsolete
+          FROM bl_inventory bi
+          LEFT JOIN bl_catalog bc ON bi.item_no = bc.item_no AND bi.item_type = bc.item_type
+            AND COALESCE(bi.color_id, 0) = bc.color_id
+          WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NULL AND bi.quantity > 0
+            AND (bc.is_obsolete = TRUE OR (bc.alternate_no IS NOT NULL AND bc.alternate_no != ''))
+          ORDER BY bi.quantity DESC LIMIT ${limit} OFFSET ${offset}
         `);
       } else {
         return res.status(404).json({ error: 'Unknown health category' });

@@ -258,6 +258,10 @@ export async function runCatalogDetailSync(): Promise<{
             yearReleased: data.year_released || null,
             imageUrl: apiImageUrl,
             thumbnailUrl: apiThumbUrl,
+            // Lifecycle flags: BL marks superseded items with is_obsolete and provides
+            // alternate_no (the new replacement item_no) so stores can update their inventory.
+            isObsolete: data.is_obsolete ?? false,
+            alternateNo: data.alternate_no || null,
           }).onConflictDoUpdate({
             target: [blCatalog.itemNo, blCatalog.itemType, blCatalog.colorId],
             set: {
@@ -272,6 +276,9 @@ export async function runCatalogDetailSync(): Promise<{
               // Rebrickable enrichment (higher quality) can still overwrite later.
               imageUrl: sql`COALESCE(EXCLUDED.image_url, bl_catalog.image_url)`,
               thumbnailUrl: sql`COALESCE(EXCLUDED.thumbnail_url, bl_catalog.thumbnail_url)`,
+              // Always update lifecycle flags — BL is authoritative on obsolete/superseded status.
+              isObsolete: sql`EXCLUDED.is_obsolete`,
+              alternateNo: sql`COALESCE(EXCLUDED.alternate_no, bl_catalog.alternate_no)`,
               updatedAt: sql`NOW()`,
             },
           });
