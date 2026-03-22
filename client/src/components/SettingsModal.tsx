@@ -5921,12 +5921,20 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           </div>
                         </div>
                         <p className="text-[10px] text-gray-500 leading-relaxed">
-                          {pomSortMode === 'scoring'
-                            ? 'Items ranked by repricing score — ceiling ratio, demand velocity, scarcity, and undercut margin. Best for systematic repricing.'
-                            : 'Items ranked by dollar opportunity — (suggested \u2212 current) \u00d7 quantity. Surfaces the highest-revenue repricing wins first. Beta.'}
+                          {pomSortMode === 'scoring' ? (
+                            <>
+                              Items ranked by repricing score — ceiling ratio, demand velocity, scarcity, and undercut margin. Best for systematic repricing.
+                              <span className="block mt-1 font-mono text-gray-600">
+                                Score = (ceiling × {Math.round(pomWeightCeiling * 100)}%) + (velocity × {Math.round(pomWeightVelocity * 100)}%) + (scarcity × {Math.round(pomWeightScarcity * 100)}%) + (undercut × {Math.round(pomWeightUndercut * 100)}%)
+                              </span>
+                            </>
+                          ) : (
+                            'Items ranked by dollar opportunity — (suggested \u2212 current) \u00d7 quantity. Surfaces the highest-revenue repricing wins first. Beta.'
+                          )}
                         </p>
                       </div>
 
+                      {pomSortMode !== 'suggested' && (<>
                       <div className="px-3">
                         <div className="relative">
                           {scoringWheelExample ? (
@@ -6075,13 +6083,14 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           </div>
                         )}
                       </div>
+                      </>)}
 
                     </div>
                   )}
                 </div>
 
                 {/* Suggested Pricing collapsible */}
-                <div ref={pricingWheelRef}>
+                {pomSortMode !== 'suggested' && <div ref={pricingWheelRef}>
                   <button
                     onClick={() => setPomSugPricingOpen(!pomSugPricingOpen)}
                     className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
@@ -6284,7 +6293,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
                     </div>
                   )}
-                </div>
+                </div>}
 
                 {/* AI Pricing collapsible */}
                 <div>
