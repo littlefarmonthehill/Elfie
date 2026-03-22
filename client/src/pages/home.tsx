@@ -193,7 +193,12 @@ export default function Home() {
         const counts = c.recordsUpdated ? ` · ${c.recordsUpdated} updated` : '';
         toast({ title: `${label} partial run`, description: `Hit API limit before finishing${counts}. Updates saved.` });
       } else if (p.lastSyncStatus === 'in_progress' && (c.lastSyncStatus === 'failed' || c.lastSyncStatus === 'error')) {
-        toast({ title: `${label} failed`, description: c.errorMessage || 'Sync encountered an error.', variant: 'destructive' });
+        const isRestartInterrupt = c.errorMessage?.toLowerCase().includes('server restart') || c.errorMessage?.toLowerCase().includes('interrupted');
+        if (isRestartInterrupt) {
+          toast({ title: `${label} interrupted`, description: 'Server restarted mid-sync — will resume on next scheduled run.' });
+        } else {
+          toast({ title: `${label} failed`, description: c.errorMessage || 'Sync encountered an error.', variant: 'destructive' });
+        }
       }
     }
 
