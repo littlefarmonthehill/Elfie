@@ -8908,8 +8908,8 @@ Format search_web URLs as markdown links.`;
           WHERE bi.org_id = ${orgId}
             AND bi.deleted_at IS NULL AND bi.quantity > 0
             AND CAST(bi.unit_price AS numeric) > 0
-            AND CAST(pgc.max_price AS numeric) > 0
-            AND CAST(bi.unit_price AS numeric) > CAST(pgc.max_price AS numeric) * 1.5
+            AND CAST(pgc.stock_max_price AS numeric) > 0
+            AND CAST(bi.unit_price AS numeric) > CAST(pgc.stock_max_price AS numeric) * 1.5
         `),
 
         // 11. Cross-condition duplicates: same item_no + color_id listed as both N and U
@@ -9095,8 +9095,8 @@ Format search_web URLs as markdown links.`;
       } else if (category === 'overpriced') {
         result = await db.execute(sql`
           SELECT ${selectCols},
-                 CAST(pgc.max_price AS numeric) as market_ceiling,
-                 ROUND((CAST(bi.unit_price AS numeric) / CAST(pgc.max_price AS numeric) - 1) * 100, 1) as pct_above
+                 CAST(pgc.stock_max_price AS numeric) as market_ceiling,
+                 ROUND((CAST(bi.unit_price AS numeric) / CAST(pgc.stock_max_price AS numeric) - 1) * 100, 1) as pct_above
           FROM bl_inventory bi
           LEFT JOIN ${catalogJoin}
           JOIN price_guide_cache pgc ON bi.item_no = pgc.item_no AND bi.item_type = pgc.item_type
@@ -9104,8 +9104,8 @@ Format search_web URLs as markdown links.`;
             AND bi.new_or_used = pgc.new_or_used
           WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NULL AND bi.quantity > 0
             AND CAST(bi.unit_price AS numeric) > 0
-            AND CAST(pgc.max_price AS numeric) > 0
-            AND CAST(bi.unit_price AS numeric) > CAST(pgc.max_price AS numeric) * 1.5
+            AND CAST(pgc.stock_max_price AS numeric) > 0
+            AND CAST(bi.unit_price AS numeric) > CAST(pgc.stock_max_price AS numeric) * 1.5
           ORDER BY pct_above DESC LIMIT ${limit} OFFSET ${offset}
         `);
       } else if (category === 'cross_condition_dupes') {
