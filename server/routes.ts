@@ -3642,6 +3642,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Cleanup: delete stale orders stuck in awaiting_* status, older than a given date
   // ?before=YYYY-MM-DD (default 2 years ago); targets awaiting_payment, awaiting_shipment, awaiting_fulfillment
+  // POST /api/admin/fix-bo-visibility — set a specific BO lot invisible by BL inventory ID
+  // Body: { blInventoryId: number, forSale: 0|1 }
+  app.post("/api/admin/fix-bo-visibility", isApproved, async (req: any, res) => {
+    const { blInventoryId, forSale = 0 } = req.body;
+    if (!blInventoryId) return res.status(400).json({ error: 'blInventoryId required' });
+    try {
+      const { getBrickOwlInventory, updateBrickOwlLot } = await import('./services/brickowl');
+      const inventory = await getBrickOwlInventory(false);
+      const lot = inventory.find((l: any) => l.external_lot_ids?.other === String(blInventoryId));
+      if (!lot) return res.status(404).json({ error: `No BrickOwl lot found tagged with BL inv ID ${blInventoryId}` });
+      const updateResult = await updateBrickOwlLot({ lot_id: lot.lot_id, for_sale: forSale });
+      console.log(`[Admin] fix-bo-visibility: BL inv ${blInventoryId} → BO lot ${lot.lot_id} set for_sale=${forSale}`);
+      res.json({ ok: true, boLotId: lot.lot_id, blInventoryId, forSale, updateResult });
+    } catch (err: any) {
+      console.error('[Admin] fix-bo-visibility error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.get("/api/admin/cleanup-old-orders", isApproved, async (req: any, res) => {
     try {
       const beforeDate = req.query.before
