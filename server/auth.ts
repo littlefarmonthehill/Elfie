@@ -363,6 +363,29 @@ export async function setupAuth(app: Express) {
     }
   });
 
+  // Emergency password reset — protected by RESET_TOKEN env var, no session required
+  app.post("/api/auth/emergency-reset", async (req, res) => {
+    const { token, email, newPassword } = req.body;
+    const expectedToken = process.env.RESET_TOKEN;
+    if (!expectedToken || token !== expectedToken) {
+      return res.status(403).json({ message: "Invalid token" });
+    }
+    if (!email || !newPassword || newPassword.length < 8) {
+      return res.status(400).json({ message: "email and newPassword (min 8 chars) required" });
+    }
+    try {
+      const user = await storage.getUserByEmail(email.toLowerCase().trim());
+      if (!user) return res.status(404).json({ message: "User not found" });
+      const hashed = await bcrypt.hash(newPassword, 12);
+      await storage.updateUserPassword(user.id, hashed);
+      console.log(`[Emergency] Password reset for ${email}`);
+      res.json({ success: true, email });
+    } catch (err: any) {
+      console.error("Emergency reset error:", err);
+      res.status(500).json({ message: "Reset failed" });
+    }
+  });
+
   // Forgot password — generates a reset token and returns the reset URL
   app.post("/api/forgot-password", async (req, res) => {
     try {
