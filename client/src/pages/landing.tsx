@@ -629,39 +629,51 @@ function Hero({ onSelect }: { onSelect: (p: NonNullable<Panel>) => void }) {
       display: "flex", flexDirection: "column",
       padding: "max(env(safe-area-inset-top,0px) + 14px, 18px) clamp(16px,4vw,28px) max(env(safe-area-inset-bottom,0px) + 12px, 14px)",
     }}>
-      {/* Top-left logo lockup */}
-      <div style={{ flexShrink: 0 }}>
-        <img src={logoUrl} alt="PlanetBrick" style={{ height: "clamp(22px,5vw,34px)", width: "auto", objectFit: "contain", objectPosition: "left", opacity: 0.92 }} />
-      </div>
 
       {/* Center content */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: "clamp(10px,2.5vw,20px)" }}>
-        {/* Brand composition — large faded logo behind, Elfie centered in front */}
-        <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", width: "clamp(220px,58vw,420px)", aspectRatio: "2.2/1" }}>
-          {/* PlanetBrick logo — large, faded, behind Elfie */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: "clamp(8px,2vw,16px)" }}>
+
+        {/* Brand composition — logo stacked above Elfie, both prominent */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
+          {/* PlanetBrick logo — large, full-opacity, centered */}
           <img
             src={logoUrl}
-            alt=""
-            aria-hidden="true"
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", opacity: 0.22, animation: "pb-bglogo 18s ease-in-out infinite", filter: "blur(0.5px)", userSelect: "none", pointerEvents: "none" }}
+            alt="PlanetBrick"
+            style={{
+              width: "clamp(180px,48vw,340px)",
+              height: "auto",
+              objectFit: "contain",
+              opacity: 0.95,
+              filter: `drop-shadow(0 0 24px ${TEAL}33)`,
+              userSelect: "none",
+              pointerEvents: "none",
+            }}
           />
-          {/* E.L.F.I.E. — centered, floating in front of the logo */}
+          {/* E.L.F.I.E. — directly below, slightly overlapping to feel connected */}
           <img
             src={elfieUrl}
             alt="E.L.F.I.E."
-            style={{ position: "relative", zIndex: 1, width: "clamp(90px,22vw,145px)", height: "auto", animation: "pb-float 4s ease-in-out infinite", filter: `drop-shadow(0 0 28px ${TEAL}66)` }}
+            style={{
+              width: "clamp(80px,20vw,130px)",
+              height: "auto",
+              marginTop: "clamp(-14px,-3vw,-20px)",
+              animation: "pb-float 4s ease-in-out infinite",
+              filter: `drop-shadow(0 0 28px ${TEAL}66)`,
+              position: "relative",
+              zIndex: 1,
+            }}
           />
         </div>
 
         <div>
-          <div style={{ fontSize: "clamp(7px,1.8vw,10px)", fontFamily: "monospace", color: TEAL, letterSpacing: "0.4em", marginBottom: "clamp(8px,2vw,12px)", textTransform: "uppercase" }}>
+          <div style={{ fontSize: "clamp(7px,1.8vw,10px)", fontFamily: "monospace", color: TEAL, letterSpacing: "0.4em", marginBottom: "clamp(6px,1.5vw,10px)", textTransform: "uppercase" }}>
             ▸ Broadcasting from Orbit
           </div>
-          <h1 style={{ fontSize: "clamp(24px,6vw,52px)", fontWeight: 900, lineHeight: 1.05, color: "#FFF", margin: 0, letterSpacing: "-0.01em" }}>
+          <h1 style={{ fontSize: "clamp(22px,5.5vw,48px)", fontWeight: 900, lineHeight: 1.05, color: "#FFF", margin: 0, letterSpacing: "-0.01em" }}>
             The LEGO universe,<br />
             <span style={{ color: TEAL, textShadow: `0 0 32px ${TEAL}55` }}>engineered.</span>
           </h1>
-          <p style={{ fontSize: "clamp(12px,2.8vw,16px)", color: "rgba(200,220,255,0.6)", margin: "clamp(8px,2vw,12px) auto 0", maxWidth: "360px", lineHeight: 1.55 }}>
+          <p style={{ fontSize: "clamp(11px,2.6vw,15px)", color: "rgba(200,220,255,0.6)", margin: "clamp(6px,1.5vw,10px) auto 0", maxWidth: "340px", lineHeight: 1.55 }}>
             Authentic bricks. AI-powered tools.<br />One brand, two worlds.
           </p>
         </div>
