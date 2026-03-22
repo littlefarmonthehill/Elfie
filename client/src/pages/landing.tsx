@@ -153,7 +153,7 @@ function StudioHomeScreen({ tune }: { tune: (id: StudioChId) => void }) {
     <div style={{ height: "100%", display: "flex", flexDirection: "column", padding: "clamp(14px,3vw,28px)", color: "#E8F4FF", animation: "pb-slidein 0.3s ease-out" }}>
       <img src={logoUrl} alt="PlanetBrick" style={{ height: "clamp(18px,2.5vw,28px)", width: "auto", objectFit: "contain", objectPosition: "left", marginBottom: "clamp(8px,1.5vw,14px)", opacity: 0.9 }} />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-        <div style={{ fontSize: "clamp(8px,1vw,10px)", fontFamily: "monospace", color: TEAL, letterSpacing: "0.35em", marginBottom: "8px" }}>▸ STUDIO PLATFORM</div>
+        <div style={{ fontSize: "clamp(8px,1vw,10px)", fontFamily: "monospace", color: TEAL, letterSpacing: "0.35em", marginBottom: "8px" }}>▸ BROADCASTING FROM ORBIT</div>
         <h1 style={{ fontSize: "clamp(20px,2.8vw,38px)", fontWeight: 900, lineHeight: 1.08, color: "#FFFFFF", margin: "0 0 clamp(8px,1.5vw,14px)" }}>
           Your LEGO business,<br /><span style={{ color: TEAL, textShadow: `0 0 20px ${TEAL}55` }}>on the air.</span>
         </h1>
@@ -163,9 +163,6 @@ function StudioHomeScreen({ tune }: { tune: (id: StudioChId) => void }) {
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
           <button onClick={() => tune("ops")} className="pb-btn" style={{ background: `linear-gradient(135deg, ${TEAL}CC, #00BBDD)`, border: "none", borderRadius: "100px", padding: "clamp(7px,1vw,11px) clamp(16px,2vw,24px)", cursor: "pointer", color: SCR_BG, fontWeight: 800, fontSize: "clamp(10px,1vw,13px)", letterSpacing: "0.05em", boxShadow: `0 0 20px ${TEAL}55` }}>
             See Dashboards →
-          </button>
-          <button onClick={() => tune("services")} className="pb-btn" style={{ background: "transparent", border: `1px solid ${PURP}55`, borderRadius: "100px", padding: "clamp(7px,1vw,11px) clamp(16px,2vw,24px)", cursor: "pointer", color: PURP, fontWeight: 700, fontSize: "clamp(10px,1vw,13px)" }}>
-            Our Services
           </button>
         </div>
       </div>
@@ -516,7 +513,7 @@ function TvPanel({
             {flash && <div style={{ position: "absolute", inset: 0, background: `${SCR_BG}EE`, zIndex: 20 }} />}
 
             {/* Channel content */}
-            <div style={{ position: "absolute", inset: "clamp(8px,1.8vw,16px)" }}>
+            <div style={{ position: "absolute", inset: "clamp(4px,0.8vw,8px)" }}>
               {!flash && panel === "shop" && shopCh === "owl"  && <ShopStoreScreen store="owl"  />}
               {!flash && panel === "shop" && shopCh === "link" && <ShopStoreScreen store="link" />}
               {!flash && (panel === "studio" || panel === "signin") && studioCh === "home"     && <StudioHomeScreen tune={id => tune(id as ChId)} />}
