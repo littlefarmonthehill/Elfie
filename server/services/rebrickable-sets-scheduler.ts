@@ -5,6 +5,10 @@ import { eq, and } from "drizzle-orm";
 const ORG_ID = PLATFORM_ORG_ID;
 const SYNC_ID = 'rebrickable_set_parts';
 
+// In-memory month key — prevents double-firing within a server session
+// even if the DB read races with an in-progress sync.
+let _firedMonthKey: string | null = null;
+
 export async function startRebrickableSetsScheduler() {
   console.log('🧩 Rebrickable set-parts scheduler initialized');
   // Seed a sync_metadata row so UI shows it immediately
@@ -37,17 +41,24 @@ async function checkAndRunRebrickableSync() {
     const scheduledTotalMinutes = parseInt(schedH) * 60 + parseInt(schedM);
     if (currentTotalMinutes < scheduledTotalMinutes) return;
 
+    // In-memory dedup — fastest guard, covers races within the same server session
+    const nowMonthKey = now.getMonth() + '-' + now.getFullYear();
+    if (_firedMonthKey === nowMonthKey) return;
+
     // Calendar-month dedup — only run once per month (Rebrickable data rarely changes)
     const [meta] = await db.select().from(syncMetadata)
       .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, SYNC_ID))).limit(1);
     if (meta?.lastSyncTime) {
       const lastRun = new Date(meta.lastSyncTime);
-      const nowM = now.getMonth() + '-' + now.getFullYear();
       const lastM = lastRun.getMonth() + '-' + lastRun.getFullYear();
-      if (nowM === lastM && meta.lastSyncStatus !== 'error') {
-        return; // Already ran this month successfully
+      if (lastM === nowMonthKey && meta.lastSyncStatus !== 'error') {
+        _firedMonthKey = nowMonthKey; // sync in-memory flag
+        return;
       }
     }
+
+    // Lock in-memory before launching so subsequent ticks in this session skip
+    _firedMonthKey = nowMonthKey;
 
     console.log('[Rebrickable Scheduler] Starting monthly set-parts sync...');
     const { syncRebrickableSetParts, getRebrickableSyncIsRunning } = await import('./rebrickable.js');
@@ -55,6 +66,10 @@ async function checkAndRunRebrickableSync() {
       console.log('[Rebrickable Scheduler] Already running, skipping');
       return;
     }
+    // Stamp lastSyncTime now so the DB-based dedup also works on next restart
+    await db.update(syncMetadata)
+      .set({ lastSyncTime: new Date(), lastSyncStatus: 'success' })
+      .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, SYNC_ID)));
     syncRebrickableSetParts(false).catch((err: any) => {
       console.error('[Rebrickable Scheduler] Sync failed:', err.message);
     });
