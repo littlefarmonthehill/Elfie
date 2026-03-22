@@ -138,7 +138,7 @@ async function callAgent(openai: OpenAI, orgId: string, systemPrompt: string, da
 async function buildCatalogEnrichmentContext(orgId: string): Promise<string> {
   try {
     const enriched = await db.execute(sql`
-      SELECT bi.item_no, bc.item_name, bc.category_name,
+      SELECT bi.item_no, bc.item_name, bcat.name AS category_name,
              bi.quantity, bi.unit_price::numeric as our_price,
              pgc.sold_avg_price::numeric  as market_avg,
              pgc.sold_max_price::numeric  as market_max,
@@ -153,6 +153,7 @@ async function buildCatalogEnrichmentContext(orgId: string): Promise<string> {
         ON  bi.item_no   = bc.item_no
         AND bi.item_type = bc.item_type
         AND bi.color_id  = bc.color_id
+      LEFT JOIN bl_categories bcat ON bc.category_id = bcat.id
       LEFT JOIN price_guide_cache pgc
         ON  bi.item_no      = pgc.item_no
         AND bi.item_type    = pgc.item_type
@@ -236,7 +237,7 @@ export async function runCatalogAgent(orgId: string): Promise<number> {
 
   // Platform-level: high price-spread items the org can source or already holds
   const priceSpread = await db.execute(sql`
-    SELECT pgc.item_no, bc.item_name, bc.category_name,
+    SELECT pgc.item_no, bc.item_name, bcat.name AS category_name,
            pgc.sold_avg_price::numeric  as sold_avg,
            pgc.sold_max_price::numeric  as sold_max,
            pgc.sold_quantity,
@@ -246,6 +247,7 @@ export async function runCatalogAgent(orgId: string): Promise<number> {
     FROM price_guide_cache pgc
     LEFT JOIN bl_catalog bc
       ON pgc.item_no = bc.item_no AND pgc.item_type = bc.item_type AND pgc.color_id = bc.color_id
+    LEFT JOIN bl_categories bcat ON bc.category_id = bcat.id
     LEFT JOIN bl_inventory bi
       ON pgc.item_no = bi.item_no AND pgc.item_type = bi.item_type
      AND pgc.color_id = bi.color_id AND bi.org_id = ${orgId}

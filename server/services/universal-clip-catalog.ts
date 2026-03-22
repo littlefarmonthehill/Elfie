@@ -287,7 +287,7 @@ async function processOnePart(partNo: string): Promise<void> {
     if (_worker) _worker.embedded++;
   } catch (err: any) {
     const msg    = err?.message ?? '';
-    const status = (msg.includes('404') || msg.includes('image not available') || msg.includes('403'))
+    const status = (msg.includes('404') || msg.includes('image not available') || msg.includes('403') || msg.includes('No image found'))
       ? 'no_image' : 'failed';
 
     await db.execute(sql`
