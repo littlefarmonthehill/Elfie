@@ -635,8 +635,8 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
                     </div>
                   )}
 
-                  {/* All clear items */}
-                  {categories.some(c => c.count === 0) && totalIssues > 0 && (
+                  {/* All clear items — always show when health data is loaded */}
+                  {categories.some(c => c.count === 0) && (
                     <div className="px-4 mt-3">
                       <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-1.5">All Clear</p>
                       <div className="space-y-1.5">
