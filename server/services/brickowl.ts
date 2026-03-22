@@ -404,62 +404,64 @@ export async function lookupBoid(blItemNo: string, type: string = 'Part', boColo
   }
 }
 
+// ── BrickOwl color map ────────────────────────────────────────────────────────
+// Loaded once per process via /catalog/color/list.
+// Key: BrickLink color ID → Value: BrickOwl color ID.
+let boColorMapLoaded = false;
+
+async function loadBoColorMap(): Promise<void> {
+  if (boColorMapLoaded) return;
+  try {
+    // BrickOwl's color list endpoint — public, no auth needed.
+    const result = await brickowlGet('/catalog/color/list', {});
+    console.log(`[Color Map] Raw BO color list (first 400 chars):`, JSON.stringify(result).substring(0, 400));
+
+    // Handle multiple possible response shapes from BrickOwl
+    let colorArray: any[] = [];
+    if (Array.isArray(result)) {
+      colorArray = result;
+    } else if (result?.color_list && Array.isArray(result.color_list)) {
+      colorArray = result.color_list;
+    } else if (result?.colors && Array.isArray(result.colors)) {
+      colorArray = result.colors;
+    }
+
+    let mapped = 0;
+    for (const c of colorArray) {
+      // BrickOwl may use different field names — try all known variants
+      const boId: number | undefined =
+        c.color_id ?? c.id ?? (c.boid ? parseInt(c.boid) : undefined);
+      const blRaw: number | string | undefined =
+        c.bl_color_id ?? c.bl_id ?? c.bricklink_color_id ?? c.bricklink_id;
+
+      if (boId == null || blRaw == null) continue;
+      const blId = typeof blRaw === 'string' ? parseInt(blRaw) : blRaw;
+      if (isNaN(blId) || isNaN(boId)) continue;
+
+      boColorCache.set(blId, boId);
+      mapped++;
+    }
+
+    boColorMapLoaded = true;
+    console.log(`[Color Map] Loaded ${mapped} BL→BO color mappings from ${colorArray.length} BO colors`);
+  } catch (err) {
+    console.error(`[Color Map] Failed to load BO color list:`, err);
+    // Leave boColorMapLoaded=false so it retries next sync
+  }
+}
+
 // Resolve a BrickLink color ID to a BrickOwl color ID (cached per-process).
 // Returns null when the color cannot be mapped (e.g. BL-only colors).
 async function resolveBoColorId(blColorId: number | null | undefined): Promise<number | null> {
   if (blColorId == null) return null;
-  if (boColorCache.has(blColorId)) return boColorCache.get(blColorId)!;
-  const boColorId = await mapColorId(blColorId);
-  boColorCache.set(blColorId, boColorId);
-  return boColorId;
+  // Ensure the color map is loaded (no-op after first call)
+  await loadBoColorMap();
+  return boColorCache.get(blColorId) ?? null;
 }
 
-// Map BrickLink color ID to BrickOwl color ID
+// Map BrickLink color ID to BrickOwl color ID (exported for diagnostics/testing)
 export async function mapColorId(bricklinkColorId: number): Promise<number | null> {
-  // Get BrickLink color from database
-  const [blColor] = await db
-    .select()
-    .from(blColors)
-    .where(eq(blColors.id, bricklinkColorId))
-    .limit(1);
-  
-  if (!blColor) {
-    console.log(`[Color Map] BrickLink color ${bricklinkColorId} not found in database`);
-    return null;
-  }
-
-  console.log(`[Color Map] Looking up BrickOwl color for BrickLink color ${bricklinkColorId} (${blColor.name})`);
-  
-  try {
-    // Use BrickOwl's catalog/id_lookup to find color ID by BrickLink ID
-    const result = await brickowlGet('/catalog/id_lookup', {
-      id: bricklinkColorId.toString(),
-      type: 'Color',
-      id_type: 'bl_id',
-    });
-    
-    console.log(`[Color Map] BrickOwl color lookup result for BrickLink ID ${bricklinkColorId}:`, JSON.stringify(result).substring(0, 200));
-    
-    // Extract color ID from response
-    let colorIds: string[] = [];
-    if (result.boids && Array.isArray(result.boids)) {
-      colorIds = result.boids;
-    } else if (Array.isArray(result)) {
-      colorIds = result.map((item: any) => item.boid || item);
-    }
-    
-    if (colorIds.length > 0) {
-      const brickOwlColorId = parseInt(colorIds[0]);
-      console.log(`[Color Map] ✓ Mapped BrickLink color ${bricklinkColorId} (${blColor.name}) → BrickOwl color ${brickOwlColorId}`);
-      return brickOwlColorId;
-    }
-    
-    console.log(`[Color Map] ✗ No BrickOwl color found for "${blColor.name}"`);
-    return null;
-  } catch (error) {
-    console.error(`[Color Map] Error mapping color ${bricklinkColorId}:`, error);
-    return null;
-  }
+  return resolveBoColorId(bricklinkColorId);
 }
 
 // Sync a single inventory item from BrickLink to BrickOwl
