@@ -288,7 +288,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 <div className="rounded-lg bg-cyan-900/70 p-1.5 ring-1 ring-cyan-500/45 shadow-[0_0_10px_rgba(6,182,212,0.22)]">
                   <Activity className={cn("w-3.5 h-3.5 text-cyan-200", "md:w-5 md:h-5")} />
                 </div>
-                <span className={cn("text-xs font-bold text-cyan-100 leading-tight flex-1", "md:text-sm")}>Inv. Health</span>
+                <span className={cn("text-xs font-bold text-cyan-100 leading-tight flex-1", "md:text-sm")}>Inventory Health</span>
               </div>
               <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="inventoryhealth-action-stats">
                 <span className="text-[9px] text-cyan-400/70">Audit your stock</span>
