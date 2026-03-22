@@ -8786,6 +8786,299 @@ Format search_web URLs as markdown links.`;
     }
   });
 
+  // ── Inventory Health ─────────────────────────────────────────────────────────
+  // Summary counts for all health categories
+  app.get("/api/inventory/health", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+
+      const activeBase = and(eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt), gt(blInventory.quantity, 0));
+
+      const [
+        softDeletedRows,
+        zeroPricedRows,
+        missingCostRows,
+        negativeMarginRows,
+        missingColorRows,
+        duplicateResult,
+        deadStockResult,
+        stockroomRows,
+        productMixResult,
+        overPricedResult,
+      ] = await Promise.all([
+        // 1. Soft-deleted items (total + how many are linked to an order)
+        db.execute(sql`
+          SELECT
+            COUNT(*) as count,
+            COUNT(CASE WHEN EXISTS (
+              SELECT 1 FROM order_details od WHERE od.inventory_id = bi.id
+            ) THEN 1 END) as linked_count
+          FROM bl_inventory bi
+          WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NOT NULL
+        `),
+
+        // 2. Zero-priced active lots
+        db.select({ count: sql<number>`COUNT(*)` })
+          .from(blInventory)
+          .where(and(activeBase, or(isNull(blInventory.unitPrice), sql`CAST(${blInventory.unitPrice} AS numeric) = 0`))),
+
+        // 3. No cost basis
+        db.select({ count: sql<number>`COUNT(*)` })
+          .from(blInventory)
+          .where(and(activeBase, isNull(blInventory.myCost))),
+
+        // 4. Negative margin
+        db.select({ count: sql<number>`COUNT(*)` })
+          .from(blInventory)
+          .where(and(
+            activeBase,
+            isNotNull(blInventory.unitPrice),
+            isNotNull(blInventory.myCost),
+            sql`CAST(${blInventory.unitPrice} AS numeric) < CAST(${blInventory.myCost} AS numeric)`
+          )),
+
+        // 5. Parts/Minifigs with no color assigned (colorId = 0 or null)
+        db.select({ count: sql<number>`COUNT(*)` })
+          .from(blInventory)
+          .where(and(
+            activeBase,
+            or(eq(blInventory.itemType, 'P'), eq(blInventory.itemType, 'M')),
+            or(isNull(blInventory.colorId), eq(blInventory.colorId, 0))
+          )),
+
+        // 6. Duplicate lots (same part+color+condition, multiple active lots)
+        db.execute(sql`
+          SELECT COALESCE(SUM(group_count), 0) as total_lots, COUNT(*) as group_count
+          FROM (
+            SELECT item_no, color_id, new_or_used, COUNT(*) as group_count
+            FROM bl_inventory
+            WHERE org_id = ${orgId} AND deleted_at IS NULL AND quantity > 0
+            GROUP BY item_no, color_id, new_or_used
+            HAVING COUNT(*) > 1
+          ) dups
+        `),
+
+        // 7. Dead stock — active, qty > 0, never in an order
+        db.execute(sql`
+          SELECT COUNT(*) as count FROM bl_inventory bi
+          WHERE bi.org_id = ${orgId}
+            AND bi.deleted_at IS NULL AND bi.quantity > 0
+            AND NOT EXISTS (
+              SELECT 1 FROM order_details od WHERE od.inventory_id = bi.id
+            )
+        `),
+
+        // 8. Stockroom breakdown
+        db.select({
+          isStockRoom: blInventory.isStockRoom,
+          stockRoomId: blInventory.stockRoomId,
+          lotCount: sql<number>`COUNT(*)`,
+          totalQty: sql<number>`SUM(${blInventory.quantity})`,
+          totalValue: sql<number>`SUM(COALESCE(CAST(${blInventory.unitPrice} AS numeric), 0) * ${blInventory.quantity})`,
+        })
+          .from(blInventory)
+          .where(and(eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt), gt(blInventory.quantity, 0)))
+          .groupBy(blInventory.isStockRoom, blInventory.stockRoomId),
+
+        // 9. Product mix — category concentration
+        db.execute(sql`
+          SELECT bc.category_id, bcat.category_name,
+                 COUNT(bi.id) as lot_count,
+                 SUM(bi.quantity) as total_qty,
+                 SUM(COALESCE(CAST(bi.unit_price AS numeric), 0) * bi.quantity) as total_value
+          FROM bl_inventory bi
+          LEFT JOIN bl_catalog bc ON bi.item_no = bc.item_no AND bi.item_type = bc.item_type
+            AND COALESCE(bi.color_id, 0) = bc.color_id
+          LEFT JOIN bl_categories bcat ON bc.category_id = bcat.category_id
+          WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NULL AND bi.quantity > 0
+          GROUP BY bc.category_id, bcat.category_name
+          ORDER BY lot_count DESC
+          LIMIT 12
+        `),
+
+        // 10. Overpriced vs market (price > 1.5x ceiling from price guide cache)
+        db.execute(sql`
+          SELECT COUNT(*) as count FROM bl_inventory bi
+          JOIN price_guide_cache pgc ON bi.item_no = pgc.item_no
+            AND bi.item_type = pgc.item_type
+            AND COALESCE(bi.color_id, 0) = COALESCE(pgc.color_id, 0)
+            AND bi.new_or_used = pgc.new_or_used
+          WHERE bi.org_id = ${orgId}
+            AND bi.deleted_at IS NULL AND bi.quantity > 0
+            AND CAST(bi.unit_price AS numeric) > 0
+            AND CAST(pgc.max_price AS numeric) > 0
+            AND CAST(bi.unit_price AS numeric) > CAST(pgc.max_price AS numeric) * 1.5
+        `),
+      ]);
+
+      // Stockroom breakdown aggregation
+      const stockroom: Record<string, { lotCount: number; totalQty: number; totalValue: number }> = {
+        live: { lotCount: 0, totalQty: 0, totalValue: 0 },
+        A: { lotCount: 0, totalQty: 0, totalValue: 0 },
+        B: { lotCount: 0, totalQty: 0, totalValue: 0 },
+        C: { lotCount: 0, totalQty: 0, totalValue: 0 },
+      };
+      for (const row of stockroomRows) {
+        const key = row.isStockRoom ? (row.stockRoomId ?? 'A') : 'live';
+        const bucket = stockroom[key] ?? (stockroom[key] = { lotCount: 0, totalQty: 0, totalValue: 0 });
+        bucket.lotCount += Number(row.lotCount);
+        bucket.totalQty += Number(row.totalQty);
+        bucket.totalValue += Number(row.totalValue ?? 0);
+      }
+
+      // Product mix
+      const mixRows = (productMixResult as any).rows ?? [];
+      const totalLots = mixRows.reduce((s: number, r: any) => s + Number(r.lot_count), 0);
+      const topCategory = mixRows[0];
+      const concentrationPct = totalLots > 0 && topCategory ? Math.round(Number(topCategory.lot_count) / totalLots * 100) : 0;
+
+      // Duplicate summary
+      const dupResult = (duplicateResult as any).rows?.[0] ?? {};
+      const duplicateGroupCount = Number(dupResult.group_count ?? 0);
+      const duplicateLotCount = Number(dupResult.total_lots ?? 0);
+
+      // Soft-delete summary
+      const sdRow = (softDeletedRows as any).rows?.[0] ?? {};
+      const softDeletedTotal = Number(sdRow.count ?? 0);
+      const softDeletedLinked = Number(sdRow.linked_count ?? 0);
+
+      res.json({
+        softDeleted: {
+          total: softDeletedTotal,
+          linked: softDeletedLinked,
+          standalone: softDeletedTotal - softDeletedLinked,
+        },
+        zeroPriced: Number(zeroPricedRows[0]?.count ?? 0),
+        missingCost: Number(missingCostRows[0]?.count ?? 0),
+        negativeMargin: Number(negativeMarginRows[0]?.count ?? 0),
+        missingColor: Number(missingColorRows[0]?.count ?? 0),
+        duplicates: { groups: duplicateGroupCount, lots: duplicateLotCount },
+        deadStock: Number(((deadStockResult as any).rows?.[0]?.count) ?? 0),
+        overpriced: Number(((overPricedResult as any).rows?.[0]?.count) ?? 0),
+        stockroom,
+        productMix: {
+          totalCategories: mixRows.length,
+          topConcentrationPct: concentrationPct,
+          rows: mixRows,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching inventory health:", error);
+      res.status(500).json({ error: "Failed to fetch inventory health" });
+    }
+  });
+
+  // Detail rows for a specific health category
+  app.get("/api/inventory/health/:category", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { category } = req.params;
+      const page = Math.max(0, Number(req.query.page ?? 0));
+      const limit = 50;
+      const offset = page * limit;
+
+      const catalogJoin = sql`bl_catalog bc ON bi.item_no = bc.item_no AND bi.item_type = bc.item_type AND COALESCE(bi.color_id, 0) = bc.color_id`;
+      const selectCols = sql`
+        bi.id, bi.item_no, bi.item_type, bi.color_id, bi.quantity, bi.unit_price, bi.my_cost,
+        bi.new_or_used, bi.is_stock_room, bi.stock_room_id, bi.deleted_at, bi.date_created,
+        bc.item_name, bc.color_name, bc.category_id
+      `;
+
+      let result: any;
+
+      if (category === 'soft_deleted') {
+        result = await db.execute(sql`
+          SELECT ${selectCols},
+                 (EXISTS (SELECT 1 FROM order_details od WHERE od.inventory_id = bi.id)) as is_linked
+          FROM bl_inventory bi LEFT JOIN ${catalogJoin}
+          WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NOT NULL
+          ORDER BY bi.deleted_at DESC LIMIT ${limit} OFFSET ${offset}
+        `);
+      } else if (category === 'zero_priced') {
+        result = await db.execute(sql`
+          SELECT ${selectCols}
+          FROM bl_inventory bi LEFT JOIN ${catalogJoin}
+          WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NULL AND bi.quantity > 0
+            AND (bi.unit_price IS NULL OR CAST(bi.unit_price AS numeric) = 0)
+          ORDER BY bi.quantity DESC LIMIT ${limit} OFFSET ${offset}
+        `);
+      } else if (category === 'missing_cost') {
+        result = await db.execute(sql`
+          SELECT ${selectCols}
+          FROM bl_inventory bi LEFT JOIN ${catalogJoin}
+          WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NULL AND bi.quantity > 0
+            AND bi.my_cost IS NULL
+          ORDER BY COALESCE(CAST(bi.unit_price AS numeric), 0) * bi.quantity DESC LIMIT ${limit} OFFSET ${offset}
+        `);
+      } else if (category === 'negative_margin') {
+        result = await db.execute(sql`
+          SELECT ${selectCols},
+                 CAST(bi.unit_price AS numeric) - CAST(bi.my_cost AS numeric) as margin
+          FROM bl_inventory bi LEFT JOIN ${catalogJoin}
+          WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NULL AND bi.quantity > 0
+            AND bi.unit_price IS NOT NULL AND bi.my_cost IS NOT NULL
+            AND CAST(bi.unit_price AS numeric) < CAST(bi.my_cost AS numeric)
+          ORDER BY (CAST(bi.unit_price AS numeric) - CAST(bi.my_cost AS numeric)) ASC LIMIT ${limit} OFFSET ${offset}
+        `);
+      } else if (category === 'missing_color') {
+        result = await db.execute(sql`
+          SELECT ${selectCols}
+          FROM bl_inventory bi LEFT JOIN ${catalogJoin}
+          WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NULL AND bi.quantity > 0
+            AND bi.item_type IN ('P', 'M')
+            AND (bi.color_id IS NULL OR bi.color_id = 0)
+          ORDER BY bi.quantity DESC LIMIT ${limit} OFFSET ${offset}
+        `);
+      } else if (category === 'duplicates') {
+        result = await db.execute(sql`
+          SELECT ${selectCols}
+          FROM bl_inventory bi LEFT JOIN ${catalogJoin}
+          WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NULL AND bi.quantity > 0
+            AND (bi.item_no, COALESCE(bi.color_id, 0), bi.new_or_used) IN (
+              SELECT item_no, COALESCE(color_id, 0), new_or_used
+              FROM bl_inventory
+              WHERE org_id = ${orgId} AND deleted_at IS NULL AND quantity > 0
+              GROUP BY item_no, COALESCE(color_id, 0), new_or_used
+              HAVING COUNT(*) > 1
+            )
+          ORDER BY bi.item_no, bi.color_id LIMIT ${limit} OFFSET ${offset}
+        `);
+      } else if (category === 'dead_stock') {
+        result = await db.execute(sql`
+          SELECT ${selectCols}
+          FROM bl_inventory bi LEFT JOIN ${catalogJoin}
+          WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NULL AND bi.quantity > 0
+            AND NOT EXISTS (SELECT 1 FROM order_details od WHERE od.inventory_id = bi.id)
+          ORDER BY bi.quantity DESC LIMIT ${limit} OFFSET ${offset}
+        `);
+      } else if (category === 'overpriced') {
+        result = await db.execute(sql`
+          SELECT ${selectCols},
+                 CAST(pgc.max_price AS numeric) as market_ceiling,
+                 ROUND((CAST(bi.unit_price AS numeric) / CAST(pgc.max_price AS numeric) - 1) * 100, 1) as pct_above
+          FROM bl_inventory bi
+          LEFT JOIN ${catalogJoin}
+          JOIN price_guide_cache pgc ON bi.item_no = pgc.item_no AND bi.item_type = pgc.item_type
+            AND COALESCE(bi.color_id, 0) = COALESCE(pgc.color_id, 0)
+            AND bi.new_or_used = pgc.new_or_used
+          WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NULL AND bi.quantity > 0
+            AND CAST(bi.unit_price AS numeric) > 0
+            AND CAST(pgc.max_price AS numeric) > 0
+            AND CAST(bi.unit_price AS numeric) > CAST(pgc.max_price AS numeric) * 1.5
+          ORDER BY pct_above DESC LIMIT ${limit} OFFSET ${offset}
+        `);
+      } else {
+        return res.status(404).json({ error: 'Unknown health category' });
+      }
+
+      const rows = (result as any).rows ?? [];
+      res.json({ rows, page, limit });
+    } catch (error) {
+      console.error("Error fetching inventory health detail:", error);
+      res.status(500).json({ error: "Failed to fetch inventory health details" });
+    }
+  });
+
   // Image proxy route - serves part images with white backgrounds removed
   // Accepts URL parameter for direct image processing
   app.get("/api/images/proxy", async (req, res) => {

@@ -112,7 +112,7 @@ export default function Home() {
     forum: { count: number; posts: Array<{ title: string; excerpt: string; username: string; postedAt: string; threadUrl: string }> };
     news: { count: number; articles: Array<{ title: string; snippet: string; url: string; source: string; query: string; fetchedAt: string }> };
   } | null>(null);
-  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'platformsync' | 'brickanalyzer' | null>(null);
+  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | null>(null);
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'shipped' | null>(null);
   const [activeMarketingDrawer, setActiveMarketingDrawer] = useState<MarketingDrawer>(null);
   const [activeSalesDrawer, setActiveSalesDrawer] = useState<SalesDrawer>(null);
@@ -1066,7 +1066,7 @@ export default function Home() {
                   </div>
 
                   {/* Drawer overlay — covers entire dynamic board */}
-                  {(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer || billingOpen || detailModal.open) && (
+                  {((activeInventoryDrawer && activeInventoryDrawer !== 'inventoryhealth') || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer || billingOpen || detailModal.open) && (
                     <div className="absolute inset-0 z-20 flex flex-col">
                       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={() => { closeActiveDrawer(); setDetailModal({ open: false, data: null }); }} />
                       <div className="relative flex-1 bg-gray-950/95 border border-white/10 rounded-lg m-3 overflow-y-auto shadow-2xl animate-[slideUp_250ms_ease-out]">
@@ -1210,7 +1210,7 @@ export default function Home() {
 
       {/* Tool drawers — Vaul drawer on mobile only; desktop uses inline overlay in center column */}
       {!isDesktop && (
-        <Drawer open={!!(activeInventoryDrawer || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer || billingOpen)} onOpenChange={(open) => { if (!open) closeActiveDrawer(); }}>
+        <Drawer open={!!((activeInventoryDrawer && activeInventoryDrawer !== 'inventoryhealth') || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer || billingOpen)} onOpenChange={(open) => { if (!open) closeActiveDrawer(); }}>
           <DrawerContent className="bg-gray-950 border-gray-800 h-[92vh] flex flex-col rounded-t-2xl">
             <DrawerHeader className="p-0 flex-shrink-0">
               <div className="flex justify-center pt-3 pb-1">

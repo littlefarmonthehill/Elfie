@@ -3,8 +3,9 @@ import MetricCard from "./MetricCard";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import { InfoIcon, Package, Sparkles, RefreshCw, Info, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { InfoIcon, Package, Sparkles, RefreshCw, Info, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity } from "lucide-react";
 import ChannelSyncPanel from "./ChannelSyncPanel";
+import InventoryHealthPanel from "./InventoryHealthPanel";
 import { Input } from "@/components/ui/input";
 import {
   Tooltip,
@@ -25,8 +26,8 @@ interface InventoryStats {
 
 interface InventoryDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string, initialTab?: string) => void;
-  activeDrawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | null;
-  onDrawerChange: (drawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | null) => void;
+  activeDrawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | null;
+  onDrawerChange: (drawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | null) => void;
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing' | 'priceomatic', focusTarget?: 'channelSync') => void;
 }
 
@@ -276,6 +277,24 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               </div>
             </button>
 
+            {/* Inventory Health */}
+            <button
+              onClick={() => onDrawerChange('inventoryhealth')}
+              data-testid="tool-inventoryhealth"
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-500/50 bg-gradient-to-br from-cyan-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              style={{ '--tool-glow-color': 'rgba(6,182,212,0.35)' } as React.CSSProperties}
+            >
+              <div className="flex items-center gap-2">
+                <div className="rounded-lg bg-cyan-900/70 p-1.5 ring-1 ring-cyan-500/45 shadow-[0_0_10px_rgba(6,182,212,0.22)]">
+                  <Activity className={cn("w-3.5 h-3.5 text-cyan-200", "md:w-5 md:h-5")} />
+                </div>
+                <span className={cn("text-xs font-bold text-cyan-100 leading-tight flex-1", "md:text-sm")}>Inv. Health</span>
+              </div>
+              <div className="flex flex-wrap gap-1 min-h-[1.25rem] justify-end" data-testid="inventoryhealth-action-stats">
+                <span className="text-[9px] text-cyan-400/70">Audit your stock</span>
+              </div>
+            </button>
+
           </div>
 
         </div>
@@ -433,6 +452,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           </div>
         </div>
       )}
+
+      <InventoryHealthPanel
+        open={activeDrawer === 'inventoryhealth'}
+        onOpenChange={(open) => { if (!open) onDrawerChange(null); }}
+      />
 
     </div>
   );
