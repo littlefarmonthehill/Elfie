@@ -12,6 +12,7 @@ import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bri
 import { Badge } from "@/components/ui/badge";
 import { useInstallPrompt } from "@/hooks/use-install-prompt";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -2611,6 +2612,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [activeAuditTab, setActiveAuditTab] = useState<'organization' | 'platform'>('organization');
   const [activeAuditOrgTab, setActiveAuditOrgTab] = useState<'overview' | 'bricklink'>('overview');
   const [activeAuditPlatformTab, setActiveAuditPlatformTab] = useState<'enrichment' | 'bricklink' | 'logs' | 'database'>('enrichment');
+  const [orgHealthDrawer, setOrgHealthDrawer] = useState<{ open: boolean; metric: string; orgId: string; orgName: string }>({ open: false, metric: '', orgId: '', orgName: '' });
   const [blBreakdownSort, setBlBreakdownSort] = useState<{ col: string; dir: 'asc' | 'desc' }>({ col: 'total', dir: 'desc' });
   const [showBlSchedulePopup, setShowBlSchedulePopup] = useState(false);
   const [impersonationSearch, setImpersonationSearch] = useState('');
@@ -3148,8 +3150,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   };
   const { data: blApiBreakdown, isLoading: blApiBreakdownLoading } = useQuery<BlApiBreakdownRow[]>({
     queryKey: ['/api/platform-admin/customer-health/bl-api-breakdown'],
-    enabled: open && superAdmin && isAuditOrgBl,
-    refetchInterval: isAuditOrgBl ? 30000 : false,
+    enabled: open && superAdmin && isAuditOrg,
+    refetchInterval: isAuditOrg ? 30000 : false,
     retry: 0,
   });
 
@@ -7361,178 +7363,248 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   ))}
                 </div>
 
-                {activeAuditTab === 'organization' && (
-                  <>
-                    <div className="flex border-b border-gray-700/60 -mx-3 px-3 shrink-0">
-                      {([
-                        { id: 'overview' as const, label: 'Overview' },
-                        { id: 'bricklink' as const, label: 'BrickLink' },
-                      ]).map(tab => (
-                        <button
-                          key={tab.id}
-                          onClick={() => setActiveAuditOrgTab(tab.id)}
-                          className={`tool-tab ${activeAuditOrgTab === tab.id ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
-                          data-testid={`audit-org-tab-${tab.id}`}
-                        >
-                          {tab.label}
-                        </button>
-                      ))}
+                {isAuditOrg && (() => {
+                  const syncLabels: Record<string, string> = {
+                    bricklink_inventory: 'Inventory',
+                    bricklink_orders: 'Orders (BL)',
+                    brickowl_orders: 'Orders (BO)',
+                    channel_sync: 'Channel Sync',
+                  };
+                  const fmtTime = (t: string | null) => t ? new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
+                  const statusIcon = (s: string | null, size = 'h-3 w-3') => {
+                    if (s === 'in_progress') return <Loader2 className={`${size} text-yellow-400 animate-spin shrink-0`} />;
+                    if (s === 'failed' || s === 'error') return <AlertTriangle className={`${size} text-red-400 shrink-0`} />;
+                    if (s === 'partial') return <AlertTriangle className={`${size} text-orange-400 shrink-0`} />;
+                    if (s === 'success') return <CheckCircle2 className={`${size} text-emerald-500/70 shrink-0`} />;
+                    return <Clock className={`${size} text-gray-600 shrink-0`} />;
+                  };
+
+                  if (orgSyncError) return (
+                    <div className="rounded-lg bg-gray-800/60 border border-red-700/40 p-6 flex flex-col items-center justify-center gap-2 text-center">
+                      <AlertTriangle className="h-6 w-6 text-red-400" />
+                      <p className="text-sm text-gray-400">Failed to load organization sync data</p>
                     </div>
-                  </>
-                )}
+                  );
+                  if (!orgSyncStatus) return (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+                    </div>
+                  );
 
-                {isAuditOrg && activeAuditOrgTab === 'overview' && (
-                  <div className="space-y-2">
-                    {orgSyncError ? (
-                      <div className="rounded-lg bg-gray-800/60 border border-red-700/40 p-6 flex flex-col items-center justify-center gap-2 text-center">
-                        <AlertTriangle className="h-6 w-6 text-red-400" />
-                        <p className="text-sm text-gray-400">Failed to load organization sync data</p>
-                      </div>
-                    ) : !orgSyncStatus ? (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
-                      </div>
-                    ) : orgSyncStatus.length === 0 ? (
-                      <div className="rounded-lg bg-gray-800/60 border border-gray-700 p-6 flex flex-col items-center justify-center gap-2 text-center">
-                        <Building2 className="h-6 w-6 text-gray-600" />
-                        <p className="text-sm text-gray-400">No organizations found</p>
-                      </div>
-                    ) : orgSyncStatus.map(org => {
-                      const syncLabels: Record<string, string> = {
-                        bricklink_inventory: 'Inventory',
-                        bricklink_orders: 'Orders (BL)',
-                        brickowl_orders: 'Orders (BO)',
-                        channel_sync: 'Channel Sync',
-                      };
-                      const fmtTime = (t: string | null) => t ? new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Never';
-                      const statusIcon = (s: string | null) => {
-                        if (s === 'in_progress') return <Loader2 className="h-3 w-3 text-yellow-400 animate-spin shrink-0" />;
-                        if (s === 'failed' || s === 'error') return <AlertTriangle className="h-3 w-3 text-red-400 shrink-0" />;
-                        if (s === 'partial') return <AlertTriangle className="h-3 w-3 text-orange-400 shrink-0" />;
-                        if (s === 'success') return <CheckCircle2 className="h-3 w-3 text-green-500/70 shrink-0" />;
-                        return <Clock className="h-3 w-3 text-gray-600 shrink-0" />;
-                      };
-                      return (
-                        <div key={org.orgId} className="sm-card-inset" data-testid={`audit-org-${org.orgId}`}>
-                          <div className="px-3 pt-2 pb-1 flex items-center gap-2">
-                            <Building2 className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                            <span className="text-xs font-medium text-gray-200 truncate">{org.orgName}</span>
+                  const runningOrgs = orgSyncStatus.filter(o => o.syncs.some(s => s.lastSyncStatus === 'in_progress'));
+                  const successOrgs = orgSyncStatus.filter(o =>
+                    o.syncs.some(s => s.lastSyncStatus === 'success') &&
+                    !o.syncs.some(s => s.lastSyncStatus === 'in_progress' || s.lastSyncStatus === 'error' || s.lastSyncStatus === 'failed')
+                  );
+                  const failedOrgs = orgSyncStatus.filter(o => o.syncs.some(s => s.lastSyncStatus === 'error' || s.lastSyncStatus === 'failed'));
+                  const errorOrgs = orgSyncStatus.filter(o => o.syncs.some(s => s.errorMessage && (s.lastSyncStatus === 'error' || s.lastSyncStatus === 'failed')));
+                  const blOrgs = blApiBreakdown ?? [];
+                  const avgBlCalls = blOrgs.length > 0 ? Math.round(blOrgs.reduce((sum, o) => sum + o.total, 0) / blOrgs.length) : 0;
+                  const bsOrgs = orgSyncStatus.filter(o => o.brickspotter && o.brickspotter.totalScans > 0);
+                  const avgBsScans = bsOrgs.length > 0 ? Math.round(bsOrgs.reduce((sum, o) => sum + (o.brickspotter?.totalScans ?? 0), 0) / bsOrgs.length) : 0;
+
+                  type MetricId = 'running' | 'successful' | 'failed' | 'blapi' | 'brickspotter' | 'errors';
+                  const metrics: { id: MetricId; label: string; value: string; color: string; desc: string; Icon: any }[] = [
+                    { id: 'running', label: 'Jobs Running', value: runningOrgs.length.toString(), color: runningOrgs.length > 0 ? 'text-yellow-400' : 'text-gray-500', desc: 'orgs with active job', Icon: Loader2 },
+                    { id: 'successful', label: 'Last Run OK', value: successOrgs.length.toString(), color: 'text-emerald-400', desc: 'orgs all-clear', Icon: CheckCircle2 },
+                    { id: 'failed', label: 'Failed', value: failedOrgs.length.toString(), color: failedOrgs.length > 0 ? 'text-red-400' : 'text-gray-500', desc: 'unrecovered failures', Icon: AlertTriangle },
+                    { id: 'blapi', label: 'Avg BL API / 24h', value: blApiBreakdownLoading ? '…' : avgBlCalls.toLocaleString(), color: 'text-blue-400', desc: 'avg calls per org', Icon: BarChart2 },
+                    { id: 'brickspotter', label: 'Avg BrickSpotter', value: avgBsScans.toLocaleString(), color: 'text-violet-400', desc: 'avg scans per org', Icon: Eye },
+                    { id: 'errors', label: 'Sync Errors', value: errorOrgs.length.toString(), color: errorOrgs.length > 0 ? 'text-orange-400' : 'text-gray-500', desc: 'orgs with error msgs', Icon: AlertTriangle },
+                  ];
+
+                  const metricOrgs: Record<MetricId, any[]> = {
+                    running: runningOrgs,
+                    successful: successOrgs,
+                    failed: failedOrgs,
+                    blapi: [...blOrgs].sort((a, b) => b.total - a.total),
+                    brickspotter: [...bsOrgs].sort((a, b) => (b.brickspotter?.totalScans ?? 0) - (a.brickspotter?.totalScans ?? 0)),
+                    errors: errorOrgs,
+                  };
+
+                  const orgSummaryLine = (id: MetricId, org: any): string => {
+                    if (id === 'running') return org.syncs.filter((s: any) => s.lastSyncStatus === 'in_progress').map((s: any) => syncLabels[s.id] || s.id).join(', ');
+                    if (id === 'successful') { const ok = org.syncs.filter((s: any) => s.lastSyncStatus === 'success'); return `${ok.length} sync${ok.length !== 1 ? 's' : ''} ok`; }
+                    if (id === 'failed') return org.syncs.filter((s: any) => s.lastSyncStatus === 'error' || s.lastSyncStatus === 'failed').map((s: any) => syncLabels[s.id] || s.id).join(', ');
+                    if (id === 'blapi') return `${org.total.toLocaleString()} calls`;
+                    if (id === 'brickspotter') return `${(org.brickspotter?.totalScans ?? 0).toLocaleString()} scans`;
+                    if (id === 'errors') { const e = org.syncs.filter((s: any) => s.errorMessage && (s.lastSyncStatus === 'error' || s.lastSyncStatus === 'failed')); return `${e.length} error${e.length !== 1 ? 's' : ''}`; }
+                    return '';
+                  };
+
+                  return (
+                    <>
+                      <div className="grid grid-cols-2 gap-2">
+                        {metrics.map(m => (
+                          <div key={m.id} className="sm-card-inset p-3" data-testid={`org-health-metric-${m.id}`}>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <m.Icon className={`h-3 w-3 ${m.color} shrink-0 ${m.id === 'running' && runningOrgs.length > 0 ? 'animate-spin' : ''}`} />
+                              <span className="text-[10px] text-gray-500 uppercase tracking-wider truncate">{m.label}</span>
+                            </div>
+                            <div className={`text-2xl font-bold font-mono leading-none ${m.color}`}>{m.value}</div>
+                            <div className="text-[10px] text-gray-600 mt-0.5">{m.desc}</div>
                           </div>
-                          {org.syncs.length === 0 && !org.brickspotter ? (
-                            <p className="px-3 pb-2 text-[11px] text-gray-500">No sync data yet</p>
-                          ) : (
-                            <>
-                              {org.syncs.map(s => (
-                                <div key={s.id} className="flex items-center gap-2 px-3 py-1">
-                                  {statusIcon(s.lastSyncStatus)}
-                                  <span className="text-[11px] text-gray-300 flex-1 min-w-0 truncate">{syncLabels[s.id] || s.id}</span>
-                                  {s.lastSyncStatus === 'success' && (s.recordsAdded || s.recordsUpdated) ? (
-                                    <span className="text-[10px] text-gray-500 font-mono shrink-0">+{s.recordsAdded ?? 0} / ~{s.recordsUpdated ?? 0}</span>
-                                  ) : null}
-                                  <span className={`text-[10px] shrink-0 font-mono ${s.lastSyncStatus === 'failed' || s.lastSyncStatus === 'error' ? 'text-red-400/80' : s.lastSyncStatus === 'in_progress' ? 'text-yellow-400' : 'text-gray-500'}`}>
-                                    {s.lastSyncStatus === 'in_progress' ? 'Running' : s.errorMessage ? (s.errorMessage.length > 30 ? s.errorMessage.slice(0, 30) + '…' : s.errorMessage) : fmtTime(s.lastSyncTime)}
-                                  </span>
-                                </div>
-                              ))}
-                              {org.brickspotter && (
-                                <div className="flex items-center gap-2 px-3 py-1">
-                                  <Eye className="h-3 w-3 text-gray-400 shrink-0" />
-                                  <span className="text-[11px] text-gray-300 flex-1 min-w-0 truncate">BrickSpotter</span>
-                                  <span className="text-[10px] text-gray-500 font-mono shrink-0">
-                                    {org.brickspotter.completed}/{org.brickspotter.totalScans} scans
-                                    {org.brickspotter.failed > 0 ? ` · ${org.brickspotter.failed} failed` : ''}
-                                  </span>
-                                </div>
-                              )}
-                            </>
-                          )}
-                          <div className="h-1" />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {isAuditOrgBl && (
-                  <div className="space-y-4">
-                    <p className="sm-group-label px-1">API Usage by Customer (24h)</p>
-                    {blApiBreakdownLoading ? (
-                      <div className="flex items-center justify-center py-10">
-                        <Loader2 className="h-5 w-5 animate-spin text-yellow-500/50" />
+                        ))}
                       </div>
-                    ) : blApiBreakdown && blApiBreakdown.length > 0 ? (() => {
-                      const sortCol = blBreakdownSort.col;
-                      const sortDir = blBreakdownSort.dir;
-                      const sorted = [...blApiBreakdown].sort((a, b) => {
-                        const av = sortCol === 'orgId' ? (a.orgName || a.orgId) : (a as any)[sortCol] as number;
-                        const bv = sortCol === 'orgId' ? (b.orgName || b.orgId) : (b as any)[sortCol] as number;
-                        if (typeof av === 'string' && typeof bv === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
-                        return sortDir === 'asc' ? (av as number) - (bv as number) : (bv as number) - (av as number);
-                      });
-                      const toggleSort = (col: string) => {
-                        setBlBreakdownSort(prev =>
-                          prev.col === col ? { col, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { col, dir: 'desc' }
-                        );
-                      };
-                      const columns = [
-                        { key: 'orgId', label: 'Organization', align: 'left' as const },
-                        { key: 'total', label: 'Total', align: 'right' as const },
-                        { key: 'inventory', label: 'Inv', align: 'right' as const },
-                        { key: 'orders', label: 'Ord', align: 'right' as const },
-                        { key: 'catalog', label: 'Cat', align: 'right' as const },
-                        { key: 'priceGuide', label: 'PG', align: 'right' as const },
-                        { key: 'other', label: 'Oth', align: 'right' as const },
-                        { key: 'failed', label: 'Fail', align: 'right' as const },
-                      ];
-                      return (
-                        <div className="rounded-lg border border-gray-700 overflow-hidden">
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-[10px]" data-testid="table-bl-api-breakdown">
-                              <thead>
-                                <tr className="bg-gray-800/80 border-b border-gray-700/60">
-                                  {columns.map(col => (
-                                    <th
-                                      key={col.key}
-                                      onClick={() => toggleSort(col.key)}
-                                      className={`px-1 py-1.5 font-semibold cursor-pointer select-none transition-colors hover:text-yellow-400 whitespace-nowrap ${col.align === 'right' ? 'text-right' : 'text-left'} ${sortCol === col.key ? 'text-yellow-400' : 'text-gray-500'}`}
-                                      data-testid={`sort-bl-${col.key}`}
-                                    >
-                                      <span className="inline-flex items-center gap-0.5">
-                                        {col.label}
-                                        {sortCol === col.key && (
-                                          <span className="text-[8px]">{sortDir === 'desc' ? '\u25BC' : '\u25B2'}</span>
-                                        )}
-                                      </span>
-                                    </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-700/30">
-                                {sorted.map(row => (
-                                  <tr key={row.orgId} className="hover-elevate" data-testid={`row-bl-org-${row.orgId}`}>
-                                    <td className="px-1 py-1.5 text-gray-300 truncate max-w-[120px]">{row.orgName || row.orgId}</td>
-                                    <td className="px-1 py-1.5 text-right font-mono font-semibold text-gray-200">{row.total.toLocaleString()}</td>
-                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.inventory > 0 ? row.inventory.toLocaleString() : '\u2014'}</td>
-                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.orders > 0 ? row.orders.toLocaleString() : '\u2014'}</td>
-                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.catalog > 0 ? row.catalog.toLocaleString() : '\u2014'}</td>
-                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.priceGuide > 0 ? row.priceGuide.toLocaleString() : '\u2014'}</td>
-                                    <td className="px-1 py-1.5 text-right font-mono text-gray-400">{row.other > 0 ? row.other.toLocaleString() : '\u2014'}</td>
-                                    <td className={`px-1 py-1.5 text-right font-mono ${row.failed > 0 ? 'text-red-400 font-semibold' : 'text-gray-600'}`}>{row.failed > 0 ? row.failed.toLocaleString() : '\u2014'}</td>
-                                  </tr>
+
+                      <div className="space-y-3">
+                        {metrics.map(m => {
+                          const orgs = metricOrgs[m.id];
+                          if (orgs.length === 0) return null;
+                          return (
+                            <div key={m.id}>
+                              <p className="sm-group-label px-1 mb-1 flex items-center gap-1.5">
+                                <m.Icon className={`h-3 w-3 ${m.color}`} />
+                                <span>{m.label}</span>
+                                <span className="ml-auto text-[10px] font-mono text-gray-500">{orgs.length}</span>
+                              </p>
+                              <div className="space-y-0.5">
+                                {orgs.map((org: any) => (
+                                  <button
+                                    key={org.orgId ?? org.orgName}
+                                    data-testid={`org-health-row-${m.id}-${org.orgId ?? org.orgName}`}
+                                    onClick={() => setOrgHealthDrawer({ open: true, metric: m.id, orgId: org.orgId, orgName: org.orgName })}
+                                    className="w-full sm-card-inset px-3 py-2 flex items-center gap-2 hover-elevate active-elevate-2 cursor-pointer text-left"
+                                  >
+                                    <Building2 className="h-3 w-3 text-gray-500 shrink-0" />
+                                    <span className="text-[11px] text-gray-200 flex-1 min-w-0 truncate">{org.orgName}</span>
+                                    <span className="text-[10px] text-gray-500 shrink-0">{orgSummaryLine(m.id, org)}</span>
+                                    <ChevronRight className="h-3 w-3 text-gray-600 shrink-0" />
+                                  </button>
                                 ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      );
-                    })() : (
-                      <div className="rounded-lg bg-gray-800/40 border border-gray-700/60 px-4 py-6 text-center">
-                        <CheckCircle2 className="h-5 w-5 text-emerald-400/50 mx-auto mb-2" />
-                        <p className="sm-description">No BrickLink API calls in the last 24 hours</p>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    )}
-                  </div>
-                )}
+
+                      <Drawer open={orgHealthDrawer.open} onOpenChange={(o) => setOrgHealthDrawer(prev => ({ ...prev, open: o }))}>
+                        <DrawerContent className="max-h-[85vh] bg-gray-900 border-gray-700">
+                          <div className="overflow-y-auto">
+                            <DrawerHeader className="pb-2 border-b border-gray-700/60">
+                              <div className="flex items-center gap-2">
+                                <Building2 className="h-4 w-4 text-gray-400 shrink-0" />
+                                <DrawerTitle className="text-base text-gray-100 truncate">{orgHealthDrawer.orgName}</DrawerTitle>
+                                <DrawerClose asChild>
+                                  <button className="ml-auto text-gray-500 hover:text-gray-300 shrink-0" data-testid="drawer-close">
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </DrawerClose>
+                              </div>
+                              <p className="text-[11px] text-gray-500 mt-1 capitalize">{metrics.find(m => m.id === orgHealthDrawer.metric)?.label ?? orgHealthDrawer.metric}</p>
+                            </DrawerHeader>
+                            <div className="p-4 space-y-3">
+                              {(() => {
+                                const mid = orgHealthDrawer.metric as MetricId;
+                                const syncOrg = orgSyncStatus.find(o => o.orgId === orgHealthDrawer.orgId);
+                                const blOrg = blOrgs.find(o => o.orgId === orgHealthDrawer.orgId);
+
+                                if (mid === 'running' || mid === 'successful' || mid === 'failed' || mid === 'errors') {
+                                  if (!syncOrg) return <p className="text-[12px] text-gray-500">No data</p>;
+                                  const relevantSyncs = syncOrg.syncs.filter((s: any) => {
+                                    if (mid === 'running') return s.lastSyncStatus === 'in_progress';
+                                    if (mid === 'successful') return s.lastSyncStatus === 'success';
+                                    if (mid === 'failed') return s.lastSyncStatus === 'error' || s.lastSyncStatus === 'failed';
+                                    if (mid === 'errors') return s.errorMessage && (s.lastSyncStatus === 'error' || s.lastSyncStatus === 'failed');
+                                    return true;
+                                  });
+                                  const allSyncs = syncOrg.syncs;
+                                  return (
+                                    <div className="space-y-2">
+                                      {(mid === 'running' || mid === 'successful' || mid === 'failed' || mid === 'errors' ? allSyncs : relevantSyncs).map((s: any) => {
+                                        const highlighted = relevantSyncs.includes(s);
+                                        return (
+                                          <div key={s.id} className={`sm-card-inset px-3 py-2 ${!highlighted ? 'opacity-40' : ''}`} data-testid={`drawer-sync-${s.id}`}>
+                                            <div className="flex items-center gap-2">
+                                              {statusIcon(s.lastSyncStatus)}
+                                              <span className="text-[12px] font-medium text-gray-200 flex-1">{syncLabels[s.id] || s.id}</span>
+                                              <span className={`text-[11px] font-mono shrink-0 ${s.lastSyncStatus === 'error' || s.lastSyncStatus === 'failed' ? 'text-red-400' : s.lastSyncStatus === 'in_progress' ? 'text-yellow-400' : 'text-gray-500'}`}>
+                                                {s.lastSyncStatus === 'in_progress' ? 'Running' : s.lastSyncStatus ?? 'Never'}
+                                              </span>
+                                            </div>
+                                            {s.errorMessage && (
+                                              <p className="text-[11px] text-red-400/80 mt-1 break-words">{s.errorMessage}</p>
+                                            )}
+                                            {s.lastSyncTime && (
+                                              <p className="text-[10px] text-gray-600 mt-0.5">{fmtTime(s.lastSyncTime)}{s.recordsAdded || s.recordsUpdated ? ` · +${s.recordsAdded ?? 0} added / ~${s.recordsUpdated ?? 0} updated` : ''}</p>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                      {syncOrg.brickspotter && (
+                                        <div className="sm-card-inset px-3 py-2">
+                                          <div className="flex items-center gap-2">
+                                            <Eye className="h-3 w-3 text-gray-400 shrink-0" />
+                                            <span className="text-[12px] font-medium text-gray-200 flex-1">BrickSpotter</span>
+                                            <span className="text-[11px] font-mono text-gray-500">{syncOrg.brickspotter.completed}/{syncOrg.brickspotter.totalScans}</span>
+                                          </div>
+                                          {syncOrg.brickspotter.failed > 0 && (
+                                            <p className="text-[11px] text-orange-400/80 mt-1">{syncOrg.brickspotter.failed} scan{syncOrg.brickspotter.failed !== 1 ? 's' : ''} failed</p>
+                                          )}
+                                          {syncOrg.brickspotter.lastScanAt && (
+                                            <p className="text-[10px] text-gray-600 mt-0.5">Last: {fmtTime(syncOrg.brickspotter.lastScanAt)}</p>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                }
+
+                                if (mid === 'blapi') {
+                                  if (!blOrg) return <p className="text-[12px] text-gray-500">No API calls recorded in the last 24h</p>;
+                                  const rows = [
+                                    { label: 'Total', value: blOrg.total, color: 'text-gray-200' },
+                                    { label: 'Inventory', value: blOrg.inventory, color: 'text-gray-400' },
+                                    { label: 'Orders', value: blOrg.orders, color: 'text-gray-400' },
+                                    { label: 'Catalog', value: blOrg.catalog, color: 'text-gray-400' },
+                                    { label: 'Price Guides', value: blOrg.priceGuide, color: 'text-gray-400' },
+                                    { label: 'Other', value: blOrg.other, color: 'text-gray-400' },
+                                    { label: 'Failed', value: blOrg.failed, color: blOrg.failed > 0 ? 'text-red-400' : 'text-gray-600' },
+                                  ];
+                                  return (
+                                    <div className="space-y-1">
+                                      <p className="text-[11px] text-gray-500 px-1 mb-2">BrickLink API calls — last 24h</p>
+                                      {rows.map(r => (
+                                        <div key={r.label} className="sm-card-inset px-3 py-2 flex items-center gap-2" data-testid={`drawer-bl-${r.label.toLowerCase()}`}>
+                                          <span className="text-[12px] text-gray-400 flex-1">{r.label}</span>
+                                          <span className={`text-[13px] font-mono font-semibold ${r.color}`}>{r.value.toLocaleString()}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  );
+                                }
+
+                                if (mid === 'brickspotter') {
+                                  const bsOrg = syncOrg;
+                                  if (!bsOrg?.brickspotter) return <p className="text-[12px] text-gray-500">No BrickSpotter data</p>;
+                                  const bs = bsOrg.brickspotter;
+                                  return (
+                                    <div className="space-y-1">
+                                      <p className="text-[11px] text-gray-500 px-1 mb-2">BrickSpotter scan history</p>
+                                      {[
+                                        { label: 'Total Scans', value: bs.totalScans.toLocaleString(), color: 'text-gray-200' },
+                                        { label: 'Completed', value: bs.completed.toLocaleString(), color: 'text-emerald-400' },
+                                        { label: 'Failed', value: bs.failed.toLocaleString(), color: bs.failed > 0 ? 'text-red-400' : 'text-gray-600' },
+                                        { label: 'Last Scan', value: fmtTime(bs.lastScanAt), color: 'text-gray-400' },
+                                      ].map(r => (
+                                        <div key={r.label} className="sm-card-inset px-3 py-2 flex items-center gap-2" data-testid={`drawer-bs-${r.label.toLowerCase().replace(' ', '-')}`}>
+                                          <span className="text-[12px] text-gray-400 flex-1">{r.label}</span>
+                                          <span className={`text-[13px] font-mono ${r.color}`}>{r.value}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  );
+                                }
+
+                                return null;
+                              })()}
+                            </div>
+                          </div>
+                        </DrawerContent>
+                      </Drawer>
+                    </>
+                  );
+                })()}
 
                 {activeAuditTab === 'platform' && (
                   <>
