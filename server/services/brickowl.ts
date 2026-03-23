@@ -829,10 +829,12 @@ export async function syncBrickLinkToBrickOwl(
 
   // O(1) lookup: BL inventory ID → BrickOwl lot (tagged lots only)
   const taggedLotMap = new Map<string, any>();
+  let boLotsWithTag = 0;
   for (const lot of brickowlInventory) {
     const extId = lot.external_lot_ids?.other;
-    if (extId) taggedLotMap.set(extId, lot);
+    if (extId) { taggedLotMap.set(extId, lot); boLotsWithTag++; }
   }
+  console.log(`[ChannelSync] Tagged lot map: ${boLotsWithTag} / ${brickowlInventory.length} BO lots have external_lot_ids.other set`);
 
   // Pre-load the BO color map once so Phase 1 color-mismatch checks are
   // instant (resolveBoColorId reads from the in-memory cache after this).
@@ -1086,6 +1088,7 @@ export async function syncBrickLinkToBrickOwl(
   let updateProgress = 0;
   // Steps: batch qty-only + individual field calls (qty folded in for multi-change lots) + adoptions
   const totalPhase2 = qtyOnlyJobs.length + fieldJobs.length + toAdopt.length; // toAdopt used for display; zero-qty already filtered into adoptCandidates
+  console.log(`[ChannelSync] Phase 1 done — matched: ${taggedLotMap.size} | needs update: ${qtyOnlyJobs.length + fieldJobs.length} (qty-only: ${qtyOnlyJobs.length}, fields: ${fieldJobs.length}) | unmatched/toAdopt: ${toAdopt.length}`);
 
   // ── 2a-i: Batch qty-only lots (fast) ──────────────────────────────────────
   // Send ONLY lot_id + absolute_quantity — no price, no notes, no extras.
