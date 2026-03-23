@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { appSettings, syncMetadata, blInventory } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { syncBricklinkData } from "./bricklink";
 import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
@@ -123,7 +123,7 @@ async function runAutomatedInventorySync() {
     orgId: ORG_ID,
   }).onConflictDoUpdate({
     target: syncMetadata.id,
-    set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: null },
+    set: { lastSyncStatus: 'in_progress', lastSyncTime: sql`now()`, updatedAt: sql`now()`, errorMessage: null },
   });
 
   try {
@@ -145,8 +145,8 @@ async function runAutomatedInventorySync() {
       target: syncMetadata.id,
       set: {
         lastSyncStatus: 'success',
-        lastSyncTime: new Date(),
-        updatedAt: new Date(),
+        lastSyncTime: sql`now()`,
+        updatedAt: sql`now()`,
         recordsAdded: result.inventoryAdded ?? 0,
         recordsUpdated: result.inventoryUpdated ?? 0,
         errorMessage: null,
@@ -185,7 +185,7 @@ async function runAutomatedInventorySync() {
       orgId: ORG_ID,
     }).onConflictDoUpdate({
       target: syncMetadata.id,
-      set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },
+      set: { lastSyncStatus: 'error', lastSyncTime: sql`now()`, updatedAt: sql`now()`, errorMessage: error.message },
     });
 
     recordSyncIssue({

@@ -11558,13 +11558,14 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   app.post("/api/sync/bricklink/inventory", isApproved, async (req: any, res) => {
     const orgId = reqOrgId(req);
     const SYNC_ID = 'bricklink_inventory';
+    console.log(`[BL Sync] Manual sync triggered by org=${orgId} at ${new Date().toISOString()}`);
     try {
       await db.insert(syncMetadata).values({
         id: SYNC_ID, orgId, lastSyncStatus: 'in_progress', lastSyncTime: new Date(),
         recordsAdded: 0, recordsUpdated: 0,
       }).onConflictDoUpdate({
         target: syncMetadata.id,
-        set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: null },
+        set: { lastSyncStatus: 'in_progress', lastSyncTime: sql`now()`, updatedAt: sql`now()`, errorMessage: null },
       });
 
       const result = await syncBricklinkData(orgId);
@@ -11574,7 +11575,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         recordsAdded: result.inventoryAdded ?? 0, recordsUpdated: result.inventoryUpdated ?? 0, errorMessage: null,
       }).onConflictDoUpdate({
         target: syncMetadata.id,
-        set: { lastSyncStatus: 'success', lastSyncTime: new Date(), updatedAt: new Date(),
+        set: { lastSyncStatus: 'success', lastSyncTime: sql`now()`, updatedAt: sql`now()`,
           recordsAdded: result.inventoryAdded ?? 0, recordsUpdated: result.inventoryUpdated ?? 0, errorMessage: null },
       });
 
@@ -11602,7 +11603,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
           recordsAdded: 0, recordsUpdated: 0, errorMessage: error.message,
         }).onConflictDoUpdate({
           target: syncMetadata.id,
-          set: { lastSyncStatus: 'error', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: error.message },
+          set: { lastSyncStatus: 'error', lastSyncTime: sql`now()`, updatedAt: sql`now()`, errorMessage: error.message },
         }).catch(() => {});
       }
       res.status(isConflict ? 409 : 500).json({
