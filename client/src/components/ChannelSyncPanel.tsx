@@ -157,44 +157,6 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
     },
   });
 
-  const [colorRepairPreview, setColorRepairPreview] = useState<{
-    mismatchCount: number;
-    skipped: number;
-    mismatches: { lotId: string; blId: number; itemNo: string; currentColorId: number; currentColorName: string; expectedColorId: number; expectedColorName: string }[];
-  } | null>(null);
-  const [colorRepairResult, setColorRepairResult] = useState<{ fixed: number; skipped: number; errors: string[] } | null>(null);
-
-  const colorRepairPreviewMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/repair/brickowl-colors', { dryRun: true }),
-    onSuccess: (data: any) => {
-      if (data.mismatchCount === 0) {
-        toast({ title: 'No color fixes needed', description: 'All tagged lots already have the correct color.' });
-      } else {
-        setColorRepairPreview({ mismatchCount: data.mismatchCount, skipped: data.skipped ?? 0, mismatches: data.mismatches ?? [] });
-      }
-    },
-    onError: () => {
-      toast({ title: 'Color scan failed', description: 'Could not scan BrickOwl inventory.', variant: 'destructive' });
-    },
-  });
-
-  const colorRepairFixMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/repair/brickowl-colors', { dryRun: false }),
-    onSuccess: (data: any) => {
-      setColorRepairPreview(null);
-      setColorRepairResult({ fixed: data.fixed ?? 0, skipped: data.skipped ?? 0, errors: data.errors ?? [] });
-      toast({
-        title: data.fixed > 0 ? `Fixed ${data.fixed} lot color${data.fixed === 1 ? '' : 's'}` : 'No fixes needed',
-        description: data.fixed > 0
-          ? `${data.skipped} lots already correct.${data.errors?.length > 0 ? ` ${data.errors.length} errors.` : ''}`
-          : 'All tagged lots already have the correct color.',
-      });
-    },
-    onError: () => {
-      toast({ title: 'Color repair failed', description: 'Could not complete the color repair.', variant: 'destructive' });
-    },
-  });
-
   const brickOwl = platformData?.targets?.find((t: any) => t.name === 'BrickOwl');
   const lastSync = syncStatuses?.channel;
   const isRunning = lastSync?.lastSyncStatus === 'in_progress' || syncMutation.isPending;
@@ -570,18 +532,218 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
                 totalDiscrepancies={totalDiscrepancies}
                 onSelectArea={(type) => setSelectedArea(type)}
                 onShowAuditReport={() => setShowAuditReport(true)}
-                colorRepairPreviewMutation={colorRepairPreviewMutation}
-                colorRepairFixMutation={colorRepairFixMutation}
-                colorRepairPreview={colorRepairPreview}
-                onDismissColorRepairPreview={() => setColorRepairPreview(null)}
-                colorRepairResult={colorRepairResult}
-                onDismissColorRepair={() => setColorRepairResult(null)}
               />
             )}
           </div>
         </DrawerContent>
       </Drawer>
     </>
+  );
+}
+
+type ColorMismatch = {
+  lotId: string;
+  blId: number;
+  itemNo: string;
+  currentColorId: number;
+  currentColorName: string;
+  expectedColorId: number;
+  expectedColorName: string;
+};
+
+function ColorRepairSection() {
+  const { toast } = useToast();
+  const [mismatches, setMismatches] = useState<ColorMismatch[] | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [fixingLots, setFixingLots] = useState<Set<string>>(new Set());
+
+  const scanMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/repair/brickowl-colors', { dryRun: true }),
+    onSuccess: (data: any) => {
+      const sorted = [...(data.mismatches ?? [])].sort((a: ColorMismatch, b: ColorMismatch) => parseInt(b.lotId) - parseInt(a.lotId));
+      setMismatches(sorted);
+      setSelected(new Set());
+      if ((data.mismatchCount ?? 0) === 0) {
+        toast({ title: 'No color fixes needed', description: 'All tagged lots already have the correct color.' });
+      }
+    },
+    onError: () => {
+      toast({ title: 'Color scan failed', description: 'Could not scan BrickOwl inventory.', variant: 'destructive' });
+    },
+  });
+
+  function fixLots(lotIds?: string[]) {
+    const targetIds = new Set(lotIds ?? mismatches?.map(m => m.lotId) ?? []);
+    setFixingLots(targetIds);
+    apiRequest('POST', '/api/repair/brickowl-colors', {
+      dryRun: false,
+      ...(lotIds ? { lotIds } : {}),
+    })
+      .then((data: any) => {
+        setMismatches(prev => prev?.filter(m => !targetIds.has(m.lotId)) ?? null);
+        setSelected(prev => { const next = new Set(prev); targetIds.forEach(id => next.delete(id)); return next; });
+        setFixingLots(new Set());
+        if (data.errors?.length > 0) {
+          toast({ title: `Fixed ${data.fixed ?? 0} lot${data.fixed === 1 ? '' : 's'}`, description: `${data.errors.length} error${data.errors.length === 1 ? '' : 's'} — see console.`, variant: 'destructive' });
+        } else {
+          toast({ title: data.fixed > 0 ? `Fixed ${data.fixed} lot${data.fixed === 1 ? '' : 's'}` : 'No fixes needed' });
+        }
+      })
+      .catch(() => {
+        setFixingLots(new Set());
+        toast({ title: 'Fix failed', description: 'Could not complete the color repair.', variant: 'destructive' });
+      });
+  }
+
+  const isBusy = scanMutation.isPending || fixingLots.size > 0;
+  const allSelected = (mismatches?.length ?? 0) > 0 && selected.size === (mismatches?.length ?? 0);
+  const someSelected = selected.size > 0;
+
+  return (
+    <div className="rounded-lg border border-amber-500/25 bg-amber-950/10 overflow-hidden">
+      {/* Header */}
+      <div className="px-3 py-2.5 flex items-center gap-2 border-b border-amber-500/20">
+        <Paintbrush className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <span className="text-xs font-semibold text-amber-200">Wrong Color Lots</span>
+          {mismatches !== null && (
+            <span className="ml-2 font-mono text-xs font-bold text-amber-400">{mismatches.length}</span>
+          )}
+          {mismatches === null && (
+            <p className="text-[10px] text-gray-500 mt-0.5">Lots synced to BrickOwl with an incorrect color variant</p>
+          )}
+        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={isBusy}
+          onClick={() => scanMutation.mutate()}
+          data-testid="button-color-repair-scan"
+        >
+          {scanMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RefreshCw className="w-3 h-3 mr-1" />}
+          {mismatches === null ? 'Scan' : 'Rescan'}
+        </Button>
+      </div>
+
+      {/* Pre-scan state */}
+      {mismatches === null && !scanMutation.isPending && (
+        <p className="px-3 py-3 text-[11px] text-gray-500">
+          Click Scan to detect BrickOwl lots where the color doesn't match BrickLink.
+        </p>
+      )}
+
+      {/* Scanning */}
+      {scanMutation.isPending && (
+        <div className="px-3 py-3 flex items-center gap-2 text-[11px] text-gray-400">
+          <Loader2 className="w-3 h-3 animate-spin" /> Scanning BrickOwl inventory…
+        </div>
+      )}
+
+      {/* All good */}
+      {mismatches?.length === 0 && (
+        <div className="px-3 py-3 flex items-center gap-2 text-[11px] text-green-400">
+          <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" /> All lots have the correct color.
+        </div>
+      )}
+
+      {/* Item list */}
+      {mismatches && mismatches.length > 0 && (
+        <>
+          {/* Bulk action bar */}
+          <div className="px-3 py-2 flex items-center gap-2 border-b border-amber-500/15 bg-amber-950/20">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              ref={el => { if (el) el.indeterminate = someSelected && !allSelected; }}
+              onChange={() => setSelected(allSelected ? new Set() : new Set(mismatches!.map(m => m.lotId)))}
+              disabled={isBusy}
+              className="w-3.5 h-3.5 rounded cursor-pointer flex-shrink-0"
+              data-testid="checkbox-color-repair-select-all"
+            />
+            <span className="text-[11px] text-gray-400 flex-1">
+              {someSelected ? `${selected.size} of ${mismatches.length} selected` : `${mismatches.length} item${mismatches.length !== 1 ? 's' : ''} need fixing`}
+            </span>
+            {someSelected ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={isBusy}
+                onClick={() => fixLots([...selected])}
+                data-testid="button-color-repair-fix-selected"
+              >
+                {fixingLots.size > 0 ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Paintbrush className="w-3 h-3 mr-1" />}
+                {fixingLots.size > 0 ? 'Fixing…' : `Fix Selected (${selected.size})`}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={isBusy}
+                onClick={() => fixLots()}
+                data-testid="button-color-repair-fix-all"
+              >
+                {fixingLots.size > 0 ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Paintbrush className="w-3 h-3 mr-1" />}
+                {fixingLots.size > 0 ? `Fixing ${fixingLots.size}…` : `Fix All (${mismatches.length})`}
+              </Button>
+            )}
+          </div>
+
+          {/* Rows */}
+          <div className="divide-y divide-amber-500/10 max-h-80 overflow-y-auto">
+            {mismatches.map(m => {
+              const isSelected = selected.has(m.lotId);
+              const isFixing = fixingLots.has(m.lotId);
+              return (
+                <div
+                  key={m.lotId}
+                  className={`px-3 py-2.5 flex items-center gap-3 ${isSelected ? 'bg-amber-950/30' : ''}`}
+                  data-testid={`row-color-mismatch-${m.lotId}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => setSelected(prev => {
+                      const next = new Set(prev);
+                      isSelected ? next.delete(m.lotId) : next.add(m.lotId);
+                      return next;
+                    })}
+                    disabled={isBusy}
+                    className="w-3.5 h-3.5 rounded cursor-pointer flex-shrink-0"
+                    data-testid={`checkbox-color-mismatch-${m.lotId}`}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-semibold text-gray-100 font-mono">{m.itemNo}</span>
+                      <span className="font-mono text-[9px] text-gray-500 bg-gray-800 border border-gray-700 rounded px-1 py-px">BL #{m.blId}</span>
+                      <span className="font-mono text-[9px] text-gray-500 bg-gray-800 border border-gray-700 rounded px-1 py-px">BO lot #{m.lotId}</span>
+                    </div>
+                    <div className="text-[11px] mt-0.5 flex items-center gap-1.5 flex-wrap">
+                      <span className="text-red-400">{m.currentColorName ?? `Color ${m.currentColorId}`}</span>
+                      <span className="text-gray-600">→</span>
+                      <span className="text-teal-400">{m.expectedColorName ?? `Color ${m.expectedColorId}`}</span>
+                    </div>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    disabled={isBusy}
+                    onClick={() => fixLots([m.lotId])}
+                    data-testid={`button-fix-color-${m.lotId}`}
+                    title="Fix this lot"
+                  >
+                    {isFixing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paintbrush className="w-3.5 h-3.5" />}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+
+          <p className="px-3 py-2 text-[10px] text-gray-600 border-t border-amber-500/10">
+            Each fix deletes and recreates the lot with the correct color. All fields (qty, price, notes, tier pricing) are preserved. Lots are briefly offline during the operation.
+          </p>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -631,12 +793,6 @@ function OverviewContent({
   totalDiscrepancies,
   onSelectArea,
   onShowAuditReport,
-  colorRepairPreviewMutation,
-  colorRepairFixMutation,
-  colorRepairPreview,
-  onDismissColorRepairPreview,
-  colorRepairResult,
-  onDismissColorRepair,
 }: any) {
   return (
     <div className="px-4 pt-3 pb-6 space-y-4">
@@ -715,114 +871,7 @@ function OverviewContent({
             Audit Report
           </Button>
         )}
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={colorRepairPreviewMutation.isPending || colorRepairFixMutation.isPending || isRunning}
-          onClick={() => colorRepairPreviewMutation.mutate()}
-          data-testid="button-channel-color-repair"
-        >
-          {colorRepairPreviewMutation.isPending ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-          ) : (
-            <Paintbrush className="w-3.5 h-3.5 mr-1.5" />
-          )}
-          {colorRepairPreviewMutation.isPending ? 'Scanning…' : 'Fix Colors'}
-        </Button>
       </div>
-
-      {/* Color repair confirmation panel */}
-      {colorRepairPreview && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-950/20 p-3 space-y-2.5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span className="text-xs font-semibold text-amber-200">
-                {colorRepairPreview.mismatchCount} lot{colorRepairPreview.mismatchCount === 1 ? '' : 's'} need color correction
-              </span>
-            </div>
-            <button onClick={onDismissColorRepairPreview} className="text-gray-500 hover:text-gray-300" data-testid="button-dismiss-color-repair-preview">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Parts list */}
-          <div className="rounded border border-amber-500/20 bg-black/20 overflow-y-auto max-h-48">
-            <table className="w-full text-[11px]">
-              <thead>
-                <tr className="border-b border-amber-500/20">
-                  <th className="text-left px-2 py-1.5 text-gray-400 font-medium">Item No</th>
-                  <th className="text-left px-2 py-1.5 text-gray-400 font-medium">BL ID</th>
-                  <th className="text-left px-2 py-1.5 text-gray-400 font-medium">BO Lot</th>
-                  <th className="text-left px-2 py-1.5 text-gray-400 font-medium">Current Color</th>
-                  <th className="text-left px-2 py-1.5 text-gray-400 font-medium">Correct Color</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...colorRepairPreview.mismatches].sort((a, b) => parseInt(b.lotId) - parseInt(a.lotId)).map((m, i) => (
-                  <tr key={m.lotId} className={`border-b border-amber-500/10 ${i % 2 === 0 ? '' : 'bg-white/5'}`} data-testid={`row-color-mismatch-${m.lotId}`}>
-                    <td className="px-2 py-1 text-gray-200 font-mono">{m.itemNo}</td>
-                    <td className="px-2 py-1 text-gray-400 font-mono">{m.blId}</td>
-                    <td className="px-2 py-1 text-gray-400 font-mono">{m.lotId}</td>
-                    <td className="px-2 py-1 text-red-400">{m.currentColorName ?? `Color ${m.currentColorId}`}</td>
-                    <td className="px-2 py-1 text-teal-400">{m.expectedColorName ?? `Color ${m.expectedColorId}`}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <p className="text-[11px] text-gray-400">
-            Each lot will be deleted and recreated with the correct color. All other fields (qty, price, notes, tier pricing) are preserved. Lots will be briefly offline during this process.
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={colorRepairFixMutation.isPending}
-              onClick={() => colorRepairFixMutation.mutate()}
-              data-testid="button-color-repair-confirm"
-            >
-              {colorRepairFixMutation.isPending ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-              ) : (
-                <Paintbrush className="w-3.5 h-3.5 mr-1.5" />
-              )}
-              {colorRepairFixMutation.isPending ? `Fixing ${colorRepairPreview.mismatchCount} lots…` : `Fix ${colorRepairPreview.mismatchCount} lots`}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={colorRepairFixMutation.isPending}
-              onClick={onDismissColorRepairPreview}
-              data-testid="button-color-repair-cancel"
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Color repair result banner */}
-      {colorRepairResult && (
-        <div className={`rounded-lg border p-3 space-y-1.5 ${colorRepairResult.fixed > 0 ? 'border-teal-500/30 bg-teal-950/30' : 'border-gray-600/30 bg-gray-800/30'}`}>
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5">
-              <Paintbrush className={`w-3.5 h-3.5 ${colorRepairResult.fixed > 0 ? 'text-teal-400' : 'text-gray-400'}`} />
-              <span className={`text-xs font-semibold ${colorRepairResult.fixed > 0 ? 'text-teal-200' : 'text-gray-300'}`}>
-                Color Repair — {colorRepairResult.fixed > 0 ? `${colorRepairResult.fixed} lot${colorRepairResult.fixed === 1 ? '' : 's'} fixed` : 'No fixes needed'}
-              </span>
-            </div>
-            <button onClick={onDismissColorRepair} className="text-gray-500 hover:text-gray-300" data-testid="button-dismiss-color-repair">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <p className="text-[11px] text-gray-400">
-            {colorRepairResult.skipped} lot{colorRepairResult.skipped === 1 ? '' : 's'} already correct
-            {colorRepairResult.errors.length > 0 && ` · ${colorRepairResult.errors.length} error${colorRepairResult.errors.length === 1 ? '' : 's'}`}
-          </p>
-        </div>
-      )}
 
       <Separator className="bg-gray-700/60" />
 
@@ -948,6 +997,12 @@ function OverviewContent({
           ))}
         </div>
       ) : null}
+
+      {/* Color repair — always visible, independent of discrepancy data */}
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-0.5">Color Repair</p>
+        <ColorRepairSection />
+      </div>
 
       {/* Last sync errors — grouped by error reason */}
       {lastResult && lastResult.errorCount > 0 && !isRunning && (() => {

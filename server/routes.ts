@@ -11881,6 +11881,9 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     try {
       const { getBrickOwlInventory, createBrickOwlLot, deleteBrickOwlLot, mapColorId, getBoColorName, getBlColorName } = await import('./services/brickowl');
       const dryRun: boolean = req.body?.dryRun === true;
+      const lotIdsFilter: Set<string> | null = Array.isArray(req.body?.lotIds) && req.body.lotIds.length > 0
+        ? new Set(req.body.lotIds as string[])
+        : null;
 
       const boInventory = await getBrickOwlInventory(false);
 
@@ -11928,6 +11931,9 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         });
 
         if (dryRun) continue;
+
+        // When a lotIds filter is provided, only fix those specific lots.
+        if (lotIdsFilter && !lotIdsFilter.has(lot.lot_id)) { skipped++; continue; }
 
         // Fix it: BrickOwl does not support updating color_id in-place.
         // We must delete the lot and recreate it via bl_item_no + correct color_id so BrickOwl
