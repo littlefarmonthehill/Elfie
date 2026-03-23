@@ -335,7 +335,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Selling Channels</h3>
           </div>
           <BrickLinkSyncPanel onOpenSettings={onOpenSettings} />
-          <ChannelSyncPanel onOpenSettings={onOpenSettings} />
+          <div className="mt-2">
+            <ChannelSyncPanel onOpenSettings={onOpenSettings} />
+          </div>
         </div>
 
 
