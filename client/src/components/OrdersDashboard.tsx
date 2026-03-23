@@ -225,7 +225,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
               <Globe className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Channels</h3>
+            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Selling Channels</h3>
           </div>
           <div className="space-y-2">
             <OrderSyncPanel platform="bricklink" onOpenSettings={onOpenSettings} />
