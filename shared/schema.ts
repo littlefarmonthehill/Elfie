@@ -628,6 +628,9 @@ export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export const insertAppSettingsSchema = createInsertSchema(appSettings).omit({
   id: true,
   updatedAt: true,
+}).extend({
+  // Hard cap: BrickLink enforces ~5,000 API calls per 24h per credential set.
+  blApiCallLimit: z.number().int().min(100).max(5000).default(4900),
 });
 
 export type InsertAppSettings = z.infer<typeof insertAppSettingsSchema>;

@@ -45,7 +45,7 @@ const overrideSchema = z.object({
   seatLimitOverride: z.coerce.number().nullable(),
   brickspotterLimitOverride: z.coerce.number().nullable(),
   automationLimitOverride: z.coerce.number().nullable(),
-  blApiCallLimitOverride: z.coerce.number().nullable(),
+  blApiCallLimitOverride: z.coerce.number().min(-1).max(5000).nullable(),
 });
 
 type OverrideFormValues = z.infer<typeof overrideSchema>;
@@ -131,9 +131,9 @@ function EditOverridesDialog({ org }: { org: OrgWithUsage }) {
               name="blApiCallLimitOverride"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>BL API Calls / 24h Override (null = platform default 5000, -1 = unlimited)</FormLabel>
+                  <FormLabel>BL API Calls / 24h Override (null = platform default, -1 = unlimited, max 5000)</FormLabel>
                   <FormControl>
-                    <Input {...field} value={field.value ?? ""} type="number" data-testid="input-bl-api-override" />
+                    <Input {...field} value={field.value ?? ""} type="number" min={-1} max={5000} data-testid="input-bl-api-override" />
                   </FormControl>
                 </FormItem>
               )}

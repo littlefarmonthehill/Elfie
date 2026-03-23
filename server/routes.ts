@@ -560,7 +560,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (seatLimitOverride !== undefined) updates.seatLimitOverride = seatLimitOverride;
       if (brickspotterLimitOverride !== undefined) updates.brickspotterLimitOverride = brickspotterLimitOverride;
       if (automationLimitOverride !== undefined) updates.automationLimitOverride = automationLimitOverride;
-      if (blApiCallLimitOverride !== undefined) updates.blApiCallLimitOverride = blApiCallLimitOverride;
+      if (blApiCallLimitOverride !== undefined) {
+        // Cap positive overrides at 5,000 — BrickLink's per-credential daily limit.
+        // -1 is the sentinel for "unlimited" (flagship/internal orgs only) and is preserved.
+        updates.blApiCallLimitOverride = (blApiCallLimitOverride != null && blApiCallLimitOverride > 0)
+          ? Math.min(5000, blApiCallLimitOverride)
+          : blApiCallLimitOverride;
+      }
 
       const [updated] = await db.update(organizations).set(updates).where(eq(organizations.id, id)).returning();
       res.json(updated);
