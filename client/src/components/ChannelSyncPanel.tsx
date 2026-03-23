@@ -648,7 +648,7 @@ function ColorRepairDetail() {
       {/* Action bar */}
       <div className="px-4 py-3 flex items-center gap-2 border-b border-gray-800 flex-shrink-0">
         <p className="text-[11px] text-gray-500 flex-1">
-          Detects BrickOwl lots where the color doesn't match BrickLink.
+          Detects BrickOwl lots where the color doesn't match BrickLink. Fixing deletes the mismatched lot and recreates it with the correct color.
         </p>
         {hasResults && (
           <>
