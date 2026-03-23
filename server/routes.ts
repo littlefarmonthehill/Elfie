@@ -11909,22 +11909,25 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         const expectedBoColorId = await mapColorId(blItem.colorId);
         if (expectedBoColorId == null) { skipped++; continue; }
 
-        if (Number(lot.color_id) === Number(expectedBoColorId)) { skipped++; continue; }
+        // BrickOwl's inventory/list does not return color_id.
+        // Extract it from the boid instead: parts use format "{owl_id}-{bo_color_id}",
+        // non-color items (minifigs, gear, sets) omit the suffix (implicit color 0).
+        const boidParts = (lot.boid ?? '').split('-');
+        const actualBoColorId = boidParts.length >= 2 ? parseInt(boidParts[boidParts.length - 1]) : 0;
 
-        // Color mismatch found — log first 5 for diagnostics
-        if (mismatches.length < 5) {
-          console.log(`[ColorRepair] Mismatch sample: lot=${lot.lot_id} itemNo=${blItem.itemNo} blColorId=${blItem.colorId}(${typeof blItem.colorId}) boColorId_raw=${lot.color_id}(${typeof lot.color_id}) expected=${expectedBoColorId}(${typeof expectedBoColorId})`);
-        }
-        mismatches.push({ lotId: lot.lot_id, itemNo: blItem.itemNo, currentColorId: lot.color_id, expectedColorId: expectedBoColorId });
+        if (actualBoColorId === expectedBoColorId) { skipped++; continue; }
+
+        mismatches.push({ lotId: lot.lot_id, itemNo: blItem.itemNo, currentColorId: actualBoColorId, expectedColorId: expectedBoColorId });
 
         if (dryRun) continue;
 
         // Fix it: BrickOwl does not support updating color_id in-place.
-        // We must delete the lot and recreate it with all preserved fields and the correct color.
+        // We must delete the lot and recreate it via bl_item_no + correct color_id so BrickOwl
+        // resolves the right catalog variant — reusing the wrong boid would recreate the same error.
         try {
           await deleteBrickOwlLot(lot.lot_id);
           await createBrickOwlLot({
-            boid: lot.boid,
+            bl_item_no: blItem.itemNo,
             color_id: expectedBoColorId,
             quantity: parseInt(lot.qty),
             price: parseFloat(lot.base_price),

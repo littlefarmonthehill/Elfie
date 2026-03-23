@@ -800,11 +800,15 @@ export async function syncBrickLinkToBrickOwl(
       let correctedColorId: number | undefined;
       if (item.colorId != null) {
         const expectedBoColorId = await resolveBoColorId(item.colorId);
+        // BrickOwl's inventory/list does not return color_id directly.
+        // Extract it from the boid: parts use "{owl_id}-{bo_color_id}", non-color items have no suffix (= 0).
+        const boidParts = (taggedLot.boid ?? '').split('-');
+        const actualBoColorId = boidParts.length >= 2 ? parseInt(boidParts[boidParts.length - 1]) : 0;
         if (expectedBoColorId != null && expectedBoColorId > 0 &&
-            Number(taggedLot.color_id) !== Number(expectedBoColorId)) {
+            actualBoColorId !== expectedBoColorId) {
           console.log(
             `[ChannelSync] Color mismatch on lot ${taggedLot.lot_id} ` +
-            `(${item.itemNo}): BO color_id=${taggedLot.color_id}, ` +
+            `(${item.itemNo}): boid=${taggedLot.boid} → color ${actualBoColorId}, ` +
             `expected BO color_id=${expectedBoColorId} — will correct in-place`
           );
           correctedColorId = expectedBoColorId;
