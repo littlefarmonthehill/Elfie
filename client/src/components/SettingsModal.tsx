@@ -3861,6 +3861,17 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
   const platformAdminGroups = [
     {
+      label: '',
+      items: [
+        { id: 'platformGeneral' as const, label: 'Company Information', icon: Settings },
+        { id: 'apiKeys' as const, label: 'Services', icon: Key },
+        { id: 'platformScheduler' as const, label: 'Data Enrichment', icon: Calendar },
+        { id: 'auditLog' as const, label: 'Platform Health', icon: ClipboardList },
+        { id: 'platformElfie' as const, label: 'E.L.F.I.E. Settings', icon: Brain },
+        { id: 'platformNotifications' as const, label: 'Notifications', icon: Bell },
+      ],
+    },
+    {
       label: 'Plans & Customers',
       items: [
         { id: 'plansAndPricing' as const, label: 'Plans & Pricing', icon: Tag },
@@ -3878,17 +3889,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
         { id: 'productOkrs' as const, label: 'OKRs', icon: Target },
         { id: 'productRoadmap' as const, label: 'Roadmap', icon: Map },
         { id: 'productBacklog' as const, label: 'Backlog', icon: ListTodo },
-      ],
-    },
-    {
-      label: 'Platform',
-      items: [
-        { id: 'platformGeneral' as const, label: 'Company Information', icon: Settings },
-        { id: 'apiKeys' as const, label: 'Services', icon: Key },
-        { id: 'platformScheduler' as const, label: 'Data Enrichment', icon: Calendar },
-        { id: 'auditLog' as const, label: 'Platform Health', icon: ClipboardList },
-        { id: 'platformElfie' as const, label: 'E.L.F.I.E. Settings', icon: Brain },
-        { id: 'platformNotifications' as const, label: 'Notifications', icon: Bell },
       ],
     },
   ];
@@ -4020,8 +4020,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   ))}
 
                   {openGroup === 'platform' && superAdmin && platformAdminGroups.map((group) => (
-                    <div key={group.label}>
-                      <p className="px-4 pt-2 pb-1 text-[9px] uppercase tracking-widest text-yellow-500/70 font-semibold">{group.label}</p>
+                    <div key={group.label || '_top'}>
+                      {group.label && <p className="px-4 pt-2 pb-1 text-[9px] uppercase tracking-widest text-yellow-500/70 font-semibold">{group.label}</p>}
                       {group.items.map((item) => (
                         <button
                           key={item.id}
