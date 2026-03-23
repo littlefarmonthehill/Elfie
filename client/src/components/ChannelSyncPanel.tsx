@@ -46,18 +46,6 @@ import { Separator } from "@/components/ui/separator";
 
 type SyncMode = 'analysis' | 'matched_sync' | 'full_control';
 
-interface SyncPreviewBreakdown {
-  matchedLots:   number;
-  unmatchedLots: number;
-  wouldUpdate:   number;
-  wouldCreate:   number;
-  byField: {
-    qty: number; price: number; remarks: number; description: number;
-    tierPrice: number; salePercent: number; forSale: number;
-    bulkQty: number; lotWeight: number;
-  };
-}
-
 function SyncModeBadge({ mode, size = 'sm' }: { mode?: SyncMode; size?: 'sm' | 'md' }) {
   if (!mode) return null;
   const cfg = {
@@ -95,8 +83,6 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
   const [selectedArea, setSelectedArea] = useState<DiscrepancyType | null>(null);
   const [showAuditReport, setShowAuditReport] = useState(false);
   const [showColorRepair, setShowColorRepair] = useState(false);
-  const [previewResult, setPreviewResult] = useState<SyncPreviewBreakdown | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
 
   const { data: platformData, isLoading: platformLoading } = useQuery<any>({
     queryKey: ['/api/platform-sync/status'],
@@ -128,17 +114,6 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
     },
     onError: () => {
       toast({ title: 'Sync failed', description: 'Could not start channel sync.', variant: 'destructive' });
-    },
-  });
-
-  const previewMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/channel-sync/preview', {}),
-    onSuccess: (data: any) => {
-      setPreviewResult(data?.preview ?? null);
-      setShowPreview(true);
-    },
-    onError: () => {
-      toast({ title: 'Preview failed', description: 'Could not run sync preview. Check your BrickOwl API key.', variant: 'destructive' });
     },
   });
 
@@ -526,10 +501,6 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
                 isRunning={isRunning}
                 syncMutation={syncMutation}
                 stopMutation={stopMutation}
-                previewMutation={previewMutation}
-                previewResult={previewResult}
-                showPreview={showPreview}
-                onDismissPreview={() => setShowPreview(false)}
                 onOpenSettings={onOpenSettings}
                 setDrawerOpen={setDrawerOpen}
                 discrepancyAreas={discrepancyAreas}
@@ -861,6 +832,146 @@ function DiscrepancyAreaButton({ area, onSelectArea }: { area: DiscrepancyArea; 
   );
 }
 
+interface ScopeData {
+  totalLots: number;
+  inScopeLots: number;
+  skipLots: number;
+  hiddenLots: number;
+  activeLots: number;
+  mainStoreLots: number;
+  zeroQtyInScope: number;
+  stockroomModes: Record<string, string>;
+  stockroomBreakdown: Array<{ id: string; mode: string; lots: number; zeroQtyLots: number }>;
+}
+
+function SyncScopePanel({ brickOwl }: { brickOwl: any }) {
+  const { data: scope, isLoading } = useQuery<ScopeData>({
+    queryKey: ['/api/channel-sync/scope'],
+    refetchInterval: 60000,
+    staleTime: 30000,
+  });
+
+  const boTotalLots    = brickOwl?.stats?.totalLots ?? 0;
+  const boUnlinked     = brickOwl?.discrepancies?.unlinkedBoLots ?? 0;
+  const boOrphaned     = brickOwl?.discrepancies?.orphanedBoLots ?? 0;
+  const boLinked       = Math.max(0, boTotalLots - boUnlinked - boOrphaned);
+  const boHasIssues    = boUnlinked > 0 || boOrphaned > 0;
+
+  if (isLoading) {
+    return (
+      <div className="rounded-md border border-gray-700/50 bg-gray-800/30 p-3 space-y-2" data-testid="panel-sync-scope-loading">
+        <div className="h-3 w-24 rounded bg-gray-700/60 animate-pulse" />
+        <div className="grid grid-cols-2 gap-2">
+          <div className="h-16 rounded bg-gray-700/40 animate-pulse" />
+          <div className="h-16 rounded bg-gray-700/40 animate-pulse" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!scope) return null;
+
+  const skipRows = scope.stockroomBreakdown.filter(r => r.mode === 'skip');
+  const hiddenRows = scope.stockroomBreakdown.filter(r => r.mode === 'hidden');
+  const activeRows = scope.stockroomBreakdown.filter(r => r.mode === 'active');
+
+  return (
+    <div className="rounded-md border border-gray-700/50 bg-gray-800/20 p-3 space-y-3" data-testid="panel-sync-scope">
+      <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">Sync Scope</p>
+
+      <div className="grid grid-cols-2 gap-2">
+        {/* BrickLink column */}
+        <div className="rounded bg-gray-800/50 px-2.5 py-2 space-y-2">
+          <p className="text-[9px] font-semibold uppercase tracking-widest text-gray-500">BrickLink</p>
+          <div>
+            <p className="text-sm font-mono font-bold text-gray-100">{scope.inScopeLots.toLocaleString()}</p>
+            <p className="text-[10px] text-gray-400">lots in scope</p>
+          </div>
+          <div className="space-y-1">
+            {scope.mainStoreLots > 0 && (
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[10px] text-gray-500">Main store</span>
+                <span className="text-[10px] font-mono text-gray-300">{scope.mainStoreLots.toLocaleString()}</span>
+              </div>
+            )}
+            {hiddenRows.map(r => (
+              <div key={r.id} className="flex items-center justify-between gap-1">
+                <span className="flex items-center gap-1 text-[10px] text-gray-500">
+                  <EyeOff className="w-2.5 h-2.5 text-gray-600" />
+                  Stockroom {r.id} (hidden)
+                </span>
+                <span className="text-[10px] font-mono text-gray-300">{r.lots.toLocaleString()}</span>
+              </div>
+            ))}
+            {activeRows.map(r => (
+              <div key={r.id} className="flex items-center justify-between gap-1">
+                <span className="text-[10px] text-gray-500">Stockroom {r.id} (active)</span>
+                <span className="text-[10px] font-mono text-gray-300">{r.lots.toLocaleString()}</span>
+              </div>
+            ))}
+            {skipRows.map(r => (
+              <div key={r.id} className="flex items-center justify-between gap-1">
+                <span className="flex items-center gap-1 text-[10px] text-gray-600 line-through">
+                  Stockroom {r.id} (skip)
+                </span>
+                <span className="text-[10px] font-mono text-gray-600">{r.lots.toLocaleString()}</span>
+              </div>
+            ))}
+            {scope.zeroQtyInScope > 0 && (
+              <div className="flex items-center justify-between gap-1 pt-0.5 border-t border-gray-700/40">
+                <span className="flex items-center gap-1 text-[10px] text-amber-500/80">
+                  <AlertTriangle className="w-2.5 h-2.5" />
+                  Zero-qty in scope
+                </span>
+                <span className="text-[10px] font-mono text-amber-500/80">{scope.zeroQtyInScope.toLocaleString()}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* BrickOwl column */}
+        <div className="rounded bg-gray-800/50 px-2.5 py-2 space-y-2">
+          <p className="text-[9px] font-semibold uppercase tracking-widest text-gray-500">BrickOwl</p>
+          <div>
+            <p className="text-sm font-mono font-bold text-gray-100">{boTotalLots.toLocaleString()}</p>
+            <p className="text-[10px] text-gray-400">total lots</p>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-1">
+              <span className="flex items-center gap-1 text-[10px] text-gray-500">
+                <CheckCircle2 className="w-2.5 h-2.5 text-green-500/70" />
+                Linked to BL
+              </span>
+              <span className="text-[10px] font-mono text-gray-300">{boLinked.toLocaleString()}</span>
+            </div>
+            {boUnlinked > 0 && (
+              <div className="flex items-center justify-between gap-1">
+                <span className="flex items-center gap-1 text-[10px] text-amber-500/80">
+                  <Unlink className="w-2.5 h-2.5" />
+                  Unlinked
+                </span>
+                <span className="text-[10px] font-mono text-amber-500/80">{boUnlinked.toLocaleString()}</span>
+              </div>
+            )}
+            {boOrphaned > 0 && (
+              <div className="flex items-center justify-between gap-1">
+                <span className="flex items-center gap-1 text-[10px] text-red-400/80">
+                  <GitMerge className="w-2.5 h-2.5" />
+                  Orphaned
+                </span>
+                <span className="text-[10px] font-mono text-red-400/80">{boOrphaned.toLocaleString()}</span>
+              </div>
+            )}
+            {!boHasIssues && boTotalLots > 0 && (
+              <p className="text-[10px] text-green-500/70">All lots linked</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function OverviewContent({
   brickOwl,
   lastSync,
@@ -869,10 +980,6 @@ function OverviewContent({
   isRunning,
   syncMutation,
   stopMutation,
-  previewMutation,
-  previewResult,
-  showPreview,
-  onDismissPreview,
   onOpenSettings,
   setDrawerOpen,
   discrepancyAreas,
@@ -918,20 +1025,6 @@ function OverviewContent({
         <Button
           size="sm"
           variant="ghost"
-          disabled={previewMutation.isPending || isRunning}
-          onClick={() => previewMutation.mutate()}
-          data-testid="button-channel-preview"
-        >
-          {previewMutation.isPending ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-          ) : (
-            <ClipboardList className="w-3.5 h-3.5 mr-1.5" />
-          )}
-          {previewMutation.isPending ? 'Scanning…' : 'Preview Run'}
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
           onClick={() => { setDrawerOpen(false); onOpenSettings?.('automation', 'channelSync'); }}
           data-testid="button-channel-sync-settings"
         >
@@ -965,63 +1058,7 @@ function OverviewContent({
         </div>
       )}
 
-      {/* Preview result panel */}
-      {showPreview && previewResult && (
-        <div className="rounded-lg border border-blue-500/30 bg-blue-950/30 p-3 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold text-blue-200">Preview Run — No changes were made</span>
-            <button
-              onClick={onDismissPreview}
-              className="text-gray-500 hover:text-gray-300"
-              data-testid="button-dismiss-preview"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { label: 'Matched lots',   value: previewResult.matchedLots,   color: 'text-gray-200' },
-              { label: 'Would update',   value: previewResult.wouldUpdate,   color: 'text-yellow-300' },
-              { label: 'Unmatched',      value: previewResult.unmatchedLots, color: 'text-orange-300' },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="rounded bg-gray-800/60 px-2 py-1.5 text-center">
-                <p className={`text-base font-mono font-bold ${color}`}>{value.toLocaleString()}</p>
-                <p className="text-[9px] text-gray-500 mt-0.5">{label}</p>
-              </div>
-            ))}
-          </div>
-
-          {previewResult.wouldUpdate > 0 && (
-            <div className="space-y-1">
-              <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">Changes by field</p>
-              <div className="flex flex-wrap gap-1.5">
-                {([
-                  ['Qty',         previewResult.byField.qty],
-                  ['Price',       previewResult.byField.price],
-                  ['Remarks',     previewResult.byField.remarks],
-                  ['Description', previewResult.byField.description],
-                  ['Tier price',  previewResult.byField.tierPrice],
-                  ['Sale %',      previewResult.byField.salePercent],
-                  ['For sale',    previewResult.byField.forSale],
-                  ['Bulk qty',    previewResult.byField.bulkQty],
-                  ['Lot weight',  previewResult.byField.lotWeight],
-                ] as [string, number][]).filter(([, n]) => n > 0).map(([label, n]) => (
-                  <span key={label} className="inline-flex items-center gap-1 rounded border border-blue-500/20 bg-blue-900/30 px-1.5 py-0.5 text-[10px] text-blue-200">
-                    {label}: <span className="font-mono font-semibold">{n.toLocaleString()}</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {previewResult.wouldUpdate === 0 && (
-            <p className="text-[11px] text-green-400">
-              Everything is in sync — no lots would be changed with your current field settings.
-            </p>
-          )}
-        </div>
-      )}
+      <SyncScopePanel brickOwl={brickOwl} />
 
       {/* Lot Issues — always visible; discrepancy buttons only when there are issues */}
       {(() => {

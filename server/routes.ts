@@ -9772,6 +9772,80 @@ Format search_web URLs as markdown links.`;
     }
   });
 
+  // ── Channel Sync Scope ──────────────────────────────────────────────────
+  // Fast DB-only breakdown of what is/isn't in scope for BL→BO sync.
+  // Does NOT call BrickOwl API. Used for the "Sync Scope" confidence panel.
+  app.get('/api/channel-sync/scope', isApproved, async (req, res) => {
+    try {
+      const orgId = reqOrgId(req);
+
+      const [cfgRow] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
+      const stockroomModes: Record<string, 'skip' | 'hidden' | 'active'> =
+        (cfgRow?.syncStockroomModes as any) ?? { A: 'skip', B: 'skip', C: 'skip' };
+
+      // Count lots per stockroom bucket, plus zero-qty within each.
+      const rows = await db
+        .select({
+          isStockRoom: blInventory.isStockRoom,
+          stockRoomId: blInventory.stockRoomId,
+          totalLots: sql<number>`COUNT(*)`,
+          zeroQtyLots: sql<number>`SUM(CASE WHEN ${blInventory.quantity} <= 0 THEN 1 ELSE 0 END)`,
+        })
+        .from(blInventory)
+        .where(and(eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt)))
+        .groupBy(blInventory.isStockRoom, blInventory.stockRoomId);
+
+      let totalLots = 0;
+      let skipLots = 0;
+      let hiddenLots = 0;
+      let activeLots = 0;
+      let mainStoreLots = 0;
+      let zeroQtyInScope = 0;
+
+      const stockroomBreakdown: Array<{ id: string; mode: string; lots: number; zeroQtyLots: number }> = [];
+
+      for (const row of rows) {
+        const lots = Number(row.totalLots) || 0;
+        const zeroQty = Number(row.zeroQtyLots) || 0;
+        totalLots += lots;
+
+        if (row.isStockRoom && row.stockRoomId) {
+          const mode = stockroomModes[row.stockRoomId] ?? 'skip';
+          stockroomBreakdown.push({ id: row.stockRoomId, mode, lots, zeroQtyLots: zeroQty });
+          if (mode === 'skip') {
+            skipLots += lots;
+          } else if (mode === 'hidden') {
+            hiddenLots += lots;
+            zeroQtyInScope += zeroQty;
+          } else {
+            activeLots += lots;
+            zeroQtyInScope += zeroQty;
+          }
+        } else {
+          mainStoreLots += lots;
+          zeroQtyInScope += zeroQty;
+        }
+      }
+
+      const inScopeLots = totalLots - skipLots;
+
+      res.json({
+        totalLots,
+        inScopeLots,
+        skipLots,
+        hiddenLots,
+        activeLots,
+        mainStoreLots,
+        zeroQtyInScope,
+        stockroomModes,
+        stockroomBreakdown: stockroomBreakdown.sort((a, b) => a.id.localeCompare(b.id)),
+      });
+    } catch (error) {
+      console.error('[Scope] error:', error);
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Scope query failed' });
+    }
+  });
+
   // Sync BrickLink inventory to platform
   app.post("/api/platform-sync/sync", isApproved, async (req, res) => {
     try {
