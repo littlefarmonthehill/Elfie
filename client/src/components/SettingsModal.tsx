@@ -4001,7 +4001,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         data-testid="button-platform-admin-toggle"
                       >
                         <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                        Platform
+                        Platform Strategy
                       </button>
                     </div>
                   )}
