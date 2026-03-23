@@ -536,6 +536,18 @@ function ColorRepairDetail() {
   const [mismatches, setMismatches] = useState<ColorMismatch[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [fixingLots, setFixingLots] = useState<Set<string>>(new Set());
+  const [repairDone, setRepairDone] = useState(0);
+
+  useEffect(() => {
+    if (fixingLots.size === 0) { setRepairDone(0); return; }
+    const id = setInterval(async () => {
+      try {
+        const p: any = await apiRequest('GET', '/api/repair/brickowl-colors/progress');
+        setRepairDone(p.done ?? 0);
+      } catch {}
+    }, 600);
+    return () => clearInterval(id);
+  }, [fixingLots.size]);
 
   const scanMutation = useMutation({
     mutationFn: () => apiRequest('POST', '/api/repair/brickowl-colors', { dryRun: true }),
@@ -726,6 +738,23 @@ function ColorRepairDetail() {
                 {fixingLots.size > 0 ? 'Fixing…' : someSelected ? `Fix Selected (${selected.size})` : 'Fix Selected'}
               </Button>
             </div>
+
+            {/* Fix progress bar */}
+            {fixingLots.size > 0 && (
+              <div className="px-4 py-2.5 border-b border-gray-800 bg-gray-900/40">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] text-gray-400">Fixing lots…</span>
+                  <span className="text-[11px] font-mono text-gray-400">{repairDone} / {fixingLots.size}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-gray-800 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-amber-400 transition-all duration-300"
+                    style={{ width: `${Math.min(100, fixingLots.size > 0 ? (repairDone / fixingLots.size) * 100 : 0)}%` }}
+                    data-testid="bar-color-repair-progress"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Rows */}
             <div className="divide-y divide-gray-800">

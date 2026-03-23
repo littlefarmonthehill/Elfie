@@ -11958,6 +11958,13 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
+  // In-memory progress tracker for color repair (single concurrent repair only)
+  let colorRepairProgress: { active: boolean; done: number; total: number } = { active: false, done: 0, total: 0 };
+
+  app.get("/api/repair/brickowl-colors/progress", isApproved, (_req, res) => {
+    res.json(colorRepairProgress);
+  });
+
   // One-time repair: correct BrickOwl lot colors that were set incorrectly before the color-map fix.
   // Fetches all tagged BO lots, cross-references BL colorId, and pushes the corrected color_id
   // to any lot where the stored color doesn't match what BL says it should be.
@@ -11987,6 +11994,10 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       let skipped = 0;
       const errors: string[] = [];
       const mismatches: { lotId: string; blId: number; itemNo: string; currentColorId: number; currentColorName: string; expectedColorId: number; expectedColorName: string }[] = [];
+
+      if (!dryRun) {
+        colorRepairProgress = { active: true, done: 0, total: lotIdsFilter?.size ?? 0 };
+      }
 
       for (const lot of taggedLots) {
         const blId = parseInt(lot.external_lot_ids!.other!);
@@ -12028,6 +12039,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
             const msg = `lot ${lot.lot_id} (${blItem.itemNo}): could not resolve boid for color ${expectedBoColorId}`;
             errors.push(msg);
             console.error(`[ColorRepair] Skipping — ${msg}`);
+            colorRepairProgress.done++;
             continue;
           }
           // Touch updatedAt before deleting so the next incremental channel sync
@@ -12050,13 +12062,17 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
             lot_weight: lot.lot_weight ? parseFloat(lot.lot_weight) : undefined,
           });
           fixed++;
+          colorRepairProgress.done++;
           console.log(`[ColorRepair] Fixed lot ${lot.lot_id} (${blItem.itemNo}): boid resolved to ${boid} (color ${expectedBoColorId})`);
         } catch (err: any) {
           const msg = `lot ${lot.lot_id} (${blItem.itemNo}): ${err.message}`;
           errors.push(msg);
+          colorRepairProgress.done++;
           console.error(`[ColorRepair] Error fixing ${msg}`);
         }
       }
+
+      colorRepairProgress.active = false;
 
       if (dryRun) {
         console.log(`[ColorRepair] Dry-run — ${mismatches.length} mismatches found, ${skipped} already correct`);
