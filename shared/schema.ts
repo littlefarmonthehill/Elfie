@@ -489,34 +489,15 @@ export const shipmentsRelations = relations(shipments, ({ one }) => ({
 }));
 
 // App Settings
-// ─── Platform-level settings (one row, id = 'platform') ─────────────────────
-// These are operator-owned and shared across all orgs: AI provider, billing,
-// platform identity. Kept lean and separate from per-org app_settings so that
-// the org table can be cleanly recreated to reclaim ghost column slots.
-export const platformSettings = pgTable("platform_settings", {
-  id: varchar("id").primaryKey().default('platform'),
-  platformName: text("platform_name"),
-  openaiApiKey: text("openai_api_key"),
-  stripeSecretKey: text("stripe_secret_key"),
-  stripeEnvironment: text("stripe_environment").default('live').notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-export const insertPlatformSettingsSchema = createInsertSchema(platformSettings).omit({ id: true, updatedAt: true });
-export type InsertPlatformSettings = z.infer<typeof insertPlatformSettingsSchema>;
-export type PlatformSettings = typeof platformSettings.$inferSelect;
-
-// ─── Per-org operational settings ────────────────────────────────────────────
-// One row per org (id = orgId). Platform-level fields (OpenAI, Stripe,
-// platformName) have moved to platform_settings above.
-// This table is physically recreated in Phase-72 to reclaim 1,478 ghost
-// column slots accumulated from years of ADD/DROP COLUMN migrations.
 export const appSettings = pgTable("app_settings", {
   id: varchar("id").primaryKey().default('default'),
   orgId: varchar("org_id"),                            // FK → organizations.id
+  platformName: text("platform_name"),                   // Configurable platform display name
   aiEnabled: boolean("ai_enabled").default(true).notNull(),
-  selectedModel: text("selected_model").default('gpt-4o-mini'),  // AI model (per-org override)
-  systemPrompt: text("system_prompt"),                           // ELFIE persona (per-org override)
+  // OpenAI Configuration (used for both chat and embeddings)
+  openaiApiKey: text("openai_api_key"),
+  selectedModel: text("selected_model").default('gpt-4o-mini'),
+  systemPrompt: text("system_prompt"),
   bricklinkConsumerKey: text("bricklink_consumer_key"),
   bricklinkConsumerSecret: text("bricklink_consumer_secret"),
   bricklinkTokenValue: text("bricklink_token_value"),
@@ -525,6 +506,9 @@ export const appSettings = pgTable("app_settings", {
   easypostApiKey: text("easypost_api_key"),
   easypostTestApiKey: text("easypost_test_api_key"),
   easypostKeyMode: text("easypost_key_mode").default('test').notNull(), // 'test' or 'production'
+  // Stripe Credentials (platform billing — subscriptions, checkout, billing portal)
+  stripeSecretKey: text("stripe_secret_key"),
+  stripeEnvironment: text("stripe_environment").default('live').notNull(), // 'test' or 'live'
   // International Shipping / Customs
   customsSigner: text("customs_signer"),           // Name to sign customs declarations
   blIossNumber: text("bl_ioss_number"),            // BrickLink EU IOSS number
