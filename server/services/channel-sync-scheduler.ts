@@ -161,6 +161,20 @@ async function runScheduledChannelSync() {
   }
   console.log('\n🌐 Starting scheduled channel sync (Local DB → BrickOwl)...');
 
+  // Read last successful sync time BEFORE writing in_progress so the
+  // incremental filter correctly scopes to items changed since that run.
+  let sinceTime: Date | undefined;
+  try {
+    const [prevMeta] = await db.select().from(syncMetadata)
+      .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, 'channel_sync'))).limit(1);
+    if (prevMeta?.lastSyncStatus === 'success' && prevMeta.lastSyncTime) {
+      sinceTime = new Date(prevMeta.lastSyncTime);
+      console.log(`[Channel] Incremental mode: processing BL items changed since ${sinceTime.toISOString()}`);
+    } else {
+      console.log('[Channel] Full sync mode: no prior successful sync — comparing all BL items');
+    }
+  } catch { /* non-fatal — default to full sync */ }
+
   await db.insert(syncMetadata).values({
     id: 'channel_sync',
     lastSyncStatus: 'in_progress',
@@ -200,7 +214,7 @@ async function runScheduledChannelSync() {
     channelSyncProgress = { processed: 0, total: 0, phase: 'fetching' };
     const result = await syncBrickLinkToBrickOwl(undefined, syncMode, (processed, total) => {
       channelSyncProgress = { processed, total, phase: 'syncing' };
-    }, syncFields);
+    }, syncFields, sinceTime);
     const wasAborted = isChannelSyncAbortRequested();
     const hasErrors = result.errors.length > 0;
     const status = wasAborted ? 'partial' : hasErrors ? 'partial' : 'success';

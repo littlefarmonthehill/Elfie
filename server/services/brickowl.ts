@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { appSettings, blInventory, blColors } from "@shared/schema";
-import { eq, isNotNull, isNull, inArray, sql, and } from "drizzle-orm";
+import { eq, isNotNull, isNull, inArray, sql, and, gt } from "drizzle-orm";
 import { decodeHTML } from "entities";
 
 // Normalize a note/description string so both sides of a BL↔BO comparison are
@@ -685,7 +685,8 @@ export async function syncBrickLinkToBrickOwl(
   limit?: number,
   mode: 'analysis' | 'full_control' | 'matched_sync' = 'full_control',
   onProgress?: (processed: number, total: number) => void,
-  fields: SyncFieldConfig = defaultSyncFields
+  fields: SyncFieldConfig = defaultSyncFields,
+  sinceTime?: Date
 ): Promise<BrickOwlSyncResult> {
   const result: BrickOwlSyncResult = {
     lotsCreated: 0,
@@ -706,12 +707,22 @@ export async function syncBrickLinkToBrickOwl(
   };
 
   // ── Fetch both inventories once ──────────────────────────────────────────
-  // Only active (non-soft-deleted) BL items participate in field sync
-  let query = db.select().from(blInventory).where(isNull(blInventory.deletedAt));
+  // Incremental mode: when sinceTime is provided, only process BL lots whose
+  // updatedAt is newer than the last successful channel sync.  This avoids
+  // re-sending the same unchanged data to BrickOwl every run.
+  // Full mode (no sinceTime): every active lot is compared — used on first run
+  // or after a sync failure to ensure BrickOwl is fully in sync with BL.
+  const blFilter = sinceTime
+    ? and(isNull(blInventory.deletedAt), gt(blInventory.updatedAt, sinceTime))
+    : isNull(blInventory.deletedAt);
+  let query = db.select().from(blInventory).where(blFilter);
   if (limit) query = query.limit(limit) as any;
   const blItems = await query;
 
-  console.log(`[ChannelSync] ${blItems.length} BrickLink items to compare (soft-deleted excluded)`);
+  const syncLabel = sinceTime
+    ? `Incremental (since ${sinceTime.toISOString()})`
+    : 'Full';
+  console.log(`[ChannelSync] ${syncLabel} — ${blItems.length} BrickLink items to compare (soft-deleted excluded)`);
   const blWithSale = blItems.filter(i => (i.saleRate ?? 0) > 0).length;
   console.log(`[ChannelSync:DIAG] BL items with saleRate>0: ${blWithSale}`);
 
