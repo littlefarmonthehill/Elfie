@@ -723,6 +723,10 @@ export async function syncBrickLinkToBrickOwl(
     if (extId) taggedLotMap.set(extId, lot);
   }
 
+  // Pre-load the BO color map once so Phase 1 color-mismatch checks are
+  // instant (resolveBoColorId reads from the in-memory cache after this).
+  await loadBoColorMap();
+
   // ── Phase 1: In-memory delta detection (no API calls) ────────────────────
   type UpdateJob = {
     blItemNo: string;
@@ -772,6 +776,31 @@ export async function syncBrickLinkToBrickOwl(
     const taggedLot = taggedLotMap.get(item.id.toString());
 
     if (taggedLot) {
+      // ── Color-mismatch repair (full_control only) ──────────────────────────
+      // If the tagged lot was created during a color-map bug (e.g. color_id=0
+      // when it should have a real color), delete it and re-queue for Phase 2
+      // so it gets recreated with the correct color-bearing BOID.
+      if (mode === 'full_control' && item.colorId != null) {
+        const expectedBoColorId = await resolveBoColorId(item.colorId);
+        if (expectedBoColorId != null && expectedBoColorId > 0 &&
+            taggedLot.color_id !== expectedBoColorId) {
+          console.log(
+            `[ChannelSync] Color mismatch on lot ${taggedLot.lot_id} ` +
+            `(${item.itemNo}): BO color_id=${taggedLot.color_id}, ` +
+            `expected BO color_id=${expectedBoColorId} — deleting & re-queuing`
+          );
+          try {
+            await brickowlDeleteLot(taggedLot.lot_id);
+            result.lotsDeleted = (result.lotsDeleted ?? 0) + 1;
+            result.totalApiCalls++;
+          } catch (err) {
+            console.error(`[ChannelSync] Failed to delete color-mismatched lot ${taggedLot.lot_id}:`, err);
+          }
+          toAdopt.push(item);
+          continue;
+        }
+      }
+
       const newTierPrice = buildTierPriceString(
         item.tierQuantity1, item.tierPrice1,
         item.tierQuantity2, item.tierPrice2,
