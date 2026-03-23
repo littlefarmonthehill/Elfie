@@ -13,7 +13,6 @@ import {
   XCircle,
   Clock,
   SlidersHorizontal,
-  CalendarClock,
   PackageX,
   DollarSign,
   Hash,
@@ -841,15 +840,6 @@ function OverviewContent({
             <ClipboardList className="w-3.5 h-3.5 mr-1.5" />
           )}
           {previewMutation.isPending ? 'Scanning…' : 'Preview Run'}
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => { setDrawerOpen(false); onOpenSettings?.('automation', 'channelSync'); }}
-          data-testid="button-channel-schedule"
-        >
-          <CalendarClock className="w-3.5 h-3.5 mr-1.5" />
-          Schedule
         </Button>
         <Button
           size="sm"
