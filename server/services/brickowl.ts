@@ -405,7 +405,12 @@ export async function lookupBoid(blItemNo: string, type: string = 'Part', boColo
       boids = result.map((item: any) => item.boid || item);
     }
 
-    const boid = boids.length > 0 ? boids[0] : null;
+    const owlId = boids.length > 0 ? boids[0] : null;
+    // BrickOwl's catalog/id_lookup returns the bare owl_id (e.g. "978971").
+    // The actual boid used in BO inventory for color-variant parts is
+    // "{owl_id}-{bo_color_id}" (e.g. "978971-92"). Append the suffix so that
+    // lot creation, adoption matching, and mismatch detection all stay consistent.
+    const boid = (owlId && boColorId != null && boColorId > 0) ? `${owlId}-${boColorId}` : owlId;
     boidCache.set(cacheKey, boid);
     if (boid) {
       console.log(`[BOID] ✓ ${blItemNo} (color=${boColorId ?? 'any'}) → ${boid}`);
