@@ -263,6 +263,7 @@ export async function updateBrickOwlLot(data: {
   sale_percentage?: number;  // BrickLink saleRate; 0 = remove
   bulk_qty?: number;         // Minimum order quantity (BrickLink bulk)
   lot_weight?: number;       // Custom lot weight (BrickLink myWeight)
+  color_id?: number;         // BrickOwl color ID — send to correct a color mismatch in-place
 }): Promise<any> {
   const updateData: Record<string, string> = {};
   
@@ -280,6 +281,7 @@ export async function updateBrickOwlLot(data: {
   // New fields
   if (data.bulk_qty !== undefined) updateData.bulk_qty = data.bulk_qty.toString();
   if (data.lot_weight !== undefined) updateData.lot_weight = data.lot_weight.toFixed(4);
+  if (data.color_id !== undefined) updateData.color_id = data.color_id.toString();
   
   // Decode HTML entities from notes before sending to BrickOwl
   if (data.personal_note !== undefined) {
@@ -749,6 +751,7 @@ export async function syncBrickLinkToBrickOwl(
     // true when any non-qty field changed — these MUST go via individual
     // API calls because BrickOwl's batch /bulk/batch endpoint silently ignores them.
     hasNonQtyChange: boolean;
+    color_id?: number;         // set when BrickOwl lot has the wrong color; corrected in-place
   };
 
   const toUpdate: UpdateJob[] = [];
@@ -776,28 +779,21 @@ export async function syncBrickLinkToBrickOwl(
     const taggedLot = taggedLotMap.get(item.id.toString());
 
     if (taggedLot) {
-      // ── Color-mismatch repair (full_control only) ──────────────────────────
-      // If the tagged lot was created during a color-map bug (e.g. color_id=0
-      // when it should have a real color), delete it and re-queue for Phase 2
-      // so it gets recreated with the correct color-bearing BOID.
-      if (mode === 'full_control' && item.colorId != null) {
+      // ── Color-mismatch detection ───────────────────────────────────────────
+      // If the tagged lot was created with the wrong color (e.g. during a
+      // color-map bug), resolve the correct BO color ID and flag it so the
+      // update job corrects it in-place — no delete/recreate needed.
+      let correctedColorId: number | undefined;
+      if (item.colorId != null) {
         const expectedBoColorId = await resolveBoColorId(item.colorId);
         if (expectedBoColorId != null && expectedBoColorId > 0 &&
             taggedLot.color_id !== expectedBoColorId) {
           console.log(
             `[ChannelSync] Color mismatch on lot ${taggedLot.lot_id} ` +
             `(${item.itemNo}): BO color_id=${taggedLot.color_id}, ` +
-            `expected BO color_id=${expectedBoColorId} — deleting & re-queuing`
+            `expected BO color_id=${expectedBoColorId} — will correct in-place`
           );
-          try {
-            await brickowlDeleteLot(taggedLot.lot_id);
-            result.lotsDeleted = (result.lotsDeleted ?? 0) + 1;
-            result.totalApiCalls++;
-          } catch (err) {
-            console.error(`[ChannelSync] Failed to delete color-mismatched lot ${taggedLot.lot_id}:`, err);
-          }
-          toAdopt.push(item);
-          continue;
+          correctedColorId = expectedBoColorId;
         }
       }
 
@@ -861,7 +857,8 @@ export async function syncBrickLinkToBrickOwl(
       // pushed to BrickOwl over time without causing wasteful extra calls.
       // (lotWeightChanged is intentionally omitted from hasChange.)
 
-      const hasChange = qtyChanged || priceChanged || remarksChanged || descChanged || tierChanged || saleChanged || forSaleChanged || bulkQtyChanged;
+      const colorChanged = !!correctedColorId;
+      const hasChange = qtyChanged || priceChanged || remarksChanged || descChanged || tierChanged || saleChanged || forSaleChanged || bulkQtyChanged || colorChanged;
 
       // Always track for preview breakdown (populated regardless of mode)
       preview.matchedLots++;
@@ -888,7 +885,8 @@ export async function syncBrickLinkToBrickOwl(
           // Write-through fields (my_cost, lot_weight) are included in the payload
           // but never make a lot "non-qty-only" by themselves — they piggyback on
           // whatever else already needs an individual call.
-          const hasNonQty = priceChanged || remarksChanged || descChanged || tierChanged || saleChanged || forSaleChanged || bulkQtyChanged;
+          // color_id corrections must also go via individual calls (not batch).
+          const hasNonQty = priceChanged || remarksChanged || descChanged || tierChanged || saleChanged || forSaleChanged || bulkQtyChanged || colorChanged;
           toUpdate.push({
             blItemNo: item.itemNo,
             lot_id: taggedLot.lot_id,
@@ -906,6 +904,8 @@ export async function syncBrickLinkToBrickOwl(
             ...(bulkQtyChanged  && { bulk_qty: newBulkQty }),
             // Write-through: push lot_weight when updating for any other reason
             ...(fields.lotWeight && newLotWeight > 0 && { lot_weight: newLotWeight }),
+            // Color correction: fix lots created with wrong color during a color-map bug
+            ...(colorChanged && { color_id: correctedColorId }),
           });
         }
       } else {
@@ -1095,6 +1095,7 @@ export async function syncBrickLinkToBrickOwl(
           ...(job.for_sale        !== undefined && { for_sale:        job.for_sale        }),
           ...(job.bulk_qty        !== undefined && { bulk_qty:        job.bulk_qty        }),
           ...(job.lot_weight      !== undefined && { lot_weight:      job.lot_weight      }),
+          ...(job.color_id        !== undefined && { color_id:        job.color_id        }),
         };
 
         const updateResp = await updateBrickOwlLot(fieldPayload);
