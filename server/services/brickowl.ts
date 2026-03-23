@@ -1275,18 +1275,19 @@ export async function syncBrickLinkToBrickOwl(
 
   type OverrideKey = string; // "${blItemNo}:${boColorId ?? 'null'}"
   const approvedOverrideMap = new Map<OverrideKey, string>(); // key → BOID to use
-  const skipOverrideSet    = new Set<OverrideKey>();           // pending or rejected
+  const skipOverrideSet    = new Set<OverrideKey>();           // rejected only
 
   for (const ov of allOverrides) {
     const key: OverrideKey = `${ov.blItemNo}:${ov.boColorId ?? 'null'}`;
     if (ov.status === 'approved') {
       approvedOverrideMap.set(key, ov.approvedBoid ?? ov.proposedBoid);
-    } else {
-      // pending_review or rejected — skip this item
+    } else if (ov.status === 'rejected') {
+      // Only rejected items are skipped — pending_review items still adopt normally
       skipOverrideSet.add(key);
     }
+    // pending_review: no action here — item proceeds through normal lookup and adoption
   }
-  console.log(`[ChannelSync] Loaded ${approvedOverrideMap.size} approved + ${skipOverrideSet.size} skipped BOID overrides`);
+  console.log(`[ChannelSync] Loaded ${approvedOverrideMap.size} approved + ${skipOverrideSet.size} rejected BOID overrides`);
 
   const boidMap = new Map<number, string | null>(); // index → BOID
   for (let i = 0; i < adoptCandidates.length; i += BOID_CHUNK) {
@@ -1307,7 +1308,8 @@ export async function syncBrickLinkToBrickOwl(
         // 3. Full lookup chain
         const boid = await lookupBoid(item.itemNo, item.itemType, boColorId ?? undefined);
 
-        // If resolved via a fallback step, queue for manual review instead of syncing
+        // If resolved via a fallback step, save for manual review — but still adopt the lot.
+        // This keeps the sync fast (incremental) while surfacing uncertain matches for review.
         if (boid && mode === 'full_control') {
           const normalizedType = normalizeBrickLinkItemType(item.itemType ?? 'PART');
           const cacheKey = `${item.itemNo}:${normalizedType}:${boColorId ?? 'any'}`;
@@ -1322,7 +1324,7 @@ export async function syncBrickLinkToBrickOwl(
               boid,
               via
             );
-            return null; // Don't sync this run — awaiting review
+            // Fall through — still return the BOID so the lot gets tagged this run
           }
         }
         return boid;
