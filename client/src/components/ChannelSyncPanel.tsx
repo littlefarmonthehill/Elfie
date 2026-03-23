@@ -949,7 +949,17 @@ function SyncScopePanel({ brickOwl }: { brickOwl: any }) {
                 <span className="text-[10px] font-mono text-red-400/80">{boOrphaned.toLocaleString()}</span>
               </div>
             )}
-            {!boHasIssues && boTotalLots > 0 && (
+            {(() => {
+              const missing = scope.inScopeLots - boLinked;
+              if (missing <= 0) return null;
+              return (
+                <div className="flex items-center justify-between gap-1 pt-0.5 border-t border-gray-700/40">
+                  <span className="text-[10px] text-amber-500/80">Not yet in BO</span>
+                  <span className="text-[10px] font-mono text-amber-500/80">{missing.toLocaleString()}</span>
+                </div>
+              );
+            })()}
+            {!boHasIssues && boTotalLots > 0 && scope.inScopeLots <= boLinked && (
               <p className="text-[10px] text-green-500/70">All lots linked</p>
             )}
           </div>
