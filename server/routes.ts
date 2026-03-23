@@ -11962,7 +11962,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   // to any lot where the stored color doesn't match what BL says it should be.
   app.post("/api/repair/brickowl-colors", isApproved, async (req: any, res) => {
     try {
-      const { getBrickOwlInventory, createBrickOwlLot, deleteBrickOwlLot, mapColorId, getBoColorName, getBlColorName } = await import('./services/brickowl');
+      const { getBrickOwlInventory, createBrickOwlLot, deleteBrickOwlLot, lookupBoid, mapColorId, getBoColorName, getBlColorName } = await import('./services/brickowl');
       const dryRun: boolean = req.body?.dryRun === true;
       const lotIdsFilter: Set<string> | null = Array.isArray(req.body?.lotIds) && req.body.lotIds.length > 0
         ? new Set(req.body.lotIds as string[])
@@ -12019,13 +12019,19 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         if (lotIdsFilter && !lotIdsFilter.has(lot.lot_id)) { skipped++; continue; }
 
         // Fix it: BrickOwl does not support updating color_id in-place.
-        // We must delete the lot and recreate it via bl_item_no + correct color_id so BrickOwl
-        // resolves the right catalog variant — reusing the wrong boid would recreate the same error.
+        // We must delete the lot and recreate it using the correct boid (looked up via the BL item
+        // no + correct BO color) — reusing the wrong boid would recreate the same error.
         try {
+          const boid = await lookupBoid(blItem.itemNo, blItem.itemType ?? 'Part', expectedBoColorId);
+          if (!boid) {
+            const msg = `lot ${lot.lot_id} (${blItem.itemNo}): could not resolve boid for color ${expectedBoColorId}`;
+            errors.push(msg);
+            console.error(`[ColorRepair] Skipping — ${msg}`);
+            continue;
+          }
           await deleteBrickOwlLot(lot.lot_id);
           await createBrickOwlLot({
-            bl_item_no: blItem.itemNo,
-            color_id: expectedBoColorId,
+            boid,
             quantity: parseInt(lot.qty),
             price: parseFloat(lot.base_price),
             condition: lot.condition,
@@ -12039,7 +12045,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
             lot_weight: lot.lot_weight ? parseFloat(lot.lot_weight) : undefined,
           });
           fixed++;
-          console.log(`[ColorRepair] Fixed lot ${lot.lot_id} (${blItem.itemNo}): color_id ${lot.color_id} → ${expectedBoColorId}`);
+          console.log(`[ColorRepair] Fixed lot ${lot.lot_id} (${blItem.itemNo}): boid resolved to ${boid} (color ${expectedBoColorId})`);
         } catch (err: any) {
           const msg = `lot ${lot.lot_id} (${blItem.itemNo}): ${err.message}`;
           errors.push(msg);
