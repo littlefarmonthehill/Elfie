@@ -11911,7 +11911,10 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
 
         if (Number(lot.color_id) === Number(expectedBoColorId)) { skipped++; continue; }
 
-        // Color mismatch found
+        // Color mismatch found — log first 5 for diagnostics
+        if (mismatches.length < 5) {
+          console.log(`[ColorRepair] Mismatch sample: lot=${lot.lot_id} itemNo=${blItem.itemNo} blColorId=${blItem.colorId}(${typeof blItem.colorId}) boColorId_raw=${lot.color_id}(${typeof lot.color_id}) expected=${expectedBoColorId}(${typeof expectedBoColorId})`);
+        }
         mismatches.push({ lotId: lot.lot_id, itemNo: blItem.itemNo, currentColorId: lot.color_id, expectedColorId: expectedBoColorId });
 
         if (dryRun) continue;
