@@ -919,16 +919,13 @@ function SyncScopePanel({ brickOwl }: { brickOwl: any }) {
         <div className="rounded bg-gray-800/50 px-2.5 py-2 space-y-2">
           <p className="text-[9px] font-semibold uppercase tracking-widest text-gray-500">BrickOwl</p>
           <div>
-            <p className="text-sm font-mono font-bold text-gray-100">{boTotalLots.toLocaleString()}</p>
-            <p className="text-[10px] text-gray-400">total lots</p>
+            <p className="text-sm font-mono font-bold text-gray-100">{boLinked.toLocaleString()}</p>
+            <p className="text-[10px] text-gray-400">linked lots</p>
           </div>
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-1">
-              <span className="flex items-center gap-1 text-[10px] text-gray-500">
-                <CheckCircle2 className="w-2.5 h-2.5 text-green-500/70" />
-                Linked to BL
-              </span>
-              <span className="text-[10px] font-mono text-gray-300">{boLinked.toLocaleString()}</span>
+              <span className="text-[10px] text-gray-500">Total lots</span>
+              <span className="text-[10px] font-mono text-gray-300">{boTotalLots.toLocaleString()}</span>
             </div>
             {boUnlinked > 0 && (
               <div className="flex items-center justify-between gap-1">
