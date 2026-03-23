@@ -600,6 +600,61 @@ function ColorRepairDetail() {
   const isBusy = scanMutation.isPending || fixingLots.size > 0;
   const allSelected = (mismatches?.length ?? 0) > 0 && selected.size === (mismatches?.length ?? 0);
   const someSelected = selected.size > 0;
+  const hasResults = mismatches !== null && mismatches.length > 0;
+
+  function downloadReport() {
+    if (!mismatches?.length) return;
+    const rows = [
+      ['BrickOwl Lot ID', 'Item No', 'BL Item ID', 'Current Color', 'Expected Color'],
+      ...mismatches.map(m => [
+        m.lotId, m.itemNo, String(m.blId),
+        m.currentColorName ?? `Color ${m.currentColorId}`,
+        m.expectedColorName ?? `Color ${m.expectedColorId}`,
+      ]),
+    ];
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `color-repair-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function printReport() {
+    if (!mismatches?.length) return;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    const rows = mismatches.map(m => `
+      <tr>
+        <td>${m.lotId}</td>
+        <td>${m.itemNo}</td>
+        <td>${m.blId}</td>
+        <td style="color:#c0392b">${m.currentColorName ?? `Color ${m.currentColorId}`}</td>
+        <td style="color:#16a085">${m.expectedColorName ?? `Color ${m.expectedColorId}`}</td>
+      </tr>`).join('');
+    win.document.write(`<!DOCTYPE html><html><head><title>Color Repair Report</title>
+      <style>
+        body { font-family: -apple-system, sans-serif; font-size: 13px; padding: 32px; color: #111; }
+        h1 { font-size: 18px; margin-bottom: 4px; }
+        p { color: #555; margin-bottom: 20px; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f4f4f4; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; padding: 8px 10px; text-align: left; border-bottom: 2px solid #ddd; }
+        td { padding: 7px 10px; border-bottom: 1px solid #eee; font-size: 12px; }
+        tr:last-child td { border-bottom: none; }
+      </style></head><body>
+      <h1>Color Repair Report</h1>
+      <p>Generated ${new Date().toLocaleString()} &mdash; ${mismatches.length} lot${mismatches.length !== 1 ? 's' : ''} with wrong colors</p>
+      <table>
+        <thead><tr><th>BO Lot ID</th><th>Item No</th><th>BL Item ID</th><th>Current Color</th><th>Expected Color</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      </body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -608,6 +663,28 @@ function ColorRepairDetail() {
         <p className="text-[11px] text-gray-500 flex-1">
           Detects BrickOwl lots where the color doesn't match BrickLink.
         </p>
+        {hasResults && (
+          <>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={downloadReport}
+              data-testid="button-color-repair-download"
+              title="Download CSV"
+            >
+              <Download className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={printReport}
+              data-testid="button-color-repair-print"
+              title="Print report"
+            >
+              <Printer className="w-3.5 h-3.5" />
+            </Button>
+          </>
+        )}
         <Button
           size="sm"
           variant="secondary"
@@ -663,29 +740,16 @@ function ColorRepairDetail() {
               <span className="text-[11px] text-gray-400 flex-1">
                 {someSelected ? `${selected.size} of ${mismatches.length} selected` : `${mismatches.length} item${mismatches.length !== 1 ? 's' : ''} need fixing`}
               </span>
-              {someSelected ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={isBusy}
-                  onClick={() => fixLots([...selected])}
-                  data-testid="button-color-repair-fix-selected"
-                >
-                  {fixingLots.size > 0 ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Paintbrush className="w-3 h-3 mr-1" />}
-                  {fixingLots.size > 0 ? 'Fixing…' : `Fix Selected (${selected.size})`}
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={isBusy}
-                  onClick={() => fixLots()}
-                  data-testid="button-color-repair-fix-all"
-                >
-                  {fixingLots.size > 0 ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Paintbrush className="w-3 h-3 mr-1" />}
-                  {fixingLots.size > 0 ? `Fixing ${fixingLots.size}…` : `Fix All (${mismatches.length})`}
-                </Button>
-              )}
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!someSelected || isBusy}
+                onClick={() => fixLots([...selected])}
+                data-testid="button-color-repair-fix-selected"
+              >
+                {fixingLots.size > 0 ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Paintbrush className="w-3 h-3 mr-1" />}
+                {fixingLots.size > 0 ? 'Fixing…' : someSelected ? `Fix Selected (${selected.size})` : 'Fix Selected'}
+              </Button>
             </div>
 
             {/* Rows */}
