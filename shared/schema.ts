@@ -1870,6 +1870,32 @@ export const pomAiSettings = pgTable("pom_ai_settings", {
 
 export type PomAiSettings = typeof pomAiSettings.$inferSelect;
 
+// ── BOID Override / Mapping Review ───────────────────────────────────────────
+// When the channel sync resolves a BrickLink part via an uncertain fallback
+// (BO item-number match or type-agnostic lookup), it stores a pending_review
+// record here instead of blindly syncing the match.  Users approve or reject
+// each proposed mapping; approved entries are used on all future syncs.
+export const boidOverrides = pgTable('boid_overrides', {
+  id: serial('id').primaryKey(),
+  orgId: varchar('org_id', { length: 255 }).notNull(),
+  blItemNo: text('bl_item_no').notNull(),
+  blItemType: text('bl_item_type').notNull().default('PART'),
+  boColorId: integer('bo_color_id'),            // BO color ID used for lookup (null = colorless)
+  blColorId: integer('bl_color_id'),            // Original BL color ID (for display)
+  proposedBoid: text('proposed_boid').notNull(),// BOID found by the fallback lookup
+  approvedBoid: text('approved_boid'),          // User-confirmed BOID (may differ from proposed)
+  status: text('status').notNull().default('pending_review'), // pending_review | approved | rejected
+  resolvedVia: text('resolved_via').notNull(),  // bo_item_no | no_type
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  reviewedAt: timestamp('reviewed_at'),
+}, (table) => ({
+  orgItemIdx: index('boid_overrides_org_item_idx').on(table.orgId, table.blItemNo),
+}));
+
+export const insertBoidOverrideSchema = createInsertSchema(boidOverrides).omit({ id: true, createdAt: true, reviewedAt: true });
+export type BoidOverride = typeof boidOverrides.$inferSelect;
+export type InsertBoidOverride = z.infer<typeof insertBoidOverrideSchema>;
+
 // Logs each time a seller applies a price (accepted, overridden, or custom)
 export const pomPriceDecisions = pgTable("pom_price_decisions", {
   id: serial("id").primaryKey(),

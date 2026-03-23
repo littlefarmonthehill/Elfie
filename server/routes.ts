@@ -45,7 +45,7 @@ import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig } from "./s
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions, channelSyncConfig } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions, channelSyncConfig, boidOverrides } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -9696,6 +9696,87 @@ Format search_web URLs as markdown links.`;
     }
   });
 
+  // ── BOID Override / Mapping Review CRUD ─────────────────────────────────
+  // GET  /api/boid-overrides         — list all overrides for the org
+  // POST /api/boid-overrides/:id/approve — approve (optionally override boid)
+  // POST /api/boid-overrides/:id/reject  — reject
+  // DELETE /api/boid-overrides/:id       — delete (removes from queue entirely)
+
+  app.get('/api/boid-overrides', isApproved, async (req, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const status = (req.query.status as string) || null;
+      let rows;
+      if (status) {
+        rows = await db.select().from(boidOverrides)
+          .where(and(eq(boidOverrides.orgId, orgId), eq(boidOverrides.status, status)))
+          .orderBy(desc(boidOverrides.createdAt));
+      } else {
+        rows = await db.select().from(boidOverrides)
+          .where(eq(boidOverrides.orgId, orgId))
+          .orderBy(desc(boidOverrides.createdAt));
+      }
+      res.json(rows);
+    } catch (err) {
+      console.error('[BoidOverrides] GET error:', err);
+      res.status(500).json({ error: 'Failed to fetch BOID overrides' });
+    }
+  });
+
+  app.post('/api/boid-overrides/:id/approve', isApproved, async (req, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const id = parseInt(req.params.id, 10);
+      const approvedBoid: string | undefined = req.body?.approvedBoid;
+      const [existing] = await db.select().from(boidOverrides)
+        .where(and(eq(boidOverrides.id, id), eq(boidOverrides.orgId, orgId))).limit(1);
+      if (!existing) return res.status(404).json({ error: 'Override not found' });
+      const [updated] = await db.update(boidOverrides)
+        .set({
+          status: 'approved',
+          approvedBoid: approvedBoid ?? existing.proposedBoid,
+          reviewedAt: new Date(),
+        })
+        .where(eq(boidOverrides.id, id))
+        .returning();
+      res.json(updated);
+    } catch (err) {
+      console.error('[BoidOverrides] approve error:', err);
+      res.status(500).json({ error: 'Failed to approve override' });
+    }
+  });
+
+  app.post('/api/boid-overrides/:id/reject', isApproved, async (req, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const id = parseInt(req.params.id, 10);
+      const [existing] = await db.select().from(boidOverrides)
+        .where(and(eq(boidOverrides.id, id), eq(boidOverrides.orgId, orgId))).limit(1);
+      if (!existing) return res.status(404).json({ error: 'Override not found' });
+      const [updated] = await db.update(boidOverrides)
+        .set({ status: 'rejected', reviewedAt: new Date() })
+        .where(eq(boidOverrides.id, id))
+        .returning();
+      res.json(updated);
+    } catch (err) {
+      console.error('[BoidOverrides] reject error:', err);
+      res.status(500).json({ error: 'Failed to reject override' });
+    }
+  });
+
+  app.delete('/api/boid-overrides/:id', isApproved, async (req, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const id = parseInt(req.params.id, 10);
+      await db.delete(boidOverrides)
+        .where(and(eq(boidOverrides.id, id), eq(boidOverrides.orgId, orgId)));
+      res.json({ success: true });
+    } catch (err) {
+      console.error('[BoidOverrides] delete error:', err);
+      res.status(500).json({ error: 'Failed to delete override' });
+    }
+  });
+
   // Preview sync — runs Phase 1 comparison in analysis mode (no writes)
   // and returns a per-field breakdown of what would be changed.
   app.post("/api/channel-sync/preview", isApproved, async (req, res) => {
@@ -9775,7 +9856,7 @@ Format search_web URLs as markdown links.`;
       const modesStr = Object.entries(syncFields.stockroomModes).map(([k, v]) => `${k}:${v}`).join(',');
       console.log(`[Platform Sync] Starting BrickLink → BrickOwl sync${limit ? ` (limit: ${limit})` : ''} (mode: ${syncMode}, fields: price=${syncFields.price} remarks=${syncFields.remarks} desc=${syncFields.description} tier=${syncFields.tierPrice} sale=${syncFields.salePercent} stockrooms=[${modesStr}])...`);
       
-      const result = await syncBrickLinkToBrickOwl(limit, syncMode, undefined, syncFields);
+      const result = await syncBrickLinkToBrickOwl(limit, syncMode, undefined, syncFields, orgId);
       
       console.log(`[Platform Sync] Complete: ${result.lotsCreated} created, ${result.lotsUpdated} updated, ${result.lotsSkipped} skipped`);
 

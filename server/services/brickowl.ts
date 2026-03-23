@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { appSettings, blInventory, blColors } from "@shared/schema";
-import { eq, isNotNull, isNull, inArray, sql, and } from "drizzle-orm";
+import { appSettings, blInventory, blColors, boidOverrides } from "@shared/schema";
+import { eq, isNotNull, isNull, inArray, sql, and, or } from "drizzle-orm";
 import { decodeHTML } from "entities";
 
 // Normalize a note/description string so both sides of a BL↔BO comparison are
@@ -358,6 +358,10 @@ export function isChannelSyncAbortRequested() { return channelSyncAbortFlag; }
 // part in different colors gets distinct BOIDs.
 const boidCache = new Map<string, string | null>();
 
+// Tracks which lookup step resolved each BOID (same key as boidCache).
+// Used by the sync to flag uncertain matches for manual review.
+const boidResolvedVia = new Map<string, 'bl_item_no' | 'bo_item_no' | 'no_type'>();
+
 // In-process BrickLink→BrickOwl color ID cache (finite set, safe to hold forever).
 const boColorCache = new Map<number, number | null>(); // BL color ID → BO color ID
 
@@ -395,6 +399,7 @@ export async function lookupBoid(blItemNo: string, type: string = 'Part', boColo
     if (boids.length > 0) {
       const boid = boids[0];
       boidCache.set(cacheKey, boid);
+      boidResolvedVia.set(cacheKey, 'bl_item_no');
       console.log(`[BOID] ✓ ${blItemNo} (color=${boColorId ?? 'any'}) → ${boid} [via bl_item_no]`);
       return boid;
     }
@@ -424,6 +429,7 @@ export async function lookupBoid(blItemNo: string, type: string = 'Part', boColo
     if (boBoids.length > 0) {
       const boid = boBoids[0];
       boidCache.set(cacheKey, boid);
+      boidResolvedVia.set(cacheKey, 'bo_item_no');
       console.log(`[BOID] ✓ ${blItemNo} (color=${boColorId ?? 'any'}) → ${boid} [via bo_item_no fallback]`);
       return boid;
     }
@@ -453,6 +459,7 @@ export async function lookupBoid(blItemNo: string, type: string = 'Part', boColo
     const boid = noTypeBoids.length > 0 ? noTypeBoids[0] : null;
     boidCache.set(cacheKey, boid);
     if (boid) {
+      boidResolvedVia.set(cacheKey, 'no_type');
       console.log(`[BOID] ✓ ${blItemNo} (color=${boColorId ?? 'any'}) → ${boid} [via bl_item_no, no type filter]`);
     } else {
       console.log(`[BOID] ✗ ${blItemNo} (color=${boColorId ?? 'any'}): not found (tried bl_item_no, bo_item_no, bl_item_no/no-type)`);
@@ -740,11 +747,54 @@ export const defaultSyncFields: SyncFieldConfig = {
   bulkQty: true, lotWeight: true, stockroomModes: { A: 'skip', B: 'skip', C: 'skip' },
 };
 
+// Save a pending BOID override for manual review (deduplicates silently).
+async function savePendingBoidOverride(
+  orgId: string,
+  blItemNo: string,
+  blItemType: string,
+  boColorId: number | null,
+  blColorId: number | null,
+  proposedBoid: string,
+  resolvedVia: string
+): Promise<void> {
+  try {
+    // Check if an override already exists for this item+color combination
+    const existing = await db.select({ id: boidOverrides.id })
+      .from(boidOverrides)
+      .where(
+        and(
+          eq(boidOverrides.orgId, orgId),
+          eq(boidOverrides.blItemNo, blItemNo),
+          boColorId != null
+            ? eq(boidOverrides.boColorId, boColorId)
+            : isNull(boidOverrides.boColorId)
+        )
+      )
+      .limit(1);
+    if (existing.length > 0) return; // Already queued or reviewed
+
+    await db.insert(boidOverrides).values({
+      orgId,
+      blItemNo,
+      blItemType,
+      boColorId: boColorId ?? null,
+      blColorId: blColorId ?? null,
+      proposedBoid,
+      status: 'pending_review',
+      resolvedVia,
+    });
+    console.log(`[BoidReview] Queued ${blItemNo} (boColor=${boColorId}) → ${proposedBoid} [${resolvedVia}] for manual review`);
+  } catch (err) {
+    console.error(`[BoidReview] Failed to save pending override for ${blItemNo}:`, err);
+  }
+}
+
 export async function syncBrickLinkToBrickOwl(
   limit?: number,
   mode: 'analysis' | 'full_control' | 'matched_sync' = 'full_control',
   onProgress?: (processed: number, total: number) => void,
-  fields: SyncFieldConfig = defaultSyncFields
+  fields: SyncFieldConfig = defaultSyncFields,
+  orgId: string = 'org_planetbrick'
 ): Promise<BrickOwlSyncResult> {
   const result: BrickOwlSyncResult = {
     lotsCreated: 0,
@@ -1212,13 +1262,67 @@ export async function syncBrickLinkToBrickOwl(
   }
   console.log(`[ChannelSync] Phase 2b: resolved ${boColorMap.size} color mappings`);
 
+  // ── Load BOID overrides for this org ────────────────────────────────────
+  // approved  → use the approvedBoid (or proposedBoid if no override) directly
+  // rejected  → skip silently (no API calls)
+  // pending_review → skip (awaiting user review)
+  const allOverrides = mode === 'full_control'
+    ? await db.select().from(boidOverrides).where(eq(boidOverrides.orgId, orgId))
+    : [];
+
+  type OverrideKey = string; // "${blItemNo}:${boColorId ?? 'null'}"
+  const approvedOverrideMap = new Map<OverrideKey, string>(); // key → BOID to use
+  const skipOverrideSet    = new Set<OverrideKey>();           // pending or rejected
+
+  for (const ov of allOverrides) {
+    const key: OverrideKey = `${ov.blItemNo}:${ov.boColorId ?? 'null'}`;
+    if (ov.status === 'approved') {
+      approvedOverrideMap.set(key, ov.approvedBoid ?? ov.proposedBoid);
+    } else {
+      // pending_review or rejected — skip this item
+      skipOverrideSet.add(key);
+    }
+  }
+  console.log(`[ChannelSync] Loaded ${approvedOverrideMap.size} approved + ${skipOverrideSet.size} skipped BOID overrides`);
+
   const boidMap = new Map<number, string | null>(); // index → BOID
   for (let i = 0; i < adoptCandidates.length; i += BOID_CHUNK) {
     const chunk = adoptCandidates.slice(i, i + BOID_CHUNK);
     const results = await Promise.all(
-      chunk.map(item => {
+      chunk.map(async (item, chunkIdx) => {
         const boColorId = item.colorId != null ? boColorMap.get(item.colorId) ?? undefined : undefined;
-        return lookupBoid(item.itemNo, item.itemType, boColorId ?? undefined);
+        const overrideKey: OverrideKey = `${item.itemNo}:${boColorId ?? 'null'}`;
+
+        // 1. Check approved override — use it directly, skip API call
+        if (approvedOverrideMap.has(overrideKey)) {
+          return approvedOverrideMap.get(overrideKey)!;
+        }
+        // 2. Check pending/rejected — skip silently
+        if (skipOverrideSet.has(overrideKey)) {
+          return null;
+        }
+        // 3. Full lookup chain
+        const boid = await lookupBoid(item.itemNo, item.itemType, boColorId ?? undefined);
+
+        // If resolved via a fallback step, queue for manual review instead of syncing
+        if (boid && mode === 'full_control') {
+          const normalizedType = normalizeBrickLinkItemType(item.itemType ?? 'PART');
+          const cacheKey = `${item.itemNo}:${normalizedType}:${boColorId ?? 'any'}`;
+          const via = boidResolvedVia.get(cacheKey);
+          if (via === 'bo_item_no' || via === 'no_type') {
+            await savePendingBoidOverride(
+              orgId,
+              item.itemNo,
+              item.itemType ?? 'PART',
+              boColorId ?? null,
+              item.colorId ?? null,
+              boid,
+              via
+            );
+            return null; // Don't sync this run — awaiting review
+          }
+        }
+        return boid;
       })
     );
     results.forEach((boid, j) => boidMap.set(i + j, boid));
