@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ShoppingCart, Truck, PackageCheck,
-  Sparkles, Info,
+  Sparkles, Info, Globe,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/popover";
 import MetricCard from "./MetricCard";
 import { DateRangeValue, CollapsibleDatePicker } from "./DateRangeSelector";
+import OrderSyncPanel from "./OrderSyncPanel";
 
 interface OrderStats {
   totalOrders: number;
@@ -215,6 +216,18 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             </button>
 
           </div>
+        </div>
+
+        {/* ── Channels ── */}
+        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", "p-2.5")} data-testid="section-order-channels">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
+          <div className={cn("flex items-center gap-2", "mb-2")}>
+            <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
+              <Globe className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4")} />
+            </div>
+            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Channels</h3>
+          </div>
+          <OrderSyncPanel onOpenSettings={onOpenSettings} />
         </div>
 
       </div>
