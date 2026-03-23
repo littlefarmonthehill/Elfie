@@ -151,16 +151,15 @@ export async function getPlatformBrickLinkCredentials(): Promise<{
   tokenValue: string;
   tokenSecret: string;
 } | null> {
-  const settings = await getOrgSettings(PLATFORM_ORG_ID);
-  if (!settings?.bricklinkConsumerKey || !settings?.bricklinkConsumerSecret ||
-      !settings?.bricklinkTokenValue || !settings?.bricklinkTokenSecret) {
+  const [ps] = await db.select().from(platformSettings).where(eq(platformSettings.id, PLATFORM_ORG_ID)).limit(1);
+  if (!ps?.blConsumerKey || !ps?.blConsumerSecret || !ps?.blTokenValue || !ps?.blTokenSecret) {
     return null;
   }
   return {
-    consumerKey: settings.bricklinkConsumerKey,
-    consumerSecret: settings.bricklinkConsumerSecret,
-    tokenValue: settings.bricklinkTokenValue,
-    tokenSecret: settings.bricklinkTokenSecret,
+    consumerKey: ps.blConsumerKey,
+    consumerSecret: ps.blConsumerSecret,
+    tokenValue: ps.blTokenValue,
+    tokenSecret: ps.blTokenSecret,
   };
 }
 
@@ -853,28 +852,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const body = req.body as Record<string, string | null | undefined>;
       const updateSet: Record<string, any> = { updatedAt: sql`CURRENT_TIMESTAMP` };
-      const insertValues: Record<string, any> = { id: PLATFORM_ORG_ID, orgId: PLATFORM_ORG_ID };
+      const insertValues: Record<string, any> = { id: PLATFORM_ORG_ID };
 
       const cleanCred = (v: string) => v.replace(/[^A-Za-z0-9]/g, '');
       if (typeof body.consumerKey === 'string' && body.consumerKey.trim().length > 0) {
         const val = cleanCred(body.consumerKey);
-        updateSet.bricklinkConsumerKey = val;
-        insertValues.bricklinkConsumerKey = val;
+        updateSet.blConsumerKey = val;
+        insertValues.blConsumerKey = val;
       }
       if (typeof body.consumerSecret === 'string' && body.consumerSecret.trim().length > 0) {
         const val = cleanCred(body.consumerSecret);
-        updateSet.bricklinkConsumerSecret = val;
-        insertValues.bricklinkConsumerSecret = val;
+        updateSet.blConsumerSecret = val;
+        insertValues.blConsumerSecret = val;
       }
       if (typeof body.tokenValue === 'string' && body.tokenValue.trim().length > 0) {
         const val = cleanCred(body.tokenValue);
-        updateSet.bricklinkTokenValue = val;
-        insertValues.bricklinkTokenValue = val;
+        updateSet.blTokenValue = val;
+        insertValues.blTokenValue = val;
       }
       if (typeof body.tokenSecret === 'string' && body.tokenSecret.trim().length > 0) {
         const val = cleanCred(body.tokenSecret);
-        updateSet.bricklinkTokenSecret = val;
-        insertValues.bricklinkTokenSecret = val;
+        updateSet.blTokenSecret = val;
+        insertValues.blTokenSecret = val;
       }
 
       if (Object.keys(updateSet).length <= 1) {
@@ -882,10 +881,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       await db
-        .insert(appSettings)
+        .insert(platformSettings)
         .values(insertValues)
         .onConflictDoUpdate({
-          target: appSettings.id,
+          target: platformSettings.id,
           set: updateSet,
         });
       res.json({ ok: true });
@@ -897,15 +896,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/platform-admin/platform-services/bricklink-credentials — retrieve presence/prefix info (never full secrets)
   app.get('/api/platform-admin/platform-services/bricklink-credentials', isSuperAdmin, async (_req, res) => {
     try {
-      const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, PLATFORM_ORG_ID)).limit(1);
+      const [ps] = await db.select().from(platformSettings).where(eq(platformSettings.id, PLATFORM_ORG_ID)).limit(1);
       const mask = (val: string | null | undefined) => val ? val.substring(0, 8) + '…' : '';
       res.json({
-        hasConsumerKey: !!settings?.bricklinkConsumerKey,
-        consumerKeyPrefix: mask(settings?.bricklinkConsumerKey),
-        hasConsumerSecret: !!settings?.bricklinkConsumerSecret,
-        hasTokenValue: !!settings?.bricklinkTokenValue,
-        tokenValuePrefix: mask(settings?.bricklinkTokenValue),
-        hasTokenSecret: !!settings?.bricklinkTokenSecret,
+        hasConsumerKey: !!ps?.blConsumerKey,
+        consumerKeyPrefix: mask(ps?.blConsumerKey),
+        hasConsumerSecret: !!ps?.blConsumerSecret,
+        hasTokenValue: !!ps?.blTokenValue,
+        tokenValuePrefix: mask(ps?.blTokenValue),
+        hasTokenSecret: !!ps?.blTokenSecret,
       });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || 'Failed to load credentials' });

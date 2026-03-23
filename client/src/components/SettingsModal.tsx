@@ -2578,6 +2578,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [pomPricingAdvancedOpen, setPomPricingAdvancedOpen] = useState(false);
   const [pomBatchSize, setPomBatchSize] = useState(1500);
   const [blApiCallLimit, setBlApiCallLimit] = useState(4900);
+  const [orgBlApiCallLimit, setOrgBlApiCallLimit] = useState(4900);
   const [pomCostFloorPct, setPomCostFloorPct] = useState(0);
   const [pomMinPrice, setPomMinPrice] = useState(0.02);
   const [pomTrendingEnabled, setPomTrendingEnabled] = useState(false);
@@ -3305,6 +3306,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setBricklinkConsumerSecret(unmask(settings.bricklinkConsumerSecret));
       setBricklinkTokenValue(unmask(settings.bricklinkTokenValue));
       setBricklinkTokenSecret(unmask(settings.bricklinkTokenSecret));
+      setOrgBlApiCallLimit((settings as any).blApiCallLimit ?? 4900);
       setBrickowlApiKey(unmask(settings.brickowlApiKey));
       setStripeSecretKey(unmask(settings.stripeSecretKey));
       setStripeEnvironment((settings.stripeEnvironment as 'test' | 'live') || 'live');
@@ -4902,8 +4904,26 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     <div className="space-y-2"><Label htmlFor="bricklink-secret" className="text-xs text-gray-200">Consumer Secret</Label><Input id="bricklink-secret" type="password" placeholder={(settings as any)?.has_bricklinkConsumerSecret ? "Key saved — leave blank to keep" : "Enter BrickLink Consumer Secret"} className="text-xs" value={bricklinkConsumerSecret} onChange={(e) => setBricklinkConsumerSecret(e.target.value)} onBlur={() => { if (bricklinkConsumerKey || bricklinkConsumerSecret || bricklinkTokenValue || bricklinkTokenSecret) updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || undefined, bricklinkConsumerSecret: bricklinkConsumerSecret || undefined, bricklinkTokenValue: bricklinkTokenValue || undefined, bricklinkTokenSecret: bricklinkTokenSecret || undefined }); }} data-testid="input-bricklink-secret" /></div>
                     <div className="space-y-2"><Label htmlFor="bricklink-token" className="text-xs text-gray-200">Token Value</Label><Input id="bricklink-token" placeholder={(settings as any)?.has_bricklinkTokenValue ? "Key saved — leave blank to keep" : "Enter BrickLink Token Value"} className="text-xs" value={bricklinkTokenValue} onChange={(e) => setBricklinkTokenValue(e.target.value)} onBlur={() => { if (bricklinkConsumerKey || bricklinkConsumerSecret || bricklinkTokenValue || bricklinkTokenSecret) updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || undefined, bricklinkConsumerSecret: bricklinkConsumerSecret || undefined, bricklinkTokenValue: bricklinkTokenValue || undefined, bricklinkTokenSecret: bricklinkTokenSecret || undefined }); }} data-testid="input-bricklink-token" /></div>
                     <div className="space-y-2"><Label htmlFor="bricklink-token-secret" className="text-xs text-gray-200">Token Secret</Label><Input id="bricklink-token-secret" type="password" placeholder={(settings as any)?.has_bricklinkTokenSecret ? "Key saved — leave blank to keep" : "Enter BrickLink Token Secret"} className="text-xs" value={bricklinkTokenSecret} onChange={(e) => setBricklinkTokenSecret(e.target.value)} onBlur={() => { if (bricklinkConsumerKey || bricklinkConsumerSecret || bricklinkTokenValue || bricklinkTokenSecret) updateSettingsMutation.mutate({ bricklinkConsumerKey: bricklinkConsumerKey || undefined, bricklinkConsumerSecret: bricklinkConsumerSecret || undefined, bricklinkTokenValue: bricklinkTokenValue || undefined, bricklinkTokenSecret: bricklinkTokenSecret || undefined }); }} data-testid="input-bricklink-token-secret" /></div>
-                    <div className="pt-2 border-t border-gray-700">
-                      <p className="text-[10px] text-gray-500">This org's API credentials are used for inventory sync and order imports. The platform-wide daily API limit is configured in <button onClick={() => { setActiveSection('apiKeys'); setActivePlatformServicesTab('bricklink'); }} className="text-yellow-400/80 hover:text-yellow-300 underline-offset-2 hover:underline" data-testid="link-goto-platform-services-bricklink">Platform Services</button>.</p>
+                    <div className="pt-2 border-t border-gray-700 space-y-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-gray-200">Daily API Call Ceiling</Label>
+                        <p className="text-[10px] text-gray-500">Max BrickLink API calls per 24 h for this org's inventory and order syncs. BrickLink enforces ~5,000/day per credential set.</p>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min={100}
+                            max={5000}
+                            step={100}
+                            value={orgBlApiCallLimit}
+                            onChange={(e) => setOrgBlApiCallLimit(parseInt(e.target.value) || 100)}
+                            onBlur={() => updateSettingsMutation.mutate({ blApiCallLimit: orgBlApiCallLimit } as any)}
+                            className="text-xs w-24 text-right"
+                            data-testid="input-org-bl-api-limit"
+                          />
+                          <span className="text-[10px] text-gray-500">/ 5,000</span>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-gray-500">Platform background schedulers use a separate credential set configured in <button onClick={() => { setActiveSection('apiKeys'); setActivePlatformServicesTab('bricklink'); }} className="text-yellow-400/80 hover:text-yellow-300 underline-offset-2 hover:underline" data-testid="link-goto-platform-services-bricklink">Platform Services</button>.</p>
                     </div>
                   </div>
                 )}
