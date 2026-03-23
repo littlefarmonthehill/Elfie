@@ -150,11 +150,11 @@ async function checkAndRunChannelSync() {
   }
 }
 
-export async function runChannelSync() {
-  return runScheduledChannelSync();
+export async function runChannelSync(forceFullScan = false) {
+  return runScheduledChannelSync(forceFullScan);
 }
 
-async function runScheduledChannelSync() {
+async function runScheduledChannelSync(forceFullScan = false) {
   if (!syncLock.acquire('Channel Sync')) {
     console.log('⏭️ Scheduled channel sync skipped — another sync is running');
     return;
@@ -167,11 +167,11 @@ async function runScheduledChannelSync() {
   try {
     const [prevMeta] = await db.select().from(syncMetadata)
       .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, 'channel_sync'))).limit(1);
-    if (prevMeta?.lastSyncStatus === 'success' && prevMeta.lastSyncTime) {
+    if (!forceFullScan && prevMeta?.lastSyncStatus === 'success' && prevMeta.lastSyncTime) {
       sinceTime = new Date(prevMeta.lastSyncTime);
       console.log(`[Channel] Incremental mode: processing BL items changed since ${sinceTime.toISOString()}`);
     } else {
-      console.log('[Channel] Full sync mode: no prior successful sync — comparing all BL items');
+      console.log(`[Channel] Full sync mode: ${forceFullScan ? 'forced full scan' : 'no prior successful sync'} — comparing all BL items`);
     }
   } catch { /* non-fatal — default to full sync */ }
 

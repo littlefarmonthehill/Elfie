@@ -11949,7 +11949,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         return res.status(409).json({ success: false, error: `Cannot start Channel Sync: ${blocker} is already running.` });
       }
       const { runChannelSync } = await import("./services/channel-sync-scheduler");
-      await runChannelSync();
+      await runChannelSync(true); // manual trigger always does a full scan
       res.json({ success: true });
     } catch (error: any) {
       const isConflict = error?.message?.toLowerCase().includes('blocked') || error?.message?.toLowerCase().includes('already running');
@@ -12029,6 +12029,9 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
             console.error(`[ColorRepair] Skipping — ${msg}`);
             continue;
           }
+          // Touch updatedAt before deleting so the next incremental channel sync
+          // includes this BL item and recreates the BO lot if create fails here.
+          await db.update(blInventory).set({ updatedAt: new Date() }).where(eq(blInventory.id, blId));
           await deleteBrickOwlLot(lot.lot_id);
           const condition = lot.condition || (blItem.newOrUsed === 'N' ? 'new' : 'usedg');
           await createBrickOwlLot({
