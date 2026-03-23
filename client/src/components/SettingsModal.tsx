@@ -3883,7 +3883,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       ],
     },
     {
-      label: 'Product',
+      label: 'Platform Strategy',
       items: [
         { id: 'productVision' as const, label: 'Vision of Success', icon: Crosshair },
         { id: 'productOkrs' as const, label: 'OKRs', icon: Target },
@@ -4001,7 +4001,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         data-testid="button-platform-admin-toggle"
                       >
                         <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-                        Platform Strategy
+                        Platform
                       </button>
                     </div>
                   )}
