@@ -1110,17 +1110,15 @@ function OverviewContent({
                   <DiscrepancyAreaButton key={area.type} area={area} onSelectArea={onSelectArea} />
                 ))
               )}
-              <ColorRepairButton onShowColorRepair={onShowColorRepair} />
             </div>
           </div>
         );
       })()}
 
-      {/* Field Issues — only when there are discrepancies */}
-      {totalDiscrepancies > 0 && (() => {
+      {/* Field Issues — discrepancy buttons when present, color repair always */}
+      {(() => {
         const FIELD_TYPES: DiscrepancyType[] = ['price', 'quantity', 'remarks', 'description', 'bulk_qty', 'lot_weight', 'for_sale', 'sale_percent'];
-        const fieldAreas = discrepancyAreas.filter(a => FIELD_TYPES.includes(a.type));
-        if (fieldAreas.length === 0) return null;
+        const fieldAreas = totalDiscrepancies > 0 ? discrepancyAreas.filter(a => FIELD_TYPES.includes(a.type)) : [];
         return (
           <div className="space-y-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-0.5">Field Issues</p>
@@ -1128,6 +1126,7 @@ function OverviewContent({
               {fieldAreas.map((area) => (
                 <DiscrepancyAreaButton key={area.type} area={area} onSelectArea={onSelectArea} />
               ))}
+              <ColorRepairButton onShowColorRepair={onShowColorRepair} />
             </div>
           </div>
         );
