@@ -873,8 +873,6 @@ function SyncScopePanel({ brickOwl }: { brickOwl: any }) {
   if (!scope) return null;
 
   const skipRows = scope.stockroomBreakdown.filter(r => r.mode === 'skip');
-  const hiddenRows = scope.stockroomBreakdown.filter(r => r.mode === 'hidden');
-  const activeRows = scope.stockroomBreakdown.filter(r => r.mode === 'active');
 
   return (
     <div className="rounded-md border border-gray-700/50 bg-gray-800/20 p-3 space-y-3" data-testid="panel-sync-scope">
@@ -895,33 +893,14 @@ function SyncScopePanel({ brickOwl }: { brickOwl: any }) {
             </div>
             {scope.softDeletedLots > 0 && (
               <div className="flex items-center justify-between gap-1">
-                <span className="flex items-center gap-1 text-[10px] text-gray-600 line-through">
-                  Soft-deleted (excluded)
-                </span>
-                <span className="text-[10px] font-mono text-gray-600">{scope.softDeletedLots.toLocaleString()}</span>
+                <span className="text-[10px] text-gray-600 line-through">Soft-deleted</span>
+                <span className="text-[10px] font-mono text-gray-600">−{scope.softDeletedLots.toLocaleString()}</span>
               </div>
             )}
-            {hiddenRows.map(r => (
-              <div key={r.id} className="flex items-center justify-between gap-1">
-                <span className="flex items-center gap-1 text-[10px] text-gray-500">
-                  <EyeOff className="w-2.5 h-2.5 text-gray-600" />
-                  Stockroom {r.id} (hidden)
-                </span>
-                <span className="text-[10px] font-mono text-gray-300">{r.lots.toLocaleString()}</span>
-              </div>
-            ))}
-            {activeRows.map(r => (
-              <div key={r.id} className="flex items-center justify-between gap-1">
-                <span className="text-[10px] text-gray-500">Stockroom {r.id} (active)</span>
-                <span className="text-[10px] font-mono text-gray-300">{r.lots.toLocaleString()}</span>
-              </div>
-            ))}
             {skipRows.map(r => (
               <div key={r.id} className="flex items-center justify-between gap-1">
-                <span className="flex items-center gap-1 text-[10px] text-gray-600 line-through">
-                  Stockroom {r.id} (skip)
-                </span>
-                <span className="text-[10px] font-mono text-gray-600">{r.lots.toLocaleString()}</span>
+                <span className="text-[10px] text-gray-600 line-through">Stockroom {r.id} (skip)</span>
+                <span className="text-[10px] font-mono text-gray-600">−{r.lots.toLocaleString()}</span>
               </div>
             ))}
             {scope.zeroQtyInScope > 0 && (
