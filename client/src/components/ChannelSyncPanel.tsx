@@ -893,13 +893,13 @@ function SyncScopePanel({ brickOwl }: { brickOwl: any }) {
             </div>
             {scope.softDeletedLots > 0 && (
               <div className="flex items-center justify-between gap-1">
-                <span className="text-[10px] text-gray-600 line-through">Soft-deleted</span>
+                <span className="text-[10px] text-gray-600">Soft-deleted</span>
                 <span className="text-[10px] font-mono text-gray-600">−{scope.softDeletedLots.toLocaleString()}</span>
               </div>
             )}
             {skipRows.map(r => (
               <div key={r.id} className="flex items-center justify-between gap-1">
-                <span className="text-[10px] text-gray-600 line-through">Stockroom {r.id} (skip)</span>
+                <span className="text-[10px] text-gray-600">Stockroom {r.id} (skip)</span>
                 <span className="text-[10px] font-mono text-gray-600">−{r.lots.toLocaleString()}</span>
               </div>
             ))}
