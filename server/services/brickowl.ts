@@ -373,6 +373,7 @@ export async function lookupBoid(blItemNo: string, type: string = 'Part', boColo
   }
 
   try {
+    // ── Step 1: Try BrickLink item number lookup (most common case) ───────
     const params: Record<string, string> = {
       id: blItemNo,
       type: normalizedType,
@@ -391,12 +392,41 @@ export async function lookupBoid(blItemNo: string, type: string = 'Part', boColo
       boids = result.map((item: any) => item.boid || item);
     }
 
-    const boid = boids.length > 0 ? boids[0] : null;
+    if (boids.length > 0) {
+      const boid = boids[0];
+      boidCache.set(cacheKey, boid);
+      console.log(`[BOID] ✓ ${blItemNo} (color=${boColorId ?? 'any'}) → ${boid} [via bl_item_no]`);
+      return boid;
+    }
+
+    // ── Step 2: Fallback — try BrickOwl's own item number ────────────────
+    // Assembly parts (e.g. 6129c03) may not be cross-referenced as bl_item_no
+    // on BrickOwl but can be found using BO's own catalog item number, which
+    // often matches the BL number exactly for assembled/combo parts.
+    const boParams: Record<string, string> = {
+      id: blItemNo,
+      type: normalizedType,
+      id_type: 'bo_item_no',
+    };
+    if (boColorId !== undefined) {
+      boParams.color_id = boColorId.toString();
+    }
+
+    const boResult = await brickowlGet('/catalog/id_lookup', boParams);
+
+    let boBoids: string[] = [];
+    if (boResult.boids && Array.isArray(boResult.boids)) {
+      boBoids = boResult.boids;
+    } else if (Array.isArray(boResult)) {
+      boBoids = boResult.map((item: any) => item.boid || item);
+    }
+
+    const boid = boBoids.length > 0 ? boBoids[0] : null;
     boidCache.set(cacheKey, boid);
     if (boid) {
-      console.log(`[BOID] ✓ ${blItemNo} (color=${boColorId ?? 'any'}) → ${boid}`);
+      console.log(`[BOID] ✓ ${blItemNo} (color=${boColorId ?? 'any'}) → ${boid} [via bo_item_no fallback]`);
     } else {
-      console.log(`[BOID] ✗ ${blItemNo} (color=${boColorId ?? 'any'}): not found`);
+      console.log(`[BOID] ✗ ${blItemNo} (color=${boColorId ?? 'any'}): not found (tried bl_item_no + bo_item_no)`);
     }
     return boid;
   } catch (error) {
