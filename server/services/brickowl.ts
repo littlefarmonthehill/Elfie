@@ -1244,6 +1244,12 @@ export async function syncBrickLinkToBrickOwl(
   //         In-process cache means warm syncs skip these calls entirely.
   // Step 2: Sequential adopt/create using the pre-fetched map (writes must be serial).
   // Rate limit: ~600 individual GET calls/min → 100ms gap between parallel chunks.
+
+  if (channelSyncAbortFlag) {
+    console.log('[ChannelSync] Abort requested — skipping Phase 2b entirely');
+    return result;
+  }
+
   const INDIVIDUAL_GAP_MS = 100;
   const BOID_CHUNK = 10; // 10 concurrent lookups × 100ms gap → ~600/min
 
