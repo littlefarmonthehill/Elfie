@@ -14,7 +14,7 @@
 import { db } from "../db";
 import {
   businessInsights, blInventory, blCatalog,
-  marketNews, blForumPosts, appSettings, pomPriceDecisions, ieStrategies,
+  marketNews, blForumPosts, platformSettings, pomPriceDecisions, ieStrategies,
 } from "@shared/schema";
 import { eq, and, sql, desc, gte, ne, isNull, or, inArray } from "drizzle-orm";
 import OpenAI from "openai";
@@ -25,8 +25,8 @@ const SIGNAL_TTL_HOURS = 12;
 
 async function getOpenAI(): Promise<OpenAI | null> {
   try {
-    const [row] = await db.select({ key: appSettings.openaiApiKey })
-      .from(appSettings).where(eq(appSettings.id, 'platform')).limit(1);
+    const [row] = await db.select({ key: platformSettings.openaiApiKey })
+      .from(platformSettings).where(eq(platformSettings.id, 'platform')).limit(1);
     const key = row?.key || process.env.OPENAI_API_KEY;
     if (!key) return null;
     return new OpenAI({ apiKey: key });

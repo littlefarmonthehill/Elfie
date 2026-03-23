@@ -221,29 +221,63 @@ export async function runMigrations() {
     console.log('[Migration] Phase-8 (ai_usage_log table) complete.');
 
     // ── Phase-9: Platform name column on app_settings ────────────────────────
-    await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS platform_name TEXT`);
+    // Guard: after Phase-73, platform_name lives in platform_settings — skip ADD COLUMN
+    {
+      const { rows: psGuard } = await client.query(
+        `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'platform_settings' LIMIT 1`
+      );
+      if (psGuard.length === 0) {
+        await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS platform_name TEXT`);
+      }
+    }
     console.log('[Migration] Phase-9 (platform_name column) complete.');
 
     // ── Phase-10: Separate platform settings row from org_planetbrick ──────
-    // Platform services (OpenAI key, platform BrickLink creds, platform name)
-    // now live in their own row with id='platform', org_id='platform'.
-    // One-time copy from org_planetbrick row, only if the platform row doesn't exist yet.
-    const { rows: srcRows } = await client.query(`SELECT id FROM app_settings WHERE id = 'org_planetbrick'`);
-    if (srcRows.length > 0) {
-      await client.query(`
-        INSERT INTO app_settings (id, org_id, openai_api_key, bricklink_consumer_key, bricklink_consumer_secret,
-          bricklink_token_value, bricklink_token_secret, platform_name, ai_enabled, selected_model)
-        SELECT 'platform', 'platform', openai_api_key, bricklink_consumer_key, bricklink_consumer_secret,
-          bricklink_token_value, bricklink_token_secret, platform_name, ai_enabled, selected_model
-        FROM app_settings WHERE id = 'org_planetbrick'
-        ON CONFLICT (id) DO NOTHING
-      `);
-    } else {
-      await client.query(`
-        INSERT INTO app_settings (id, org_id, ai_enabled, selected_model)
-        VALUES ('platform', 'platform', true, 'gpt-4o-mini')
-        ON CONFLICT (id) DO NOTHING
-      `);
+    // Platform services now live in platform_settings (after Phase-73).
+    // This phase only ensures the base platform row exists in app_settings
+    // and copies over BrickLink credentials (which stayed in app_settings).
+    {
+      const { rows: psExists } = await client.query(
+        `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'platform_settings' LIMIT 1`
+      );
+      const postPhase73 = psExists.length > 0;
+
+      const { rows: srcRows } = await client.query(`SELECT id FROM app_settings WHERE id = 'org_planetbrick'`);
+      if (srcRows.length > 0 && !postPhase73) {
+        // Pre-Phase-73: copy everything including moved columns
+        await client.query(`
+          INSERT INTO app_settings (id, org_id, openai_api_key, bricklink_consumer_key, bricklink_consumer_secret,
+            bricklink_token_value, bricklink_token_secret, platform_name, ai_enabled, selected_model)
+          SELECT 'platform', 'platform', openai_api_key, bricklink_consumer_key, bricklink_consumer_secret,
+            bricklink_token_value, bricklink_token_secret, platform_name, ai_enabled, selected_model
+          FROM app_settings WHERE id = 'org_planetbrick'
+          ON CONFLICT (id) DO NOTHING
+        `);
+      } else if (srcRows.length > 0 && postPhase73) {
+        // Post-Phase-73: only copy BL credentials (moved columns are gone)
+        await client.query(`
+          INSERT INTO app_settings (id, org_id, bricklink_consumer_key, bricklink_consumer_secret,
+            bricklink_token_value, bricklink_token_secret, ai_enabled)
+          SELECT 'platform', 'platform', bricklink_consumer_key, bricklink_consumer_secret,
+            bricklink_token_value, bricklink_token_secret, ai_enabled
+          FROM app_settings WHERE id = 'org_planetbrick'
+          ON CONFLICT (id) DO NOTHING
+        `);
+      } else if (postPhase73) {
+        // Post-Phase-73, no org_planetbrick row: minimal platform row
+        await client.query(`
+          INSERT INTO app_settings (id, org_id, ai_enabled)
+          VALUES ('platform', 'platform', true)
+          ON CONFLICT (id) DO NOTHING
+        `);
+      } else {
+        // Pre-Phase-73: minimal platform row with selected_model default
+        await client.query(`
+          INSERT INTO app_settings (id, org_id, ai_enabled, selected_model)
+          VALUES ('platform', 'platform', true, 'gpt-4o-mini')
+          ON CONFLICT (id) DO NOTHING
+        `);
+      }
     }
     console.log('[Migration] Phase-10 (platform settings row) complete.');
 
@@ -1016,11 +1050,19 @@ export async function runMigrations() {
     // admin billing integration (subscriptions, checkout, billing portal).
     // They were accidentally dropped by an early Phase-48 run that included them
     // in the DROP list before the scope was narrowed to PayPal-only.
-    await client.query(`
-      ALTER TABLE app_settings
-        ADD COLUMN IF NOT EXISTS stripe_secret_key TEXT,
-        ADD COLUMN IF NOT EXISTS stripe_environment TEXT NOT NULL DEFAULT 'live'
-    `);
+    // Guard: after Phase-73, these columns moved to platform_settings — skip ADD COLUMN.
+    {
+      const { rows: psGuard49 } = await client.query(
+        `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'platform_settings' LIMIT 1`
+      );
+      if (psGuard49.length === 0) {
+        await client.query(`
+          ALTER TABLE app_settings
+            ADD COLUMN IF NOT EXISTS stripe_secret_key TEXT,
+            ADD COLUMN IF NOT EXISTS stripe_environment TEXT NOT NULL DEFAULT 'live'
+        `);
+      }
+    }
     console.log('[Migration] Phase-49 (restore Stripe billing columns) complete.');
 
     // ── Phase-50: Add item_no to order_details + backfill from bl_inventory ──
@@ -1315,6 +1357,299 @@ export async function runMigrations() {
         ADD COLUMN IF NOT EXISTS alternate_no TEXT
     `);
     console.log('[Migration] Phase-71 (bl_catalog lifecycle columns: is_obsolete + alternate_no) complete.');
+
+    // ── Phase-72: Recreate app_settings to reclaim 1,478 ghost column slots ──
+    // Years of ADD/DROP COLUMN migrations exhausted PostgreSQL's 1,600 attribute
+    // slot budget. This copies all live data to a fresh table (0 ghost slots),
+    // renames atomically, and keeps app_settings_old as a safe fallback.
+    // Idempotency: skip if app_settings_old already exists (migration ran).
+    {
+      const { rows: alreadyDone } = await client.query(
+        `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'app_settings_old' LIMIT 1`
+      );
+      if (alreadyDone.length === 0) {
+        // Drop any partial v2 table left over from a previous failed attempt
+        await client.query(`DROP TABLE IF EXISTS app_settings_v2`);
+
+        await client.query(`
+          CREATE TABLE app_settings_v2 (
+            id                              VARCHAR PRIMARY KEY DEFAULT 'default',
+            org_id                          VARCHAR,
+            platform_name                   TEXT,
+            ai_enabled                      BOOLEAN NOT NULL DEFAULT true,
+            openai_api_key                  TEXT,
+            selected_model                  TEXT DEFAULT 'gpt-4o-mini',
+            system_prompt                   TEXT,
+            bricklink_consumer_key          TEXT,
+            bricklink_consumer_secret       TEXT,
+            bricklink_token_value           TEXT,
+            bricklink_token_secret          TEXT,
+            brickowl_api_key                TEXT,
+            easypost_api_key                TEXT,
+            easypost_test_api_key           TEXT,
+            easypost_key_mode               TEXT NOT NULL DEFAULT 'test',
+            stripe_secret_key               TEXT,
+            stripe_environment              TEXT NOT NULL DEFAULT 'live',
+            customs_signer                  TEXT,
+            bl_ioss_number                  TEXT,
+            bo_ioss_number                  TEXT,
+            bl_uk_vat_number                TEXT,
+            bo_uk_vat_number                TEXT,
+            inventory_sync_enabled          BOOLEAN NOT NULL DEFAULT false,
+            inventory_sync_time             TEXT DEFAULT '02:00',
+            price_o_matic_enabled           BOOLEAN NOT NULL DEFAULT false,
+            orders_sync_enabled             BOOLEAN NOT NULL DEFAULT false,
+            orders_sync_frequency           INTEGER NOT NULL DEFAULT 15,
+            orders_sync_start_time          TEXT DEFAULT '08:00',
+            orders_sync_end_time            TEXT DEFAULT '20:00',
+            forum_sync_enabled              BOOLEAN NOT NULL DEFAULT true,
+            forum_sync_frequency            INTEGER NOT NULL DEFAULT 60,
+            market_news_sync_enabled        BOOLEAN NOT NULL DEFAULT false,
+            market_news_sync_frequency      INTEGER NOT NULL DEFAULT 360,
+            market_news_queries             TEXT[] DEFAULT ARRAY[
+              'LEGO set retirement announcements',
+              'LEGO reseller market news pricing trends',
+              'BrickLink marketplace updates sellers',
+              'LEGO collectible investing value 2026',
+              'LEGO supply chain new releases'
+            ],
+            business_intel_enabled          BOOLEAN NOT NULL DEFAULT false,
+            business_intel_frequency        INTEGER NOT NULL DEFAULT 360,
+            rebrickable_image_sync_enabled  BOOLEAN NOT NULL DEFAULT true,
+            rebrickable_set_sync_enabled    BOOLEAN NOT NULL DEFAULT false,
+            rebrickable_set_sync_time       TEXT DEFAULT '04:00',
+            pom_tier1_refresh_days          INTEGER NOT NULL DEFAULT 1,
+            pom_tier2_refresh_days          INTEGER NOT NULL DEFAULT 3,
+            pom_tier3_refresh_days          INTEGER NOT NULL DEFAULT 7,
+            pom_tier4_refresh_days          INTEGER NOT NULL DEFAULT 30,
+            pom_qty_promote_threshold       INTEGER NOT NULL DEFAULT 5,
+            pom_qty_demote_threshold        INTEGER NOT NULL DEFAULT 500,
+            pom_revenue_top_pct             INTEGER NOT NULL DEFAULT 20,
+            pom_base_premium                INTEGER NOT NULL DEFAULT 10,
+            pom_minifig_premium             INTEGER NOT NULL DEFAULT 5,
+            pom_scarcity_threshold1         INTEGER NOT NULL DEFAULT 50,
+            pom_scarcity_bonus1             INTEGER NOT NULL DEFAULT 15,
+            pom_scarcity_threshold2         INTEGER NOT NULL DEFAULT 200,
+            pom_scarcity_bonus2             INTEGER NOT NULL DEFAULT 8,
+            pom_scarcity_threshold3         INTEGER NOT NULL DEFAULT 500,
+            pom_scarcity_bonus3             INTEGER NOT NULL DEFAULT 3,
+            pom_too_high_threshold          INTEGER NOT NULL DEFAULT 20,
+            pom_too_low_threshold           INTEGER NOT NULL DEFAULT 20,
+            pom_underpriced_score           REAL NOT NULL DEFAULT 1.5,
+            pom_overpriced_score            REAL NOT NULL DEFAULT 0.8,
+            pom_weight_ceiling              REAL NOT NULL DEFAULT 0.4,
+            pom_weight_velocity             REAL NOT NULL DEFAULT 0.3,
+            pom_weight_scarcity             REAL NOT NULL DEFAULT 0.2,
+            pom_weight_undercut             REAL NOT NULL DEFAULT 0.1,
+            pom_velocity_high               REAL NOT NULL DEFAULT 2.0,
+            pom_velocity_low                REAL NOT NULL DEFAULT 0.3,
+            pom_scarcity_high               REAL NOT NULL DEFAULT 0.1,
+            pom_scarcity_low                REAL NOT NULL DEFAULT 0.005,
+            pom_undercut_high               REAL NOT NULL DEFAULT 1.5,
+            pom_undercut_low                REAL NOT NULL DEFAULT 0.8,
+            pom_batch_size                  INTEGER NOT NULL DEFAULT 1500,
+            pom_api_call_limit              INTEGER NOT NULL DEFAULT 4500,
+            bl_api_call_limit               INTEGER NOT NULL DEFAULT 4900,
+            pom_cost_floor_pct              INTEGER NOT NULL DEFAULT 0,
+            pom_min_price                   DECIMAL(10,4) NOT NULL DEFAULT 0.02,
+            pom_trending_enabled            BOOLEAN NOT NULL DEFAULT false,
+            pom_trending_days               INTEGER NOT NULL DEFAULT 30,
+            pom_trending_threshold          INTEGER NOT NULL DEFAULT 5,
+            pom_trending_bonus              INTEGER NOT NULL DEFAULT 5,
+            pom_high_supply_enabled         BOOLEAN NOT NULL DEFAULT false,
+            pom_high_supply_threshold       INTEGER NOT NULL DEFAULT 5000,
+            pom_high_supply_penalty         INTEGER NOT NULL DEFAULT 5,
+            pom_schedule_enabled            BOOLEAN NOT NULL DEFAULT false,
+            pom_sync_time                   TEXT DEFAULT '14:00',
+            pom_schedule_batch_size         INTEGER NOT NULL DEFAULT 1500,
+            pom_freshness_days              INTEGER NOT NULL DEFAULT 180,
+            pom_zero_stock_skip             BOOLEAN NOT NULL DEFAULT true,
+            pom_guide_focus                 TEXT NOT NULL DEFAULT 'both',
+            pom_sug_sold_avg_w              REAL NOT NULL DEFAULT 0.5,
+            pom_sug_stock_min_w             REAL NOT NULL DEFAULT 0.3,
+            pom_sug_sold_max_w              REAL NOT NULL DEFAULT 0.2,
+            pom_sug_demand_mult             REAL NOT NULL DEFAULT 0.25,
+            pom_sug_comp_cap                REAL NOT NULL DEFAULT 1.15,
+            pom_sug_floor                   REAL NOT NULL DEFAULT 0.95,
+            pom_sug_store_premium           REAL NOT NULL DEFAULT 1.10,
+            pom_sug_prem_threshold          REAL NOT NULL DEFAULT 0.40,
+            pom_sug_prem_vel_w              REAL NOT NULL DEFAULT 0.6,
+            pom_sug_prem_scarc_w            REAL NOT NULL DEFAULT 0.4,
+            pom_sug_prem_mult               REAL NOT NULL DEFAULT 0.5,
+            catalog_detail_enabled          BOOLEAN NOT NULL DEFAULT false,
+            catalog_detail_frequency_hours  INTEGER NOT NULL DEFAULT 1,
+            catalog_detail_batch_size       INTEGER NOT NULL DEFAULT 500,
+            catalog_detail_freshness_days   INTEGER NOT NULL DEFAULT 90,
+            catalog_detail_zero_stock_skip  BOOLEAN NOT NULL DEFAULT true,
+            catalog_scan_enabled            BOOLEAN NOT NULL DEFAULT false,
+            catalog_scan_frequency_hours    INTEGER NOT NULL DEFAULT 2,
+            catalog_scan_zero_stock_skip    BOOLEAN NOT NULL DEFAULT true,
+            pom_api_budget_pct              INTEGER NOT NULL DEFAULT 70,
+            catalog_detail_api_budget_pct   INTEGER NOT NULL DEFAULT 20,
+            universal_catalog_schedule_enabled BOOLEAN NOT NULL DEFAULT false,
+            universal_catalog_refresh_months   INTEGER NOT NULL DEFAULT 1,
+            universal_catalog_retry_days       INTEGER NOT NULL DEFAULT 30,
+            channel_sync_enabled            BOOLEAN NOT NULL DEFAULT false,
+            channel_sync_time               TEXT DEFAULT '03:00',
+            channel_sync_mode               TEXT NOT NULL DEFAULT 'analysis',
+            timezone                        TEXT DEFAULT 'America/Chicago',
+            pom_deep_space_keys             TEXT DEFAULT '[]',
+            pom_future_missions_keys        TEXT DEFAULT '[]',
+            lom_category_score              INTEGER NOT NULL DEFAULT 25,
+            lom_subcategory_score           INTEGER NOT NULL DEFAULT 50,
+            lom_finalsort_score             INTEGER NOT NULL DEFAULT 75,
+            lom_listing_score               INTEGER NOT NULL DEFAULT 100,
+            elfie_mode                      TEXT NOT NULL DEFAULT 'search',
+            updated_at                      TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `);
+
+        // Copy all live data — explicit column list to avoid touching ghost columns
+        await client.query(`
+          INSERT INTO app_settings_v2 (
+            id, org_id, platform_name, ai_enabled, openai_api_key, selected_model, system_prompt,
+            bricklink_consumer_key, bricklink_consumer_secret, bricklink_token_value, bricklink_token_secret,
+            brickowl_api_key, easypost_api_key, easypost_test_api_key, easypost_key_mode,
+            stripe_secret_key, stripe_environment,
+            customs_signer, bl_ioss_number, bo_ioss_number, bl_uk_vat_number, bo_uk_vat_number,
+            inventory_sync_enabled, inventory_sync_time, price_o_matic_enabled,
+            orders_sync_enabled, orders_sync_frequency, orders_sync_start_time, orders_sync_end_time,
+            forum_sync_enabled, forum_sync_frequency,
+            market_news_sync_enabled, market_news_sync_frequency, market_news_queries,
+            business_intel_enabled, business_intel_frequency,
+            rebrickable_image_sync_enabled, rebrickable_set_sync_enabled, rebrickable_set_sync_time,
+            pom_tier1_refresh_days, pom_tier2_refresh_days, pom_tier3_refresh_days, pom_tier4_refresh_days,
+            pom_qty_promote_threshold, pom_qty_demote_threshold, pom_revenue_top_pct,
+            pom_base_premium, pom_minifig_premium,
+            pom_scarcity_threshold1, pom_scarcity_bonus1, pom_scarcity_threshold2, pom_scarcity_bonus2,
+            pom_scarcity_threshold3, pom_scarcity_bonus3,
+            pom_too_high_threshold, pom_too_low_threshold,
+            pom_underpriced_score, pom_overpriced_score,
+            pom_weight_ceiling, pom_weight_velocity, pom_weight_scarcity, pom_weight_undercut,
+            pom_velocity_high, pom_velocity_low, pom_scarcity_high, pom_scarcity_low,
+            pom_undercut_high, pom_undercut_low,
+            pom_batch_size, pom_api_call_limit, bl_api_call_limit,
+            pom_cost_floor_pct, pom_min_price,
+            pom_trending_enabled, pom_trending_days, pom_trending_threshold, pom_trending_bonus,
+            pom_high_supply_enabled, pom_high_supply_threshold, pom_high_supply_penalty,
+            pom_schedule_enabled, pom_sync_time, pom_schedule_batch_size,
+            pom_freshness_days, pom_zero_stock_skip, pom_guide_focus,
+            pom_sug_sold_avg_w, pom_sug_stock_min_w, pom_sug_sold_max_w, pom_sug_demand_mult,
+            pom_sug_comp_cap, pom_sug_floor, pom_sug_store_premium,
+            pom_sug_prem_threshold, pom_sug_prem_vel_w, pom_sug_prem_scarc_w, pom_sug_prem_mult,
+            catalog_detail_enabled, catalog_detail_frequency_hours, catalog_detail_batch_size,
+            catalog_detail_freshness_days, catalog_detail_zero_stock_skip,
+            catalog_scan_enabled, catalog_scan_frequency_hours, catalog_scan_zero_stock_skip,
+            pom_api_budget_pct, catalog_detail_api_budget_pct,
+            universal_catalog_schedule_enabled, universal_catalog_refresh_months, universal_catalog_retry_days,
+            channel_sync_enabled, channel_sync_time, channel_sync_mode,
+            timezone, pom_deep_space_keys, pom_future_missions_keys,
+            lom_category_score, lom_subcategory_score, lom_finalsort_score, lom_listing_score,
+            elfie_mode, updated_at
+          )
+          SELECT
+            id, org_id, platform_name, ai_enabled, openai_api_key, selected_model, system_prompt,
+            bricklink_consumer_key, bricklink_consumer_secret, bricklink_token_value, bricklink_token_secret,
+            brickowl_api_key, easypost_api_key, easypost_test_api_key, easypost_key_mode,
+            stripe_secret_key, stripe_environment,
+            customs_signer, bl_ioss_number, bo_ioss_number, bl_uk_vat_number, bo_uk_vat_number,
+            inventory_sync_enabled, inventory_sync_time, price_o_matic_enabled,
+            orders_sync_enabled, orders_sync_frequency, orders_sync_start_time, orders_sync_end_time,
+            forum_sync_enabled, forum_sync_frequency,
+            market_news_sync_enabled, market_news_sync_frequency, market_news_queries,
+            business_intel_enabled, business_intel_frequency,
+            rebrickable_image_sync_enabled, rebrickable_set_sync_enabled, rebrickable_set_sync_time,
+            pom_tier1_refresh_days, pom_tier2_refresh_days, pom_tier3_refresh_days, pom_tier4_refresh_days,
+            pom_qty_promote_threshold, pom_qty_demote_threshold, pom_revenue_top_pct,
+            pom_base_premium, pom_minifig_premium,
+            pom_scarcity_threshold1, pom_scarcity_bonus1, pom_scarcity_threshold2, pom_scarcity_bonus2,
+            pom_scarcity_threshold3, pom_scarcity_bonus3,
+            pom_too_high_threshold, pom_too_low_threshold,
+            pom_underpriced_score, pom_overpriced_score,
+            pom_weight_ceiling, pom_weight_velocity, pom_weight_scarcity, pom_weight_undercut,
+            pom_velocity_high, pom_velocity_low, pom_scarcity_high, pom_scarcity_low,
+            pom_undercut_high, pom_undercut_low,
+            pom_batch_size, pom_api_call_limit, bl_api_call_limit,
+            pom_cost_floor_pct, pom_min_price,
+            pom_trending_enabled, pom_trending_days, pom_trending_threshold, pom_trending_bonus,
+            pom_high_supply_enabled, pom_high_supply_threshold, pom_high_supply_penalty,
+            pom_schedule_enabled, pom_sync_time, pom_schedule_batch_size,
+            pom_freshness_days, pom_zero_stock_skip, pom_guide_focus,
+            pom_sug_sold_avg_w, pom_sug_stock_min_w, pom_sug_sold_max_w, pom_sug_demand_mult,
+            pom_sug_comp_cap, pom_sug_floor, pom_sug_store_premium,
+            pom_sug_prem_threshold, pom_sug_prem_vel_w, pom_sug_prem_scarc_w, pom_sug_prem_mult,
+            catalog_detail_enabled, catalog_detail_frequency_hours, catalog_detail_batch_size,
+            catalog_detail_freshness_days, catalog_detail_zero_stock_skip,
+            catalog_scan_enabled, catalog_scan_frequency_hours, catalog_scan_zero_stock_skip,
+            pom_api_budget_pct, catalog_detail_api_budget_pct,
+            universal_catalog_schedule_enabled, universal_catalog_refresh_months, universal_catalog_retry_days,
+            channel_sync_enabled, channel_sync_time, channel_sync_mode,
+            timezone, pom_deep_space_keys, pom_future_missions_keys,
+            lom_category_score, lom_subcategory_score, lom_finalsort_score, lom_listing_score,
+            elfie_mode, updated_at
+          FROM app_settings
+        `);
+
+        // Atomic swap — old table kept as app_settings_old (safe fallback)
+        await client.query(`ALTER TABLE app_settings RENAME TO app_settings_old`);
+        await client.query(`ALTER TABLE app_settings_v2 RENAME TO app_settings`);
+
+        const { rows: verifyRows } = await client.query(`SELECT COUNT(*) as cnt FROM app_settings`);
+        console.log(`[Migration] Phase-72 (app_settings recreated — ${verifyRows[0].cnt} rows migrated, 1,478 ghost column slots reclaimed) complete.`);
+      } else {
+        console.log('[Migration] Phase-72 (app_settings already recreated) — skipped.');
+      }
+    }
+
+    // ── Phase-73: Create platform_settings and move 6 platform-owned columns ──
+    // platformName, openaiApiKey, selectedModel, systemPrompt, stripeSecretKey,
+    // stripeEnvironment move from app_settings → platform_settings (single row,
+    // id='platform'). This keeps app_settings purely org-level.
+    // Idempotency: skip if platform_settings table already exists.
+    {
+      const { rows: platExists } = await client.query(
+        `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'platform_settings' LIMIT 1`
+      );
+      if (platExists.length === 0) {
+        await client.query(`
+          CREATE TABLE platform_settings (
+            id                 VARCHAR PRIMARY KEY DEFAULT 'platform',
+            platform_name      TEXT,
+            openai_api_key     TEXT,
+            selected_model     TEXT DEFAULT 'gpt-4o-mini',
+            system_prompt      TEXT,
+            stripe_secret_key  TEXT,
+            stripe_environment TEXT NOT NULL DEFAULT 'live',
+            updated_at         TIMESTAMP NOT NULL DEFAULT NOW()
+          )
+        `);
+
+        // Copy 6 platform-owned columns from the platform row in app_settings
+        await client.query(`
+          INSERT INTO platform_settings
+            (id, platform_name, openai_api_key, selected_model, system_prompt, stripe_secret_key, stripe_environment)
+          SELECT 'platform', platform_name, openai_api_key, selected_model, system_prompt, stripe_secret_key, stripe_environment
+          FROM app_settings
+          WHERE id = 'platform'
+          ON CONFLICT DO NOTHING
+        `);
+
+        // Drop the 6 moved columns from app_settings
+        await client.query(`
+          ALTER TABLE app_settings
+            DROP COLUMN IF EXISTS platform_name,
+            DROP COLUMN IF EXISTS openai_api_key,
+            DROP COLUMN IF EXISTS selected_model,
+            DROP COLUMN IF EXISTS system_prompt,
+            DROP COLUMN IF EXISTS stripe_secret_key,
+            DROP COLUMN IF EXISTS stripe_environment
+        `);
+
+        console.log('[Migration] Phase-73 (platform_settings created — 6 platform columns moved from app_settings) complete.');
+      } else {
+        console.log('[Migration] Phase-73 (platform_settings already exists) — skipped.');
+      }
+    }
 
     console.log('[Migration] All startup migrations finished successfully.');
 

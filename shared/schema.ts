@@ -492,12 +492,7 @@ export const shipmentsRelations = relations(shipments, ({ one }) => ({
 export const appSettings = pgTable("app_settings", {
   id: varchar("id").primaryKey().default('default'),
   orgId: varchar("org_id"),                            // FK → organizations.id
-  platformName: text("platform_name"),                   // Configurable platform display name
   aiEnabled: boolean("ai_enabled").default(true).notNull(),
-  // OpenAI Configuration (used for both chat and embeddings)
-  openaiApiKey: text("openai_api_key"),
-  selectedModel: text("selected_model").default('gpt-4o-mini'),
-  systemPrompt: text("system_prompt"),
   bricklinkConsumerKey: text("bricklink_consumer_key"),
   bricklinkConsumerSecret: text("bricklink_consumer_secret"),
   bricklinkTokenValue: text("bricklink_token_value"),
@@ -506,9 +501,6 @@ export const appSettings = pgTable("app_settings", {
   easypostApiKey: text("easypost_api_key"),
   easypostTestApiKey: text("easypost_test_api_key"),
   easypostKeyMode: text("easypost_key_mode").default('test').notNull(), // 'test' or 'production'
-  // Stripe Credentials (platform billing — subscriptions, checkout, billing portal)
-  stripeSecretKey: text("stripe_secret_key"),
-  stripeEnvironment: text("stripe_environment").default('live').notNull(), // 'test' or 'live'
   // International Shipping / Customs
   customsSigner: text("customs_signer"),           // Name to sign customs declarations
   blIossNumber: text("bl_ioss_number"),            // BrickLink EU IOSS number
@@ -670,6 +662,27 @@ export const insertAppSettingsSchema = createInsertSchema(appSettings).omit({
 
 export type InsertAppSettings = z.infer<typeof insertAppSettingsSchema>;
 export type AppSettings = typeof appSettings.$inferSelect;
+
+// Platform Settings — platform-owned fields separated from org-level app_settings.
+// Single row with id='platform'. Accessed via getPlatformSettings() in routes.ts.
+export const platformSettings = pgTable("platform_settings", {
+  id: varchar("id").primaryKey().default('platform'),
+  platformName: text("platform_name"),
+  openaiApiKey: text("openai_api_key"),
+  selectedModel: text("selected_model").default('gpt-4o-mini'),
+  systemPrompt: text("system_prompt"),
+  stripeSecretKey: text("stripe_secret_key"),
+  stripeEnvironment: text("stripe_environment").default('live').notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertPlatformSettingsSchema = createInsertSchema(platformSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertPlatformSettings = z.infer<typeof insertPlatformSettingsSchema>;
+export type PlatformSettings = typeof platformSettings.$inferSelect;
 
 // Channel Sync per-field configuration — which fields are synced from BL → BO
 // Stored separately to avoid adding columns to the 1600-column-limited app_settings table.

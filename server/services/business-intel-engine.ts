@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { businessInsights, blInventory, blCatalog, orders, orderDetails, priceGuideCache, marketNews, blForumPosts, organizations, appSettings, syncMetadata, PLATFORM_ORG_ID } from "@shared/schema";
+import { businessInsights, blInventory, blCatalog, orders, orderDetails, priceGuideCache, marketNews, blForumPosts, organizations, platformSettings, syncMetadata, PLATFORM_ORG_ID } from "@shared/schema";
 import { eq, and, sql, desc, gte, ne, isNull, or } from "drizzle-orm";
 import OpenAI from "openai";
 
@@ -568,13 +568,13 @@ export async function generateOrgInsights(orgId: string): Promise<number> {
 
   const prompt = buildAnalysisPrompt(ctx);
 
-  const [platformSettings] = await db
-    .select({ openaiApiKey: appSettings.openaiApiKey })
-    .from(appSettings)
-    .where(eq(appSettings.id, 'platform'))
+  const [platRow] = await db
+    .select({ openaiApiKey: platformSettings.openaiApiKey })
+    .from(platformSettings)
+    .where(eq(platformSettings.id, 'platform'))
     .limit(1);
 
-  const apiKey = platformSettings?.openaiApiKey || process.env.OPENAI_API_KEY;
+  const apiKey = platRow?.openaiApiKey || process.env.OPENAI_API_KEY;
   if (!apiKey) {
     console.error('[BusinessIntel] No OpenAI API key available');
     return 0;

@@ -45,7 +45,7 @@ import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig } from "./s
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions, channelSyncConfig } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, platformSettings, insertPlatformSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions, channelSyncConfig } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -111,8 +111,27 @@ async function getOrgSettings(orgId: string) {
   // Lazy-init: create default settings row for this org
   const [created] = await db
     .insert(appSettings)
-    .values({ id: orgId, orgId, aiEnabled: true, selectedModel: 'gpt-4o-mini' })
+    .values({ id: orgId, orgId, aiEnabled: true })
     .onConflictDoUpdate({ target: appSettings.id, set: { orgId, updatedAt: new Date() } })
+    .returning();
+  return created;
+}
+
+/**
+ * Fetch platform-level settings (single row, id='platform').
+ * Creates the row on first access if it doesn't exist.
+ */
+export async function getPlatformSettings() {
+  const [existing] = await db
+    .select()
+    .from(platformSettings)
+    .where(eq(platformSettings.id, 'platform'))
+    .limit(1);
+  if (existing) return existing;
+  const [created] = await db
+    .insert(platformSettings)
+    .values({ id: 'platform' })
+    .onConflictDoUpdate({ target: platformSettings.id, set: { updatedAt: new Date() } })
     .returning();
   return created;
 }
@@ -122,7 +141,7 @@ async function getOrgSettings(orgId: string) {
  * This is the single source of truth for all OpenAI usage across every org.
  */
 export async function getPlatformOpenAIKey(): Promise<string | null> {
-  const settings = await getOrgSettings(PLATFORM_ORG_ID);
+  const settings = await getPlatformSettings();
   return settings?.openaiApiKey || null;
 }
 
@@ -783,8 +802,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/platform-admin/platform-services/platform-info — get platform name
   app.get('/api/platform-admin/platform-services/platform-info', isSuperAdmin, async (_req, res) => {
     try {
-      const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, PLATFORM_ORG_ID)).limit(1);
-      res.json({ platformName: settings?.platformName || '' });
+      const platSettings = await getPlatformSettings();
+      res.json({ platformName: platSettings?.platformName || '' });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || 'Failed to load platform info' });
     }
@@ -798,10 +817,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Platform name must be a string (max 100 chars)' });
       }
       await db
-        .insert(appSettings)
-        .values({ id: PLATFORM_ORG_ID, orgId: PLATFORM_ORG_ID, platformName: platformName.trim() || null })
+        .insert(platformSettings)
+        .values({ id: 'platform', platformName: platformName.trim() || null })
         .onConflictDoUpdate({
-          target: appSettings.id,
+          target: platformSettings.id,
           set: { platformName: platformName.trim() || null, updatedAt: sql`CURRENT_TIMESTAMP` },
         });
       res.json({ ok: true });
@@ -912,14 +931,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/platform-admin/platform-services/openai-key', isSuperAdmin, async (req, res) => {
     try {
       const { openaiApiKey } = req.body as { openaiApiKey: string | null };
-      const [settings] = await db
-        .insert(appSettings)
-        .values({ id: PLATFORM_ORG_ID, orgId: PLATFORM_ORG_ID, openaiApiKey: openaiApiKey || null })
+      await db
+        .insert(platformSettings)
+        .values({ id: 'platform', openaiApiKey: openaiApiKey || null })
         .onConflictDoUpdate({
-          target: appSettings.id,
+          target: platformSettings.id,
           set: { openaiApiKey: openaiApiKey || null, updatedAt: sql`CURRENT_TIMESTAMP` },
-        })
-        .returning();
+        });
       res.json({ ok: true });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || 'Failed to save API key' });
@@ -972,8 +990,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // GET /api/platform-admin/settings — read platform-level settings (POM, schedulers, etc.)
   app.get('/api/platform-admin/settings', isSuperAdmin, async (_req, res) => {
     try {
-      const settings = await getOrgSettings(PLATFORM_ORG_ID);
-      res.json(maskSettingsSecrets(settings as any));
+      const [appSettingsRow, platSettingsRow] = await Promise.all([
+        getOrgSettings(PLATFORM_ORG_ID),
+        getPlatformSettings(),
+      ]);
+      res.json(maskSettingsSecrets({ ...appSettingsRow, ...platSettingsRow } as any));
     } catch (error) {
       console.error("Error fetching platform settings:", error);
       res.status(500).json({ error: "Failed to fetch platform settings" });
@@ -983,22 +1004,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // POST /api/platform-admin/settings — update platform-level settings
   app.post('/api/platform-admin/settings', isSuperAdmin, async (req, res) => {
     try {
-      const data = insertAppSettingsSchema.parse(req.body);
+      const body = { ...req.body };
+      // Strip masked secret placeholders from both schemas
       for (const field of SECRET_FIELDS) {
-        const val = (data as any)[field];
+        const val = body[field];
         if (val && typeof val === 'string' && val.includes('····')) {
-          delete (data as any)[field];
+          delete body[field];
         }
       }
-      const [settings] = await db
-        .insert(appSettings)
-        .values({ ...data, id: PLATFORM_ORG_ID, orgId: PLATFORM_ORG_ID })
-        .onConflictDoUpdate({
-          target: appSettings.id,
-          set: { ...data, updatedAt: sql`CURRENT_TIMESTAMP` },
-        })
-        .returning();
-      res.json(maskSettingsSecrets(settings as any));
+      const platData = insertPlatformSettingsSchema.partial().parse(body);
+      const appData = insertAppSettingsSchema.partial().parse(body);
+
+      const [appSettingsRow, platSettingsRow] = await Promise.all([
+        db.insert(appSettings)
+          .values({ ...appData, id: PLATFORM_ORG_ID, orgId: PLATFORM_ORG_ID })
+          .onConflictDoUpdate({ target: appSettings.id, set: { ...appData, updatedAt: sql`CURRENT_TIMESTAMP` } })
+          .returning()
+          .then(r => r[0]),
+        db.insert(platformSettings)
+          .values({ id: 'platform', ...platData })
+          .onConflictDoUpdate({ target: platformSettings.id, set: { ...platData, updatedAt: sql`CURRENT_TIMESTAMP` } })
+          .returning()
+          .then(r => r[0]),
+      ]);
+      res.json(maskSettingsSecrets({ ...appSettingsRow, ...platSettingsRow } as any));
     } catch (error) {
       console.error("Error updating platform settings:", error);
       res.status(500).json({ error: "Failed to update platform settings" });
@@ -1037,7 +1066,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const allOrgs = await db.select({ id: organizations.id, name: organizations.name }).from(organizations);
         for (const o of allOrgs) orgNames[o.id] = o.name;
-        const [platSettings] = await db.select({ platformName: appSettings.platformName }).from(appSettings).where(eq(appSettings.id, PLATFORM_ORG_ID)).limit(1);
+        const platSettings = await getPlatformSettings();
         storedPlatformName = platSettings?.platformName || '';
       } catch {}
 
@@ -2502,8 +2531,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const snippet = firstMessages.map(m => m.content).join(' ').slice(0, 200);
       try {
         const openai = (await import('openai')).default;
-        const platformSettings = await db.select().from(appSettings).where(eq(appSettings.orgId, PLATFORM_ORG_ID)).limit(1);
-        const apiKey = platformSettings[0]?.openaiApiKey;
+        const platSettings = await getPlatformSettings();
+        const apiKey = platSettings?.openaiApiKey;
         if (apiKey) {
           const client = new openai({ apiKey });
           const completion = await client.chat.completions.create({
@@ -5624,7 +5653,8 @@ E.L.F.I.E. syncs inventory across BrickLink and BrickOwl. Changes made on either
       }
 
       const settings = await getOrgSettings(orgId);
-      const currentCustomPrompt = settings?.systemPrompt || '';
+      const elfieAnalysisPlatSettings = await getPlatformSettings();
+      const currentCustomPrompt = elfieAnalysisPlatSettings?.systemPrompt || '';
 
       const convos = await db
         .select({
@@ -5973,8 +6003,9 @@ All tools query local data (bl_catalog, price_guide_cache, inventory, orders). T
 Format search_web URLs as markdown links.`;
 
       const toolInstructions = enhancedDefaultPrompt.substring(enhancedDefaultPrompt.indexOf('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nTOOLS AT YOUR DISPOSAL'));
-      let systemPrompt = settings?.systemPrompt 
-        ? `${settings.systemPrompt}\n\n${toolInstructions}` 
+      const chatPlatSettings = await getPlatformSettings();
+      let systemPrompt = chatPlatSettings?.systemPrompt 
+        ? `${chatPlatSettings.systemPrompt}\n\n${toolInstructions}` 
         : enhancedDefaultPrompt;
 
       // Inject the owner's business vision & per-agent strategies into every chat
@@ -11156,12 +11187,8 @@ Format search_web URLs as markdown links.`;
         console.warn('[ItemInsights] Embedding search error (non-fatal):', e.message);
       }
 
-      const [platformSettings] = await db
-        .select({ openaiApiKey: appSettings.openaiApiKey })
-        .from(appSettings)
-        .where(eq(appSettings.id, 'platform'))
-        .limit(1);
-      const apiKey = platformSettings?.openaiApiKey || process.env.OPENAI_API_KEY;
+      const itemInsightsPlatSettings = await getPlatformSettings();
+      const apiKey = itemInsightsPlatSettings?.openaiApiKey || process.env.OPENAI_API_KEY;
       if (!apiKey) return res.status(500).json({ error: "No AI API key configured" });
 
       const prompt = `You are a LEGO/BrickLink business advisor. Analyze this specific inventory item and provide actionable business insights.
@@ -11347,12 +11374,8 @@ Return ONLY a JSON array, no markdown, no explanation.`;
         console.warn('[CatalogInsights] Embedding search error (non-fatal):', e.message);
       }
 
-      const [platformSettings] = await db
-        .select({ openaiApiKey: appSettings.openaiApiKey })
-        .from(appSettings)
-        .where(eq(appSettings.id, 'platform'))
-        .limit(1);
-      const apiKey = platformSettings?.openaiApiKey || process.env.OPENAI_API_KEY;
+      const catalogInsightsPlatSettings = await getPlatformSettings();
+      const apiKey = catalogInsightsPlatSettings?.openaiApiKey || process.env.OPENAI_API_KEY;
       if (!apiKey) return res.status(500).json({ error: "No AI API key configured" });
 
       const prompt = `You are a LEGO/BrickLink business advisor. This is a catalog item the seller does NOT currently have in inventory. Analyze the market data and provide insights to help them decide whether to source and sell this item.
