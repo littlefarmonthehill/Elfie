@@ -801,7 +801,7 @@ export async function syncBrickLinkToBrickOwl(
       if (item.colorId != null) {
         const expectedBoColorId = await resolveBoColorId(item.colorId);
         if (expectedBoColorId != null && expectedBoColorId > 0 &&
-            taggedLot.color_id !== expectedBoColorId) {
+            Number(taggedLot.color_id) !== Number(expectedBoColorId)) {
           console.log(
             `[ChannelSync] Color mismatch on lot ${taggedLot.lot_id} ` +
             `(${item.itemNo}): BO color_id=${taggedLot.color_id}, ` +

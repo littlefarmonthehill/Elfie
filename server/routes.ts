@@ -11909,7 +11909,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         const expectedBoColorId = await mapColorId(blItem.colorId);
         if (expectedBoColorId == null) { skipped++; continue; }
 
-        if (lot.color_id === expectedBoColorId) { skipped++; continue; }
+        if (Number(lot.color_id) === Number(expectedBoColorId)) { skipped++; continue; }
 
         // Color mismatch found
         mismatches.push({ lotId: lot.lot_id, itemNo: blItem.itemNo, currentColorId: lot.color_id, expectedColorId: expectedBoColorId });
