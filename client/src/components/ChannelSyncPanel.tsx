@@ -955,6 +955,27 @@ function SyncScopePanel({ brickOwl }: { brickOwl: any }) {
           </div>
         </div>
       </div>
+
+      {/* Gap row */}
+      {(() => {
+        const gap = scope.inScopeLots - boLinked;
+        if (gap === 0) return (
+          <div className="flex items-center justify-center gap-1.5 text-[10px] text-green-500/70">
+            <CheckCircle2 className="w-3 h-3" />
+            BL scope and BO linked lots are in sync
+          </div>
+        );
+        return (
+          <div className="flex items-center justify-between gap-2 px-0.5">
+            <span className="text-[10px] text-gray-500">
+              {gap > 0 ? 'Missing from BO' : 'Extra in BO'}
+            </span>
+            <span className={`text-[11px] font-mono font-semibold ${gap > 0 ? 'text-amber-400' : 'text-red-400'}`}>
+              {gap > 0 ? '+' : ''}{gap.toLocaleString()}
+            </span>
+          </div>
+        );
+      })()}
     </div>
   );
 }
