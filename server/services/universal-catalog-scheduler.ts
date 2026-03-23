@@ -11,7 +11,7 @@
  */
 
 import { db } from '../db';
-import { appSettings, syncMetadata, PLATFORM_ORG_ID } from '@shared/schema';
+import { platformSettings, syncMetadata, PLATFORM_ORG_ID } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import {
   importFromRebrickable,
@@ -36,8 +36,8 @@ async function checkAndRun() {
   try {
     const [settings] = await db
       .select()
-      .from(appSettings)
-      .where(eq(appSettings.orgId, ORG_ID))
+      .from(platformSettings)
+      .where(eq(platformSettings.id, 'platform'))
       .limit(1);
 
     if (!settings?.universalCatalogScheduleEnabled) return;

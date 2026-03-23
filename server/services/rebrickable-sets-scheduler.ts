@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { appSettings, syncMetadata, PLATFORM_ORG_ID } from "@shared/schema";
+import { platformSettings, syncMetadata, PLATFORM_ORG_ID } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 
 const ORG_ID = PLATFORM_ORG_ID;
@@ -26,7 +26,7 @@ export async function startRebrickableSetsScheduler() {
 
 async function checkAndRunRebrickableSync() {
   try {
-    const [settingsRow] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
+    const [settingsRow] = await db.select().from(platformSettings).where(eq(platformSettings.id, 'platform')).limit(1);
     if (!settingsRow?.rebrickableSetSyncEnabled) return;
 
     const tz = settingsRow.timezone || 'America/Chicago';

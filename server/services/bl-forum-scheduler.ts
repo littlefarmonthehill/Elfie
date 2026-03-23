@@ -7,7 +7,7 @@
  */
 
 import { db } from '../db';
-import { appSettings, syncMetadata, PLATFORM_ORG_ID } from '@shared/schema';
+import { platformSettings, syncMetadata, PLATFORM_ORG_ID } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { syncBrickLinkForum } from './bl-forum-scraper';
 import { recordSyncIssue, resolveSchedulerIssues } from './sync-issue-service';
@@ -31,7 +31,7 @@ export async function startForumSyncScheduler() {
 
 async function checkAndRunSync() {
   try {
-    const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
+    const [settings] = await db.select().from(platformSettings).where(eq(platformSettings.id, 'platform')).limit(1);
 
     if (!settings?.forumSyncEnabled) return;
 

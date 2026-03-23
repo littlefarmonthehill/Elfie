@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { appSettings, blCatalog, blInventory, blCategories, blColors, blApiCalls, syncMetadata, PLATFORM_ORG_ID } from "@shared/schema";
+import { platformSettings, blCatalog, blInventory, blCategories, blColors, blApiCalls, syncMetadata, PLATFORM_ORG_ID } from "@shared/schema";
 import { eq, and, or, isNull, sql, gte, lt, gt, desc } from "drizzle-orm";
 import { bricklinkCatalogRequest, bricklinkRequest } from "./bricklink";
 import { syncLock } from "./sync-lock";
@@ -30,9 +30,9 @@ export async function startCatalogDetailScheduler() {
 async function checkAndRun() {
   try {
     const [settings] = await db.select({
-      enabled: appSettings.catalogDetailEnabled,
-      frequencyHours: appSettings.catalogDetailFrequencyHours,
-    }).from(appSettings).where(eq(appSettings.id, ORG_ID)).limit(1);
+      enabled: platformSettings.catalogDetailEnabled,
+      frequencyHours: platformSettings.catalogDetailFrequencyHours,
+    }).from(platformSettings).where(eq(platformSettings.id, 'platform')).limit(1);
 
     if (!settings?.enabled) return;
 
@@ -78,12 +78,12 @@ export async function runCatalogDetailSync(): Promise<{
 
   try {
     const [settings] = await db.select({
-      batchSize: appSettings.catalogDetailBatchSize,
-      freshnessDays: appSettings.catalogDetailFreshnessDays,
-      zeroStockSkip: appSettings.catalogDetailZeroStockSkip,
-      blApiCallLimit: appSettings.blApiCallLimit,
-      catalogDetailApiBudgetPct: appSettings.catalogDetailApiBudgetPct,
-    }).from(appSettings).where(eq(appSettings.id, ORG_ID)).limit(1);
+      batchSize: platformSettings.catalogDetailBatchSize,
+      freshnessDays: platformSettings.catalogDetailFreshnessDays,
+      zeroStockSkip: platformSettings.catalogDetailZeroStockSkip,
+      blApiCallLimit: platformSettings.blApiCallLimit,
+      catalogDetailApiBudgetPct: platformSettings.catalogDetailApiBudgetPct,
+    }).from(platformSettings).where(eq(platformSettings.id, 'platform')).limit(1);
 
     const batchSize = settings?.batchSize ?? 500;
     const freshnessDays = settings?.freshnessDays ?? 90;

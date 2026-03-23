@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { appSettings, blCatalog, blInventory, priceGuideCache, syncMetadata, PLATFORM_ORG_ID } from "@shared/schema";
+import { appSettings, platformSettings, blCatalog, blInventory, priceGuideCache, syncMetadata, PLATFORM_ORG_ID } from "@shared/schema";
 import { eq, and, or, isNull, sql, lt, gt, count } from "drizzle-orm";
 
 const ORG_ID = PLATFORM_ORG_ID;
@@ -20,9 +20,9 @@ export async function startCatalogScanScheduler() {
 async function checkAndRun() {
   try {
     const [settings] = await db.select({
-      enabled: appSettings.catalogScanEnabled,
-      frequencyHours: appSettings.catalogScanFrequencyHours,
-    }).from(appSettings).where(eq(appSettings.id, ORG_ID)).limit(1);
+      enabled: platformSettings.catalogScanEnabled,
+      frequencyHours: platformSettings.catalogScanFrequencyHours,
+    }).from(platformSettings).where(eq(platformSettings.id, 'platform')).limit(1);
 
     if (!settings?.enabled) return;
 
@@ -59,15 +59,17 @@ export async function runCatalogScan(): Promise<CatalogScanResult> {
   csProgress = { active: true, phase: 'Starting', inventoryRowsScanned: 0, missingCatalogEntries: 0, catalogEntriesCreated: 0, staleCatalogDetail: 0, missingPriceGuide: 0, stalePriceGuide: 0 };
 
   try {
-    const [settings] = await db.select({
-      zeroStockSkip: appSettings.catalogScanZeroStockSkip,
-      detailFreshnessDays: appSettings.catalogDetailFreshnessDays,
+    const [platSettings] = await db.select({
+      zeroStockSkip: platformSettings.catalogScanZeroStockSkip,
+      detailFreshnessDays: platformSettings.catalogDetailFreshnessDays,
+    }).from(platformSettings).where(eq(platformSettings.id, 'platform')).limit(1);
+    const [orgSettings] = await db.select({
       pomFreshnessDays: appSettings.pomFreshnessDays,
     }).from(appSettings).where(eq(appSettings.id, ORG_ID)).limit(1);
 
-    const zeroStockSkip = settings?.zeroStockSkip ?? true;
-    const detailFreshnessDays = settings?.detailFreshnessDays ?? 90;
-    const pomFreshnessDays = settings?.pomFreshnessDays ?? 180;
+    const zeroStockSkip = platSettings?.zeroStockSkip ?? true;
+    const detailFreshnessDays = platSettings?.detailFreshnessDays ?? 90;
+    const pomFreshnessDays = orgSettings?.pomFreshnessDays ?? 180;
 
     await db.insert(syncMetadata).values({
       id: SYNC_ID,

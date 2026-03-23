@@ -281,31 +281,43 @@ export async function runMigrations() {
     }
     console.log('[Migration] Phase-10 (platform settings row) complete.');
 
+    // ── Pre-check: has Phase-74 run? (scheduler cols moved to platform_settings) ──
+    const { rows: _p74Chk } = await client.query(
+      `SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'platform_settings' AND column_name = 'bl_api_call_limit' LIMIT 1`
+    );
+    const phase74Ran = _p74Chk.length > 0;
+
     // ── Phase-11: BrickLink Catalog enrichment settings columns ──────
-    const phase11Cols: Array<[string, string]> = [
-      ['pom_freshness_days', 'INTEGER NOT NULL DEFAULT 180'],
-      ['pom_zero_stock_skip', 'BOOLEAN NOT NULL DEFAULT TRUE'],
-      ['catalog_detail_enabled', 'BOOLEAN NOT NULL DEFAULT FALSE'],
-      ['catalog_detail_frequency_hours', 'INTEGER NOT NULL DEFAULT 1'],
-      ['catalog_detail_batch_size', 'INTEGER NOT NULL DEFAULT 500'],
-      ['catalog_detail_freshness_days', 'INTEGER NOT NULL DEFAULT 90'],
-      ['catalog_detail_zero_stock_skip', 'BOOLEAN NOT NULL DEFAULT TRUE'],
-      ['catalog_scan_enabled', 'BOOLEAN NOT NULL DEFAULT FALSE'],
-      ['catalog_scan_frequency_hours', 'INTEGER NOT NULL DEFAULT 2'],
-      ['catalog_scan_zero_stock_skip', 'BOOLEAN NOT NULL DEFAULT TRUE'],
-    ];
-    for (const [col, def] of phase11Cols) {
-      await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS ${col} ${def}`);
+    // pom_freshness_days + pom_zero_stock_skip stay in app_settings (org-level).
+    // catalog_detail_* and catalog_scan_* moved to platform_settings in Phase-74.
+    await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS pom_freshness_days INTEGER NOT NULL DEFAULT 180`);
+    await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS pom_zero_stock_skip BOOLEAN NOT NULL DEFAULT TRUE`);
+    if (!phase74Ran) {
+      const phase11MovedCols: Array<[string, string]> = [
+        ['catalog_detail_enabled', 'BOOLEAN NOT NULL DEFAULT FALSE'],
+        ['catalog_detail_frequency_hours', 'INTEGER NOT NULL DEFAULT 1'],
+        ['catalog_detail_batch_size', 'INTEGER NOT NULL DEFAULT 500'],
+        ['catalog_detail_freshness_days', 'INTEGER NOT NULL DEFAULT 90'],
+        ['catalog_detail_zero_stock_skip', 'BOOLEAN NOT NULL DEFAULT TRUE'],
+        ['catalog_scan_enabled', 'BOOLEAN NOT NULL DEFAULT FALSE'],
+        ['catalog_scan_frequency_hours', 'INTEGER NOT NULL DEFAULT 2'],
+        ['catalog_scan_zero_stock_skip', 'BOOLEAN NOT NULL DEFAULT TRUE'],
+      ];
+      for (const [col, def] of phase11MovedCols) {
+        await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS ${col} ${def}`);
+      }
     }
     console.log('[Migration] Phase-11 (catalog enrichment settings) complete.');
 
     // ── Phase-12: API budget allocation columns ──────────────────────
-    const phase12Cols: Array<[string, string]> = [
-      ['pom_api_budget_pct', 'INTEGER NOT NULL DEFAULT 70'],
-      ['catalog_detail_api_budget_pct', 'INTEGER NOT NULL DEFAULT 20'],
-    ];
-    for (const [col, def] of phase12Cols) {
-      await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS ${col} ${def}`);
+    // pom_api_budget_pct + catalog_detail_api_budget_pct moved to platform_settings in Phase-74.
+    if (!phase74Ran) {
+      for (const [col, def] of [
+        ['pom_api_budget_pct', 'INTEGER NOT NULL DEFAULT 70'],
+        ['catalog_detail_api_budget_pct', 'INTEGER NOT NULL DEFAULT 20'],
+      ] as Array<[string, string]>) {
+        await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS ${col} ${def}`);
+      }
     }
     console.log('[Migration] Phase-12 (API budget allocation) complete.');
 
@@ -390,27 +402,29 @@ export async function runMigrations() {
     // ── Phase-17: Copy scheduler settings from org rows to platform row ──────
     // Forum sync, rebrickable set sync, and universal catalog scheduler settings
     // were previously saved to org rows but the schedulers read from the platform row.
-    // Copy org values into platform row so existing settings aren't lost.
-    const orgRow = await client.query(`SELECT
-      forum_sync_enabled, forum_sync_frequency,
-      rebrickable_set_sync_enabled, rebrickable_set_sync_time,
-      universal_catalog_schedule_enabled, universal_catalog_refresh_months, universal_catalog_retry_days
-      FROM app_settings WHERE id != '__platform__' ORDER BY updated_at DESC LIMIT 1`);
-    if (orgRow.rows.length > 0) {
-      const o = orgRow.rows[0];
-      await client.query(`
-        UPDATE app_settings SET
-          forum_sync_enabled                = COALESCE(forum_sync_enabled,                $1),
-          forum_sync_frequency              = COALESCE(forum_sync_frequency,              $2),
-          rebrickable_set_sync_enabled      = COALESCE(rebrickable_set_sync_enabled,      $3),
-          rebrickable_set_sync_time         = COALESCE(rebrickable_set_sync_time,         $4),
-          universal_catalog_schedule_enabled = COALESCE(universal_catalog_schedule_enabled, $5),
-          universal_catalog_refresh_months   = COALESCE(universal_catalog_refresh_months,   $6),
-          universal_catalog_retry_days       = COALESCE(universal_catalog_retry_days,       $7)
-        WHERE id = '__platform__'
-      `, [o.forum_sync_enabled, o.forum_sync_frequency,
-          o.rebrickable_set_sync_enabled, o.rebrickable_set_sync_time,
-          o.universal_catalog_schedule_enabled, o.universal_catalog_refresh_months, o.universal_catalog_retry_days]);
+    // Guard: after Phase-74, these columns moved to platform_settings — skip entirely.
+    if (!phase74Ran) {
+      const orgRow = await client.query(`SELECT
+        forum_sync_enabled, forum_sync_frequency,
+        rebrickable_set_sync_enabled, rebrickable_set_sync_time,
+        universal_catalog_schedule_enabled, universal_catalog_refresh_months, universal_catalog_retry_days
+        FROM app_settings WHERE id != '__platform__' ORDER BY updated_at DESC LIMIT 1`);
+      if (orgRow.rows.length > 0) {
+        const o = orgRow.rows[0];
+        await client.query(`
+          UPDATE app_settings SET
+            forum_sync_enabled                = COALESCE(forum_sync_enabled,                $1),
+            forum_sync_frequency              = COALESCE(forum_sync_frequency,              $2),
+            rebrickable_set_sync_enabled      = COALESCE(rebrickable_set_sync_enabled,      $3),
+            rebrickable_set_sync_time         = COALESCE(rebrickable_set_sync_time,         $4),
+            universal_catalog_schedule_enabled = COALESCE(universal_catalog_schedule_enabled, $5),
+            universal_catalog_refresh_months   = COALESCE(universal_catalog_refresh_months,   $6),
+            universal_catalog_retry_days       = COALESCE(universal_catalog_retry_days,       $7)
+          WHERE id = '__platform__'
+        `, [o.forum_sync_enabled, o.forum_sync_frequency,
+            o.rebrickable_set_sync_enabled, o.rebrickable_set_sync_time,
+            o.universal_catalog_schedule_enabled, o.universal_catalog_refresh_months, o.universal_catalog_retry_days]);
+      }
     }
     console.log('[Migration] Phase-17 (scheduler settings to platform level) complete.');
 
@@ -483,9 +497,12 @@ export async function runMigrations() {
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS market_news_embeddings_article_idx ON market_news_embeddings (article_id)`);
 
-    await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS market_news_sync_enabled BOOLEAN NOT NULL DEFAULT false`);
-    await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS market_news_sync_frequency INTEGER NOT NULL DEFAULT 360`);
-    await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS market_news_queries TEXT[] DEFAULT ARRAY['LEGO set retirement announcements', 'LEGO reseller market news pricing trends', 'BrickLink marketplace updates sellers', 'LEGO collectible investing value 2026', 'LEGO supply chain new releases']`);
+    // market_news_* moved to platform_settings in Phase-74 — guard ADD COLUMN
+    if (!phase74Ran) {
+      await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS market_news_sync_enabled BOOLEAN NOT NULL DEFAULT false`);
+      await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS market_news_sync_frequency INTEGER NOT NULL DEFAULT 360`);
+      await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS market_news_queries TEXT[] DEFAULT ARRAY['LEGO set retirement announcements', 'LEGO reseller market news pricing trends', 'BrickLink marketplace updates sellers', 'LEGO collectible investing value 2026', 'LEGO supply chain new releases']`);
+    }
     console.log('[Migration] Phase-20 (market_news tables + settings) complete.');
 
     // Phase-21: Business Insights table + settings
@@ -509,8 +526,11 @@ export async function runMigrations() {
     await pool.query(`CREATE INDEX IF NOT EXISTS business_insights_org_id_idx ON business_insights (org_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS business_insights_category_idx ON business_insights (category)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS business_insights_created_at_idx ON business_insights (created_at)`);
-    await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS business_intel_enabled BOOLEAN NOT NULL DEFAULT false`);
-    await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS business_intel_frequency INTEGER NOT NULL DEFAULT 360`);
+    // business_intel_* moved to platform_settings in Phase-74 — guard ADD COLUMN
+    if (!phase74Ran) {
+      await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS business_intel_enabled BOOLEAN NOT NULL DEFAULT false`);
+      await pool.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS business_intel_frequency INTEGER NOT NULL DEFAULT 360`);
+    }
     console.log('[Migration] Phase-21 (business_insights table + settings) complete.');
 
     // Phase-22: New usage limit columns on plan_configs
@@ -1649,6 +1669,123 @@ export async function runMigrations() {
       } else {
         console.log('[Migration] Phase-73 (platform_settings already exists) — skipped.');
       }
+    }
+
+    // ── Phase-74: Move 27 platform-wide enrichment/scheduler cols to platform_settings ──
+    // Columns moving: blApiCallLimit, pomApiBudgetPct, catalogDetailApiBudgetPct,
+    //   pomScheduleEnabled, pomSyncTime, pomScheduleBatchSize,
+    //   catalogDetailEnabled, catalogDetailFrequencyHours, catalogDetailBatchSize,
+    //   catalogDetailFreshnessDays, catalogDetailZeroStockSkip,
+    //   catalogScanEnabled, catalogScanFrequencyHours, catalogScanZeroStockSkip,
+    //   universalCatalogScheduleEnabled, universalCatalogRefreshMonths, universalCatalogRetryDays,
+    //   forumSyncEnabled, forumSyncFrequency,
+    //   marketNewsSyncEnabled, marketNewsSyncFrequency, marketNewsQueries,
+    //   businessIntelEnabled, businessIntelFrequency,
+    //   rebrickableSetSyncEnabled, rebrickableSetSyncTime, timezone
+    // Idempotency: skip if bl_api_call_limit already exists in platform_settings.
+    if (!phase74Ran) {
+      // Add 27 columns to platform_settings
+      const p74Cols: Array<[string, string]> = [
+        ['bl_api_call_limit',                'INTEGER NOT NULL DEFAULT 4900'],
+        ['pom_api_budget_pct',               'INTEGER NOT NULL DEFAULT 70'],
+        ['catalog_detail_api_budget_pct',    'INTEGER NOT NULL DEFAULT 20'],
+        ['pom_schedule_enabled',             'BOOLEAN NOT NULL DEFAULT false'],
+        ['pom_sync_time',                    'TEXT DEFAULT \'14:00\''],
+        ['pom_schedule_batch_size',          'INTEGER NOT NULL DEFAULT 1500'],
+        ['catalog_detail_enabled',           'BOOLEAN NOT NULL DEFAULT false'],
+        ['catalog_detail_frequency_hours',   'INTEGER NOT NULL DEFAULT 1'],
+        ['catalog_detail_batch_size',        'INTEGER NOT NULL DEFAULT 500'],
+        ['catalog_detail_freshness_days',    'INTEGER NOT NULL DEFAULT 90'],
+        ['catalog_detail_zero_stock_skip',   'BOOLEAN NOT NULL DEFAULT true'],
+        ['catalog_scan_enabled',             'BOOLEAN NOT NULL DEFAULT false'],
+        ['catalog_scan_frequency_hours',     'INTEGER NOT NULL DEFAULT 2'],
+        ['catalog_scan_zero_stock_skip',     'BOOLEAN NOT NULL DEFAULT true'],
+        ['universal_catalog_schedule_enabled','BOOLEAN NOT NULL DEFAULT false'],
+        ['universal_catalog_refresh_months', 'INTEGER NOT NULL DEFAULT 1'],
+        ['universal_catalog_retry_days',     'INTEGER NOT NULL DEFAULT 30'],
+        ['forum_sync_enabled',               'BOOLEAN NOT NULL DEFAULT false'],
+        ['forum_sync_frequency',             'INTEGER NOT NULL DEFAULT 60'],
+        ['market_news_sync_enabled',         'BOOLEAN NOT NULL DEFAULT false'],
+        ['market_news_sync_frequency',       'INTEGER NOT NULL DEFAULT 360'],
+        ['market_news_queries',              `TEXT[] DEFAULT ARRAY['LEGO set retirement announcements', 'LEGO reseller market news pricing trends', 'BrickLink marketplace updates sellers', 'LEGO collectible investing value 2026', 'LEGO supply chain new releases']`],
+        ['business_intel_enabled',           'BOOLEAN NOT NULL DEFAULT false'],
+        ['business_intel_frequency',         'INTEGER NOT NULL DEFAULT 360'],
+        ['rebrickable_set_sync_enabled',     'BOOLEAN NOT NULL DEFAULT false'],
+        ['rebrickable_set_sync_time',        'TEXT DEFAULT \'04:00\''],
+        ['timezone',                         'TEXT DEFAULT \'America/Chicago\''],
+      ];
+      for (const [col, def] of p74Cols) {
+        await client.query(`ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS ${col} ${def}`);
+      }
+
+      // Copy current values from app_settings platform row (where columns still exist)
+      await client.query(`
+        UPDATE platform_settings ps SET
+          bl_api_call_limit                = COALESCE((SELECT bl_api_call_limit                FROM app_settings WHERE id = 'platform' LIMIT 1), 4900),
+          pom_api_budget_pct               = COALESCE((SELECT pom_api_budget_pct               FROM app_settings WHERE id = 'platform' LIMIT 1), 70),
+          catalog_detail_api_budget_pct    = COALESCE((SELECT catalog_detail_api_budget_pct    FROM app_settings WHERE id = 'platform' LIMIT 1), 20),
+          pom_schedule_enabled             = COALESCE((SELECT pom_schedule_enabled             FROM app_settings WHERE id = 'platform' LIMIT 1), false),
+          pom_sync_time                    = COALESCE((SELECT pom_sync_time                    FROM app_settings WHERE id = 'platform' LIMIT 1), '14:00'),
+          pom_schedule_batch_size          = COALESCE((SELECT pom_schedule_batch_size          FROM app_settings WHERE id = 'platform' LIMIT 1), 1500),
+          catalog_detail_enabled           = COALESCE((SELECT catalog_detail_enabled           FROM app_settings WHERE id = 'platform' LIMIT 1), false),
+          catalog_detail_frequency_hours   = COALESCE((SELECT catalog_detail_frequency_hours   FROM app_settings WHERE id = 'platform' LIMIT 1), 1),
+          catalog_detail_batch_size        = COALESCE((SELECT catalog_detail_batch_size        FROM app_settings WHERE id = 'platform' LIMIT 1), 500),
+          catalog_detail_freshness_days    = COALESCE((SELECT catalog_detail_freshness_days    FROM app_settings WHERE id = 'platform' LIMIT 1), 90),
+          catalog_detail_zero_stock_skip   = COALESCE((SELECT catalog_detail_zero_stock_skip   FROM app_settings WHERE id = 'platform' LIMIT 1), true),
+          catalog_scan_enabled             = COALESCE((SELECT catalog_scan_enabled             FROM app_settings WHERE id = 'platform' LIMIT 1), false),
+          catalog_scan_frequency_hours     = COALESCE((SELECT catalog_scan_frequency_hours     FROM app_settings WHERE id = 'platform' LIMIT 1), 2),
+          catalog_scan_zero_stock_skip     = COALESCE((SELECT catalog_scan_zero_stock_skip     FROM app_settings WHERE id = 'platform' LIMIT 1), true),
+          universal_catalog_schedule_enabled = COALESCE((SELECT universal_catalog_schedule_enabled FROM app_settings WHERE id = 'platform' LIMIT 1), false),
+          universal_catalog_refresh_months = COALESCE((SELECT universal_catalog_refresh_months FROM app_settings WHERE id = 'platform' LIMIT 1), 1),
+          universal_catalog_retry_days     = COALESCE((SELECT universal_catalog_retry_days     FROM app_settings WHERE id = 'platform' LIMIT 1), 30),
+          forum_sync_enabled               = COALESCE((SELECT forum_sync_enabled               FROM app_settings WHERE id = 'platform' LIMIT 1), false),
+          forum_sync_frequency             = COALESCE((SELECT forum_sync_frequency             FROM app_settings WHERE id = 'platform' LIMIT 1), 60),
+          market_news_sync_enabled         = COALESCE((SELECT market_news_sync_enabled         FROM app_settings WHERE id = 'platform' LIMIT 1), false),
+          market_news_sync_frequency       = COALESCE((SELECT market_news_sync_frequency       FROM app_settings WHERE id = 'platform' LIMIT 1), 360),
+          market_news_queries              = COALESCE((SELECT market_news_queries              FROM app_settings WHERE id = 'platform' LIMIT 1), ARRAY['LEGO set retirement announcements']::TEXT[]),
+          business_intel_enabled           = COALESCE((SELECT business_intel_enabled           FROM app_settings WHERE id = 'platform' LIMIT 1), false),
+          business_intel_frequency         = COALESCE((SELECT business_intel_frequency         FROM app_settings WHERE id = 'platform' LIMIT 1), 360),
+          rebrickable_set_sync_enabled     = COALESCE((SELECT rebrickable_set_sync_enabled     FROM app_settings WHERE id = 'platform' LIMIT 1), false),
+          rebrickable_set_sync_time        = COALESCE((SELECT rebrickable_set_sync_time        FROM app_settings WHERE id = 'platform' LIMIT 1), '04:00'),
+          timezone                         = COALESCE((SELECT timezone                         FROM app_settings WHERE id = 'platform' LIMIT 1), 'America/Chicago')
+        WHERE ps.id = 'platform'
+      `);
+
+      // Drop the 27 moved columns from app_settings
+      await client.query(`
+        ALTER TABLE app_settings
+          DROP COLUMN IF EXISTS bl_api_call_limit,
+          DROP COLUMN IF EXISTS pom_api_budget_pct,
+          DROP COLUMN IF EXISTS catalog_detail_api_budget_pct,
+          DROP COLUMN IF EXISTS pom_schedule_enabled,
+          DROP COLUMN IF EXISTS pom_sync_time,
+          DROP COLUMN IF EXISTS pom_schedule_batch_size,
+          DROP COLUMN IF EXISTS catalog_detail_enabled,
+          DROP COLUMN IF EXISTS catalog_detail_frequency_hours,
+          DROP COLUMN IF EXISTS catalog_detail_batch_size,
+          DROP COLUMN IF EXISTS catalog_detail_freshness_days,
+          DROP COLUMN IF EXISTS catalog_detail_zero_stock_skip,
+          DROP COLUMN IF EXISTS catalog_scan_enabled,
+          DROP COLUMN IF EXISTS catalog_scan_frequency_hours,
+          DROP COLUMN IF EXISTS catalog_scan_zero_stock_skip,
+          DROP COLUMN IF EXISTS universal_catalog_schedule_enabled,
+          DROP COLUMN IF EXISTS universal_catalog_refresh_months,
+          DROP COLUMN IF EXISTS universal_catalog_retry_days,
+          DROP COLUMN IF EXISTS forum_sync_enabled,
+          DROP COLUMN IF EXISTS forum_sync_frequency,
+          DROP COLUMN IF EXISTS market_news_sync_enabled,
+          DROP COLUMN IF EXISTS market_news_sync_frequency,
+          DROP COLUMN IF EXISTS market_news_queries,
+          DROP COLUMN IF EXISTS business_intel_enabled,
+          DROP COLUMN IF EXISTS business_intel_frequency,
+          DROP COLUMN IF EXISTS rebrickable_set_sync_enabled,
+          DROP COLUMN IF EXISTS rebrickable_set_sync_time,
+          DROP COLUMN IF EXISTS timezone
+      `);
+
+      console.log('[Migration] Phase-74 (27 enrichment/scheduler cols moved to platform_settings) complete.');
+    } else {
+      console.log('[Migration] Phase-74 (platform_settings scheduler cols already present) — skipped.');
     }
 
     console.log('[Migration] All startup migrations finished successfully.');

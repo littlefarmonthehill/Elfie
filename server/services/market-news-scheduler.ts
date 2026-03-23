@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { appSettings, syncMetadata, PLATFORM_ORG_ID } from '@shared/schema';
+import { platformSettings, syncMetadata, PLATFORM_ORG_ID } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { syncMarketNews } from './market-news-scraper';
 import { recordSyncIssue, resolveSchedulerIssues } from './sync-issue-service';
@@ -22,7 +22,7 @@ export async function startMarketNewsSyncScheduler() {
 
 async function checkAndRunSync() {
   try {
-    const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
+    const [settings] = await db.select().from(platformSettings).where(eq(platformSettings.id, 'platform')).limit(1);
 
     if (!settings?.marketNewsSyncEnabled) return;
 
@@ -150,6 +150,6 @@ export async function triggerManualMarketNewsSync(queries?: string[]) {
     return { success: false, error: 'Market news sync already in progress' };
   }
 
-  const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, PLATFORM_ORG_ID)).limit(1);
+  const [settings] = await db.select().from(platformSettings).where(eq(platformSettings.id, 'platform')).limit(1);
   return await syncMarketNews(queries ?? (settings?.marketNewsQueries as string[] | null) ?? undefined);
 }

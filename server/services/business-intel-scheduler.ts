@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { syncMetadata, appSettings, PLATFORM_ORG_ID } from "@shared/schema";
+import { syncMetadata, platformSettings, PLATFORM_ORG_ID } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { syncBusinessIntel } from "./business-intel-engine";
 
@@ -11,11 +11,11 @@ async function checkAndRunSync() {
   try {
     const [settings] = await db
       .select({
-        enabled: appSettings.businessIntelEnabled,
-        frequency: appSettings.businessIntelFrequency,
+        enabled: platformSettings.businessIntelEnabled,
+        frequency: platformSettings.businessIntelFrequency,
       })
-      .from(appSettings)
-      .where(eq(appSettings.id, 'platform'))
+      .from(platformSettings)
+      .where(eq(platformSettings.id, 'platform'))
       .limit(1);
 
     if (!settings?.enabled) return;

@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { blCategories, blColors, blInventory, blCatalog, blApiCalls, appSettings, priceGuideCache, partPriceHistory, setPartRelationships, orderDetails, orders, organizations, PLATFORM_ORG_ID, pomAiSettings, pomPriceDecisions } from "@shared/schema";
+import { blCategories, blColors, blInventory, blCatalog, blApiCalls, appSettings, platformSettings, priceGuideCache, partPriceHistory, setPartRelationships, orderDetails, orders, organizations, PLATFORM_ORG_ID, pomAiSettings, pomPriceDecisions } from "@shared/schema";
 import { eq, gte, sql, inArray, and, gt, desc } from "drizzle-orm";
 import OAuth from "oauth-1.0a";
 import crypto from "crypto";
@@ -50,12 +50,12 @@ async function getOrgCallCeiling(orgId: string): Promise<number> {
   try {
     // Platform org: use the admin-configured ceiling from Platform Services settings
     if (orgId === PLATFORM_ORG_ID) {
-      const [platformSettings] = await db
-        .select({ blApiCallLimit: appSettings.blApiCallLimit })
-        .from(appSettings)
-        .where(eq(appSettings.id, PLATFORM_ORG_ID))
+      const [platRow] = await db
+        .select({ blApiCallLimit: platformSettings.blApiCallLimit })
+        .from(platformSettings)
+        .where(eq(platformSettings.id, 'platform'))
         .limit(1);
-      if (platformSettings?.blApiCallLimit != null) return platformSettings.blApiCallLimit;
+      if (platRow?.blApiCallLimit != null) return platRow.blApiCallLimit;
     }
 
     const [org] = await db
@@ -1345,16 +1345,18 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
 }> {
   const [pomSettings] = await db.select({
     pomBatchSize: appSettings.pomBatchSize,
-    blApiCallLimit: appSettings.blApiCallLimit,
     pomFreshnessDays: appSettings.pomFreshnessDays,
     pomZeroStockSkip: appSettings.pomZeroStockSkip,
-    pomApiBudgetPct: appSettings.pomApiBudgetPct,
     pomGuideFocus: appSettings.pomGuideFocus,
   }).from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
+  const [platBudget] = await db.select({
+    blApiCallLimit: platformSettings.blApiCallLimit,
+    pomApiBudgetPct: platformSettings.pomApiBudgetPct,
+  }).from(platformSettings).where(eq(platformSettings.id, 'platform')).limit(1);
 
   const effectiveMaxItems = maxItems ?? pomSettings?.pomBatchSize ?? 1500;
-  const totalCeiling = pomSettings?.blApiCallLimit ?? 4900;
-  const budgetPct = pomSettings?.pomApiBudgetPct ?? 70;
+  const totalCeiling = platBudget?.blApiCallLimit ?? 4900;
+  const budgetPct = platBudget?.pomApiBudgetPct ?? 70;
   const apiCallCeiling = Math.floor(totalCeiling * budgetPct / 100);
   const freshnessDays = pomSettings?.pomFreshnessDays ?? 180;
   const zeroStockSkip = pomSettings?.pomZeroStockSkip ?? true;

@@ -1994,9 +1994,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ceiling: await (async () => {
           try {
             const [ps] = await db
-              .select({ blApiCallLimit: appSettings.blApiCallLimit })
-              .from(appSettings)
-              .where(eq(appSettings.id, PLATFORM_ORG_ID))
+              .select({ blApiCallLimit: platformSettings.blApiCallLimit })
+              .from(platformSettings)
+              .where(eq(platformSettings.id, PLATFORM_ORG_ID))
               .limit(1);
             return ps?.blApiCallLimit ?? 5000;
           } catch { return 5000; }
@@ -8610,10 +8610,10 @@ Format search_web URLs as markdown links.`;
 
       // Enrich with scheduler settings + last-run metadata
       const [settings] = await db.select({
-        universalCatalogScheduleEnabled: appSettings.universalCatalogScheduleEnabled,
-        universalCatalogRefreshMonths:   appSettings.universalCatalogRefreshMonths,
-        universalCatalogRetryDays:       appSettings.universalCatalogRetryDays,
-      }).from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
+        universalCatalogScheduleEnabled: platformSettings.universalCatalogScheduleEnabled,
+        universalCatalogRefreshMonths:   platformSettings.universalCatalogRefreshMonths,
+        universalCatalogRetryDays:       platformSettings.universalCatalogRetryDays,
+      }).from(platformSettings).where(eq(platformSettings.id, PLATFORM_ORG_ID)).limit(1);
 
       const [meta] = await db.select({
         lastSyncTime:   syncMetadata.lastSyncTime,
@@ -12331,9 +12331,9 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       const liveProgress = getPomSyncProgress();
 
       const [pomSettings] = await db.select({
-        apiCeiling: appSettings.blApiCallLimit,
-        pomApiBudgetPct: appSettings.pomApiBudgetPct,
-      }).from(appSettings).where(eq(appSettings.id, PLATFORM_ORG_ID)).limit(1);
+        apiCeiling: platformSettings.blApiCallLimit,
+        pomApiBudgetPct: platformSettings.pomApiBudgetPct,
+      }).from(platformSettings).where(eq(platformSettings.id, PLATFORM_ORG_ID)).limit(1);
 
       const pomBudgetedCeiling = Math.floor((pomSettings?.apiCeiling ?? 4900) * (pomSettings?.pomApiBudgetPct ?? 70) / 100);
 

@@ -515,17 +515,8 @@ export const appSettings = pgTable("app_settings", {
   ordersSyncFrequency: integer("orders_sync_frequency").default(15).notNull(), // minutes
   ordersSyncStartTime: text("orders_sync_start_time").default('08:00'),        // Active window start (HH:MM, org timezone)
   ordersSyncEndTime: text("orders_sync_end_time").default('20:00'),            // Active window end   (HH:MM, org timezone)
-  forumSyncEnabled: boolean("forum_sync_enabled").default(true).notNull(),
-  forumSyncFrequency: integer("forum_sync_frequency").default(60).notNull(), // minutes
-  marketNewsSyncEnabled: boolean("market_news_sync_enabled").default(false).notNull(),
-  marketNewsSyncFrequency: integer("market_news_sync_frequency").default(360).notNull(), // minutes (6 hours default)
-  marketNewsQueries: text("market_news_queries").array().default(sql`ARRAY['LEGO set retirement announcements', 'LEGO reseller market news pricing trends', 'BrickLink marketplace updates sellers', 'LEGO collectible investing value 2026', 'LEGO supply chain new releases']`),
-  businessIntelEnabled: boolean("business_intel_enabled").default(false).notNull(),
-  businessIntelFrequency: integer("business_intel_frequency").default(360).notNull(), // minutes (6 hours default)
-  // Rebrickable Configuration
+  // Rebrickable Configuration (org-level image sync; set-sync moved to platform_settings)
   rebrickableImageSyncEnabled: boolean("rebrickable_image_sync_enabled").default(true).notNull(),
-  rebrickableSetSyncEnabled: boolean("rebrickable_set_sync_enabled").default(false).notNull(),
-  rebrickableSetSyncTime: text("rebrickable_set_sync_time").default('04:00'),   // Time of day (HH:MM)
   // Price-o-Matic 4-Tier Refresh Settings
   pomTier1RefreshDays: integer("pom_tier1_refresh_days").default(1).notNull(),   // T1 High Volatility: daily
   pomTier2RefreshDays: integer("pom_tier2_refresh_days").default(3).notNull(),   // T2 Strong Demand: every 2-3 days
@@ -565,7 +556,6 @@ export const appSettings = pgTable("app_settings", {
   pomUndercutLow: real("pom_undercut_low").default(0.8).notNull(),               // Undercut <= this = cheapest seller
   pomBatchSize: integer("pom_batch_size").default(1500).notNull(),               // Items per sync run
   pomApiCallLimit: integer("pom_api_call_limit").default(4500).notNull(),        // POM daily API call ceiling
-  blApiCallLimit: integer("bl_api_call_limit").default(4900).notNull(),          // Global BrickLink daily API call ceiling (hard block for all features)
   pomCostFloorPct: integer("pom_cost_floor_pct").default(0).notNull(),           // Min % margin above my_cost (0 = off)
   pomMinPrice: decimal("pom_min_price", { precision: 10, scale: 4 }).default('0.02').notNull(), // Absolute min price per item
   // Sales velocity (trending) bonus
@@ -577,9 +567,6 @@ export const appSettings = pgTable("app_settings", {
   pomHighSupplyEnabled: boolean("pom_high_supply_enabled").default(false).notNull(),
   pomHighSupplyThreshold: integer("pom_high_supply_threshold").default(5000).notNull(), // Global total-qty threshold
   pomHighSupplyPenalty: integer("pom_high_supply_penalty").default(5).notNull(),        // % discount for flooded market
-  pomScheduleEnabled: boolean("pom_schedule_enabled").default(false).notNull(), // Run POM on its own schedule (independent of inventory sync)
-  pomSyncTime: text("pom_sync_time").default('14:00'),                          // Standalone POM schedule time (HH:MM)
-  pomScheduleBatchSize: integer("pom_schedule_batch_size").default(1500).notNull(), // Items per scheduled auto-run
   pomFreshnessDays: integer("pom_freshness_days").default(180).notNull(),       // Skip items with price data newer than N days
   pomZeroStockSkip: boolean("pom_zero_stock_skip").default(true).notNull(),     // Skip items with 0 stock across platform
   pomGuideFocus: text("pom_guide_focus").default('both').notNull(),             // 'stock', 'sold', or 'both' — controls which price guide types to fetch
@@ -595,28 +582,10 @@ export const appSettings = pgTable("app_settings", {
   pomSugPremVelW: real("pom_sug_prem_vel_w").default(0.6).notNull(),
   pomSugPremScarcW: real("pom_sug_prem_scarc_w").default(0.4).notNull(),
   pomSugPremMult: real("pom_sug_prem_mult").default(0.5).notNull(),
-  // Catalog Detail Completion
-  catalogDetailEnabled: boolean("catalog_detail_enabled").default(false).notNull(),
-  catalogDetailFrequencyHours: integer("catalog_detail_frequency_hours").default(1).notNull(),
-  catalogDetailBatchSize: integer("catalog_detail_batch_size").default(500).notNull(),
-  catalogDetailFreshnessDays: integer("catalog_detail_freshness_days").default(90).notNull(),
-  catalogDetailZeroStockSkip: boolean("catalog_detail_zero_stock_skip").default(true).notNull(),
-  // Inventory Catalog Scan
-  catalogScanEnabled: boolean("catalog_scan_enabled").default(false).notNull(),
-  catalogScanFrequencyHours: integer("catalog_scan_frequency_hours").default(2).notNull(),
-  catalogScanZeroStockSkip: boolean("catalog_scan_zero_stock_skip").default(true).notNull(),
-  // API Budget Allocation (percentage of blApiCallLimit per job)
-  pomApiBudgetPct: integer("pom_api_budget_pct").default(70).notNull(),
-  catalogDetailApiBudgetPct: integer("catalog_detail_api_budget_pct").default(20).notNull(),
-  // Universal CLIP Catalog auto-refresh scheduler
-  universalCatalogScheduleEnabled: boolean("universal_catalog_schedule_enabled").default(false).notNull(),
-  universalCatalogRefreshMonths: integer("universal_catalog_refresh_months").default(1).notNull(), // How many months between imports
-  universalCatalogRetryDays: integer("universal_catalog_retry_days").default(30).notNull(),        // Retry no_image/failed items older than N days
   // Channel Sync (Local DB → BrickOwl / other platforms)
   channelSyncEnabled: boolean("channel_sync_enabled").default(false).notNull(), // Push local inventory to all sales channels on a schedule
   channelSyncTime: text("channel_sync_time").default('03:00'),                  // Time of day (HH:MM) — run AFTER inbound + order syncs settle
   channelSyncMode: text("channel_sync_mode").default('analysis').notNull(), // 'analysis' = read-only compare only, 'full_control' = create + update all, 'matched_sync' = full sync of matched/tagged items only (no creates)
-  timezone: text("timezone").default('America/Chicago'),                        // User's local timezone for all schedulers
   pomDeepSpaceKeys: text("pom_deep_space_keys").default('[]'),                  // JSON array of item keys excluded from POM orbit view
   pomFutureMissionsKeys: text("pom_future_missions_keys").default('[]'),        // JSON array of item keys queued in Future Missions
   // List-o-Matic Priority Scores — editable weight per sorting phase (0-100 scale)
@@ -667,12 +636,51 @@ export type AppSettings = typeof appSettings.$inferSelect;
 // Single row with id='platform'. Accessed via getPlatformSettings() in routes.ts.
 export const platformSettings = pgTable("platform_settings", {
   id: varchar("id").primaryKey().default('platform'),
+  // Branding & AI credentials
   platformName: text("platform_name"),
   openaiApiKey: text("openai_api_key"),
   selectedModel: text("selected_model").default('gpt-4o-mini'),
   systemPrompt: text("system_prompt"),
+  // Billing
   stripeSecretKey: text("stripe_secret_key"),
   stripeEnvironment: text("stripe_environment").default('live').notNull(),
+  // Global API budget
+  blApiCallLimit: integer("bl_api_call_limit").default(4900).notNull(),
+  pomApiBudgetPct: integer("pom_api_budget_pct").default(70).notNull(),
+  catalogDetailApiBudgetPct: integer("catalog_detail_api_budget_pct").default(20).notNull(),
+  // POM scheduler
+  pomScheduleEnabled: boolean("pom_schedule_enabled").default(false).notNull(),
+  pomSyncTime: text("pom_sync_time").default('14:00'),
+  pomScheduleBatchSize: integer("pom_schedule_batch_size").default(1500).notNull(),
+  // Catalog Detail enrichment scheduler
+  catalogDetailEnabled: boolean("catalog_detail_enabled").default(false).notNull(),
+  catalogDetailFrequencyHours: integer("catalog_detail_frequency_hours").default(1).notNull(),
+  catalogDetailBatchSize: integer("catalog_detail_batch_size").default(500).notNull(),
+  catalogDetailFreshnessDays: integer("catalog_detail_freshness_days").default(90).notNull(),
+  catalogDetailZeroStockSkip: boolean("catalog_detail_zero_stock_skip").default(true).notNull(),
+  // Inventory catalog scan scheduler
+  catalogScanEnabled: boolean("catalog_scan_enabled").default(false).notNull(),
+  catalogScanFrequencyHours: integer("catalog_scan_frequency_hours").default(2).notNull(),
+  catalogScanZeroStockSkip: boolean("catalog_scan_zero_stock_skip").default(true).notNull(),
+  // Universal CLIP Catalog auto-refresh scheduler
+  universalCatalogScheduleEnabled: boolean("universal_catalog_schedule_enabled").default(false).notNull(),
+  universalCatalogRefreshMonths: integer("universal_catalog_refresh_months").default(1).notNull(),
+  universalCatalogRetryDays: integer("universal_catalog_retry_days").default(30).notNull(),
+  // Forum sync scheduler
+  forumSyncEnabled: boolean("forum_sync_enabled").default(false).notNull(),
+  forumSyncFrequency: integer("forum_sync_frequency").default(60).notNull(),
+  // Market news scheduler
+  marketNewsSyncEnabled: boolean("market_news_sync_enabled").default(false).notNull(),
+  marketNewsSyncFrequency: integer("market_news_sync_frequency").default(360).notNull(),
+  marketNewsQueries: text("market_news_queries").array().default(sql`ARRAY['LEGO set retirement announcements', 'LEGO reseller market news pricing trends', 'BrickLink marketplace updates sellers', 'LEGO collectible investing value 2026', 'LEGO supply chain new releases']`),
+  // Business intel scheduler
+  businessIntelEnabled: boolean("business_intel_enabled").default(false).notNull(),
+  businessIntelFrequency: integer("business_intel_frequency").default(360).notNull(),
+  // Rebrickable set-parts sync scheduler
+  rebrickableSetSyncEnabled: boolean("rebrickable_set_sync_enabled").default(false).notNull(),
+  rebrickableSetSyncTime: text("rebrickable_set_sync_time").default('04:00'),
+  // Platform timezone (used by schedulers for time-of-day gates)
+  timezone: text("timezone").default('America/Chicago'),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

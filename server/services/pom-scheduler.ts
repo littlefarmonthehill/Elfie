@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { appSettings, syncMetadata, PLATFORM_ORG_ID } from "@shared/schema";
+import { platformSettings, syncMetadata, PLATFORM_ORG_ID } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { syncPriceOMagicCache } from "./bricklink";
 import { syncLock } from "./sync-lock";
@@ -71,7 +71,7 @@ async function checkInterruptedResume(attempt = 1) {
       return;
     }
 
-    const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
+    const [settings] = await db.select().from(platformSettings).where(eq(platformSettings.id, 'platform')).limit(1);
     const batchSize = settings?.pomScheduleBatchSize ?? 1500;
     console.log(`[POM] Auto-resuming interrupted sync (batch: ${batchSize})...`);
     await runScheduledPomSync(batchSize);
@@ -84,12 +84,12 @@ async function checkAndRunPomSync() {
   try {
     let settingsRow: any;
     try {
-      [settingsRow] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
+      [settingsRow] = await db.select().from(platformSettings).where(eq(platformSettings.id, 'platform')).limit(1);
     } catch (connErr: any) {
       if (connErr.message?.includes('Connection terminated') || connErr.code === 'ECONNRESET') {
         console.log('[POM] DB connection blip, retrying in 3s...');
         await new Promise(r => setTimeout(r, 3000));
-        [settingsRow] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
+        [settingsRow] = await db.select().from(platformSettings).where(eq(platformSettings.id, 'platform')).limit(1);
       } else throw connErr;
     }
     const settings = settingsRow;
