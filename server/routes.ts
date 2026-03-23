@@ -12030,11 +12030,12 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
             continue;
           }
           await deleteBrickOwlLot(lot.lot_id);
+          const condition = lot.condition || (blItem.newOrUsed === 'N' ? 'new' : 'usedg');
           await createBrickOwlLot({
             boid,
             quantity: parseInt(lot.qty),
             price: parseFloat(lot.base_price),
-            condition: lot.condition,
+            condition,
             for_sale: typeof lot.for_sale === 'string' ? parseInt(lot.for_sale) : (lot.for_sale as number),
             external_id: lot.external_lot_ids?.other,
             personal_note: lot.personal_note,
