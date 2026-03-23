@@ -890,6 +890,7 @@ function SyncScopePanel({ brickOwl }: { brickOwl: any }) {
   const boOrphaned     = brickOwl?.discrepancies?.orphanedBoLots ?? 0;
   const boLinked       = Math.max(0, boTotalLots - boUnlinked - boOrphaned);
   const boHasIssues    = boUnlinked > 0 || boOrphaned > 0;
+  const missingLots    = brickOwl?.discrepancies?.missingLots ?? 0;
 
   if (isLoading) {
     return (
@@ -954,15 +955,11 @@ function SyncScopePanel({ brickOwl }: { brickOwl: any }) {
           <div>
             <p className="text-sm font-mono font-bold text-gray-100">{boLinked.toLocaleString()}</p>
             <p className="text-[10px] text-gray-400">linked lots</p>
-            {(() => {
-              const missing = scope.inScopeLots - boLinked;
-              if (missing <= 0) return null;
-              return (
-                <p className="text-[10px] font-mono text-amber-500/70 mt-0.5">
-                  + {missing.toLocaleString()} not yet in BO
-                </p>
-              );
-            })()}
+            {missingLots > 0 && (
+              <p className="text-[10px] font-mono text-amber-500/70 mt-0.5">
+                + {missingLots.toLocaleString()} missing
+              </p>
+            )}
           </div>
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-1">
