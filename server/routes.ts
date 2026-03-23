@@ -11874,6 +11874,63 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
+  // One-time repair: correct BrickOwl lot colors that were set incorrectly before the color-map fix.
+  // Fetches all tagged BO lots, cross-references BL colorId, and pushes the corrected color_id
+  // to any lot where the stored color doesn't match what BL says it should be.
+  app.post("/api/repair/brickowl-colors", isApproved, async (req: any, res) => {
+    try {
+      const { getBrickOwlInventory, updateBrickOwlLot, mapColorId } = await import('./services/brickowl');
+
+      const boInventory = await getBrickOwlInventory(false);
+
+      // Only tagged lots can be matched back to a BL item
+      const taggedLots = boInventory.filter(lot => lot.external_lot_ids?.other);
+
+      if (taggedLots.length === 0) {
+        return res.json({ fixed: 0, skipped: 0, errors: [], message: 'No tagged lots found' });
+      }
+
+      // Bulk-fetch all BL items that are referenced by tagged BO lots
+      const blIds = taggedLots.map(lot => parseInt(lot.external_lot_ids!.other!)).filter(n => !isNaN(n));
+      const blItems = await db.select().from(blInventory).where(inArray(blInventory.id, blIds));
+      const blMap = new Map(blItems.map(item => [item.id, item]));
+
+      let fixed = 0;
+      let skipped = 0;
+      const errors: string[] = [];
+      const fixes: { lotId: string; itemNo: string; oldColorId: number; newColorId: number }[] = [];
+
+      for (const lot of taggedLots) {
+        const blId = parseInt(lot.external_lot_ids!.other!);
+        const blItem = blMap.get(blId);
+        if (!blItem || blItem.colorId == null) { skipped++; continue; }
+
+        const expectedBoColorId = await mapColorId(blItem.colorId);
+        if (expectedBoColorId == null) { skipped++; continue; }
+
+        if (lot.color_id === expectedBoColorId) { skipped++; continue; }
+
+        // Color mismatch — fix it
+        try {
+          await updateBrickOwlLot({ lot_id: lot.lot_id, color_id: expectedBoColorId });
+          fixes.push({ lotId: lot.lot_id, itemNo: blItem.itemNo, oldColorId: lot.color_id, newColorId: expectedBoColorId });
+          fixed++;
+          console.log(`[ColorRepair] Fixed lot ${lot.lot_id} (${blItem.itemNo}): color_id ${lot.color_id} → ${expectedBoColorId}`);
+        } catch (err: any) {
+          const msg = `lot ${lot.lot_id} (${blItem.itemNo}): ${err.message}`;
+          errors.push(msg);
+          console.error(`[ColorRepair] Error fixing ${msg}`);
+        }
+      }
+
+      console.log(`[ColorRepair] Complete — ${fixed} fixed, ${skipped} skipped, ${errors.length} errors`);
+      res.json({ fixed, skipped, errors, fixes });
+    } catch (err: any) {
+      console.error('[ColorRepair] Fatal error:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // Recent sync errors for dashboard action items
   // Returns syncs that completed with error/failed status in the last 24 hours
   app.get("/api/sync/statuses", isApproved, async (req: any, res) => {
