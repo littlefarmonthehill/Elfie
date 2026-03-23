@@ -408,51 +408,73 @@ export async function lookupBoid(blItemNo: string, type: string = 'Part', boColo
 // Loaded once per process via /catalog/color_list.
 // Key: BrickLink color ID → Value: BrickOwl color ID.
 let boColorMapLoaded = false;
-// If the endpoint fails, mark permanently failed so we don't retry on every
-// item in the same sync run (avoids 170× 404 calls all thrashing the API).
+// Permanent failure flag — if the endpoint errors, don't retry every item.
 let boColorMapFailed = false;
+// In-flight promise mutex — prevents duplicate concurrent fetches when
+// resolveBoColorId is called simultaneously for multiple unique colors.
+let boColorMapInflight: Promise<void> | null = null;
 
 async function loadBoColorMap(): Promise<void> {
   if (boColorMapLoaded || boColorMapFailed) return;
-  try {
-    // Correct BrickOwl color list endpoint (underscore, not slash).
-    const result = await brickowlGet('/catalog/color_list', {});
-    console.log(`[Color Map] Raw BO color list (first 400 chars):`, JSON.stringify(result).substring(0, 400));
+  if (boColorMapInflight) return boColorMapInflight;
 
-    // Handle multiple possible response shapes from BrickOwl
-    let colorArray: any[] = [];
-    if (Array.isArray(result)) {
-      colorArray = result;
-    } else if (result?.color_list && Array.isArray(result.color_list)) {
-      colorArray = result.color_list;
-    } else if (result?.colors && Array.isArray(result.colors)) {
-      colorArray = result.colors;
+  boColorMapInflight = (async () => {
+    try {
+      // Correct BrickOwl color list endpoint (underscore, not slash).
+      const result = await brickowlGet('/catalog/color_list', {});
+      console.log(`[Color Map] Raw BO color list (first 400 chars):`, JSON.stringify(result).substring(0, 400));
+
+      // BrickOwl returns an object keyed by BO color ID: { "0": {...}, "2": {...}, ... }
+      // Each entry has: id (BO color ID, string), bl_ids (array of BL color ID strings),
+      // and optionally bl_color_id / bl_id for single-value mappings.
+      let colorEntries: any[] = [];
+      if (Array.isArray(result)) {
+        colorEntries = result;
+      } else if (result && typeof result === 'object') {
+        // Object keyed by color ID — convert values to array
+        colorEntries = Object.values(result);
+      }
+
+      let mapped = 0;
+      for (const c of colorEntries) {
+        // BO color ID — may be a string in the response
+        const boIdRaw = c.color_id ?? c.id;
+        if (boIdRaw == null) continue;
+        const boId = typeof boIdRaw === 'string' ? parseInt(boIdRaw) : boIdRaw;
+        if (isNaN(boId)) continue;
+
+        // BL color IDs — BO API returns bl_ids as an array of strings,
+        // or sometimes a single value in bl_color_id / bl_id.
+        const blSources: (string | number)[] = [];
+        if (Array.isArray(c.bl_ids)) {
+          blSources.push(...c.bl_ids.filter((v: any) => v != null));
+        } else if (c.bl_color_id != null) {
+          blSources.push(c.bl_color_id);
+        } else if (c.bl_id != null) {
+          blSources.push(c.bl_id);
+        } else if (c.bricklink_color_id != null) {
+          blSources.push(c.bricklink_color_id);
+        }
+
+        for (const blRaw of blSources) {
+          const blId = typeof blRaw === 'string' ? parseInt(blRaw) : blRaw;
+          if (isNaN(blId)) continue;
+          boColorCache.set(blId, boId);
+          mapped++;
+        }
+      }
+
+      boColorMapLoaded = true;
+      console.log(`[Color Map] Loaded ${mapped} BL→BO color mappings from ${colorEntries.length} BO colors`);
+    } catch (err) {
+      console.error(`[Color Map] Failed to load BO color list:`, err);
+      boColorMapFailed = true;
+    } finally {
+      boColorMapInflight = null;
     }
+  })();
 
-    let mapped = 0;
-    for (const c of colorArray) {
-      // BrickOwl color list returns color_id (BO) and bl_color_id (BrickLink).
-      const boId: number | undefined =
-        c.color_id ?? c.id ?? (c.boid ? parseInt(c.boid) : undefined);
-      const blRaw: number | string | undefined =
-        c.bl_color_id ?? c.bl_id ?? c.bricklink_color_id ?? c.bricklink_id;
-
-      if (boId == null || blRaw == null) continue;
-      const blId = typeof blRaw === 'string' ? parseInt(blRaw) : blRaw;
-      if (isNaN(blId) || isNaN(boId)) continue;
-
-      boColorCache.set(blId, boId);
-      mapped++;
-    }
-
-    boColorMapLoaded = true;
-    console.log(`[Color Map] Loaded ${mapped} BL→BO color mappings from ${colorArray.length} BO colors`);
-  } catch (err) {
-    console.error(`[Color Map] Failed to load BO color list:`, err);
-    // Mark permanently failed for this process run so we don't thrash the API
-    // retrying on every item. The map will reload fresh on the next server restart.
-    boColorMapFailed = true;
-  }
+  return boColorMapInflight;
 }
 
 // Resolve a BrickLink color ID to a BrickOwl color ID (cached per-process).
