@@ -405,15 +405,18 @@ export async function lookupBoid(blItemNo: string, type: string = 'Part', boColo
 }
 
 // ── BrickOwl color map ────────────────────────────────────────────────────────
-// Loaded once per process via /catalog/color/list.
+// Loaded once per process via /catalog/color_list.
 // Key: BrickLink color ID → Value: BrickOwl color ID.
 let boColorMapLoaded = false;
+// If the endpoint fails, mark permanently failed so we don't retry on every
+// item in the same sync run (avoids 170× 404 calls all thrashing the API).
+let boColorMapFailed = false;
 
 async function loadBoColorMap(): Promise<void> {
-  if (boColorMapLoaded) return;
+  if (boColorMapLoaded || boColorMapFailed) return;
   try {
-    // BrickOwl's color list endpoint — public, no auth needed.
-    const result = await brickowlGet('/catalog/color/list', {});
+    // Correct BrickOwl color list endpoint (underscore, not slash).
+    const result = await brickowlGet('/catalog/color_list', {});
     console.log(`[Color Map] Raw BO color list (first 400 chars):`, JSON.stringify(result).substring(0, 400));
 
     // Handle multiple possible response shapes from BrickOwl
@@ -428,7 +431,7 @@ async function loadBoColorMap(): Promise<void> {
 
     let mapped = 0;
     for (const c of colorArray) {
-      // BrickOwl may use different field names — try all known variants
+      // BrickOwl color list returns color_id (BO) and bl_color_id (BrickLink).
       const boId: number | undefined =
         c.color_id ?? c.id ?? (c.boid ? parseInt(c.boid) : undefined);
       const blRaw: number | string | undefined =
@@ -446,15 +449,19 @@ async function loadBoColorMap(): Promise<void> {
     console.log(`[Color Map] Loaded ${mapped} BL→BO color mappings from ${colorArray.length} BO colors`);
   } catch (err) {
     console.error(`[Color Map] Failed to load BO color list:`, err);
-    // Leave boColorMapLoaded=false so it retries next sync
+    // Mark permanently failed for this process run so we don't thrash the API
+    // retrying on every item. The map will reload fresh on the next server restart.
+    boColorMapFailed = true;
   }
 }
 
 // Resolve a BrickLink color ID to a BrickOwl color ID (cached per-process).
-// Returns null when the color cannot be mapped (e.g. BL-only colors).
+// Returns null when BL has no color (null/undefined input) OR when the color
+// cannot be mapped (color map unavailable or BL-only color).
+// Per business rule: if BL has no color, no color is sent to BrickOwl.
 async function resolveBoColorId(blColorId: number | null | undefined): Promise<number | null> {
-  if (blColorId == null) return null;
-  // Ensure the color map is loaded (no-op after first call)
+  if (blColorId == null) return null; // No BL color → send none to BO
+  // Ensure the color map is loaded (no-op after first successful load or failure)
   await loadBoColorMap();
   return boColorCache.get(blColorId) ?? null;
 }
