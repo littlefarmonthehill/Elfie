@@ -44,7 +44,7 @@ interface SettingsModalProps {
   isBrickspotterOnly?: boolean;
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'notifications' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | 'ieStrategies' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'notifications' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | 'ieStrategies' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | 'platformElfie' | 'platformNotifications' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -3844,8 +3844,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   });
 
   const allNavigationItems = [
-    { id: 'general' as const, label: 'Organization', icon: Settings, bsVisible: true },
-    { id: 'platforms' as const, label: 'Platform Services', icon: Layers, bsVisible: false },
+    { id: 'general' as const, label: 'Company Information', icon: Settings, bsVisible: true },
+    { id: 'platforms' as const, label: 'Services', icon: Layers, bsVisible: false },
     { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: TrendingUp, bsVisible: false },
     { id: 'ieStrategies' as const, label: 'IE Strategies', icon: Target, bsVisible: false },
     { id: 'data' as const, label: 'Store Data', icon: HardDrive, bsVisible: false },
@@ -3883,11 +3883,12 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     {
       label: 'Platform',
       items: [
-        { id: 'platformGeneral' as const, label: 'General', icon: Settings },
-        { id: 'apiKeys' as const, label: 'Platform Services', icon: Key },
+        { id: 'platformGeneral' as const, label: 'Company Information', icon: Settings },
+        { id: 'apiKeys' as const, label: 'Services', icon: Key },
         { id: 'platformScheduler' as const, label: 'Data Enrichment', icon: Calendar },
         { id: 'auditLog' as const, label: 'Platform Health', icon: ClipboardList },
-        { id: 'maintenance' as const, label: 'Maintenance', icon: Wrench },
+        { id: 'platformElfie' as const, label: 'E.L.F.I.E. Settings', icon: Brain },
+        { id: 'platformNotifications' as const, label: 'Notifications', icon: Bell },
       ],
     },
   ];
@@ -4923,7 +4924,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           <span className="text-[10px] text-gray-500">/ 5,000</span>
                         </div>
                       </div>
-                      <p className="text-[10px] text-gray-500">Platform background schedulers use a separate credential set configured in <button onClick={() => { setActiveSection('apiKeys'); setActivePlatformServicesTab('bricklink'); }} className="text-yellow-400/80 hover:text-yellow-300 underline-offset-2 hover:underline" data-testid="link-goto-platform-services-bricklink">Platform Services</button>.</p>
+                      <p className="text-[10px] text-gray-500">Platform background schedulers use a separate credential set configured in <button onClick={() => { setActiveSection('apiKeys'); setActivePlatformServicesTab('bricklink'); }} className="text-yellow-400/80 hover:text-yellow-300 underline-offset-2 hover:underline" data-testid="link-goto-platform-services-bricklink">Services</button>.</p>
                     </div>
                   </div>
                 )}
@@ -5672,31 +5673,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   <h3 className="text-sm font-medium text-gray-100 mb-3">Chat Assistant (E.L.F.I.E.)</h3>
                   <div className="space-y-4">
 
-                    <div>
-                      <button
-                        onClick={async () => {
-                          if (!showDefaultPrompt && !defaultPromptText) {
-                            try {
-                              const res = await fetch('/api/elfie-default-prompt', { credentials: 'include' });
-                              const data = await res.json();
-                              if (data.prompt) setDefaultPromptText(data.prompt);
-                            } catch {}
-                          }
-                          setShowDefaultPrompt(!showDefaultPrompt);
-                        }}
-                        className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-200 transition-colors w-full"
-                        data-testid="button-toggle-default-prompt"
-                      >
-                        <ChevronRight className={`h-3.5 w-3.5 transition-transform ${showDefaultPrompt ? 'rotate-90' : ''}`} />
-                        <span className="font-medium">Built-in Default Prompt</span>
-                        <span className="text-[10px] text-gray-600 ml-1">(read-only)</span>
-                      </button>
-                      {showDefaultPrompt && (
-                        <div className="mt-2 rounded-lg bg-gray-800/40 border border-gray-700/50 p-3 max-h-[300px] overflow-y-auto">
-                          <pre className="text-[10px] font-mono text-gray-500 whitespace-pre-wrap leading-relaxed">{defaultPromptText || 'Loading...'}</pre>
-                        </div>
-                      )}
-                    </div>
 
                     {(() => {
                       const tier = getTierConfig(org?.plan ?? 'trial');
@@ -6589,14 +6565,14 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   Run once to build your search index. New inventory and orders are embedded automatically as they sync.
                 </p>
 
-                {/* OpenAI API Key — pointer to Platform Services */}
+                {/* OpenAI API Key — pointer to Services */}
                 <div className="flex items-center gap-3 bg-gray-800/60 border border-gray-700/60 rounded-md px-3 py-2.5">
                   <Brain className="h-4 w-4 text-gray-600 shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="app-label">OpenAI API Key</p>
                     <p className="text-[11px] text-gray-500 mt-0.5">
                       {(openaiApiKey || (settings as any)?.has_openaiApiKey) ? <span className="text-green-400/80">Key configured</span> : <span className="text-gray-600">Not configured</span>}
-                      {' — '}configured in <button onClick={() => { setActiveSection('apiKeys'); setActivePlatformServicesTab('openai'); }} className="text-yellow-400/80 hover:text-yellow-300 underline-offset-2 hover:underline" data-testid="link-goto-platform-services-openai">Platform Services → OpenAI</button>
+                      {' — '}configured in <button onClick={() => { setActiveSection('apiKeys'); setActivePlatformServicesTab('openai'); }} className="text-yellow-400/80 hover:text-yellow-300 underline-offset-2 hover:underline" data-testid="link-goto-platform-services-openai">Services → OpenAI</button>
                     </p>
                   </div>
                 </div>
@@ -8503,6 +8479,71 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
             {/* Maintenance */}
             {activeSection === 'maintenance' && <MaintenancePanel />}
 
+            {/* Platform E.L.F.I.E. Settings */}
+            {activeSection === 'platformElfie' && (
+              <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden">
+                <div className="space-y-4">
+                  <div className="sm-card">
+                    <div className="sm-card-header">
+                      <Brain className="h-3.5 w-3.5 text-violet-400/80" />
+                      <span className="text-xs font-semibold text-gray-200">System Default Prompt</span>
+                    </div>
+                    <div className="px-4 py-3 space-y-2">
+                      <p className="text-[11px] text-gray-400 leading-relaxed">
+                        This is the built-in base prompt that governs E.L.F.I.E.'s personality, tool awareness, and reasoning approach across all organizations. Individual orgs can layer their own custom prompt on top via their E.L.F.I.E. settings.
+                      </p>
+                      <button
+                        onClick={async () => {
+                          if (!showDefaultPrompt && !defaultPromptText) {
+                            try {
+                              const res = await fetch('/api/elfie-default-prompt', { credentials: 'include' });
+                              const data = await res.json();
+                              if (data.prompt) setDefaultPromptText(data.prompt);
+                            } catch {}
+                          }
+                          setShowDefaultPrompt(!showDefaultPrompt);
+                        }}
+                        className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-200 transition-colors w-full"
+                        data-testid="button-toggle-platform-default-prompt"
+                      >
+                        <ChevronRight className={`h-3.5 w-3.5 transition-transform ${showDefaultPrompt ? 'rotate-90' : ''}`} />
+                        <span className="font-medium">View Default Prompt</span>
+                        <span className="text-[10px] text-gray-600 ml-1">(read-only)</span>
+                      </button>
+                      {showDefaultPrompt && (
+                        <div className="mt-2 rounded-lg bg-gray-800/40 border border-gray-700/50 p-3 max-h-[300px] overflow-y-auto">
+                          <pre className="text-[10px] font-mono text-gray-500 whitespace-pre-wrap leading-relaxed">{defaultPromptText || 'Loading...'}</pre>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Platform Notifications */}
+            {activeSection === 'platformNotifications' && (
+              <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden">
+                <div className="space-y-4">
+                  <div className="sm-card">
+                    <div className="sm-card-header">
+                      <Bell className="h-3.5 w-3.5 text-blue-400/80" />
+                      <span className="text-xs font-semibold text-gray-200">Notification Settings</span>
+                    </div>
+                    <div className="px-4 py-3 space-y-2">
+                      <p className="text-[11px] text-gray-400 leading-relaxed">
+                        Configure platform-wide notification rules — alerts for scheduler failures, API budget thresholds, and org activity. Full configuration coming soon.
+                      </p>
+                      <div className="rounded-md border border-gray-700/50 bg-gray-800/30 px-3 py-3 flex items-center gap-3">
+                        <BellRing className="h-4 w-4 text-gray-600 shrink-0" />
+                        <p className="text-[11px] text-gray-500">Notification rules will appear here once configured.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Plans & Pricing */}
             {activeSection === 'plansAndPricing' && <PlansAndPricingPanel />}
 
@@ -8570,7 +8611,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           {[
                             { label: 'OpenAI Cost Attribution', desc: 'Identifies platform-level AI usage (Elfie, embeddings) separate from org usage' },
                             { label: 'BrickLink Usage Tracking', desc: 'Labels platform API calls for Price-o-Matic and catalog enrichment' },
-                            { label: 'Platform Services', desc: 'Display name for all platform-scoped operations and billing' },
+                            { label: 'Services', desc: 'Display name for all platform-scoped operations and billing' },
                           ].map(({ label, desc }) => (
                             <div key={label} className="bg-gray-900/40 border border-gray-700/60 rounded px-3 py-2">
                               <p className="text-[10px] font-medium text-gray-300 mb-0.5">{label}</p>
