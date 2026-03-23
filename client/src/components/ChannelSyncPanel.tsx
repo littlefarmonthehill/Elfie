@@ -888,12 +888,10 @@ function SyncScopePanel({ brickOwl }: { brickOwl: any }) {
             <p className="text-[10px] text-gray-400">lots in scope</p>
           </div>
           <div className="space-y-1">
-            {scope.mainStoreLots > 0 && (
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-[10px] text-gray-500">Main store</span>
-                <span className="text-[10px] font-mono text-gray-300">{scope.mainStoreLots.toLocaleString()}</span>
-              </div>
-            )}
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[10px] text-gray-500">Main store</span>
+              <span className="text-[10px] font-mono text-gray-300">{scope.totalLots.toLocaleString()}</span>
+            </div>
             {hiddenRows.map(r => (
               <div key={r.id} className="flex items-center justify-between gap-1">
                 <span className="flex items-center gap-1 text-[10px] text-gray-500">
