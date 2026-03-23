@@ -160,7 +160,7 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
   const [colorRepairPreview, setColorRepairPreview] = useState<{
     mismatchCount: number;
     skipped: number;
-    mismatches: { lotId: string; itemNo: string; currentColorId: number; expectedColorId: number }[];
+    mismatches: { lotId: string; blId: number; itemNo: string; currentColorId: number; currentColorName: string; expectedColorId: number; expectedColorName: string }[];
   } | null>(null);
   const [colorRepairResult, setColorRepairResult] = useState<{ fixed: number; skipped: number; errors: string[] } | null>(null);
 
@@ -752,18 +752,20 @@ function OverviewContent({
               <thead>
                 <tr className="border-b border-amber-500/20">
                   <th className="text-left px-2 py-1.5 text-gray-400 font-medium">Item No</th>
+                  <th className="text-left px-2 py-1.5 text-gray-400 font-medium">BL ID</th>
                   <th className="text-left px-2 py-1.5 text-gray-400 font-medium">BO Lot</th>
-                  <th className="text-right px-2 py-1.5 text-gray-400 font-medium">Current Color</th>
-                  <th className="text-right px-2 py-1.5 text-gray-400 font-medium">Correct Color</th>
+                  <th className="text-left px-2 py-1.5 text-gray-400 font-medium">Current Color</th>
+                  <th className="text-left px-2 py-1.5 text-gray-400 font-medium">Correct Color</th>
                 </tr>
               </thead>
               <tbody>
                 {[...colorRepairPreview.mismatches].sort((a, b) => parseInt(b.lotId) - parseInt(a.lotId)).map((m, i) => (
                   <tr key={m.lotId} className={`border-b border-amber-500/10 ${i % 2 === 0 ? '' : 'bg-white/5'}`} data-testid={`row-color-mismatch-${m.lotId}`}>
                     <td className="px-2 py-1 text-gray-200 font-mono">{m.itemNo}</td>
+                    <td className="px-2 py-1 text-gray-400 font-mono">{m.blId}</td>
                     <td className="px-2 py-1 text-gray-400 font-mono">{m.lotId}</td>
-                    <td className="px-2 py-1 text-right text-red-400 font-mono">{m.currentColorId}</td>
-                    <td className="px-2 py-1 text-right text-teal-400 font-mono">{m.expectedColorId}</td>
+                    <td className="px-2 py-1 text-red-400">{m.currentColorName}</td>
+                    <td className="px-2 py-1 text-teal-400">{m.expectedColorName}</td>
                   </tr>
                 ))}
               </tbody>

@@ -11879,7 +11879,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   // to any lot where the stored color doesn't match what BL says it should be.
   app.post("/api/repair/brickowl-colors", isApproved, async (req: any, res) => {
     try {
-      const { getBrickOwlInventory, createBrickOwlLot, deleteBrickOwlLot, mapColorId } = await import('./services/brickowl');
+      const { getBrickOwlInventory, createBrickOwlLot, deleteBrickOwlLot, mapColorId, getBoColorName, getBlColorName } = await import('./services/brickowl');
       const dryRun: boolean = req.body?.dryRun === true;
 
       const boInventory = await getBrickOwlInventory(false);
@@ -11899,7 +11899,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       let fixed = 0;
       let skipped = 0;
       const errors: string[] = [];
-      const mismatches: { lotId: string; itemNo: string; currentColorId: number; expectedColorId: number }[] = [];
+      const mismatches: { lotId: string; blId: number; itemNo: string; currentColorId: number; currentColorName: string; expectedColorId: number; expectedColorName: string }[] = [];
 
       for (const lot of taggedLots) {
         const blId = parseInt(lot.external_lot_ids!.other!);
@@ -11917,7 +11917,15 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
 
         if (actualBoColorId === expectedBoColorId) { skipped++; continue; }
 
-        mismatches.push({ lotId: lot.lot_id, itemNo: blItem.itemNo, currentColorId: actualBoColorId, expectedColorId: expectedBoColorId });
+        mismatches.push({
+          lotId: lot.lot_id,
+          blId,
+          itemNo: blItem.itemNo,
+          currentColorId: actualBoColorId,
+          currentColorName: getBoColorName(actualBoColorId),
+          expectedColorId: expectedBoColorId,
+          expectedColorName: blItem.colorId != null ? getBlColorName(blItem.colorId) : getBoColorName(expectedBoColorId),
+        });
 
         if (dryRun) continue;
 

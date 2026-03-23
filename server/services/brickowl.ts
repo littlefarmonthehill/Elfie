@@ -363,6 +363,17 @@ const boidCache = new Map<string, string | null>();
 
 // In-process BrickLink→BrickOwl color ID cache (finite set, safe to hold forever).
 const boColorCache = new Map<number, number | null>(); // BL color ID → BO color ID
+const boColorNameCache = new Map<number, string>();    // BO color ID → BO color name
+const blColorNameCache = new Map<number, string>();    // BL color ID → BL color name
+
+// Look up a BO color name by BO color ID (populated after first color map load).
+export function getBoColorName(boColorId: number): string {
+  return boColorNameCache.get(boColorId) ?? `Color ${boColorId}`;
+}
+// Look up a BL color name by BL color ID (populated after first color map load).
+export function getBlColorName(blColorId: number): string {
+  return blColorNameCache.get(blColorId) ?? `Color ${blColorId}`;
+}
 
 // Lookup BOID from BrickLink item number + optional BrickOwl color ID (with in-process caching).
 // When boColorId is supplied the API returns only the BOID for that specific color variant,
@@ -448,6 +459,9 @@ async function loadBoColorMap(): Promise<void> {
         const boId = typeof boIdRaw === 'string' ? parseInt(boIdRaw) : boIdRaw;
         if (isNaN(boId)) continue;
 
+        // Store BO color name
+        if (c.name) boColorNameCache.set(boId, c.name);
+
         // BL color IDs — BO API returns bl_ids as an array of strings,
         // or sometimes a single value in bl_color_id / bl_id.
         const blSources: (string | number)[] = [];
@@ -461,10 +475,15 @@ async function loadBoColorMap(): Promise<void> {
           blSources.push(c.bricklink_color_id);
         }
 
-        for (const blRaw of blSources) {
+        // BL color names — parallel array to bl_ids
+        const blNames: string[] = Array.isArray(c.bl_names) ? c.bl_names.filter(Boolean) : [];
+
+        for (let idx = 0; idx < blSources.length; idx++) {
+          const blRaw = blSources[idx];
           const blId = typeof blRaw === 'string' ? parseInt(blRaw) : blRaw;
           if (isNaN(blId)) continue;
           boColorCache.set(blId, boId);
+          if (blNames[idx]) blColorNameCache.set(blId, blNames[idx]);
           mapped++;
         }
       }
