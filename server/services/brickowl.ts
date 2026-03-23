@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { appSettings, blInventory, blColors, boidOverrides } from "@shared/schema";
-import { eq, isNotNull, isNull, inArray, sql, and, or } from "drizzle-orm";
+import { appSettings, blInventory, blColors } from "@shared/schema";
+import { eq, isNotNull, isNull, inArray, sql, and } from "drizzle-orm";
 import { decodeHTML } from "entities";
 
 // Normalize a note/description string so both sides of a BL↔BO comparison are
@@ -358,10 +358,6 @@ export function isChannelSyncAbortRequested() { return channelSyncAbortFlag; }
 // part in different colors gets distinct BOIDs.
 const boidCache = new Map<string, string | null>();
 
-// Tracks which lookup step resolved each BOID (same key as boidCache).
-// Used by the sync to flag uncertain matches for manual review.
-const boidResolvedVia = new Map<string, 'bl_item_no' | 'bo_item_no' | 'no_type'>();
-
 // In-process BrickLink→BrickOwl color ID cache (finite set, safe to hold forever).
 const boColorCache = new Map<number, number | null>(); // BL color ID → BO color ID
 
@@ -377,7 +373,6 @@ export async function lookupBoid(blItemNo: string, type: string = 'Part', boColo
   }
 
   try {
-    // ── Step 1: Try BrickLink item number lookup (most common case) ───────
     const params: Record<string, string> = {
       id: blItemNo,
       type: normalizedType,
@@ -396,73 +391,12 @@ export async function lookupBoid(blItemNo: string, type: string = 'Part', boColo
       boids = result.map((item: any) => item.boid || item);
     }
 
-    if (boids.length > 0) {
-      const boid = boids[0];
-      boidCache.set(cacheKey, boid);
-      boidResolvedVia.set(cacheKey, 'bl_item_no');
-      console.log(`[BOID] ✓ ${blItemNo} (color=${boColorId ?? 'any'}) → ${boid} [via bl_item_no]`);
-      return boid;
-    }
-
-    // ── Step 2: Fallback — try BrickOwl's own item number ────────────────
-    // Assembly parts (e.g. 6129c03) may not be cross-referenced as bl_item_no
-    // on BrickOwl but can be found using BO's own catalog item number, which
-    // often matches the BL number exactly for assembled/combo parts.
-    const boParams: Record<string, string> = {
-      id: blItemNo,
-      type: normalizedType,
-      id_type: 'bo_item_no',
-    };
-    if (boColorId !== undefined) {
-      boParams.color_id = boColorId.toString();
-    }
-
-    const boResult = await brickowlGet('/catalog/id_lookup', boParams);
-
-    let boBoids: string[] = [];
-    if (boResult.boids && Array.isArray(boResult.boids)) {
-      boBoids = boResult.boids;
-    } else if (Array.isArray(boResult)) {
-      boBoids = boResult.map((item: any) => item.boid || item);
-    }
-
-    if (boBoids.length > 0) {
-      const boid = boBoids[0];
-      boidCache.set(cacheKey, boid);
-      boidResolvedVia.set(cacheKey, 'bo_item_no');
-      console.log(`[BOID] ✓ ${blItemNo} (color=${boColorId ?? 'any'}) → ${boid} [via bo_item_no fallback]`);
-      return boid;
-    }
-
-    // ── Step 3: Fallback — bl_item_no without type filter ────────────────
-    // Some BL Parts are classified differently in BrickOwl (e.g. a BL torso
-    // body-only part maps to a BO Minifigure assembly). Dropping the type
-    // filter lets BrickOwl match the bl_item_no cross-reference regardless
-    // of how BO categorises the item.
-    const noTypeParams: Record<string, string> = {
-      id: blItemNo,
-      id_type: 'bl_item_no',
-    };
-    if (boColorId !== undefined) {
-      noTypeParams.color_id = boColorId.toString();
-    }
-
-    const noTypeResult = await brickowlGet('/catalog/id_lookup', noTypeParams);
-
-    let noTypeBoids: string[] = [];
-    if (noTypeResult.boids && Array.isArray(noTypeResult.boids)) {
-      noTypeBoids = noTypeResult.boids;
-    } else if (Array.isArray(noTypeResult)) {
-      noTypeBoids = noTypeResult.map((item: any) => item.boid || item);
-    }
-
-    const boid = noTypeBoids.length > 0 ? noTypeBoids[0] : null;
+    const boid = boids.length > 0 ? boids[0] : null;
     boidCache.set(cacheKey, boid);
     if (boid) {
-      boidResolvedVia.set(cacheKey, 'no_type');
-      console.log(`[BOID] ✓ ${blItemNo} (color=${boColorId ?? 'any'}) → ${boid} [via bl_item_no, no type filter]`);
+      console.log(`[BOID] ✓ ${blItemNo} (color=${boColorId ?? 'any'}) → ${boid}`);
     } else {
-      console.log(`[BOID] ✗ ${blItemNo} (color=${boColorId ?? 'any'}): not found (tried bl_item_no, bo_item_no, bl_item_no/no-type)`);
+      console.log(`[BOID] ✗ ${blItemNo} (color=${boColorId ?? 'any'}): not found`);
     }
     return boid;
   } catch (error) {
@@ -747,54 +681,11 @@ export const defaultSyncFields: SyncFieldConfig = {
   bulkQty: true, lotWeight: true, stockroomModes: { A: 'skip', B: 'skip', C: 'skip' },
 };
 
-// Save a pending BOID override for manual review (deduplicates silently).
-async function savePendingBoidOverride(
-  orgId: string,
-  blItemNo: string,
-  blItemType: string,
-  boColorId: number | null,
-  blColorId: number | null,
-  proposedBoid: string,
-  resolvedVia: string
-): Promise<void> {
-  try {
-    // Check if an override already exists for this item+color combination
-    const existing = await db.select({ id: boidOverrides.id })
-      .from(boidOverrides)
-      .where(
-        and(
-          eq(boidOverrides.orgId, orgId),
-          eq(boidOverrides.blItemNo, blItemNo),
-          boColorId != null
-            ? eq(boidOverrides.boColorId, boColorId)
-            : isNull(boidOverrides.boColorId)
-        )
-      )
-      .limit(1);
-    if (existing.length > 0) return; // Already queued or reviewed
-
-    await db.insert(boidOverrides).values({
-      orgId,
-      blItemNo,
-      blItemType,
-      boColorId: boColorId ?? null,
-      blColorId: blColorId ?? null,
-      proposedBoid,
-      status: 'pending_review',
-      resolvedVia,
-    });
-    console.log(`[BoidReview] Queued ${blItemNo} (boColor=${boColorId}) → ${proposedBoid} [${resolvedVia}] for manual review`);
-  } catch (err) {
-    console.error(`[BoidReview] Failed to save pending override for ${blItemNo}:`, err);
-  }
-}
-
 export async function syncBrickLinkToBrickOwl(
   limit?: number,
   mode: 'analysis' | 'full_control' | 'matched_sync' = 'full_control',
   onProgress?: (processed: number, total: number) => void,
-  fields: SyncFieldConfig = defaultSyncFields,
-  orgId: string = 'org_planetbrick'
+  fields: SyncFieldConfig = defaultSyncFields
 ): Promise<BrickOwlSyncResult> {
   const result: BrickOwlSyncResult = {
     lotsCreated: 0,
@@ -829,12 +720,10 @@ export async function syncBrickLinkToBrickOwl(
 
   // O(1) lookup: BL inventory ID → BrickOwl lot (tagged lots only)
   const taggedLotMap = new Map<string, any>();
-  let boLotsWithTag = 0;
   for (const lot of brickowlInventory) {
     const extId = lot.external_lot_ids?.other;
-    if (extId) { taggedLotMap.set(extId, lot); boLotsWithTag++; }
+    if (extId) taggedLotMap.set(extId, lot);
   }
-  console.log(`[ChannelSync] Tagged lot map: ${boLotsWithTag} / ${brickowlInventory.length} BO lots have external_lot_ids.other set`);
 
   // Pre-load the BO color map once so Phase 1 color-mismatch checks are
   // instant (resolveBoColorId reads from the in-memory cache after this).
@@ -1088,7 +977,6 @@ export async function syncBrickLinkToBrickOwl(
   let updateProgress = 0;
   // Steps: batch qty-only + individual field calls (qty folded in for multi-change lots) + adoptions
   const totalPhase2 = qtyOnlyJobs.length + fieldJobs.length + toAdopt.length; // toAdopt used for display; zero-qty already filtered into adoptCandidates
-  console.log(`[ChannelSync] Phase 1 done — matched: ${taggedLotMap.size} | needs update: ${qtyOnlyJobs.length + fieldJobs.length} (qty-only: ${qtyOnlyJobs.length}, fields: ${fieldJobs.length}) | unmatched/toAdopt: ${toAdopt.length}`);
 
   // ── 2a-i: Batch qty-only lots (fast) ──────────────────────────────────────
   // Send ONLY lot_id + absolute_quantity — no price, no notes, no extras.
@@ -1244,12 +1132,6 @@ export async function syncBrickLinkToBrickOwl(
   //         In-process cache means warm syncs skip these calls entirely.
   // Step 2: Sequential adopt/create using the pre-fetched map (writes must be serial).
   // Rate limit: ~600 individual GET calls/min → 100ms gap between parallel chunks.
-
-  if (channelSyncAbortFlag) {
-    console.log('[ChannelSync] Abort requested — skipping Phase 2b entirely');
-    return result;
-  }
-
   const INDIVIDUAL_GAP_MS = 100;
   const BOID_CHUNK = 10; // 10 concurrent lookups × 100ms gap → ~600/min
 
@@ -1271,69 +1153,13 @@ export async function syncBrickLinkToBrickOwl(
   }
   console.log(`[ChannelSync] Phase 2b: resolved ${boColorMap.size} color mappings`);
 
-  // ── Load BOID overrides for this org ────────────────────────────────────
-  // approved  → use the approvedBoid (or proposedBoid if no override) directly
-  // rejected  → skip silently (no API calls)
-  // pending_review → skip (awaiting user review)
-  const allOverrides = mode === 'full_control'
-    ? await db.select().from(boidOverrides).where(eq(boidOverrides.orgId, orgId))
-    : [];
-
-  type OverrideKey = string; // "${blItemNo}:${boColorId ?? 'null'}"
-  const approvedOverrideMap = new Map<OverrideKey, string>(); // key → BOID to use
-  const skipOverrideSet    = new Set<OverrideKey>();           // rejected only
-
-  for (const ov of allOverrides) {
-    const key: OverrideKey = `${ov.blItemNo}:${ov.boColorId ?? 'null'}`;
-    if (ov.status === 'approved') {
-      approvedOverrideMap.set(key, ov.approvedBoid ?? ov.proposedBoid);
-    } else if (ov.status === 'rejected') {
-      // Only rejected items are skipped — pending_review items still adopt normally
-      skipOverrideSet.add(key);
-    }
-    // pending_review: no action here — item proceeds through normal lookup and adoption
-  }
-  console.log(`[ChannelSync] Loaded ${approvedOverrideMap.size} approved + ${skipOverrideSet.size} rejected BOID overrides`);
-
   const boidMap = new Map<number, string | null>(); // index → BOID
   for (let i = 0; i < adoptCandidates.length; i += BOID_CHUNK) {
     const chunk = adoptCandidates.slice(i, i + BOID_CHUNK);
     const results = await Promise.all(
-      chunk.map(async (item, chunkIdx) => {
+      chunk.map(item => {
         const boColorId = item.colorId != null ? boColorMap.get(item.colorId) ?? undefined : undefined;
-        const overrideKey: OverrideKey = `${item.itemNo}:${boColorId ?? 'null'}`;
-
-        // 1. Check approved override — use it directly, skip API call
-        if (approvedOverrideMap.has(overrideKey)) {
-          return approvedOverrideMap.get(overrideKey)!;
-        }
-        // 2. Check pending/rejected — skip silently
-        if (skipOverrideSet.has(overrideKey)) {
-          return null;
-        }
-        // 3. Full lookup chain
-        const boid = await lookupBoid(item.itemNo, item.itemType, boColorId ?? undefined);
-
-        // If resolved via a fallback step, save for manual review — but still adopt the lot.
-        // This keeps the sync fast (incremental) while surfacing uncertain matches for review.
-        if (boid && mode === 'full_control') {
-          const normalizedType = normalizeBrickLinkItemType(item.itemType ?? 'PART');
-          const cacheKey = `${item.itemNo}:${normalizedType}:${boColorId ?? 'any'}`;
-          const via = boidResolvedVia.get(cacheKey);
-          if (via === 'bo_item_no' || via === 'no_type') {
-            await savePendingBoidOverride(
-              orgId,
-              item.itemNo,
-              item.itemType ?? 'PART',
-              boColorId ?? null,
-              item.colorId ?? null,
-              boid,
-              via
-            );
-            // Fall through — still return the BOID so the lot gets tagged this run
-          }
-        }
-        return boid;
+        return lookupBoid(item.itemNo, item.itemType, boColorId ?? undefined);
       })
     );
     results.forEach((boid, j) => boidMap.set(i + j, boid));

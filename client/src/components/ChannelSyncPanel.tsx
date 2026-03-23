@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { BoidReviewPanel } from "@/components/BoidReviewPanel";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Progress } from "@/components/ui/progress";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -680,9 +679,6 @@ function OverviewContent({
           </span>
         </div>
       )}
-
-      {/* BOID catalog match review */}
-      <BoidReviewPanel />
 
       {/* Preview result panel */}
       {showPreview && previewResult && (

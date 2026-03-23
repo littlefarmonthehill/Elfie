@@ -1316,29 +1316,6 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-71 (bl_catalog lifecycle columns: is_obsolete + alternate_no) complete.');
 
-    // ── Phase-72: BOID override / mapping review table ─────────────────────────
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS boid_overrides (
-        id              SERIAL PRIMARY KEY,
-        org_id          VARCHAR(255) NOT NULL,
-        bl_item_no      TEXT NOT NULL,
-        bl_item_type    TEXT NOT NULL DEFAULT 'PART',
-        bo_color_id     INTEGER,
-        bl_color_id     INTEGER,
-        proposed_boid   TEXT NOT NULL,
-        approved_boid   TEXT,
-        status          TEXT NOT NULL DEFAULT 'pending_review',
-        resolved_via    TEXT NOT NULL,
-        created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
-        reviewed_at     TIMESTAMP
-      )
-    `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS boid_overrides_org_item_idx
-        ON boid_overrides (org_id, bl_item_no)
-    `);
-    console.log('[Migration] Phase-72 (boid_overrides table) complete.');
-
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
