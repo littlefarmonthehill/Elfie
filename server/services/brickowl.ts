@@ -1153,7 +1153,8 @@ export async function syncBrickLinkToBrickOwl(
     const boid = boidMap.get(adoptIdx);
 
     if (!boid) {
-      result.errors.push(`${item.itemNo}: BOID lookup failed`);
+      // Item not found in BrickOwl's catalog — this is a catalog limitation,
+      // not a sync failure. Count as skipped, not an error.
       result.lotsSkipped++;
     } else {
       const untagged = brickowlInventory.filter(
