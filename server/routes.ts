@@ -9783,7 +9783,14 @@ Format search_web URLs as markdown links.`;
       const stockroomModes: Record<string, 'skip' | 'hidden' | 'active'> =
         (cfgRow?.syncStockroomModes as any) ?? { A: 'skip', B: 'skip', C: 'skip' };
 
-      // Count lots per stockroom bucket, plus zero-qty within each.
+      // Unfiltered total — matches what the inventory dashboard shows (includes soft-deleted).
+      const [allLotsRow] = await db
+        .select({ count: sql<number>`COUNT(*)` })
+        .from(blInventory)
+        .where(eq(blInventory.orgId, orgId));
+      const totalLotsAll = Number(allLotsRow?.count) || 0;
+
+      // Count active lots per stockroom bucket, plus zero-qty within each.
       const rows = await db
         .select({
           isStockRoom: blInventory.isStockRoom,
@@ -9795,7 +9802,7 @@ Format search_web URLs as markdown links.`;
         .where(and(eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt)))
         .groupBy(blInventory.isStockRoom, blInventory.stockRoomId);
 
-      let totalLots = 0;
+      let activeTotalLots = 0;
       let skipLots = 0;
       let hiddenLots = 0;
       let activeLots = 0;
@@ -9807,7 +9814,7 @@ Format search_web URLs as markdown links.`;
       for (const row of rows) {
         const lots = Number(row.totalLots) || 0;
         const zeroQty = Number(row.zeroQtyLots) || 0;
-        totalLots += lots;
+        activeTotalLots += lots;
 
         if (row.isStockRoom && row.stockRoomId) {
           const mode = stockroomModes[row.stockRoomId] ?? 'skip';
@@ -9827,11 +9834,13 @@ Format search_web URLs as markdown links.`;
         }
       }
 
-      const inScopeLots = totalLots - skipLots;
+      const softDeletedLots = totalLotsAll - activeTotalLots;
+      const inScopeLots = activeTotalLots - skipLots;
 
       res.json({
-        totalLots,
+        totalLots: totalLotsAll,       // unfiltered — matches inventory dashboard
         inScopeLots,
+        softDeletedLots,
         skipLots,
         hiddenLots,
         activeLots,

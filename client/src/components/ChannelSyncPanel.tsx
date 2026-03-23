@@ -835,6 +835,7 @@ function DiscrepancyAreaButton({ area, onSelectArea }: { area: DiscrepancyArea; 
 interface ScopeData {
   totalLots: number;
   inScopeLots: number;
+  softDeletedLots: number;
   skipLots: number;
   hiddenLots: number;
   activeLots: number;
@@ -892,6 +893,14 @@ function SyncScopePanel({ brickOwl }: { brickOwl: any }) {
               <span className="text-[10px] text-gray-500">Main store</span>
               <span className="text-[10px] font-mono text-gray-300">{scope.totalLots.toLocaleString()}</span>
             </div>
+            {scope.softDeletedLots > 0 && (
+              <div className="flex items-center justify-between gap-1">
+                <span className="flex items-center gap-1 text-[10px] text-gray-600 line-through">
+                  Soft-deleted (excluded)
+                </span>
+                <span className="text-[10px] font-mono text-gray-600">{scope.softDeletedLots.toLocaleString()}</span>
+              </div>
+            )}
             {hiddenRows.map(r => (
               <div key={r.id} className="flex items-center justify-between gap-1">
                 <span className="flex items-center gap-1 text-[10px] text-gray-500">
