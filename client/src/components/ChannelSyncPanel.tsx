@@ -758,7 +758,7 @@ function OverviewContent({
                 </tr>
               </thead>
               <tbody>
-                {colorRepairPreview.mismatches.map((m, i) => (
+                {[...colorRepairPreview.mismatches].sort((a, b) => parseInt(b.lotId) - parseInt(a.lotId)).map((m, i) => (
                   <tr key={m.lotId} className={`border-b border-amber-500/10 ${i % 2 === 0 ? '' : 'bg-white/5'}`} data-testid={`row-color-mismatch-${m.lotId}`}>
                     <td className="px-2 py-1 text-gray-200 font-mono">{m.itemNo}</td>
                     <td className="px-2 py-1 text-gray-400 font-mono">{m.lotId}</td>
