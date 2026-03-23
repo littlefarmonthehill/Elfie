@@ -1788,6 +1788,35 @@ export async function runMigrations() {
       console.log('[Migration] Phase-74 (platform_settings scheduler cols already present) — skipped.');
     }
 
+    // ── Phase-75: BrickLink credentials in platform_settings + org-level ceiling in app_settings ──
+    // Idempotency: check for bl_consumer_key in platform_settings.
+    const { rows: _p75Chk } = await client.query(
+      `SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'platform_settings' AND column_name = 'bl_consumer_key' LIMIT 1`
+    );
+    if (_p75Chk.length === 0) {
+      // Add BrickLink credential columns to platform_settings (for platform background schedulers)
+      await client.query(`ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS bl_consumer_key TEXT`);
+      await client.query(`ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS bl_consumer_secret TEXT`);
+      await client.query(`ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS bl_token_value TEXT`);
+      await client.query(`ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS bl_token_secret TEXT`);
+      // Copy existing platform BrickLink credentials from app_settings platform row (preserve existing setup)
+      await client.query(`
+        UPDATE platform_settings ps SET
+          bl_consumer_key    = (SELECT bricklink_consumer_key    FROM app_settings WHERE id = 'platform' LIMIT 1),
+          bl_consumer_secret = (SELECT bricklink_consumer_secret FROM app_settings WHERE id = 'platform' LIMIT 1),
+          bl_token_value     = (SELECT bricklink_token_value     FROM app_settings WHERE id = 'platform' LIMIT 1),
+          bl_token_secret    = (SELECT bricklink_token_secret    FROM app_settings WHERE id = 'platform' LIMIT 1)
+        WHERE ps.id = 'platform'
+      `);
+      // Add org-level BrickLink API call ceiling to app_settings
+      await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS bl_api_call_limit INTEGER NOT NULL DEFAULT 4900`);
+      console.log('[Migration] Phase-75 (BrickLink platform creds + org ceiling) complete.');
+    } else {
+      // Ensure org ceiling column exists even if rest of phase already ran
+      await client.query(`ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS bl_api_call_limit INTEGER NOT NULL DEFAULT 4900`);
+      console.log('[Migration] Phase-75 (BrickLink platform creds + org ceiling) — skipped, already present.');
+    }
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

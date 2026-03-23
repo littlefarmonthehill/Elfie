@@ -44,11 +44,11 @@ const BL_API_CALLS_PER_DAY_DEFAULT = 5000;
 const BL_API_CALLS_WARN_AT = 4000;
 
 // Resolve the effective call ceiling for an org.
-// Platform org → uses blApiCallLimit from appSettings (admin-configured in Platform Services).
-// Flagship plan = unlimited (-1). Otherwise uses blApiCallLimitOverride or platform default.
+// Platform org → platform_settings.blApiCallLimit.
+// Real orgs → flagship = unlimited, else app_settings.blApiCallLimit, else org override, else default.
 async function getOrgCallCeiling(orgId: string): Promise<number> {
   try {
-    // Platform org: use the admin-configured ceiling from Platform Services settings
+    // Platform org: ceiling from platform_settings
     if (orgId === PLATFORM_ORG_ID) {
       const [platRow] = await db
         .select({ blApiCallLimit: platformSettings.blApiCallLimit })
@@ -58,17 +58,52 @@ async function getOrgCallCeiling(orgId: string): Promise<number> {
       if (platRow?.blApiCallLimit != null) return platRow.blApiCallLimit;
     }
 
+    // Org: plan check (flagship = unlimited), then org's own ceiling in app_settings, then admin override
     const [org] = await db
       .select({ plan: organizations.plan, blApiCallLimitOverride: organizations.blApiCallLimitOverride })
       .from(organizations)
       .where(eq(organizations.id, orgId))
       .limit(1);
     if (org?.plan === 'flagship') return -1;
+    const [orgSettings] = await db
+      .select({ blApiCallLimit: appSettings.blApiCallLimit })
+      .from(appSettings)
+      .where(eq(appSettings.orgId, orgId))
+      .limit(1);
+    if (orgSettings?.blApiCallLimit != null) return orgSettings.blApiCallLimit;
     if (org?.blApiCallLimitOverride != null) return org.blApiCallLimitOverride;
   } catch {
     // fall through to default on error
   }
   return BL_API_CALLS_PER_DAY_DEFAULT;
+}
+
+// Resolve BrickLink credentials: platform schedulers → platform_settings, org calls → app_settings
+async function getBricklinkCredentials(orgId: string): Promise<{ consumerKey: string; consumerSecret: string; tokenValue: string; tokenSecret: string }> {
+  if (orgId === PLATFORM_ORG_ID) {
+    const [platRow] = await db
+      .select({ blConsumerKey: platformSettings.blConsumerKey, blConsumerSecret: platformSettings.blConsumerSecret, blTokenValue: platformSettings.blTokenValue, blTokenSecret: platformSettings.blTokenSecret })
+      .from(platformSettings)
+      .where(eq(platformSettings.id, 'platform'))
+      .limit(1);
+    return {
+      consumerKey:    cleanToken(platRow?.blConsumerKey    || process.env.BRICKLINK_CONSUMER_KEY    || ''),
+      consumerSecret: cleanToken(platRow?.blConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || ''),
+      tokenValue:     cleanToken(platRow?.blTokenValue     || process.env.BRICKLINK_TOKEN_VALUE     || ''),
+      tokenSecret:    cleanToken(platRow?.blTokenSecret    || process.env.BRICKLINK_TOKEN_SECRET    || ''),
+    };
+  }
+  const [orgRow] = await db
+    .select({ bricklinkConsumerKey: appSettings.bricklinkConsumerKey, bricklinkConsumerSecret: appSettings.bricklinkConsumerSecret, bricklinkTokenValue: appSettings.bricklinkTokenValue, bricklinkTokenSecret: appSettings.bricklinkTokenSecret })
+    .from(appSettings)
+    .where(eq(appSettings.orgId, orgId))
+    .limit(1);
+  return {
+    consumerKey:    cleanToken(orgRow?.bricklinkConsumerKey    || ''),
+    consumerSecret: cleanToken(orgRow?.bricklinkConsumerSecret || ''),
+    tokenValue:     cleanToken(orgRow?.bricklinkTokenValue     || ''),
+    tokenSecret:    cleanToken(orgRow?.bricklinkTokenSecret    || ''),
+  };
 }
 
 // Check rate limit status for the last 24 hours — scoped to a single org
@@ -154,14 +189,9 @@ async function trackApiCall(endpoint: string, success: boolean = true, orgId: st
 
 // Make a BrickLink API request with rate limiting (GET)
 export async function bricklinkRequest(endpoint: string, queryParams?: Record<string, string>, orgId: string = PLATFORM_ORG_ID): Promise<{ data: any; apiCalls: number }> {
-  // Get credentials from database settings (with fallback to env vars), scoped to org
-  const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
-  
-  const consumerKey = cleanToken(settings?.bricklinkConsumerKey || process.env.BRICKLINK_CONSUMER_KEY || '');
-  const consumerSecret = cleanToken(settings?.bricklinkConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || '');
-  const tokenValue = cleanToken(settings?.bricklinkTokenValue || process.env.BRICKLINK_TOKEN_VALUE || '');
-  const tokenSecret = cleanToken(settings?.bricklinkTokenSecret || process.env.BRICKLINK_TOKEN_SECRET || '');
-  
+  // Route credentials: platform org → platform_settings, real orgs → app_settings
+  const { consumerKey, consumerSecret, tokenValue, tokenSecret } = await getBricklinkCredentials(orgId);
+
   if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
     throw new Error('BrickLink credentials not configured. Please add them in Settings.');
   }
@@ -246,14 +276,9 @@ export async function bricklinkRequest(endpoint: string, queryParams?: Record<st
 
 // Make a BrickLink API PUT request (for updating inventory)
 async function bricklinkPutRequest(endpoint: string, body: any, orgId: string = PLATFORM_ORG_ID): Promise<{ data: any; apiCalls: number }> {
-  // Get credentials from database settings (with fallback to env vars), scoped to org
-  const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
-  
-  const consumerKey = cleanToken(settings?.bricklinkConsumerKey || process.env.BRICKLINK_CONSUMER_KEY || '');
-  const consumerSecret = cleanToken(settings?.bricklinkConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || '');
-  const tokenValue = cleanToken(settings?.bricklinkTokenValue || process.env.BRICKLINK_TOKEN_VALUE || '');
-  const tokenSecret = cleanToken(settings?.bricklinkTokenSecret || process.env.BRICKLINK_TOKEN_SECRET || '');
-  
+  // Route credentials: platform org → platform_settings, real orgs → app_settings
+  const { consumerKey, consumerSecret, tokenValue, tokenSecret } = await getBricklinkCredentials(orgId);
+
   if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
     throw new Error('BrickLink credentials not configured. Please add them in Settings.');
   }
@@ -1064,28 +1089,10 @@ export async function syncBricklinkData(orgId: string = PLATFORM_ORG_ID): Promis
 
 // Make a BrickLink Catalog API request (different base URL)
 export async function bricklinkCatalogRequest(endpoint: string, queryParams?: Record<string, string>, orgId: string = PLATFORM_ORG_ID): Promise<{ data: any; apiCalls: number }> {
-  const [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, orgId)).limit(1);
-  
-  console.log('[Price-o-Matic Debug] Settings loaded:', {
-    hasSettings: !!settings,
-    consumerKey: settings?.bricklinkConsumerKey ? 'present' : 'missing',
-    consumerSecret: settings?.bricklinkConsumerSecret ? 'present' : 'missing',
-    tokenValue: settings?.bricklinkTokenValue ? 'present' : 'missing',
-    tokenSecret: settings?.bricklinkTokenSecret ? 'present' : 'missing',
-  });
-  
-  const consumerKey = cleanToken(settings?.bricklinkConsumerKey || process.env.BRICKLINK_CONSUMER_KEY || '');
-  const consumerSecret = cleanToken(settings?.bricklinkConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || '');
-  const tokenValue = cleanToken(settings?.bricklinkTokenValue || process.env.BRICKLINK_TOKEN_VALUE || '');
-  const tokenSecret = cleanToken(settings?.bricklinkTokenSecret || process.env.BRICKLINK_TOKEN_SECRET || '');
-  
+  // Route credentials: platform org → platform_settings, real orgs → app_settings
+  const { consumerKey, consumerSecret, tokenValue, tokenSecret } = await getBricklinkCredentials(orgId);
+
   if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
-    console.error('[Price-o-Matic Debug] Missing credentials:', {
-      consumerKey: consumerKey ? 'present' : 'MISSING',
-      consumerSecret: consumerSecret ? 'present' : 'MISSING',
-      tokenValue: tokenValue ? 'present' : 'MISSING',
-      tokenSecret: tokenSecret ? 'present' : 'MISSING',
-    });
     throw new Error('BrickLink credentials not configured. Please add them in Settings.');
   }
 

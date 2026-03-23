@@ -497,6 +497,7 @@ export const appSettings = pgTable("app_settings", {
   bricklinkConsumerSecret: text("bricklink_consumer_secret"),
   bricklinkTokenValue: text("bricklink_token_value"),
   bricklinkTokenSecret: text("bricklink_token_secret"),
+  blApiCallLimit: integer("bl_api_call_limit").default(4900).notNull(),  // org's own daily ceiling
   brickowlApiKey: text("brickowl_api_key"),
   easypostApiKey: text("easypost_api_key"),
   easypostTestApiKey: text("easypost_test_api_key"),
@@ -644,7 +645,12 @@ export const platformSettings = pgTable("platform_settings", {
   // Billing
   stripeSecretKey: text("stripe_secret_key"),
   stripeEnvironment: text("stripe_environment").default('live').notNull(),
-  // Global API budget
+  // BrickLink API credentials (used by all platform-level background schedulers)
+  blConsumerKey: text("bl_consumer_key"),
+  blConsumerSecret: text("bl_consumer_secret"),
+  blTokenValue: text("bl_token_value"),
+  blTokenSecret: text("bl_token_secret"),
+  // Global API budget (platform ceiling for background schedulers)
   blApiCallLimit: integer("bl_api_call_limit").default(4900).notNull(),
   pomApiBudgetPct: integer("pom_api_budget_pct").default(70).notNull(),
   catalogDetailApiBudgetPct: integer("catalog_detail_api_budget_pct").default(20).notNull(),
