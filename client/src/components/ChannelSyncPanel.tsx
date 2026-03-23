@@ -764,8 +764,8 @@ function OverviewContent({
                     <td className="px-2 py-1 text-gray-200 font-mono">{m.itemNo}</td>
                     <td className="px-2 py-1 text-gray-400 font-mono">{m.blId}</td>
                     <td className="px-2 py-1 text-gray-400 font-mono">{m.lotId}</td>
-                    <td className="px-2 py-1 text-red-400">{m.currentColorName}</td>
-                    <td className="px-2 py-1 text-teal-400">{m.expectedColorName}</td>
+                    <td className="px-2 py-1 text-red-400">{m.currentColorName ?? `Color ${m.currentColorId}`}</td>
+                    <td className="px-2 py-1 text-teal-400">{m.expectedColorName ?? `Color ${m.expectedColorId}`}</td>
                   </tr>
                 ))}
               </tbody>
