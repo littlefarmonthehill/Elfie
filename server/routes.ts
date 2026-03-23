@@ -11879,7 +11879,8 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   // to any lot where the stored color doesn't match what BL says it should be.
   app.post("/api/repair/brickowl-colors", isApproved, async (req: any, res) => {
     try {
-      const { getBrickOwlInventory, updateBrickOwlLot, mapColorId } = await import('./services/brickowl');
+      const { getBrickOwlInventory, createBrickOwlLot, deleteBrickOwlLot, mapColorId } = await import('./services/brickowl');
+      const dryRun: boolean = req.body?.dryRun === true;
 
       const boInventory = await getBrickOwlInventory(false);
 
@@ -11887,7 +11888,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       const taggedLots = boInventory.filter(lot => lot.external_lot_ids?.other);
 
       if (taggedLots.length === 0) {
-        return res.json({ fixed: 0, skipped: 0, errors: [], message: 'No tagged lots found' });
+        return res.json({ fixed: 0, skipped: 0, errors: [], mismatches: [], message: 'No tagged lots found' });
       }
 
       // Bulk-fetch all BL items that are referenced by tagged BO lots
@@ -11898,7 +11899,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       let fixed = 0;
       let skipped = 0;
       const errors: string[] = [];
-      const fixes: { lotId: string; itemNo: string; oldColorId: number; newColorId: number }[] = [];
+      const mismatches: { lotId: string; itemNo: string; currentColorId: number; expectedColorId: number }[] = [];
 
       for (const lot of taggedLots) {
         const blId = parseInt(lot.external_lot_ids!.other!);
@@ -11910,10 +11911,30 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
 
         if (lot.color_id === expectedBoColorId) { skipped++; continue; }
 
-        // Color mismatch — fix it
+        // Color mismatch found
+        mismatches.push({ lotId: lot.lot_id, itemNo: blItem.itemNo, currentColorId: lot.color_id, expectedColorId: expectedBoColorId });
+
+        if (dryRun) continue;
+
+        // Fix it: BrickOwl does not support updating color_id in-place.
+        // We must delete the lot and recreate it with all preserved fields and the correct color.
         try {
-          await updateBrickOwlLot({ lot_id: lot.lot_id, color_id: expectedBoColorId });
-          fixes.push({ lotId: lot.lot_id, itemNo: blItem.itemNo, oldColorId: lot.color_id, newColorId: expectedBoColorId });
+          await deleteBrickOwlLot(lot.lot_id);
+          await createBrickOwlLot({
+            boid: lot.boid,
+            color_id: expectedBoColorId,
+            quantity: parseInt(lot.qty),
+            price: parseFloat(lot.base_price),
+            condition: lot.condition,
+            for_sale: typeof lot.for_sale === 'string' ? parseInt(lot.for_sale) : (lot.for_sale as number),
+            external_id: lot.external_lot_ids?.other,
+            personal_note: lot.personal_note,
+            public_note: lot.public_note,
+            tier_price: lot.tier_price ?? undefined,
+            sale_percentage: lot.sale_percent ? parseFloat(lot.sale_percent) : undefined,
+            bulk_qty: lot.bulk_qty ? parseInt(lot.bulk_qty) : undefined,
+            lot_weight: lot.lot_weight ? parseFloat(lot.lot_weight) : undefined,
+          });
           fixed++;
           console.log(`[ColorRepair] Fixed lot ${lot.lot_id} (${blItem.itemNo}): color_id ${lot.color_id} → ${expectedBoColorId}`);
         } catch (err: any) {
@@ -11923,8 +11944,13 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         }
       }
 
+      if (dryRun) {
+        console.log(`[ColorRepair] Dry-run — ${mismatches.length} mismatches found, ${skipped} already correct`);
+        return res.json({ dryRun: true, mismatchCount: mismatches.length, skipped, mismatches });
+      }
+
       console.log(`[ColorRepair] Complete — ${fixed} fixed, ${skipped} skipped, ${errors.length} errors`);
-      res.json({ fixed, skipped, errors, fixes });
+      res.json({ fixed, skipped, errors, mismatches });
     } catch (err: any) {
       console.error('[ColorRepair] Fatal error:', err);
       res.status(500).json({ success: false, error: err.message });

@@ -244,9 +244,12 @@ export async function createBrickOwlLot(data: {
 }
 
 // Delete a lot from BrickOwl by lot_id
-async function brickowlDeleteLot(lotId: string): Promise<any> {
+export async function deleteBrickOwlLot(lotId: string): Promise<any> {
   return brickowlPost('/inventory/delete', { lot_id: lotId });
 }
+
+// Keep internal alias for uses within this file
+const brickowlDeleteLot = deleteBrickOwlLot;
 
 // Update an existing lot on BrickOwl
 export async function updateBrickOwlLot(data: {

@@ -157,20 +157,37 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
     },
   });
 
+  const [colorRepairPreview, setColorRepairPreview] = useState<{ mismatchCount: number; skipped: number } | null>(null);
   const [colorRepairResult, setColorRepairResult] = useState<{ fixed: number; skipped: number; errors: string[] } | null>(null);
-  const colorRepairMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/repair/brickowl-colors', {}),
+
+  const colorRepairPreviewMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/repair/brickowl-colors', { dryRun: true }),
     onSuccess: (data: any) => {
+      if (data.mismatchCount === 0) {
+        toast({ title: 'No color fixes needed', description: 'All tagged lots already have the correct color.' });
+      } else {
+        setColorRepairPreview({ mismatchCount: data.mismatchCount, skipped: data.skipped ?? 0 });
+      }
+    },
+    onError: () => {
+      toast({ title: 'Color scan failed', description: 'Could not scan BrickOwl inventory.', variant: 'destructive' });
+    },
+  });
+
+  const colorRepairFixMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/repair/brickowl-colors', { dryRun: false }),
+    onSuccess: (data: any) => {
+      setColorRepairPreview(null);
       setColorRepairResult({ fixed: data.fixed ?? 0, skipped: data.skipped ?? 0, errors: data.errors ?? [] });
       toast({
-        title: data.fixed > 0 ? `Fixed ${data.fixed} lot color${data.fixed === 1 ? '' : 's'}` : 'No color fixes needed',
+        title: data.fixed > 0 ? `Fixed ${data.fixed} lot color${data.fixed === 1 ? '' : 's'}` : 'No fixes needed',
         description: data.fixed > 0
-          ? `${data.skipped} lots already correct.${data.errors.length > 0 ? ` ${data.errors.length} errors.` : ''}`
+          ? `${data.skipped} lots already correct.${data.errors?.length > 0 ? ` ${data.errors.length} errors.` : ''}`
           : 'All tagged lots already have the correct color.',
       });
     },
     onError: () => {
-      toast({ title: 'Color repair failed', description: 'Could not run the color repair.', variant: 'destructive' });
+      toast({ title: 'Color repair failed', description: 'Could not complete the color repair.', variant: 'destructive' });
     },
   });
 
@@ -549,7 +566,10 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
                 totalDiscrepancies={totalDiscrepancies}
                 onSelectArea={(type) => setSelectedArea(type)}
                 onShowAuditReport={() => setShowAuditReport(true)}
-                colorRepairMutation={colorRepairMutation}
+                colorRepairPreviewMutation={colorRepairPreviewMutation}
+                colorRepairFixMutation={colorRepairFixMutation}
+                colorRepairPreview={colorRepairPreview}
+                onDismissColorRepairPreview={() => setColorRepairPreview(null)}
                 colorRepairResult={colorRepairResult}
                 onDismissColorRepair={() => setColorRepairResult(null)}
               />
@@ -607,7 +627,10 @@ function OverviewContent({
   totalDiscrepancies,
   onSelectArea,
   onShowAuditReport,
-  colorRepairMutation,
+  colorRepairPreviewMutation,
+  colorRepairFixMutation,
+  colorRepairPreview,
+  onDismissColorRepairPreview,
   colorRepairResult,
   onDismissColorRepair,
 }: any) {
@@ -691,18 +714,63 @@ function OverviewContent({
         <Button
           size="sm"
           variant="ghost"
-          disabled={colorRepairMutation.isPending || isRunning}
-          onClick={() => colorRepairMutation.mutate()}
+          disabled={colorRepairPreviewMutation.isPending || colorRepairFixMutation.isPending || isRunning}
+          onClick={() => colorRepairPreviewMutation.mutate()}
           data-testid="button-channel-color-repair"
         >
-          {colorRepairMutation.isPending ? (
+          {colorRepairPreviewMutation.isPending ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
           ) : (
             <Paintbrush className="w-3.5 h-3.5 mr-1.5" />
           )}
-          {colorRepairMutation.isPending ? 'Fixing…' : 'Fix Colors'}
+          {colorRepairPreviewMutation.isPending ? 'Scanning…' : 'Fix Colors'}
         </Button>
       </div>
+
+      {/* Color repair confirmation panel */}
+      {colorRepairPreview && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-950/20 p-3 space-y-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="text-xs font-semibold text-amber-200">
+                {colorRepairPreview.mismatchCount} lot{colorRepairPreview.mismatchCount === 1 ? '' : 's'} need color correction
+              </span>
+            </div>
+            <button onClick={onDismissColorRepairPreview} className="text-gray-500 hover:text-gray-300" data-testid="button-dismiss-color-repair-preview">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <p className="text-[11px] text-gray-400">
+            Each lot will be deleted and recreated with the correct color. All other fields (qty, price, notes, tier pricing) are preserved. Lots will be briefly offline during this process.
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={colorRepairFixMutation.isPending}
+              onClick={() => colorRepairFixMutation.mutate()}
+              data-testid="button-color-repair-confirm"
+            >
+              {colorRepairFixMutation.isPending ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+              ) : (
+                <Paintbrush className="w-3.5 h-3.5 mr-1.5" />
+              )}
+              {colorRepairFixMutation.isPending ? `Fixing ${colorRepairPreview.mismatchCount} lots…` : `Fix ${colorRepairPreview.mismatchCount} lots`}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={colorRepairFixMutation.isPending}
+              onClick={onDismissColorRepairPreview}
+              data-testid="button-color-repair-cancel"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Color repair result banner */}
       {colorRepairResult && (
