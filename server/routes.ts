@@ -9351,9 +9351,12 @@ Format search_web URLs as markdown links.`;
           const isStockroomFiltered = (blItem: any) =>
             !!blItem.isStockRoom && (syncStockroomModes[blItem.stockRoomId ?? ''] ?? 'skip') === 'skip';
 
-          // SIMPLIFIED COMPARISON: Use external_lot_ids.other (BrickLink inventory ID) for matching
+          // SIMPLIFIED COMPARISON: Use external_lot_ids.other (BrickLink inventory ID) for matching.
+          // Exclude soft-deleted lots — they should not be listed on BO, so missing them is correct.
           const blItemsMap = new Map<number, any>();
-          const blItems = await db.select().from(blInventory).where(eq(blInventory.orgId, orgId));
+          const blItems = await db.select().from(blInventory).where(
+            and(eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt))
+          );
           
           // Build lookup map: BrickLink inventory ID -> BrickLink item
           for (const blItem of blItems) {
