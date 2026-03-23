@@ -105,8 +105,10 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
     refetchOnWindowFocus: false,
   });
 
+  const [fullScan, setFullScan] = useState(false);
+
   const syncMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/sync/channel', {}),
+    mutationFn: () => apiRequest('POST', '/api/sync/channel', { fullScan }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/sync/statuses'] });
       toast({ title: 'Channel sync started', description: 'BrickOwl is syncing in the background.' });
@@ -508,6 +510,8 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
                 onSelectArea={(type) => setSelectedArea(type)}
                 onShowAuditReport={() => setShowAuditReport(true)}
                 onShowColorRepair={() => setShowColorRepair(true)}
+                fullScan={fullScan}
+                setFullScan={setFullScan}
               />
             )}
           </div>
@@ -970,6 +974,8 @@ function OverviewContent({
   onSelectArea,
   onShowAuditReport,
   onShowColorRepair,
+  fullScan,
+  setFullScan,
 }: any) {
   return (
     <div className="px-4 pt-3 pb-6 space-y-4">
@@ -987,6 +993,16 @@ function OverviewContent({
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
           )}
           {isRunning ? 'Syncing…' : 'Sync Now'}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={isRunning}
+          onClick={() => setFullScan((v: boolean) => !v)}
+          data-testid="button-channel-sync-fullscan-toggle"
+          className={fullScan ? 'text-amber-400' : 'text-muted-foreground'}
+        >
+          {fullScan ? 'Full scan' : 'Incremental'}
         </Button>
         {isRunning && (
           <Button
