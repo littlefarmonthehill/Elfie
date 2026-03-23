@@ -421,12 +421,41 @@ export async function lookupBoid(blItemNo: string, type: string = 'Part', boColo
       boBoids = boResult.map((item: any) => item.boid || item);
     }
 
-    const boid = boBoids.length > 0 ? boBoids[0] : null;
+    if (boBoids.length > 0) {
+      const boid = boBoids[0];
+      boidCache.set(cacheKey, boid);
+      console.log(`[BOID] ✓ ${blItemNo} (color=${boColorId ?? 'any'}) → ${boid} [via bo_item_no fallback]`);
+      return boid;
+    }
+
+    // ── Step 3: Fallback — bl_item_no without type filter ────────────────
+    // Some BL Parts are classified differently in BrickOwl (e.g. a BL torso
+    // body-only part maps to a BO Minifigure assembly). Dropping the type
+    // filter lets BrickOwl match the bl_item_no cross-reference regardless
+    // of how BO categorises the item.
+    const noTypeParams: Record<string, string> = {
+      id: blItemNo,
+      id_type: 'bl_item_no',
+    };
+    if (boColorId !== undefined) {
+      noTypeParams.color_id = boColorId.toString();
+    }
+
+    const noTypeResult = await brickowlGet('/catalog/id_lookup', noTypeParams);
+
+    let noTypeBoids: string[] = [];
+    if (noTypeResult.boids && Array.isArray(noTypeResult.boids)) {
+      noTypeBoids = noTypeResult.boids;
+    } else if (Array.isArray(noTypeResult)) {
+      noTypeBoids = noTypeResult.map((item: any) => item.boid || item);
+    }
+
+    const boid = noTypeBoids.length > 0 ? noTypeBoids[0] : null;
     boidCache.set(cacheKey, boid);
     if (boid) {
-      console.log(`[BOID] ✓ ${blItemNo} (color=${boColorId ?? 'any'}) → ${boid} [via bo_item_no fallback]`);
+      console.log(`[BOID] ✓ ${blItemNo} (color=${boColorId ?? 'any'}) → ${boid} [via bl_item_no, no type filter]`);
     } else {
-      console.log(`[BOID] ✗ ${blItemNo} (color=${boColorId ?? 'any'}): not found (tried bl_item_no + bo_item_no)`);
+      console.log(`[BOID] ✗ ${blItemNo} (color=${boColorId ?? 'any'}): not found (tried bl_item_no, bo_item_no, bl_item_no/no-type)`);
     }
     return boid;
   } catch (error) {
