@@ -11949,7 +11949,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         return res.status(409).json({ success: false, error: `Cannot start Channel Sync: ${blocker} is already running.` });
       }
       const { runChannelSync } = await import("./services/channel-sync-scheduler");
-      await runChannelSync(true); // manual trigger always does a full scan
+      await runChannelSync();
       res.json({ success: true });
     } catch (error: any) {
       const isConflict = error?.message?.toLowerCase().includes('blocked') || error?.message?.toLowerCase().includes('already running');
