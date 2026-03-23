@@ -227,7 +227,10 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             </div>
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Channels</h3>
           </div>
-          <OrderSyncPanel onOpenSettings={onOpenSettings} />
+          <div className="space-y-2">
+            <OrderSyncPanel platform="bricklink" onOpenSettings={onOpenSettings} />
+            <OrderSyncPanel platform="brickowl" onOpenSettings={onOpenSettings} />
+          </div>
         </div>
 
       </div>

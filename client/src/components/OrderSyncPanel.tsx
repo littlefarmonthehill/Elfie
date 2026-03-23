@@ -28,7 +28,10 @@ import {
 } from "@/components/ui/drawer";
 import { Separator } from "@/components/ui/separator";
 
+type Platform = 'bricklink' | 'brickowl';
+
 interface OrderSyncPanelProps {
+  platform: Platform;
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing') => void;
 }
 
@@ -43,14 +46,6 @@ function relTime(iso: string | null | undefined): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-function SyncStatusIcon({ status }: { status?: string }) {
-  if (status === 'success') return <CheckCircle2 className="w-2.5 h-2.5" />;
-  if (status === 'partial') return <AlertTriangle className="w-2.5 h-2.5" />;
-  if (status === 'error' || status === 'failed') return <XCircle className="w-2.5 h-2.5" />;
-  if (status === 'in_progress') return <Loader2 className="w-2.5 h-2.5 animate-spin" />;
-  return <Clock className="w-2.5 h-2.5" />;
-}
-
 function statusColor(status?: string) {
   if (status === 'success') return 'text-green-400';
   if (status === 'partial') return 'text-yellow-400';
@@ -59,9 +54,54 @@ function statusColor(status?: string) {
   return 'text-gray-500';
 }
 
-export default function OrderSyncPanel({ onOpenSettings }: OrderSyncPanelProps) {
+function StatusIcon({ status, className }: { status?: string; className?: string }) {
+  const cls = className ?? 'w-2.5 h-2.5';
+  if (status === 'success') return <CheckCircle2 className={cls} />;
+  if (status === 'partial') return <AlertTriangle className={cls} />;
+  if (status === 'error' || status === 'failed') return <XCircle className={cls} />;
+  if (status === 'in_progress') return <Loader2 className={`${cls} animate-spin`} />;
+  return <Clock className={cls} />;
+}
+
+const PLATFORM_CONFIG: Record<Platform, {
+  label: string;
+  syncId: string;
+  syncRoute: string;
+  Icon: React.ElementType;
+  accentText: string;
+  accentBorder: string;
+  accentBg: string;
+  accentIcon: string;
+  testId: string;
+}> = {
+  bricklink: {
+    label: 'BrickLink',
+    syncId: 'bricklink_orders',
+    syncRoute: '/api/sync/bricklink/orders',
+    Icon: Package,
+    accentText: 'text-orange-100',
+    accentBorder: 'border-orange-500/40',
+    accentBg: 'from-orange-950/50 to-gray-950/70',
+    accentIcon: 'text-orange-400',
+    testId: 'order-sync-bricklink-panel',
+  },
+  brickowl: {
+    label: 'BrickOwl',
+    syncId: 'brickowl_orders',
+    syncRoute: '/api/sync/brickowl/orders',
+    Icon: Globe,
+    accentText: 'text-cyan-100',
+    accentBorder: 'border-cyan-500/40',
+    accentBg: 'from-cyan-950/50 to-gray-950/70',
+    accentIcon: 'text-cyan-400',
+    testId: 'order-sync-brickowl-panel',
+  },
+};
+
+export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPanelProps) {
   const { toast } = useToast();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const cfg = PLATFORM_CONFIG[platform];
 
   const { data: syncStatuses } = useQuery<any>({
     queryKey: ['/api/sync/statuses'],
@@ -73,11 +113,9 @@ export default function OrderSyncPanel({ onOpenSettings }: OrderSyncPanelProps) 
     refetchInterval: 30000,
   });
 
-  const blMeta = syncStatuses?.bricklink_orders;
-  const boMeta = syncStatuses?.brickowl_orders;
-
-  const isRunning = syncStatuses?.running?.bricklink_orders || syncStatuses?.running?.brickowl_orders ||
-    blMeta?.lastSyncStatus === 'in_progress' || boMeta?.lastSyncStatus === 'in_progress';
+  const meta = syncStatuses?.[cfg.syncId];
+  const isRunning = meta?.lastSyncStatus === 'in_progress' ||
+    syncStatuses?.running?.[cfg.syncId];
 
   const prevIsRunningRef = useRef(isRunning);
   useEffect(() => {
@@ -90,71 +128,35 @@ export default function OrderSyncPanel({ onOpenSettings }: OrderSyncPanelProps) 
     }
   }, [isRunning]);
 
-  const blSyncMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/sync/bricklink/orders', {}),
+  const syncMutation = useMutation({
+    mutationFn: () => apiRequest('POST', cfg.syncRoute, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/sync/statuses'] });
-      toast({ title: 'BrickLink order sync started', description: 'Orders are syncing in the background.' });
+      toast({ title: `${cfg.label} order sync started`, description: 'Orders are syncing in the background.' });
     },
     onError: (err: any) => {
-      toast({ title: 'Sync failed', description: err?.message || 'Could not start BrickLink order sync.', variant: 'destructive' });
+      toast({ title: 'Sync failed', description: err?.message || `Could not start ${cfg.label} order sync.`, variant: 'destructive' });
     },
   });
 
-  const boSyncMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/sync/brickowl/orders', {}),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/sync/statuses'] });
-      toast({ title: 'BrickOwl order sync started', description: 'Orders are syncing in the background.' });
-    },
-    onError: (err: any) => {
-      toast({ title: 'Sync failed', description: err?.message || 'Could not start BrickOwl order sync.', variant: 'destructive' });
-    },
-  });
+  const isSyncing = syncMutation.isPending || isRunning;
 
-  const allSyncMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/sync/all-platforms/orders', {}),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/sync/statuses'] });
-      toast({ title: 'Order sync started', description: 'Syncing orders from all platforms.' });
-    },
-    onError: (err: any) => {
-      toast({ title: 'Sync failed', description: err?.message || 'Could not start order sync.', variant: 'destructive' });
-    },
-  });
+  const platformData = orderSyncStatus?.platforms?.find((p: any) => p.name === cfg.label);
+  const stats = platformData?.stats;
 
-  const isSyncing = blSyncMutation.isPending || boSyncMutation.isPending || allSyncMutation.isPending || isRunning;
-
-  const latestSyncTime = (() => {
-    const times = [blMeta?.lastSyncTime, boMeta?.lastSyncTime].filter(Boolean);
-    if (!times.length) return null;
-    return times.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
-  })();
-
-  const overallStatus = (() => {
-    const statuses = [blMeta?.lastSyncStatus, boMeta?.lastSyncStatus].filter(Boolean);
-    if (statuses.some(s => s === 'in_progress')) return 'in_progress';
-    if (statuses.some(s => s === 'error' || s === 'failed')) return 'error';
-    if (statuses.some(s => s === 'partial')) return 'partial';
-    if (statuses.every(s => s === 'success')) return 'success';
-    if (statuses.some(s => s === 'success')) return 'partial';
-    return undefined;
-  })();
-
-  const summary = orderSyncStatus?.summary;
-  const platforms = orderSyncStatus?.platforms ?? [];
+  const Icon = cfg.Icon;
 
   return (
     <>
       <button
         onClick={() => setDrawerOpen(true)}
-        className="w-full text-left rounded-lg border border-blue-500/40 bg-gradient-to-br from-blue-950/50 to-gray-950/70 p-3 space-y-2 hover-elevate"
-        data-testid="order-sync-panel"
+        className={`w-full text-left rounded-lg border ${cfg.accentBorder} bg-gradient-to-br ${cfg.accentBg} p-3 space-y-2 hover-elevate`}
+        data-testid={cfg.testId}
       >
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
-            <ShoppingCart className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-            <span className="text-xs font-semibold text-blue-100">Order Sync</span>
+            <Icon className={`w-3.5 h-3.5 ${cfg.accentIcon} shrink-0`} />
+            <span className={`text-xs font-semibold ${cfg.accentText}`}>{cfg.label} — Orders</span>
             {isRunning && (
               <span className="flex items-center gap-1 text-[10px] text-blue-400">
                 <Loader2 className="w-2.5 h-2.5 animate-spin" />
@@ -166,27 +168,28 @@ export default function OrderSyncPanel({ onOpenSettings }: OrderSyncPanelProps) 
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          {summary && (
+          {stats != null && (
             <span className="text-[10px] text-gray-400">
-              <span className="text-white font-mono font-semibold">{summary.totalOrders?.toLocaleString() ?? '—'}</span>
+              <span className="text-white font-mono font-semibold">{Number(stats.totalOrders).toLocaleString()}</span>
               {' '}orders
             </span>
           )}
-          {summary?.pendingOrders > 0 && (
+          {stats?.pendingOrders > 0 && (
             <span className="text-[10px] text-gray-400">
-              <span className="text-orange-300 font-mono font-semibold">{summary.pendingOrders.toLocaleString()}</span>
+              <span className="text-orange-300 font-mono font-semibold">{Number(stats.pendingOrders).toLocaleString()}</span>
               {' '}pending
             </span>
           )}
-          {overallStatus ? (
-            <span className={`flex items-center gap-1 text-[10px] ${statusColor(overallStatus)}`}>
-              <SyncStatusIcon status={overallStatus} />
-              {overallStatus === 'success' ? 'Up to date' :
-               overallStatus === 'in_progress' ? 'Syncing…' :
-               overallStatus === 'error' ? 'Sync error' :
-               overallStatus === 'partial' ? 'Partial sync' : overallStatus}
-              {latestSyncTime && (
-                <span className="text-gray-500 ml-0.5">· {relTime(latestSyncTime)}</span>
+          {meta ? (
+            <span className={`flex items-center gap-1 text-[10px] ${statusColor(meta.lastSyncStatus)}`}>
+              <StatusIcon status={meta.lastSyncStatus} />
+              {meta.lastSyncStatus === 'success'
+                ? `+${meta.recordsAdded ?? 0} added`
+                : meta.lastSyncStatus === 'in_progress'
+                ? 'Syncing…'
+                : meta.errorMessage ?? meta.lastSyncStatus ?? 'Unknown'}
+              {meta.lastSyncTime && (
+                <span className="text-gray-500 ml-0.5">· {relTime(meta.lastSyncTime)}</span>
               )}
             </span>
           ) : (
@@ -202,13 +205,13 @@ export default function OrderSyncPanel({ onOpenSettings }: OrderSyncPanelProps) 
               <div className="w-10 h-1 rounded-full bg-gray-600" />
             </div>
             <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-gray-800">
-              <ShoppingCart className="w-4 h-4 text-blue-400 flex-shrink-0" />
+              <Icon className={`w-4 h-4 ${cfg.accentIcon} flex-shrink-0`} />
               <DrawerTitle className="text-sm font-semibold text-gray-100 flex-1">
-                Order Sync
+                {cfg.label} — Order Sync
               </DrawerTitle>
               <DrawerClose
                 className="ml-2 text-gray-500 hover:text-gray-200 transition-colors"
-                data-testid="button-close-order-sync-drawer"
+                data-testid={`button-close-${platform}-order-sync-drawer`}
               >
                 <X className="w-5 h-5" />
                 <span className="sr-only">Close</span>
@@ -223,21 +226,21 @@ export default function OrderSyncPanel({ onOpenSettings }: OrderSyncPanelProps) 
                 size="sm"
                 variant="secondary"
                 disabled={isSyncing}
-                onClick={() => allSyncMutation.mutate()}
-                data-testid="button-order-sync-all"
+                onClick={() => syncMutation.mutate()}
+                data-testid={`button-order-sync-${platform}`}
               >
                 {isSyncing ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
                 ) : (
                   <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
                 )}
-                {isRunning ? 'Syncing…' : 'Sync All'}
+                {isRunning ? 'Syncing…' : 'Sync Now'}
               </Button>
               <Button
                 size="sm"
                 variant="ghost"
                 onClick={() => { setDrawerOpen(false); onOpenSettings?.('automation'); }}
-                data-testid="button-order-sync-schedule"
+                data-testid={`button-${platform}-order-sync-schedule`}
               >
                 <CalendarClock className="w-3.5 h-3.5 mr-1.5" />
                 Schedule
@@ -246,7 +249,7 @@ export default function OrderSyncPanel({ onOpenSettings }: OrderSyncPanelProps) 
                 size="sm"
                 variant="ghost"
                 onClick={() => { setDrawerOpen(false); onOpenSettings?.('platforms'); }}
-                data-testid="button-order-sync-settings"
+                data-testid={`button-${platform}-order-sync-settings`}
               >
                 <SlidersHorizontal className="w-3.5 h-3.5 mr-1.5" />
                 Settings
@@ -255,140 +258,79 @@ export default function OrderSyncPanel({ onOpenSettings }: OrderSyncPanelProps) 
 
             <Separator className="bg-gray-700/60" />
 
-            {/* Per-platform status */}
-            <div className="space-y-2">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-0.5">Platforms</p>
-
-              {/* BrickLink */}
-              <div className="rounded-lg border border-gray-700/60 bg-gray-900/50 p-3 space-y-2" data-testid="order-sync-bricklink">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <Package className="w-3.5 h-3.5 text-orange-400 shrink-0" />
-                    <span className="text-xs font-semibold text-gray-100">BrickLink</span>
-                    {blMeta?.lastSyncStatus === 'in_progress' && (
-                      <Loader2 className="w-3 h-3 text-blue-400 animate-spin" />
-                    )}
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 text-[11px] px-2"
-                    disabled={isSyncing}
-                    onClick={() => blSyncMutation.mutate()}
-                    data-testid="button-order-sync-bricklink"
-                  >
-                    {blSyncMutation.isPending ? (
-                      <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                    ) : (
-                      <RefreshCw className="w-3 h-3 mr-1" />
-                    )}
-                    Sync
-                  </Button>
+            {/* Live progress indicator */}
+            {isRunning && (
+              <div className="space-y-2 rounded-lg border border-blue-500/30 bg-blue-950/20 p-3">
+                <div className="flex items-center gap-2 text-xs text-blue-300">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span className="font-medium">Sync in progress</span>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: 'Orders', value: platforms.find((p: any) => p.name === 'BrickLink')?.stats?.totalOrders },
-                    { label: 'Pending', value: platforms.find((p: any) => p.name === 'BrickLink')?.stats?.pendingOrders },
-                    { label: 'Items', value: platforms.find((p: any) => p.name === 'BrickLink')?.stats?.totalItems },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="rounded bg-gray-800/60 px-2 py-1.5 text-center">
-                      <p className="text-base font-mono font-bold text-orange-300">
-                        {value != null ? Number(value).toLocaleString() : '—'}
-                      </p>
-                      <p className="text-[9px] text-gray-500 mt-0.5">{label}</p>
-                    </div>
-                  ))}
-                </div>
-                {blMeta && (
-                  <div className={`flex items-center gap-1.5 text-[10px] ${statusColor(blMeta.lastSyncStatus)}`}>
-                    <SyncStatusIcon status={blMeta.lastSyncStatus} />
-                    <span>
-                      {blMeta.lastSyncStatus === 'success' ? `+${blMeta.recordsAdded ?? 0} added` :
-                       blMeta.lastSyncStatus === 'in_progress' ? 'Syncing…' :
-                       blMeta.errorMessage ?? blMeta.lastSyncStatus ?? 'Unknown'}
-                    </span>
-                    {blMeta.lastSyncTime && (
-                      <span className="text-gray-500 ml-0.5">· {relTime(blMeta.lastSyncTime)}</span>
-                    )}
-                  </div>
-                )}
-                {!blMeta && (
-                  <p className="text-[10px] text-gray-500">Never synced</p>
-                )}
               </div>
+            )}
 
-              {/* BrickOwl */}
-              <div className="rounded-lg border border-gray-700/60 bg-gray-900/50 p-3 space-y-2" data-testid="order-sync-brickowl">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
+            {/* Last sync summary */}
+            {meta && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-0.5">Last Sync</p>
+                <div className="rounded-lg border border-gray-700/60 bg-gray-900/50 p-3 space-y-2">
                   <div className="flex items-center gap-2">
-                    <Globe className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                    <span className="text-xs font-semibold text-gray-100">BrickOwl</span>
-                    {boMeta?.lastSyncStatus === 'in_progress' && (
-                      <Loader2 className="w-3 h-3 text-blue-400 animate-spin" />
-                    )}
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 text-[11px] px-2"
-                    disabled={isSyncing}
-                    onClick={() => boSyncMutation.mutate()}
-                    data-testid="button-order-sync-brickowl"
-                  >
-                    {boSyncMutation.isPending ? (
-                      <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                    ) : (
-                      <RefreshCw className="w-3 h-3 mr-1" />
-                    )}
-                    Sync
-                  </Button>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: 'Orders', value: platforms.find((p: any) => p.name === 'BrickOwl')?.stats?.totalOrders },
-                    { label: 'Pending', value: platforms.find((p: any) => p.name === 'BrickOwl')?.stats?.pendingOrders },
-                    { label: 'Items', value: platforms.find((p: any) => p.name === 'BrickOwl')?.stats?.totalItems },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="rounded bg-gray-800/60 px-2 py-1.5 text-center">
-                      <p className="text-base font-mono font-bold text-cyan-300">
-                        {value != null ? Number(value).toLocaleString() : '—'}
-                      </p>
-                      <p className="text-[9px] text-gray-500 mt-0.5">{label}</p>
-                    </div>
-                  ))}
-                </div>
-                {boMeta && (
-                  <div className={`flex items-center gap-1.5 text-[10px] ${statusColor(boMeta.lastSyncStatus)}`}>
-                    <SyncStatusIcon status={boMeta.lastSyncStatus} />
-                    <span>
-                      {boMeta.lastSyncStatus === 'success' ? `+${boMeta.recordsAdded ?? 0} added` :
-                       boMeta.lastSyncStatus === 'in_progress' ? 'Syncing…' :
-                       boMeta.errorMessage ?? boMeta.lastSyncStatus ?? 'Unknown'}
+                    <StatusIcon status={meta.lastSyncStatus} className={`w-4 h-4 shrink-0 ${statusColor(meta.lastSyncStatus)}`} />
+                    <span className={`text-sm font-medium ${statusColor(meta.lastSyncStatus)}`}>
+                      {meta.lastSyncStatus === 'success'   ? 'Completed successfully' :
+                       meta.lastSyncStatus === 'in_progress' ? 'In progress…'          :
+                       meta.lastSyncStatus === 'error'     ? 'Failed'                  :
+                       meta.lastSyncStatus ?? 'Unknown'}
                     </span>
-                    {boMeta.lastSyncTime && (
-                      <span className="text-gray-500 ml-0.5">· {relTime(boMeta.lastSyncTime)}</span>
+                    {meta.lastSyncTime && (
+                      <span className="text-[10px] text-gray-500 ml-auto">{relTime(meta.lastSyncTime)}</span>
                     )}
                   </div>
-                )}
-                {!boMeta && (
-                  <p className="text-[10px] text-gray-500">Never synced</p>
-                )}
+
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: 'Orders',  value: stats?.totalOrders  },
+                      { label: 'Pending', value: stats?.pendingOrders },
+                      { label: 'Added',   value: meta.recordsAdded   },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="rounded bg-gray-800/60 px-2 py-1.5 text-center">
+                        <p className={`text-base font-mono font-bold ${cfg.accentIcon}`}>
+                          {value != null ? Number(value).toLocaleString() : '—'}
+                        </p>
+                        <p className="text-[9px] text-gray-500 mt-0.5">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {meta.errorMessage && meta.lastSyncStatus !== 'success' && (
+                    <div className="flex items-start gap-1.5 rounded border border-red-500/30 bg-red-950/20 px-2 py-1.5">
+                      <XCircle className="w-3 h-3 text-red-400 shrink-0 mt-0.5" />
+                      <p className="text-[10px] text-red-300/80">{meta.errorMessage}</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
+
+            {!meta && !isRunning && (
+              <div className="rounded-lg border border-gray-700/50 bg-gray-900/40 p-4 text-center">
+                <p className="text-sm text-gray-400">No sync history yet</p>
+                <p className="text-[10px] text-gray-500 mt-1">Run a sync to pull {cfg.label} orders into E.L.F.I.E.</p>
+              </div>
+            )}
 
             <Separator className="bg-gray-700/60" />
 
-            {/* What this sync does */}
+            {/* About */}
             <div className="space-y-1.5">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-0.5">About This Sync</p>
               <div className="rounded-lg border border-gray-700/50 bg-gray-900/40 p-3 space-y-1.5">
                 {[
-                  { icon: ShoppingCart, text: 'Pulls new and updated orders from BrickLink and BrickOwl into E.L.F.I.E.' },
+                  { icon: ShoppingCart, text: `Pulls new and updated orders from ${cfg.label} into E.L.F.I.E.` },
                   { icon: Activity,     text: 'Detects status changes, new items, and payment updates' },
                   { icon: Package,      text: 'Powers the fulfillment queue and shipped orders views' },
-                ].map(({ icon: Icon, text }, i) => (
+                ].map(({ icon: ItemIcon, text }, i) => (
                   <div key={i} className="flex items-start gap-2">
-                    <Icon className="w-3 h-3 text-blue-400/70 shrink-0 mt-0.5" />
+                    <ItemIcon className={`w-3 h-3 ${cfg.accentIcon} opacity-70 shrink-0 mt-0.5`} />
                     <p className="text-[10px] text-gray-400">{text}</p>
                   </div>
                 ))}
