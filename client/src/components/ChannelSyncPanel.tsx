@@ -157,7 +157,11 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
     },
   });
 
-  const [colorRepairPreview, setColorRepairPreview] = useState<{ mismatchCount: number; skipped: number } | null>(null);
+  const [colorRepairPreview, setColorRepairPreview] = useState<{
+    mismatchCount: number;
+    skipped: number;
+    mismatches: { lotId: string; itemNo: string; currentColorId: number; expectedColorId: number }[];
+  } | null>(null);
   const [colorRepairResult, setColorRepairResult] = useState<{ fixed: number; skipped: number; errors: string[] } | null>(null);
 
   const colorRepairPreviewMutation = useMutation({
@@ -166,7 +170,7 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
       if (data.mismatchCount === 0) {
         toast({ title: 'No color fixes needed', description: 'All tagged lots already have the correct color.' });
       } else {
-        setColorRepairPreview({ mismatchCount: data.mismatchCount, skipped: data.skipped ?? 0 });
+        setColorRepairPreview({ mismatchCount: data.mismatchCount, skipped: data.skipped ?? 0, mismatches: data.mismatches ?? [] });
       }
     },
     onError: () => {
@@ -741,6 +745,31 @@ function OverviewContent({
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
+
+          {/* Parts list */}
+          <div className="rounded border border-amber-500/20 bg-black/20 overflow-y-auto max-h-48">
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="border-b border-amber-500/20">
+                  <th className="text-left px-2 py-1.5 text-gray-400 font-medium">Item No</th>
+                  <th className="text-left px-2 py-1.5 text-gray-400 font-medium">BO Lot</th>
+                  <th className="text-right px-2 py-1.5 text-gray-400 font-medium">Current Color</th>
+                  <th className="text-right px-2 py-1.5 text-gray-400 font-medium">Correct Color</th>
+                </tr>
+              </thead>
+              <tbody>
+                {colorRepairPreview.mismatches.map((m, i) => (
+                  <tr key={m.lotId} className={`border-b border-amber-500/10 ${i % 2 === 0 ? '' : 'bg-white/5'}`} data-testid={`row-color-mismatch-${m.lotId}`}>
+                    <td className="px-2 py-1 text-gray-200 font-mono">{m.itemNo}</td>
+                    <td className="px-2 py-1 text-gray-400 font-mono">{m.lotId}</td>
+                    <td className="px-2 py-1 text-right text-red-400 font-mono">{m.currentColorId}</td>
+                    <td className="px-2 py-1 text-right text-teal-400 font-mono">{m.expectedColorId}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
           <p className="text-[11px] text-gray-400">
             Each lot will be deleted and recreated with the correct color. All other fields (qty, price, notes, tier pricing) are preserved. Lots will be briefly offline during this process.
           </p>
