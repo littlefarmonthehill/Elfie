@@ -94,6 +94,7 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedArea, setSelectedArea] = useState<DiscrepancyType | null>(null);
   const [showAuditReport, setShowAuditReport] = useState(false);
+  const [showColorRepair, setShowColorRepair] = useState(false);
   const [previewResult, setPreviewResult] = useState<SyncPreviewBreakdown | null>(null);
   const [showPreview, setShowPreview] = useState(false);
 
@@ -460,16 +461,16 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
         )}
       </button>
 
-      <Drawer open={drawerOpen} onOpenChange={(open) => { setDrawerOpen(open); if (!open) { setSelectedArea(null); setShowAuditReport(false); } }}>
+      <Drawer open={drawerOpen} onOpenChange={(open) => { setDrawerOpen(open); if (!open) { setSelectedArea(null); setShowAuditReport(false); setShowColorRepair(false); } }}>
         <DrawerContent className="bg-gray-950 border-gray-800 h-[75vh] flex flex-col rounded-t-2xl">
           <DrawerHeader className="p-0 flex-shrink-0">
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 rounded-full bg-gray-600" />
             </div>
             <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-gray-800">
-              {(selectedArea || showAuditReport) ? (
+              {(selectedArea || showAuditReport || showColorRepair) ? (
                 <button
-                  onClick={() => { setSelectedArea(null); setShowAuditReport(false); }}
+                  onClick={() => { setSelectedArea(null); setShowAuditReport(false); setShowColorRepair(false); }}
                   className="text-gray-400 hover:text-gray-200 transition-colors mr-1 flex-shrink-0"
                   data-testid="button-discrepancy-back"
                 >
@@ -481,6 +482,8 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
               <DrawerTitle className="text-sm font-semibold text-gray-100 flex-1">
                 {showAuditReport
                   ? <span className="flex items-center gap-1.5"><ClipboardList className="w-4 h-4 text-gray-400 flex-shrink-0" />Audit Report</span>
+                  : showColorRepair
+                  ? <span className="flex items-center gap-1.5"><Paintbrush className="w-4 h-4 text-amber-400 flex-shrink-0" />Wrong Color Lots</span>
                   : selectedArea && activeArea
                   ? <span className="flex items-center gap-1.5">
                       <activeArea.icon className={`w-4 h-4 ${activeArea.accentColor} flex-shrink-0`} />
@@ -491,7 +494,7 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
               <DrawerClose
                 className="ml-2 text-gray-500 hover:text-gray-200 transition-colors"
                 data-testid="button-close-channel-drawer"
-                onClick={() => { setSelectedArea(null); setShowAuditReport(false); }}
+                onClick={() => { setSelectedArea(null); setShowAuditReport(false); setShowColorRepair(false); }}
               >
                 <X className="w-5 h-5" />
                 <span className="sr-only">Close</span>
@@ -506,6 +509,8 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
                 totalDiscrepancies={totalDiscrepancies}
                 lastSyncTime={lastSync?.lastSyncTime}
               />
+            ) : showColorRepair ? (
+              <ColorRepairDetail />
             ) : selectedArea ? (
               <DiscrepancyDetail
                 area={activeArea!}
@@ -531,6 +536,7 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
                 totalDiscrepancies={totalDiscrepancies}
                 onSelectArea={(type) => setSelectedArea(type)}
                 onShowAuditReport={() => setShowAuditReport(true)}
+                onShowColorRepair={() => setShowColorRepair(true)}
               />
             )}
           </div>
@@ -550,7 +556,7 @@ type ColorMismatch = {
   expectedColorName: string;
 };
 
-function ColorRepairSection() {
+function ColorRepairDetail() {
   const { toast } = useToast();
   const [mismatches, setMismatches] = useState<ColorMismatch[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -562,9 +568,6 @@ function ColorRepairSection() {
       const sorted = [...(data.mismatches ?? [])].sort((a: ColorMismatch, b: ColorMismatch) => parseInt(b.lotId) - parseInt(a.lotId));
       setMismatches(sorted);
       setSelected(new Set());
-      if ((data.mismatchCount ?? 0) === 0) {
-        toast({ title: 'No color fixes needed', description: 'All tagged lots already have the correct color.' });
-      }
     },
     onError: () => {
       toast({ title: 'Color scan failed', description: 'Could not scan BrickOwl inventory.', variant: 'destructive' });
@@ -599,150 +602,170 @@ function ColorRepairSection() {
   const someSelected = selected.size > 0;
 
   return (
-    <div className="rounded-lg border border-amber-500/25 bg-amber-950/10 overflow-hidden">
-      {/* Header */}
-      <div className="px-3 py-2.5 flex items-center gap-2 border-b border-amber-500/20">
-        <Paintbrush className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-        <div className="flex-1 min-w-0">
-          <span className="text-xs font-semibold text-amber-200">Wrong Color Lots</span>
-          {mismatches !== null && (
-            <span className="ml-2 font-mono text-xs font-bold text-amber-400">{mismatches.length}</span>
-          )}
-          {mismatches === null && (
-            <p className="text-[10px] text-gray-500 mt-0.5">Lots synced to BrickOwl with an incorrect color variant</p>
-          )}
-        </div>
+    <div className="flex flex-col h-full">
+      {/* Action bar */}
+      <div className="px-4 py-3 flex items-center gap-2 border-b border-gray-800 flex-shrink-0">
+        <p className="text-[11px] text-gray-500 flex-1">
+          Detects BrickOwl lots where the color doesn't match BrickLink.
+        </p>
         <Button
           size="sm"
-          variant="ghost"
+          variant="secondary"
           disabled={isBusy}
           onClick={() => scanMutation.mutate()}
           data-testid="button-color-repair-scan"
         >
-          {scanMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RefreshCw className="w-3 h-3 mr-1" />}
+          {scanMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <RefreshCw className="w-3 h-3 mr-1.5" />}
           {mismatches === null ? 'Scan' : 'Rescan'}
         </Button>
       </div>
 
-      {/* Pre-scan state */}
-      {mismatches === null && !scanMutation.isPending && (
-        <p className="px-3 py-3 text-[11px] text-gray-500">
-          Click Scan to detect BrickOwl lots where the color doesn't match BrickLink.
-        </p>
-      )}
-
-      {/* Scanning */}
-      {scanMutation.isPending && (
-        <div className="px-3 py-3 flex items-center gap-2 text-[11px] text-gray-400">
-          <Loader2 className="w-3 h-3 animate-spin" /> Scanning BrickOwl inventory…
-        </div>
-      )}
-
-      {/* All good */}
-      {mismatches?.length === 0 && (
-        <div className="px-3 py-3 flex items-center gap-2 text-[11px] text-green-400">
-          <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" /> All lots have the correct color.
-        </div>
-      )}
-
-      {/* Item list */}
-      {mismatches && mismatches.length > 0 && (
-        <>
-          {/* Bulk action bar */}
-          <div className="px-3 py-2 flex items-center gap-2 border-b border-amber-500/15 bg-amber-950/20">
-            <input
-              type="checkbox"
-              checked={allSelected}
-              ref={el => { if (el) el.indeterminate = someSelected && !allSelected; }}
-              onChange={() => setSelected(allSelected ? new Set() : new Set(mismatches!.map(m => m.lotId)))}
-              disabled={isBusy}
-              className="w-3.5 h-3.5 rounded cursor-pointer flex-shrink-0"
-              data-testid="checkbox-color-repair-select-all"
-            />
-            <span className="text-[11px] text-gray-400 flex-1">
-              {someSelected ? `${selected.size} of ${mismatches.length} selected` : `${mismatches.length} item${mismatches.length !== 1 ? 's' : ''} need fixing`}
-            </span>
-            {someSelected ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={isBusy}
-                onClick={() => fixLots([...selected])}
-                data-testid="button-color-repair-fix-selected"
-              >
-                {fixingLots.size > 0 ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Paintbrush className="w-3 h-3 mr-1" />}
-                {fixingLots.size > 0 ? 'Fixing…' : `Fix Selected (${selected.size})`}
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={isBusy}
-                onClick={() => fixLots()}
-                data-testid="button-color-repair-fix-all"
-              >
-                {fixingLots.size > 0 ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Paintbrush className="w-3 h-3 mr-1" />}
-                {fixingLots.size > 0 ? `Fixing ${fixingLots.size}…` : `Fix All (${mismatches.length})`}
-              </Button>
-            )}
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        {/* Pre-scan */}
+        {mismatches === null && !scanMutation.isPending && (
+          <div className="px-4 py-10 flex flex-col items-center gap-3 text-center">
+            <Paintbrush className="w-8 h-8 text-amber-400/50" />
+            <p className="text-sm text-gray-400">Tap Scan to check BrickOwl for lots with wrong colors.</p>
           </div>
+        )}
 
-          {/* Rows */}
-          <div className="divide-y divide-amber-500/10 max-h-80 overflow-y-auto">
-            {mismatches.map(m => {
-              const isSelected = selected.has(m.lotId);
-              const isFixing = fixingLots.has(m.lotId);
-              return (
-                <div
-                  key={m.lotId}
-                  className={`px-3 py-2.5 flex items-center gap-3 ${isSelected ? 'bg-amber-950/30' : ''}`}
-                  data-testid={`row-color-mismatch-${m.lotId}`}
+        {/* Scanning */}
+        {scanMutation.isPending && (
+          <div className="px-4 py-10 flex flex-col items-center gap-3 text-center">
+            <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
+            <p className="text-sm text-gray-400">Scanning BrickOwl inventory…</p>
+          </div>
+        )}
+
+        {/* All good */}
+        {mismatches?.length === 0 && (
+          <div className="px-4 py-10 flex flex-col items-center gap-3 text-center">
+            <CheckCircle2 className="w-8 h-8 text-green-400" />
+            <p className="text-sm text-green-300">All lots have the correct color.</p>
+          </div>
+        )}
+
+        {/* Mismatch list */}
+        {mismatches && mismatches.length > 0 && (
+          <>
+            {/* Bulk action bar */}
+            <div className="px-4 py-2.5 flex items-center gap-2 border-b border-gray-800 bg-gray-900/60 sticky top-0 z-10">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                ref={el => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                onChange={() => setSelected(allSelected ? new Set() : new Set(mismatches!.map(m => m.lotId)))}
+                disabled={isBusy}
+                className="w-3.5 h-3.5 rounded cursor-pointer flex-shrink-0"
+                data-testid="checkbox-color-repair-select-all"
+              />
+              <span className="text-[11px] text-gray-400 flex-1">
+                {someSelected ? `${selected.size} of ${mismatches.length} selected` : `${mismatches.length} item${mismatches.length !== 1 ? 's' : ''} need fixing`}
+              </span>
+              {someSelected ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={isBusy}
+                  onClick={() => fixLots([...selected])}
+                  data-testid="button-color-repair-fix-selected"
                 >
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => setSelected(prev => {
-                      const next = new Set(prev);
-                      isSelected ? next.delete(m.lotId) : next.add(m.lotId);
-                      return next;
-                    })}
-                    disabled={isBusy}
-                    className="w-3.5 h-3.5 rounded cursor-pointer flex-shrink-0"
-                    data-testid={`checkbox-color-mismatch-${m.lotId}`}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-xs font-semibold text-gray-100 font-mono">{m.itemNo}</span>
-                      <span className="font-mono text-[9px] text-gray-500 bg-gray-800 border border-gray-700 rounded px-1 py-px">BL #{m.blId}</span>
-                      <span className="font-mono text-[9px] text-gray-500 bg-gray-800 border border-gray-700 rounded px-1 py-px">BO lot #{m.lotId}</span>
-                    </div>
-                    <div className="text-[11px] mt-0.5 flex items-center gap-1.5 flex-wrap">
-                      <span className="text-red-400">{m.currentColorName ?? `Color ${m.currentColorId}`}</span>
-                      <span className="text-gray-600">→</span>
-                      <span className="text-teal-400">{m.expectedColorName ?? `Color ${m.expectedColorId}`}</span>
-                    </div>
-                  </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    disabled={isBusy}
-                    onClick={() => fixLots([m.lotId])}
-                    data-testid={`button-fix-color-${m.lotId}`}
-                    title="Fix this lot"
-                  >
-                    {isFixing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paintbrush className="w-3.5 h-3.5" />}
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
+                  {fixingLots.size > 0 ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Paintbrush className="w-3 h-3 mr-1" />}
+                  {fixingLots.size > 0 ? 'Fixing…' : `Fix Selected (${selected.size})`}
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={isBusy}
+                  onClick={() => fixLots()}
+                  data-testid="button-color-repair-fix-all"
+                >
+                  {fixingLots.size > 0 ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Paintbrush className="w-3 h-3 mr-1" />}
+                  {fixingLots.size > 0 ? `Fixing ${fixingLots.size}…` : `Fix All (${mismatches.length})`}
+                </Button>
+              )}
+            </div>
 
-          <p className="px-3 py-2 text-[10px] text-gray-600 border-t border-amber-500/10">
-            Each fix deletes and recreates the lot with the correct color. All fields (qty, price, notes, tier pricing) are preserved. Lots are briefly offline during the operation.
-          </p>
-        </>
-      )}
+            {/* Rows */}
+            <div className="divide-y divide-gray-800">
+              {mismatches.map(m => {
+                const isSelected = selected.has(m.lotId);
+                const isFixing = fixingLots.has(m.lotId);
+                return (
+                  <div
+                    key={m.lotId}
+                    className={`px-4 py-3 flex items-center gap-3 ${isSelected ? 'bg-amber-950/20' : ''}`}
+                    data-testid={`row-color-mismatch-${m.lotId}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => setSelected(prev => {
+                        const next = new Set(prev);
+                        isSelected ? next.delete(m.lotId) : next.add(m.lotId);
+                        return next;
+                      })}
+                      disabled={isBusy}
+                      className="w-3.5 h-3.5 rounded cursor-pointer flex-shrink-0"
+                      data-testid={`checkbox-color-mismatch-${m.lotId}`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-semibold text-gray-100 font-mono">{m.itemNo}</span>
+                        <span className="font-mono text-[9px] text-gray-500 bg-gray-800 border border-gray-700 rounded px-1 py-px">BL #{m.blId}</span>
+                        <span className="font-mono text-[9px] text-gray-500 bg-gray-800 border border-gray-700 rounded px-1 py-px">BO lot #{m.lotId}</span>
+                      </div>
+                      <div className="text-[11px] mt-0.5 flex items-center gap-1.5 flex-wrap">
+                        <span className="text-red-400">{m.currentColorName ?? `Color ${m.currentColorId}`}</span>
+                        <span className="text-gray-600">→</span>
+                        <span className="text-teal-400">{m.expectedColorName ?? `Color ${m.expectedColorId}`}</span>
+                      </div>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      disabled={isBusy}
+                      onClick={() => fixLots([m.lotId])}
+                      data-testid={`button-fix-color-${m.lotId}`}
+                      title="Fix this lot"
+                    >
+                      {isFixing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paintbrush className="w-3.5 h-3.5" />}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="px-4 py-3 text-[10px] text-gray-600 border-t border-gray-800">
+              Each fix deletes and recreates the lot with the correct color. All fields (qty, price, notes, tier pricing) are preserved. Lots are briefly offline during the operation.
+            </p>
+          </>
+        )}
+      </div>
     </div>
+  );
+}
+
+function ColorRepairButton({ onShowColorRepair }: { onShowColorRepair: () => void }) {
+  return (
+    <button
+      onClick={onShowColorRepair}
+      className="w-full text-left rounded-lg border p-3 hover-elevate transition-opacity border-amber-500/30 bg-amber-950/20"
+      data-testid="button-color-repair-entry"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Paintbrush className="w-4 h-4 text-amber-400 shrink-0" />
+          <div>
+            <span className="text-sm font-semibold text-amber-200">Wrong Color Lots</span>
+            <p className="text-[11px] text-gray-400 mt-0.5">BrickOwl lots synced with an incorrect color</p>
+          </div>
+        </div>
+        <ChevronRight className="w-3.5 h-3.5 text-gray-600 flex-shrink-0" />
+      </div>
+    </button>
   );
 }
 
@@ -792,6 +815,7 @@ function OverviewContent({
   totalDiscrepancies,
   onSelectArea,
   onShowAuditReport,
+  onShowColorRepair,
 }: any) {
   return (
     <div className="px-4 pt-3 pb-6 space-y-4">
@@ -935,64 +959,50 @@ function OverviewContent({
         </div>
       )}
 
-      {totalDiscrepancies > 0 ? (
-        <>
-          <p className="text-xs text-gray-400">
-            Tap any area below to see exactly which items are out of sync between BrickLink and BrickOwl.
-          </p>
+      {/* Lot Issues — always visible; discrepancy buttons only when there are issues */}
+      {(() => {
+        const LOT_TYPES: DiscrepancyType[] = ['missing', 'unlinked', 'orphaned'];
+        const lotAreas = discrepancyAreas.filter(a => LOT_TYPES.includes(a.type));
+        return (
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-0.5">Lot Issues</p>
+            <div className="space-y-2">
+              {isLoading ? (
+                [1, 2].map(i => <div key={i} className="h-16 rounded-lg bg-gray-800/60 animate-pulse" />)
+              ) : (
+                lotAreas.map((area) => (
+                  <DiscrepancyAreaButton key={area.type} area={area} onSelectArea={onSelectArea} />
+                ))
+              )}
+              <ColorRepairButton onShowColorRepair={onShowColorRepair} />
+            </div>
+          </div>
+        );
+      })()}
 
-          {/* Lot Issues group */}
-          {(() => {
-            const LOT_TYPES: DiscrepancyType[] = ['missing', 'unlinked', 'orphaned'];
-            const lotAreas = discrepancyAreas.filter(a => LOT_TYPES.includes(a.type));
-            if (lotAreas.length === 0) return null;
-            return (
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-0.5">Lot Issues</p>
-                <div className="space-y-2">
-                  {lotAreas.map((area) => (
-                    <DiscrepancyAreaButton key={area.type} area={area} onSelectArea={onSelectArea} />
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
+      {/* Field Issues — only when there are discrepancies */}
+      {totalDiscrepancies > 0 && (() => {
+        const FIELD_TYPES: DiscrepancyType[] = ['price', 'quantity', 'remarks', 'description', 'bulk_qty', 'lot_weight', 'for_sale', 'sale_percent'];
+        const fieldAreas = discrepancyAreas.filter(a => FIELD_TYPES.includes(a.type));
+        if (fieldAreas.length === 0) return null;
+        return (
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-0.5">Field Issues</p>
+            <div className="space-y-2">
+              {fieldAreas.map((area) => (
+                <DiscrepancyAreaButton key={area.type} area={area} onSelectArea={onSelectArea} />
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
-          {/* Field Issues group */}
-          {(() => {
-            const FIELD_TYPES: DiscrepancyType[] = ['price', 'quantity', 'remarks', 'description', 'bulk_qty', 'lot_weight', 'for_sale', 'sale_percent'];
-            const fieldAreas = discrepancyAreas.filter(a => FIELD_TYPES.includes(a.type));
-            if (fieldAreas.length === 0) return null;
-            return (
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-0.5">Field Issues</p>
-                <div className="space-y-2">
-                  {fieldAreas.map((area) => (
-                    <DiscrepancyAreaButton key={area.type} area={area} onSelectArea={onSelectArea} />
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-        </>
-      ) : !isLoading && brickOwl?.enabled ? (
+      {!isLoading && brickOwl?.enabled && totalDiscrepancies === 0 && (
         <div className="flex items-center gap-2 text-sm text-gray-400">
           <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
           <span>No discrepancies — BrickOwl is in sync with BrickLink.</span>
         </div>
-      ) : isLoading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-16 rounded-lg bg-gray-800/60 animate-pulse" />
-          ))}
-        </div>
-      ) : null}
-
-      {/* Color repair — always visible, independent of discrepancy data */}
-      <div className="space-y-1.5">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-0.5">Color Repair</p>
-        <ColorRepairSection />
-      </div>
+      )}
 
       {/* Last sync errors — grouped by error reason */}
       {lastResult && lastResult.errorCount > 0 && !isRunning && (() => {
