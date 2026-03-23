@@ -11958,46 +11958,134 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
-  // In-memory progress tracker for color repair (single concurrent repair only)
-  let colorRepairProgress: { active: boolean; done: number; total: number } = { active: false, done: 0, total: 0 };
+  // In-memory progress tracker for color repair (single concurrent repair only).
+  // Also carries the final result so the client can poll for completion without
+  // blocking on a single long-running HTTP request that would time out.
+  let colorRepairProgress: {
+    active: boolean;
+    done: number;
+    total: number;
+    complete: boolean;
+    fixed?: number;
+    skipped?: number;
+    errors?: string[];
+  } = { active: false, done: 0, total: 0, complete: false };
 
   app.get("/api/repair/brickowl-colors/progress", isApproved, (_req, res) => {
     res.json(colorRepairProgress);
   });
 
+  // Background worker that runs the actual fix loop.
+  async function runColorRepair(lotIdsFilter: Set<string> | null) {
+    const { getBrickOwlInventory, createBrickOwlLot, deleteBrickOwlLot, lookupBoid, mapColorId, getBoColorName, getBlColorName } = await import('./services/brickowl');
+
+    const boInventory = await getBrickOwlInventory(false);
+    const taggedLots = boInventory.filter(lot => lot.external_lot_ids?.other);
+
+    const blIds = taggedLots.map(lot => parseInt(lot.external_lot_ids!.other!)).filter(n => !isNaN(n));
+    const blItems = await db.select().from(blInventory).where(inArray(blInventory.id, blIds));
+    const blMap = new Map(blItems.map(item => [item.id, item]));
+
+    let fixed = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    colorRepairProgress = { active: true, done: 0, total: lotIdsFilter?.size ?? 0, complete: false };
+
+    for (const lot of taggedLots) {
+      const blId = parseInt(lot.external_lot_ids!.other!);
+      const blItem = blMap.get(blId);
+      if (!blItem || blItem.colorId == null) { skipped++; continue; }
+
+      const expectedBoColorId = await mapColorId(blItem.colorId);
+      if (expectedBoColorId == null) { skipped++; continue; }
+
+      const boidParts = (lot.boid ?? '').split('-');
+      const actualBoColorId = boidParts.length >= 2 ? parseInt(boidParts[boidParts.length - 1]) : 0;
+      if (actualBoColorId === expectedBoColorId) { skipped++; continue; }
+
+      if (lotIdsFilter && !lotIdsFilter.has(lot.lot_id)) { skipped++; continue; }
+
+      try {
+        const boid = await lookupBoid(blItem.itemNo, blItem.itemType ?? 'Part', expectedBoColorId);
+        if (!boid) {
+          const msg = `lot ${lot.lot_id} (${blItem.itemNo}): could not resolve boid for color ${expectedBoColorId}`;
+          errors.push(msg);
+          console.error(`[ColorRepair] Skipping — ${msg}`);
+          colorRepairProgress.done++;
+          continue;
+        }
+        await db.update(blInventory).set({ updatedAt: new Date() }).where(eq(blInventory.id, blId));
+        await deleteBrickOwlLot(lot.lot_id);
+        const condition = lot.condition || (blItem.newOrUsed === 'N' ? 'new' : 'usedg');
+        await createBrickOwlLot({
+          boid,
+          quantity: parseInt(lot.qty),
+          price: parseFloat(lot.base_price),
+          condition,
+          for_sale: typeof lot.for_sale === 'string' ? parseInt(lot.for_sale) : (lot.for_sale as number),
+          external_id: lot.external_lot_ids?.other,
+          personal_note: lot.personal_note,
+          public_note: lot.public_note,
+          tier_price: lot.tier_price ?? undefined,
+          sale_percentage: lot.sale_percent ? parseFloat(lot.sale_percent) : undefined,
+          bulk_qty: lot.bulk_qty ? parseInt(lot.bulk_qty) : undefined,
+          lot_weight: lot.lot_weight ? parseFloat(lot.lot_weight) : undefined,
+        });
+        fixed++;
+        colorRepairProgress.done++;
+        console.log(`[ColorRepair] Fixed lot ${lot.lot_id} (${blItem.itemNo}): boid resolved to ${boid} (color ${expectedBoColorId})`);
+      } catch (err: any) {
+        const msg = `lot ${lot.lot_id} (${blItem.itemNo}): ${err.message}`;
+        errors.push(msg);
+        colorRepairProgress.done++;
+        console.error(`[ColorRepair] Error fixing ${msg}`);
+      }
+    }
+
+    colorRepairProgress = { active: false, done: colorRepairProgress.done, total: colorRepairProgress.total, complete: true, fixed, skipped, errors };
+    console.log(`[ColorRepair] Complete — ${fixed} fixed, ${skipped} skipped, ${errors.length} errors`);
+  }
+
   // One-time repair: correct BrickOwl lot colors that were set incorrectly before the color-map fix.
-  // Fetches all tagged BO lots, cross-references BL colorId, and pushes the corrected color_id
-  // to any lot where the stored color doesn't match what BL says it should be.
+  // The dry-run scan runs synchronously. The actual fix is fire-and-forget — it returns immediately
+  // with { started: true } and the client polls /progress for completion (avoids proxy timeouts on
+  // large inventories where the fix can take many minutes).
   app.post("/api/repair/brickowl-colors", isApproved, async (req: any, res) => {
     try {
-      const { getBrickOwlInventory, createBrickOwlLot, deleteBrickOwlLot, lookupBoid, mapColorId, getBoColorName, getBlColorName } = await import('./services/brickowl');
+      const { getBrickOwlInventory, mapColorId, getBoColorName, getBlColorName } = await import('./services/brickowl');
       const dryRun: boolean = req.body?.dryRun === true;
       const lotIdsFilter: Set<string> | null = Array.isArray(req.body?.lotIds) && req.body.lotIds.length > 0
         ? new Set(req.body.lotIds as string[])
         : null;
 
-      const boInventory = await getBrickOwlInventory(false);
+      if (!dryRun) {
+        // Guard: don't start a second repair while one is running.
+        if (colorRepairProgress.active) {
+          return res.status(409).json({ error: 'A repair is already running.' });
+        }
+        // Fire and forget — respond immediately so the proxy doesn't time out.
+        runColorRepair(lotIdsFilter).catch(err => {
+          console.error('[ColorRepair] Unhandled error in background repair:', err);
+          colorRepairProgress = { active: false, done: colorRepairProgress.done, total: colorRepairProgress.total, complete: true, fixed: 0, skipped: 0, errors: [String(err?.message ?? err)] };
+        });
+        return res.json({ started: true });
+      }
 
-      // Only tagged lots can be matched back to a BL item
+      // Dry-run: scan synchronously and return mismatches.
+      const boInventory = await getBrickOwlInventory(false);
       const taggedLots = boInventory.filter(lot => lot.external_lot_ids?.other);
 
       if (taggedLots.length === 0) {
-        return res.json({ fixed: 0, skipped: 0, errors: [], mismatches: [], message: 'No tagged lots found' });
+        return res.json({ dryRun: true, mismatchCount: 0, skipped: 0, mismatches: [], message: 'No tagged lots found' });
       }
 
-      // Bulk-fetch all BL items that are referenced by tagged BO lots
       const blIds = taggedLots.map(lot => parseInt(lot.external_lot_ids!.other!)).filter(n => !isNaN(n));
       const blItems = await db.select().from(blInventory).where(inArray(blInventory.id, blIds));
       const blMap = new Map(blItems.map(item => [item.id, item]));
 
-      let fixed = 0;
       let skipped = 0;
-      const errors: string[] = [];
       const mismatches: { lotId: string; blId: number; itemNo: string; currentColorId: number; currentColorName: string; expectedColorId: number; expectedColorName: string }[] = [];
-
-      if (!dryRun) {
-        colorRepairProgress = { active: true, done: 0, total: lotIdsFilter?.size ?? 0 };
-      }
 
       for (const lot of taggedLots) {
         const blId = parseInt(lot.external_lot_ids!.other!);
@@ -12007,9 +12095,6 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         const expectedBoColorId = await mapColorId(blItem.colorId);
         if (expectedBoColorId == null) { skipped++; continue; }
 
-        // BrickOwl's inventory/list does not return color_id.
-        // Extract it from the boid instead: parts use format "{owl_id}-{bo_color_id}",
-        // non-color items (minifigs, gear, sets) omit the suffix (implicit color 0).
         const boidParts = (lot.boid ?? '').split('-');
         const actualBoColorId = boidParts.length >= 2 ? parseInt(boidParts[boidParts.length - 1]) : 0;
 
@@ -12024,63 +12109,10 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
           expectedColorId: expectedBoColorId,
           expectedColorName: blItem.colorId != null ? getBlColorName(blItem.colorId) : getBoColorName(expectedBoColorId),
         });
-
-        if (dryRun) continue;
-
-        // When a lotIds filter is provided, only fix those specific lots.
-        if (lotIdsFilter && !lotIdsFilter.has(lot.lot_id)) { skipped++; continue; }
-
-        // Fix it: BrickOwl does not support updating color_id in-place.
-        // We must delete the lot and recreate it using the correct boid (looked up via the BL item
-        // no + correct BO color) — reusing the wrong boid would recreate the same error.
-        try {
-          const boid = await lookupBoid(blItem.itemNo, blItem.itemType ?? 'Part', expectedBoColorId);
-          if (!boid) {
-            const msg = `lot ${lot.lot_id} (${blItem.itemNo}): could not resolve boid for color ${expectedBoColorId}`;
-            errors.push(msg);
-            console.error(`[ColorRepair] Skipping — ${msg}`);
-            colorRepairProgress.done++;
-            continue;
-          }
-          // Touch updatedAt before deleting so the next incremental channel sync
-          // includes this BL item and recreates the BO lot if create fails here.
-          await db.update(blInventory).set({ updatedAt: new Date() }).where(eq(blInventory.id, blId));
-          await deleteBrickOwlLot(lot.lot_id);
-          const condition = lot.condition || (blItem.newOrUsed === 'N' ? 'new' : 'usedg');
-          await createBrickOwlLot({
-            boid,
-            quantity: parseInt(lot.qty),
-            price: parseFloat(lot.base_price),
-            condition,
-            for_sale: typeof lot.for_sale === 'string' ? parseInt(lot.for_sale) : (lot.for_sale as number),
-            external_id: lot.external_lot_ids?.other,
-            personal_note: lot.personal_note,
-            public_note: lot.public_note,
-            tier_price: lot.tier_price ?? undefined,
-            sale_percentage: lot.sale_percent ? parseFloat(lot.sale_percent) : undefined,
-            bulk_qty: lot.bulk_qty ? parseInt(lot.bulk_qty) : undefined,
-            lot_weight: lot.lot_weight ? parseFloat(lot.lot_weight) : undefined,
-          });
-          fixed++;
-          colorRepairProgress.done++;
-          console.log(`[ColorRepair] Fixed lot ${lot.lot_id} (${blItem.itemNo}): boid resolved to ${boid} (color ${expectedBoColorId})`);
-        } catch (err: any) {
-          const msg = `lot ${lot.lot_id} (${blItem.itemNo}): ${err.message}`;
-          errors.push(msg);
-          colorRepairProgress.done++;
-          console.error(`[ColorRepair] Error fixing ${msg}`);
-        }
       }
 
-      colorRepairProgress.active = false;
-
-      if (dryRun) {
-        console.log(`[ColorRepair] Dry-run — ${mismatches.length} mismatches found, ${skipped} already correct`);
-        return res.json({ dryRun: true, mismatchCount: mismatches.length, skipped, mismatches });
-      }
-
-      console.log(`[ColorRepair] Complete — ${fixed} fixed, ${skipped} skipped, ${errors.length} errors`);
-      res.json({ fixed, skipped, errors, mismatches });
+      console.log(`[ColorRepair] Dry-run — ${mismatches.length} mismatches found, ${skipped} already correct`);
+      return res.json({ dryRun: true, mismatchCount: mismatches.length, skipped, mismatches });
     } catch (err: any) {
       console.error('[ColorRepair] Fatal error:', err);
       res.status(500).json({ success: false, error: err.message });

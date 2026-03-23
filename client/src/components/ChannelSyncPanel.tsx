@@ -544,6 +544,17 @@ function ColorRepairDetail() {
       try {
         const p: any = await apiRequest('GET', '/api/repair/brickowl-colors/progress');
         setRepairDone(p.done ?? 0);
+        if (p.complete) {
+          clearInterval(id);
+          setMismatches(prev => prev?.filter(m => !fixingLots.has(m.lotId)) ?? null);
+          setSelected(prev => { const next = new Set(prev); fixingLots.forEach(lotId => next.delete(lotId)); return next; });
+          setFixingLots(new Set());
+          if ((p.errors?.length ?? 0) > 0) {
+            toast({ title: `Fixed ${p.fixed ?? 0} lot${p.fixed === 1 ? '' : 's'}`, description: `${p.errors.length} error${p.errors.length === 1 ? '' : 's'} — see console.`, variant: 'destructive' });
+          } else {
+            toast({ title: p.fixed > 0 ? `Fixed ${p.fixed} lot${p.fixed === 1 ? '' : 's'}` : 'No fixes needed' });
+          }
+        }
       } catch {}
     }, 600);
     return () => clearInterval(id);
@@ -567,21 +578,10 @@ function ColorRepairDetail() {
     apiRequest('POST', '/api/repair/brickowl-colors', {
       dryRun: false,
       ...(lotIds ? { lotIds } : {}),
-    })
-      .then((data: any) => {
-        setMismatches(prev => prev?.filter(m => !targetIds.has(m.lotId)) ?? null);
-        setSelected(prev => { const next = new Set(prev); targetIds.forEach(id => next.delete(id)); return next; });
-        setFixingLots(new Set());
-        if (data.errors?.length > 0) {
-          toast({ title: `Fixed ${data.fixed ?? 0} lot${data.fixed === 1 ? '' : 's'}`, description: `${data.errors.length} error${data.errors.length === 1 ? '' : 's'} — see console.`, variant: 'destructive' });
-        } else {
-          toast({ title: data.fixed > 0 ? `Fixed ${data.fixed} lot${data.fixed === 1 ? '' : 's'}` : 'No fixes needed' });
-        }
-      })
-      .catch(() => {
-        setFixingLots(new Set());
-        toast({ title: 'Fix failed', description: 'Could not complete the color repair.', variant: 'destructive' });
-      });
+    }).catch(() => {
+      setFixingLots(new Set());
+      toast({ title: 'Fix failed', description: 'Could not start the color repair.', variant: 'destructive' });
+    });
   }
 
   const isBusy = scanMutation.isPending || fixingLots.size > 0;
