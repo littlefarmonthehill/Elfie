@@ -34,6 +34,7 @@ import {
   EyeOff,
   StopCircle,
   Percent,
+  Paintbrush,
 } from "lucide-react";
 import {
   Drawer,
@@ -153,6 +154,23 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
     },
     onError: () => {
       toast({ title: 'Stop failed', description: 'Could not stop the sync.', variant: 'destructive' });
+    },
+  });
+
+  const [colorRepairResult, setColorRepairResult] = useState<{ fixed: number; skipped: number; errors: string[] } | null>(null);
+  const colorRepairMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/repair/brickowl-colors', {}),
+    onSuccess: (data: any) => {
+      setColorRepairResult({ fixed: data.fixed ?? 0, skipped: data.skipped ?? 0, errors: data.errors ?? [] });
+      toast({
+        title: data.fixed > 0 ? `Fixed ${data.fixed} lot color${data.fixed === 1 ? '' : 's'}` : 'No color fixes needed',
+        description: data.fixed > 0
+          ? `${data.skipped} lots already correct.${data.errors.length > 0 ? ` ${data.errors.length} errors.` : ''}`
+          : 'All tagged lots already have the correct color.',
+      });
+    },
+    onError: () => {
+      toast({ title: 'Color repair failed', description: 'Could not run the color repair.', variant: 'destructive' });
     },
   });
 
@@ -531,6 +549,9 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
                 totalDiscrepancies={totalDiscrepancies}
                 onSelectArea={(type) => setSelectedArea(type)}
                 onShowAuditReport={() => setShowAuditReport(true)}
+                colorRepairMutation={colorRepairMutation}
+                colorRepairResult={colorRepairResult}
+                onDismissColorRepair={() => setColorRepairResult(null)}
               />
             )}
           </div>
@@ -586,6 +607,9 @@ function OverviewContent({
   totalDiscrepancies,
   onSelectArea,
   onShowAuditReport,
+  colorRepairMutation,
+  colorRepairResult,
+  onDismissColorRepair,
 }: any) {
   return (
     <div className="px-4 pt-3 pb-6 space-y-4">
@@ -664,7 +688,42 @@ function OverviewContent({
             Audit Report
           </Button>
         )}
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={colorRepairMutation.isPending || isRunning}
+          onClick={() => colorRepairMutation.mutate()}
+          data-testid="button-channel-color-repair"
+        >
+          {colorRepairMutation.isPending ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+          ) : (
+            <Paintbrush className="w-3.5 h-3.5 mr-1.5" />
+          )}
+          {colorRepairMutation.isPending ? 'Fixing…' : 'Fix Colors'}
+        </Button>
       </div>
+
+      {/* Color repair result banner */}
+      {colorRepairResult && (
+        <div className={`rounded-lg border p-3 space-y-1.5 ${colorRepairResult.fixed > 0 ? 'border-teal-500/30 bg-teal-950/30' : 'border-gray-600/30 bg-gray-800/30'}`}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <Paintbrush className={`w-3.5 h-3.5 ${colorRepairResult.fixed > 0 ? 'text-teal-400' : 'text-gray-400'}`} />
+              <span className={`text-xs font-semibold ${colorRepairResult.fixed > 0 ? 'text-teal-200' : 'text-gray-300'}`}>
+                Color Repair — {colorRepairResult.fixed > 0 ? `${colorRepairResult.fixed} lot${colorRepairResult.fixed === 1 ? '' : 's'} fixed` : 'No fixes needed'}
+              </span>
+            </div>
+            <button onClick={onDismissColorRepair} className="text-gray-500 hover:text-gray-300" data-testid="button-dismiss-color-repair">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <p className="text-[11px] text-gray-400">
+            {colorRepairResult.skipped} lot{colorRepairResult.skipped === 1 ? '' : 's'} already correct
+            {colorRepairResult.errors.length > 0 && ` · ${colorRepairResult.errors.length} error${colorRepairResult.errors.length === 1 ? '' : 's'}`}
+          </p>
+        </div>
+      )}
 
       <Separator className="bg-gray-700/60" />
 
