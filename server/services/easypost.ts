@@ -19,6 +19,52 @@ import {
 
 const EASYPOST_API_URL = 'https://api.easypost.com/v2';
 
+// ---------------------------------------------------------------------------
+// Rate limiter — EasyPost test mode is very restrictive.
+// Allow max 4 calls per 2s window; queue excess calls rather than dropping.
+// ---------------------------------------------------------------------------
+const RATE_WINDOW_MS = 2000;
+const RATE_MAX_CALLS = 4;
+const callTimestamps: number[] = [];
+
+async function waitForRateSlot(): Promise<void> {
+  return new Promise(resolve => {
+    const attempt = () => {
+      const now = Date.now();
+      // Remove timestamps outside the window
+      while (callTimestamps.length && callTimestamps[0] < now - RATE_WINDOW_MS) {
+        callTimestamps.shift();
+      }
+      if (callTimestamps.length < RATE_MAX_CALLS) {
+        callTimestamps.push(now);
+        resolve();
+      } else {
+        // Wait until the oldest call in window expires
+        const waitMs = (callTimestamps[0] + RATE_WINDOW_MS) - now + 10;
+        setTimeout(attempt, waitMs);
+      }
+    };
+    attempt();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Address validation cache — same address shouldn't hit EasyPost twice in 1h
+// ---------------------------------------------------------------------------
+const ADDRESS_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const addressCache = new Map<string, { result: any; expiresAt: number }>();
+
+function addressCacheKey(address: any): string {
+  return JSON.stringify([
+    (address.street1 || '').toLowerCase().trim(),
+    (address.street2 || '').toLowerCase().trim(),
+    (address.city || '').toLowerCase().trim(),
+    (address.state || '').toLowerCase().trim(),
+    (address.zip || '').toLowerCase().trim(),
+    (address.country || '').toLowerCase().trim(),
+  ]);
+}
+
 export class EasyPostShippingVendor implements IShippingVendor {
   private apiKey: string;
 
@@ -29,7 +75,9 @@ export class EasyPostShippingVendor implements IShippingVendor {
     this.apiKey = apiKey;
   }
 
-  private async request(endpoint: string, method: string = 'GET', body?: any): Promise<any> {
+  private async request(endpoint: string, method: string = 'GET', body?: any, retries = 3): Promise<any> {
+    await waitForRateSlot();
+
     const auth = Buffer.from(`${this.apiKey}:`).toString('base64');
     
     const options: RequestInit = {
@@ -45,6 +93,14 @@ export class EasyPostShippingVendor implements IShippingVendor {
     }
 
     const response = await fetch(`${EASYPOST_API_URL}${endpoint}`, options);
+
+    // Retry with exponential backoff on rate-limit (429) or server error (5xx)
+    if ((response.status === 429 || response.status >= 500) && retries > 0) {
+      const backoffMs = Math.pow(2, 4 - retries) * 1000; // 1s, 2s, 4s
+      console.warn(`⚠️ EasyPost ${response.status} on ${endpoint} — retrying in ${backoffMs}ms (${retries} left)`);
+      await new Promise(r => setTimeout(r, backoffMs));
+      return this.request(endpoint, method, body, retries - 1);
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
@@ -232,6 +288,14 @@ export class EasyPostShippingVendor implements IShippingVendor {
     suggested?: Address;
     errors?: string[];
   }> {
+    // Check cache first — avoid redundant EasyPost calls for the same address
+    const cacheKey = addressCacheKey(address);
+    const cached = addressCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      console.log('📬 Address validation cache hit');
+      return cached.result;
+    }
+
     try {
       const payload = {
         address: {
@@ -249,8 +313,9 @@ export class EasyPostShippingVendor implements IShippingVendor {
 
       const response = await this.request('/addresses', 'POST', payload);
 
+      let result: { valid: boolean; suggested?: Address; errors?: string[] };
       if (response.verifications?.delivery?.success) {
-        return {
+        result = {
           valid: true,
           suggested: {
             name: response.name,
@@ -266,11 +331,15 @@ export class EasyPostShippingVendor implements IShippingVendor {
           },
         };
       } else {
-        return {
+        result = {
           valid: false,
           errors: response.verifications?.delivery?.errors?.map((e: any) => e.message) || ['Address verification failed'],
         };
       }
+
+      // Cache the result (even failures, to avoid hammering for bad addresses)
+      addressCache.set(cacheKey, { result, expiresAt: Date.now() + ADDRESS_CACHE_TTL_MS });
+      return result;
     } catch (error: any) {
       return {
         valid: false,
