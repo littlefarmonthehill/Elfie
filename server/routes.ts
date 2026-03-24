@@ -164,6 +164,28 @@ export async function getPlatformBrickLinkCredentials(): Promise<{
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ── One-time startup: deduplicate picklist_items and enforce unique index ──
+  // A race condition in the concurrent batch-create step could produce multiple
+  // picklist_items rows sharing the same order_detail_id. Remove any extras (keep
+  // the oldest by created_at), then create the unique index idempotently so that
+  // future concurrent requests are blocked at the DB level.
+  try {
+    await db.execute(sql`
+      DELETE FROM picklist_items
+      WHERE id NOT IN (
+        SELECT DISTINCT ON (order_detail_id) id
+        FROM picklist_items
+        ORDER BY order_detail_id, created_at ASC
+      )
+    `);
+    await db.execute(sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS picklist_order_detail_unique_idx
+      ON picklist_items (order_detail_id)
+    `);
+  } catch (e) {
+    console.warn('[startup] picklist_items dedup/index skipped:', (e as Error).message);
+  }
+
   // Auth middleware setup - Email/Password Authentication
   await setupAuth(app);
 
@@ -14541,14 +14563,17 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
       const missingDetails = activeOrderDetails.filter(d => !existingDetailIds.has(d.id));
 
       if (missingDetails.length > 0) {
-        // One query for all SKUs, one for all locations — instead of 2 queries per item
+        // One query for all SKUs (by numeric inventory lot ID), one for all locations.
+        // BrickLink order_details.sku stores the BrickLink inventory lot ID (integer),
+        // so we look up bl_inventory by id, not itemNo.
         const skus = [...new Set(missingDetails.map(d => d.sku).filter(Boolean))] as string[];
-        const invBySku = skus.length > 0
+        const skuNums = skus.map(s => parseInt(s, 10)).filter(n => !isNaN(n));
+        const invBySku = skuNums.length > 0
           ? new Map(
               (await db.select({ id: blInventory.id, itemNo: blInventory.itemNo })
                 .from(blInventory)
-                .where(and(eq(blInventory.orgId, orgId), inArray(blInventory.itemNo, skus)))
-              ).map(i => [i.itemNo, i])
+                .where(and(eq(blInventory.orgId, orgId), inArray(blInventory.id, skuNums)))
+              ).map(i => [String(i.id), i])
             )
           : new Map<string, { id: number; itemNo: string }>();
 
@@ -14575,7 +14600,9 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
           };
         });
 
-        await db.insert(picklistItems).values(newRows);
+        // onConflictDoNothing guards against the race condition where two concurrent
+        // requests both pass the existingDetailIds check before either insert commits.
+        await db.insert(picklistItems).values(newRows).onConflictDoNothing();
 
         // Refresh picklist items after insert
         const refreshed = await db.select().from(picklistItems).where(inArray(picklistItems.orderId, orderIds));
