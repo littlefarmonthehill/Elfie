@@ -761,7 +761,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   };
 
   const getLabelSubtext = (item: any) => {
-    if (activeView === 'bins') return [item.shelfName && `Shelf: ${item.shelfName}`, item.aisleName && `Aisle: ${item.aisleName}`].filter(Boolean).join('  ·  ');
+    // Bin name already encodes the full hierarchy (e.g. "1-B-32") — no need to repeat shelf/aisle
+    if (activeView === 'bins') return '';
     if (activeView === 'shelves') return item.aisleName ? `Aisle: ${item.aisleName}` : '';
     return '';
   };
@@ -849,10 +850,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         const sub = getLabelSubtext(item);
         const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
         const breakStyle = i < printItems.length - 1 ? ' style="page-break-after:always;"' : '';
+        const mainStyle = !sub ? ' style="font-size: 160%; letter-spacing: 0.02em;"' : '';
         return `<div class="label"${breakStyle}>
           <img class="qr" src="${qrUrl}" width="${tmpl.qr}" height="${tmpl.qr}" />
           <div class="info">
-            <div class="main">${item.name}</div>
+            <div class="main"${mainStyle}>${item.name}</div>
             ${sub ? `<div class="sub">${sub}</div>` : ''}
           </div>
         </div>`;
@@ -868,10 +870,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         const qrData = getLabelQrData(item);
         const sub = getLabelSubtext(item);
         const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
+        const mainStyle = !sub ? ' style="font-size: 160%; letter-spacing: 0.02em;"' : '';
         return `<div class="label">
           <img class="qr" src="${qrUrl}" width="${tmpl.qr}" height="${tmpl.qr}" />
           <div class="info">
-            <div class="main">${item.name}</div>
+            <div class="main"${mainStyle}>${item.name}</div>
             ${sub ? `<div class="sub">${sub}</div>` : ''}
           </div>
         </div>`;
