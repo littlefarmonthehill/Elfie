@@ -14082,6 +14082,50 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     }
   });
 
+  // Server-side search across ALL inventory (bypasses the 2000-item pre-load limit)
+  app.get("/api/warehouse/inventory/search", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const q = ((req.query.q as string) || '').trim();
+      if (q.length < 1) return res.json([]);
+
+      const results = await db
+        .select({
+          id: blInventory.id,
+          itemNo: blInventory.itemNo,
+          itemName: resolvedCatalogItemName(blInventory.itemNo, blInventory.itemType, blInventory.colorId),
+          colorName: blColors.name,
+          newOrUsed: blInventory.newOrUsed,
+          quantity: blInventory.quantity,
+          assigned: sql<boolean>`EXISTS (
+            SELECT 1 FROM inventory_locations il
+            WHERE il.inventory_id = ${blInventory.id} AND il.org_id = ${orgId}
+          )`,
+        })
+        .from(blInventory)
+        .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .leftJoin(blCatalog, and(
+          eq(blInventory.itemNo, blCatalog.itemNo),
+          eq(blInventory.itemType, blCatalog.itemType),
+          eq(blInventory.colorId, blCatalog.colorId)
+        ))
+        .where(and(
+          eq(blInventory.orgId, orgId),
+          or(
+            ilike(blInventory.itemNo, `${q}%`),
+            ilike(blCatalog.itemName, `%${q}%`)
+          )
+        ))
+        .orderBy(asc(blInventory.itemNo))
+        .limit(150);
+
+      res.json(results);
+    } catch (error) {
+      console.error("Error searching warehouse inventory:", error);
+      res.status(500).json({ error: "Failed to search warehouse inventory" });
+    }
+  });
+
   // Get unassigned inventory items (not in any bin)
   app.get("/api/warehouse/unassigned/inventory", isApproved, async (req: any, res) => {
     try {

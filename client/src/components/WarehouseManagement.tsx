@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -121,7 +121,13 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const [bulkShelfId, setBulkShelfId] = useState<string>("");
   const [bulkAisleId, setBulkAisleId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [showDepthSetup, setShowDepthSetup] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 280);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
   // Lot locations dialog state
   const [lotDialogOpen, setLotDialogOpen] = useState(false);
@@ -191,6 +197,18 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const { data: unassignedShelves = [] } = useQuery<any[]>({ queryKey: ['/api/warehouse/unassigned/shelves'] });
   const { data: inventoryStats } = useQuery<any>({ queryKey: ['/api/inventory/stats'] });
   const { data: locations = [] } = useQuery<any[]>({ queryKey: ['/api/warehouse/locations'] });
+
+  // Server-side search — fires when there's a debounced query, bypasses the pre-load limit
+  const { data: serverSearchResults = [], isFetching: serverSearchLoading } = useQuery<any[]>({
+    queryKey: ['/api/warehouse/inventory/search', debouncedSearch],
+    queryFn: async () => {
+      const res = await fetch(`/api/warehouse/inventory/search?q=${encodeURIComponent(debouncedSearch)}`);
+      if (!res.ok) throw new Error('Search failed');
+      return res.json();
+    },
+    enabled: debouncedSearch.length > 0,
+    staleTime: 30_000,
+  });
 
   // Fetch all locations for the selected lot
   const { data: lotLocations = [], isLoading: lotLocationsLoading } = useQuery<any[]>({
@@ -571,6 +589,19 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   const getFilteredList = () => {
     if (!activeView) return [];
     if (activeView === 'lots') {
+      // When a search query is active, use server-side results (covers full inventory, not just the pre-loaded 2000)
+      if (debouncedSearch.length > 0) {
+        let items = serverSearchResults.map((item: any) => ({
+          ...item,
+          binNames: [],
+          locationCount: 0,
+        }));
+        if (filter === 'assigned') items = items.filter((i: any) => i.assigned);
+        if (filter === 'unassigned') items = items.filter((i: any) => !i.assigned);
+        return items.sort(alphaNumericSort);
+      }
+
+      // No search — use the pre-loaded assigned + unassigned data
       // Group all locations per inventory item (multi-location aware)
       const assignedMap = new Map<number, any>();
       locations.forEach((loc: any) => {
@@ -588,10 +619,6 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
       const assigned = Array.from(assignedMap.values());
       const unassigned = unassignedInventory.map((item: any) => ({ ...item, assigned: false }));
       let items = filter === 'assigned' ? assigned : filter === 'unassigned' ? unassigned : [...assigned, ...unassigned];
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        items = items.filter((i: any) => i.itemNo?.toLowerCase().includes(q) || i.itemName?.toLowerCase().includes(q));
-      }
       return items.sort(alphaNumericSort);
     }
     if (activeView === 'bins') {
@@ -1124,13 +1151,18 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
           {/* Search (lots only) */}
           {activeView === 'lots' && (
-            <Input
-              placeholder="Search by part number or name…"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="text-xs mb-3"
-              data-testid="input-search-lots"
-            />
+            <div className="relative mb-3">
+              <Input
+                placeholder="Search by part number or name…"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="text-xs pr-7"
+                data-testid="input-search-lots"
+              />
+              {serverSearchLoading && (
+                <Loader2 className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+              )}
+            </div>
           )}
 
           {/* Filters + Actions row */}
@@ -1274,9 +1306,14 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
           {/* Item list */}
           <div className="space-y-1 max-h-[calc(100dvh-360px)] min-h-[200px] overflow-y-auto">
-            {filteredList.length === 0 ? (
+            {activeView === 'lots' && debouncedSearch.length > 0 && serverSearchLoading ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-xs">Searching…</span>
+              </div>
+            ) : filteredList.length === 0 ? (
               <p className="text-center text-xs text-muted-foreground py-8">
-                {activeView === 'lots' && filter === 'unassigned' ? "All lots are assigned — great job!" : "Nothing here yet."}
+                {activeView === 'lots' && debouncedSearch.length > 0 ? `No lots matching "${debouncedSearch}".` : activeView === 'lots' && filter === 'unassigned' ? "All lots are assigned — great job!" : "Nothing here yet."}
               </p>
             ) : filteredList.map((item: any) => (
               <div
