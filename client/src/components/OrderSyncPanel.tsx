@@ -129,10 +129,17 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
   }, [isRunning]);
 
   const syncMutation = useMutation({
-    mutationFn: () => apiRequest('POST', cfg.syncRoute, {}),
-    onSuccess: () => {
+    mutationFn: (fullSync = false) => apiRequest('POST', cfg.syncRoute, { fullSync }),
+    onSuccess: (_data, fullSync) => {
       queryClient.invalidateQueries({ queryKey: ['/api/sync/statuses'] });
-      toast({ title: `${cfg.label} order sync started`, description: 'Orders are syncing in the background.' });
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/stats'] });
+      toast({
+        title: fullSync ? `${cfg.label} full sync started` : `${cfg.label} order sync started`,
+        description: fullSync
+          ? 'Fetching all orders from the beginning — this may take a moment.'
+          : 'Orders are syncing in the background.',
+      });
     },
     onError: (err: any) => {
       toast({ title: 'Sync failed', description: err?.message || `Could not start ${cfg.label} order sync.`, variant: 'destructive' });
@@ -226,7 +233,7 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
                 size="sm"
                 variant="secondary"
                 disabled={isSyncing}
-                onClick={() => syncMutation.mutate()}
+                onClick={() => syncMutation.mutate(false)}
                 data-testid={`button-order-sync-${platform}`}
               >
                 {isSyncing ? (
@@ -235,6 +242,16 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
                   <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
                 )}
                 {isRunning ? 'Syncing…' : 'Sync Now'}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={isSyncing}
+                onClick={() => syncMutation.mutate(true)}
+                data-testid={`button-order-full-sync-${platform}`}
+              >
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                Full Sync
               </Button>
               <Button
                 size="sm"
