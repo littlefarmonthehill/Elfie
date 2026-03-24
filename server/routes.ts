@@ -9617,20 +9617,52 @@ Format search_web URLs as markdown links.`;
 
           // Resolve type mismatches in parallel batches of 5.
           // lookupBoid uses an in-process cache — repeat scans are instant.
+          // We go straight to MINIFIG type (skipping PART) because these c0N items are
+          // cataloged as Minifigure in BO — a PART lookup always returns null for them.
+          const assemblyCandidates = unmatchedEntries.filter(
+            ([, blItem]) => blItem.itemType === 'PART' && ASSEMBLY_PATTERN.test(blItem.itemNo)
+          );
+          console.log(`[TypeMismatch] ${unmatchedEntries.length} unmatched BL lots, ${assemblyCandidates.length} c0N PART candidates, ${unlinkedBoidCondSet.size} unlinked BO boid:cond pairs`);
+          if (unlinkedBoidCondSet.size > 0) {
+            // Log first few entries from the set so we can see the boid format
+            const sample = Array.from(unlinkedBoidCondSet).slice(0, 5);
+            console.log(`[TypeMismatch] Unlinked set sample: ${sample.join(', ')}`);
+          }
+
           const CONCURRENCY = 5;
           const typeMismatchFlags: boolean[] = new Array(unmatchedEntries.length).fill(false);
-          for (let i = 0; i < unmatchedEntries.length; i += CONCURRENCY) {
-            const chunk = unmatchedEntries.slice(i, i + CONCURRENCY);
+
+          // Only run BOID lookups for assembly candidates
+          const assemblyResults: boolean[] = new Array(assemblyCandidates.length).fill(false);
+          let boidHits = 0;
+          let setHits = 0;
+          for (let i = 0; i < assemblyCandidates.length; i += CONCURRENCY) {
+            const chunk = assemblyCandidates.slice(i, i + CONCURRENCY);
             const results = await Promise.all(chunk.map(async ([, blItem]) => {
-              if (blItem.itemType !== 'PART' || !ASSEMBLY_PATTERN.test(blItem.itemNo)) return false;
-              // Try Part first (cache hit if sync ran recently), then Minifigure fallback
-              let boid = await lookupBoid(blItem.itemNo, 'PART');
-              if (!boid) boid = await lookupBoid(blItem.itemNo, 'MINIFIG');
+              // Go directly to MINIFIG — Part lookup always returns null for torso assemblies
+              const boid = await lookupBoid(blItem.itemNo, 'MINIFIG');
               if (!boid) return false;
-              const condition = blItem.newOrUsed === 'N' ? 'new' : 'usedg';
-              return unlinkedBoidCondSet.has(`${boid}:${condition}`);
+              boidHits++;
+              // BL uses N/U; BO uses 'new'/'usedg'. Also accept bare 'used' as a fallback.
+              const condNew = blItem.newOrUsed === 'N';
+              const matched =
+                unlinkedBoidCondSet.has(`${boid}:${condNew ? 'new' : 'usedg'}`) ||
+                unlinkedBoidCondSet.has(`${boid}:${condNew ? 'new' : 'used'}`);
+              if (matched) setHits++;
+              return matched;
             }));
-            for (let j = 0; j < results.length; j++) typeMismatchFlags[i + j] = results[j];
+            for (let j = 0; j < results.length; j++) assemblyResults[i + j] = results[j];
+          }
+          console.log(`[TypeMismatch] BOID hits: ${boidHits}/${assemblyCandidates.length}, set matches: ${setHits}`);
+
+          // Map assembly results back into typeMismatchFlags (assemblyCandidates is a filtered
+          // subset of unmatchedEntries in the same order, so we traverse both together)
+          let assemblyIdx = 0;
+          for (let i = 0; i < unmatchedEntries.length; i++) {
+            const [, blItem] = unmatchedEntries[i];
+            if (blItem.itemType === 'PART' && ASSEMBLY_PATTERN.test(blItem.itemNo)) {
+              typeMismatchFlags[i] = assemblyResults[assemblyIdx++];
+            }
           }
 
           // Categorise into truly missing vs type mismatch
