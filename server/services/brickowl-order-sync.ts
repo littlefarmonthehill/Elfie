@@ -217,20 +217,6 @@ async function processBrickOwlOrder(
   // Fetch full order details (including items)
   const brickOwlOrderData = await getBrickOwlOrderDetails(apiKey, boOrder.order_id);
 
-  // Temporary: log raw field names to identify correct BrickOwl API money fields
-  {
-    const moneyKeys = ['total_price','total','grand_total','base_order_amount','sub_total',
-      'order_total','amount','shipping_cost','ship_cost','base_ship_amount','total_shipping','shipping',
-      'vat','vat_amount','tax','tax_amount'];
-    const fromDetail: Record<string, any> = {};
-    const fromList: Record<string, any> = {};
-    for (const k of moneyKeys) {
-      if (brickOwlOrderData[k] !== undefined) fromDetail[k] = brickOwlOrderData[k];
-      if (boOrder[k] !== undefined) fromList[k] = boOrder[k];
-    }
-    console.log(`🔍 [BO money fields] order ${orderId} — detail:`, JSON.stringify(fromDetail), '| list:', JSON.stringify(fromList));
-  }
-
   // Safely parse order date - prefer ISO format from list API, then detail view, then now
   const orderDate =
     safeTimestampToDate(boOrder.iso_order_time, boOrder.order_time) ??
@@ -262,23 +248,26 @@ async function processBrickOwlOrder(
     billTo: null,
     shipByDate: null,
     orderTotal: (
+      brickOwlOrderData.sub_total ??
       brickOwlOrderData.total_price ??
       brickOwlOrderData.total ??
       brickOwlOrderData.grand_total ??
       brickOwlOrderData.base_order_amount ??
+      brickOwlOrderData.order_total ??
       0
     ).toString(),
     shippingAmount: (
-      brickOwlOrderData.shipping_cost ??
       brickOwlOrderData.ship_cost ??
+      brickOwlOrderData.shipping_cost ??
       brickOwlOrderData.base_ship_amount ??
       brickOwlOrderData.total_shipping ??
+      brickOwlOrderData.shipping ??
       0
     ).toString(),
     taxAmount: (
+      brickOwlOrderData.tax_amount ??
       brickOwlOrderData.vat ??
       brickOwlOrderData.vat_amount ??
-      brickOwlOrderData.tax_amount ??
       brickOwlOrderData.tax ??
       0
     ).toString(),

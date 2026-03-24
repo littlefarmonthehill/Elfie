@@ -363,8 +363,13 @@ export async function adjustBrickLinkInventoryDelta(
     console.log(`✓ BrickLink: Adjusted inventory ${inventoryId} by ${deltaStr}`);
     return { success: true };
   } catch (error: any) {
-    console.error(`✗ BrickLink adjustment failed for inventory ${inventoryId}:`, error);
-    return { success: false, error: error.message || 'Unknown error' };
+    const msg: string = error?.message || 'Unknown error';
+    if (msg.includes('credentials not configured')) {
+      console.warn(`⚠️  BrickLink adjustment skipped for inventory ${inventoryId}: credentials not configured`);
+    } else {
+      console.error(`✗ BrickLink adjustment failed for inventory ${inventoryId}:`, error);
+    }
+    return { success: false, error: msg };
   }
 }
 
