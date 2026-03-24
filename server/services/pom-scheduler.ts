@@ -9,14 +9,13 @@ import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 const ORG_ID = PLATFORM_ORG_ID;
 
 // Return all orgs that have BrickLink credentials configured.
-// Falls back to PLATFORM_ORG_ID only if no org-level credentials exist (backward compat).
+// Returns empty array if none — no fallback to any default org.
 async function getEnabledPomOrgs(): Promise<string[]> {
   const rows = await db
     .select({ id: appSettings.id })
     .from(appSettings)
     .where(and(isNotNull(appSettings.bricklinkConsumerKey), ne(appSettings.bricklinkConsumerKey, '')));
-  if (rows.length > 0) return rows.map(r => r.id);
-  return [PLATFORM_ORG_ID];
+  return rows.map(r => r.id);
 }
 
 const SYNC_TYPE = 'priceomatic_sync';
@@ -178,6 +177,11 @@ async function runScheduledPomSync(batchSize: number) {
 
   // Resolve orgs to sync — each org uses its own BL credentials.
   const orgs = await getEnabledPomOrgs();
+  if (orgs.length === 0) {
+    console.warn('[POM] No orgs with BrickLink credentials found — skipping scheduled sync. Configure BL credentials in Settings > API Credentials.');
+    syncLock.release('Price-o-Matic');
+    return;
+  }
   console.log(`[POM] Starting scheduled sync for ${orgs.length} org(s) (batch: ${batchSize} items each)...`);
 
   await db.insert(syncMetadata).values({

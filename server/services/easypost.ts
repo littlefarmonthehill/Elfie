@@ -377,7 +377,7 @@ export async function getShippingVendor(apiKey?: string, orgId?: string): Promis
   }
 
   if (!apiKey) {
-    throw new Error('EasyPost API key not configured. Please add it in Settings.');
+    throw new Error(`[EasyPost] EasyPost API key is not configured for org "${orgId}". Add it in Settings > API Credentials.`);
   }
 
   return new EasyPostShippingVendor(apiKey);

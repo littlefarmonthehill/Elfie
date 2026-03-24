@@ -89,15 +89,11 @@ export interface BrickOwlInventoryLot {
 
 // Make a BrickOwl API GET request
 async function brickowlGet(endpoint: string, params?: Record<string, string>, orgId?: string): Promise<any> {
-  // Get API key: prefer org-specific key when orgId supplied, otherwise first available
-  const [settings] = orgId
-    ? await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1)
-    : await db.select().from(appSettings).where(isNotNull(appSettings.brickowlApiKey)).limit(1);
-
-  const apiKey = settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY;
-  
+  if (!orgId) throw new Error('[BrickOwl] orgId is required — BrickOwl credentials are per-org.');
+  const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
+  const apiKey = settings?.brickowlApiKey;
   if (!apiKey) {
-    throw new Error('BrickOwl API key not configured. Please add it in Settings > API Credentials.');
+    throw new Error(`[BrickOwl] BrickOwl API key is not configured for org "${orgId}". Add it in Settings > API Credentials.`);
   }
 
   // Build URL with API key and params
@@ -120,15 +116,11 @@ async function brickowlGet(endpoint: string, params?: Record<string, string>, or
 
 // Make a BrickOwl API POST request
 async function brickowlPost(endpoint: string, data: Record<string, any>, orgId?: string): Promise<any> {
-  // Get API key: prefer org-specific key when orgId supplied, otherwise first available
-  const [settings] = orgId
-    ? await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1)
-    : await db.select().from(appSettings).where(isNotNull(appSettings.brickowlApiKey)).limit(1);
-
-  const apiKey = settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY;
-  
+  if (!orgId) throw new Error('[BrickOwl] orgId is required — BrickOwl credentials are per-org.');
+  const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
+  const apiKey = settings?.brickowlApiKey;
   if (!apiKey) {
-    throw new Error('BrickOwl API key not configured. Please add it in Settings > API Credentials.');
+    throw new Error(`[BrickOwl] BrickOwl API key is not configured for org "${orgId}". Add it in Settings > API Credentials.`);
   }
 
   // BrickOwl requires application/x-www-form-urlencoded for POST
@@ -309,11 +301,10 @@ async function brickowlBatch(
   requests: Array<{ endpoint: string; request_method: 'GET' | 'POST'; params: Record<string, any>[] }>,
   orgId?: string,
 ): Promise<any[]> {
-  const [settings] = orgId
-    ? await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1)
-    : await db.select().from(appSettings).where(isNotNull(appSettings.brickowlApiKey)).limit(1);
-  const apiKey = settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY;
-  if (!apiKey) throw new Error('BrickOwl API key not configured. Please add it in Settings > API Credentials.');
+  if (!orgId) throw new Error('[BrickOwl] orgId is required — BrickOwl credentials are per-org.');
+  const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
+  const apiKey = settings?.brickowlApiKey;
+  if (!apiKey) throw new Error(`[BrickOwl] BrickOwl API key is not configured for org "${orgId}". Add it in Settings > API Credentials.`);
 
   // BrickOwl expects the requests field value to be the full JSON object
   // {"requests":[...]}, not just the raw array [...] — see API docs example.

@@ -78,7 +78,8 @@ async function getOrgCallCeiling(orgId: string): Promise<number> {
   return BL_API_CALLS_PER_DAY_DEFAULT;
 }
 
-// Resolve BrickLink credentials: platform schedulers → platform_settings, org calls → app_settings
+// Resolve BrickLink credentials: platform schedulers → platform_settings, org calls → app_settings.
+// Throws if credentials are missing — no silent fallbacks.
 async function getBricklinkCredentials(orgId: string): Promise<{ consumerKey: string; consumerSecret: string; tokenValue: string; tokenSecret: string }> {
   if (orgId === PLATFORM_ORG_ID) {
     const [platRow] = await db
@@ -86,24 +87,28 @@ async function getBricklinkCredentials(orgId: string): Promise<{ consumerKey: st
       .from(platformSettings)
       .where(eq(platformSettings.id, 'platform'))
       .limit(1);
-    return {
-      consumerKey:    cleanToken(platRow?.blConsumerKey    || process.env.BRICKLINK_CONSUMER_KEY    || ''),
-      consumerSecret: cleanToken(platRow?.blConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || ''),
-      tokenValue:     cleanToken(platRow?.blTokenValue     || process.env.BRICKLINK_TOKEN_VALUE     || ''),
-      tokenSecret:    cleanToken(platRow?.blTokenSecret    || process.env.BRICKLINK_TOKEN_SECRET    || ''),
-    };
+    const consumerKey    = cleanToken(platRow?.blConsumerKey    || process.env.BRICKLINK_CONSUMER_KEY    || '');
+    const consumerSecret = cleanToken(platRow?.blConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || '');
+    const tokenValue     = cleanToken(platRow?.blTokenValue     || process.env.BRICKLINK_TOKEN_VALUE     || '');
+    const tokenSecret    = cleanToken(platRow?.blTokenSecret    || process.env.BRICKLINK_TOKEN_SECRET    || '');
+    if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
+      throw new Error('[BrickLink] Platform BrickLink credentials are not configured. Add them in Platform Settings.');
+    }
+    return { consumerKey, consumerSecret, tokenValue, tokenSecret };
   }
   const [orgRow] = await db
     .select({ bricklinkConsumerKey: appSettings.bricklinkConsumerKey, bricklinkConsumerSecret: appSettings.bricklinkConsumerSecret, bricklinkTokenValue: appSettings.bricklinkTokenValue, bricklinkTokenSecret: appSettings.bricklinkTokenSecret })
     .from(appSettings)
     .where(eq(appSettings.orgId, orgId))
     .limit(1);
-  return {
-    consumerKey:    cleanToken(orgRow?.bricklinkConsumerKey    || ''),
-    consumerSecret: cleanToken(orgRow?.bricklinkConsumerSecret || ''),
-    tokenValue:     cleanToken(orgRow?.bricklinkTokenValue     || ''),
-    tokenSecret:    cleanToken(orgRow?.bricklinkTokenSecret    || ''),
-  };
+  const consumerKey    = cleanToken(orgRow?.bricklinkConsumerKey    || '');
+  const consumerSecret = cleanToken(orgRow?.bricklinkConsumerSecret || '');
+  const tokenValue     = cleanToken(orgRow?.bricklinkTokenValue     || '');
+  const tokenSecret    = cleanToken(orgRow?.bricklinkTokenSecret    || '');
+  if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
+    throw new Error(`[BrickLink] BrickLink credentials are not configured for org "${orgId}". Add them in Settings > API Credentials.`);
+  }
+  return { consumerKey, consumerSecret, tokenValue, tokenSecret };
 }
 
 // Check rate limit status for the last 24 hours — scoped to a single org
