@@ -301,7 +301,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     queryKey: ['/api/fulfillment'],
     staleTime: 0,
     refetchInterval: 10000,
-    refetchIntervalInBackground: false,
+    refetchIntervalInBackground: true,
   });
 
   // Fetch settings to determine EasyPost key mode
@@ -316,7 +316,9 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
   // EOD-eligible EasyPost shipments (purchased, not yet on any SCAN form)
   const { data: endOfDayData } = useQuery<{ count: number; shipments: any[] }>({
     queryKey: ['/api/shipments/end-of-day'],
-    staleTime: 30000,
+    staleTime: 0,
+    refetchInterval: 15000,
+    refetchIntervalInBackground: true,
   });
 
   const scanFormMutation = useMutation({
