@@ -254,6 +254,16 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     } catch { /* ignore */ }
   }, [selectedOrders]);
 
+  // Reconcile selection whenever orders data changes — drop any IDs that no longer exist
+  useEffect(() => {
+    if (!data?.orders) return;
+    const validIds = new Set(data.orders.map(o => o.id));
+    setSelectedOrders(prev => {
+      const next = new Set([...prev].filter(id => validIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [data?.orders]);
+
   // Slide-in animation: one frame delay so CSS transition has something to transition from
   useEffect(() => {
     if (drawerOpen) requestAnimationFrame(() => setDrawerVisible(true));
