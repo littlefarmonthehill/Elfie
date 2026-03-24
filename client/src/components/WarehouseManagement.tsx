@@ -599,7 +599,8 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         }));
         if (filter === 'assigned') items = items.filter((i: any) => i.assigned);
         if (filter === 'unassigned') items = items.filter((i: any) => !i.assigned);
-        return items.sort(alphaNumericSort);
+        // Preserve server-returned order: bucket 1 (itemNo prefix matches) always before bucket 2 (name matches)
+        return items;
       }
 
       // No search — use the pre-loaded assigned + unassigned data
