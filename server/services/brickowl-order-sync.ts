@@ -197,13 +197,26 @@ async function processBrickOwlOrder(
     .limit(1);
   
   if (!existingOrder) {
-    const [legacyOrder] = await db
+    // Try legacy BO. prefixed order_number format first
+    const [legacyOrderBo] = await db
       .select()
       .from(orders)
       .where(eq(orders.orderNumber, `BO.${boOrder.order_id}`))
       .limit(1);
-    if (legacyOrder) {
-      existingOrder = legacyOrder;
+    if (legacyOrderBo) {
+      existingOrder = legacyOrderBo;
+    }
+  }
+
+  if (!existingOrder) {
+    // Also try plain numeric order_number (old records stored order_number without any prefix)
+    const [legacyOrderNumeric] = await db
+      .select()
+      .from(orders)
+      .where(eq(orders.orderNumber, String(boOrder.order_id)))
+      .limit(1);
+    if (legacyOrderNumeric) {
+      existingOrder = legacyOrderNumeric;
     }
   }
   
