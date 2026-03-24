@@ -128,6 +128,7 @@ export async function adjustInventoryForOrder(orderId: string) {
               newQuantity: inventoryItem.quantity,       // Absolute — for BrickOwl
               quantityDelta: adj.quantityChange,          // Delta — for BrickLink
               sourcePlatform,
+              orgId: order.orgId,                        // Use org credentials, not platform
             });
           }
         }

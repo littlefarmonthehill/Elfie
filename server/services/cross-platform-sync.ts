@@ -104,7 +104,7 @@ async function updateBrickOwlQuantity(
 async function updateBrickLinkQuantityDelta(
   item: SyncItem
 ): Promise<{ success: boolean; error?: string }> {
-  const { inventoryId, quantityDelta, orderId, orderNumber, itemNo } = item;
+  const { inventoryId, quantityDelta, orderId, orderNumber, itemNo, orgId } = item;
   try {
     const numericId = parseInt(inventoryId, 10);
     if (isNaN(numericId)) {
@@ -121,7 +121,7 @@ async function updateBrickLinkQuantityDelta(
       });
       return { success: false, error: errMsg };
     }
-    const result = await adjustBrickLinkInventoryDelta(numericId, quantityDelta);
+    const result = await adjustBrickLinkInventoryDelta(numericId, quantityDelta, orgId);
     if (!result.success && result.error) {
       await recordSyncIssue({
         syncType: 'cross_platform_sync',
