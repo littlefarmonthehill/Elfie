@@ -11904,7 +11904,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       if ((result.bricklink.ordersAdded ?? 0) > 0) {
         const orgId = reqOrgId(req);
         const { sendOrderSyncNotifications } = await import("./services/push-notifications");
-        const newRows = await db.select({ orderNumber: orders.orderNumber, shippingTier: orders.shippingTier })
+        const newRows = await db.select({ orderNumber: orders.orderNumber })
           .from(orders).where(eq(orders.orgId, orgId)).orderBy(desc(orders.syncedAt)).limit(result.bricklink.ordersAdded!);
         sendOrderSyncNotifications(orgId, newRows).catch(() => {});
       }
@@ -11925,7 +11925,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       if ((result.brickowl.ordersAdded ?? 0) > 0) {
         const orgId = reqOrgId(req);
         const { sendOrderSyncNotifications } = await import("./services/push-notifications");
-        const newRows = await db.select({ orderNumber: orders.orderNumber, shippingTier: orders.shippingTier })
+        const newRows = await db.select({ orderNumber: orders.orderNumber })
           .from(orders).where(eq(orders.orgId, orgId)).orderBy(desc(orders.syncedAt)).limit(result.brickowl.ordersAdded!);
         sendOrderSyncNotifications(orgId, newRows).catch(() => {});
       }
@@ -11949,7 +11949,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       if (totalAdded > 0) {
         const orgId = reqOrgId(req);
         const { sendOrderSyncNotifications } = await import("./services/push-notifications");
-        const newRows = await db.select({ orderNumber: orders.orderNumber, shippingTier: orders.shippingTier })
+        const newRows = await db.select({ orderNumber: orders.orderNumber })
           .from(orders).where(eq(orders.orgId, orgId)).orderBy(desc(orders.syncedAt)).limit(totalAdded);
         sendOrderSyncNotifications(orgId, newRows).catch(() => {});
       }
