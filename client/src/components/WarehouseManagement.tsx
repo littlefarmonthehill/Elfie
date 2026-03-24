@@ -761,8 +761,11 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
   };
 
   const getLabelSubtext = (item: any) => {
-    // Bin name already encodes the full hierarchy (e.g. "1-B-32") — no need to repeat shelf/aisle
-    if (activeView === 'bins') return '';
+    if (activeView === 'bins') {
+      // Show hierarchy once in navigation order — Aisle → Shelf (bin name already has everything encoded)
+      const parts = [item.aisleName && `Aisle ${item.aisleName}`, item.shelfName && `Shelf ${item.shelfName}`].filter(Boolean);
+      return parts.join(' → ');
+    }
     if (activeView === 'shelves') return item.aisleName ? `Aisle: ${item.aisleName}` : '';
     return '';
   };
@@ -850,7 +853,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         const sub = getLabelSubtext(item);
         const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
         const breakStyle = i < printItems.length - 1 ? ' style="page-break-after:always;"' : '';
-        const mainStyle = !sub ? ' style="font-size: 160%; letter-spacing: 0.02em;"' : '';
+        const mainStyle = activeView === 'bins'
+          ? ' style="font-size: 140%; letter-spacing: 0.02em;"'
+          : (!sub ? ' style="font-size: 160%; letter-spacing: 0.02em;"' : '');
         return `<div class="label"${breakStyle}>
           <img class="qr" src="${qrUrl}" width="${tmpl.qr}" height="${tmpl.qr}" />
           <div class="info">
@@ -870,7 +875,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
         const qrData = getLabelQrData(item);
         const sub = getLabelSubtext(item);
         const qrUrl = `${origin}/api/warehouse/labels/qr?data=${encodeURIComponent(qrData)}&size=${tmpl.qr * 2}`;
-        const mainStyle = !sub ? ' style="font-size: 160%; letter-spacing: 0.02em;"' : '';
+        const mainStyle = activeView === 'bins'
+          ? ' style="font-size: 140%; letter-spacing: 0.02em;"'
+          : (!sub ? ' style="font-size: 160%; letter-spacing: 0.02em;"' : '');
         return `<div class="label">
           <img class="qr" src="${qrUrl}" width="${tmpl.qr}" height="${tmpl.qr}" />
           <div class="info">
