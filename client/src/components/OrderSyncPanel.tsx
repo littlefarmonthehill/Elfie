@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import {
   RefreshCw,
@@ -148,6 +149,25 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
 
   const isSyncing = syncMutation.isPending || isRunning;
 
+  // Animate a fake progress bar while syncing (no server-side progress tracking for orders)
+  const [syncProgress, setSyncProgress] = useState(0);
+  useEffect(() => {
+    if (!isRunning) {
+      setSyncProgress(0);
+      return;
+    }
+    setSyncProgress(8);
+    const interval = setInterval(() => {
+      setSyncProgress(prev => {
+        if (prev >= 88) return prev;
+        // Slow down as it approaches 88%
+        const step = prev < 40 ? 4 : prev < 70 ? 2 : 1;
+        return Math.min(prev + step, 88);
+      });
+    }, 800);
+    return () => clearInterval(interval);
+  }, [isRunning]);
+
   const platformData = orderSyncStatus?.platforms?.find((p: any) => p.name === cfg.label);
   const stats = platformData?.stats;
 
@@ -203,6 +223,10 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
             <span className="text-[10px] text-gray-500">Never synced</span>
           )}
         </div>
+
+        {isRunning && (
+          <Progress value={syncProgress} className="h-0.5 mt-1" />
+        )}
       </button>
 
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
@@ -280,8 +304,10 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
               <div className="space-y-2 rounded-lg border border-blue-500/30 bg-blue-950/20 p-3">
                 <div className="flex items-center gap-2 text-xs text-blue-300">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span className="font-medium">Sync in progress</span>
+                  <span className="font-medium flex-1">Sync in progress</span>
+                  <span className="tabular-nums font-mono text-blue-400">{syncProgress}%</span>
                 </div>
+                <Progress value={syncProgress} className="h-1.5" />
               </div>
             )}
 
