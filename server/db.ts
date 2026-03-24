@@ -1949,6 +1949,46 @@ export async function runMigrations() {
       console.log('[Migration] Phase-78 (old numeric-ID BrickOwl orders) — none needed fixing, skipped.');
     }
 
+    // ── Phase-79: Copy platform row from app_settings → platform_settings, then delete the platform org row ──
+    // Idempotency: only runs while app_settings still has a 'platform' row.
+    const { rows: _p79Chk } = await client.query(
+      `SELECT 1 FROM app_settings WHERE id = 'platform' LIMIT 1`
+    );
+    if (_p79Chk.length > 0) {
+      // 1. Copy BrickLink credentials (only overwrite if platform_settings value is currently null/empty)
+      await client.query(`
+        UPDATE platform_settings ps SET
+          bl_consumer_key    = COALESCE(NULLIF(ps.bl_consumer_key, ''),    (SELECT bricklink_consumer_key    FROM app_settings WHERE id = 'platform' LIMIT 1)),
+          bl_consumer_secret = COALESCE(NULLIF(ps.bl_consumer_secret, ''), (SELECT bricklink_consumer_secret FROM app_settings WHERE id = 'platform' LIMIT 1)),
+          bl_token_value     = COALESCE(NULLIF(ps.bl_token_value, ''),     (SELECT bricklink_token_value     FROM app_settings WHERE id = 'platform' LIMIT 1)),
+          bl_token_secret    = COALESCE(NULLIF(ps.bl_token_secret, ''),    (SELECT bricklink_token_secret    FROM app_settings WHERE id = 'platform' LIMIT 1))
+        WHERE ps.id = 'platform'
+      `);
+      // 2. Copy platform_name (only if currently null)
+      await client.query(`
+        UPDATE platform_settings ps SET
+          platform_name = COALESCE(ps.platform_name, (SELECT platform_name FROM app_settings WHERE id = 'platform' LIMIT 1))
+        WHERE ps.id = 'platform'
+      `);
+      // 3. Copy stripe_secret_key (only if currently null/empty)
+      await client.query(`
+        UPDATE platform_settings ps SET
+          stripe_secret_key = COALESCE(NULLIF(ps.stripe_secret_key, ''), (SELECT stripe_secret_key FROM app_settings WHERE id = 'platform' LIMIT 1))
+        WHERE ps.id = 'platform'
+      `);
+      // 4. Sync bl_api_call_limit — take the higher of the two values
+      await client.query(`
+        UPDATE platform_settings ps SET
+          bl_api_call_limit = GREATEST(ps.bl_api_call_limit, (SELECT bl_api_call_limit FROM app_settings WHERE id = 'platform' LIMIT 1))
+        WHERE ps.id = 'platform'
+      `);
+      // 5. Delete the platform org row from app_settings — it is fully replaced by platform_settings
+      await client.query(`DELETE FROM app_settings WHERE id = 'platform'`);
+      console.log('[Migration] Phase-79 (copy platform app_settings → platform_settings + delete platform org row) complete.');
+    } else {
+      console.log('[Migration] Phase-79 (remove platform org row) — already removed, skipped.');
+    }
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
