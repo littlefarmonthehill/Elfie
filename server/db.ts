@@ -1914,6 +1914,41 @@ export async function runMigrations() {
       console.log('[Migration] Phase-77 (old unmatched bo- orders) — none needed fixing, skipped.');
     }
 
+    // Phase-78: Restore inventory and mark old numeric-ID BrickOwl orders as shipped.
+    // These pre-date the app and were confirmed shipped externally. Same logic as Phase-77
+    // but targets old-format orders that use numeric IDs instead of the bo- prefix.
+    const oldNumericBoResult = await client.query(`
+      SELECT id
+      FROM orders
+      WHERE marketplace = 'BrickOwl'
+        AND LEFT(id::text, 3) != 'bo-'
+        AND order_status NOT IN ('shipped', 'cancelled', 'returned')
+        AND order_date < CURRENT_DATE
+    `);
+    const oldNumericCount = oldNumericBoResult.rowCount ?? 0;
+    if (oldNumericCount > 0) {
+      const ids = (oldNumericBoResult.rows as any[]).map(r => String(r.id));
+      // Restore bl_inventory for orders where inventory was previously deducted
+      await client.query(`
+        UPDATE bl_inventory bi
+        SET quantity = bi.quantity + od.quantity
+        FROM order_details od
+        JOIN orders o ON o.id = od.order_id
+        WHERE od.bricklink_inventory_id = bi.id
+          AND od.order_id = ANY($1::text[])
+          AND o.inventory_deducted = true
+      `, [ids]);
+      // Mark all as shipped — keep inventory_deducted=true as a permanent lock
+      await client.query(`
+        UPDATE orders
+        SET order_status = 'shipped', workflow_status = 'shipped'
+        WHERE id = ANY($1::text[])
+      `, [ids]);
+      console.log(`[Migration] Phase-78 (restored inventory + marked ${oldNumericCount} old numeric-ID BrickOwl orders as shipped) complete.`);
+    } else {
+      console.log('[Migration] Phase-78 (old numeric-ID BrickOwl orders) — none needed fixing, skipped.');
+    }
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
