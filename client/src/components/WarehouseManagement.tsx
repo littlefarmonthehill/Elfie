@@ -1148,7 +1148,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   </SelectTrigger>
                   <SelectContent>
                     {shelves.map((s: any) => (
-                      <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                      <SelectItem key={s.id} value={String(s.id)}>
+                        {s.aisleName ? `${s.aisleName} → ${s.name}` : s.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1644,7 +1646,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   </SelectTrigger>
                   <SelectContent>
                     {shelves.map((s: any) => (
-                      <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                      <SelectItem key={s.id} value={String(s.id)}>
+                        {s.aisleName ? `${s.aisleName} → ${s.name}` : s.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1679,7 +1683,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   </SelectTrigger>
                   <SelectContent>
                     {shelves.map((s: any) => (
-                      <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                      <SelectItem key={s.id} value={String(s.id)}>
+                        {s.aisleName ? `${s.aisleName} → ${s.name}` : s.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -2133,7 +2139,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                   <SelectTrigger><SelectValue placeholder="No shelf" /></SelectTrigger>
                   <SelectContent>
                     {shelves.map((s: any) => (
-                      <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
+                      <SelectItem key={s.id} value={String(s.id)}>
+                        {s.aisleName ? `${s.aisleName} → ${s.name}` : s.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
