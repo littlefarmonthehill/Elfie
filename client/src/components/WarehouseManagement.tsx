@@ -1178,9 +1178,9 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
 
             <div className="flex gap-1 flex-wrap">
               {/* Select All / Deselect All */}
-              {(activeView === 'bins' || activeView === 'shelves' || activeView === 'aisles') && filteredList.length > 0 && (
+              {(activeView === 'bins' || activeView === 'shelves' || activeView === 'aisles' || activeView === 'lots') && filteredList.length > 0 && (
                 <>
-                  {selectedItems.size === filteredList.length ? (
+                  {selectedItems.size > 0 && selectedItems.size === filteredList.length ? (
                     <Button size="sm" variant="ghost" onClick={() => setSelectedItems(new Set())}
                       className="text-[10px] md:text-xs" data-testid="button-deselect-all">
                       <CheckSquare className="w-3 h-3 mr-1 text-purple-400" />
@@ -1190,14 +1190,16 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
                     <Button size="sm" variant="ghost" onClick={handleSelectAll}
                       className="text-[10px] md:text-xs" data-testid="button-select-all">
                       <Square className="w-3 h-3 mr-1" />
-                      Select All
+                      Select All {activeView === 'lots' && filteredList.length > 0 ? `(${filteredList.length})` : ''}
                     </Button>
                   )}
-                  <Button size="sm" variant="outline" onClick={handlePrintAll}
-                    className="text-[10px] md:text-xs gap-1" data-testid="button-print-all-labels">
-                    <Printer className="w-3 h-3" />
-                    Print All
-                  </Button>
+                  {activeView !== 'lots' && (
+                    <Button size="sm" variant="outline" onClick={handlePrintAll}
+                      className="text-[10px] md:text-xs gap-1" data-testid="button-print-all-labels">
+                      <Printer className="w-3 h-3" />
+                      Print All
+                    </Button>
+                  )}
                 </>
               )}
               {activeView === 'lots' && unassignedInventory.length > 0 && (
