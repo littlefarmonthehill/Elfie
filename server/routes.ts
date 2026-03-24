@@ -12297,6 +12297,8 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         priceomatic: pick('priceomatic_cache'),
         channel: pick('channel_sync'),
         orders: ordersMeta,
+        bricklink_orders: pick('bricklink_orders'),
+        brickowl_orders: pick('brickowl_orders'),
         rebrickable: pick('rebrickable_set_parts'),
       });
     } catch (error) {
