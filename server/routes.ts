@@ -9818,7 +9818,7 @@ Format search_web URLs as markdown links.`;
             const chunk = assemblyCandidates.slice(i, i + CONCURRENCY);
             const results = await Promise.all(chunk.map(async ([, blItem]) => {
               // Go directly to MINIFIG — Part lookup always returns null for torso assemblies
-              const boid = await lookupBoid(blItem.itemNo, 'MINIFIG');
+              const boid = await lookupBoid(blItem.itemNo, 'MINIFIG', undefined, orgId);
               if (!boid) return false;
               boidHits++;
               // BL uses N/U; BO uses 'new'/'usedg'. Also accept bare 'used' as a fallback.
