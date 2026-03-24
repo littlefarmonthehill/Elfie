@@ -1875,6 +1875,30 @@ export async function runMigrations() {
       console.log('[Migration] Phase-76 (duplicate bo- BrickOwl orders) — none found, skipped.');
     }
 
+    // Phase-77: Mark old bo- BrickOwl orders with no numeric counterpart as shipped.
+    // These orders (pre-dating today) were never in the system before and were confirmed
+    // shipped by the store owner. Their inventory deduction was correct; only status needs fixing.
+    const oldUnmatchedBoResult = await client.query(`
+      UPDATE orders bo
+      SET order_status = 'shipped', workflow_status = 'shipped'
+      WHERE LEFT(bo.id::text, 3) = 'bo-'
+        AND bo.marketplace = 'BrickOwl'
+        AND bo.order_status != 'shipped'
+        AND bo.order_date < CURRENT_DATE
+        AND NOT EXISTS (
+          SELECT 1 FROM orders old_rec
+          WHERE old_rec.marketplace = 'BrickOwl'
+            AND LEFT(old_rec.id::text, 3) != 'bo-'
+            AND old_rec.order_number = bo.order_number
+        )
+    `);
+    const fixedUnmatched = oldUnmatchedBoResult.rowCount ?? 0;
+    if (fixedUnmatched > 0) {
+      console.log(`[Migration] Phase-77 (mark ${fixedUnmatched} old unmatched bo- BrickOwl orders as shipped) complete.`);
+    } else {
+      console.log('[Migration] Phase-77 (old unmatched bo- orders) — none needed fixing, skipped.');
+    }
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
