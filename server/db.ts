@@ -1817,6 +1817,64 @@ export async function runMigrations() {
       console.log('[Migration] Phase-75 (BrickLink platform creds + org ceiling) — skipped, already present.');
     }
 
+    // Phase-76: Remove duplicate bo- BrickOwl orders and restore incorrectly deducted inventory.
+    // When the silent-skip date bug was fixed, the sync re-inserted already-existing BrickOwl orders
+    // under new bo- prefixed IDs, treating them as fresh orders and wrongly deducting inventory.
+    const dupBoCheck = await client.query(`
+      SELECT COUNT(*) as cnt
+      FROM orders bo
+      JOIN orders old_rec ON old_rec.order_number = bo.order_number
+        AND LEFT(old_rec.id::text, 3) != 'bo-'
+        AND old_rec.marketplace = 'BrickOwl'
+      WHERE LEFT(bo.id::text, 3) = 'bo-'
+        AND bo.marketplace = 'BrickOwl'
+    `);
+    const dupBoCount = parseInt(dupBoCheck.rows[0]?.cnt ?? '0', 10);
+    if (dupBoCount > 0) {
+      // Step 1: Restore bl_inventory quantities for items in duplicate orders
+      await client.query(`
+        UPDATE bl_inventory bi
+        SET quantity = bi.quantity + od.quantity
+        FROM order_details od
+        WHERE od.bricklink_inventory_id = bi.id
+          AND od.order_id IN (
+            SELECT bo.id FROM orders bo
+            JOIN orders old_rec ON old_rec.order_number = bo.order_number
+              AND LEFT(old_rec.id::text, 3) != 'bo-'
+              AND old_rec.marketplace = 'BrickOwl'
+            WHERE LEFT(bo.id::text, 3) = 'bo-'
+              AND bo.marketplace = 'BrickOwl'
+          )
+      `);
+      // Step 2: Delete order_details for duplicate orders
+      await client.query(`
+        DELETE FROM order_details
+        WHERE order_id IN (
+          SELECT bo.id FROM orders bo
+          JOIN orders old_rec ON old_rec.order_number = bo.order_number
+            AND LEFT(old_rec.id::text, 3) != 'bo-'
+            AND old_rec.marketplace = 'BrickOwl'
+          WHERE LEFT(bo.id::text, 3) = 'bo-'
+            AND bo.marketplace = 'BrickOwl'
+        )
+      `);
+      // Step 3: Delete the duplicate orders (order_adjustments + picklist_items cascade)
+      await client.query(`
+        DELETE FROM orders
+        WHERE id IN (
+          SELECT bo.id FROM orders bo
+          JOIN orders old_rec ON old_rec.order_number = bo.order_number
+            AND LEFT(old_rec.id::text, 3) != 'bo-'
+            AND old_rec.marketplace = 'BrickOwl'
+          WHERE LEFT(bo.id::text, 3) = 'bo-'
+            AND bo.marketplace = 'BrickOwl'
+        )
+      `);
+      console.log(`[Migration] Phase-76 (remove ${dupBoCount} duplicate bo- BrickOwl orders + restore inventory) complete.`);
+    } else {
+      console.log('[Migration] Phase-76 (duplicate bo- BrickOwl orders) — none found, skipped.');
+    }
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
