@@ -1875,12 +1875,12 @@ export async function runMigrations() {
       console.log('[Migration] Phase-76 (duplicate bo- BrickOwl orders) — none found, skipped.');
     }
 
-    // Phase-77: Mark old bo- BrickOwl orders with no numeric counterpart as shipped.
-    // These orders (pre-dating today) were never in the system before and were confirmed
-    // shipped by the store owner. Their inventory deduction was correct; only status needs fixing.
-    const oldUnmatchedBoResult = await client.query(`
-      UPDATE orders bo
-      SET order_status = 'shipped', workflow_status = 'shipped'
+    // Phase-77: Restore inventory and mark old bo- BrickOwl orders (no numeric counterpart) as shipped.
+    // These orders pre-date the app — inventory was managed externally before they were inserted,
+    // so the deduction on insertion was incorrect and must be reversed.
+    const unmatchedBoIds = await client.query(`
+      SELECT bo.id
+      FROM orders bo
       WHERE LEFT(bo.id::text, 3) = 'bo-'
         AND bo.marketplace = 'BrickOwl'
         AND bo.order_status != 'shipped'
@@ -1892,9 +1892,24 @@ export async function runMigrations() {
             AND old_rec.order_number = bo.order_number
         )
     `);
-    const fixedUnmatched = oldUnmatchedBoResult.rowCount ?? 0;
-    if (fixedUnmatched > 0) {
-      console.log(`[Migration] Phase-77 (mark ${fixedUnmatched} old unmatched bo- BrickOwl orders as shipped) complete.`);
+    const unmatchedCount = unmatchedBoIds.rowCount ?? 0;
+    if (unmatchedCount > 0) {
+      const ids = (unmatchedBoIds.rows as any[]).map(r => r.id as string);
+      // Step 1: Restore bl_inventory quantities (these items were deducted incorrectly)
+      await client.query(`
+        UPDATE bl_inventory bi
+        SET quantity = bi.quantity + od.quantity
+        FROM order_details od
+        WHERE od.bricklink_inventory_id = bi.id
+          AND od.order_id = ANY($1::text[])
+      `, [ids]);
+      // Step 2: Mark as shipped — keep inventory_deducted=true so automated code never re-adjusts
+      await client.query(`
+        UPDATE orders
+        SET order_status = 'shipped', workflow_status = 'shipped'
+        WHERE id = ANY($1::text[])
+      `, [ids]);
+      console.log(`[Migration] Phase-77 (restored inventory + marked ${unmatchedCount} old unmatched bo- BrickOwl orders as shipped) complete.`);
     } else {
       console.log('[Migration] Phase-77 (old unmatched bo- orders) — none needed fixing, skipped.');
     }
