@@ -254,18 +254,6 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     } catch { /* ignore */ }
   }, [selectedOrders]);
 
-  // Reconcile selection whenever orders data changes — drop any IDs that no longer exist
-  useEffect(() => {
-    if (!data) return;
-    const orders = data.orders;
-    if (!orders) return;
-    const validIds = new Set(orders.map(o => o.id));
-    setSelectedOrders(prev => {
-      const next = new Set([...prev].filter(id => validIds.has(id)));
-      return next.size === prev.size ? prev : next;
-    });
-  }, [data]);
-
   // Slide-in animation: one frame delay so CSS transition has something to transition from
   useEffect(() => {
     if (drawerOpen) requestAnimationFrame(() => setDrawerVisible(true));
@@ -315,6 +303,18 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     refetchInterval: 10000,
     refetchIntervalInBackground: true,
   });
+
+  // Reconcile selection whenever orders data changes — drop any IDs that no longer exist
+  useEffect(() => {
+    if (!data) return;
+    const orders = data.orders;
+    if (!orders) return;
+    const validIds = new Set(orders.map(o => o.id));
+    setSelectedOrders(prev => {
+      const next = new Set([...prev].filter(id => validIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [data]);
 
   // Fetch settings to determine EasyPost key mode
   const { data: settings } = useQuery<any>({
