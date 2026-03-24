@@ -14116,7 +14116,11 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
             ilike(blCatalog.itemName, `%${q}%`)
           )
         ))
-        .orderBy(asc(blInventory.itemNo))
+        .orderBy(
+          // itemNo prefix matches first, name-only matches after
+          sql`CASE WHEN ${blInventory.itemNo} ILIKE ${q + '%'} THEN 0 ELSE 1 END`,
+          asc(blInventory.itemNo)
+        )
         .limit(150);
 
       res.json(results);
