@@ -314,19 +314,13 @@ async function processBrickOwlOrder(
         continue;
       }
       
-      // Determine BrickLink inventory ID
-      // Priority: API external_lot_ids.other > BOID (if numeric)
+      // Determine BrickLink inventory ID — only trust explicit cross-reference from API
       let brickLinkInvId: number | null = null;
       let skuValue: string | null = null;
       
       if (item.external_lot_ids?.other) {
-        // API provides BrickLink inventory ID - use it
         brickLinkInvId = parseInt(item.external_lot_ids.other, 10);
         skuValue = item.external_lot_ids.other;
-      } else if (item.boid && /^\d+$/.test(item.boid.toString())) {
-        // Fallback: Use BOID if it's numeric (often equals BrickLink inventory ID)
-        brickLinkInvId = parseInt(item.boid.toString(), 10);
-        skuValue = item.boid.toString();
       }
       
       const orderDetailData = {
