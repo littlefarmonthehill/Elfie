@@ -545,12 +545,16 @@ export async function runOrdersAgent(orgId: string): Promise<number> {
   `);
 
   const topSKUs = await db.execute(sql`
-    SELECT od.item_no, bc.item_name, SUM(od.quantity) as sold_qty, AVG(od.unit_price::numeric) as avg_price, COUNT(DISTINCT o.id) as order_count
+    SELECT
+      od.item_no,
+      (SELECT item_name FROM bl_catalog WHERE item_no = od.item_no LIMIT 1) as item_name,
+      SUM(od.quantity) as sold_qty,
+      AVG(od.unit_price::numeric) as avg_price,
+      COUNT(DISTINCT o.id) as order_count
     FROM order_details od
     JOIN orders o ON od.order_id=o.id
-    LEFT JOIN bl_catalog bc ON od.item_no=bc.item_no AND od.item_type=bc.item_type
     WHERE o.org_id=${orgId} AND o.order_date >= ${thirtyDaysAgo} AND o.order_status NOT IN ('cancelled','purged')
-    GROUP BY od.item_no, bc.item_name
+    GROUP BY od.item_no
     ORDER BY sold_qty DESC
     LIMIT 20
   `);
