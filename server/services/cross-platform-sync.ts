@@ -37,6 +37,7 @@ export interface SyncItem {
   newQuantity: number;    // Absolute quantity — used for BrickOwl and absolute-setter platforms
   quantityDelta: number;  // Delta change — used for BrickLink (negative = reduce, positive = restore)
   sourcePlatform: string; // The platform that originated the sale; will be skipped
+  orgId?: string;         // Org whose BrickLink credentials to use for the adjustment
   // Optional context for error tracking
   orderId?: string;
   orderNumber?: string;
