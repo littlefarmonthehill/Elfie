@@ -207,8 +207,11 @@ async function processBrickOwlOrder(
     }
   }
   
-  // Map BrickOwl status to normalized status
-  const normalizedStatus = mapBrickOwlStatus(boOrder.status_id);
+  // Debug: log raw status fields to confirm what BrickOwl returns
+  console.log(`🦉 [BO status debug] order ${orderId} — status_id: ${boOrder.status_id}, status: ${boOrder.status}, status_name: ${boOrder.status_name}`);
+
+  // Map BrickOwl status to normalized status (numeric ID + text fallback)
+  const normalizedStatus = mapBrickOwlStatus(boOrder.status_id, boOrder.status ?? boOrder.status_name);
   
   // Use the actual existing order's ID for all DB operations
   // (in case we found a legacy order via the BO. order_number fallback)
