@@ -225,63 +225,71 @@ async function processBrickOwlOrder(
 
   let isNewOrder = false;
 
-  // Insert new order or update existing order's status
+  // Build the full order payload used for both insert and update
+  const orderData = {
+    id: orderId,
+    orderNumber: boOrder.order_id.toString(),
+    orderKey: `BO.${boOrder.order_id}`,
+    marketplace: 'BrickOwl',
+    orderDate: orderDate,
+    orderStatus: normalizedStatus,
+    previousStatus: existingOrder?.orderStatus || null,
+    customerUsername: brickOwlOrderData.buyer_name || null,
+    customerEmail: brickOwlOrderData.buyer_email || null,
+    shipTo: JSON.stringify({
+      name: brickOwlOrderData.ship_name || '',
+      address1: brickOwlOrderData.ship_street_1 || '',
+      address2: brickOwlOrderData.ship_street_2 || '',
+      city: brickOwlOrderData.ship_city || '',
+      state: brickOwlOrderData.ship_region || '',
+      postalCode: brickOwlOrderData.ship_post_code || '',
+      country: brickOwlOrderData.ship_country_code || '',
+    }),
+    billTo: null,
+    shipByDate: null,
+    orderTotal: brickOwlOrderData.total_price ? brickOwlOrderData.total_price.toString() : '0',
+    shippingAmount: brickOwlOrderData.shipping_cost ? brickOwlOrderData.shipping_cost.toString() : '0',
+    taxAmount: brickOwlOrderData.vat ? brickOwlOrderData.vat.toString() : '0',
+    internalNotes: null,
+    customerNotes: brickOwlOrderData.buyer_notes || null,
+    requestedShippingService: brickOwlOrderData.ship_method_name || null,
+    carrierCode: null,
+    serviceCode: null,
+    updatedAt: new Date(),
+  };
+
   if (!existingOrder) {
-    // Prepare order data for NEW orders only
-    const orderData = {
-      id: orderId,
-      orderNumber: boOrder.order_id.toString(),
-      orderKey: `BO.${boOrder.order_id}`,
-      marketplace: 'BrickOwl',
-      orderDate: orderDate,
-      orderStatus: normalizedStatus,
-      previousStatus: null,
-      customerUsername: brickOwlOrderData.buyer_name || null,
-      customerEmail: brickOwlOrderData.buyer_email || null,
-      shipTo: JSON.stringify({
-        name: brickOwlOrderData.ship_name || '',
-        address1: brickOwlOrderData.ship_street_1 || '',
-        address2: brickOwlOrderData.ship_street_2 || '',
-        city: brickOwlOrderData.ship_city || '',
-        state: brickOwlOrderData.ship_region || '',
-        postalCode: brickOwlOrderData.ship_post_code || '',
-        country: brickOwlOrderData.ship_country_code || '',
-      }),
-      billTo: null,
-      shipByDate: null,
-      orderTotal: brickOwlOrderData.total_price ? brickOwlOrderData.total_price.toString() : '0',
-      shippingAmount: brickOwlOrderData.shipping_cost ? brickOwlOrderData.shipping_cost.toString() : '0',
-      taxAmount: brickOwlOrderData.vat ? brickOwlOrderData.vat.toString() : '0',
-      internalNotes: null,
-      customerNotes: brickOwlOrderData.buyer_notes || null,
-      requestedShippingService: brickOwlOrderData.ship_method_name || null,
-      carrierCode: null,
-      serviceCode: null,
-    };
-    
     // Insert new order
     await db.insert(orders).values([{ ...orderData, orgId: ORG_ID }]);
     result.ordersAdded++;
     isNewOrder = true;
-  } else if (existingOrder) {
-    result.ordersUpdated++;
-
-    // Handle status changes on existing orders (e.g., BrickOwl marks as cancelled)
-    const statusChanged = existingOrder.orderStatus !== normalizedStatus;
-    // Don't demote a locally-shipped order
+  } else {
+    // Protect locally-shipped orders: don't let BrickOwl demote status
+    // (BrickOwl may lag behind after we mark an order as shipped)
     const isLocallyShipped = existingOrder.orderStatus === 'shipped';
     const wouldDemote = isLocallyShipped && normalizedStatus !== 'shipped';
-    if (statusChanged && !wouldDemote) {
-      console.log(`📦 BrickOwl order ${effectiveOrderId} status changed: ${existingOrder.orderStatus} → ${normalizedStatus}`);
-      await db
-        .update(orders)
-        .set({
-          previousStatus: existingOrder.orderStatus,
-          orderStatus: normalizedStatus,
-          updatedAt: new Date(),
-        })
-        .where(eq(orders.id, effectiveOrderId));
-      
+    const updatedStatus = wouldDemote ? 'shipped' : normalizedStatus;
+
+    if (wouldDemote) {
+      console.log(`🔒 BrickOwl order ${effectiveOrderId}: Preserving local shipped status (BrickOwl shows: ${normalizedStatus})`);
+    }
+
+    // Update full order data on every sync (shipping address, totals, customer info, status)
+    await db
+      .update(orders)
+      .set({
+        ...orderData,
+        id: existingOrder.id,
+        orderStatus: updatedStatus,
+        previousStatus: existingOrder.orderStatus,
+      })
+      .where(eq(orders.id, effectiveOrderId));
+
+    result.ordersUpdated++;
+
+    // If status actually changed, trigger inventory adjustment
+    if (existingOrder.orderStatus !== updatedStatus) {
+      console.log(`📦 BrickOwl order ${effectiveOrderId} status changed: ${existingOrder.orderStatus} → ${updatedStatus}`);
       adjustInventoryForOrder(effectiveOrderId).catch(error => {
         console.error(`⚠️ Inventory adjustment failed for BrickOwl order ${effectiveOrderId}:`, error);
       });
