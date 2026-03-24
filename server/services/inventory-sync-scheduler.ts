@@ -5,8 +5,6 @@ import { syncBricklinkData } from "./bricklink";
 import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 
-const ORG_ID = 'org_planetbrick';
-
 /**
  * After each successful inventory sync, embed any items that don't yet have a
  * CLIP catalog embedding.  Runs entirely in the background — fire-and-forget.
@@ -44,35 +42,47 @@ export async function startInventorySyncScheduler() {
   setInterval(async () => { await checkAndRunInventorySync(); }, 60 * 1000);
 }
 
+/**
+ * Return all orgs that have inventory sync enabled and have passed their scheduled time today.
+ */
+async function getEnabledInventorySyncOrgs(now: Date): Promise<Array<{ id: string; tz: string; scheduledTime: string }>> {
+  const rows = await db.select().from(appSettings);
+  return rows.filter(s => {
+    if (!s.inventorySyncEnabled) return false;
+    const tz = s.timezone || 'America/Chicago';
+    const localTimeStr = now.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
+    const [hStr, mStr] = localTimeStr.replace(/\u202f/g, '').split(':');
+    const currentTotalMinutes = parseInt(hStr) * 60 + parseInt(mStr);
+    const scheduledTime = s.inventorySyncTime || '02:00';
+    const [schedH, schedM] = scheduledTime.split(':');
+    const scheduledTotalMinutes = parseInt(schedH) * 60 + parseInt(schedM);
+    return currentTotalMinutes >= scheduledTotalMinutes;
+  }).map(s => ({ id: s.id, tz: s.timezone || 'America/Chicago', scheduledTime: s.inventorySyncTime || '02:00' }));
+}
+
 async function checkAndRunInventorySync() {
   try {
-    let settingsRow: any;
+    const now = new Date();
+    let orgs: Array<{ id: string; tz: string; scheduledTime: string }>;
     try {
-      [settingsRow] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
+      orgs = await getEnabledInventorySyncOrgs(now);
     } catch (connErr: any) {
       if (connErr.message?.includes('Connection terminated') || connErr.code === 'ECONNRESET') {
         console.log('[Inventory] DB connection blip, retrying in 3s...');
         await new Promise(r => setTimeout(r, 3000));
-        [settingsRow] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
+        orgs = await getEnabledInventorySyncOrgs(now);
       } else throw connErr;
     }
-    const settings = settingsRow;
-    if (!settings?.inventorySyncEnabled) return;
 
-    const tz = settings.timezone || 'America/Chicago';
-    const now = new Date();
+    if (orgs.length === 0) return;
 
-    // Time-of-day gate — must have reached the scheduled time in local timezone
-    const localTimeStr = now.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
-    const [hStr, mStr] = localTimeStr.replace(/\u202f/g, '').split(':');
-    const currentTotalMinutes = parseInt(hStr) * 60 + parseInt(mStr);
-    const scheduledTime = settings.inventorySyncTime || '02:00';
-    const [schedH, schedM] = scheduledTime.split(':');
-    const scheduledTotalMinutes = parseInt(schedH) * 60 + parseInt(schedM);
-    if (currentTotalMinutes < scheduledTotalMinutes) return;
+    // Use the first enabled org for the platform-level metadata check (dedup/retry state)
+    const primaryOrg = orgs[0];
+    const tz = primaryOrg.tz;
+    const scheduledTime = primaryOrg.scheduledTime;
 
-    // Fetch last run metadata
-    const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, SYNC_ID))).limit(1);
+    // Fetch last run metadata (platform-level record keyed by SYNC_ID)
+    const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, primaryOrg.id), eq(syncMetadata.id, SYNC_ID))).limit(1);
     const lastRunTs = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
 
     if (meta?.lastSyncStatus === 'error') {
@@ -105,14 +115,17 @@ async function checkAndRunInventorySync() {
       return;
     }
 
-    await runAutomatedInventorySync();
+    await runAutomatedInventorySync(orgs, primaryOrg.id);
   } catch (error) {
     console.error('❌ Error in inventory sync scheduler:', error);
   }
 }
 
-async function runAutomatedInventorySync() {
-  console.log('\n🔄 Starting automated inventory sync (BrickLink → Local DB)...');
+async function runAutomatedInventorySync(
+  orgs: Array<{ id: string; tz: string; scheduledTime: string }>,
+  primaryOrgId: string,
+) {
+  console.log(`\n🔄 Starting automated inventory sync (BrickLink → Local DB) for ${orgs.length} org(s)...`);
 
   await db.insert(syncMetadata).values({
     id: SYNC_ID,
@@ -120,35 +133,45 @@ async function runAutomatedInventorySync() {
     lastSyncTime: new Date(),
     recordsAdded: 0,
     recordsUpdated: 0,
-    orgId: ORG_ID,
+    orgId: primaryOrgId,
   }).onConflictDoUpdate({
     target: syncMetadata.id,
     set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: null },
   });
 
   try {
-    const result = await syncBricklinkData(ORG_ID);
+    let totalAdded = 0;
+    let totalUpdated = 0;
+    let totalApiCalls = 0;
+
+    for (const org of orgs) {
+      console.log(`  [Inventory] Syncing org: ${org.id}`);
+      const result = await syncBricklinkData(org.id);
+      totalAdded    += result.inventoryAdded  ?? 0;
+      totalUpdated  += result.inventoryUpdated ?? 0;
+      totalApiCalls += result.totalApiCalls   ?? 0;
+    }
 
     console.log(`\n✨ Automated inventory sync complete!`);
-    console.log(`  📊 Inventory: ${result.inventoryAdded} added, ${result.inventoryUpdated} updated`);
-    console.log(`  🔗 API Calls: ${result.totalApiCalls}`);
+    console.log(`  📊 Inventory: ${totalAdded} added, ${totalUpdated} updated`);
+    console.log(`  🔗 API Calls: ${totalApiCalls}`);
 
     await db.insert(syncMetadata).values({
       id: SYNC_ID,
       lastSyncStatus: 'success',
       lastSyncTime: new Date(),
-      recordsAdded: result.inventoryAdded ?? 0,
-      recordsUpdated: result.inventoryUpdated ?? 0,
+      recordsAdded: totalAdded,
+      recordsUpdated: totalUpdated,
       errorMessage: null,
-      orgId: ORG_ID,
+      orgId: primaryOrgId,
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: {
         lastSyncStatus: 'success',
         lastSyncTime: new Date(),
         updatedAt: new Date(),
-        recordsAdded: result.inventoryAdded ?? 0,
-        recordsUpdated: result.inventoryUpdated ?? 0,
+        recordsAdded: totalAdded,
+        recordsUpdated: totalUpdated,
         errorMessage: null,
       },
     });
@@ -157,7 +180,6 @@ async function runAutomatedInventorySync() {
     resolveSchedulerIssues(SYNC_TYPE);
 
     // Fire-and-forget: embed any new items that don't have CLIP catalog embeddings yet.
-    // Skips items already embedded, so this is fast on days with few new items.
     triggerClipCatalogUpdate();
   } catch (error: any) {
     if (error.message === 'Inventory sync already in progress') {
@@ -182,7 +204,7 @@ async function runAutomatedInventorySync() {
       recordsAdded: 0,
       recordsUpdated: 0,
       errorMessage: error.message,
-      orgId: ORG_ID,
+      orgId: primaryOrgId,
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },

@@ -5,8 +5,6 @@ import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig, isChannelS
 import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 
-const ORG_ID = 'org_planetbrick';
-
 const SYNC_TYPE = 'channel_sync';
 const MAX_RETRIES = 5;
 const RETRY_BASE_MS = 5 * 60 * 1000;
@@ -40,15 +38,40 @@ export function getChannelSyncLastResult() {
   return channelSyncLastResult ? { ...channelSyncLastResult } : null;
 }
 
+/**
+ * Return the first org that has channel sync enabled and has passed the scheduled time today.
+ */
+async function getActiveChannelSyncOrg(now: Date): Promise<{ id: string; tz: string; scheduledTime: string } | null> {
+  const rows = await db.select().from(appSettings);
+  for (const s of rows) {
+    if (!s.channelSyncEnabled) continue;
+    const tz = s.timezone || 'America/Chicago';
+    const localTimeStr = now.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
+    const [hStr, mStr] = localTimeStr.replace(/\u202f/g, '').split(':');
+    const currentTotalMinutes = parseInt(hStr) * 60 + parseInt(mStr);
+    const scheduledTime = s.channelSyncTime || '03:00';
+    const [schedH, schedM] = scheduledTime.split(':');
+    const scheduledTotalMinutes = parseInt(schedH) * 60 + parseInt(schedM);
+    if (currentTotalMinutes >= scheduledTotalMinutes) {
+      return { id: s.id, tz, scheduledTime };
+    }
+  }
+  return null;
+}
+
 export async function startChannelSyncScheduler() {
   console.log('🌐 Channel sync scheduler initialized');
   // Restore last sync result from DB so the UI shows data after a deploy
   try {
-    const [meta] = await db.select().from(syncMetadata)
-      .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, 'channel_sync'))).limit(1);
-    if ((meta as any)?.lastSyncMetaJson) {
-      channelSyncLastResult = JSON.parse((meta as any).lastSyncMetaJson);
-      console.log('[Channel] Restored last sync result from DB');
+    const rows = await db.select().from(appSettings);
+    const firstOrg = rows.find(r => r.channelSyncEnabled) ?? rows[0];
+    if (firstOrg) {
+      const [meta] = await db.select().from(syncMetadata)
+        .where(and(eq(syncMetadata.orgId, firstOrg.id), eq(syncMetadata.id, 'channel_sync'))).limit(1);
+      if ((meta as any)?.lastSyncMetaJson) {
+        channelSyncLastResult = JSON.parse((meta as any).lastSyncMetaJson);
+        console.log('[Channel] Restored last sync result from DB');
+      }
     }
   } catch (e: any) {
     console.warn('[Channel] Could not restore last sync result (non-fatal):', e.message);
@@ -58,32 +81,23 @@ export async function startChannelSyncScheduler() {
 
 async function checkAndRunChannelSync() {
   try {
-    let settingsRow: any;
+    const now = new Date();
+    let activeOrg: { id: string; tz: string; scheduledTime: string } | null;
     try {
-      [settingsRow] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
+      activeOrg = await getActiveChannelSyncOrg(now);
     } catch (connErr: any) {
       if (connErr.message?.includes('Connection terminated') || connErr.code === 'ECONNRESET') {
         console.log('[Channel] DB connection blip, retrying in 3s...');
         await new Promise(r => setTimeout(r, 3000));
-        [settingsRow] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
+        activeOrg = await getActiveChannelSyncOrg(now);
       } else throw connErr;
     }
-    const settings = settingsRow;
-    if (!settings?.channelSyncEnabled) return;
 
-    const tz = settings.timezone || 'America/Chicago';
-    const now = new Date();
+    if (!activeOrg) return;
 
-    // Time-of-day gate
-    const localTimeStr = now.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
-    const [hStr, mStr] = localTimeStr.replace(/\u202f/g, '').split(':');
-    const currentTotalMinutes = parseInt(hStr) * 60 + parseInt(mStr);
-    const scheduledTime = settings.channelSyncTime || '03:00';
-    const [schedH, schedM] = scheduledTime.split(':');
-    const scheduledTotalMinutes = parseInt(schedH) * 60 + parseInt(schedM);
-    if (currentTotalMinutes < scheduledTotalMinutes) return;
+    const { id: orgId, tz, scheduledTime } = activeOrg;
 
-    const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, 'channel_sync'))).limit(1);
+    const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'channel_sync'))).limit(1);
     const lastRunTs = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
 
     if (meta?.lastSyncStatus === 'error') {
@@ -110,7 +124,7 @@ async function checkAndRunChannelSync() {
     // BrickOwl data may not reflect the latest inventory state.
     try {
       const [invMeta] = await db.select().from(syncMetadata)
-        .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, 'bricklink_inventory'))).limit(1);
+        .where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'bricklink_inventory'))).limit(1);
       if (invMeta?.lastSyncStatus === 'error' && invMeta.lastSyncTime) {
         const todayStr = now.toLocaleDateString('en-US', { timeZone: tz });
         const invDateStr = new Date(invMeta.lastSyncTime).toLocaleDateString('en-US', { timeZone: tz });
@@ -144,17 +158,20 @@ async function checkAndRunChannelSync() {
       return;
     }
 
-    await runScheduledChannelSync();
+    await runScheduledChannelSync(false, orgId);
   } catch (error) {
     console.error('❌ Error in channel sync scheduler:', error);
   }
 }
 
 export async function runChannelSync(forceFullScan = false) {
-  return runScheduledChannelSync(forceFullScan);
+  // Find the first enabled org to run the sync for
+  const rows = await db.select().from(appSettings);
+  const orgId = rows.find(r => r.channelSyncEnabled)?.id ?? rows[0]?.id;
+  return runScheduledChannelSync(forceFullScan, orgId);
 }
 
-async function runScheduledChannelSync(forceFullScan = false) {
+async function runScheduledChannelSync(forceFullScan = false, orgId?: string) {
   if (!syncLock.acquire('Channel Sync')) {
     console.log('⏭️ Scheduled channel sync skipped — another sync is running');
     return;
@@ -165,8 +182,10 @@ async function runScheduledChannelSync(forceFullScan = false) {
   // incremental filter correctly scopes to items changed since that run.
   let sinceTime: Date | undefined;
   try {
-    const [prevMeta] = await db.select().from(syncMetadata)
-      .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, 'channel_sync'))).limit(1);
+    const whereClause = orgId
+      ? and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'channel_sync'))
+      : eq(syncMetadata.id, 'channel_sync');
+    const [prevMeta] = await db.select().from(syncMetadata).where(whereClause).limit(1);
     if (!forceFullScan && prevMeta?.lastSyncStatus === 'success' && prevMeta.lastSyncTime) {
       sinceTime = new Date(prevMeta.lastSyncTime);
       console.log(`[Channel] Incremental mode: processing BL items changed since ${sinceTime.toISOString()}`);
@@ -175,46 +194,49 @@ async function runScheduledChannelSync(forceFullScan = false) {
     }
   } catch { /* non-fatal — default to full sync */ }
 
+  const effectiveOrgId = orgId ?? '';
   await db.insert(syncMetadata).values({
     id: 'channel_sync',
     lastSyncStatus: 'in_progress',
     lastSyncTime: new Date(),
     recordsAdded: 0,
     recordsUpdated: 0,
-    orgId: ORG_ID,
+    orgId: effectiveOrgId,
   }).onConflictDoUpdate({
     target: syncMetadata.id,
     set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: null },
   });
 
   try {
-    // Read sync mode + field config from settings
+    // Read sync mode + field config from org settings
     let syncMode: 'analysis' | 'full_control' | 'matched_sync' = 'full_control';
     let syncFields: SyncFieldConfig = { ...defaultSyncFields };
-    try {
-      const [settingsForMode] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
-      const m = settingsForMode?.channelSyncMode;
-      if (m === 'matched_sync' || m === 'quantity_only') syncMode = 'matched_sync'; // quantity_only is legacy name
-      else if (m === 'analysis') syncMode = 'analysis';
-    } catch { /* default to full_control */ }
-    try {
-      const [cfgRow] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, ORG_ID)).limit(1);
-      if (cfgRow) syncFields = {
-        price:        cfgRow.syncPrice,
-        remarks:      cfgRow.syncRemarks,
-        description:  cfgRow.syncDescription,
-        tierPrice:    cfgRow.syncTierPrice,
-        salePercent:  cfgRow.syncSalePercent,
-        bulkQty:      cfgRow.syncBulkQty,
-        lotWeight:    cfgRow.syncLotWeight,
-        stockroomModes: (cfgRow.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
-      };
-    } catch { /* use defaults */ }
+    if (orgId) {
+      try {
+        const [settingsForMode] = await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
+        const m = settingsForMode?.channelSyncMode;
+        if (m === 'matched_sync' || m === 'quantity_only') syncMode = 'matched_sync';
+        else if (m === 'analysis') syncMode = 'analysis';
+      } catch { /* default to full_control */ }
+      try {
+        const [cfgRow] = await db.select().from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
+        if (cfgRow) syncFields = {
+          price:        cfgRow.syncPrice,
+          remarks:      cfgRow.syncRemarks,
+          description:  cfgRow.syncDescription,
+          tierPrice:    cfgRow.syncTierPrice,
+          salePercent:  cfgRow.syncSalePercent,
+          bulkQty:      cfgRow.syncBulkQty,
+          lotWeight:    cfgRow.syncLotWeight,
+          stockroomModes: (cfgRow.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
+        };
+      } catch { /* use defaults */ }
+    }
 
     channelSyncProgress = { processed: 0, total: 0, phase: 'fetching' };
     const result = await syncBrickLinkToBrickOwl(undefined, syncMode, (processed, total) => {
       channelSyncProgress = { processed, total, phase: 'syncing' };
-    }, syncFields, sinceTime);
+    }, syncFields, sinceTime, orgId);
     const wasAborted = isChannelSyncAbortRequested();
     const hasErrors = result.errors.length > 0;
     const status = wasAborted ? 'partial' : hasErrors ? 'partial' : 'success';
@@ -230,7 +252,7 @@ async function runScheduledChannelSync(forceFullScan = false) {
       lotsSkipped: result.lotsSkipped,
       totalApiCalls: result.totalApiCalls,
       errorCount: result.errors.length,
-      errors: result.errors.slice(0, 20), // keep first 20 for display
+      errors: result.errors.slice(0, 20),
     };
 
     const metaJson = JSON.stringify(channelSyncLastResult);
@@ -241,7 +263,7 @@ async function runScheduledChannelSync(forceFullScan = false) {
       recordsAdded: result.lotsCreated,
       recordsUpdated: result.lotsUpdated,
       errorMessage: hasErrors ? `${result.errors.length} lots failed` : null,
-      orgId: ORG_ID,
+      orgId: effectiveOrgId,
     } as any).onConflictDoUpdate({
       target: syncMetadata.id,
       set: {
@@ -274,7 +296,7 @@ async function runScheduledChannelSync(forceFullScan = false) {
       recordsAdded: 0,
       recordsUpdated: 0,
       errorMessage: error.message,
-      orgId: ORG_ID,
+      orgId: effectiveOrgId,
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },

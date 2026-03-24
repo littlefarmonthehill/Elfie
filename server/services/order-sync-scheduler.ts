@@ -5,7 +5,6 @@ import { syncLock } from "./sync-lock";
 import { runPlatformOrderSync } from "./order-sync-core";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 
-const ORG_ID = 'org_planetbrick';
 const MAX_RETRIES = 5;
 const RETRY_BASE_MS = 5 * 60 * 1000;
 
@@ -26,44 +25,54 @@ function isWithinActiveWindow(startHHMM: string, endHHMM: string, tz: string): b
   return nowMinutes >= startMinutes || nowMinutes < endMinutes;
 }
 
+/**
+ * Return all orgs that have order sync enabled and are within their active window.
+ * Returns the first matching org's settings (used for frequency/metadata).
+ */
+async function getActiveOrderSyncOrg(): Promise<{ orgId: string; frequencyMs: number } | null> {
+  const rows = await db.select().from(appSettings);
+  for (const s of rows) {
+    if (!s.ordersSyncEnabled) continue;
+    const startTime = s.ordersSyncStartTime ?? '08:00';
+    const endTime   = s.ordersSyncEndTime   ?? '20:00';
+    if (!isWithinActiveWindow(startTime, endTime, s.timezone ?? 'America/Chicago')) continue;
+    return { orgId: s.id, frequencyMs: (s.ordersSyncFrequency ?? 15) * 60 * 1000 };
+  }
+  return null;
+}
+
 // ── BrickLink order sync ────────────────────────────────────────────────────
 
 const blRetry = { count: 0, nextAt: 0 };
 
 async function checkAndRunBrickLinkSync() {
   try {
-    let settings: any;
+    let active: { orgId: string; frequencyMs: number } | null;
     try {
-      [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
+      active = await getActiveOrderSyncOrg();
     } catch (connErr: any) {
       if (connErr.message?.includes('Connection terminated') || connErr.code === 'ECONNRESET') {
         await new Promise(r => setTimeout(r, 3000));
-        [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
+        active = await getActiveOrderSyncOrg();
       } else throw connErr;
     }
 
-    if (!settings?.ordersSyncEnabled) return;
+    if (!active) return;
 
-    const startTime = settings.ordersSyncStartTime ?? '08:00';
-    const endTime = settings.ordersSyncEndTime ?? '20:00';
-    if (!isWithinActiveWindow(startTime, endTime, settings.timezone ?? 'America/Chicago')) return;
-
-    const frequencyMs = (settings.ordersSyncFrequency ?? 15) * 60 * 1000;
     const SYNC_ID = 'bricklink_orders';
-
-    const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, SYNC_ID))).limit(1);
+    const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, active.orgId), eq(syncMetadata.id, SYNC_ID))).limit(1);
     const lastRunTs = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
 
     if (meta?.lastSyncStatus === 'error') {
       if (blRetry.count >= MAX_RETRIES) {
-        if (Date.now() - lastRunTs < frequencyMs) return;
+        if (Date.now() - lastRunTs < active.frequencyMs) return;
         blRetry.count = 0;
       } else {
         if (Date.now() < blRetry.nextAt) return;
         console.log(`[BrickLink Order Sync] Retrying after failure (attempt ${blRetry.count + 1}/${MAX_RETRIES})...`);
       }
     } else {
-      if (Date.now() - lastRunTs < frequencyMs) return;
+      if (Date.now() - lastRunTs < active.frequencyMs) return;
       blRetry.count = 0;
     }
 
@@ -81,7 +90,7 @@ async function checkAndRunBrickLinkSync() {
       return;
     }
 
-    await runScheduledPlatformSync('bricklink', SYNC_ID, blRetry);
+    await runScheduledPlatformSync('bricklink', SYNC_ID, blRetry, active.orgId);
   } catch (error) {
     console.error('❌ Error in BrickLink order sync scheduler:', error);
   }
@@ -93,39 +102,32 @@ const boRetry = { count: 0, nextAt: 0 };
 
 async function checkAndRunBrickOwlSync() {
   try {
-    let settings: any;
+    let active: { orgId: string; frequencyMs: number } | null;
     try {
-      [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
+      active = await getActiveOrderSyncOrg();
     } catch (connErr: any) {
       if (connErr.message?.includes('Connection terminated') || connErr.code === 'ECONNRESET') {
         await new Promise(r => setTimeout(r, 3000));
-        [settings] = await db.select().from(appSettings).where(eq(appSettings.orgId, ORG_ID)).limit(1);
+        active = await getActiveOrderSyncOrg();
       } else throw connErr;
     }
 
-    // BrickOwl shares the orders sync enabled/schedule settings with BrickLink
-    if (!settings?.ordersSyncEnabled) return;
+    if (!active) return;
 
-    const startTime = settings.ordersSyncStartTime ?? '08:00';
-    const endTime = settings.ordersSyncEndTime ?? '20:00';
-    if (!isWithinActiveWindow(startTime, endTime, settings.timezone ?? 'America/Chicago')) return;
-
-    const frequencyMs = (settings.ordersSyncFrequency ?? 15) * 60 * 1000;
     const SYNC_ID = 'brickowl_orders';
-
-    const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, SYNC_ID))).limit(1);
+    const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, active.orgId), eq(syncMetadata.id, SYNC_ID))).limit(1);
     const lastRunTs = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
 
     if (meta?.lastSyncStatus === 'error') {
       if (boRetry.count >= MAX_RETRIES) {
-        if (Date.now() - lastRunTs < frequencyMs) return;
+        if (Date.now() - lastRunTs < active.frequencyMs) return;
         boRetry.count = 0;
       } else {
         if (Date.now() < boRetry.nextAt) return;
         console.log(`[BrickOwl Order Sync] Retrying after failure (attempt ${boRetry.count + 1}/${MAX_RETRIES})...`);
       }
     } else {
-      if (Date.now() - lastRunTs < frequencyMs) return;
+      if (Date.now() - lastRunTs < active.frequencyMs) return;
       boRetry.count = 0;
     }
 
@@ -143,7 +145,7 @@ async function checkAndRunBrickOwlSync() {
       return;
     }
 
-    await runScheduledPlatformSync('brickowl', SYNC_ID, boRetry);
+    await runScheduledPlatformSync('brickowl', SYNC_ID, boRetry, active.orgId);
   } catch (error) {
     console.error('❌ Error in BrickOwl order sync scheduler:', error);
   }
@@ -155,6 +157,7 @@ async function runScheduledPlatformSync(
   platform: 'bricklink' | 'brickowl',
   syncId: string,
   retry: { count: number; nextAt: number },
+  orgId: string,
 ) {
   const label = platform === 'bricklink' ? 'BrickLink' : 'BrickOwl';
   console.log(`\n🔄 Starting scheduled ${label} order sync...`);
@@ -165,7 +168,7 @@ async function runScheduledPlatformSync(
     lastSyncTime: new Date(),
     recordsAdded: 0,
     recordsUpdated: 0,
-    orgId: ORG_ID,
+    orgId,
   }).onConflictDoUpdate({
     target: syncMetadata.id,
     set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: null },
@@ -188,7 +191,7 @@ async function runScheduledPlatformSync(
       recordsAdded: added,
       recordsUpdated: 0,
       errorMessage: null,
-      orgId: ORG_ID,
+      orgId,
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: { lastSyncStatus: 'success', updatedAt: new Date(), recordsAdded: added, recordsUpdated: 0, errorMessage: null },
@@ -214,7 +217,7 @@ async function runScheduledPlatformSync(
       recordsAdded: 0,
       recordsUpdated: 0,
       errorMessage: error.message,
-      orgId: ORG_ID,
+      orgId,
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },

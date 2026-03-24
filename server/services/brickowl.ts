@@ -88,10 +88,12 @@ export interface BrickOwlInventoryLot {
 }
 
 // Make a BrickOwl API GET request
-async function brickowlGet(endpoint: string, params?: Record<string, string>): Promise<any> {
-  // Get API key from database settings — filter for a row that has the key configured
-  const [settings] = await db.select().from(appSettings).where(isNotNull(appSettings.brickowlApiKey)).limit(1);
-  
+async function brickowlGet(endpoint: string, params?: Record<string, string>, orgId?: string): Promise<any> {
+  // Get API key: prefer org-specific key when orgId supplied, otherwise first available
+  const [settings] = orgId
+    ? await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1)
+    : await db.select().from(appSettings).where(isNotNull(appSettings.brickowlApiKey)).limit(1);
+
   const apiKey = settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY;
   
   if (!apiKey) {
@@ -117,10 +119,12 @@ async function brickowlGet(endpoint: string, params?: Record<string, string>): P
 }
 
 // Make a BrickOwl API POST request
-async function brickowlPost(endpoint: string, data: Record<string, any>): Promise<any> {
-  // Get API key from database settings — filter for a row that has the key configured
-  const [settings] = await db.select().from(appSettings).where(isNotNull(appSettings.brickowlApiKey)).limit(1);
-  
+async function brickowlPost(endpoint: string, data: Record<string, any>, orgId?: string): Promise<any> {
+  // Get API key: prefer org-specific key when orgId supplied, otherwise first available
+  const [settings] = orgId
+    ? await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1)
+    : await db.select().from(appSettings).where(isNotNull(appSettings.brickowlApiKey)).limit(1);
+
   const apiKey = settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY;
   
   if (!apiKey) {
@@ -148,9 +152,9 @@ async function brickowlPost(endpoint: string, data: Record<string, any>): Promis
 }
 
 // Get BrickOwl inventory list
-export async function getBrickOwlInventory(activeOnly: boolean = true): Promise<BrickOwlInventoryLot[]> {
+export async function getBrickOwlInventory(activeOnly: boolean = true, orgId?: string): Promise<BrickOwlInventoryLot[]> {
   const params = { active_only: activeOnly ? '1' : '0' };
-  const response = await brickowlGet('/inventory/list', params);
+  const response = await brickowlGet('/inventory/list', params, orgId);
   
   // BrickOwl API returns array directly or { inventory: [...] }
   const lots = Array.isArray(response) ? response : (response.inventory || []);
@@ -218,7 +222,7 @@ export async function createBrickOwlLot(data: {
   sale_percentage?: number;  // BrickLink saleRate
   bulk_qty?: number;         // Minimum order quantity (BrickLink bulk)
   lot_weight?: number;       // Custom lot weight (BrickLink myWeight)
-}): Promise<any> {
+}, orgId?: string): Promise<any> {
   // Decode HTML entities from notes before sending to BrickOwl
   const decodedPersonalNote = data.personal_note ? decodeHtmlEntities(data.personal_note) : undefined;
   const decodedPublicNote = data.public_note ? decodeHtmlEntities(data.public_note) : undefined;
@@ -240,12 +244,12 @@ export async function createBrickOwlLot(data: {
     ...(data.lot_weight !== undefined && data.lot_weight > 0 && { lot_weight: data.lot_weight.toFixed(4) }),
   };
   console.log('[BrickOwl] Creating lot with payload:', JSON.stringify(payload));
-  return brickowlPost('/inventory/create', payload);
+  return brickowlPost('/inventory/create', payload, orgId);
 }
 
 // Delete a lot from BrickOwl by lot_id
-export async function deleteBrickOwlLot(lotId: string): Promise<any> {
-  return brickowlPost('/inventory/delete', { lot_id: lotId });
+export async function deleteBrickOwlLot(lotId: string, orgId?: string): Promise<any> {
+  return brickowlPost('/inventory/delete', { lot_id: lotId }, orgId);
 }
 
 // Keep internal alias for uses within this file
@@ -267,7 +271,7 @@ export async function updateBrickOwlLot(data: {
   bulk_qty?: number;         // Minimum order quantity (BrickLink bulk)
   lot_weight?: number;       // Custom lot weight (BrickLink myWeight)
   color_id?: number;         // BrickOwl color ID — send to correct a color mismatch in-place
-}): Promise<any> {
+}, orgId?: string): Promise<any> {
   const updateData: Record<string, string> = {};
   
   if (data.lot_id) updateData.lot_id = data.lot_id;
@@ -294,7 +298,7 @@ export async function updateBrickOwlLot(data: {
     updateData.public_note = decodeHtmlEntities(data.public_note);
   }
   
-  return brickowlPost('/inventory/update', updateData);
+  return brickowlPost('/inventory/update', updateData, orgId);
 }
 
 // ─── Batch up to 50 inventory/update calls in one HTTP request ──────────────
@@ -302,9 +306,12 @@ export async function updateBrickOwlLot(data: {
 // Rate limit: 100 batch requests/min → 600ms between calls
 // Throughput: 50 items × 100 batches/min = 5,000 updates/min
 async function brickowlBatch(
-  requests: Array<{ endpoint: string; request_method: 'GET' | 'POST'; params: Record<string, any>[] }>
+  requests: Array<{ endpoint: string; request_method: 'GET' | 'POST'; params: Record<string, any>[] }>,
+  orgId?: string,
 ): Promise<any[]> {
-  const [settings] = await db.select().from(appSettings).where(isNotNull(appSettings.brickowlApiKey)).limit(1);
+  const [settings] = orgId
+    ? await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1)
+    : await db.select().from(appSettings).where(isNotNull(appSettings.brickowlApiKey)).limit(1);
   const apiKey = settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY;
   if (!apiKey) throw new Error('BrickOwl API key not configured. Please add it in Settings > API Credentials.');
 
@@ -527,7 +534,8 @@ export async function syncInventoryItem(
   blItem: typeof blInventory.$inferSelect,
   brickowlInventory?: any[],
   mode: 'analysis' | 'full_control' | 'matched_sync' = 'full_control',
-  taggedLotMap?: Map<string, any>
+  taggedLotMap?: Map<string, any>,
+  orgId?: string,
 ): Promise<{
   success: boolean;
   action: 'created' | 'updated' | 'skipped';
@@ -536,7 +544,7 @@ export async function syncInventoryItem(
   try {
     // If inventory not provided, fetch it (for backwards compatibility)
     if (!brickowlInventory) {
-      brickowlInventory = await getBrickOwlInventory(false);
+      brickowlInventory = await getBrickOwlInventory(false, orgId);
     }
 
     const newPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
@@ -573,7 +581,7 @@ export async function syncInventoryItem(
           for_sale: 1,
           personal_note: blItem.remarks || undefined,
           public_note: blItem.description || undefined,
-        });
+        }, orgId);
         return { success: true, action: 'updated' };
       } else {
         console.log(`[Sync] Skipping ${blItem.itemNo} - no changes detected`);
@@ -617,7 +625,7 @@ export async function syncInventoryItem(
           for_sale: 1,
           personal_note: blItem.remarks || undefined,
           public_note: blItem.description || undefined,
-        });
+        }, orgId);
         return { success: true, action: 'updated' };
       }
 
@@ -661,7 +669,7 @@ export async function syncInventoryItem(
       external_id: blItem.id.toString(), // Tag immediately so future syncs find it in Step 1
       personal_note: blItem.remarks || undefined,
       public_note: blItem.description || undefined,
-    });
+    }, orgId);
 
     return { success: true, action: 'created' };
   } catch (error) {
@@ -713,7 +721,8 @@ export async function syncBrickLinkToBrickOwl(
   mode: 'analysis' | 'full_control' | 'matched_sync' = 'full_control',
   onProgress?: (processed: number, total: number) => void,
   fields: SyncFieldConfig = defaultSyncFields,
-  sinceTime?: Date
+  sinceTime?: Date,
+  orgId?: string,
 ): Promise<BrickOwlSyncResult> {
   const result: BrickOwlSyncResult = {
     lotsCreated: 0,
@@ -753,7 +762,7 @@ export async function syncBrickLinkToBrickOwl(
   const blWithSale = blItems.filter(i => (i.saleRate ?? 0) > 0).length;
   console.log(`[ChannelSync:DIAG] BL items with saleRate>0: ${blWithSale}`);
 
-  const brickowlInventory = await getBrickOwlInventory(false);
+  const brickowlInventory = await getBrickOwlInventory(false, orgId);
   console.log(`[ChannelSync] ${brickowlInventory.length} BrickOwl lots fetched`);
 
   // O(1) lookup: BL inventory ID → BrickOwl lot (tagged lots only)
@@ -1056,7 +1065,7 @@ export async function syncBrickLinkToBrickOwl(
       }));
 
       try {
-        const responses = await brickowlBatch(batchRequests);
+        const responses = await brickowlBatch(batchRequests, orgId);
         result.totalApiCalls++;
 
         responses.forEach((resp: any, idx: number) => {
@@ -1140,7 +1149,7 @@ export async function syncBrickLinkToBrickOwl(
           ...(job.color_id        !== undefined && { color_id:        job.color_id        }),
         };
 
-        const updateResp = await updateBrickOwlLot(fieldPayload);
+        const updateResp = await updateBrickOwlLot(fieldPayload, orgId);
         result.totalApiCalls++;
         result.lotsUpdated++;
 
@@ -1255,7 +1264,7 @@ export async function syncBrickLinkToBrickOwl(
             ...(itemSalePercent !== undefined && { sale_percentage: itemSalePercent }),
             ...(itemBulkQty   !== undefined && { bulk_qty:    itemBulkQty   }),
             ...(itemLotWeight !== undefined && { lot_weight:  itemLotWeight }),
-          });
+          }, orgId);
           result.lotsUpdated++;
           result.totalApiCalls++;
           console.log(`[ChannelSync] ✓ Adopted lot ${untagged[0].lot_id} for ${item.itemNo}`);
@@ -1284,7 +1293,7 @@ export async function syncBrickLinkToBrickOwl(
             ...(itemSalePercent !== undefined && itemSalePercent > 0 && { sale_percentage: itemSalePercent }),
             ...(itemBulkQty   !== undefined && { bulk_qty:    itemBulkQty   }),
             ...(itemLotWeight !== undefined && { lot_weight:  itemLotWeight }),
-          });
+          }, orgId);
           result.lotsCreated++;
           result.totalApiCalls++;
           console.log(`[ChannelSync] ✓ Created lot for ${item.itemNo} (BOID ${boid})`);
@@ -1321,7 +1330,7 @@ export async function syncBrickLinkToBrickOwl(
           break;
         }
         try {
-          await brickowlDeleteLot(lot.lot_id);
+          await brickowlDeleteLot(lot.lot_id, orgId);
           result.lotsDeleted = (result.lotsDeleted ?? 0) + 1;
           result.totalApiCalls++;
           console.log(`[ChannelSync] ✓ Deleted BO lot ${lot.lot_id} (BL item gone)`);
