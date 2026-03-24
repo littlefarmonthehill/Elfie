@@ -1228,9 +1228,9 @@ const POM_FORMULA_DEFAULTS: PomFormulaConfig = {
   highSupplyPenalty: 5,
 };
 
-export async function getPomFormulaConfig(): Promise<PomFormulaConfig> {
+export async function getPomFormulaConfig(orgId: string = PLATFORM_ORG_ID): Promise<PomFormulaConfig> {
   try {
-    const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, PLATFORM_ORG_ID)).limit(1);
+    const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
     if (!settings) return POM_FORMULA_DEFAULTS;
     return {
       basePremium: settings.pomBasePremium ?? POM_FORMULA_DEFAULTS.basePremium,
@@ -1409,6 +1409,8 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
     // Build candidate queue: inventory items needing price guide refresh.
     // Sorted by oldest fetchedAt first (never-fetched items always come first).
     // Staleness window and zero-stock skip come from scheduler settings.
+    // Scope to the specific org's inventory (unless called with PLATFORM_ORG_ID for platform-wide compat).
+    const orgFilter = orgId !== PLATFORM_ORG_ID ? eq(blInventory.orgId, orgId) : undefined;
     const quantityFilter = zeroStockSkip ? gt(blInventory.quantity, 0) : undefined;
     const inventoryItems = await db
       .select({
@@ -1458,7 +1460,7 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
           sql`${blInventory.newOrUsed} = ${priceGuideCache.newOrUsed}`
         )
       )
-      .where(quantityFilter)
+      .where(and(...[orgFilter, quantityFilter].filter(Boolean) as any[]))
       .orderBy(
         sql`COALESCE(${priceGuideCache.fetchedAt}, '1970-01-01'::timestamp) ASC`
       )

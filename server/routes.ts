@@ -11049,10 +11049,11 @@ Format search_web URLs as markdown links.`;
       let catalog = catalogRow[0];
 
       // Step 2: If no bl_catalog row, or image is missing, fetch from BL API — same as catalog-detail-scheduler
-      // This enriches non-inventory items on first lookup and caches result in bl_catalog for future calls
+      // This enriches non-inventory items on first lookup and caches result in bl_catalog for future calls.
+      // Uses the requesting org's BL credentials so API calls are charged to the correct account.
       if (!catalog?.imageUrl) {
         try {
-          const { data } = await bricklinkCatalogRequest(`/items/${apiItemType}/${itemNo}`, undefined, PLATFORM_ORG_ID);
+          const { data } = await bricklinkCatalogRequest(`/items/${apiItemType}/${itemNo}`, undefined, orgId);
           if (data) {
             const rawImage = data.image_url as string | null | undefined;
             const rawThumb = data.thumbnail_url as string | null | undefined;
@@ -11777,22 +11778,14 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
-  // Rate Limit Status
-  // BrickSpotter always draws from the platform BrickLink account (PLATFORM_ORG_ID).
-  // Org-level BL accounts are used only for that org's own inventory sync / order sync / POM.
-  // So for BrickSpotter users we report platform-level usage, not the org's own usage.
+  // Rate Limit Status — always reports the requesting org's own BL API usage.
+  // Each org uses its own BL credentials for all operations (BrickSpotter, POM, sync).
   app.get("/api/bricklink/rate-limit", isApproved, async (req, res) => {
     try {
       const orgId = reqOrgId(req);
       const { checkRateLimit } = await import("./services/bricklink");
 
-      const bsCheck = await checkBrickspotterLimit(orgId);
-      // BS-only orgs always route through the platform BL account.
-      // For mixed-access plans, check apiCallLimit (0 = no BrickSpotter; >0 or -1 = has access).
-      const hasBrickSpotter = bsCheck.isBrickspotterOnly || bsCheck.apiCallLimit !== 0;
-      const targetOrgId = hasBrickSpotter ? PLATFORM_ORG_ID : orgId;
-
-      const status = await checkRateLimit(targetOrgId);
+      const status = await checkRateLimit(orgId);
       res.json(status);
     } catch (error) {
       console.error("Error checking rate limit:", error);
@@ -15413,13 +15406,14 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
   });
 
   // Validate a shipping address via EasyPost
-  app.post("/api/fulfillment/validate-address", isApproved, async (req, res) => {
+  app.post("/api/fulfillment/validate-address", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const { address } = req.body;
       if (!address) return res.status(400).json({ error: "address is required" });
 
       const { getShippingVendor } = await import("./services/easypost");
-      const vendor = await getShippingVendor();
+      const vendor = await getShippingVendor(undefined, orgId);
       const result = await vendor.validateAddress(address);
       res.json(result);
     } catch (error: any) {
