@@ -236,6 +236,7 @@ export default function WarehouseManagement({ onItemClick }: WarehouseManagement
     queryClient.invalidateQueries({ queryKey: ['/api/warehouse/locations'] });
     queryClient.invalidateQueries({ queryKey: ['/api/warehouse/unassigned/inventory'] });
     queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/warehouse/inventory/search'] });
   };
 
   const invalidateLotLocations = (inventoryId: number) => {
