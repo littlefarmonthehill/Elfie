@@ -43,74 +43,86 @@ export async function runPlatformOrderSync(
   }
 
   try {
-  const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, 'org_planetbrick')).limit(1);
+  // Query all orgs — each runs sync with their own credentials
+  const allOrgSettings = await db.select().from(appSettings);
   const newOrderIds: string[] = [];
 
-  // ── BrickLink ──────────────────────────────────────────────────────────────
-  if (platform === "bricklink" || platform === "all") {
-    if (
-      settings?.bricklinkConsumerKey &&
-      settings?.bricklinkConsumerSecret &&
-      settings?.bricklinkTokenValue &&
-      settings?.bricklinkTokenSecret
-    ) {
-      try {
-        console.log("🧱 Syncing BrickLink orders...");
-        const { syncBrickLinkOrders } = await import("./bricklink-order-sync");
-        const blResult = await syncBrickLinkOrders(
-          settings.bricklinkConsumerKey,
-          settings.bricklinkConsumerSecret,
-          settings.bricklinkTokenValue,
-          settings.bricklinkTokenSecret,
-          { limit, fullSync }
-        );
-        result.bricklink.success = true;
-        result.bricklink.ordersAdded = blResult.ordersAdded ?? 0;
-        console.log(`✅ BrickLink: ${result.bricklink.ordersAdded} orders added`);
+  for (const settings of allOrgSettings) {
+    const orgId = settings.id;
 
-        if (withEmbeddings && result.bricklink.ordersAdded > 0) {
-          const rows = await db.execute(sql`
-            SELECT id FROM orders WHERE marketplace = 'BrickLink'
-            ORDER BY synced_at DESC LIMIT ${result.bricklink.ordersAdded}
-          `);
-          newOrderIds.push(...rows.rows.map((r: any) => r.id));
+    // ── BrickLink ────────────────────────────────────────────────────────────
+    if (platform === "bricklink" || platform === "all") {
+      if (
+        settings.bricklinkConsumerKey &&
+        settings.bricklinkConsumerSecret &&
+        settings.bricklinkTokenValue &&
+        settings.bricklinkTokenSecret
+      ) {
+        try {
+          console.log(`🧱 Syncing BrickLink orders for org ${orgId}...`);
+          const { syncBrickLinkOrders } = await import("./bricklink-order-sync");
+          const blResult = await syncBrickLinkOrders(
+            settings.bricklinkConsumerKey,
+            settings.bricklinkConsumerSecret,
+            settings.bricklinkTokenValue,
+            settings.bricklinkTokenSecret,
+            orgId,
+            { limit, fullSync }
+          );
+          result.bricklink.success = true;
+          result.bricklink.ordersAdded += blResult.ordersAdded ?? 0;
+          console.log(`✅ BrickLink (${orgId}): ${blResult.ordersAdded ?? 0} orders added`);
+
+          if (withEmbeddings && (blResult.ordersAdded ?? 0) > 0) {
+            const rows = await db.execute(sql`
+              SELECT id FROM orders WHERE marketplace = 'BrickLink' AND org_id = ${orgId}
+              ORDER BY synced_at DESC LIMIT ${blResult.ordersAdded}
+            `);
+            newOrderIds.push(...rows.rows.map((r: any) => r.id));
+          }
+        } catch (err: any) {
+          result.bricklink.error = err.message;
+          console.error(`❌ BrickLink sync failed for org ${orgId}:`, err.message);
         }
-      } catch (err: any) {
-        result.bricklink.error = err.message;
-        console.error("❌ BrickLink sync failed:", err.message);
+      } else if (platform === "bricklink") {
+        result.bricklink.skipped = true;
+        console.log(`⏭️ BrickLink skipped for org ${orgId} — credentials not configured`);
       }
-    } else {
-      result.bricklink.skipped = true;
-      console.log("⏭️ BrickLink skipped — credentials not configured");
+    }
+
+    // ── BrickOwl ─────────────────────────────────────────────────────────────
+    if (platform === "brickowl" || platform === "all") {
+      if (settings.brickowlApiKey) {
+        try {
+          console.log(`🦉 Syncing BrickOwl orders for org ${orgId}...`);
+          const { syncBrickOwlOrders } = await import("./brickowl-order-sync");
+          const boResult = await syncBrickOwlOrders(settings.brickowlApiKey, orgId, { limit, fullSync });
+          result.brickowl.success = true;
+          result.brickowl.ordersAdded += boResult.ordersAdded ?? 0;
+          console.log(`✅ BrickOwl (${orgId}): ${boResult.ordersAdded ?? 0} orders added`);
+
+          if (withEmbeddings && (boResult.ordersAdded ?? 0) > 0) {
+            const rows = await db.execute(sql`
+              SELECT id FROM orders WHERE marketplace = 'BrickOwl' AND org_id = ${orgId}
+              ORDER BY synced_at DESC LIMIT ${boResult.ordersAdded}
+            `);
+            newOrderIds.push(...rows.rows.map((r: any) => r.id));
+          }
+        } catch (err: any) {
+          result.brickowl.error = err.message;
+          console.error(`❌ BrickOwl sync failed for org ${orgId}:`, err.message);
+        }
+      } else if (platform === "brickowl") {
+        result.brickowl.skipped = true;
+        console.log(`⏭️ BrickOwl skipped for org ${orgId} — credentials not configured`);
+      }
     }
   }
 
-  // ── BrickOwl ───────────────────────────────────────────────────────────────
-  if (platform === "brickowl" || platform === "all") {
-    if (settings?.brickowlApiKey) {
-      try {
-        console.log("🦉 Syncing BrickOwl orders...");
-        const { syncBrickOwlOrders } = await import("./brickowl-order-sync");
-        const boResult = await syncBrickOwlOrders(settings.brickowlApiKey, { limit, fullSync });
-        result.brickowl.success = true;
-        result.brickowl.ordersAdded = boResult.ordersAdded ?? 0;
-        console.log(`✅ BrickOwl: ${result.brickowl.ordersAdded} orders added`);
-
-        if (withEmbeddings && result.brickowl.ordersAdded > 0) {
-          const rows = await db.execute(sql`
-            SELECT id FROM orders WHERE marketplace = 'BrickOwl'
-            ORDER BY synced_at DESC LIMIT ${result.brickowl.ordersAdded}
-          `);
-          newOrderIds.push(...rows.rows.map((r: any) => r.id));
-        }
-      } catch (err: any) {
-        result.brickowl.error = err.message;
-        console.error("❌ BrickOwl sync failed:", err.message);
-      }
-    } else {
-      result.brickowl.skipped = true;
-      console.log("⏭️ BrickOwl skipped — credentials not configured");
-    }
+  if (allOrgSettings.length === 0) {
+    result.bricklink.skipped = true;
+    result.brickowl.skipped = true;
+    console.log("⏭️ No orgs configured — skipping all syncs");
   }
 
   // ── Embeddings (scheduler-only) ────────────────────────────────────────────

@@ -41,12 +41,13 @@ async function buildInternationalShipping(
   itemSubtotal: number,
   totalWeightOz: number,
   totalQty: number,
+  orgId: string,
 ): Promise<{ customsInfo: CustomsInfo; taxIdentifiers: TaxIdentifier[] } | null> {
   const country = (destinationCountry || 'US').toUpperCase();
   if (country === 'US') return null;
 
   // Fetch app settings for customs signer + IOSS/VAT numbers
-  const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, 'org_planetbrick')).limit(1);
+  const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, orgId)).limit(1);
   const signer = settings?.customsSigner || 'Shipper';
   const isBrickLink = marketplace === 'BrickLink';
 
@@ -342,6 +343,7 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
       itemSubtotal,
       totalWeightOz,
       totalQty,
+      order.orgId,
     );
     if (intlShipping) {
       customsInfo = intlShipping.customsInfo;
@@ -377,7 +379,7 @@ export async function purchaseLabel(
   shipmentId: string,
   rateId: string,
   insurance?: number,
-  orgId: string = 'org_planetbrick'
+  orgId: string
 ): Promise<{
   shipment: any;
   order: any;
@@ -537,7 +539,7 @@ async function syncOrderStatusToPlatform(order: any): Promise<void> {
 async function syncToBrickLink(order: any, trackingNumber: string, carrier: string): Promise<void> {
   // Get BrickLink API credentials from org settings
   const { appSettings } = await import('@shared/schema');
-  const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, 'org_planetbrick')).limit(1);
+  const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, order.orgId)).limit(1);
 
   const consumerKey = settings?.bricklinkConsumerKey || process.env.BRICKLINK_CONSUMER_KEY || '';
   const consumerSecret = settings?.bricklinkConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || '';
@@ -572,7 +574,7 @@ async function syncToBrickLink(order: any, trackingNumber: string, carrier: stri
 async function syncToBrickOwl(order: any, trackingNumber: string): Promise<void> {
   // Get BrickOwl API credentials from org settings
   const { appSettings } = await import('@shared/schema');
-  const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, 'org_planetbrick')).limit(1);
+  const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, order.orgId)).limit(1);
 
   const apiKey = settings?.brickowlApiKey || process.env.BRICKOWL_API_KEY || '';
 

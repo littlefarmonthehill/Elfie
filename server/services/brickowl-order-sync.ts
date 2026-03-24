@@ -4,7 +4,6 @@ import { eq, and } from "drizzle-orm";
 import { getBrickOwlOrders, getBrickOwlOrderDetails, mapBrickOwlStatus, mapBrickOwlCondition } from "./brickowl-orders";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
 
-const ORG_ID = 'org_planetbrick';
 
 export interface BrickOwlOrderSyncResult {
   ordersAdded: number;
@@ -24,6 +23,7 @@ export interface BrickOwlOrderSyncResult {
  */
 export async function syncBrickOwlOrders(
   apiKey: string,
+  orgId: string,
   options: {
     limit?: number;
     fullSync?: boolean;
@@ -51,7 +51,7 @@ export async function syncBrickOwlOrders(
       const [previousSync] = await db
         .select()
         .from(syncMetadata)
-        .where(and(eq(syncMetadata.orgId, ORG_ID), eq(syncMetadata.id, syncId)))
+        .where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, syncId)))
         .limit(1);
       
       if (previousSync?.lastSyncTime) {
@@ -113,7 +113,7 @@ export async function syncBrickOwlOrders(
       recordsAdded: result.ordersAdded,
       recordsUpdated: result.ordersUpdated,
       errorMessage: null,
-      orgId: ORG_ID,
+      orgId,
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: {
@@ -144,7 +144,7 @@ export async function syncBrickOwlOrders(
       lastSyncTime: new Date(),
       lastSyncStatus: 'failed',
       errorMessage: error.message,
-      orgId: ORG_ID,
+      orgId,
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: {
@@ -297,7 +297,7 @@ async function processBrickOwlOrder(
 
   if (!existingOrder) {
     // Insert new order
-    await db.insert(orders).values([{ ...orderData, orgId: ORG_ID }]);
+    await db.insert(orders).values([{ ...orderData, orgId }]);
     result.ordersAdded++;
     isNewOrder = true;
   } else {
