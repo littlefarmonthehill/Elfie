@@ -14117,9 +14117,10 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
           )
         ))
         .orderBy(
-          // itemNo prefix matches first, name-only matches after
+          // Tier 0: itemNo starts with query; Tier 1: name-only matches
           sql`CASE WHEN ${blInventory.itemNo} ILIKE ${q + '%'} THEN 0 ELSE 1 END`,
-          asc(blInventory.itemNo)
+          // Within tier 0 sort by itemNo; within tier 1 sort by itemName so name-matches group sensibly
+          sql`CASE WHEN ${blInventory.itemNo} ILIKE ${q + '%'} THEN ${blInventory.itemNo} ELSE COALESCE(${blCatalog.itemName}, ${blInventory.itemNo}) END`
         )
         .limit(150);
 
