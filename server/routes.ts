@@ -164,11 +164,11 @@ export async function getPlatformBrickLinkCredentials(): Promise<{
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // ── One-time startup: deduplicate picklist_items and enforce unique index ──
+  // ── One-time startup: deduplicate picklist_items ──
   // A race condition in the concurrent batch-create step could produce multiple
-  // picklist_items rows sharing the same order_detail_id. Remove any extras (keep
-  // the oldest by created_at), then create the unique index idempotently so that
-  // future concurrent requests are blocked at the DB level.
+  // picklist_items rows sharing the same order_detail_id. Remove any extras,
+  // keeping the oldest by created_at. Duplicate prevention at insert time is
+  // handled by onConflictDoNothing() in the batch-create path.
   try {
     await db.execute(sql`
       DELETE FROM picklist_items
@@ -178,12 +178,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ORDER BY order_detail_id, created_at ASC
       )
     `);
-    await db.execute(sql`
-      CREATE UNIQUE INDEX IF NOT EXISTS picklist_order_detail_unique_idx
-      ON picklist_items (order_detail_id)
-    `);
   } catch (e) {
-    console.warn('[startup] picklist_items dedup/index skipped:', (e as Error).message);
+    console.warn('[startup] picklist_items dedup skipped:', (e as Error).message);
   }
 
   // Auth middleware setup - Email/Password Authentication
