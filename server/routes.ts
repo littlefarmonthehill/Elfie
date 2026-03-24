@@ -9313,6 +9313,7 @@ Format search_web URLs as markdown links.`;
       };
 
       let missingLotsCount = 0;
+      let typeMismatchLotsCount = 0;
       let priceDifferencesCount = 0;
       let quantityDifferencesCount = 0;
       let remarksDifferencesCount = 0;
@@ -9338,6 +9339,7 @@ Format search_web URLs as markdown links.`;
 
           // Cache arrays for detailed discrepancies
           const missingItems: any[] = [];
+          const typeMismatchItems: any[] = [];
           const priceDiscrepancies: any[] = [];
           const quantityDiscrepancies: any[] = [];
           const remarksDiscrepancies: any[] = [];
@@ -9589,27 +9591,70 @@ Format search_web URLs as markdown links.`;
           }
 
           // Find missing items (BrickLink items not matched in BrickOwl)
-          // Excludes qty=0 items — BrickOwl doesn't hold 0-qty lots (BO rejects create with qty=0),
-          // so those are intentionally absent and should not be flagged as "missing".
-          // Limit to 100 for display performance
-          let missingCount = 0;
+          // Excludes qty=0 items — BrickOwl doesn't hold 0-qty lots.
+          // After the primary tag-based pass we do a secondary BOID lookup for PART items
+          // matching the assembly/torso pattern (c0N suffix). BrickLink catalogs these as PART
+          // but BrickOwl catalogs them as Minifigure — lookupBoid with type=Part returns null,
+          // so they never get tagged and always appear "missing". We retry with type=Minifigure
+          // and check against the unlinked BO lot set: a match means the lot IS in BO but has
+          // a type mismatch, not a true absence.
+
+          // Fast lookup: unlinked BO lots by boid:condition
+          const unlinkedBoidCondSet = new Set(
+            unlinkedBoLots.map((ul: any) => `${ul.boid}:${ul.condition}`)
+          );
+
+          // Assembly pattern — items BrickLink calls PART that BrickOwl catalogs as Minifigure
+          const ASSEMBLY_PATTERN = /c0\d$/i;
+
+          // Collect all unmatched active BL lots
+          const unmatchedEntries: [number, any][] = [];
           for (const [inventoryId, blItem] of Array.from(blItemsMap.entries())) {
             if (!matchedBlIds.has(inventoryId) && !isStockroomFiltered(blItem) && (blItem.quantity ?? 0) > 0) {
-              if (missingCount < 100) {
-                const blPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
-                missingItems.push({
-                  lotId: blItem.id,
-                  itemNo: blItem.itemNo,
-                  itemName: blItem.itemName,
-                  colorName: blItem.colorName,
-                  condition: blItem.newOrUsed,
-                  blQuantity: blItem.quantity,
-                  blPrice,
-                  boQuantity: 0,
-                  boPrice: 0,
-                  difference: 'missing',
-                });
-              }
+              unmatchedEntries.push([inventoryId, blItem]);
+            }
+          }
+
+          // Resolve type mismatches in parallel batches of 5.
+          // lookupBoid uses an in-process cache — repeat scans are instant.
+          const CONCURRENCY = 5;
+          const typeMismatchFlags: boolean[] = new Array(unmatchedEntries.length).fill(false);
+          for (let i = 0; i < unmatchedEntries.length; i += CONCURRENCY) {
+            const chunk = unmatchedEntries.slice(i, i + CONCURRENCY);
+            const results = await Promise.all(chunk.map(async ([, blItem]) => {
+              if (blItem.itemType !== 'PART' || !ASSEMBLY_PATTERN.test(blItem.itemNo)) return false;
+              // Try Part first (cache hit if sync ran recently), then Minifigure fallback
+              let boid = await lookupBoid(blItem.itemNo, 'PART');
+              if (!boid) boid = await lookupBoid(blItem.itemNo, 'MINIFIG');
+              if (!boid) return false;
+              const condition = blItem.newOrUsed === 'N' ? 'new' : 'usedg';
+              return unlinkedBoidCondSet.has(`${boid}:${condition}`);
+            }));
+            for (let j = 0; j < results.length; j++) typeMismatchFlags[i + j] = results[j];
+          }
+
+          // Categorise into truly missing vs type mismatch
+          let missingCount = 0;
+          for (let i = 0; i < unmatchedEntries.length; i++) {
+            const [, blItem] = unmatchedEntries[i];
+            const blPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
+            const entry = {
+              lotId:      blItem.id,
+              itemNo:     blItem.itemNo,
+              itemName:   blItem.itemName,
+              colorName:  blItem.colorName,
+              condition:  blItem.newOrUsed,
+              blQuantity: blItem.quantity,
+              blPrice,
+              boQuantity: 0,
+              boPrice:    0,
+              difference: typeMismatchFlags[i] ? 'type_mismatch' : 'missing',
+            };
+            if (typeMismatchFlags[i]) {
+              if (typeMismatchLotsCount < 100) typeMismatchItems.push(entry);
+              typeMismatchLotsCount++;
+            } else {
+              if (missingCount < 100) missingItems.push(entry);
               missingCount++;
             }
           }
@@ -9617,7 +9662,8 @@ Format search_web URLs as markdown links.`;
 
           // Cache the detailed discrepancies
           const now = Date.now();
-          discrepancyCache.set('BrickOwl:missing', { data: missingItems, timestamp: now });
+          discrepancyCache.set('BrickOwl:missing',       { data: missingItems,      timestamp: now });
+          discrepancyCache.set('BrickOwl:type_mismatch', { data: typeMismatchItems, timestamp: now });
           discrepancyCache.set('BrickOwl:price', { data: priceDiscrepancies, timestamp: now });
           discrepancyCache.set('BrickOwl:quantity', { data: quantityDiscrepancies, timestamp: now });
           discrepancyCache.set('BrickOwl:remarks', { data: remarksDiscrepancies, timestamp: now });
@@ -9653,6 +9699,7 @@ Format search_web URLs as markdown links.`;
             stats: brickowlStats,
             discrepancies: {
               missingLots: missingLotsCount,
+              typeMismatchLots: typeMismatchLotsCount,
               missingParts: Math.max(0, brickLinkStats.totalParts - brickowlStats.totalParts),
               priceDifferences: priceDifferencesCount,
               quantityDifferences: quantityDifferencesCount,

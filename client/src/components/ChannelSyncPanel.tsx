@@ -34,6 +34,7 @@ import {
   StopCircle,
   Percent,
   Paintbrush,
+  ArrowLeftRight,
 } from "lucide-react";
 import {
   Drawer,
@@ -60,7 +61,7 @@ function SyncModeBadge({ mode, size = 'sm' }: { mode?: SyncMode; size?: 'sm' | '
   );
 }
 
-type DiscrepancyType = 'missing' | 'price' | 'quantity' | 'remarks' | 'description' | 'unlinked' | 'orphaned' | 'bulk_qty' | 'lot_weight' | 'for_sale' | 'sale_percent';
+type DiscrepancyType = 'missing' | 'type_mismatch' | 'price' | 'quantity' | 'remarks' | 'description' | 'unlinked' | 'orphaned' | 'bulk_qty' | 'lot_weight' | 'for_sale' | 'sale_percent';
 
 interface DiscrepancyArea {
   type: DiscrepancyType;
@@ -167,7 +168,8 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
     : 0;
   const showProgress = isRunning && !!progressData;
 
-  const missingLots = brickOwl?.discrepancies?.missingLots ?? 0;
+  const missingLots      = brickOwl?.discrepancies?.missingLots      ?? 0;
+  const typeMismatchLots = brickOwl?.discrepancies?.typeMismatchLots ?? 0;
   const priceDiffs = brickOwl?.discrepancies?.priceDifferences ?? 0;
   const qtyDiffs = brickOwl?.discrepancies?.quantityDifferences ?? 0;
   const remarksDiffs = brickOwl?.discrepancies?.remarksDifferences ?? 0;
@@ -178,7 +180,7 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
   const lotWeightDiffs = brickOwl?.discrepancies?.lotWeightDifferences ?? 0;
   const forSaleDiffs       = brickOwl?.discrepancies?.forSaleDifferences ?? 0;
   const salePercentDiffs   = brickOwl?.discrepancies?.salePercentDifferences ?? 0;
-  const totalDiscrepancies = missingLots + priceDiffs + qtyDiffs + remarksDiffs + descriptionDiffs + unlinkedDiffs + orphanedDiffs + bulkQtyDiffs + lotWeightDiffs + forSaleDiffs + salePercentDiffs;
+  const totalDiscrepancies = missingLots + typeMismatchLots + priceDiffs + qtyDiffs + remarksDiffs + descriptionDiffs + unlinkedDiffs + orphanedDiffs + bulkQtyDiffs + lotWeightDiffs + forSaleDiffs + salePercentDiffs;
 
   const syncStatusColor =
     lastSync?.lastSyncStatus === 'success' ? 'text-green-400' :
@@ -215,6 +217,16 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
       bgColor: 'bg-orange-950/30',
       count: missingLots,
       description: 'On BrickLink but not listed on BrickOwl',
+    },
+    {
+      type: 'type_mismatch',
+      label: 'Type Mismatch',
+      icon: ArrowLeftRight,
+      accentColor: 'text-violet-400',
+      borderColor: 'border-violet-500/40',
+      bgColor: 'bg-violet-950/30',
+      count: typeMismatchLots,
+      description: 'BL: Part — BO: Minifigure (lot exists but untagged)',
     },
     {
       type: 'price',
@@ -1097,7 +1109,7 @@ function OverviewContent({
 
       {/* Lot Issues — always visible; discrepancy buttons only when there are issues */}
       {(() => {
-        const LOT_TYPES: DiscrepancyType[] = ['missing', 'unlinked', 'orphaned'];
+        const LOT_TYPES: DiscrepancyType[] = ['missing', 'type_mismatch', 'unlinked', 'orphaned'];
         const lotAreas = discrepancyAreas.filter(a => LOT_TYPES.includes(a.type));
         return (
           <div className="space-y-1.5">
@@ -1343,8 +1355,9 @@ function DiscrepancyRow({ item, type, area }: {
 }
 
 const AUDIT_TYPES: Array<{ type: DiscrepancyType; label: string; color: string }> = [
-  { type: 'missing',     label: 'Missing Lots',            color: '#f97316' },
-  { type: 'unlinked',    label: 'Unlinked BrickOwl Lots',  color: '#9ca3af' },
+  { type: 'missing',      label: 'Missing Lots',                         color: '#f97316' },
+  { type: 'type_mismatch', label: 'Type Mismatch (BL: Part / BO: Minifig)', color: '#a78bfa' },
+  { type: 'unlinked',    label: 'Unlinked BrickOwl Lots',                color: '#9ca3af' },
   { type: 'orphaned',    label: 'Orphaned BrickOwl Lots',  color: '#fb7185' },
   { type: 'price',       label: 'Price Differences',       color: '#eab308' },
   { type: 'quantity',    label: 'Quantity Differences',    color: '#60a5fa' },
@@ -1364,7 +1377,8 @@ function AuditReportView({ discrepancyAreas, totalDiscrepancies, lastSyncTime }:
   const activeTypes = discrepancyAreas.map(a => a.type);
 
   const q = {
-    missing:     useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'missing',     'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/missing?limit=10000').then(r => r.json()),     enabled: activeTypes.includes('missing'),     refetchOnWindowFocus: false }),
+    missing:       useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'missing',       'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/missing?limit=10000').then(r => r.json()),       enabled: activeTypes.includes('missing'),       refetchOnWindowFocus: false }),
+    type_mismatch: useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'type_mismatch', 'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/type_mismatch?limit=10000').then(r => r.json()), enabled: activeTypes.includes('type_mismatch'), refetchOnWindowFocus: false }),
     price:       useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'price',       'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/price?limit=10000').then(r => r.json()),       enabled: activeTypes.includes('price'),       refetchOnWindowFocus: false }),
     quantity:    useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'quantity',    'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/quantity?limit=10000').then(r => r.json()),    enabled: activeTypes.includes('quantity'),    refetchOnWindowFocus: false }),
     remarks:     useQuery<any>({ queryKey: ['/api/platform-sync/discrepancies/BrickOwl', 'remarks',     'all'], queryFn: () => fetch('/api/platform-sync/discrepancies/BrickOwl/remarks?limit=10000').then(r => r.json()),     enabled: activeTypes.includes('remarks'),     refetchOnWindowFocus: false }),
