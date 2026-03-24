@@ -14119,7 +14119,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
             ilike(blInventory.itemNo, `${q}%`)
           ))
           .orderBy(asc(blInventory.itemNo))
-          .limit(100),
+          .limit(500),
 
         // Bucket 2: name contains query but itemNo does NOT start with query — sorted by name
         commonJoins(db.select({
