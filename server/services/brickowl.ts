@@ -376,7 +376,7 @@ export function getBlColorName(blColorId: number): string {
 // Lookup BOID from BrickLink item number + optional BrickOwl color ID (with in-process caching).
 // When boColorId is supplied the API returns only the BOID for that specific color variant,
 // which is essential for any item type that has per-color lots (Parts, Gear, etc.).
-export async function lookupBoid(blItemNo: string, type: string = 'Part', boColorId?: number): Promise<string | null> {
+export async function lookupBoid(blItemNo: string, type: string = 'Part', boColorId?: number, orgId?: string): Promise<string | null> {
   const normalizedType = normalizeBrickLinkItemType(type);
   const cacheKey = `${blItemNo}:${normalizedType}:${boColorId ?? 'any'}`;
 
@@ -394,7 +394,7 @@ export async function lookupBoid(blItemNo: string, type: string = 'Part', boColo
       params.color_id = boColorId.toString();
     }
 
-    const result = await brickowlGet('/catalog/id_lookup', params);
+    const result = await brickowlGet('/catalog/id_lookup', params, orgId);
 
     let boids: string[] = [];
     if (result.boids && Array.isArray(result.boids)) {
@@ -433,14 +433,16 @@ let boColorMapFailed = false;
 // resolveBoColorId is called simultaneously for multiple unique colors.
 let boColorMapInflight: Promise<void> | null = null;
 
-async function loadBoColorMap(): Promise<void> {
+async function loadBoColorMap(orgId?: string): Promise<void> {
+  // If a previous attempt failed due to missing orgId but we now have one, allow a retry.
+  if (boColorMapFailed && orgId) boColorMapFailed = false;
   if (boColorMapLoaded || boColorMapFailed) return;
   if (boColorMapInflight) return boColorMapInflight;
 
   boColorMapInflight = (async () => {
     try {
       // Correct BrickOwl color list endpoint (underscore, not slash).
-      const result = await brickowlGet('/catalog/color_list', {});
+      const result = await brickowlGet('/catalog/color_list', {}, orgId);
       console.log(`[Color Map] Raw BO color list (first 400 chars):`, JSON.stringify(result).substring(0, 400));
 
       // BrickOwl returns an object keyed by BO color ID: { "0": {...}, "2": {...}, ... }
@@ -508,16 +510,16 @@ async function loadBoColorMap(): Promise<void> {
 // Returns null when BL has no color (null/undefined input) OR when the color
 // cannot be mapped (color map unavailable or BL-only color).
 // Per business rule: if BL has no color, no color is sent to BrickOwl.
-async function resolveBoColorId(blColorId: number | null | undefined): Promise<number | null> {
+async function resolveBoColorId(blColorId: number | null | undefined, orgId?: string): Promise<number | null> {
   if (blColorId == null) return null; // No BL color → send none to BO
   // Ensure the color map is loaded (no-op after first successful load or failure)
-  await loadBoColorMap();
+  await loadBoColorMap(orgId);
   return boColorCache.get(blColorId) ?? null;
 }
 
 // Map BrickLink color ID to BrickOwl color ID (exported for diagnostics/testing)
-export async function mapColorId(bricklinkColorId: number): Promise<number | null> {
-  return resolveBoColorId(bricklinkColorId);
+export async function mapColorId(bricklinkColorId: number, orgId?: string): Promise<number | null> {
+  return resolveBoColorId(bricklinkColorId, orgId);
 }
 
 // Sync a single inventory item from BrickLink to BrickOwl
@@ -765,7 +767,7 @@ export async function syncBrickLinkToBrickOwl(
 
   // Pre-load the BO color map once so Phase 1 color-mismatch checks are
   // instant (resolveBoColorId reads from the in-memory cache after this).
-  await loadBoColorMap();
+  await loadBoColorMap(orgId);
 
   // ── Phase 1: In-memory delta detection (no API calls) ────────────────────
   type UpdateJob = {
@@ -1191,7 +1193,7 @@ export async function syncBrickLinkToBrickOwl(
   const uniqueBlColorIds = [...new Set(adoptCandidates.map(i => i.colorId).filter((c): c is number => c != null))];
   const boColorMap = new Map<number, number | null>();
   for (const blColorId of uniqueBlColorIds) {
-    boColorMap.set(blColorId, await resolveBoColorId(blColorId));
+    boColorMap.set(blColorId, await resolveBoColorId(blColorId, orgId));
   }
   console.log(`[ChannelSync] Phase 2b: resolved ${boColorMap.size} color mappings`);
 
@@ -1201,7 +1203,7 @@ export async function syncBrickLinkToBrickOwl(
     const results = await Promise.all(
       chunk.map(item => {
         const boColorId = item.colorId != null ? boColorMap.get(item.colorId) ?? undefined : undefined;
-        return lookupBoid(item.itemNo, item.itemType, boColorId ?? undefined);
+        return lookupBoid(item.itemNo, item.itemType, boColorId ?? undefined, orgId);
       })
     );
     results.forEach((boid, j) => boidMap.set(i + j, boid));
