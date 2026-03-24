@@ -1989,6 +1989,27 @@ export async function runMigrations() {
       console.log('[Migration] Phase-79 (remove platform org row) — already removed, skipped.');
     }
 
+    // ── Phase-80: inventory_history table ────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS inventory_history (
+        id            SERIAL PRIMARY KEY,
+        org_id        VARCHAR(256) NOT NULL,
+        inventory_id  INTEGER NOT NULL,
+        item_no       TEXT NOT NULL,
+        color_id      INTEGER,
+        changed_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+        source        TEXT NOT NULL,
+        source_ref    TEXT,
+        field         TEXT NOT NULL,
+        old_value     TEXT,
+        new_value     TEXT
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS inv_history_org_idx ON inventory_history (org_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS inv_history_inv_idx ON inventory_history (inventory_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS inv_history_at_idx  ON inventory_history (changed_at DESC)`);
+    console.log('[Migration] Phase-80 (inventory_history table) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

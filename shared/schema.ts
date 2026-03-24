@@ -1900,6 +1900,29 @@ export const pomAiSettings = pgTable("pom_ai_settings", {
 
 export type PomAiSettings = typeof pomAiSettings.$inferSelect;
 
+// ─── Inventory Change History ─────────────────────────────────────────────────
+// One row per changed field per event. Sources: 'bricklink_sync', 'order', 'order_restore'.
+export const inventoryHistory = pgTable("inventory_history", {
+  id: serial("id").primaryKey(),
+  orgId: varchar("org_id", { length: 256 }).notNull(),
+  inventoryId: integer("inventory_id").notNull(),
+  itemNo: text("item_no").notNull(),
+  colorId: integer("color_id"),
+  changedAt: timestamp("changed_at").defaultNow().notNull(),
+  source: text("source").notNull(),      // 'bricklink_sync' | 'order' | 'order_restore'
+  sourceRef: text("source_ref"),         // order id / order number
+  field: text("field").notNull(),        // 'quantity' | 'unitPrice' | 'remarks' | ...
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+}, (table) => ({
+  orgIdIdx: index("inv_history_org_idx").on(table.orgId),
+  inventoryIdIdx: index("inv_history_inv_idx").on(table.inventoryId),
+  changedAtIdx: index("inv_history_at_idx").on(table.changedAt),
+}));
+
+export type InventoryHistoryRow = typeof inventoryHistory.$inferSelect;
+export type InsertInventoryHistory = typeof inventoryHistory.$inferInsert;
+
 // Logs each time a seller applies a price (accepted, overridden, or custom)
 export const pomPriceDecisions = pgTable("pom_price_decisions", {
   id: serial("id").primaryKey(),

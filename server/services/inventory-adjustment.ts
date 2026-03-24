@@ -2,6 +2,7 @@ import { db } from "../db";
 import { blInventory, orders, orderDetails } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { syncMultipleItemsAcrossPlatforms, SyncItem } from "./cross-platform-sync";
+import { recordInventoryChanges } from "./inventory-history";
 
 /**
  * Adjust inventory based on order state.
@@ -64,6 +65,12 @@ export async function adjustInventoryForOrder(orderId: string) {
     const qty = item.quantity;
 
     try {
+      const [currentItem] = await db
+        .select()
+        .from(blInventory)
+        .where(eq(blInventory.id, item.bricklinkInventoryId))
+        .limit(1);
+
       if (impact === 'reduce') {
         await db
           .update(blInventory)
@@ -73,6 +80,19 @@ export async function adjustInventoryForOrder(orderId: string) {
           })
           .where(eq(blInventory.id, item.bricklinkInventoryId));
 
+        const oldQty = currentItem?.quantity ?? 0;
+        const newQty = Math.max(0, oldQty - qty);
+        await recordInventoryChanges([{
+          orgId: order.orgId,
+          inventoryId: item.bricklinkInventoryId,
+          itemNo: currentItem?.itemNo ?? item.sku ?? 'unknown',
+          colorId: currentItem?.colorId ?? null,
+          source: 'order',
+          sourceRef: order.id,
+          field: 'quantity',
+          oldValue: String(oldQty),
+          newValue: String(newQty),
+        }]);
         adjustments.push({ inventoryId: item.bricklinkInventoryId, quantityChange: -qty, action: 'reduced' });
       } else if (impact === 'restore') {
         await db
@@ -83,6 +103,19 @@ export async function adjustInventoryForOrder(orderId: string) {
           })
           .where(eq(blInventory.id, item.bricklinkInventoryId));
 
+        const oldQty = currentItem?.quantity ?? 0;
+        const newQty = oldQty + qty;
+        await recordInventoryChanges([{
+          orgId: order.orgId,
+          inventoryId: item.bricklinkInventoryId,
+          itemNo: currentItem?.itemNo ?? item.sku ?? 'unknown',
+          colorId: currentItem?.colorId ?? null,
+          source: 'order_restore',
+          sourceRef: order.id,
+          field: 'quantity',
+          oldValue: String(oldQty),
+          newValue: String(newQty),
+        }]);
         adjustments.push({ inventoryId: item.bricklinkInventoryId, quantityChange: qty, action: 'restored' });
       }
     } catch (error) {

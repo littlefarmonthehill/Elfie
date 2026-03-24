@@ -26,6 +26,10 @@ import {
   Loader2,
   ChevronLeft,
   Replace,
+  History,
+  ShoppingCart,
+  RefreshCw,
+  ArrowRight,
 } from "lucide-react";
 
 interface HealthSummary {
@@ -301,6 +305,188 @@ function DetailRow({ row, category }: { row: any; category: HealthCategory }) {
   );
 }
 
+type HistorySource = 'all' | 'bricklink_sync' | 'order' | 'order_restore';
+
+interface HistoryRow {
+  id: number;
+  inventory_id: number;
+  item_no: string;
+  color_id: number | null;
+  changed_at: string;
+  source: string;
+  source_ref: string | null;
+  field: string;
+  old_value: string | null;
+  new_value: string | null;
+  item_name: string | null;
+  color_name: string | null;
+}
+
+const SOURCE_FILTERS: { id: HistorySource; label: string; icon: React.ElementType; color: string }[] = [
+  { id: 'all',            label: 'All',     icon: History,      color: 'text-gray-400' },
+  { id: 'bricklink_sync', label: 'BL Sync', icon: RefreshCw,    color: 'text-blue-400' },
+  { id: 'order',          label: 'Orders',  icon: ShoppingCart, color: 'text-green-400' },
+  { id: 'order_restore',  label: 'Restores',icon: ArrowRight,   color: 'text-amber-400' },
+];
+
+function sourceBadge(source: string) {
+  switch (source) {
+    case 'bricklink_sync':
+      return <span className="text-[9px] px-1.5 py-0 rounded bg-blue-900/40 text-blue-400 border border-blue-700/30">BL Sync</span>;
+    case 'order':
+      return <span className="text-[9px] px-1.5 py-0 rounded bg-green-900/40 text-green-400 border border-green-700/30">Order</span>;
+    case 'order_restore':
+      return <span className="text-[9px] px-1.5 py-0 rounded bg-amber-900/40 text-amber-400 border border-amber-700/30">Restore</span>;
+    default:
+      return <span className="text-[9px] px-1.5 py-0 rounded bg-gray-800 text-gray-400 border border-gray-700/30">Manual</span>;
+  }
+}
+
+function fieldLabel(field: string) {
+  switch (field) {
+    case 'quantity':    return 'Qty';
+    case 'unitPrice':   return 'Price';
+    case 'isStockRoom': return 'Stockroom';
+    case 'saleRate':    return 'Sale Rate';
+    case 'remarks':     return 'Remarks';
+    case 'description': return 'Description';
+    default:            return field;
+  }
+}
+
+function formatHistoryValue(field: string, value: string | null) {
+  if (value == null) return <span className="text-gray-600 italic">none</span>;
+  if (field === 'unitPrice') return <span>${parseFloat(value).toFixed(2)}</span>;
+  if (field === 'isStockRoom') return <span>{value === 'true' ? 'Yes' : 'No'}</span>;
+  if (field === 'saleRate') return <span>{value}%</span>;
+  return <span className="truncate max-w-[80px]">{value}</span>;
+}
+
+function relativeTime(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1)  return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)  return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7)  return `${days}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+function HistoryView() {
+  const [page, setPage] = useState(0);
+  const [sourceFilter, setSourceFilter] = useState<HistorySource>('all');
+
+  const url = sourceFilter === 'all'
+    ? `/api/inventory/history?page=${page}`
+    : `/api/inventory/history?page=${page}&source=${sourceFilter}`;
+
+  const { data, isLoading } = useQuery<{ rows: HistoryRow[]; page: number; limit: number }>({
+    queryKey: ['/api/inventory/history', sourceFilter, page],
+    queryFn: () => fetch(url).then(r => r.json()),
+    refetchOnWindowFocus: false,
+  });
+
+  const rows = data?.rows ?? [];
+  const hasMore = rows.length === (data?.limit ?? 50);
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Source filter chips */}
+      <div className="px-4 pt-3 pb-2 flex items-center gap-1.5 flex-wrap">
+        {SOURCE_FILTERS.map(f => (
+          <button
+            key={f.id}
+            onClick={() => { setSourceFilter(f.id); setPage(0); }}
+            className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded border transition-colors ${
+              sourceFilter === f.id
+                ? 'bg-gray-700/60 border-gray-500 text-gray-100'
+                : 'bg-gray-800/40 border-gray-700/40 text-gray-400 hover-elevate'
+            }`}
+            data-testid={`button-history-filter-${f.id}`}
+          >
+            <f.icon className={`w-2.5 h-2.5 ${f.color}`} />
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 overflow-y-auto min-h-0 px-4">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-12 text-center">
+            <History className="w-8 h-8 text-gray-700" />
+            <span className="text-sm text-gray-500">No history yet</span>
+            <span className="text-xs text-gray-600">Changes appear here after a BL sync or order</span>
+          </div>
+        ) : (
+          <div>
+            {rows.map((row) => (
+              <div
+                key={row.id}
+                className="flex items-start gap-3 py-2.5 border-b border-gray-800/70 last:border-0"
+                data-testid={`history-row-${row.id}`}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-mono text-gray-300">{row.item_no}</span>
+                    {row.color_name && row.color_name !== 'No Color' && (
+                      <span className="text-[9px] text-gray-500">{row.color_name}</span>
+                    )}
+                    {sourceBadge(row.source)}
+                    {row.source_ref && (
+                      <span className="text-[9px] text-gray-600">#{row.source_ref.slice(0, 12)}</span>
+                    )}
+                  </div>
+                  {row.item_name && (
+                    <div className="text-[10px] text-gray-500 truncate mt-0.5">{row.item_name}</div>
+                  )}
+                  <div className="flex items-center gap-1.5 mt-1 text-[10px]">
+                    <span className="text-gray-500">{fieldLabel(row.field)}</span>
+                    <span className="text-gray-600">
+                      {formatHistoryValue(row.field, row.old_value)}
+                    </span>
+                    <span className="text-gray-600">→</span>
+                    <span className={row.field === 'quantity'
+                      ? (Number(row.new_value ?? 0) < Number(row.old_value ?? 0) ? 'text-red-400' : 'text-green-400')
+                      : 'text-blue-400'
+                    }>
+                      {formatHistoryValue(row.field, row.new_value)}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex-shrink-0 text-[10px] text-gray-600 mt-0.5">
+                  {relativeTime(row.changed_at)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {(page > 0 || hasMore) && (
+        <div className="flex-shrink-0 border-t border-gray-800 px-4 py-3 flex items-center justify-between">
+          <span className="text-xs text-gray-500">
+            {(page * 50 + 1)}–{page * 50 + rows.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button size="icon" variant="ghost" disabled={page === 0} onClick={() => setPage(p => p - 1)} data-testid="button-history-prev">
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <Button size="icon" variant="ghost" disabled={!hasMore} onClick={() => setPage(p => p + 1)} data-testid="button-history-next">
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DetailView({ category, title, icon: Icon, accentColor }: {
   category: HealthCategory;
   title: string;
@@ -370,6 +556,7 @@ interface InventoryHealthPanelProps {
 
 export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHealthPanelProps) {
   const [selectedCategory, setSelectedCategory] = useState<HealthCategory | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   const { data: health, isLoading } = useQuery<HealthSummary>({
     queryKey: ['/api/inventory/health'],
@@ -486,6 +673,12 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
   function handleClose() {
     onOpenChange(false);
     setSelectedCategory(null);
+    setShowHistory(false);
+  }
+
+  function handleBack() {
+    if (selectedCategory) { setSelectedCategory(null); return; }
+    if (showHistory) { setShowHistory(false); return; }
   }
 
   return (
@@ -496,9 +689,9 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
             <div className="w-10 h-1 rounded-full bg-gray-600" />
           </div>
           <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-gray-800">
-            {selectedCategory ? (
+            {(selectedCategory || showHistory) ? (
               <button
-                onClick={() => setSelectedCategory(null)}
+                onClick={handleBack}
                 className="text-gray-400 hover:text-gray-200 transition-colors mr-1 flex-shrink-0"
                 data-testid="button-health-back"
               >
@@ -512,6 +705,11 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
                 ? <span className="flex items-center gap-1.5">
                     <activeCard.icon className={`w-4 h-4 ${activeCard.accentColor} shrink-0`} />
                     {activeCard.label}
+                  </span>
+                : showHistory
+                ? <span className="flex items-center gap-1.5">
+                    <History className="w-4 h-4 text-violet-400 shrink-0" />
+                    Change History
                   </span>
                 : 'Inventory Health'}
             </DrawerTitle>
@@ -527,7 +725,9 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
         </DrawerHeader>
 
         <div className="flex-1 overflow-y-auto min-h-0">
-          {selectedCategory && activeCard ? (
+          {showHistory ? (
+            <HistoryView />
+          ) : selectedCategory && activeCard ? (
             <DetailView
               category={selectedCategory}
               title={activeCard.label}
@@ -645,6 +845,24 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
               {health && health.productMix.rows.length > 0 && (
                 <ProductMixOverview productMix={health.productMix} />
               )}
+
+              {/* Change history link */}
+              <div className="px-4 mt-3">
+                <button
+                  onClick={() => setShowHistory(true)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-700/50 bg-gray-800/30 hover-elevate text-sm"
+                  data-testid="button-view-history"
+                >
+                  <div className="flex items-center gap-2">
+                    <History className="w-4 h-4 text-violet-400 shrink-0" />
+                    <span className="text-gray-300 font-medium">Change History</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-gray-500">
+                    <span className="text-[11px]">Qty, price & stockroom changes</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </div>
+                </button>
+              </div>
             </div>
           )}
         </div>

@@ -9,6 +9,7 @@ import { canonicalBricklinkImageUrl } from "./image-proxy";
 import { batchEmbedInventory, batchEmbedSets } from "./embeddings";
 import { syncBrickLinkToBrickOwl } from "./brickowl";
 import { saveXMLBackup } from "./export";
+import { recordInventoryChanges, buildChanges } from "./inventory-history";
 
 const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: any) =>
   sql<string | null>`(SELECT item_name FROM bl_catalog WHERE item_no = ${itemNoRef} AND item_type = ${itemTypeRef} ORDER BY (color_id = ${colorIdRef})::int DESC, color_id ASC LIMIT 1)`;
@@ -760,11 +761,16 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
       console.log(`Found ${itemsToUpdate.length} items needing updates`);
       syncProgressTracker.update(`Updating ${itemsToUpdate.length} modified items...`, 85);
       
+      const historyBatch: Awaited<ReturnType<typeof buildChanges>> = [];
+
       for (let i = 0; i < itemsToUpdate.length; i += BATCH_SIZE) {
         const batch = itemsToUpdate.slice(i, i + BATCH_SIZE);
         
         // Update each item in the batch
         for (const item of batch) {
+          const existing = existingMap.get(Number(item.inventory_id));
+          const apiUnitPrice = parseFloat(item.unit_price || "0");
+
           await db.update(blInventory)
             .set({ 
               itemNo: item.item.no,
@@ -795,6 +801,38 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
             })
             .where(and(eq(blInventory.orgId, orgId), eq(blInventory.id, Number(item.inventory_id))));
 
+          if (existing) {
+            const existingForHistory = {
+              quantity: existing.quantity,
+              unitPrice: parseFloat(existing.unitPrice || "0"),
+              isStockRoom: existing.isStockRoom,
+              saleRate: existing.saleRate,
+              remarks: existing.remarks ?? null,
+              description: existing.description ?? null,
+            };
+            const updatedForHistory = {
+              quantity: item.quantity,
+              unitPrice: apiUnitPrice,
+              isStockRoom: !!item.is_stock_room,
+              saleRate: item.sale_rate ?? null,
+              remarks: item.remarks ?? null,
+              description: item.description ?? null,
+            };
+            historyBatch.push(...buildChanges(
+              existingForHistory,
+              updatedForHistory,
+              ['quantity', 'unitPrice', 'isStockRoom', 'saleRate', 'remarks', 'description'],
+              {
+                orgId,
+                inventoryId: Number(item.inventory_id),
+                itemNo: item.item.no,
+                colorId: item.color_id || 0,
+                source: 'bricklink_sync',
+                sourceRef: null,
+              }
+            ));
+          }
+
           // Dual-write catalog fields to bl_catalog
           await db.insert(blCatalog).values({
             itemNo: item.item.no,
@@ -818,6 +856,11 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
         const updateProgress = 85 + Math.round(((i + batch.length) / itemsToUpdate.length) * 10); // 85-95%
         syncProgressTracker.update(`Updated ${updated}/${itemsToUpdate.length} items`, updateProgress, { itemsUpdated: updated });
         console.log(`Updated batch ${Math.floor(i / BATCH_SIZE) + 1}: ${updated}/${itemsToUpdate.length} items`);
+      }
+
+      if (historyBatch.length > 0) {
+        await recordInventoryChanges(historyBatch);
+        console.log(`[InventoryHistory] Recorded ${historyBatch.length} change entries from BL sync`);
       }
 
       // Record price decisions for training whenever prices changed during sync

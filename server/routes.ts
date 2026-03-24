@@ -9339,6 +9339,49 @@ Format search_web URLs as markdown links.`;
     }
   });
 
+  // Inventory change history — paginated, most-recent-first
+  app.get("/api/inventory/history", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const page  = Math.max(0, Number(req.query.page ?? 0));
+      const limit = 50;
+      const offset = page * limit;
+      const source = req.query.source as string | undefined;
+      const inventoryId = req.query.inventoryId ? Number(req.query.inventoryId) : null;
+
+      const rows = await db.execute(sql`
+        SELECT
+          ih.id,
+          ih.inventory_id,
+          ih.item_no,
+          ih.color_id,
+          ih.changed_at,
+          ih.source,
+          ih.source_ref,
+          ih.field,
+          ih.old_value,
+          ih.new_value,
+          bc.item_name,
+          bc.color_name
+        FROM inventory_history ih
+        LEFT JOIN bl_catalog bc
+          ON ih.item_no = bc.item_no
+         AND bc.item_type IN ('P','M','S','G','B','C','I','O','U')
+         AND COALESCE(ih.color_id, 0) = bc.color_id
+        WHERE ih.org_id = ${orgId}
+          ${source ? sql`AND ih.source = ${source}` : sql``}
+          ${inventoryId ? sql`AND ih.inventory_id = ${inventoryId}` : sql``}
+        ORDER BY ih.changed_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `);
+
+      res.json({ rows: (rows as any).rows ?? [], page, limit });
+    } catch (error) {
+      console.error("Error fetching inventory history:", error);
+      res.status(500).json({ error: "Failed to fetch inventory history" });
+    }
+  });
+
   // Image proxy route - serves part images with white backgrounds removed
   // Accepts URL parameter for direct image processing
   app.get("/api/images/proxy", async (req, res) => {
