@@ -217,14 +217,16 @@ async function processBrickOwlOrder(
   // Fetch full order details (including items)
   const brickOwlOrderData = await getBrickOwlOrderDetails(apiKey, boOrder.order_id);
   
-  // Safely parse order date - prefer ISO format from API
-  const orderDate = safeTimestampToDate(boOrder.iso_order_time, boOrder.order_time);
-  
+  // Safely parse order date - prefer ISO format from list API, then detail view, then now
+  const orderDate =
+    safeTimestampToDate(boOrder.iso_order_time, boOrder.order_time) ??
+    safeTimestampToDate(brickOwlOrderData.iso_order_time, brickOwlOrderData.order_time) ??
+    new Date();
+
   let isNewOrder = false;
 
-  // Only update/insert order if we have valid data AND order doesn't exist
-  // If order exists, check for status changes
-  if (!existingOrder && orderDate) {
+  // Insert new order or update existing order's status
+  if (!existingOrder) {
     // Prepare order data for NEW orders only
     const orderData = {
       id: orderId,
