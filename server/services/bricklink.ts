@@ -1414,8 +1414,6 @@ export async function syncPriceOMagicCache(maxItems?: number, orgId: string = PL
     // Build candidate queue: inventory items needing price guide refresh.
     // Sorted by oldest fetchedAt first (never-fetched items always come first).
     // Staleness window and zero-stock skip come from scheduler settings.
-    // Scope to the specific org's inventory (unless called with PLATFORM_ORG_ID for platform-wide compat).
-    const orgFilter = orgId !== PLATFORM_ORG_ID ? eq(blInventory.orgId, orgId) : undefined;
     const quantityFilter = zeroStockSkip ? gt(blInventory.quantity, 0) : undefined;
     const inventoryItems = await db
       .select({

@@ -1,22 +1,13 @@
 import { db } from "../db";
-import { platformSettings, syncMetadata, appSettings, PLATFORM_ORG_ID } from "@shared/schema";
-import { eq, and, isNotNull, ne } from "drizzle-orm";
+import { platformSettings, syncMetadata, PLATFORM_ORG_ID } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 import { syncPriceOMagicCache } from "./bricklink";
 import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 
-// Used only for metadata tracking (single shared row for overall POM sync status).
+// POM price guide fetching is a platform-level service — uses the platform BL account.
+// The resulting price guide cache is shared across all orgs.
 const ORG_ID = PLATFORM_ORG_ID;
-
-// Return all orgs that have BrickLink credentials configured.
-// Returns empty array if none — no fallback to any default org.
-async function getEnabledPomOrgs(): Promise<string[]> {
-  const rows = await db
-    .select({ id: appSettings.id })
-    .from(appSettings)
-    .where(and(isNotNull(appSettings.bricklinkConsumerKey), ne(appSettings.bricklinkConsumerKey, '')));
-  return rows.map(r => r.id);
-}
 
 const SYNC_TYPE = 'priceomatic_sync';
 const MAX_RETRIES = 5;
@@ -175,14 +166,7 @@ async function runScheduledPomSync(batchSize: number) {
     return;
   }
 
-  // Resolve orgs to sync — each org uses its own BL credentials.
-  const orgs = await getEnabledPomOrgs();
-  if (orgs.length === 0) {
-    console.warn('[POM] No orgs with BrickLink credentials found — skipping scheduled sync. Configure BL credentials in Settings > API Credentials.');
-    syncLock.release('Price-o-Matic');
-    return;
-  }
-  console.log(`[POM] Starting scheduled sync for ${orgs.length} org(s) (batch: ${batchSize} items each)...`);
+  console.log(`[POM] Starting scheduled sync (batch: ${batchSize} items)...`);
 
   await db.insert(syncMetadata).values({
     id: 'priceomatic_cache',
@@ -197,45 +181,27 @@ async function runScheduledPomSync(batchSize: number) {
   });
 
   try {
-    let totalUpdated = 0;
-    let totalApiCalls = 0;
-    let anyStopped = false;
-    let lastStopReason: string | undefined;
+    const result = await syncPriceOMagicCache(batchSize);
+    console.log(`[POM] Scheduled sync complete! ${result.itemsUpdated} items updated, ${result.apiCallsUsed} API calls used`);
 
-    for (const orgId of orgs) {
-      console.log(`[POM] Syncing org ${orgId}...`);
-      const result = await syncPriceOMagicCache(batchSize, orgId);
-      totalUpdated += result.itemsUpdated;
-      totalApiCalls += result.apiCallsUsed;
-      if (result.stopped) {
-        anyStopped = true;
-        lastStopReason = result.stopReason;
-        console.log(`[POM] Org ${orgId} stopped early: ${result.stopReason}`);
-      } else {
-        console.log(`[POM] Org ${orgId} complete: ${result.itemsUpdated} items updated, ${result.apiCallsUsed} API calls`);
-      }
-    }
-
-    console.log(`[POM] All orgs done: ${totalUpdated} items updated, ${totalApiCalls} total API calls`);
-
-    const isShutdown = anyStopped && (lastStopReason?.includes('shutdown') || lastStopReason?.includes('interrupted'));
-    const finalStatus = anyStopped ? (isShutdown ? 'error' : 'partial') : 'success';
+    const isShutdown = result.stopped && (result.stopReason?.includes('shutdown') || result.stopReason?.includes('interrupted'));
+    const finalStatus = result.stopped ? (isShutdown ? 'error' : 'partial') : 'success';
 
     await db.insert(syncMetadata).values({
       id: 'priceomatic_cache',
       lastSyncStatus: finalStatus,
       lastSyncTime: new Date(),
       recordsAdded: 0,
-      recordsUpdated: totalUpdated,
-      errorMessage: lastStopReason || null,
+      recordsUpdated: result.itemsUpdated,
+      errorMessage: result.stopReason || null,
       orgId: ORG_ID,
     }).onConflictDoUpdate({
       target: syncMetadata.id,
       set: {
         lastSyncStatus: finalStatus,
         updatedAt: new Date(),
-        recordsUpdated: totalUpdated,
-        errorMessage: lastStopReason || null,
+        recordsUpdated: result.itemsUpdated,
+        errorMessage: result.stopReason || null,
       },
     });
 
