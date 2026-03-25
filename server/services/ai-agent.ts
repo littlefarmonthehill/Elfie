@@ -24,12 +24,20 @@ interface AgentLoopResult {
   marketNewsFromTool?: any[];
 }
 
+/** Build an OpenAI-compatible client. Automatically uses OpenRouter base URL for sk-or-v1 keys. */
+export function makeOpenAIClient(apiKey: string): OpenAI {
+  if (apiKey.startsWith('sk-or-v1')) {
+    return new OpenAI({ apiKey, baseURL: 'https://openrouter.ai/api/v1' });
+  }
+  return new OpenAI({ apiKey });
+}
+
 async function getOpenAIClient(): Promise<OpenAI> {
   const apiKey = await getPlatformOpenAIKey();
   if (!apiKey) {
     throw new Error('OpenAI API key not configured. Please add it in Platform Services settings.');
   }
-  return new OpenAI({ apiKey });
+  return makeOpenAIClient(apiKey);
 }
 
 export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoopResult> {

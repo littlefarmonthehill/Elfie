@@ -1,0 +1,83 @@
+AgentTeam] Pricing failed for c4627fcf-910b-4799-9744-59d9b8b32a7a (non-fatal): 401 Incorrect API key provided: sk-or-v1*************************************************************1d9c. You can find your API key at https://platform.openai.com/account/api-keys.
+1h ago
+ERROR
+[AgentTeam] Pricing failed for org_planetbrick (non-fatal): 401 Incorrect API key provided: sk-or-v1*************************************************************1d9c. You can find your API key at https://platform.openai.com/account/api-keys.
+1h ago
+ERROR
+[AgentTeam] Inventory failed for c4627fcf-910b-4799-9744-59d9b8b32a7a (non-fatal): 401 Incorrect API key provided: sk-or-v1*************************************************************1d9c. You can find your API key at https://platform.openai.com/account/api-keys.
+2h ago
+ERROR
+[AgentTeam] Inventory failed for org_planetbrick (non-fatal): 401 Incorrect API key provided: sk-or-v1*************************************************************1d9c. You can find your API key at https://platform.openai.com/account/api-keys.
+2h ago
+ERROR
+[AgentTeam] Catalog failed for c4627fcf-910b-4799-9744-59d9b8b32a7a (non-fatal): 401 Incorrect API key provided: sk-or-v1*************************************************************1d9c. You can find your API key at https://platform.openai.com/account/api-keys.
+2h ago
+ERROR
+[AgentTeam] Catalog failed for org_planetbrick (non-fatal): 401 Incorrect API key provided: sk-or-v1*************************************************************1d9c. You can find your API key at https://platform.openai.com/account/api-keys.
+2h ago
+ERROR
+[DB] Keepalive query failed (will retry next cycle): Connection terminated due to connection timeout
+2h ago
+ERROR
+[CatalogDetail] Scheduler check error: Connection terminated due to connection timeout
+2h ago
+ERROR
+[CatalogScan] Scheduler check error: Connection terminated due to connection timeout
+×2
+1h ago
+ERROR
+Error processing embedding job: Connection terminated due to connection timeout
+×3
+1h ago
+ERROR
+[CatalogScan] Scheduler check error: Connection terminated due to connection timeout
+4h ago
+ERROR
+[Rebrickable Scheduler] Error: Connection terminated due to connection timeout
+4h ago
+ERROR
+Error processing embedding job: Connection terminated due to connection timeout
+4h ago
+ERROR
+✗ Error processing BrickOwl order 1443786: Connection terminated due to connection timeout
+4h ago
+ERROR
+[CatalogDetail] Scheduler check error: Connection terminated due to connection timeout
+5h ago
+ERROR
+[Rebrickable Scheduler] Error: Connection terminated due to connection timeout
+5h ago
+ERROR
+[CatalogScan] Scheduler check error: Connection terminated due to connection timeout
+×3
+5h ago
+ERROR
+[BusinessIntel] Scheduler error: Connection terminated due to connection timeout
+5h ago
+ERROR
+[MarketNews] Scheduler error: Connection terminated due to connection timeout
+5h ago
+ERROR
+❌ Error in forum sync scheduler: Connection terminated due to connection timeout
+5h ago
+ERROR
+❌ Scheduled BrickOwl order sync failed (attempt 1/5): Order sync blocked: Order Sync is already running
+7h ago
+ERROR
+[SegService ERR] [33mPress CTRL+C to quit[0m
+7h ago
+ERROR
+[SegService ERR] * Running on http://127.0.0.1:5001
+7h ago
+ERROR
+[SegService ERR] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+7h ago
+ERROR
+[AgentTeam] Customer failed for c4627fcf-910b-4799-9744-59d9b8b32a7a (non-fatal): 401 Incorrect API key provided: sk-or-v1*************************************************************1d9c. You can find your API key at https://platform.openai.com/account/api-keys.
+7h ago
+ERROR
+[AgentTeam] Orders failed for c4627fcf-910b-4799-9744-59d9b8b32a7a (non-fatal): 401 Incorrect API key provided: sk-or-v1*************************************************************1d9c. You can find your API key at https://platform.openai.com/account/api-keys.
+7h ago
+ERROR
+[AgentTeam] Customer failed for org_planetbrick (non-fatal): 401 Incorrect API key provided: sk-or-v1*************************************************************1d9c. You can find your API key at https://platform.openai.com/account/api-keys.
+7h
