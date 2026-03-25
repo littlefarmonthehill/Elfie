@@ -1088,21 +1088,42 @@ export async function syncBrickLinkToBrickOwl(
     `${toAdopt.length} to adopt/create, ${result.lotsSkipped} skipped`
   );
 
-  // ── Diagnostic: log first 5 update jobs so we can verify values ──────────
+  // ── Diagnostic: per-field breakdown of what triggered each update ─────────
   if (toUpdate.length > 0) {
-    const sample = toUpdate.slice(0, 5);
-    sample.forEach((job, i) => {
+    const breakdown = {
+      qty:      toUpdate.filter(j => j.qtyChanged).length,
+      price:    toUpdate.filter(j => j.priceChanged).length,
+      remarks:  toUpdate.filter(j => j.personal_note !== undefined).length,
+      desc:     toUpdate.filter(j => j.public_note !== undefined).length,
+      tier:     toUpdate.filter(j => j.tier_price !== undefined).length,
+      sale:     toUpdate.filter(j => j.sale_percentage !== undefined).length,
+      forSale:  toUpdate.filter(j => j.for_sale !== undefined).length,
+      bulkQty:  toUpdate.filter(j => j.bulk_qty !== undefined).length,
+      color:    toUpdate.filter(j => j.color_id !== undefined).length,
+    };
+    console.log(
+      `[ChannelSync:DIAG] Update field breakdown (${toUpdate.length} jobs): ` +
+      `qty=${breakdown.qty} price=${breakdown.price} remarks=${breakdown.remarks} ` +
+      `desc=${breakdown.desc} tier=${breakdown.tier} sale%=${breakdown.sale} ` +
+      `forSale=${breakdown.forSale} bulkQty=${breakdown.bulkQty} color=${breakdown.color}`
+    );
+    // Sample first 5 jobs for deep inspection
+    toUpdate.slice(0, 5).forEach((job, i) => {
       const taggedLot = taggedLotMap.get(
         blItems.find(x => x.itemNo === job.blItemNo)?.id?.toString() ?? ''
       );
-      console.log(
-        `[ChannelSync:DIAG] Update job ${i + 1}: item=${job.blItemNo} lot_id=${job.lot_id}` +
-        ` | BL qty=${job.absolute_quantity} price=${job.price.toFixed(3)}` +
-        ` | BO qty=${taggedLot?.qty} base_price=${taggedLot?.base_price} sale%=${taggedLot?.sale_percent ?? 0}` +
-        ` | priceChanged=${job.priceChanged}` +
-        ` | sending price=${job.price.toFixed(3)} qty=${job.absolute_quantity}` +
-        (job.tier_price !== undefined ? ` tier=${job.tier_price}` : '')
-      );
+      const changedFields = [
+        job.qtyChanged        && `qty(BL=${job.absolute_quantity},BO=${taggedLot?.qty})`,
+        job.priceChanged      && `price(BL=${job.price.toFixed(3)},BO=${taggedLot?.base_price})`,
+        job.personal_note !== undefined && `remarks`,
+        job.public_note   !== undefined && `desc`,
+        job.tier_price    !== undefined && `tier=${job.tier_price}`,
+        job.sale_percentage !== undefined && `sale%=${job.sale_percentage}`,
+        job.for_sale      !== undefined && `forSale(BL=${job.for_sale},BO=${taggedLot?.for_sale})`,
+        job.bulk_qty      !== undefined && `bulk(BL=${job.bulk_qty},BO=${taggedLot?.bulk_qty})`,
+        job.color_id      !== undefined && `color=${job.color_id}`,
+      ].filter(Boolean).join(' ');
+      console.log(`[ChannelSync:DIAG] Job ${i + 1}: ${job.blItemNo} lot=${job.lot_id} — changed: ${changedFields}`);
     });
   }
 

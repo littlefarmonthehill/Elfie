@@ -35,6 +35,7 @@ import {
   Percent,
   Paintbrush,
   ArrowLeftRight,
+  Database,
 } from "lucide-react";
 import {
   Drawer,
@@ -381,11 +382,11 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
               <span>
                 {progressData!.phase === 'fetching'
                   ? 'Fetching inventory…'
-                  : `${progressData!.processed.toLocaleString()} / ${progressData!.total.toLocaleString()} items`}
+                  : progressData!.total > 0
+                    ? `Syncing ${progressData!.processed.toLocaleString()} / ${progressData!.total.toLocaleString()} items`
+                    : 'Syncing…'}
               </span>
-              {progressData!.phase === 'syncing' && (
-                <span className="tabular-nums">{progressPct}%</span>
-              )}
+              <span className="tabular-nums">{progressPct}%</span>
             </div>
           </div>
         )}
@@ -525,6 +526,8 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
                 onShowColorRepair={() => setShowColorRepair(true)}
                 fullScan={fullScan}
                 setFullScan={setFullScan}
+                progressData={progressData}
+                progressPct={progressPct}
               />
             )}
           </div>
@@ -1025,7 +1028,20 @@ function OverviewContent({
   onShowColorRepair,
   fullScan,
   setFullScan,
+  progressData,
+  progressPct,
 }: any) {
+  const syncStatusColor =
+    lastSync?.lastSyncStatus === 'success' ? 'text-green-400' :
+    lastSync?.lastSyncStatus === 'partial' ? 'text-yellow-400' :
+    lastSync?.lastSyncStatus === 'error' || lastSync?.lastSyncStatus === 'failed' ? 'text-red-400' :
+    'text-gray-400';
+  const SyncStatusIcon =
+    lastSync?.lastSyncStatus === 'success' ? CheckCircle2 :
+    lastSync?.lastSyncStatus === 'partial' ? AlertTriangle :
+    lastSync?.lastSyncStatus === 'error' || lastSync?.lastSyncStatus === 'failed' ? XCircle :
+    Clock;
+
   return (
     <div className="px-4 pt-3 pb-6 space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
@@ -1036,7 +1052,7 @@ function OverviewContent({
           onClick={() => syncMutation.mutate()}
           data-testid="button-channel-sync-now"
         >
-          {syncMutation.isPending ? (
+          {syncMutation.isPending || isRunning ? (
             <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
           ) : (
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
@@ -1052,6 +1068,15 @@ function OverviewContent({
           className={fullScan ? 'text-amber-400' : 'text-muted-foreground'}
         >
           {fullScan ? 'Full scan' : 'Incremental'}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => { setDrawerOpen(false); onOpenSettings?.('platforms', 'schedulerChannel'); }}
+          data-testid="button-channel-sync-schedule"
+        >
+          <CalendarClock className="w-3.5 h-3.5 mr-1.5" />
+          Schedule
         </Button>
         {isRunning && (
           <Button
@@ -1070,16 +1095,7 @@ function OverviewContent({
             {stopMutation.isPending ? 'Stopping…' : 'Stop Sync'}
           </Button>
         )}
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => { setDrawerOpen(false); onOpenSettings?.('platforms', 'schedulerChannel'); }}
-          data-testid="button-channel-sync-schedule"
-        >
-          <CalendarClock className="w-3.5 h-3.5 mr-1.5" />
-          Schedule
-        </Button>
-        {totalDiscrepancies > 0 && (
+        {totalDiscrepancies > 0 && !isRunning && (
           <Button
             size="sm"
             variant="ghost"
@@ -1093,6 +1109,79 @@ function OverviewContent({
       </div>
 
       <Separator className="bg-gray-700/60" />
+
+      {/* Live progress box — mirrors BL drawer style */}
+      {isRunning && (
+        <div className="space-y-2 rounded-lg border border-blue-500/30 bg-blue-950/20 p-3">
+          <div className="flex items-center gap-2 text-xs text-blue-300">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            <span className="font-medium">Sync in progress</span>
+          </div>
+          {progressData && (
+            <>
+              <Progress value={progressPct} className="h-2" />
+              <div className="flex justify-between text-[10px] text-gray-400">
+                <span>
+                  {progressData.phase === 'fetching'
+                    ? 'Fetching inventory…'
+                    : progressData.total > 0
+                      ? `Syncing ${progressData.processed.toLocaleString()} / ${progressData.total.toLocaleString()} items`
+                      : 'Syncing…'}
+                </span>
+                <span className="tabular-nums font-mono">{progressPct}%</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Last sync summary */}
+      {lastSync && !isRunning && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-0.5">Last Sync</p>
+          <div className="rounded-lg border border-gray-700/60 bg-gray-900/50 p-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <SyncStatusIcon className={`w-4 h-4 shrink-0 ${syncStatusColor}`} />
+              <span className={`text-sm font-medium ${syncStatusColor}`}>
+                {lastSync.lastSyncStatus === 'success'  ? 'Completed successfully' :
+                 lastSync.lastSyncStatus === 'partial'  ? 'Completed with errors'  :
+                 lastSync.lastSyncStatus === 'error'    ? 'Failed'                 :
+                 lastSync.lastSyncStatus === 'in_progress' ? 'In progress…'        :
+                 lastSync.lastSyncStatus ?? 'Unknown'}
+              </span>
+              {lastSync.lastSyncTime && (
+                <span className="text-[10px] text-gray-500 ml-auto">{relTime(lastSync.lastSyncTime)}</span>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: 'BO Lots',   value: brickOwl?.stats?.totalLots,       icon: Database, color: 'text-green-300' },
+                { label: 'BO Parts',  value: brickOwl?.stats?.totalParts,      icon: Hash,     color: 'text-green-300' },
+                { label: 'Updated',   value: lastSync.recordsUpdated,           icon: RefreshCw, color: 'text-yellow-300' },
+              ].map(({ label, value, icon: Icon, color }) => (
+                <div key={label} className="rounded bg-gray-800/60 px-2 py-1.5 text-center">
+                  <p className={`text-base font-mono font-bold ${color}`}>
+                    {value != null ? Number(value).toLocaleString() : '—'}
+                  </p>
+                  <p className="text-[9px] text-gray-500 mt-0.5">{label}</p>
+                </div>
+              ))}
+            </div>
+            {(lastSync.recordsAdded ?? 0) > 0 && (
+              <p className="text-[10px] text-gray-400">
+                <span className="font-mono font-semibold text-green-300">{Number(lastSync.recordsAdded).toLocaleString()}</span>
+                {' '}new lots created on BrickOwl
+              </p>
+            )}
+            {lastSync.errorMessage && lastSync.lastSyncStatus !== 'success' && (
+              <div className="flex items-start gap-1.5 rounded border border-red-500/30 bg-red-950/20 px-2 py-1.5">
+                <XCircle className="w-3 h-3 text-red-400 shrink-0 mt-0.5" />
+                <p className="text-[10px] text-red-300/80">{lastSync.errorMessage}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {brickOwl?.syncMode && (
         <div className="flex items-center gap-2">
