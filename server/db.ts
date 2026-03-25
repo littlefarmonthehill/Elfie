@@ -2066,6 +2066,17 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-82 (inventory_sync_frequency + channel_sync_frequency) complete.');
 
+    // ── Phase-83: platform sync-admin defaults + global pause + plan floors ──
+    await client.query(`
+      ALTER TABLE platform_settings
+        ADD COLUMN IF NOT EXISTS default_inventory_freq_hours integer NOT NULL DEFAULT 24,
+        ADD COLUMN IF NOT EXISTS default_orders_freq_mins      integer NOT NULL DEFAULT 30,
+        ADD COLUMN IF NOT EXISTS default_channel_freq_hours    integer NOT NULL DEFAULT 4,
+        ADD COLUMN IF NOT EXISTS global_sync_paused            boolean NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS sync_floors_by_plan           jsonb
+    `);
+    console.log('[Migration] Phase-83 (platform sync-admin defaults + floors) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

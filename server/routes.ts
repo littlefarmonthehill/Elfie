@@ -1880,6 +1880,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/platform-admin/org-sync-trigger/:orgId/:type — manually trigger a per-org sync
+  app.post('/api/platform-admin/org-sync-trigger/:orgId/:type', isSuperAdmin, async (req, res) => {
+    const { orgId, type } = req.params;
+    if (!orgId || !['inventory', 'orders', 'channel'].includes(type)) {
+      return res.status(400).json({ message: 'Invalid orgId or type. type must be inventory | orders | channel' });
+    }
+    try {
+      if (type === 'inventory') {
+        const { syncBricklinkData } = await import('./services/bricklink.js');
+        syncBricklinkData(orgId).catch(e => console.error(`[Admin Trigger] Inventory sync failed for ${orgId}:`, e));
+        return res.json({ message: `Inventory sync triggered for org ${orgId}` });
+      }
+      if (type === 'channel') {
+        const { runChannelSyncForOrg } = await import('./services/channel-sync-scheduler.js');
+        runChannelSyncForOrg(orgId).catch(e => console.error(`[Admin Trigger] Channel sync failed for ${orgId}:`, e));
+        return res.json({ message: `Channel sync triggered for org ${orgId}` });
+      }
+      if (type === 'orders') {
+        const { syncOrdersForOrg } = await import('./services/order-sync-service.js').catch(() => ({ syncOrdersForOrg: null })) as any;
+        if (syncOrdersForOrg) {
+          syncOrdersForOrg(orgId).catch((e: any) => console.error(`[Admin Trigger] Orders sync failed for ${orgId}:`, e));
+          return res.json({ message: `Orders sync triggered for org ${orgId}` });
+        }
+        return res.json({ message: 'Orders sync trigger not available — run from org context' });
+      }
+    } catch (error: any) {
+      console.error('[Admin Trigger] Error:', error);
+      return res.status(500).json({ message: error.message });
+    }
+  });
+
   // GET /api/business-intel — returns insights for requesting org
   app.get('/api/business-intel', isAuthenticated, async (req: any, res) => {
     try {

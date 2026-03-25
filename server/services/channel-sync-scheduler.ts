@@ -161,6 +161,10 @@ export async function runChannelSync(forceFullScan = false) {
   return runScheduledChannelSync(forceFullScan, orgId);
 }
 
+export async function runChannelSyncForOrg(orgId: string, forceFullScan = false) {
+  return runScheduledChannelSync(forceFullScan, orgId);
+}
+
 async function runScheduledChannelSync(forceFullScan = false, orgId?: string) {
   if (!syncLock.acquire('Channel Sync')) {
     console.log('⏭️ Scheduled channel sync skipped — another sync is running');

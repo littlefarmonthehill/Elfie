@@ -719,6 +719,14 @@ export const platformSettings = pgTable("platform_settings", {
   rebrickableSetSyncTime: text("rebrickable_set_sync_time").default('04:00'),
   // Platform timezone (used by schedulers for time-of-day gates)
   timezone: text("timezone").default('America/Chicago'),
+  // Org-sync scheduler admin — global defaults & emergency pause
+  defaultInventoryFreqHours: integer("default_inventory_freq_hours").default(24).notNull(),
+  defaultOrdersFreqMins: integer("default_orders_freq_mins").default(30).notNull(),
+  defaultChannelFreqHours: integer("default_channel_freq_hours").default(4).notNull(),
+  globalSyncPaused: boolean("global_sync_paused").default(false).notNull(),
+  // Per-plan frequency floors — minimum interval each plan tier is allowed to use
+  // Structure: { inventory: { beta: 24, core: 12, pro: 6 }, orders: { ... }, channel: { ... } }
+  syncFloorsByPlan: jsonb("sync_floors_by_plan"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

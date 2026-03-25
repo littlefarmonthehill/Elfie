@@ -24,6 +24,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ResponsiveModal } from "@/components/ui/responsive-modal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { EmbeddingsManager, UniversalCatalogSection } from "@/components/EmbeddingsManager";
@@ -44,7 +45,7 @@ interface SettingsModalProps {
   isBrickspotterOnly?: boolean;
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'notifications' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'priceomatic' | 'ieStrategies' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | 'platformElfie' | 'platformNotifications' | 'autoSync' | null;
+type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'notifications' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'syncAdmin' | 'priceomatic' | 'ieStrategies' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | 'platformElfie' | 'platformNotifications' | 'autoSync' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -2480,6 +2481,15 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [pomScheduleEnabled, setPomScheduleEnabled] = useState(false);
   const [pomSyncTime, setPomSyncTime] = useState("14:00");
   const [timezone, setTimezone] = useState("America/Chicago");
+  const [globalSyncPaused, setGlobalSyncPaused] = useState(false);
+  const [defaultInventoryFreqHours, setDefaultInventoryFreqHours] = useState(24);
+  const [defaultOrdersFreqMins, setDefaultOrdersFreqMins] = useState(30);
+  const [defaultChannelFreqHours, setDefaultChannelFreqHours] = useState(4);
+  const [syncFloorsByPlan, setSyncFloorsByPlan] = useState<Record<string, Record<string, number>>>({
+    inventory: { beta: 24, core: 12, pro: 6 },
+    orders:    { beta: 60, core: 30, pro: 15 },
+    channel:   { beta: 12, core: 4,  pro: 1  },
+  });
   const [pomScheduleBatchSize, setPomScheduleBatchSize] = useState(1500);
   const [pomFreshnessDays, setPomFreshnessDays] = useState(180);
   const [pomZeroStockSkip, setPomZeroStockSkip] = useState(true);
@@ -2514,6 +2524,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [schedulerChannelOpen, setSchedulerChannelOpen] = useState(false);
   const [schedulerChannelBrickOwlOpen, setSchedulerChannelBrickOwlOpen] = useState(true);
   const [channelSyncFieldsOpen, setChannelSyncFieldsOpen] = useState(false);
+  const [triggeringSync, setTriggeringSync] = useState<string | null>(null);
   const [enrichmentEmbeddingsOpen, setEnrichmentEmbeddingsOpen] = useState(false);
   const [enrichmentUniversalOpen, setEnrichmentUniversalOpen] = useState(false);
   const [enrichmentPomOpen, setEnrichmentPomOpen] = useState(false);
@@ -3125,8 +3136,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
   const { data: orgSyncStatus, isError: orgSyncError } = useQuery<OrgSyncEntry[]>({
     queryKey: ['/api/platform-admin/org-sync-status'],
-    enabled: open && activeSection === 'auditLog' && activeAuditTab === 'organization',
-    refetchInterval: activeSection === 'auditLog' && activeAuditTab === 'organization' ? 30000 : false,
+    enabled: open && ((activeSection === 'auditLog' && activeAuditTab === 'organization') || activeSection === 'syncAdmin'),
+    refetchInterval: (activeSection === 'auditLog' && activeAuditTab === 'organization') || activeSection === 'syncAdmin' ? 30000 : false,
   });
 
   type DbTableStat = {
@@ -3494,6 +3505,18 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setPomTrendingBonus(platformSettings.pomTrendingBonus ?? 60);
       setPomHighSupplyThreshold(platformSettings.pomHighSupplyThreshold ?? 10000);
       setPomHighSupplyPenalty(platformSettings.pomHighSupplyPenalty ?? 40);
+      setGlobalSyncPaused((platformSettings as any).globalSyncPaused ?? false);
+      setDefaultInventoryFreqHours((platformSettings as any).defaultInventoryFreqHours ?? 24);
+      setDefaultOrdersFreqMins((platformSettings as any).defaultOrdersFreqMins ?? 30);
+      setDefaultChannelFreqHours((platformSettings as any).defaultChannelFreqHours ?? 4);
+      const floors = (platformSettings as any).syncFloorsByPlan;
+      if (floors && typeof floors === 'object') {
+        setSyncFloorsByPlan({
+          inventory: { beta: 24, core: 12, pro: 6, ...(floors.inventory || {}) },
+          orders:    { beta: 60, core: 30, pro: 15, ...(floors.orders || {}) },
+          channel:   { beta: 12, core: 4,  pro: 1,  ...(floors.channel || {}) },
+        });
+      }
     }
   }, [platformSettings]);
 
@@ -3894,6 +3917,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       items: [
         { id: 'platformGeneral' as const, label: 'Company Information', icon: Settings },
         { id: 'apiKeys' as const, label: 'Services', icon: Key },
+        { id: 'syncAdmin' as const, label: 'Scheduler Admin', icon: RefreshCw },
         { id: 'platformScheduler' as const, label: 'Data Enrichment', icon: Calendar },
         { id: 'auditLog' as const, label: 'Platform Health', icon: ClipboardList },
         { id: 'platformElfie' as const, label: 'E.L.F.I.E. Settings', icon: Brain },
@@ -9078,6 +9102,298 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
               </div>
             )}
 
+
+            {/* ── Scheduler Admin — multi-org sync governance ─────────── */}
+            {activeSection === 'syncAdmin' && (
+              <div className="space-y-4 min-h-[400px]">
+                {/* Header */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-100">Scheduler Admin</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">Control sync defaults, per-plan frequency floors, and org-level health across all tenants</p>
+                </div>
+
+                {/* ── Card: Global Controls ─────────────────────────────── */}
+                <div className="rounded-md border border-gray-700/80 bg-gray-800/20">
+                  <div className="px-4 py-3 border-b border-gray-700/60">
+                    <p className="text-xs font-semibold text-gray-200">Global Controls</p>
+                  </div>
+                  <div className="divide-y divide-gray-700/40">
+                    {/* Emergency Pause */}
+                    <div className="flex items-center justify-between gap-3 px-4 py-3">
+                      <div>
+                        <p className="text-xs font-medium text-gray-200 flex items-center gap-1.5">
+                          <AlertTriangle className="w-3 h-3 text-red-400 shrink-0" />
+                          Emergency Pause
+                        </p>
+                        <p className="text-[10px] text-gray-500 mt-0.5">Immediately halts all org inventory and channel syncs platform-wide</p>
+                      </div>
+                      <Switch
+                        checked={globalSyncPaused}
+                        onCheckedChange={(checked) => {
+                          setGlobalSyncPaused(checked);
+                          updatePlatformSettingsMutation.mutate({ globalSyncPaused: checked } as any);
+                        }}
+                        data-testid="switch-global-sync-paused"
+                      />
+                    </div>
+                    {/* Default Inventory Frequency */}
+                    <div className="flex items-center justify-between gap-3 px-4 py-3">
+                      <div>
+                        <p className="text-xs font-medium text-gray-200">Default Inventory Frequency</p>
+                        <p className="text-[10px] text-gray-500 mt-0.5">What new orgs inherit for BrickLink inventory sync</p>
+                      </div>
+                      <Select value={String(defaultInventoryFreqHours)} onValueChange={(v) => { const h = Number(v); setDefaultInventoryFreqHours(h); updatePlatformSettingsMutation.mutate({ defaultInventoryFreqHours: h } as any); }}>
+                        <SelectTrigger className="w-36 h-8 text-xs" data-testid="select-default-inventory-freq">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="6">Every 6 hours</SelectItem>
+                          <SelectItem value="12">Every 12 hours</SelectItem>
+                          <SelectItem value="24">Every 24 hours</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {/* Default Orders Frequency */}
+                    <div className="flex items-center justify-between gap-3 px-4 py-3">
+                      <div>
+                        <p className="text-xs font-medium text-gray-200">Default Orders Frequency</p>
+                        <p className="text-[10px] text-gray-500 mt-0.5">What new orgs inherit for order sync polling</p>
+                      </div>
+                      <Select value={String(defaultOrdersFreqMins)} onValueChange={(v) => { const m = Number(v); setDefaultOrdersFreqMins(m); updatePlatformSettingsMutation.mutate({ defaultOrdersFreqMins: m } as any); }}>
+                        <SelectTrigger className="w-36 h-8 text-xs" data-testid="select-default-orders-freq">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="15">15 minutes</SelectItem>
+                          <SelectItem value="30">30 minutes</SelectItem>
+                          <SelectItem value="60">1 hour</SelectItem>
+                          <SelectItem value="120">2 hours</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {/* Default Channel Frequency */}
+                    <div className="flex items-center justify-between gap-3 px-4 py-3">
+                      <div>
+                        <p className="text-xs font-medium text-gray-200">Default Channel Frequency</p>
+                        <p className="text-[10px] text-gray-500 mt-0.5">What new orgs inherit for channel (BrickOwl, etc.) sync</p>
+                      </div>
+                      <Select value={String(defaultChannelFreqHours)} onValueChange={(v) => { const h = Number(v); setDefaultChannelFreqHours(h); updatePlatformSettingsMutation.mutate({ defaultChannelFreqHours: h } as any); }}>
+                        <SelectTrigger className="w-36 h-8 text-xs" data-testid="select-default-channel-freq">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">Every hour</SelectItem>
+                          <SelectItem value="2">Every 2 hours</SelectItem>
+                          <SelectItem value="4">Every 4 hours</SelectItem>
+                          <SelectItem value="6">Every 6 hours</SelectItem>
+                          <SelectItem value="12">Every 12 hours</SelectItem>
+                          <SelectItem value="24">Every 24 hours</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Card: Frequency Floors by Plan ─────────────────────── */}
+                <div className="rounded-md border border-gray-700/80 bg-gray-800/20">
+                  <div className="px-4 py-3 border-b border-gray-700/60 flex items-center gap-1.5">
+                    <p className="text-xs font-semibold text-gray-200">Frequency Floors by Plan</p>
+                    <Tooltip>
+                      <TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 cursor-default" /></TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs text-xs">Orgs on each plan cannot sync faster than these minimums. Prevents API abuse on low-tier plans.</TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <div className="p-4">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                          <th className="text-left pb-2 pr-4">Plan</th>
+                          <th className="text-center pb-2 px-2">Inventory</th>
+                          <th className="text-center pb-2 px-2">Orders</th>
+                          <th className="text-center pb-2 px-2">Channel</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-700/40">
+                        {(['beta', 'core', 'pro'] as const).map((plan) => (
+                          <tr key={plan}>
+                            <td className="py-2 pr-4 font-medium text-gray-300 capitalize">{plan}</td>
+                            {/* Inventory floor */}
+                            <td className="py-2 px-2 text-center">
+                              <Select
+                                value={String(syncFloorsByPlan.inventory?.[plan] ?? 24)}
+                                onValueChange={(v) => {
+                                  const next = { ...syncFloorsByPlan, inventory: { ...syncFloorsByPlan.inventory, [plan]: Number(v) } };
+                                  setSyncFloorsByPlan(next);
+                                  updatePlatformSettingsMutation.mutate({ syncFloorsByPlan: next } as any);
+                                }}
+                              >
+                                <SelectTrigger className="h-7 text-[10px] w-24 mx-auto" data-testid={`select-floor-inventory-${plan}`}>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="6">6 h</SelectItem>
+                                  <SelectItem value="12">12 h</SelectItem>
+                                  <SelectItem value="24">24 h</SelectItem>
+                                  <SelectItem value="48">48 h</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </td>
+                            {/* Orders floor */}
+                            <td className="py-2 px-2 text-center">
+                              <Select
+                                value={String(syncFloorsByPlan.orders?.[plan] ?? 30)}
+                                onValueChange={(v) => {
+                                  const next = { ...syncFloorsByPlan, orders: { ...syncFloorsByPlan.orders, [plan]: Number(v) } };
+                                  setSyncFloorsByPlan(next);
+                                  updatePlatformSettingsMutation.mutate({ syncFloorsByPlan: next } as any);
+                                }}
+                              >
+                                <SelectTrigger className="h-7 text-[10px] w-24 mx-auto" data-testid={`select-floor-orders-${plan}`}>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="15">15 min</SelectItem>
+                                  <SelectItem value="30">30 min</SelectItem>
+                                  <SelectItem value="60">60 min</SelectItem>
+                                  <SelectItem value="120">2 h</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </td>
+                            {/* Channel floor */}
+                            <td className="py-2 px-2 text-center">
+                              <Select
+                                value={String(syncFloorsByPlan.channel?.[plan] ?? 4)}
+                                onValueChange={(v) => {
+                                  const next = { ...syncFloorsByPlan, channel: { ...syncFloorsByPlan.channel, [plan]: Number(v) } };
+                                  setSyncFloorsByPlan(next);
+                                  updatePlatformSettingsMutation.mutate({ syncFloorsByPlan: next } as any);
+                                }}
+                              >
+                                <SelectTrigger className="h-7 text-[10px] w-24 mx-auto" data-testid={`select-floor-channel-${plan}`}>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="1">1 h</SelectItem>
+                                  <SelectItem value="2">2 h</SelectItem>
+                                  <SelectItem value="4">4 h</SelectItem>
+                                  <SelectItem value="6">6 h</SelectItem>
+                                  <SelectItem value="12">12 h</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* ── Card: Org Sync Health ──────────────────────────────── */}
+                <div className="rounded-md border border-gray-700/80 bg-gray-800/20">
+                  <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-700/60">
+                    <p className="text-xs font-semibold text-gray-200">Org Sync Health</p>
+                    <span className="text-[10px] text-gray-500">Refreshes every 30s</span>
+                  </div>
+                  {!orgSyncStatus ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
+                    </div>
+                  ) : orgSyncStatus.length === 0 ? (
+                    <p className="text-xs text-gray-500 text-center py-6">No org sync data yet</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 border-b border-gray-700/40">
+                            <th className="text-left px-4 py-2">Organization</th>
+                            <th className="text-center px-3 py-2">Inventory</th>
+                            <th className="text-center px-3 py-2">Orders</th>
+                            <th className="text-center px-3 py-2">Channel</th>
+                            <th className="text-right px-4 py-2">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-700/30">
+                          {orgSyncStatus.map((entry) => {
+                            const getSyncCell = (id: string) => {
+                              const s = entry.syncs.find(x => x.id === id);
+                              if (!s) return <span className="text-gray-600">—</span>;
+                              const isRunning = s.lastSyncStatus === 'in_progress';
+                              const isError = s.lastSyncStatus === 'error' || s.lastSyncStatus === 'failed';
+                              const isOk = s.lastSyncStatus === 'success';
+                              const dotCls = isRunning ? 'bg-yellow-400 animate-pulse' : isError ? 'bg-red-400' : isOk ? 'bg-green-400' : 'bg-gray-600';
+                              return (
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <div className={`w-2 h-2 rounded-full ${dotCls}`} />
+                                  <span className="text-[10px] text-gray-400 leading-tight">{formatRelativeTime(s.lastSyncTime)}</span>
+                                  {isError && s.errorMessage && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild><AlertTriangle className="w-2.5 h-2.5 text-red-400 cursor-default" /></TooltipTrigger>
+                                      <TooltipContent className="max-w-xs text-xs text-red-300">{s.errorMessage}</TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                </div>
+                              );
+                            };
+                            const triggerKey = (t: string) => `${entry.orgId}:${t}`;
+                            const isTriggering = (t: string) => triggeringSync === triggerKey(t);
+                            const doTrigger = async (type: 'inventory' | 'orders' | 'channel') => {
+                              setTriggeringSync(triggerKey(type));
+                              try {
+                                await apiRequest('POST', `/api/platform-admin/org-sync-trigger/${entry.orgId}/${type}`);
+                                queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/org-sync-status'] });
+                              } catch (e: any) {
+                                console.error('Trigger failed:', e);
+                              } finally {
+                                setTriggeringSync(null);
+                              }
+                            };
+                            return (
+                              <tr key={entry.orgId} data-testid={`row-org-sync-${entry.orgId}`}>
+                                <td className="px-4 py-3">
+                                  <p className="font-medium text-gray-200 truncate max-w-[140px]">{entry.orgName}</p>
+                                  <p className="text-[10px] text-gray-600 font-mono truncate max-w-[140px]">{entry.orgId}</p>
+                                </td>
+                                <td className="px-3 py-3 text-center">{getSyncCell('bricklink_inventory')}</td>
+                                <td className="px-3 py-3 text-center">{getSyncCell('bricklink_orders')}</td>
+                                <td className="px-3 py-3 text-center">{getSyncCell('channel_sync')}</td>
+                                <td className="px-4 py-3 text-right">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button size="sm" variant="ghost" className="text-[10px] h-7 px-2 gap-1" data-testid={`button-trigger-org-${entry.orgId}`}>
+                                        {isTriggering('inventory') || isTriggering('orders') || isTriggering('channel')
+                                          ? <Loader2 className="w-3 h-3 animate-spin" />
+                                          : <Play className="w-3 h-3" />}
+                                        Trigger
+                                        <ChevronDown className="w-2.5 h-2.5" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-44 text-xs">
+                                      <DropdownMenuItem onClick={() => doTrigger('inventory')} disabled={isTriggering('inventory')} data-testid={`menu-trigger-inventory-${entry.orgId}`}>
+                                        <Package className="w-3 h-3 mr-2 text-purple-400" />
+                                        {isTriggering('inventory') ? 'Running…' : 'Inventory Sync'}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => doTrigger('orders')} disabled={isTriggering('orders')} data-testid={`menu-trigger-orders-${entry.orgId}`}>
+                                        <ShoppingCart className="w-3 h-3 mr-2 text-blue-400" />
+                                        {isTriggering('orders') ? 'Running…' : 'Orders Sync'}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => doTrigger('channel')} disabled={isTriggering('channel')} data-testid={`menu-trigger-channel-${entry.orgId}`}>
+                                        <Globe className="w-3 h-3 mr-2 text-green-400" />
+                                        {isTriggering('channel') ? 'Running…' : 'Channel Sync'}
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            )}
 
             {/* Platform Scheduler — Data Enrichment */}
             {activeSection === 'platformScheduler' && (
