@@ -520,6 +520,38 @@ function buildBricklinkImageUrl(itemType: string, colorId: number | null, itemNo
   }
 }
 
+/**
+ * Round a BrickLink API price string to 2 decimal places using half-up rounding,
+ * matching what Postgres DECIMAL(10,2) does on storage.
+ *
+ * Problem: BrickLink returns 3-decimal prices (e.g. "6.725"). Postgres DECIMAL(10,2)
+ * stores them as 6.73 (half-up). JavaScript's parseFloat + Math.round gives 6.72
+ * for this value due to IEEE 754 representation (6.725 ≈ 6.7249999...). Comparing
+ * the raw API float (6.725) against the stored float (6.73) always sees a diff,
+ * causing phantom updates on every sync run.
+ *
+ * Fix: parse the price from the string character-by-character, apply half-up at
+ * the 3rd decimal digit, so the result matches Postgres before comparison.
+ */
+function normalizeApiPrice(priceStr: string | null | undefined): number {
+  if (!priceStr) return 0;
+  const clean = priceStr.trim();
+  const dotIdx = clean.indexOf('.');
+  if (dotIdx === -1 || clean.length - dotIdx - 1 <= 2) {
+    // 0, 1, or 2 decimal places — parse directly, no rounding needed
+    return parseFloat(clean) || 0;
+  }
+  // 3+ decimal places — apply half-up at 3rd decimal to match DECIMAL(10,2)
+  const [intStr, fracStr] = clean.split('.');
+  const intPart = parseInt(intStr, 10) || 0;
+  const sign = clean.startsWith('-') ? -1 : 1;
+  const firstTwo = parseInt(fracStr.slice(0, 2), 10);
+  const thirdDigit = parseInt(fracStr[2], 10);
+  let cents = Math.abs(intPart) * 100 + firstTwo;
+  if (thirdDigit >= 5) cents++;
+  return sign * cents / 100;
+}
+
 export async function syncBricklinkInventory(callComplete = true, orgId: string = PLATFORM_ORG_ID): Promise<{ added: number; updated: number; apiCalls: number }> {
   try {
     const { syncProgressTracker } = await import('./sync-progress');
@@ -686,8 +718,12 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
         const existing = existingMap.get(Number(item.inventory_id));
         if (!existing) return false;
         
-        // Normalize numeric values
-        const apiUnitPrice = parseFloat(item.unit_price || "0");
+        // Normalize numeric values.
+        // normalizeApiPrice rounds BrickLink's raw price string to 2 decimal places
+        // using half-up rounding, matching what Postgres DECIMAL(10,2) stores on write.
+        // Without this, a BrickLink price of "6.725" compares against the stored value
+        // "6.73" (Postgres rounded it on insert) and always appears "changed".
+        const apiUnitPrice = normalizeApiPrice(item.unit_price);
         const existingUnitPrice = parseFloat(existing.unitPrice || "0");
         
         // Normalize boolean values from BrickLink (true/false or possibly undefined)
@@ -748,7 +784,8 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
         // Update each item in the batch
         for (const item of batch) {
           const existing = existingMap.get(Number(item.inventory_id));
-          const apiUnitPrice = parseFloat(item.unit_price || "0");
+          // Use normalizeApiPrice here too so history records the stored (2-decimal) value
+          const apiUnitPrice = normalizeApiPrice(item.unit_price);
 
           await db.update(blInventory)
             .set({ 
