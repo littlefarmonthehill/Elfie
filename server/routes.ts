@@ -15428,6 +15428,8 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     try {
       const orgId = reqOrgId(req);
       const { orderId } = req.params;
+
+      // First: try to find a shipment for this order that has a linked EOD form
       const shipmentRow = await db.select().from(shipments)
         .where(
           and(
@@ -15438,19 +15440,43 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         )
         .limit(1);
 
-      if (!shipmentRow.length || !shipmentRow[0].eodFormId) {
+      if (shipmentRow.length && shipmentRow[0].eodFormId) {
+        const eodFormRow = await db.select().from(eodForms)
+          .where(eq(eodForms.id, shipmentRow[0].eodFormId))
+          .limit(1);
+        if (eodFormRow.length) {
+          return res.json({ formUrl: eodFormRow[0].formUrl, eodFormId: eodFormRow[0].id, shipmentCount: eodFormRow[0].shipmentCount, createdAt: eodFormRow[0].createdAt });
+        }
+      }
+
+      // Fallback: shipment was auto-manifested by EasyPost without a linked form record.
+      // Check the order actually has a manifested EasyPost shipment, then return the
+      // most recent EOD form on file for this org so the user can still print.
+      const manifestedShipment = await db.select().from(shipments)
+        .where(
+          and(
+            eq(shipments.orgId, orgId),
+            eq(shipments.orderId, orderId),
+            eq(shipments.vendorCode, 'easypost'),
+            eq(shipments.status, 'manifested'),
+          )
+        )
+        .limit(1);
+
+      if (!manifestedShipment.length) {
         return res.status(404).json({ error: 'No EOD form found for this order' });
       }
 
-      const eodFormRow = await db.select().from(eodForms)
-        .where(eq(eodForms.id, shipmentRow[0].eodFormId))
+      const [lastForm] = await db.select().from(eodForms)
+        .where(eq(eodForms.orgId, orgId))
+        .orderBy(desc(eodForms.createdAt))
         .limit(1);
 
-      if (!eodFormRow.length) {
-        return res.status(404).json({ error: 'EOD form record not found' });
+      if (!lastForm) {
+        return res.status(404).json({ error: 'No EOD form found for this order' });
       }
 
-      res.json({ formUrl: eodFormRow[0].formUrl, eodFormId: eodFormRow[0].id, shipmentCount: eodFormRow[0].shipmentCount, createdAt: eodFormRow[0].createdAt });
+      res.json({ formUrl: lastForm.formUrl, eodFormId: lastForm.id, shipmentCount: lastForm.shipmentCount, createdAt: lastForm.createdAt });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to fetch EOD form" });
     }
