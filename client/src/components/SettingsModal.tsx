@@ -2519,8 +2519,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [rebrickableSetSyncTime, setRebrickableSetSyncTime] = useState("04:00");
   const [ordersSyncFrequency, setOrdersSyncFrequency] = useState(15);
   const [ordersSyncFrequencyStr, setOrdersSyncFrequencyStr] = useState("15");
-  const [ordersSyncStartTime, setOrdersSyncStartTime] = useState("08:00");
-  const [ordersSyncEndTime, setOrdersSyncEndTime] = useState("20:00");
+
   const [forumSyncEnabled, setForumSyncEnabled] = useState(true);
   const [forumSyncFrequency, setForumSyncFrequency] = useState(60);
   const [forumSyncFrequencyStr, setForumSyncFrequencyStr] = useState("60");
@@ -3330,8 +3329,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setOrdersSyncEnabled(settings.ordersSyncEnabled || false);
       setOrdersSyncFrequency(settings.ordersSyncFrequency || 15);
       setOrdersSyncFrequencyStr(String(settings.ordersSyncFrequency || 15));
-      setOrdersSyncStartTime(settings.ordersSyncStartTime ?? '08:00');
-      setOrdersSyncEndTime(settings.ordersSyncEndTime ?? '20:00');
       
       setPomSugSoldAvgW(settings.pomSugSoldAvgW ?? 0.5);
       setPomSugStockMinW(settings.pomSugStockMinW ?? 0.3);
@@ -3769,10 +3766,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   };
 
   // Manual sync state for Automation tab
-  const [syncingInventory, setSyncingInventory] = useState(false);
-  const [syncingOrders, setSyncingOrders] = useState(false);
   const [syncingPomTrigger, setSyncingPomTrigger] = useState(false);
-  const [syncingChannel, setSyncingChannel] = useState(false);
   const [syncingRebrickable, setSyncingRebrickable] = useState(false);
 
   const { data: pomLiveStatus } = useQuery<{ success: boolean; data: any }>({
@@ -5119,16 +5113,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           <SyncStatusLine entry={syncStatuses?.inventory ?? null} />
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            disabled={syncingInventory}
-                            onClick={() => runManualSync('/api/sync/bricklink/inventory', setSyncingInventory, 'Inventory Sync')}
-                            title="Run inventory sync now"
-                            data-testid="button-run-inventory-sync"
-                          >
-                            {syncingInventory ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                          </Button>
                           <Switch
                             checked={inventorySyncEnabled}
                             onCheckedChange={(checked) => {
@@ -5224,16 +5208,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           <SyncStatusLine entry={syncStatuses?.orders ?? null} />
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            disabled={syncingOrders}
-                            onClick={() => runManualSync('/api/sync/all-platforms/orders', setSyncingOrders, 'Orders Sync', { limit: 50, fullSync: false })}
-                            title="Run orders sync now"
-                            data-testid="button-run-orders-sync"
-                          >
-                            {syncingOrders ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                          </Button>
                           <Switch
                             checked={ordersSyncEnabled}
                             onCheckedChange={(checked) => {
@@ -5266,33 +5240,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             data-testid="input-orders-frequency"
                           />
                           <p className="text-[10px] md:text-sm text-gray-500">Recommended: 15 minutes</p>
-                          <div className="mt-3">
-                            <Label className="text-xs text-gray-200">Active Window</Label>
-                            <p className="text-[10px] md:text-sm text-gray-500 mb-1.5">Only sync during these hours (org timezone)</p>
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="time"
-                                value={ordersSyncStartTime}
-                                onChange={(e) => {
-                                  setOrdersSyncStartTime(e.target.value);
-                                  updateSettingsMutation.mutate({ ordersSyncStartTime: e.target.value });
-                                }}
-                                className="text-xs w-28"
-                                data-testid="input-orders-sync-start-time"
-                              />
-                              <span className="text-xs text-gray-400">to</span>
-                              <Input
-                                type="time"
-                                value={ordersSyncEndTime}
-                                onChange={(e) => {
-                                  setOrdersSyncEndTime(e.target.value);
-                                  updateSettingsMutation.mutate({ ordersSyncEndTime: e.target.value });
-                                }}
-                                className="text-xs w-28"
-                                data-testid="input-orders-sync-end-time"
-                              />
-                            </div>
-                          </div>
                         </div>
                       )}
                       </div>
@@ -5361,16 +5308,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           <SyncStatusLine entry={syncStatuses?.channel ?? null} />
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            disabled={syncingChannel}
-                            onClick={() => runManualSync('/api/sync/channel', setSyncingChannel, 'Channel Sync')}
-                            title="Run channel sync now"
-                            data-testid="button-run-channel-sync"
-                          >
-                            {syncingChannel ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                          </Button>
                           <Switch
                             checked={channelSyncEnabled}
                             onCheckedChange={(checked) => {

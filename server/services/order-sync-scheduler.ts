@@ -9,34 +9,13 @@ import { upsertSyncMetadata } from "./order-sync-helpers";
 const MAX_RETRIES = 5;
 const RETRY_BASE_MS = 5 * 60 * 1000;
 
-function isWithinActiveWindow(startHHMM: string, endHHMM: string, tz: string): boolean {
-  const now = new Date();
-  const formatter = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
-  const parts = formatter.formatToParts(now);
-  const h = parseInt(parts.find(p => p.type === 'hour')!.value);
-  const m = parseInt(parts.find(p => p.type === 'minute')!.value);
-  const nowMinutes = h * 60 + m;
-  const [sh, sm] = startHHMM.split(':').map(Number);
-  const [eh, em] = endHHMM.split(':').map(Number);
-  const startMinutes = sh * 60 + sm;
-  const endMinutes = eh * 60 + em;
-  if (startMinutes <= endMinutes) {
-    return nowMinutes >= startMinutes && nowMinutes < endMinutes;
-  }
-  return nowMinutes >= startMinutes || nowMinutes < endMinutes;
-}
-
 /**
- * Return the first org that has order sync enabled and is within its active window,
- * along with the configured sync frequency.
+ * Return the first org that has order sync enabled, along with the configured sync frequency.
  */
 async function getActiveOrderSyncOrg(): Promise<{ orgId: string; frequencyMs: number } | null> {
   const rows = await db.select().from(appSettings);
   for (const s of rows) {
     if (!s.ordersSyncEnabled) continue;
-    const startTime = s.ordersSyncStartTime ?? '08:00';
-    const endTime   = s.ordersSyncEndTime   ?? '20:00';
-    if (!isWithinActiveWindow(startTime, endTime, s.timezone ?? 'America/Chicago')) continue;
     return { orgId: s.id, frequencyMs: (s.ordersSyncFrequency ?? 15) * 60 * 1000 };
   }
   return null;
@@ -53,7 +32,7 @@ const retryState: Record<string, { count: number; nextAt: number }> = {
 
 /**
  * Check whether a scheduled sync is due for a given platform, then run it.
- * Handles active-window gating, retry back-off, and lock contention.
+ * Handles retry back-off and lock contention.
  */
 async function checkAndRunPlatformSync(platform: 'bricklink' | 'brickowl') {
   const syncId   = platform === 'bricklink' ? 'bricklink_orders' : 'brickowl_orders';
