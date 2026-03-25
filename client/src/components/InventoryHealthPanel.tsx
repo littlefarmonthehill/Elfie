@@ -29,7 +29,7 @@ import {
   History,
   ShoppingCart,
   RefreshCw,
-  ArrowRight,
+  FileText,
 } from "lucide-react";
 
 interface HealthSummary {
@@ -59,6 +59,8 @@ type HealthCategory =
   | 'cross_condition_dupes'
   | 'obsolete_catalog';
 
+type HealthTheme = 'pricing' | 'listings' | 'sales';
+
 interface CategoryCard {
   id: HealthCategory;
   label: string;
@@ -70,8 +72,40 @@ interface CategoryCard {
   count: number;
   countLabel?: string;
   severity: 'critical' | 'warning' | 'info';
+  theme: HealthTheme;
 }
 
+interface ThemeDef {
+  id: HealthTheme;
+  label: string;
+  icon: React.ElementType;
+  color: string;
+  description: string;
+}
+
+const HEALTH_THEMES: ThemeDef[] = [
+  {
+    id: 'pricing',
+    label: 'Pricing',
+    icon: DollarSign,
+    color: 'text-amber-400',
+    description: 'Price gaps, missing costs & margin issues',
+  },
+  {
+    id: 'listings',
+    label: 'Listings',
+    icon: Copy,
+    color: 'text-violet-400',
+    description: 'Duplicates, soft deletes & catalog changes',
+  },
+  {
+    id: 'sales',
+    label: 'Sales',
+    icon: ShoppingCart,
+    color: 'text-green-400',
+    description: 'Dead stock & sales velocity',
+  },
+];
 
 function fmt(n: number | string | undefined | null, decimals = 2): string {
   const v = Number(n ?? 0);
@@ -92,9 +126,9 @@ function ConditionBadge({ cond }: { cond: string }) {
 function CategoryButton({ card, onSelect }: { card: CategoryCard; onSelect: (id: HealthCategory) => void }) {
   if (card.count === 0) return null;
   const severityIcon = card.severity === 'critical'
-    ? <AlertTriangle className="w-2.5 h-2.5 text-red-400" />
+    ? <AlertTriangle className="w-2.5 h-2.5 text-red-400 shrink-0" />
     : card.severity === 'warning'
-    ? <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
+    ? <AlertTriangle className="w-2.5 h-2.5 text-amber-400 shrink-0" />
     : null;
 
   return (
@@ -113,7 +147,7 @@ function CategoryButton({ card, onSelect }: { card: CategoryCard; onSelect: (id:
               </span>
               {severityIcon}
             </div>
-            <p className="text-[11px] text-gray-400 mt-0.5">{card.description}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{card.description}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -122,13 +156,60 @@ function CategoryButton({ card, onSelect }: { card: CategoryCard; onSelect: (id:
               {card.count.toLocaleString()}
             </span>
             {card.countLabel && (
-              <div className="text-[9px] text-gray-500">{card.countLabel}</div>
+              <div className="text-[9px] text-muted-foreground">{card.countLabel}</div>
             )}
           </div>
-          <ChevronRight className="w-3.5 h-3.5 text-gray-600" />
+          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
         </div>
       </div>
     </button>
+  );
+}
+
+function AllClearRow({ card }: { card: CategoryCard }) {
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-border/30 bg-muted/10">
+      <card.icon className="w-3 h-3 text-muted-foreground/50 shrink-0" />
+      <span className="text-xs text-muted-foreground/60">{card.label}</span>
+      <CheckCircle2 className="w-3 h-3 text-green-500/40 ml-auto shrink-0" />
+    </div>
+  );
+}
+
+function ThemeSection({
+  theme,
+  cards,
+  onSelect,
+}: {
+  theme: ThemeDef;
+  cards: CategoryCard[];
+  onSelect: (id: HealthCategory) => void;
+}) {
+  const active = cards.filter(c => c.count > 0);
+  const cleared = cards.filter(c => c.count === 0);
+  if (cards.length === 0) return null;
+
+  return (
+    <div className="px-4 mt-3">
+      <div className="flex items-center gap-1.5 mb-2">
+        <theme.icon className={`w-3 h-3 ${theme.color}`} />
+        <p className={`text-[10px] font-semibold uppercase tracking-wide ${theme.color.replace('400', '400/80')}`}>
+          {theme.label}
+        </p>
+      </div>
+      <div className="space-y-2">
+        {active.map(c => (
+          <CategoryButton key={c.id} card={c} onSelect={onSelect} />
+        ))}
+        {cleared.length > 0 && (
+          <div className="space-y-1 mt-1">
+            {cleared.map(c => (
+              <AllClearRow key={c.id} card={c} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -150,18 +231,17 @@ function StockroomOverview({ stockroom }: { stockroom: HealthSummary['stockroom'
   ].filter(r => r.data.lotCount > 0);
 
   return (
-    <div className="mx-4 my-3 rounded-lg border border-gray-700/50 bg-gray-800/30 p-3 space-y-3">
+    <div className="mx-4 my-3 rounded-lg border border-border/50 bg-muted/20 p-3 space-y-3">
       <div className="flex items-center gap-2">
-        <Archive className="w-4 h-4 text-gray-400" />
-        <span className="text-sm font-semibold text-gray-200">Stockroom Overview</span>
+        <Archive className="w-4 h-4 text-muted-foreground" />
+        <span className="text-sm font-semibold text-foreground">Stockroom</span>
         {stockroomPct > 0 && (
-          <span className="ml-auto text-[10px] text-gray-400">
-            <span className="font-mono font-semibold text-gray-200">{stockroomPct}%</span> in stockroom
+          <span className="ml-auto text-[10px] text-muted-foreground">
+            <span className="font-mono font-semibold text-foreground">{stockroomPct}%</span> in stockroom
           </span>
         )}
       </div>
 
-      {/* Visual bar */}
       {totalLots > 0 && (
         <div className="flex h-2 rounded-full overflow-hidden gap-px">
           {rows.map(r => (
@@ -179,15 +259,15 @@ function StockroomOverview({ stockroom }: { stockroom: HealthSummary['stockroom'
           <div key={r.key} className="flex items-center justify-between text-xs" data-testid={`stockroom-row-${r.key}`}>
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${r.bg}`} />
-              <span className="text-gray-300">{r.key}</span>
+              <span className="text-foreground/80">{r.key}</span>
             </div>
             <div className="flex items-center gap-4 text-right">
-              <span className="text-gray-400 text-[10px]">{r.data.totalQty.toLocaleString()} pcs</span>
+              <span className="text-muted-foreground text-[10px]">{r.data.totalQty.toLocaleString()} pcs</span>
               <span className={`font-mono font-semibold ${r.color} min-w-[3.5rem] text-right`}>
                 {r.data.lotCount.toLocaleString()} lots
               </span>
               {r.data.totalValue > 0 && (
-                <span className="text-gray-500 text-[10px] min-w-[4rem] text-right">
+                <span className="text-muted-foreground/60 text-[10px] min-w-[4rem] text-right">
                   ${r.data.totalValue.toFixed(0)}
                 </span>
               )}
@@ -210,15 +290,14 @@ function ProductMixOverview({ productMix }: { productMix: HealthSummary['product
     { label: 'Well diversified', color: 'text-green-400', bg: 'bg-green-500' };
 
   return (
-    <div className="mx-4 my-3 rounded-lg border border-gray-700/50 bg-gray-800/30 p-3 space-y-3">
+    <div className="mx-4 my-3 rounded-lg border border-border/50 bg-muted/20 p-3 space-y-3">
       <div className="flex items-center gap-2">
-        <BarChart3 className="w-4 h-4 text-gray-400" />
-        <span className="text-sm font-semibold text-gray-200">Product Mix</span>
+        <BarChart3 className="w-4 h-4 text-muted-foreground" />
+        <span className="text-sm font-semibold text-foreground">Product Mix</span>
         <span className={`ml-auto text-[10px] font-semibold ${concentration.color}`}>{concentration.label}</span>
       </div>
-      <div className="text-[10px] text-gray-500">{totalCategories} categories · top category = {topConcentrationPct}% of lots</div>
+      <div className="text-[10px] text-muted-foreground">{totalCategories} categories · top category = {topConcentrationPct}% of lots</div>
 
-      {/* Stacked bar */}
       <div className="flex h-2 rounded-full overflow-hidden gap-px">
         {rows.slice(0, 8).map((r, i) => {
           const hues = ['bg-blue-500', 'bg-violet-500', 'bg-green-500', 'bg-amber-500', 'bg-rose-500', 'bg-cyan-500', 'bg-orange-500', 'bg-teal-500'];
@@ -240,10 +319,10 @@ function ProductMixOverview({ productMix }: { productMix: HealthSummary['product
             <div key={r.category_id ?? i} className="flex items-center justify-between text-[10px]" data-testid={`mix-row-${r.category_id}`}>
               <div className="flex items-center gap-1.5 min-w-0">
                 <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${hues[i % hues.length].replace('text-', 'bg-')}`} />
-                <span className="text-gray-300 truncate">{r.category_name ?? `Category ${r.category_id}`}</span>
+                <span className="text-foreground/80 truncate">{r.category_name ?? `Category ${r.category_id}`}</span>
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
-                <span className="text-gray-500">{pct}%</span>
+                <span className="text-muted-foreground">{pct}%</span>
                 <span className={`font-mono font-semibold ${hues[i % hues.length]} min-w-[2.5rem] text-right`}>
                   {Number(r.lot_count).toLocaleString()}
                 </span>
@@ -258,14 +337,14 @@ function ProductMixOverview({ productMix }: { productMix: HealthSummary['product
 
 function DetailRow({ row, category }: { row: any; category: HealthCategory }) {
   return (
-    <div className="flex items-center gap-3 py-2.5 border-b border-gray-800/70 last:border-0" data-testid={`health-row-${row.id}`}>
+    <div className="flex items-center gap-3 py-2.5 border-b border-border/50 last:border-0" data-testid={`health-row-${row.id}`}>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs font-mono text-gray-300">{row.item_no}</span>
+          <span className="text-xs font-mono text-foreground/80">{row.item_no}</span>
           <ConditionBadge cond={row.new_or_used} />
-          <span className="text-[9px] font-mono text-gray-600">#{row.id}</span>
+          <span className="text-[9px] font-mono text-muted-foreground/50">#{row.id}</span>
         </div>
-        <div className="text-[10px] text-gray-500 truncate">
+        <div className="text-[10px] text-muted-foreground truncate">
           {row.item_name}{row.color_name && row.color_name !== 'No Color' ? ` · ${row.color_name}` : ''}
         </div>
       </div>
@@ -282,13 +361,13 @@ function DetailRow({ row, category }: { row: any; category: HealthCategory }) {
           </div>
         )}
         {category === 'missing_cost' && row.unit_price && (
-          <div className="text-[10px] text-gray-500">{formatCurrency(row.unit_price)}</div>
+          <div className="text-[10px] text-muted-foreground">{formatCurrency(row.unit_price)}</div>
         )}
         {category === 'zero_priced' && (
           <div className="text-[10px] text-red-400/70">no price</div>
         )}
         {category === 'dead_stock' && row.unit_price && (
-          <div className="text-[10px] text-gray-500">{formatCurrency(row.unit_price)}</div>
+          <div className="text-[10px] text-muted-foreground">{formatCurrency(row.unit_price)}</div>
         )}
         {category === 'cross_condition_dupes' && (
           <div className="text-[10px] font-mono text-fuchsia-400">
@@ -305,7 +384,26 @@ function DetailRow({ row, category }: { row: any; category: HealthCategory }) {
   );
 }
 
-type HistorySource = 'all' | 'bricklink_sync' | 'order' | 'order_restore';
+// ─── History ────────────────────────────────────────────────────────────────
+
+type HistoryThemeId = 'all' | 'pricing' | 'sales' | 'content' | 'sync';
+
+interface HistoryThemeDef {
+  id: HistoryThemeId;
+  label: string;
+  icon: React.ElementType;
+  color: string;
+  fields: string[] | null;
+  sources: string[] | null;
+}
+
+const HISTORY_THEMES: HistoryThemeDef[] = [
+  { id: 'all',     label: 'All',         icon: History,      color: 'text-muted-foreground', fields: null,                      sources: null },
+  { id: 'pricing', label: 'Pricing',     icon: DollarSign,   color: 'text-amber-400',        fields: ['unitPrice', 'saleRate'], sources: null },
+  { id: 'sales',   label: 'Sales',       icon: ShoppingCart, color: 'text-green-400',         fields: null,                      sources: ['order', 'order_restore'] },
+  { id: 'content', label: 'Descriptions',icon: FileText,     color: 'text-blue-400',          fields: ['description', 'remarks'],sources: null },
+  { id: 'sync',    label: 'BL Sync',     icon: RefreshCw,    color: 'text-violet-400',        fields: null,                      sources: ['bricklink_sync'] },
+];
 
 interface HistoryRow {
   id: number;
@@ -322,23 +420,16 @@ interface HistoryRow {
   color_name: string | null;
 }
 
-const SOURCE_FILTERS: { id: HistorySource; label: string; icon: React.ElementType; color: string }[] = [
-  { id: 'all',            label: 'All',     icon: History,      color: 'text-gray-400' },
-  { id: 'bricklink_sync', label: 'BL Sync', icon: RefreshCw,    color: 'text-blue-400' },
-  { id: 'order',          label: 'Orders',  icon: ShoppingCart, color: 'text-green-400' },
-  { id: 'order_restore',  label: 'Restores',icon: ArrowRight,   color: 'text-amber-400' },
-];
-
 function sourceBadge(source: string) {
   switch (source) {
     case 'bricklink_sync':
-      return <span className="text-[9px] px-1.5 py-0 rounded bg-blue-900/40 text-blue-400 border border-blue-700/30">BL Sync</span>;
+      return <span className="text-[9px] px-1.5 py-0 rounded bg-violet-900/40 text-violet-400 border border-violet-700/30">BL Sync</span>;
     case 'order':
       return <span className="text-[9px] px-1.5 py-0 rounded bg-green-900/40 text-green-400 border border-green-700/30">Order</span>;
     case 'order_restore':
       return <span className="text-[9px] px-1.5 py-0 rounded bg-amber-900/40 text-amber-400 border border-amber-700/30">Restore</span>;
     default:
-      return <span className="text-[9px] px-1.5 py-0 rounded bg-gray-800 text-gray-400 border border-gray-700/30">Manual</span>;
+      return <span className="text-[9px] px-1.5 py-0 rounded bg-muted text-muted-foreground border border-border/30">Manual</span>;
   }
 }
 
@@ -355,7 +446,7 @@ function fieldLabel(field: string) {
 }
 
 function formatHistoryValue(field: string, value: string | null) {
-  if (value == null) return <span className="text-gray-600 italic">none</span>;
+  if (value == null) return <span className="text-muted-foreground/40 italic">none</span>;
   if (field === 'unitPrice') return <span>${parseFloat(value).toFixed(2)}</span>;
   if (field === 'isStockRoom') return <span>{value === 'true' ? 'Yes' : 'No'}</span>;
   if (field === 'saleRate') return <span>{value}%</span>;
@@ -374,16 +465,22 @@ function relativeTime(iso: string) {
   return new Date(iso).toLocaleDateString();
 }
 
+function buildHistoryUrl(theme: HistoryThemeDef, page: number): string {
+  const params = new URLSearchParams({ page: String(page) });
+  if (theme.fields)  params.set('fields',  theme.fields.join(','));
+  if (theme.sources) params.set('sources', theme.sources.join(','));
+  return `/api/inventory/history?${params}`;
+}
+
 function HistoryView() {
   const [page, setPage] = useState(0);
-  const [sourceFilter, setSourceFilter] = useState<HistorySource>('all');
+  const [themeId, setThemeId] = useState<HistoryThemeId>('all');
 
-  const url = sourceFilter === 'all'
-    ? `/api/inventory/history?page=${page}`
-    : `/api/inventory/history?page=${page}&source=${sourceFilter}`;
+  const theme = HISTORY_THEMES.find(t => t.id === themeId)!;
+  const url = buildHistoryUrl(theme, page);
 
   const { data, isLoading } = useQuery<{ rows: HistoryRow[]; page: number; limit: number }>({
-    queryKey: ['/api/inventory/history', sourceFilter, page],
+    queryKey: ['/api/inventory/history', themeId, page],
     queryFn: () => fetch(url).then(r => r.json()),
     refetchOnWindowFocus: false,
   });
@@ -393,21 +490,21 @@ function HistoryView() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Source filter chips */}
+      {/* Theme filter chips */}
       <div className="px-4 pt-3 pb-2 flex items-center gap-1.5 flex-wrap">
-        {SOURCE_FILTERS.map(f => (
+        {HISTORY_THEMES.map(t => (
           <button
-            key={f.id}
-            onClick={() => { setSourceFilter(f.id); setPage(0); }}
+            key={t.id}
+            onClick={() => { setThemeId(t.id); setPage(0); }}
             className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded border transition-colors ${
-              sourceFilter === f.id
-                ? 'bg-gray-700/60 border-gray-500 text-gray-100'
-                : 'bg-gray-800/40 border-gray-700/40 text-gray-400 hover-elevate'
+              themeId === t.id
+                ? 'bg-muted/60 border-border text-foreground'
+                : 'bg-muted/20 border-border/30 text-muted-foreground hover-elevate'
             }`}
-            data-testid={`button-history-filter-${f.id}`}
+            data-testid={`button-history-theme-${t.id}`}
           >
-            <f.icon className={`w-2.5 h-2.5 ${f.color}`} />
-            {f.label}
+            <t.icon className={`w-2.5 h-2.5 ${t.color}`} />
+            {t.label}
           </button>
         ))}
       </div>
@@ -415,42 +512,46 @@ function HistoryView() {
       <div className="flex-1 overflow-y-auto min-h-0 px-4">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
           </div>
         ) : rows.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-12 text-center">
-            <History className="w-8 h-8 text-gray-700" />
-            <span className="text-sm text-gray-500">No history yet</span>
-            <span className="text-xs text-gray-600">Changes appear here after a BL sync or order</span>
+            <History className="w-8 h-8 text-muted-foreground/30" />
+            <span className="text-sm text-muted-foreground">No history yet</span>
+            <span className="text-xs text-muted-foreground/60">
+              {themeId === 'all'
+                ? 'Changes appear here after a BL sync or order'
+                : `No ${theme.label.toLowerCase()} changes recorded yet`}
+            </span>
           </div>
         ) : (
           <div>
             {rows.map((row) => (
               <div
                 key={row.id}
-                className="flex items-start gap-3 py-2.5 border-b border-gray-800/70 last:border-0"
+                className="flex items-start gap-3 py-2.5 border-b border-border/40 last:border-0"
                 data-testid={`history-row-${row.id}`}
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs font-mono text-gray-300">{row.item_no}</span>
+                    <span className="text-xs font-mono text-foreground/80">{row.item_no}</span>
                     {row.color_name && row.color_name !== 'No Color' && (
-                      <span className="text-[9px] text-gray-500">{row.color_name}</span>
+                      <span className="text-[9px] text-muted-foreground">{row.color_name}</span>
                     )}
                     {sourceBadge(row.source)}
                     {row.source_ref && (
-                      <span className="text-[9px] text-gray-600">#{row.source_ref.slice(0, 12)}</span>
+                      <span className="text-[9px] text-muted-foreground/50">#{row.source_ref.slice(0, 12)}</span>
                     )}
                   </div>
                   {row.item_name && (
-                    <div className="text-[10px] text-gray-500 truncate mt-0.5">{row.item_name}</div>
+                    <div className="text-[10px] text-muted-foreground truncate mt-0.5">{row.item_name}</div>
                   )}
                   <div className="flex items-center gap-1.5 mt-1 text-[10px]">
-                    <span className="text-gray-500">{fieldLabel(row.field)}</span>
-                    <span className="text-gray-600">
+                    <span className="text-muted-foreground">{fieldLabel(row.field)}</span>
+                    <span className="text-muted-foreground/60">
                       {formatHistoryValue(row.field, row.old_value)}
                     </span>
-                    <span className="text-gray-600">→</span>
+                    <span className="text-muted-foreground/40">→</span>
                     <span className={row.field === 'quantity'
                       ? (Number(row.new_value ?? 0) < Number(row.old_value ?? 0) ? 'text-red-400' : 'text-green-400')
                       : 'text-blue-400'
@@ -459,7 +560,7 @@ function HistoryView() {
                     </span>
                   </div>
                 </div>
-                <div className="flex-shrink-0 text-[10px] text-gray-600 mt-0.5">
+                <div className="flex-shrink-0 text-[10px] text-muted-foreground/50 mt-0.5">
                   {relativeTime(row.changed_at)}
                 </div>
               </div>
@@ -469,8 +570,8 @@ function HistoryView() {
       </div>
 
       {(page > 0 || hasMore) && (
-        <div className="flex-shrink-0 border-t border-gray-800 px-4 py-3 flex items-center justify-between">
-          <span className="text-xs text-gray-500">
+        <div className="flex-shrink-0 border-t border-border px-4 py-3 flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
             {(page * 50 + 1)}–{page * 50 + rows.length}
           </span>
           <div className="flex items-center gap-2">
@@ -515,12 +616,12 @@ function DetailView({ category, title, icon: Icon, accentColor }: {
       <div className="flex-1 overflow-y-auto min-h-0 px-4">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
           </div>
         ) : rows.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-12 text-center">
             <CheckCircle2 className="w-8 h-8 text-green-500/40" />
-            <span className="text-sm text-gray-500">Nothing to show here</span>
+            <span className="text-sm text-muted-foreground">Nothing to show here</span>
           </div>
         ) : (
           <div>
@@ -531,8 +632,8 @@ function DetailView({ category, title, icon: Icon, accentColor }: {
         )}
       </div>
       {(page > 0 || hasMore) && (
-        <div className="flex-shrink-0 border-t border-gray-800 px-4 py-3 flex items-center justify-between">
-          <span className="text-xs text-gray-500">
+        <div className="flex-shrink-0 border-t border-border px-4 py-3 flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
             {(page * 50 + 1)}–{page * 50 + rows.length}
           </span>
           <div className="flex items-center gap-2">
@@ -577,11 +678,12 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
       count: health.zeroPriced,
       countLabel: 'lots',
       severity: 'critical',
+      theme: 'pricing',
     },
     {
       id: 'negative_margin',
       label: 'Selling at a Loss',
-      description: 'Price is below your recorded cost — check pricing',
+      description: 'Price is below your recorded cost',
       icon: TrendingDown,
       accentColor: 'text-red-400',
       borderColor: 'border-red-500/40',
@@ -589,6 +691,7 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
       count: health.negativeMargin,
       countLabel: 'lots',
       severity: 'critical',
+      theme: 'pricing',
     },
     {
       id: 'missing_cost',
@@ -601,6 +704,7 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
       count: health.missingCost,
       countLabel: 'lots',
       severity: 'warning',
+      theme: 'pricing',
     },
     {
       id: 'overpriced',
@@ -613,6 +717,7 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
       count: health.overpriced,
       countLabel: 'lots',
       severity: 'warning',
+      theme: 'pricing',
     },
     {
       id: 'duplicates',
@@ -625,6 +730,33 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
       count: health.duplicates.lots,
       countLabel: 'lots in dupes',
       severity: 'warning',
+      theme: 'listings',
+    },
+    {
+      id: 'cross_condition_dupes',
+      label: 'Listed as Both New & Used',
+      description: `${health.crossConditionDupes.groups} items · same part/color in N and U`,
+      icon: ArrowLeftRight,
+      accentColor: 'text-fuchsia-400',
+      borderColor: 'border-fuchsia-500/40',
+      bgColor: 'bg-fuchsia-950/30',
+      count: health.crossConditionDupes.lots,
+      countLabel: 'lots',
+      severity: 'warning',
+      theme: 'listings',
+    },
+    {
+      id: 'obsolete_catalog',
+      label: 'Superseded BL Item IDs',
+      description: 'BrickLink has replaced these item numbers',
+      icon: Replace,
+      accentColor: 'text-rose-400',
+      borderColor: 'border-rose-500/40',
+      bgColor: 'bg-rose-950/30',
+      count: health.obsoleteCatalog,
+      countLabel: 'lots',
+      severity: 'warning',
+      theme: 'listings',
     },
     {
       id: 'dead_stock',
@@ -637,36 +769,13 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
       count: health.deadStock,
       countLabel: 'lots',
       severity: 'info',
-    },
-    {
-      id: 'cross_condition_dupes',
-      label: 'Listed as Both New & Used',
-      description: `${health.crossConditionDupes.groups} items · same part/color active in N and U`,
-      icon: ArrowLeftRight,
-      accentColor: 'text-fuchsia-400',
-      borderColor: 'border-fuchsia-500/40',
-      bgColor: 'bg-fuchsia-950/30',
-      count: health.crossConditionDupes.lots,
-      countLabel: 'lots',
-      severity: 'warning',
-    },
-    {
-      id: 'obsolete_catalog',
-      label: 'Superseded BL Item IDs',
-      description: 'BrickLink has replaced these item numbers — update before they are removed',
-      icon: Replace,
-      accentColor: 'text-rose-400',
-      borderColor: 'border-rose-500/40',
-      bgColor: 'bg-rose-950/30',
-      count: health.obsoleteCatalog,
-      countLabel: 'lots',
-      severity: 'warning',
+      theme: 'sales',
     },
   ] : [];
 
-  const criticalCount = categories.filter(c => c.severity === 'critical' && c.count > 0).length;
-  const warningCount = categories.filter(c => c.severity === 'warning' && c.count > 0).length;
   const totalIssues = categories.reduce((s, c) => s + c.count, 0);
+  const criticalCount = categories.filter(c => c.severity === 'critical' && c.count > 0).length;
+  const warningCount  = categories.filter(c => c.severity === 'warning'  && c.count > 0).length;
 
   const activeCard = categories.find(c => c.id === selectedCategory);
 
@@ -678,21 +787,21 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
 
   function handleBack() {
     if (selectedCategory) { setSelectedCategory(null); return; }
-    if (showHistory) { setShowHistory(false); return; }
+    if (showHistory)      { setShowHistory(false);      return; }
   }
 
   return (
     <Drawer open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
-      <DrawerContent className="bg-gray-950 border-gray-800 h-[80vh] flex flex-col rounded-t-2xl">
+      <DrawerContent className="bg-background border-border h-[80vh] flex flex-col rounded-t-2xl">
         <DrawerHeader className="p-0 flex-shrink-0">
           <div className="flex justify-center pt-3 pb-1">
-            <div className="w-10 h-1 rounded-full bg-gray-600" />
+            <div className="w-10 h-1 rounded-full bg-muted" />
           </div>
-          <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-gray-800">
+          <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-border">
             {(selectedCategory || showHistory) ? (
               <button
                 onClick={handleBack}
-                className="text-gray-400 hover:text-gray-200 transition-colors mr-1 flex-shrink-0"
+                className="text-muted-foreground hover:text-foreground transition-colors mr-1 flex-shrink-0"
                 data-testid="button-health-back"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -700,7 +809,7 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
             ) : (
               <Activity className="w-4 h-4 text-cyan-400 flex-shrink-0" />
             )}
-            <DrawerTitle className="text-sm font-semibold text-gray-100 flex-1">
+            <DrawerTitle className="text-sm font-semibold text-foreground flex-1">
               {selectedCategory && activeCard
                 ? <span className="flex items-center gap-1.5">
                     <activeCard.icon className={`w-4 h-4 ${activeCard.accentColor} shrink-0`} />
@@ -714,7 +823,7 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
                 : 'Inventory Health'}
             </DrawerTitle>
             <DrawerClose
-              className="ml-2 text-gray-500 hover:text-gray-200 transition-colors"
+              className="ml-2 text-muted-foreground hover:text-foreground transition-colors"
               data-testid="button-health-close"
               onClick={handleClose}
             >
@@ -739,7 +848,7 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
               {/* Score banner */}
               <div className="px-4 pt-3 pb-2">
                 {isLoading ? (
-                  <div className="h-14 rounded-lg bg-gray-800/60 animate-pulse" />
+                  <div className="h-14 rounded-lg bg-muted/40 animate-pulse" />
                 ) : (
                   <div className={`flex items-center gap-3 rounded-lg px-3 py-2.5 border ${
                     criticalCount > 0
@@ -760,10 +869,10 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
                         <p className="text-sm font-semibold text-green-300">Inventory looks healthy</p>
                       ) : (
                         <>
-                          <p className="text-sm font-semibold text-gray-100">
+                          <p className="text-sm font-semibold text-foreground">
                             {totalIssues.toLocaleString()} issue{totalIssues !== 1 ? 's' : ''} detected
                           </p>
-                          <p className="text-[10px] text-gray-400">
+                          <p className="text-[10px] text-muted-foreground">
                             {criticalCount > 0 && <span className="text-red-400">{criticalCount} critical</span>}
                             {criticalCount > 0 && warningCount > 0 && ' · '}
                             {warningCount > 0 && <span className="text-amber-400">{warningCount} warnings</span>}
@@ -775,73 +884,36 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
                 )}
               </div>
 
-              {/* Issue categories */}
+              {/* Theme sections */}
               {isLoading ? (
                 <div className="px-4 space-y-2">
                   {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="h-16 rounded-lg bg-gray-800/60 animate-pulse" />
+                    <div key={i} className="h-16 rounded-lg bg-muted/40 animate-pulse" />
                   ))}
                 </div>
               ) : (
                 <>
-                  {/* Critical section */}
-                  {categories.some(c => c.severity === 'critical' && c.count > 0) && (
-                    <div className="px-4 mt-2">
-                      <p className="text-[10px] font-semibold text-red-400/80 uppercase tracking-wide mb-1.5">Critical</p>
-                      <div className="space-y-2">
-                        {categories.filter(c => c.severity === 'critical').map(c => (
-                          <CategoryButton key={c.id} card={c} onSelect={setSelectedCategory} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Warning section */}
-                  {categories.some(c => c.severity === 'warning' && c.count > 0) && (
-                    <div className="px-4 mt-3">
-                      <p className="text-[10px] font-semibold text-amber-400/80 uppercase tracking-wide mb-1.5">Warnings</p>
-                      <div className="space-y-2">
-                        {categories.filter(c => c.severity === 'warning').map(c => (
-                          <CategoryButton key={c.id} card={c} onSelect={setSelectedCategory} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Info section */}
-                  {categories.some(c => c.severity === 'info' && c.count > 0) && (
-                    <div className="px-4 mt-3">
-                      <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Informational</p>
-                      <div className="space-y-2">
-                        {categories.filter(c => c.severity === 'info').map(c => (
-                          <CategoryButton key={c.id} card={c} onSelect={setSelectedCategory} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* All clear items — always show when health data is loaded */}
-                  {categories.some(c => c.count === 0) && (
-                    <div className="px-4 mt-3">
-                      <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-1.5">All Clear</p>
-                      <div className="space-y-1.5">
-                        {categories.filter(c => c.count === 0).map(c => (
-                          <div key={c.id} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-800/50 bg-gray-900/30">
-                            <c.icon className="w-3.5 h-3.5 text-gray-600 shrink-0" />
-                            <span className="text-xs text-gray-600">{c.label}</span>
-                            <CheckCircle2 className="w-3 h-3 text-green-500/50 ml-auto shrink-0" />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  {HEALTH_THEMES.map(theme => (
+                    <ThemeSection
+                      key={theme.id}
+                      theme={theme}
+                      cards={categories.filter(c => c.theme === theme.id)}
+                      onSelect={setSelectedCategory}
+                    />
+                  ))}
                 </>
               )}
 
-              {/* Stockroom overview */}
+              {/* Analytics */}
+              {health && (
+                <div className="px-4 mt-4">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <BarChart3 className="w-3 h-3 text-muted-foreground/60" />
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Analytics</p>
+                  </div>
+                </div>
+              )}
               {health && <StockroomOverview stockroom={health.stockroom} />}
-
-              {/* Product mix */}
               {health && health.productMix.rows.length > 0 && (
                 <ProductMixOverview productMix={health.productMix} />
               )}
@@ -850,15 +922,15 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
               <div className="px-4 mt-3">
                 <button
                   onClick={() => setShowHistory(true)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-700/50 bg-gray-800/30 hover-elevate text-sm"
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-border/50 bg-muted/20 hover-elevate text-sm"
                   data-testid="button-view-history"
                 >
                   <div className="flex items-center gap-2">
                     <History className="w-4 h-4 text-violet-400 shrink-0" />
-                    <span className="text-gray-300 font-medium">Change History</span>
+                    <span className="text-foreground font-medium">Change History</span>
                   </div>
-                  <div className="flex items-center gap-1 text-gray-500">
-                    <span className="text-[11px]">Qty, price & stockroom changes</span>
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <span className="text-[11px]">Pricing · Sales · Descriptions · Sync</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </div>
                 </button>

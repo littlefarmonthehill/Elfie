@@ -9346,8 +9346,13 @@ Format search_web URLs as markdown links.`;
       const page  = Math.max(0, Number(req.query.page ?? 0));
       const limit = 50;
       const offset = page * limit;
-      const source = req.query.source as string | undefined;
+      const source  = req.query.source  as string | undefined;
+      const fields  = req.query.fields  as string | undefined; // comma-separated field names
+      const sources = req.query.sources as string | undefined; // comma-separated source values
       const inventoryId = req.query.inventoryId ? Number(req.query.inventoryId) : null;
+
+      const fieldList  = fields  ? fields.split(',').map(s => s.trim()).filter(Boolean)  : null;
+      const sourceList = sources ? sources.split(',').map(s => s.trim()).filter(Boolean) : null;
 
       const rows = await db.execute(sql`
         SELECT
@@ -9369,8 +9374,10 @@ Format search_web URLs as markdown links.`;
          AND bc.item_type IN ('P','M','S','G','B','C','I','O','U')
          AND COALESCE(ih.color_id, 0) = bc.color_id
         WHERE ih.org_id = ${orgId}
-          ${source ? sql`AND ih.source = ${source}` : sql``}
-          ${inventoryId ? sql`AND ih.inventory_id = ${inventoryId}` : sql``}
+          ${source     ? sql`AND ih.source = ${source}`                       : sql``}
+          ${sourceList ? sql`AND ih.source = ANY(${sourceList})`              : sql``}
+          ${fieldList  ? sql`AND ih.field  = ANY(${fieldList})`               : sql``}
+          ${inventoryId ? sql`AND ih.inventory_id = ${inventoryId}`           : sql``}
         ORDER BY ih.changed_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `);
