@@ -45,7 +45,7 @@ interface SettingsModalProps {
   isBrickspotterOnly?: boolean;
 }
 
-type ActiveSection = 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'notifications' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformScheduler' | 'syncAdmin' | 'priceomatic' | 'ieStrategies' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | 'platformElfie' | 'platformNotifications' | 'autoSync' | null;
+type ActiveSection = 'general' | 'team' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'notifications' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformTeam' | 'platformScheduler' | 'syncAdmin' | 'priceomatic' | 'ieStrategies' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | 'platformElfie' | 'platformNotifications' | 'autoSync' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -2623,7 +2623,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [activeOrg, setActiveOrg] = useState<OrgWithUsage | null>(null);
   const [activeOrgTab, setActiveOrgTab] = useState<'features' | 'limits' | 'billing'>('features');
   const [activePlatformInnerTab, setActivePlatformInnerTab] = useState<'platforms' | 'scheduler'>('platforms');
-  const [activeGeneralTab, setActiveGeneralTab] = useState<'info' | 'team'>('info');
   const [activePlatformServicesTab, setActivePlatformServicesTab] = useState<'stripe' | 'openai' | 'bricklink'>('bricklink');
   const [activeSchedulerTab, setActiveSchedulerTab] = useState<'catalog' | 'embeddings' | 'market'>('catalog');
   const [activeAuditTab, setActiveAuditTab] = useState<'organization' | 'platform'>('organization');
@@ -3216,7 +3215,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   // Admin Team
   const { data: adminTeam, isLoading: adminTeamLoading, refetch: refetchAdminTeam } = useQuery<User[]>({
     queryKey: ['/api/platform-admin/admin-team'],
-    enabled: open && activeSection === 'platformGeneral' && superAdmin,
+    enabled: open && (activeSection === 'platformGeneral' || activeSection === 'platformTeam') && superAdmin,
     retry: 0,
   });
 
@@ -3898,8 +3897,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
   const allNavigationItems = [
     { id: 'general' as const, label: 'Company Information', icon: Settings, bsVisible: true },
+    { id: 'team' as const, label: 'Team', icon: Users, bsVisible: false },
     { id: 'platforms' as const, label: 'Services', icon: Layers, bsVisible: false },
-    { id: 'autoSync' as const, label: 'Auto-Sync', icon: RefreshCw, bsVisible: false },
+    { id: 'autoSync' as const, label: 'Auto-Sync Schedule', icon: RefreshCw, bsVisible: false },
     { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: TrendingUp, bsVisible: false },
     { id: 'ieStrategies' as const, label: 'IE Strategies', icon: Target, bsVisible: false },
     { id: 'data' as const, label: 'Store Data', icon: HardDrive, bsVisible: false },
@@ -3918,8 +3918,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       label: '',
       items: [
         { id: 'platformGeneral' as const, label: 'Company Information', icon: Settings },
+        { id: 'platformTeam' as const, label: 'Team', icon: Users },
         { id: 'apiKeys' as const, label: 'Services', icon: Key },
-        { id: 'syncAdmin' as const, label: 'Scheduler Admin', icon: RefreshCw },
+        { id: 'syncAdmin' as const, label: 'Auto-Sync Schedule', icon: RefreshCw },
         { id: 'platformScheduler' as const, label: 'Data Enrichment', icon: Calendar },
         { id: 'auditLog' as const, label: 'Platform Health', icon: ClipboardList },
         { id: 'platformElfie' as const, label: 'E.L.F.I.E. Settings', icon: Brain },
@@ -4112,21 +4113,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
             {activeSection === 'general' && (
               <div className="min-h-[400px]">
 
-              {/* Tab bar */}
-              <div className="flex border-b border-gray-700 bg-gray-800/40 -mx-4 px-4 sm:-mx-6 sm:px-6 mb-4">
-                {(['info', 'team'] as const).map(tab => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveGeneralTab(tab)}
-                    className={`tool-tab ${activeGeneralTab === tab ? 'text-yellow-400 border-yellow-500' : 'tool-tab-off'}`}
-                    data-testid={`tab-general-${tab}`}
-                  >
-                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                  </button>
-                ))}
-              </div>
-
-              {activeGeneralTab === 'info' && (
               <div className="space-y-4">
 
               {/* Header card: logo + version + org ID */}
@@ -4436,16 +4422,15 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
               </ResponsiveModal>
 
               </div>
-              )}
 
-              {/* Features tab — read-only effective state */}
-              {activeGeneralTab === 'team' && (
-                <div className="space-y-0">
-                  <ChangePasswordSection />
-                  <UserManagementSection userCount={users?.length} />
-                </div>
-              )}
+              </div>
+            )}
 
+            {/* ── Team ──────────────────────────────────────────────────── */}
+            {activeSection === 'team' && (
+              <div className="min-h-[400px] space-y-0">
+                <ChangePasswordSection />
+                <UserManagementSection userCount={users?.length} />
               </div>
             )}
 
@@ -5655,7 +5640,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 {/* Header */}
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div>
-                    <h3 className="text-sm font-medium text-gray-100">Auto-Sync</h3>
+                    <h3 className="text-sm font-medium text-gray-100">Auto-Sync Schedule</h3>
                     <p className="text-xs text-gray-400 mt-0.5">Background services that keep your data up to date automatically</p>
                   </div>
                   {rateLimit && (
@@ -9081,105 +9066,110 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         </div>
                       </div>
                     </div>
+                  </div>
+              </div>
+            )}
 
-                    <div className="sm-card">
-                      <div className="sm-card-header">
-                        <Shield className="h-3.5 w-3.5 text-yellow-500/70" />
-                        <span className="text-xs font-semibold text-gray-200">Admin Team</span>
-                        {adminTeamLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-auto" />}
-                        {adminTeam && <span className="text-[10px] text-gray-500 ml-auto">{adminTeam.length} member{adminTeam.length !== 1 ? 's' : ''}</span>}
-                      </div>
-                      <div className="divide-y divide-gray-700/50">
-                        {adminTeam && adminTeam.length === 0 && (
-                          <p className="px-4 py-3 text-xs text-gray-500">No super admins found.</p>
-                        )}
-                        {adminTeam?.map(admin => {
-                          const name = [admin.firstName, admin.lastName].filter(Boolean).join(' ') || admin.email || admin.id;
-                          const initials = [admin.firstName?.[0], admin.lastName?.[0]].filter(Boolean).join('').toUpperCase() || (admin.email?.[0] ?? '?').toUpperCase();
-                          const isSelf = user?.id === admin.id;
+            {/* ── Platform Team ─────────────────────────────────────────── */}
+            {activeSection === 'platformTeam' && (
+              <div className="px-3 pt-3 pb-4 space-y-3 min-w-0 overflow-hidden">
+                <div className="sm-card">
+                  <div className="sm-card-header">
+                    <Shield className="h-3.5 w-3.5 text-yellow-500/70" />
+                    <span className="text-xs font-semibold text-gray-200">Admin Team</span>
+                    {adminTeamLoading && <Loader2 className="h-3 w-3 animate-spin text-gray-500 ml-auto" />}
+                    {adminTeam && <span className="text-[10px] text-gray-500 ml-auto">{adminTeam.length} member{adminTeam.length !== 1 ? 's' : ''}</span>}
+                  </div>
+                  <div className="divide-y divide-gray-700/50">
+                    {adminTeam && adminTeam.length === 0 && (
+                      <p className="px-4 py-3 text-xs text-gray-500">No super admins found.</p>
+                    )}
+                    {adminTeam?.map(admin => {
+                      const name = [admin.firstName, admin.lastName].filter(Boolean).join(' ') || admin.email || admin.id;
+                      const initials = [admin.firstName?.[0], admin.lastName?.[0]].filter(Boolean).join('').toUpperCase() || (admin.email?.[0] ?? '?').toUpperCase();
+                      const isSelf = user?.id === admin.id;
+                      return (
+                        <div key={admin.id} className="flex items-center gap-3 px-4 py-2.5" data-testid={`row-admin-${admin.id}`}>
+                          <div className="h-7 w-7 rounded-full bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center shrink-0">
+                            <span className="text-[9px] font-bold text-yellow-400">{initials}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-200 truncate">{name}</p>
+                            <p className="text-[10px] text-gray-500 truncate">{admin.email}</p>
+                          </div>
+                          {isSelf && <Badge variant="outline" className="text-[9px] border-gray-600 text-gray-500 shrink-0">You</Badge>}
+                          {!isSelf && (
+                            <button
+                              onClick={() => toggleSuperAdminMutation.mutate({ id: admin.id, superAdmin: false })}
+                              disabled={toggleSuperAdminMutation.isPending}
+                              data-testid={`button-remove-admin-${admin.id}`}
+                              className="text-[10px] text-red-400 hover:text-red-300 border border-red-500/20 rounded px-2 py-0.5 transition-colors shrink-0 disabled:opacity-40"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="px-4 py-3 space-y-3 border-t border-gray-700/50">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Search by email or name…"
+                        value={addAdminQuery}
+                        onChange={e => setAddAdminQuery(e.target.value)}
+                        data-testid="input-admin-search"
+                        className="flex-1 min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500"
+                      />
+                      <button
+                        onClick={() => setAddAdminSearch(addAdminQuery.trim())}
+                        disabled={addAdminQuery.trim().length < 2 || adminSearchLoading}
+                        data-testid="button-admin-search"
+                        className="px-3 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-40 rounded text-xs text-gray-200 transition-colors shrink-0 flex items-center gap-1.5"
+                      >
+                        {adminSearchLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+                        Find
+                      </button>
+                    </div>
+                    {adminSearchResults && adminSearchResults.length === 0 && addAdminSearch && (
+                      <p className="text-[10px] text-gray-500">No users found for "{addAdminSearch}".</p>
+                    )}
+                    {adminSearchResults && adminSearchResults.length > 0 && (
+                      <div className="space-y-1">
+                        {adminSearchResults.map(u => {
+                          const alreadyAdmin = adminTeam?.some(a => a.id === u.id);
+                          const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || u.id;
+                          const initials = [u.firstName?.[0], u.lastName?.[0]].filter(Boolean).join('').toUpperCase() || (u.email?.[0] ?? '?').toUpperCase();
                           return (
-                            <div key={admin.id} className="flex items-center gap-3 px-4 py-2.5" data-testid={`row-admin-${admin.id}`}>
-                              <div className="h-7 w-7 rounded-full bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center shrink-0">
-                                <span className="text-[9px] font-bold text-yellow-400">{initials}</span>
+                            <div key={u.id} className="flex items-center gap-2.5 rounded bg-gray-900/40 border border-gray-700/50 px-3 py-2">
+                              <div className="h-6 w-6 rounded-full bg-gray-700 flex items-center justify-center shrink-0">
+                                <span className="text-[8px] font-bold text-gray-300">{initials}</span>
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium text-gray-200 truncate">{name}</p>
-                                <p className="text-[10px] text-gray-500 truncate">{admin.email}</p>
+                                <p className="text-xs text-gray-200 truncate">{name}</p>
+                                <p className="text-[10px] text-gray-500 truncate">{u.email}</p>
                               </div>
-                              {isSelf && <Badge variant="outline" className="text-[9px] border-gray-600 text-gray-500 shrink-0">You</Badge>}
-                              {!isSelf && (
+                              {alreadyAdmin ? (
+                                <Badge variant="outline" className="text-[9px] border-green-500/30 text-green-400 shrink-0">Admin</Badge>
+                              ) : (
                                 <button
-                                  onClick={() => toggleSuperAdminMutation.mutate({ id: admin.id, superAdmin: false })}
+                                  onClick={() => toggleSuperAdminMutation.mutate({ id: u.id, superAdmin: true })}
                                   disabled={toggleSuperAdminMutation.isPending}
-                                  data-testid={`button-remove-admin-${admin.id}`}
-                                  className="text-[10px] text-red-400 hover:text-red-300 border border-red-500/20 rounded px-2 py-0.5 transition-colors shrink-0 disabled:opacity-40"
+                                  data-testid={`button-add-admin-${u.id}`}
+                                  className="text-[10px] text-yellow-400 hover:text-yellow-300 border border-yellow-500/30 rounded px-2 py-0.5 transition-colors shrink-0 disabled:opacity-40"
                                 >
-                                  Remove
+                                  Make Admin
                                 </button>
                               )}
                             </div>
                           );
                         })}
                       </div>
-                      <div className="px-4 py-3 space-y-3 border-t border-gray-700/50">
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            placeholder="Search by email or name…"
-                            value={addAdminQuery}
-                            onChange={e => setAddAdminQuery(e.target.value)}
-                            data-testid="input-admin-search"
-                            className="flex-1 min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500"
-                          />
-                          <button
-                            onClick={() => setAddAdminSearch(addAdminQuery.trim())}
-                            disabled={addAdminQuery.trim().length < 2 || adminSearchLoading}
-                            data-testid="button-admin-search"
-                            className="px-3 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-40 rounded text-xs text-gray-200 transition-colors shrink-0 flex items-center gap-1.5"
-                          >
-                            {adminSearchLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
-                            Find
-                          </button>
-                        </div>
-                        {adminSearchResults && adminSearchResults.length === 0 && addAdminSearch && (
-                          <p className="text-[10px] text-gray-500">No users found for "{addAdminSearch}".</p>
-                        )}
-                        {adminSearchResults && adminSearchResults.length > 0 && (
-                          <div className="space-y-1">
-                            {adminSearchResults.map(u => {
-                              const alreadyAdmin = adminTeam?.some(a => a.id === u.id);
-                              const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || u.id;
-                              const initials = [u.firstName?.[0], u.lastName?.[0]].filter(Boolean).join('').toUpperCase() || (u.email?.[0] ?? '?').toUpperCase();
-                              return (
-                                <div key={u.id} className="flex items-center gap-2.5 rounded bg-gray-900/40 border border-gray-700/50 px-3 py-2">
-                                  <div className="h-6 w-6 rounded-full bg-gray-700 flex items-center justify-center shrink-0">
-                                    <span className="text-[8px] font-bold text-gray-300">{initials}</span>
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs text-gray-200 truncate">{name}</p>
-                                    <p className="text-[10px] text-gray-500 truncate">{u.email}</p>
-                                  </div>
-                                  {alreadyAdmin ? (
-                                    <Badge variant="outline" className="text-[9px] border-green-500/30 text-green-400 shrink-0">Admin</Badge>
-                                  ) : (
-                                    <button
-                                      onClick={() => toggleSuperAdminMutation.mutate({ id: u.id, superAdmin: true })}
-                                      disabled={toggleSuperAdminMutation.isPending}
-                                      data-testid={`button-add-admin-${u.id}`}
-                                      className="text-[10px] text-yellow-400 hover:text-yellow-300 border border-yellow-500/30 rounded px-2 py-0.5 transition-colors shrink-0 disabled:opacity-40"
-                                    >
-                                      Make Admin
-                                    </button>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                        <p className="text-[10px] text-gray-600">Super admins have full platform access including all tenant organizations.</p>
-                      </div>
-                    </div>
+                    )}
+                    <p className="text-[10px] text-gray-600">Super admins have full platform access including all tenant organizations.</p>
                   </div>
+                </div>
               </div>
             )}
 
@@ -9189,7 +9179,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
               <div className="space-y-4 min-h-[400px]">
                 {/* Header */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-100">Scheduler Admin</h3>
+                  <h3 className="text-sm font-medium text-gray-100">Auto-Sync Schedule</h3>
                   <p className="text-xs text-gray-400 mt-0.5">Control sync defaults, per-plan frequency floors, and org-level health across all tenants</p>
                 </div>
 
