@@ -15344,14 +15344,20 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
 
           if (activeVendorIds.length === 0) {
             // All shipments were already handled by EasyPost — not an error, just nothing new to do.
+            // Look up the most recent EOD form for this org so the user can still reopen/print it.
+            const [lastForm] = await db.select()
+              .from(eodForms)
+              .where(eq(eodForms.orgId, orgId))
+              .orderBy(desc(eodForms.createdAt))
+              .limit(1);
             return res.json({
               alreadyManifested: alreadyManifested,
               allVoided: !alreadyManifested,
               shipmentCount: 0,
               skippedCount: skippedIds.length,
-              formUrl: null,
-              scanFormId: null,
-              eodFormId: null,
+              formUrl: lastForm?.formUrl ?? null,
+              scanFormId: lastForm?.scanFormId ?? null,
+              eodFormId: lastForm?.id ?? null,
             });
           }
           continue;

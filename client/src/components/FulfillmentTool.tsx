@@ -364,7 +364,13 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/shipments/end-of-day'] });
       if (data?.alreadyManifested) {
-        toast({ title: "Already Manifested", description: "All shipments were already scanned by EasyPost. Your EOD is complete." });
+        if (data?.formUrl) {
+          setScanFormUrl(data.formUrl);
+          window.open(data.formUrl, '_blank');
+          toast({ title: "Already Manifested", description: "All shipments were already scanned. Reopening your most recent EOD form." });
+        } else {
+          toast({ title: "Already Manifested", description: "All shipments were already scanned by EasyPost. Your EOD is complete." });
+        }
         return;
       }
       if (data?.allVoided) {
