@@ -12,9 +12,7 @@ import {
   XCircle,
   Clock,
   CalendarClock,
-  SlidersHorizontal,
   X,
-  ArrowLeft,
   Package,
   ChevronRight,
   Hash,
@@ -32,7 +30,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 
 interface BrickLinkSyncPanelProps {
-  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing', focusTarget?: string) => void;
+  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing', focusTarget?: 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel' | 'channelSync') => void;
 }
 
 export default function BrickLinkSyncPanel({ onOpenSettings }: BrickLinkSyncPanelProps) {
@@ -208,20 +206,11 @@ export default function BrickLinkSyncPanel({ onOpenSettings }: BrickLinkSyncPane
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => { setDrawerOpen(false); onOpenSettings?.('automation'); }}
+                onClick={() => { setDrawerOpen(false); onOpenSettings?.('platforms', 'schedulerInventory'); }}
                 data-testid="button-bricklink-schedule"
               >
                 <CalendarClock className="w-3.5 h-3.5 mr-1.5" />
                 Schedule
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => { setDrawerOpen(false); onOpenSettings?.('platforms'); }}
-                data-testid="button-bricklink-settings"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5 mr-1.5" />
-                Settings
               </Button>
             </div>
 

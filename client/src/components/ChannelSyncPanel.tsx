@@ -12,7 +12,7 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  SlidersHorizontal,
+  CalendarClock,
   PackageX,
   DollarSign,
   Hash,
@@ -75,7 +75,7 @@ interface DiscrepancyArea {
 }
 
 interface ChannelSyncPanelProps {
-  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing', focusTarget?: 'channelSync') => void;
+  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing', focusTarget?: 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel' | 'channelSync') => void;
 }
 
 export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelProps) {
@@ -1072,11 +1072,11 @@ function OverviewContent({
         <Button
           size="sm"
           variant="ghost"
-          onClick={() => { setDrawerOpen(false); onOpenSettings?.('automation', 'channelSync'); }}
-          data-testid="button-channel-sync-settings"
+          onClick={() => { setDrawerOpen(false); onOpenSettings?.('platforms', 'schedulerChannel'); }}
+          data-testid="button-channel-sync-schedule"
         >
-          <SlidersHorizontal className="w-3.5 h-3.5 mr-1.5" />
-          Settings
+          <CalendarClock className="w-3.5 h-3.5 mr-1.5" />
+          Schedule
         </Button>
         {totalDiscrepancies > 0 && (
           <Button

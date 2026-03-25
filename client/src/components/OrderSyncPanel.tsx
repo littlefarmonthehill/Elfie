@@ -12,7 +12,6 @@ import {
   XCircle,
   Clock,
   CalendarClock,
-  SlidersHorizontal,
   X,
   ChevronRight,
   ShoppingCart,
@@ -33,7 +32,7 @@ type Platform = 'bricklink' | 'brickowl';
 
 interface OrderSyncPanelProps {
   platform: Platform;
-  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing') => void;
+  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing', focusTarget?: 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel' | 'channelSync') => void;
 }
 
 function relTime(iso: string | null | undefined): string {
@@ -280,20 +279,11 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => { setDrawerOpen(false); onOpenSettings?.('automation'); }}
+                onClick={() => { setDrawerOpen(false); onOpenSettings?.('platforms', 'schedulerOrders'); }}
                 data-testid={`button-${platform}-order-sync-schedule`}
               >
                 <CalendarClock className="w-3.5 h-3.5 mr-1.5" />
                 Schedule
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => { setDrawerOpen(false); onOpenSettings?.('platforms'); }}
-                data-testid={`button-${platform}-order-sync-settings`}
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5 mr-1.5" />
-                Settings
               </Button>
             </div>
 

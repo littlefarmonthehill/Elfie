@@ -38,7 +38,7 @@ interface SettingsModalProps {
   onClose: () => void;
   initialSection?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'about' | 'priceomatic';
   initialPlatformTab?: 'platforms' | 'scheduler';
-  focusTarget?: 'channelSync';
+  focusTarget?: 'channelSync' | 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel';
   pricingExample?: PricingInsight;
   scoringExample?: PricingInsight;
   isBrickspotterOnly?: boolean;
@@ -2635,7 +2635,28 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   // useState only uses its initial value on first mount, so without this effect
   // clicking a dashboard action item with a different section would have no effect.
   useEffect(() => {
-    if (open && initialSection) {
+    if (!open) return;
+
+    // Scheduler-section focus targets: open platforms → scheduler tab and
+    // expand + scroll to the specific section regardless of initialSection.
+    if (focusTarget === 'schedulerInventory' || focusTarget === 'schedulerOrders' || focusTarget === 'schedulerChannel') {
+      setActiveSection('platforms');
+      setActivePlatformInnerTab('scheduler');
+      setActivePlatform(null);
+      if (focusTarget === 'schedulerInventory') {
+        setSchedulerInventoryOpen(true);
+        setTimeout(() => document.getElementById('settings-inventory-sync-header')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
+      } else if (focusTarget === 'schedulerOrders') {
+        setSchedulerOrdersOpen(true);
+        setTimeout(() => document.getElementById('settings-orders-sync-header')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
+      } else {
+        setSchedulerChannelOpen(true);
+        setTimeout(() => document.getElementById('settings-channel-sync-header')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
+      }
+      return;
+    }
+
+    if (initialSection) {
       if (initialSection === 'automation') {
         setActiveSection('platforms');
         setActivePlatformInnerTab('scheduler');
@@ -5080,6 +5101,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     {/* Inventory Sync */}
                     <div>
                       <button
+                        id="settings-inventory-sync-header"
                         onClick={() => setSchedulerInventoryOpen(!schedulerInventoryOpen)}
                         className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
                         data-testid="button-scheduler-inventory-toggle"
@@ -5174,6 +5196,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     {/* Orders Sync */}
                     <div>
                       <button
+                        id="settings-orders-sync-header"
                         onClick={() => setSchedulerOrdersOpen(!schedulerOrdersOpen)}
                         className="w-full flex items-center justify-between gap-2 py-2 mb-3 border-b border-gray-600/60 hover:border-gray-500/60 transition-colors group"
                         data-testid="button-scheduler-orders-toggle"

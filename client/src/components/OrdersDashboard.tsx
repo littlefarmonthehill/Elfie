@@ -29,7 +29,7 @@ interface OrdersDashboardProps {
   activeDrawer: 'fulfillment' | 'shipped' | null;
   onDrawerChange: (drawer: 'fulfillment' | 'shipped' | null) => void;
   dateRange?: DateRangeValue;
-  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing') => void;
+  onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing', focusTarget?: 'channelSync' | 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel') => void;
 }
 
 export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange: initialDateRange = 'mtd', onOpenSettings }: OrdersDashboardProps) {

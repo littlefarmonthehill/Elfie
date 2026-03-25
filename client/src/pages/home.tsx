@@ -66,7 +66,7 @@ export default function Home() {
   const [employeeWelcomeDone, setEmployeeWelcomeDone] = useState(false);
   const [bsWelcomeDone, setBsWelcomeDone] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] = useState<'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'users' | 'priceomatic' | null>(null);
-  const [settingsFocusTarget, setSettingsFocusTarget] = useState<'channelSync' | undefined>(undefined);
+  const [settingsFocusTarget, setSettingsFocusTarget] = useState<'channelSync' | 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel' | undefined>(undefined);
   const [settingsPricingExample, setSettingsPricingExample] = useState<PricingInsight | undefined>(undefined);
   const [settingsScoringExample, setSettingsScoringExample] = useState<PricingInsight | undefined>(undefined);
   const [salesPeriod, setSalesPeriod] = useState<'mtd' | 'ytd' | '1y' | '5y'>('ytd');
@@ -419,13 +419,13 @@ export default function Home() {
       case 'inventory':
         return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} />;
       case 'orders':
-        return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }} />;
+        return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} />;
       case 'sales':
         return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeSalesDrawer} onDrawerChange={setActiveSalesDrawer} />;
       case 'marketing':
         return <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} />;
       default:
-        return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section) => { setSettingsInitialSection(section ?? null); setSettingsOpen(true); }} />;
+        return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} />;
     }
   };
 
@@ -444,9 +444,15 @@ export default function Home() {
     setBillingOpen(false);
   };
 
-  const openSettings = (section?: string, pricingExample?: PricingInsight, scoringExample?: PricingInsight) => {
+  const openSettings = (section?: string, pricingExampleOrFocusTarget?: PricingInsight | string, scoringExample?: PricingInsight) => {
     setSettingsInitialSection(section as any);
-    setSettingsPricingExample(pricingExample);
+    if (typeof pricingExampleOrFocusTarget === 'string') {
+      setSettingsFocusTarget(pricingExampleOrFocusTarget as any);
+      setSettingsPricingExample(undefined);
+    } else {
+      setSettingsFocusTarget(undefined);
+      setSettingsPricingExample(pricingExampleOrFocusTarget);
+    }
     setSettingsScoringExample(scoringExample);
     setSettingsOpen(true);
   };
