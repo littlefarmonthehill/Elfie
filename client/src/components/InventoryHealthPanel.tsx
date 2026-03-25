@@ -485,16 +485,17 @@ function relativeTime(iso: string) {
   return new Date(iso).toLocaleDateString();
 }
 
-function dateGroupLabel(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-  const rowDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  if (rowDay.getTime() === today.getTime()) return 'Today';
-  if (rowDay.getTime() === yesterday.getTime()) return 'Yesterday';
-  const sameYear = d.getFullYear() === now.getFullYear();
-  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
+function dateGroupLabel(iso: string, timezone?: string): string {
+  const tz = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const fmtDate = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: tz }); // YYYY-MM-DD
+  const todayStr = fmtDate(new Date());
+  const yesterdayDate = new Date(); yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterdayStr = fmtDate(yesterdayDate);
+  const rowStr = fmtDate(new Date(iso));
+  if (rowStr === todayStr) return 'Today';
+  if (rowStr === yesterdayStr) return 'Yesterday';
+  const sameYear = rowStr.slice(0, 4) === todayStr.slice(0, 4);
+  return new Date(iso).toLocaleDateString('en-US', { timeZone: tz, month: 'long', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
 }
 
 function groupHistoryByDate(rows: HistoryRow[]): { label: string; rows: HistoryRow[] }[] {
@@ -522,7 +523,7 @@ interface SyncDateEntry {
   jobs: SyncJobEntry[];
 }
 
-function groupSyncByDateAndJob(rows: HistoryRow[]): SyncDateEntry[] {
+function groupSyncByDateAndJob(rows: HistoryRow[], timezone?: string): SyncDateEntry[] {
   // Cluster rows into jobs: same source_ref = same job; otherwise 5-min bucket
   const jobMap = new Map<string, SyncJobEntry>();
   for (const row of rows) {
@@ -535,10 +536,10 @@ function groupSyncByDateAndJob(rows: HistoryRow[]): SyncDateEntry[] {
     jobMap.get(jobKey)!.rows.push(row);
   }
 
-  // Group jobs by date
+  // Group jobs by date (using org timezone so midnight boundaries are correct)
   const dateMap = new Map<string, SyncDateEntry>();
   for (const job of jobMap.values()) {
-    const label = dateGroupLabel(job.time);
+    const label = dateGroupLabel(job.time, timezone);
     if (!dateMap.has(label)) dateMap.set(label, { label, jobs: [] });
     dateMap.get(label)!.jobs.push(job);
   }
@@ -551,11 +552,13 @@ function groupSyncByDateAndJob(rows: HistoryRow[]): SyncDateEntry[] {
   return Array.from(dateMap.values());
 }
 
-function SyncJobGroupView({ job, defaultExpanded }: { job: SyncJobEntry; defaultExpanded?: boolean }) {
+function SyncJobGroupView({ job, defaultExpanded, timezone }: { job: SyncJobEntry; defaultExpanded?: boolean; timezone?: string }) {
   const [expanded, setExpanded] = useState(defaultExpanded ?? false);
 
-  const jobTime = new Date(job.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const tz = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const jobTime = new Date(job.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: tz });
   const changeCount = job.rows.length;
+  const jobSource = job.rows[0]?.source;
 
   return (
     <div className="mb-1">
@@ -567,6 +570,7 @@ function SyncJobGroupView({ job, defaultExpanded }: { job: SyncJobEntry; default
       >
         <ChevronRight className={`w-3 h-3 text-muted-foreground/60 flex-shrink-0 transition-transform duration-150 ${expanded ? 'rotate-90' : ''}`} />
         <span className="text-[11px] font-medium text-foreground/70">{jobTime}</span>
+        {jobSource && sourceBadge(jobSource)}
         <span className="text-[10px] text-muted-foreground/50">·</span>
         <span className="text-[10px] text-muted-foreground/60">{changeCount} change{changeCount !== 1 ? 's' : ''}</span>
       </button>
@@ -630,6 +634,12 @@ function HistoryView() {
   const [page, setPage] = useState(0);
   const [themeId, setThemeId] = useState<HistoryThemeId>('all');
 
+  const { data: appSettings } = useQuery<{ timezone?: string }>({
+    queryKey: ['/api/settings'],
+    staleTime: 60_000,
+  });
+  const timezone = appSettings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
   const theme = HISTORY_THEMES.find(t => t.id === themeId)!;
   const url = buildHistoryUrl(theme, page);
 
@@ -681,7 +691,7 @@ function HistoryView() {
         ) : themeId === 'sync' ? (
           /* ── Sync view: Date → Job (collapsible) → Items ── */
           <div>
-            {groupSyncByDateAndJob(rows).map((dateGroup, dateIdx) => (
+            {groupSyncByDateAndJob(rows, timezone).map((dateGroup, dateIdx) => (
               <div key={dateGroup.label}>
                 <div className="sticky top-0 z-10 flex items-center gap-2 py-1.5 bg-background/95 backdrop-blur-sm">
                   <span className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wide">
@@ -695,6 +705,7 @@ function HistoryView() {
                       key={job.jobKey}
                       job={job}
                       defaultExpanded={dateIdx === 0 && jobIdx === 0}
+                      timezone={timezone}
                     />
                   ))}
                 </div>
