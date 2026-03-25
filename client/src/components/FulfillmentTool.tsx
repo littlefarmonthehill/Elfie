@@ -152,7 +152,11 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
               <div className="flex-1 min-w-0">
                 {/* Line 1: part# + color + condition */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-mono text-xs text-cyan-300 shrink-0">{rep.partNumber || rep.sku}</span>
+                  {(rep.marketplace === 'BrickOwl' ? rep.partNumber : (rep.partNumber || rep.sku)) && (
+                    <span className="font-mono text-xs text-cyan-300 shrink-0">
+                      {rep.marketplace === 'BrickOwl' ? rep.partNumber : (rep.partNumber || rep.sku)}
+                    </span>
+                  )}
                   {rep.colorName && (
                     <span className="text-[11px] text-yellow-400">{rep.colorName}</span>
                   )}

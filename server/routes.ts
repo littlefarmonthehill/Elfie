@@ -14786,9 +14786,15 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
       const aisleMap = new Map(aislesData.map(a => [a.id, a]));
 
       // Inventory: collect all lookup IDs, one query (was 1 per item)
+      // IMPORTANT: For BrickOwl orders the SKU is the BO inventory ID — NOT a BL inventory ID.
+      // Only use parseInt(sku) as a BL inventory lookup key for BrickLink orders.
       const lookupIds = filteredItems
         .map(item => {
           const d = detailMap.get(item.orderDetailId);
+          const o = orderMap.get(item.orderId);
+          if (o?.marketplace === 'BrickOwl') {
+            return (d?.bricklinkInventoryId ?? item.inventoryId ?? null) as number | null;
+          }
           const skuInt = d?.sku ? parseInt(d.sku) : NaN;
           return (!isNaN(skuInt) ? skuInt : (d?.bricklinkInventoryId ?? item.inventoryId)) as number | null;
         })
@@ -14849,8 +14855,14 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         const itemDetails = items.map(item => {
           const detail = detailMap.get(item.orderDetailId);
           const order = orderMap.get(item.orderId);
-          const skuInt = detail?.sku ? parseInt(detail.sku) : NaN;
-          const lookupId = !isNaN(skuInt) ? skuInt : (detail?.bricklinkInventoryId ?? item.inventoryId ?? null);
+          // For BrickOwl orders the SKU is a BO inventory ID — do NOT use it as a BL inventory key.
+          let lookupId: number | null;
+          if (order?.marketplace === 'BrickOwl') {
+            lookupId = (detail?.bricklinkInventoryId ?? item.inventoryId ?? null) as number | null;
+          } else {
+            const skuInt = detail?.sku ? parseInt(detail.sku) : NaN;
+            lookupId = (!isNaN(skuInt) ? skuInt : (detail?.bricklinkInventoryId ?? item.inventoryId)) as number | null;
+          }
           const inv = lookupId ? invMap.get(Number(lookupId)) : undefined;
 
           let partNumber: string | null = inv?.itemNo ?? null;
@@ -14867,6 +14879,24 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
           // BrickOwl uses its own color ID system — looking those up in blColors gives wrong results.
           if (!colorName && detail?.colorId && order?.marketplace !== 'BrickOwl') {
             colorName = colorMap.get(detail.colorId) ?? null;
+          }
+
+          // BrickOwl: extract part number and condition from item name when not resolved from inventory.
+          // BO name format: "(New)  LEGO Black Plate 1 x 2 with Horizontal Clips (60470)" or
+          //                 "961948-38 - LEGO Black Plate 1 x 1 Round (6141 / 30057)"
+          // Condition is at the start in parens: (New) / (Used).
+          // Part number is the first digit-starting token inside parentheses.
+          if (order?.marketplace === 'BrickOwl') {
+            const name = detail?.name ?? '';
+            if (!partNumber) {
+              // Match first (NNN...) where NNN starts with a digit — skips (New) and (Used)
+              const m = name.match(/\((\d[0-9a-zA-Z]*)/);
+              if (m) partNumber = m[1];
+            }
+            if (!condition) {
+              if (/^\(New\)/i.test(name)) condition = 'New';
+              else if (/^\(Used\)/i.test(name)) condition = 'Used';
+            }
           }
 
           return {
@@ -15263,8 +15293,9 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
             TRIM(SUBSTRING(${orderDetails.sku} FROM '.LGO-(.+)$')),
             TRIM(SUBSTRING(${orderDetails.name} FROM 'LEGO-([^ ]+)')),
             TRIM(SUBSTRING(${orderDetails.name} FROM 'Part ([^ ]+)')),
-            -- Extract first part number from BrickOwl name parentheses, e.g. "... (6141 / 30057)"
-            TRIM(SUBSTRING(${orderDetails.name} FROM '\\(([0-9a-zA-Z]+)'))
+            -- Extract first digit-starting part number from BO name, e.g. "... (6141 / 30057)"
+            -- Uses digit-first pattern to skip leading (New) / (Used) condition tokens
+            TRIM(SUBSTRING(${orderDetails.name} FROM '\\(([0-9][0-9a-zA-Z]*)')) 
           )`,
           name: orderDetails.name,
           quantity: orderDetails.quantity,

@@ -554,7 +554,11 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                     <div className="flex-1 min-w-0">
                       {/* Line 1: part# + part name */}
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono text-xs text-purple-300 shrink-0">{rep.partNumber || rep.sku}</span>
+                        {(rep.marketplace === 'BrickOwl' ? rep.partNumber : (rep.partNumber || rep.sku)) && (
+                          <span className="font-mono text-xs text-purple-300 shrink-0">
+                            {rep.marketplace === 'BrickOwl' ? rep.partNumber : (rep.partNumber || rep.sku)}
+                          </span>
+                        )}
                         <span className={`text-xs font-medium leading-snug ${allPulled ? 'text-gray-400 line-through' : 'text-white'}`}>
                           {rep.itemName}
                         </span>
@@ -698,7 +702,11 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-[10px] text-purple-400 shrink-0">{item.partNumber || item.sku}</span>
+                          {(item.marketplace === 'BrickOwl' ? item.partNumber : (item.partNumber || item.sku)) && (
+                            <span className="font-mono text-[10px] text-purple-400 shrink-0">
+                              {item.marketplace === 'BrickOwl' ? item.partNumber : (item.partNumber || item.sku)}
+                            </span>
+                          )}
                           <span className="text-xs text-white leading-snug">{item.itemName}</span>
                         </div>
                         <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-0.5 flex-wrap">
