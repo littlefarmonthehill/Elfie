@@ -102,7 +102,7 @@ export async function syncBrickOwlOrders(
     // Process each order
     for (const boOrder of boOrders) {
       try {
-        await processBrickOwlOrder(boOrder, apiKey, result);
+        await processBrickOwlOrder(boOrder, orgId, apiKey, result);
       } catch (error: any) {
         console.error(`✗ Error processing BrickOwl order ${boOrder.order_id}:`, error);
         result.errors.push(`Order ${boOrder.order_id}: ${error.message}`);
@@ -187,6 +187,7 @@ function safeTimestampToDate(isoString: string | null | undefined, unixTimestamp
  */
 async function processBrickOwlOrder(
   boOrder: any,
+  orgId: string,
   apiKey: string,
   result: BrickOwlOrderSyncResult
 ): Promise<void> {
