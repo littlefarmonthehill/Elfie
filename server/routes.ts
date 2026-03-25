@@ -9374,10 +9374,10 @@ Format search_web URLs as markdown links.`;
          AND bc.item_type IN ('P','M','S','G','B','C','I','O','U')
          AND COALESCE(ih.color_id, 0) = bc.color_id
         WHERE ih.org_id = ${orgId}
-          ${source     ? sql`AND ih.source = ${source}`                       : sql``}
-          ${sourceList ? sql`AND ih.source = ANY(${sourceList})`              : sql``}
-          ${fieldList  ? sql`AND ih.field  = ANY(${fieldList})`               : sql``}
-          ${inventoryId ? sql`AND ih.inventory_id = ${inventoryId}`           : sql``}
+          ${source      ? sql`AND ih.source = ${source}`                                                          : sql``}
+          ${sourceList  ? sql`AND ih.source IN (${sql.join(sourceList.map(s => sql`${s}`), sql`, `)})`            : sql``}
+          ${fieldList   ? sql`AND ih.field  IN (${sql.join(fieldList.map(f => sql`${f}`),  sql`, `)})`            : sql``}
+          ${inventoryId ? sql`AND ih.inventory_id = ${inventoryId}`                                               : sql``}
         ORDER BY ih.changed_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `);

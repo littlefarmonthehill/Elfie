@@ -477,6 +477,32 @@ function relativeTime(iso: string) {
   return new Date(iso).toLocaleDateString();
 }
 
+function dateGroupLabel(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  const rowDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  if (rowDay.getTime() === today.getTime()) return 'Today';
+  if (rowDay.getTime() === yesterday.getTime()) return 'Yesterday';
+  const sameYear = d.getFullYear() === now.getFullYear();
+  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' }) });
+}
+
+function groupHistoryByDate(rows: HistoryRow[]): { label: string; rows: HistoryRow[] }[] {
+  const groups: { label: string; rows: HistoryRow[] }[] = [];
+  for (const row of rows) {
+    const label = dateGroupLabel(row.changed_at);
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) {
+      last.rows.push(row);
+    } else {
+      groups.push({ label, rows: [row] });
+    }
+  }
+  return groups;
+}
+
 function buildHistoryUrl(theme: HistoryThemeDef, page: number): string {
   const params = new URLSearchParams({ page: String(page) });
   if (theme.fields)  params.set('fields',  theme.fields.join(','));
@@ -538,51 +564,63 @@ function HistoryView() {
           </div>
         ) : (
           <div>
-            {rows.map((row) => (
-              <div
-                key={row.id}
-                className="flex items-start gap-3 py-2.5 border-b border-border/40 last:border-0"
-                data-testid={`history-row-${row.id}`}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs font-mono text-foreground/80">{row.item_no}</span>
-                    {row.color_name && row.color_name !== 'No Color' && (
-                      <span className="text-[9px] text-muted-foreground">{row.color_name}</span>
-                    )}
-                    {sourceBadge(row.source)}
-                    {row.source_ref && (
-                      <span className="text-[9px] text-muted-foreground/50">#{row.source_ref.slice(0, 12)}</span>
-                    )}
+            {groupHistoryByDate(rows).map((group) => (
+              <div key={group.label}>
+                {/* Date separator */}
+                <div className="sticky top-0 z-10 flex items-center gap-2 py-1.5 bg-background/95 backdrop-blur-sm">
+                  <span className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wide">
+                    {group.label}
+                  </span>
+                  <div className="flex-1 h-px bg-border/40" />
+                </div>
+
+                {group.rows.map((row) => (
+                  <div
+                    key={row.id}
+                    className="flex items-start gap-3 py-2.5 border-b border-border/30 last:border-0"
+                    data-testid={`history-row-${row.id}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-mono text-foreground/80">{row.item_no}</span>
+                        {row.color_name && row.color_name !== 'No Color' && (
+                          <span className="text-[9px] text-muted-foreground">{row.color_name}</span>
+                        )}
+                        {sourceBadge(row.source)}
+                        {row.source_ref && (
+                          <span className="text-[9px] text-muted-foreground/50">#{row.source_ref.slice(0, 12)}</span>
+                        )}
+                      </div>
+                      {row.item_name && (
+                        <div className="text-[10px] text-muted-foreground truncate mt-0.5">{row.item_name}</div>
+                      )}
+                      {row.field === 'catalogSuperseded' || row.field === 'catalogObsolete' ? (
+                        <div className="flex items-center gap-1.5 mt-1 text-[10px]">
+                          <span className="text-muted-foreground">{fieldLabel(row.field)}</span>
+                          <span className="text-muted-foreground/40">—</span>
+                          {formatHistoryValue(row.field, row.new_value)}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 mt-1 text-[10px]">
+                          <span className="text-muted-foreground">{fieldLabel(row.field)}</span>
+                          <span className="text-muted-foreground/60">
+                            {formatHistoryValue(row.field, row.old_value)}
+                          </span>
+                          <span className="text-muted-foreground/40">→</span>
+                          <span className={row.field === 'quantity'
+                            ? (Number(row.new_value ?? 0) < Number(row.old_value ?? 0) ? 'text-red-400' : 'text-green-400')
+                            : 'text-blue-400'
+                          }>
+                            {formatHistoryValue(row.field, row.new_value)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-shrink-0 text-[10px] text-muted-foreground/50 mt-0.5">
+                      {relativeTime(row.changed_at)}
+                    </div>
                   </div>
-                  {row.item_name && (
-                    <div className="text-[10px] text-muted-foreground truncate mt-0.5">{row.item_name}</div>
-                  )}
-                  {row.field === 'catalogSuperseded' || row.field === 'catalogObsolete' ? (
-                    <div className="flex items-center gap-1.5 mt-1 text-[10px]">
-                      <span className="text-muted-foreground">{fieldLabel(row.field)}</span>
-                      <span className="text-muted-foreground/40">—</span>
-                      {formatHistoryValue(row.field, row.new_value)}
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 mt-1 text-[10px]">
-                      <span className="text-muted-foreground">{fieldLabel(row.field)}</span>
-                      <span className="text-muted-foreground/60">
-                        {formatHistoryValue(row.field, row.old_value)}
-                      </span>
-                      <span className="text-muted-foreground/40">→</span>
-                      <span className={row.field === 'quantity'
-                        ? (Number(row.new_value ?? 0) < Number(row.old_value ?? 0) ? 'text-red-400' : 'text-green-400')
-                        : 'text-blue-400'
-                      }>
-                        {formatHistoryValue(row.field, row.new_value)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex-shrink-0 text-[10px] text-muted-foreground/50 mt-0.5">
-                  {relativeTime(row.changed_at)}
-                </div>
+                ))}
               </div>
             ))}
           </div>
