@@ -320,6 +320,21 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     });
   }, [data]);
 
+  // When new orders appear (e.g. a BO order synced mid-session), the PicklistTool's cached
+  // "All" query becomes stale and won't include the new order's picklist items.
+  // Invalidate all picklist cache entries so the next render fetches fresh data.
+  const prevOrderIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!data?.orders) return;
+    const currentIds = new Set(data.orders.map((o: any) => o.id));
+    const prev = prevOrderIdsRef.current;
+    const hasNewOrder = [...currentIds].some(id => !prev.has(id));
+    if (hasNewOrder && prev.size > 0) {
+      queryClient.invalidateQueries({ queryKey: ['/api/picklist'] });
+    }
+    prevOrderIdsRef.current = currentIds;
+  }, [data]);
+
   // Fetch settings to determine EasyPost key mode
   const { data: settings } = useQuery<any>({
     queryKey: ['/api/settings'],
