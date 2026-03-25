@@ -30,6 +30,7 @@ import {
   ShoppingCart,
   RefreshCw,
   FileText,
+  Trash2,
 } from "lucide-react";
 
 interface HealthSummary {
@@ -41,6 +42,7 @@ interface HealthSummary {
   overpriced: number;
   crossConditionDupes: { groups: number; lots: number };
   obsoleteCatalog: number;
+  softDeleted: { total: number; linked: number; standalone: number };
   stockroom: Record<string, { lotCount: number; totalQty: number; totalValue: number }>;
   productMix: {
     totalCategories: number;
@@ -57,7 +59,8 @@ type HealthCategory =
   | 'dead_stock'
   | 'overpriced'
   | 'cross_condition_dupes'
-  | 'obsolete_catalog';
+  | 'obsolete_catalog'
+  | 'soft_deleted';
 
 type HealthTheme = 'pricing' | 'listings' | 'sales';
 
@@ -378,6 +381,11 @@ function DetailRow({ row, category }: { row: any; category: HealthCategory }) {
           row.alternate_no
             ? <div className="text-[10px] font-mono text-amber-400">replace with {row.alternate_no}</div>
             : <div className="text-[10px] font-mono text-rose-400">retired · no replacement</div>
+        )}
+        {category === 'soft_deleted' && (
+          row.is_linked
+            ? <div className="text-[10px] text-sky-400">linked to order</div>
+            : <div className="text-[10px] text-slate-400">no order · orphaned</div>
         )}
       </div>
     </div>
@@ -814,6 +822,21 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
       count: health.obsoleteCatalog,
       countLabel: 'lots',
       severity: 'warning',
+      theme: 'listings',
+    },
+    {
+      id: 'soft_deleted',
+      label: 'Soft-Deleted Lots',
+      description: health.softDeleted
+        ? `${health.softDeleted.linked} linked to orders · ${health.softDeleted.standalone} with no order`
+        : 'Lots removed from BL inventory but still in the database',
+      icon: Trash2,
+      accentColor: 'text-slate-400',
+      borderColor: 'border-slate-500/40',
+      bgColor: 'bg-slate-950/30',
+      count: health.softDeleted?.total ?? 0,
+      countLabel: 'lots',
+      severity: 'info',
       theme: 'listings',
     },
     {
