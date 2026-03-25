@@ -91,7 +91,8 @@ export async function syncBrickLinkOrders(
   tokenValue: string,
   tokenSecret: string,
   orgId: string,
-  options: { limit?: number; fullSync?: boolean; sinceDate?: string } = {}
+  options: { limit?: number; fullSync?: boolean; sinceDate?: string } = {},
+  onProgress?: (processed: number, total: number) => void
 ): Promise<BrickLinkOrderSyncResult> {
   const result: BrickLinkOrderSyncResult = {
     ordersAdded: 0,
@@ -167,6 +168,7 @@ export async function syncBrickLinkOrders(
 
     result.totalOrders = allOrders.length;
 
+    let processed = 0;
     for (const blOrder of allOrders) {
       try {
         await processBrickLinkOrder(blOrder, consumerKey, consumerSecret, tokenValue, tokenSecret, orgId, result);
@@ -174,6 +176,8 @@ export async function syncBrickLinkOrders(
         console.error(`✗ Error processing BrickLink order ${blOrder.order_id}:`, error);
         result.errors.push(`Order ${blOrder.order_id}: ${error.message}`);
       }
+      processed++;
+      onProgress?.(processed, allOrders.length);
     }
 
     // If any returns were detected, trigger a BrickLink inventory sync so local

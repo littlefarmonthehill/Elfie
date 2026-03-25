@@ -29,6 +29,37 @@ export interface OrderSyncResult {
   brickowl:  ChannelSyncOutcome;
 }
 
+// ── In-memory progress tracking ─────────────────────────────────────────────
+// Mirrors the pattern used in channel-sync-scheduler.ts / inventory-sync-scheduler.ts.
+// Polled by the client every 2 s while a sync is running.
+
+export interface OrderSyncProgress {
+  status: 'idle' | 'in_progress';
+  currentStep: string;
+  progress: number; // 0-100
+  processed: number;
+  total: number;
+}
+
+const idle: OrderSyncProgress = { status: 'idle', currentStep: '', progress: 0, processed: 0, total: 0 };
+
+const orderSyncProgress: Record<'bricklink' | 'brickowl', OrderSyncProgress> = {
+  bricklink: { ...idle },
+  brickowl:  { ...idle },
+};
+
+export function getOrderSyncProgress(platform: 'bricklink' | 'brickowl'): OrderSyncProgress {
+  return orderSyncProgress[platform] ?? { ...idle };
+}
+
+function setProgress(platform: 'bricklink' | 'brickowl', update: Partial<OrderSyncProgress>) {
+  orderSyncProgress[platform] = { ...orderSyncProgress[platform], ...update };
+}
+
+function resetProgress(platform: 'bricklink' | 'brickowl') {
+  orderSyncProgress[platform] = { ...idle };
+}
+
 /** True while an order sync is in progress (delegates to global lock). */
 export function getOrderSyncIsRunning() {
   return syncLock.getActive().includes('Order Sync');
@@ -71,6 +102,7 @@ export async function runPlatformOrderSync(
           settings.bricklinkTokenValue &&
           settings.bricklinkTokenSecret
         ) {
+          setProgress('bricklink', { status: 'in_progress', currentStep: 'Fetching orders from BrickLink…', progress: 0, processed: 0, total: 0 });
           try {
             console.log(`🧱 Syncing BrickLink orders for org ${orgId}...`);
             const { syncBrickLinkOrders } = await import("./bricklink-order-sync");
@@ -80,7 +112,16 @@ export async function runPlatformOrderSync(
               settings.bricklinkTokenValue,
               settings.bricklinkTokenSecret,
               orgId,
-              { limit, fullSync: effectiveFullSync, sinceDate }
+              { limit, fullSync: effectiveFullSync, sinceDate },
+              (processed, total) => {
+                const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
+                setProgress('bricklink', {
+                  currentStep: `Processing order ${processed} of ${total}`,
+                  progress: pct,
+                  processed,
+                  total,
+                });
+              }
             );
             result.bricklink.success = true;
             result.bricklink.ordersAdded += blResult.ordersAdded ?? 0;
@@ -96,6 +137,8 @@ export async function runPlatformOrderSync(
           } catch (err: any) {
             result.bricklink.error = err.message;
             console.error(`❌ BrickLink sync failed for org ${orgId}:`, err.message);
+          } finally {
+            resetProgress('bricklink');
           }
         } else if (platform === "bricklink") {
           result.bricklink.skipped = true;
@@ -106,10 +149,24 @@ export async function runPlatformOrderSync(
       // ── BrickOwl ───────────────────────────────────────────────────────────
       if (platform === "brickowl" || platform === "all") {
         if (settings.brickowlApiKey) {
+          setProgress('brickowl', { status: 'in_progress', currentStep: 'Fetching orders from BrickOwl…', progress: 0, processed: 0, total: 0 });
           try {
             console.log(`🦉 Syncing BrickOwl orders for org ${orgId}...`);
             const { syncBrickOwlOrders } = await import("./brickowl-order-sync");
-            const boResult = await syncBrickOwlOrders(settings.brickowlApiKey, orgId, { limit, fullSync: effectiveFullSync, sinceDate });
+            const boResult = await syncBrickOwlOrders(
+              settings.brickowlApiKey,
+              orgId,
+              { limit, fullSync: effectiveFullSync, sinceDate },
+              (processed, total) => {
+                const pct = total > 0 ? Math.round((processed / total) * 100) : 0;
+                setProgress('brickowl', {
+                  currentStep: `Processing order ${processed} of ${total}`,
+                  progress: pct,
+                  processed,
+                  total,
+                });
+              }
+            );
             result.brickowl.success = true;
             result.brickowl.ordersAdded += boResult.ordersAdded ?? 0;
             console.log(`✅ BrickOwl (${orgId}): ${boResult.ordersAdded ?? 0} orders added`);
@@ -124,6 +181,8 @@ export async function runPlatformOrderSync(
           } catch (err: any) {
             result.brickowl.error = err.message;
             console.error(`❌ BrickOwl sync failed for org ${orgId}:`, err.message);
+          } finally {
+            resetProgress('brickowl');
           }
         } else if (platform === "brickowl") {
           result.brickowl.skipped = true;

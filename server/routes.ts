@@ -12085,6 +12085,28 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
+  // Get BrickLink order sync progress (for real-time UI updates)
+  app.get("/api/sync/bricklink/orders/progress", isApproved, async (_req, res) => {
+    try {
+      const { getOrderSyncProgress } = await import("./services/order-sync-core");
+      res.json(getOrderSyncProgress('bricklink'));
+    } catch (error) {
+      console.error("Error fetching BrickLink order sync progress:", error);
+      res.status(500).json({ error: "Failed to fetch progress" });
+    }
+  });
+
+  // Get BrickOwl order sync progress (for real-time UI updates)
+  app.get("/api/sync/brickowl/orders/progress", isApproved, async (_req, res) => {
+    try {
+      const { getOrderSyncProgress } = await import("./services/order-sync-core");
+      res.json(getOrderSyncProgress('brickowl'));
+    } catch (error) {
+      console.error("Error fetching BrickOwl order sync progress:", error);
+      res.status(500).json({ error: "Failed to fetch progress" });
+    }
+  });
+
   // Get ShipStation sync progress (for real-time UI updates)
   app.get("/api/sync/shipstation/orders/progress", isApproved, async (req: any, res) => {
     try {

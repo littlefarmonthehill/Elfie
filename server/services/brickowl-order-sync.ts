@@ -27,7 +27,8 @@ export interface BrickOwlOrderSyncResult {
 export async function syncBrickOwlOrders(
   apiKey: string,
   orgId: string,
-  options: { limit?: number; fullSync?: boolean; sinceDate?: string } = {}
+  options: { limit?: number; fullSync?: boolean; sinceDate?: string } = {},
+  onProgress?: (processed: number, total: number) => void
 ): Promise<BrickOwlOrderSyncResult> {
   const result: BrickOwlOrderSyncResult = {
     ordersAdded: 0,
@@ -90,6 +91,7 @@ export async function syncBrickOwlOrders(
     result.totalOrders = boOrders.length;
     console.log(`🦉 Fetched ${result.totalOrders} orders from BrickOwl`);
 
+    let processed = 0;
     for (const boOrder of boOrders) {
       try {
         await processBrickOwlOrder(boOrder, orgId, apiKey, result, boLotToBlInvId);
@@ -97,6 +99,8 @@ export async function syncBrickOwlOrders(
         console.error(`✗ Error processing BrickOwl order ${boOrder.order_id}:`, error);
         result.errors.push(`Order ${boOrder.order_id}: ${error.message}`);
       }
+      processed++;
+      onProgress?.(processed, boOrders.length);
     }
 
     await upsertSyncMetadata(SYNC_ID, orgId, {

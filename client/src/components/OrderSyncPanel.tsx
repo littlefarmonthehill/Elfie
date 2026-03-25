@@ -178,24 +178,18 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
 
   const isSyncing = syncMutation.isPending || isRunning;
 
-  // Animate a fake progress bar while syncing (no server-side progress tracking for orders)
-  const [syncProgress, setSyncProgress] = useState(0);
-  useEffect(() => {
-    if (!isRunning) {
-      setSyncProgress(0);
-      return;
-    }
-    setSyncProgress(8);
-    const interval = setInterval(() => {
-      setSyncProgress(prev => {
-        if (prev >= 88) return prev;
-        // Slow down as it approaches 88%
-        const step = prev < 40 ? 4 : prev < 70 ? 2 : 1;
-        return Math.min(prev + step, 88);
-      });
-    }, 800);
-    return () => clearInterval(interval);
-  }, [isRunning]);
+  const progressRoute = platform === 'bricklink'
+    ? '/api/sync/bricklink/orders/progress'
+    : '/api/sync/brickowl/orders/progress';
+
+  const { data: progressData } = useQuery<{ status: string; currentStep: string; progress: number; processed: number; total: number }>({
+    queryKey: [progressRoute],
+    refetchInterval: isSyncing ? 2000 : false,
+    enabled: isSyncing,
+  });
+
+  const progressPct = progressData?.progress ?? 0;
+  const showProgress = isSyncing;
 
   const platformData = orderSyncStatus?.platforms?.find((p: any) => p.name === cfg.label);
   const stats = platformData?.stats;
@@ -213,7 +207,7 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
           <div className="flex items-center gap-2">
             <Icon className={`w-3.5 h-3.5 ${cfg.accentIcon} shrink-0`} />
             <span className={`text-xs font-semibold ${cfg.accentText}`}>{cfg.label} — Orders</span>
-            {isRunning && (
+            {isSyncing && (
               <span className="flex items-center gap-1 text-[10px] text-blue-400">
                 <Loader2 className="w-2.5 h-2.5 animate-spin" />
                 syncing…
@@ -253,8 +247,16 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
           )}
         </div>
 
-        {isRunning && (
-          <Progress value={syncProgress} className="h-0.5 mt-1" />
+        {showProgress && (
+          <div className="space-y-1" data-testid={`${cfg.testId}-progress`}>
+            <Progress value={progressPct} className="h-1.5" />
+            {progressData?.currentStep && (
+              <div className="flex justify-between text-[10px] text-gray-500">
+                <span>{progressData.currentStep}</span>
+                {progressPct > 0 && <span className="tabular-nums">{progressPct}%</span>}
+              </div>
+            )}
+          </div>
         )}
       </button>
 
@@ -427,14 +429,23 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
             <Separator className="bg-gray-700/60" />
 
             {/* Live progress indicator */}
-            {isRunning && (
+            {showProgress && (
               <div className="space-y-2 rounded-lg border border-blue-500/30 bg-blue-950/20 p-3">
                 <div className="flex items-center gap-2 text-xs text-blue-300">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span className="font-medium flex-1">Sync in progress</span>
-                  <span className="tabular-nums font-mono text-blue-400">{syncProgress}%</span>
+                  <span className="font-medium">Sync in progress</span>
                 </div>
-                <Progress value={syncProgress} className="h-1.5" />
+                {progressData && (
+                  <>
+                    <Progress value={progressPct} className="h-2" />
+                    <div className="flex justify-between text-[10px] text-gray-400">
+                      <span>{progressData.currentStep || 'Starting…'}</span>
+                      {progressPct > 0 && (
+                        <span className="tabular-nums font-mono">{progressPct}%</span>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
