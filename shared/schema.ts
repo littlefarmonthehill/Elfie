@@ -1233,7 +1233,6 @@ export const picklistItems = pgTable("picklist_items", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
-  orderDetailIdUniqueIdx: uniqueIndex("picklist_items_order_detail_unique_idx").on(table.orderDetailId),
   orderIdPulledIdx: index("picklist_order_pulled_idx").on(table.orderId, table.pulled),
   orderIdReshelvedIdx: index("picklist_order_reshelved_idx").on(table.orderId, table.reshelved),
   binIdIdx: index("picklist_bin_idx").on(table.binId),

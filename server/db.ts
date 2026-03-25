@@ -2021,6 +2021,42 @@ export async function runMigrations() {
     await client.query(`CREATE INDEX IF NOT EXISTS inv_history_at_idx ON inventory_history (changed_at)`);
     console.log('[Migration] Phase-80 (inventory_history table) complete.');
 
+    // ── Phase-81: deduplicate picklist_items + unique index on order_detail_id ──
+    // The race condition in the picklist GET handler could create multiple rows for
+    // the same order_detail_id. Delete extras (keep most-progressed), then add the
+    // unique index so onConflictDoNothing() actually prevents future duplicates.
+    const { rowCount: dupeCount } = await client.query(`
+      SELECT 1 FROM (
+        SELECT order_detail_id, COUNT(*) AS cnt
+        FROM picklist_items
+        GROUP BY order_detail_id
+        HAVING COUNT(*) > 1
+      ) dups
+      LIMIT 1
+    `);
+    if ((dupeCount ?? 0) > 0) {
+      await client.query(`
+        DELETE FROM picklist_items
+        WHERE id IN (
+          SELECT id FROM (
+            SELECT id,
+                   ROW_NUMBER() OVER (
+                     PARTITION BY order_detail_id
+                     ORDER BY pulled DESC, created_at ASC
+                   ) AS rn
+            FROM picklist_items
+          ) ranked
+          WHERE rn > 1
+        )
+      `);
+      console.log('[Migration] Phase-81 (picklist_items dedup) — removed duplicate rows.');
+    }
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS picklist_items_order_detail_unique_idx
+      ON picklist_items (order_detail_id)
+    `);
+    console.log('[Migration] Phase-81 (picklist_items unique index on order_detail_id) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
