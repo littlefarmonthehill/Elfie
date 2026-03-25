@@ -48,6 +48,17 @@ import { Separator } from "@/components/ui/separator";
 
 type SyncMode = 'analysis' | 'matched_sync' | 'full_control';
 
+function relTime(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
 function SyncModeBadge({ mode, size = 'sm' }: { mode?: SyncMode; size?: 'sm' | 'md' }) {
   if (!mode) return null;
   const cfg = {
@@ -195,17 +206,6 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
     lastSync?.lastSyncStatus === 'partial' ? AlertTriangle :
     lastSync?.lastSyncStatus === 'error' || lastSync?.lastSyncStatus === 'failed' ? XCircle :
     Clock;
-
-  function relTime(iso: string | null | undefined): string {
-    if (!iso) return '';
-    const diff = Date.now() - new Date(iso).getTime();
-    const m = Math.floor(diff / 60000);
-    if (m < 1) return 'just now';
-    if (m < 60) return `${m}m ago`;
-    const h = Math.floor(m / 60);
-    if (h < 24) return `${h}h ago`;
-    return `${Math.floor(h / 24)}d ago`;
-  }
 
   const isLoading = platformLoading || statusLoading;
 
