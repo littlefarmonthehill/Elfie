@@ -4679,7 +4679,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       <span className="app-label">Sales Channels</span>
                       <Button size="sm" variant="ghost" className="h-6 text-xs gap-1 text-gray-400 -mr-1"
                         data-testid="button-add-sales-channel"
-                        onClick={() => { setAddIntegrationType('sales_channel'); setAddIntChannel('ebay'); setAddIntDisplayName('eBay'); setAddIntApiKey(''); }}>
+                        onClick={() => { setAddIntegrationType('sales_channel'); setAddIntChannel('brickowl'); setAddIntDisplayName('BrickOwl'); setAddIntApiKey(''); }}>
                         <Plus className="w-3 h-3" /> Add
                       </Button>
                     </div>
@@ -4708,21 +4708,20 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         <p className="text-xs font-medium text-gray-100">Add Sales Channel</p>
                         <div className="space-y-2">
                           <Label className="text-xs text-gray-200">Platform</Label>
-                          <Select value={addIntChannel} onValueChange={(v) => { setAddIntChannel(v); const n: Record<string,string> = { brickowl: 'BrickOwl', ebay: 'eBay', amazon: 'Amazon', etsy: 'Etsy', shopify: 'Shopify', other: 'Other' }; setAddIntDisplayName(n[v] || ''); }}>
+                          <Select value={addIntChannel} onValueChange={(v) => { setAddIntChannel(v); const n: Record<string,string> = { brickowl: 'BrickOwl' }; setAddIntDisplayName(n[v] || ''); }}>
                             <SelectTrigger className="text-xs h-8" data-testid="select-add-sales-channel"><SelectValue placeholder="Select platform..." /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="brickowl">BrickOwl</SelectItem>
-                              <SelectItem value="ebay">eBay</SelectItem>
-                              <SelectItem value="amazon">Amazon</SelectItem>
-                              <SelectItem value="etsy">Etsy</SelectItem>
-                              <SelectItem value="shopify">Shopify</SelectItem>
-                              <SelectItem value="other">Other</SelectItem>
+                              <SelectItem value="ebay" disabled className="opacity-40">eBay <span className="ml-1 text-[10px]">(coming soon)</span></SelectItem>
+                              <SelectItem value="amazon" disabled className="opacity-40">Amazon <span className="ml-1 text-[10px]">(coming soon)</span></SelectItem>
+                              <SelectItem value="etsy" disabled className="opacity-40">Etsy <span className="ml-1 text-[10px]">(coming soon)</span></SelectItem>
+                              <SelectItem value="shopify" disabled className="opacity-40">Shopify <span className="ml-1 text-[10px]">(coming soon)</span></SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
                         <div className="space-y-2">
                           <Label className="text-xs text-gray-200">Display Name</Label>
-                          <Input className="text-xs" placeholder="e.g. My eBay Store" value={addIntDisplayName} onChange={(e) => setAddIntDisplayName(e.target.value)} data-testid="input-add-display-name" />
+                          <Input className="text-xs" placeholder="e.g. My BrickOwl Store" value={addIntDisplayName} onChange={(e) => setAddIntDisplayName(e.target.value)} data-testid="input-add-display-name" />
                         </div>
                         <div className="space-y-2">
                           <Label className="text-xs text-gray-200">API Key</Label>
