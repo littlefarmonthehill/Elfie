@@ -5,6 +5,7 @@ import { bricklinkCatalogRequest, bricklinkRequest } from "./bricklink";
 import { syncLock } from "./sync-lock";
 import { canonicalBricklinkImageUrl } from "./image-proxy";
 import { enqueueImageStore } from "./image-store";
+import { recordInventoryChanges } from "./inventory-history";
 
 const ORG_ID = PLATFORM_ORG_ID;
 const SYNC_ID = 'catalog_detail_completion';
@@ -245,6 +246,14 @@ export async function runCatalogDetailSync(): Promise<{
             ?? canonicalBricklinkImageUrl(item.itemType, item.itemNo, item.colorId);
           const apiThumbUrl = normalise(data.thumbnail_url) ?? apiImageUrl;
 
+          // Read current lifecycle state before upsert so we can detect transitions.
+          const prevRows = await db.select({ isObsolete: blCatalog.isObsolete, alternateNo: blCatalog.alternateNo })
+            .from(blCatalog)
+            .where(and(eq(blCatalog.itemNo, item.itemNo), eq(blCatalog.itemType, item.itemType), eq(blCatalog.colorId, item.colorId)))
+            .limit(1);
+          const prevIsObsolete = prevRows[0]?.isObsolete ?? false;
+          const prevAlternateNo = prevRows[0]?.alternateNo ?? null;
+
           await db.insert(blCatalog).values({
             itemNo: item.itemNo,
             itemType: item.itemType,
@@ -287,6 +296,54 @@ export async function runCatalogDetailSync(): Promise<{
           // Background: download and store image bytes in object storage.
           // Fire-and-forget — never blocks the BL API quota loop.
           if (apiImageUrl) enqueueImageStore(item.itemType, item.itemNo, item.colorId);
+
+          // Detect lifecycle transitions — when a part is newly superseded or retired,
+          // write a catalog_change history entry for every org holding it in active inventory.
+          const newIsObsolete  = data.is_obsolete ?? false;
+          const newAlternateNo = data.alternate_no || null;
+          const becameObsolete  = !prevIsObsolete && newIsObsolete;
+          const gotReplacement  = !prevAlternateNo && !!newAlternateNo;
+
+          if (becameObsolete || gotReplacement) {
+            try {
+              const affectedLots = await db.select({
+                orgId: blInventory.orgId,
+                id: blInventory.id,
+                itemNo: blInventory.itemNo,
+                colorId: blInventory.colorId,
+              })
+              .from(blInventory)
+              .where(and(
+                eq(blInventory.itemNo, item.itemNo),
+                eq(blInventory.itemType, item.itemType),
+                eq(blInventory.colorId, item.colorId),
+                isNull(blInventory.deletedAt),
+                gt(blInventory.quantity, 0),
+              ));
+
+              if (affectedLots.length > 0) {
+                const now = new Date();
+                const histEntries = affectedLots.map(lot => ({
+                  orgId: lot.orgId,
+                  inventoryId: lot.id,
+                  itemNo: lot.itemNo,
+                  colorId: lot.colorId,
+                  changedAt: now,
+                  source: 'catalog_change' as const,
+                  sourceRef: null,
+                  // 'catalogSuperseded' when a replacement exists (design change / mold variation),
+                  // 'catalogObsolete' when BL retires it with no known replacement.
+                  field: gotReplacement ? 'catalogSuperseded' : 'catalogObsolete',
+                  oldValue: null,
+                  newValue: gotReplacement ? newAlternateNo : null,
+                }));
+                await recordInventoryChanges(histEntries);
+                console.log(`[CatalogDetail] ${item.itemNo} ${gotReplacement ? `superseded → ${newAlternateNo}` : 'retired'}: notified ${affectedLots.length} lot(s)`);
+              }
+            } catch (histErr: any) {
+              console.error(`[CatalogDetail] History write failed for ${item.itemNo}:`, histErr.message);
+            }
+          }
         }
         cdProgress.itemsProcessed = itemsEnriched;
       } catch (error: any) {

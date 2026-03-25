@@ -375,9 +375,9 @@ function DetailRow({ row, category }: { row: any; category: HealthCategory }) {
           </div>
         )}
         {category === 'obsolete_catalog' && (
-          <div className="text-[10px] font-mono text-rose-400">
-            {row.alternate_no ? `→ ${row.alternate_no}` : 'obsolete'}
-          </div>
+          row.alternate_no
+            ? <div className="text-[10px] font-mono text-amber-400">replace with {row.alternate_no}</div>
+            : <div className="text-[10px] font-mono text-rose-400">retired · no replacement</div>
         )}
       </div>
     </div>
@@ -386,7 +386,7 @@ function DetailRow({ row, category }: { row: any; category: HealthCategory }) {
 
 // ─── History ────────────────────────────────────────────────────────────────
 
-type HistoryThemeId = 'all' | 'pricing' | 'sales' | 'content' | 'sync';
+type HistoryThemeId = 'all' | 'pricing' | 'sales' | 'listings' | 'sync';
 
 interface HistoryThemeDef {
   id: HistoryThemeId;
@@ -398,11 +398,11 @@ interface HistoryThemeDef {
 }
 
 const HISTORY_THEMES: HistoryThemeDef[] = [
-  { id: 'all',     label: 'All',         icon: History,      color: 'text-muted-foreground', fields: null,                      sources: null },
-  { id: 'pricing', label: 'Pricing',     icon: DollarSign,   color: 'text-amber-400',        fields: ['unitPrice', 'saleRate'], sources: null },
-  { id: 'sales',   label: 'Sales',       icon: ShoppingCart, color: 'text-green-400',         fields: null,                      sources: ['order', 'order_restore'] },
-  { id: 'content', label: 'Descriptions',icon: FileText,     color: 'text-blue-400',          fields: ['description', 'remarks'],sources: null },
-  { id: 'sync',    label: 'BL Sync',     icon: RefreshCw,    color: 'text-violet-400',        fields: null,                      sources: ['bricklink_sync'] },
+  { id: 'all',      label: 'All',      icon: History,      color: 'text-muted-foreground', fields: null,                                                                   sources: null },
+  { id: 'pricing',  label: 'Pricing',  icon: DollarSign,   color: 'text-amber-400',        fields: ['unitPrice', 'saleRate'],                                              sources: null },
+  { id: 'sales',    label: 'Sales',    icon: ShoppingCart, color: 'text-green-400',         fields: null,                                                                   sources: ['order', 'order_restore'] },
+  { id: 'listings', label: 'Listings', icon: Replace,      color: 'text-rose-400',          fields: ['description', 'remarks', 'catalogSuperseded', 'catalogObsolete'],    sources: null },
+  { id: 'sync',     label: 'BL Sync',  icon: RefreshCw,    color: 'text-violet-400',        fields: null,                                                                   sources: ['bricklink_sync'] },
 ];
 
 interface HistoryRow {
@@ -428,6 +428,8 @@ function sourceBadge(source: string) {
       return <span className="text-[9px] px-1.5 py-0 rounded bg-green-900/40 text-green-400 border border-green-700/30">Order</span>;
     case 'order_restore':
       return <span className="text-[9px] px-1.5 py-0 rounded bg-amber-900/40 text-amber-400 border border-amber-700/30">Restore</span>;
+    case 'catalog_change':
+      return <span className="text-[9px] px-1.5 py-0 rounded bg-rose-900/40 text-rose-400 border border-rose-700/30">Catalog</span>;
     default:
       return <span className="text-[9px] px-1.5 py-0 rounded bg-muted text-muted-foreground border border-border/30">Manual</span>;
   }
@@ -435,17 +437,27 @@ function sourceBadge(source: string) {
 
 function fieldLabel(field: string) {
   switch (field) {
-    case 'quantity':    return 'Qty';
-    case 'unitPrice':   return 'Price';
-    case 'isStockRoom': return 'Stockroom';
-    case 'saleRate':    return 'Sale Rate';
-    case 'remarks':     return 'Remarks';
-    case 'description': return 'Description';
-    default:            return field;
+    case 'quantity':           return 'Qty';
+    case 'unitPrice':          return 'Price';
+    case 'isStockRoom':        return 'Stockroom';
+    case 'saleRate':           return 'Sale Rate';
+    case 'remarks':            return 'Remarks';
+    case 'description':        return 'Description';
+    case 'catalogSuperseded':  return 'Design change';
+    case 'catalogObsolete':    return 'Retired';
+    default:                   return field;
   }
 }
 
 function formatHistoryValue(field: string, value: string | null) {
+  if (field === 'catalogSuperseded') {
+    return value
+      ? <span className="font-mono text-amber-400">replacement: {value}</span>
+      : <span className="text-muted-foreground/40 italic">none</span>;
+  }
+  if (field === 'catalogObsolete') {
+    return <span className="text-rose-400">no replacement</span>;
+  }
   if (value == null) return <span className="text-muted-foreground/40 italic">none</span>;
   if (field === 'unitPrice') return <span>${parseFloat(value).toFixed(2)}</span>;
   if (field === 'isStockRoom') return <span>{value === 'true' ? 'Yes' : 'No'}</span>;
@@ -546,19 +558,27 @@ function HistoryView() {
                   {row.item_name && (
                     <div className="text-[10px] text-muted-foreground truncate mt-0.5">{row.item_name}</div>
                   )}
-                  <div className="flex items-center gap-1.5 mt-1 text-[10px]">
-                    <span className="text-muted-foreground">{fieldLabel(row.field)}</span>
-                    <span className="text-muted-foreground/60">
-                      {formatHistoryValue(row.field, row.old_value)}
-                    </span>
-                    <span className="text-muted-foreground/40">→</span>
-                    <span className={row.field === 'quantity'
-                      ? (Number(row.new_value ?? 0) < Number(row.old_value ?? 0) ? 'text-red-400' : 'text-green-400')
-                      : 'text-blue-400'
-                    }>
+                  {row.field === 'catalogSuperseded' || row.field === 'catalogObsolete' ? (
+                    <div className="flex items-center gap-1.5 mt-1 text-[10px]">
+                      <span className="text-muted-foreground">{fieldLabel(row.field)}</span>
+                      <span className="text-muted-foreground/40">—</span>
                       {formatHistoryValue(row.field, row.new_value)}
-                    </span>
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 mt-1 text-[10px]">
+                      <span className="text-muted-foreground">{fieldLabel(row.field)}</span>
+                      <span className="text-muted-foreground/60">
+                        {formatHistoryValue(row.field, row.old_value)}
+                      </span>
+                      <span className="text-muted-foreground/40">→</span>
+                      <span className={row.field === 'quantity'
+                        ? (Number(row.new_value ?? 0) < Number(row.old_value ?? 0) ? 'text-red-400' : 'text-green-400')
+                        : 'text-blue-400'
+                      }>
+                        {formatHistoryValue(row.field, row.new_value)}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex-shrink-0 text-[10px] text-muted-foreground/50 mt-0.5">
                   {relativeTime(row.changed_at)}
@@ -747,8 +767,8 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
     },
     {
       id: 'obsolete_catalog',
-      label: 'Superseded BL Item IDs',
-      description: 'BrickLink has replaced these item numbers',
+      label: 'Design Changes & Retired Parts',
+      description: 'Mold/color variations — BrickLink has issued replacement IDs or retired these parts',
       icon: Replace,
       accentColor: 'text-rose-400',
       borderColor: 'border-rose-500/40',
@@ -930,7 +950,7 @@ export default function InventoryHealthPanel({ open, onOpenChange }: InventoryHe
                     <span className="text-foreground font-medium">Change History</span>
                   </div>
                   <div className="flex items-center gap-1 text-muted-foreground">
-                    <span className="text-[11px]">Pricing · Sales · Descriptions · Sync</span>
+                    <span className="text-[11px]">Pricing · Sales · Listings · BL Sync</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </div>
                 </button>
