@@ -71,6 +71,8 @@ type Order = {
   requestedShippingService: string | null;
   workflowStatus: WorkflowStatus | null;
   mergeDetectedAt: string | null;
+  orderTotal: string | null;
+  insuranceAmount: string | null;
 };
 
 type FulfillmentItem = {
@@ -915,11 +917,19 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                   className={`flex flex-col py-2 cursor-pointer transition-colors border-l-[3px] ${isSelected ? 'border-l-purple-500 bg-purple-950/30' : 'border-l-transparent'}`}
                                   data-testid={`order-${order.orderNumber}`}
                                 >
-                                  {/* Line 1: globe (intl) · shortcode · flag · order# · lots · shipping tier | workflow status */}
+                                  {/* Line 1: shortcode-circle · flag · order# · lots · meta icons | workflow status */}
                                   <div className="flex items-center gap-2 pl-2 pr-2">
                                     <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                      {/* 2-char shortcode */}
-                                      <span className="text-[10px] font-bold text-amber-400 font-mono shrink-0 tabular-nums" data-testid={`shortcode-${order.id}`}>
+                                      {/* 2-char shortcode — circle color encodes shipping tier */}
+                                      <span
+                                        className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold font-mono shrink-0 tabular-nums ${
+                                          tier === 'express'  ? 'bg-blue-700/80 text-blue-100' :
+                                          tier === 'priority' ? 'bg-red-700/80 text-red-100'   :
+                                          'bg-gray-800 text-amber-400'
+                                        }`}
+                                        data-testid={`shortcode-${order.id}`}
+                                        title={tier === 'express' ? 'Express shipping' : tier === 'priority' ? 'Priority shipping' : undefined}
+                                      >
                                         {orderShortCodeMap.get(order.orderNumber) ?? ''}
                                       </span>
                                       {/* Country flag */}
@@ -930,18 +940,32 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                       <span className={`font-mono text-xs font-semibold shrink-0 ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}>
                                         {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
                                       </span>
-                                      {/* Lot count — right after order number */}
+                                      {/* Lot count */}
                                       {lotCount > 0 && (
                                         <span className="w-5 h-5 rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] font-bold text-white tabular-nums shrink-0" data-testid={`lot-count-${order.id}`}>
                                           {lotCount}
                                         </span>
                                       )}
-                                      {/* Shipping tier badge */}
-                                      {tier === 'express' && (
-                                        <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-blue-900/50 text-blue-300 border border-blue-700/40 shrink-0" data-testid={`badge-express-${order.id}`}>EXPRESS</span>
+                                      {/* Customer comment icon */}
+                                      {order.customerNotes && (
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); setCommentOrderId(commentOrderId === order.id ? null : order.id); }}
+                                          className={`rounded transition-colors shrink-0 ${commentOrderId === order.id ? 'text-amber-400' : 'text-amber-500/60 hover:text-amber-400'}`}
+                                          data-testid={`button-customer-note-${order.id}`}
+                                          title="Customer note"
+                                        >
+                                          <MessageCircle className="w-3.5 h-3.5 fill-current" />
+                                        </button>
                                       )}
-                                      {tier === 'priority' && (
-                                        <span className="text-[9px] font-bold px-1 py-0.5 rounded leading-none bg-red-900/50 text-red-300 border border-red-700/40 shrink-0" data-testid={`badge-priority-${order.id}`}>PRIORITY</span>
+                                      {/* Insurance indicator (BrickLink only) */}
+                                      {order.insuranceAmount && Number(order.insuranceAmount) > 0 && (
+                                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" title={`Insurance: $${Number(order.insuranceAmount).toFixed(2)}`} data-testid={`icon-insurance-${order.id}`} />
+                                      )}
+                                      {/* Order total */}
+                                      {order.orderTotal && Number(order.orderTotal) > 0 && (
+                                        <span className="text-[10px] font-mono text-gray-500 shrink-0 tabular-nums" data-testid={`text-total-${order.id}`}>
+                                          ${Number(order.orderTotal).toFixed(2)}
+                                        </span>
                                       )}
                                     </div>
                                     {/* Workflow status badge */}
@@ -970,18 +994,6 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                           data-testid={`button-order-detail-${order.id}`}
                                         >
                                           view order
-                                        </button>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      {order.customerNotes && (
-                                        <button
-                                          onClick={(e) => { e.stopPropagation(); setCommentOrderId(commentOrderId === order.id ? null : order.id); }}
-                                          className={`rounded transition-colors ${commentOrderId === order.id ? 'text-amber-400' : 'text-amber-500/60 hover:text-amber-400'}`}
-                                          data-testid={`button-customer-note-${order.id}`}
-                                          title="Customer note"
-                                        >
-                                          <MessageCircle className="w-3.5 h-3.5 fill-current" />
                                         </button>
                                       )}
                                     </div>

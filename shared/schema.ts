@@ -318,6 +318,7 @@ export const orders = pgTable("orders", {
   orderTotal: decimal("order_total", { precision: 10, scale: 2 }).notNull(),
   shippingAmount: decimal("shipping_amount", { precision: 10, scale: 2 }),
   taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }),
+  insuranceAmount: decimal("insurance_amount", { precision: 10, scale: 2 }),
   internalNotes: text("internal_notes"),
   customerNotes: text("customer_notes"),
   requestedShippingService: text("requested_shipping_service"),

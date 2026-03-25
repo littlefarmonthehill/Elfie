@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Package, DollarSign, User, MapPin, Calendar, Truck, RefreshCcw, Pencil, X, Save, Weight, RotateCcw, CreditCard } from "lucide-react";
+import { Package, DollarSign, User, MapPin, Calendar, Truck, RefreshCcw, Pencil, X, Save, Weight, RotateCcw, CreditCard, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,6 +59,7 @@ interface OrderDetailProps {
     customerNotes?: string | null;
     internalNotes?: string | null;
     requestedShippingService?: string | null;
+    insuranceAmount?: number | null;
     isRepeatCustomer?: boolean;
     previousOrders?: Array<{
       orderId: string;
@@ -484,6 +485,15 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
               <span className="text-gray-400">Tax</span>
               <span className="font-mono text-white">${tax.toFixed(2)}</span>
             </div>
+            {data.insuranceAmount != null && data.insuranceAmount > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-emerald-400/80 flex items-center gap-1">
+                  <ShieldCheck className="h-3 w-3 flex-shrink-0" />
+                  Insurance
+                </span>
+                <span className="font-mono text-emerald-400/80">${data.insuranceAmount.toFixed(2)}</span>
+              </div>
+            )}
             {hasAdjustments && (
               <div className="pt-1 mt-1 border-t border-lego-red/30 space-y-1">
                 {refundAdjustments.map(adj => (

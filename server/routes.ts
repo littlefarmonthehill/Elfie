@@ -4930,6 +4930,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customerNotes: order.customerNotes || null,
         internalNotes: order.internalNotes || null,
         requestedShippingService: order.requestedShippingService || null,
+        insuranceAmount: order.insuranceAmount ? Number(order.insuranceAmount) : null,
         isRepeatCustomer: isRepeatCustomer,
         adjustments: adjustments.map(a => ({
           id: a.id,

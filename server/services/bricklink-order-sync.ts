@@ -273,6 +273,7 @@ async function processBrickLinkOrder(
     taxAmount: cost?.salesTax_collected_by_bl
       ? cost.salesTax_collected_by_bl.toString()
       : (cost?.vat_amount ? cost.vat_amount.toString() : '0'),
+    insuranceAmount: cost?.insurance ? cost.insurance.toString() : null,
     internalNotes: null,
     customerNotes: orderDetail?.buyer_remark || blOrder.buyer_remark || null,
     requestedShippingService: shipping?.method || null,

@@ -2084,6 +2084,13 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-84 (merge_detected_at on orders) complete.');
 
+    // ── Phase-85: insurance_amount on orders ───────────────────────────────────
+    await client.query(`
+      ALTER TABLE orders
+        ADD COLUMN IF NOT EXISTS insurance_amount DECIMAL(10,2)
+    `);
+    console.log('[Migration] Phase-85 (insurance_amount on orders) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
