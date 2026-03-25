@@ -27,7 +27,7 @@ export interface BrickOwlOrderSyncResult {
 export async function syncBrickOwlOrders(
   apiKey: string,
   orgId: string,
-  options: { limit?: number; fullSync?: boolean } = {}
+  options: { limit?: number; fullSync?: boolean; sinceDate?: string } = {}
 ): Promise<BrickOwlOrderSyncResult> {
   const result: BrickOwlOrderSyncResult = {
     ordersAdded: 0,
@@ -43,7 +43,11 @@ export async function syncBrickOwlOrders(
     // Determine lookback timestamp for incremental sync
     let orderTime: number | undefined = undefined;
 
-    if (!options.fullSync) {
+    if (options.sinceDate) {
+      // Explicit "from date" — use it directly as the API timestamp filter
+      orderTime = Math.floor(new Date(options.sinceDate).getTime() / 1000);
+      console.log(`📅 Date-scoped sync: fetching orders since ${options.sinceDate}`);
+    } else if (!options.fullSync) {
       const [previousSync] = await db
         .select()
         .from(syncMetadata)

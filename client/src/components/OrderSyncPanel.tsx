@@ -12,12 +12,14 @@ import {
   XCircle,
   Clock,
   CalendarClock,
+  ChevronDown,
   X,
   ChevronRight,
   ShoppingCart,
   Package,
   Globe,
   Activity,
+  AlertCircle,
 } from "lucide-react";
 import {
   Drawer,
@@ -98,9 +100,32 @@ const PLATFORM_CONFIG: Record<Platform, {
   },
 };
 
+// Date presets for "Sync From…" picker
+const DATE_PRESETS = [
+  { label: '7 days',  days: 7   },
+  { label: '30 days', days: 30  },
+  { label: '90 days', days: 90  },
+  { label: '6 months', days: 180 },
+  { label: 'All time', days: null },
+] as const;
+
+function presetToDate(days: number | null): string | undefined {
+  if (days === null) return undefined; // all time → no sinceDate
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+function formatDisplayDate(iso: string): string {
+  return new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPanelProps) {
   const { toast } = useToast();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [showFromPicker, setShowFromPicker] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<number | null | 'custom'>(30); // days or null (all time) or 'custom'
+  const [customDate, setCustomDate] = useState('');
   const cfg = PLATFORM_CONFIG[platform];
 
   const { data: syncStatuses } = useQuery<any>({
@@ -129,15 +154,20 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
   }, [isRunning]);
 
   const syncMutation = useMutation({
-    mutationFn: (fullSync = false) => apiRequest('POST', cfg.syncRoute, { fullSync }),
-    onSuccess: (_data, fullSync) => {
+    mutationFn: (opts: { fullSync?: boolean; sinceDate?: string } = {}) =>
+      apiRequest('POST', cfg.syncRoute, opts),
+    onSuccess: (_data, opts) => {
       queryClient.invalidateQueries({ queryKey: ['/api/sync/statuses'] });
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/stats'] });
+      setShowFromPicker(false);
+      const fromLabel = opts.sinceDate
+        ? `from ${formatDisplayDate(opts.sinceDate)}`
+        : opts.fullSync ? 'from the beginning' : null;
       toast({
-        title: fullSync ? `${cfg.label} full sync started` : `${cfg.label} order sync started`,
-        description: fullSync
-          ? 'Fetching all orders from the beginning — this may take a moment.'
+        title: `${cfg.label} order sync started`,
+        description: fromLabel
+          ? `Syncing orders ${fromLabel} — this may take a moment.`
           : 'Orders are syncing in the background.',
       });
     },
@@ -228,7 +258,7 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
         )}
       </button>
 
-      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+      <Drawer open={drawerOpen} onOpenChange={(open) => { setDrawerOpen(open); if (!open) setShowFromPicker(false); }}>
         <DrawerContent className="bg-gray-950 border-gray-800 h-[75vh] flex flex-col rounded-t-2xl">
           <DrawerHeader className="p-0 flex-shrink-0">
             <div className="flex justify-center pt-3 pb-1">
@@ -251,40 +281,147 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
 
           <div className="flex-1 overflow-y-auto min-h-0 px-4 pt-3 pb-6 space-y-4">
             {/* Action buttons */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={isSyncing}
-                onClick={() => syncMutation.mutate(false)}
-                data-testid={`button-order-sync-${platform}`}
-              >
-                {isSyncing ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                ) : (
-                  <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-                )}
-                {isRunning ? 'Syncing…' : 'Sync Now'}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={isSyncing}
-                onClick={() => syncMutation.mutate(true)}
-                data-testid={`button-order-full-sync-${platform}`}
-              >
-                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-                Full Sync
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => { setDrawerOpen(false); onOpenSettings?.('platforms', 'schedulerOrders'); }}
-                data-testid={`button-${platform}-order-sync-schedule`}
-              >
-                <CalendarClock className="w-3.5 h-3.5 mr-1.5" />
-                Schedule
-              </Button>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={isSyncing}
+                  onClick={() => { setShowFromPicker(false); syncMutation.mutate({}); }}
+                  data-testid={`button-order-sync-${platform}`}
+                >
+                  {isSyncing && !showFromPicker ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                  ) : (
+                    <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                  )}
+                  {isRunning ? 'Syncing…' : 'Sync Now'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={isSyncing}
+                  onClick={() => setShowFromPicker(v => !v)}
+                  data-testid={`button-order-sync-from-${platform}`}
+                  className={showFromPicker ? 'toggle-elevate toggle-elevated' : 'toggle-elevate'}
+                >
+                  <CalendarClock className="w-3.5 h-3.5 mr-1.5" />
+                  Sync From…
+                  <ChevronDown className={`w-3 h-3 ml-1 transition-transform ${showFromPicker ? 'rotate-180' : ''}`} />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => { setDrawerOpen(false); onOpenSettings?.('platforms', 'schedulerOrders'); }}
+                  data-testid={`button-${platform}-order-sync-schedule`}
+                >
+                  <CalendarClock className="w-3.5 h-3.5 mr-1.5" />
+                  Schedule
+                </Button>
+              </div>
+
+              {/* Inline "Sync From…" date picker */}
+              {showFromPicker && (() => {
+                const isAllTime = selectedPreset === null;
+                const activeSinceDate = selectedPreset === 'custom'
+                  ? customDate
+                  : selectedPreset !== null
+                  ? presetToDate(selectedPreset)
+                  : undefined;
+
+                return (
+                  <div className="rounded-lg border border-gray-700/60 bg-gray-900/60 p-3 space-y-3">
+                    {/* Preset chips */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {DATE_PRESETS.map(p => {
+                        const active = selectedPreset === p.days;
+                        return (
+                          <button
+                            key={p.label}
+                            onClick={() => { setSelectedPreset(p.days); setCustomDate(''); }}
+                            className={`text-[11px] px-2.5 py-1 rounded-md border font-medium transition-colors ${
+                              active
+                                ? `${cfg.accentBorder} ${cfg.accentText} bg-gray-800`
+                                : 'border-gray-700/60 text-gray-400 hover:border-gray-600 hover:text-gray-300'
+                            }`}
+                            data-testid={`button-preset-${p.label.replace(' ', '-').toLowerCase()}-${platform}`}
+                          >
+                            {p.label}
+                          </button>
+                        );
+                      })}
+                      <button
+                        onClick={() => setSelectedPreset('custom')}
+                        className={`text-[11px] px-2.5 py-1 rounded-md border font-medium transition-colors ${
+                          selectedPreset === 'custom'
+                            ? `${cfg.accentBorder} ${cfg.accentText} bg-gray-800`
+                            : 'border-gray-700/60 text-gray-400 hover:border-gray-600 hover:text-gray-300'
+                        }`}
+                        data-testid={`button-preset-custom-${platform}`}
+                      >
+                        Custom
+                      </button>
+                    </div>
+
+                    {/* Custom date input */}
+                    {selectedPreset === 'custom' && (
+                      <input
+                        type="date"
+                        value={customDate}
+                        max={new Date().toISOString().slice(0, 10)}
+                        onChange={e => setCustomDate(e.target.value)}
+                        className="w-full text-xs bg-gray-800 border border-gray-700 rounded-md px-3 py-1.5 text-gray-200 focus:outline-none focus:border-gray-500"
+                        data-testid={`input-custom-date-${platform}`}
+                      />
+                    )}
+
+                    {/* All-time warning */}
+                    {isAllTime && (
+                      <div className="flex items-start gap-1.5 rounded-md border border-yellow-500/30 bg-yellow-950/20 px-2.5 py-2">
+                        <AlertCircle className="w-3.5 h-3.5 text-yellow-400 shrink-0 mt-0.5" />
+                        <p className="text-[10px] text-yellow-300/80">
+                          This re-processes every order ever received and may take several minutes.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Confirm + Cancel */}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={isSyncing || (selectedPreset === 'custom' && !customDate)}
+                        onClick={() => {
+                          if (isAllTime) {
+                            syncMutation.mutate({ fullSync: true });
+                          } else if (activeSinceDate) {
+                            syncMutation.mutate({ sinceDate: activeSinceDate });
+                          }
+                        }}
+                        data-testid={`button-confirm-sync-from-${platform}`}
+                      >
+                        {syncMutation.isPending ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                        ) : (
+                          <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                        )}
+                        {isAllTime
+                          ? 'Sync all orders'
+                          : activeSinceDate
+                          ? `Sync from ${formatDisplayDate(activeSinceDate)}`
+                          : 'Pick a date'}
+                      </Button>
+                      <button
+                        onClick={() => setShowFromPicker(false)}
+                        className="text-[11px] text-gray-500 hover:text-gray-300 transition-colors"
+                        data-testid={`button-cancel-sync-from-${platform}`}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             <Separator className="bg-gray-700/60" />

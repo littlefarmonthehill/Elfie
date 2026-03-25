@@ -12101,9 +12101,9 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   // BrickLink order sync endpoint
   app.post("/api/sync/bricklink/orders", isApproved, async (req: any, res) => {
     try {
-      const { limit, fullSync } = req.body;
+      const { limit, fullSync, sinceDate } = req.body;
       const { runPlatformOrderSync } = await import("./services/order-sync-core");
-      const result = await runPlatformOrderSync("bricklink", { limit, fullSync });
+      const result = await runPlatformOrderSync("bricklink", { limit, fullSync, sinceDate });
       res.json({ success: true, data: result });
       if ((result.bricklink.ordersAdded ?? 0) > 0) {
         const orgId = reqOrgId(req);
@@ -12122,9 +12122,9 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   // BrickOwl order sync endpoint
   app.post("/api/sync/brickowl/orders", isApproved, async (req: any, res) => {
     try {
-      const { limit, fullSync } = req.body;
+      const { limit, fullSync, sinceDate } = req.body;
       const { runPlatformOrderSync } = await import("./services/order-sync-core");
-      const result = await runPlatformOrderSync("brickowl", { limit, fullSync });
+      const result = await runPlatformOrderSync("brickowl", { limit, fullSync, sinceDate });
       res.json({ success: true, data: result });
       if ((result.brickowl.ordersAdded ?? 0) > 0) {
         const orgId = reqOrgId(req);

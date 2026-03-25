@@ -91,7 +91,7 @@ export async function syncBrickLinkOrders(
   tokenValue: string,
   tokenSecret: string,
   orgId: string,
-  options: { limit?: number; fullSync?: boolean } = {}
+  options: { limit?: number; fullSync?: boolean; sinceDate?: string } = {}
 ): Promise<BrickLinkOrderSyncResult> {
   const result: BrickLinkOrderSyncResult = {
     ordersAdded: 0,
@@ -121,7 +121,16 @@ export async function syncBrickLinkOrders(
     }
 
     let allOrders = fetchedOrders;
-    if (!options.fullSync) {
+    if (options.sinceDate) {
+      // Date-scoped sync: process all orders placed or updated on/after the given date.
+      const sinceMs = new Date(options.sinceDate).getTime();
+      allOrders = fetchedOrders.filter((order: any) => {
+        const orderedMs = order.date_ordered ? new Date(order.date_ordered).getTime() : 0;
+        const changedMs = order.date_status_changed ? new Date(order.date_status_changed).getTime() : 0;
+        return Math.max(orderedMs, changedMs) >= sinceMs;
+      });
+      console.log(`📅 Date-scoped sync: ${allOrders.length} orders on/after ${options.sinceDate} (skipped ${fetchedOrders.length - allOrders.length})`);
+    } else if (!options.fullSync) {
       // Incremental: only process orders that are new or have changed status.
       // More reliable than timestamp-based filtering because BrickLink's timestamps can be inconsistent.
       const existingOrders = await db
@@ -147,6 +156,8 @@ export async function syncBrickLinkOrders(
       });
 
       console.log(`📅 Incremental: ${allOrders.length} new/changed orders to process (skipped ${fetchedOrders.length - allOrders.length} unchanged)`);
+    } else {
+      console.log(`🔄 Full sync: processing all ${allOrders.length} orders`);
     }
 
     if (options.limit && allOrders.length > options.limit) {

@@ -8,6 +8,7 @@ export type SyncPlatform = "bricklink" | "brickowl" | "all";
 export interface PlatformSyncOptions {
   limit?: number;
   fullSync?: boolean;
+  sinceDate?: string; // ISO date string — when set, treat as a from-date full sync
   withEmbeddings?: boolean;
   withStuckCheck?: boolean;
 }
@@ -41,7 +42,9 @@ export async function runPlatformOrderSync(
   platform: SyncPlatform,
   options: PlatformSyncOptions = {}
 ): Promise<OrderSyncResult> {
-  const { limit, fullSync = false, withEmbeddings = false, withStuckCheck = false } = options;
+  const { limit, fullSync = false, sinceDate, withEmbeddings = false, withStuckCheck = false } = options;
+  // sinceDate implies a targeted full sync — bypass incremental timestamp filter
+  const effectiveFullSync = fullSync || !!sinceDate;
 
   const result: OrderSyncResult = {
     bricklink: { success: false, skipped: false, ordersAdded: 0, error: null },
@@ -77,7 +80,7 @@ export async function runPlatformOrderSync(
               settings.bricklinkTokenValue,
               settings.bricklinkTokenSecret,
               orgId,
-              { limit, fullSync }
+              { limit, fullSync: effectiveFullSync, sinceDate }
             );
             result.bricklink.success = true;
             result.bricklink.ordersAdded += blResult.ordersAdded ?? 0;
@@ -106,7 +109,7 @@ export async function runPlatformOrderSync(
           try {
             console.log(`🦉 Syncing BrickOwl orders for org ${orgId}...`);
             const { syncBrickOwlOrders } = await import("./brickowl-order-sync");
-            const boResult = await syncBrickOwlOrders(settings.brickowlApiKey, orgId, { limit, fullSync });
+            const boResult = await syncBrickOwlOrders(settings.brickowlApiKey, orgId, { limit, fullSync: effectiveFullSync, sinceDate });
             result.brickowl.success = true;
             result.brickowl.ordersAdded += boResult.ordersAdded ?? 0;
             console.log(`✅ BrickOwl (${orgId}): ${boResult.ordersAdded ?? 0} orders added`);
