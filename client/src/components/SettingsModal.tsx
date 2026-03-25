@@ -6039,12 +6039,86 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
                 </div>
 
-                {/* API limit note */}
-                <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
-                  <p className="text-xs text-purple-300">
-                    <strong>Note:</strong> All automation respects BrickLink's 5,000 API calls/day limit. Syncs pause automatically when approaching the limit.
-                  </p>
-                </div>
+                {/* ── Estimated 24h BL API Burn Rate ──────────────────── */}
+                {(() => {
+                  const DAILY_LIMIT = 5000;
+                  const invSyncsPerDay  = inventorySyncEnabled  ? Math.floor(24 / inventorySyncFrequency)       : 0;
+                  const ordSyncsPerDay  = ordersSyncEnabled     ? Math.floor(1440 / ordersSyncFrequency)        : 0;
+                  // Channel sync makes 0 BL API calls — reads local DB, writes to BrickOwl only
+                  const invCalls  = invSyncsPerDay;      // 1 BL call per inventory sync run
+                  const ordCalls  = ordSyncsPerDay;      // 1 BL call per orders sync run (list fetch)
+                  const totalEst  = invCalls + ordCalls;
+                  const pct       = Math.min(100, Math.round((totalEst / DAILY_LIMIT) * 100));
+                  const barColor  = pct >= 75 ? 'bg-red-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-green-500';
+                  const pctColor  = pct >= 75 ? 'text-red-400' : pct >= 40 ? 'text-yellow-400' : 'text-green-400';
+                  return (
+                    <div className="rounded-md border border-gray-700/80 bg-gray-800/20">
+                      <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-gray-700/50">
+                        <div className="flex items-center gap-1.5">
+                          <BarChart2 className="w-3 h-3 text-gray-400" />
+                          <p className="text-xs font-semibold text-gray-200">Estimated 24h BL API Burn</p>
+                        </div>
+                        <span className={`text-xs font-bold font-mono ${pctColor}`}>
+                          ~{totalEst.toLocaleString()} <span className="text-gray-500 font-normal">/ {DAILY_LIMIT.toLocaleString()} calls</span>
+                        </span>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="px-4 pt-3 pb-1">
+                        <div className="w-full h-1.5 rounded-full bg-gray-700/60">
+                          <div
+                            className={`h-1.5 rounded-full transition-all duration-300 ${barColor}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <p className={`text-[10px] mt-1 ${pctColor}`}>{pct}% of daily limit</p>
+                      </div>
+
+                      {/* Per-service breakdown */}
+                      <div className="px-4 pb-3 pt-1 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <Package className="w-3 h-3 text-purple-400" />
+                            <span className="text-[11px] text-gray-400">BrickLink Inventory</span>
+                            {inventorySyncEnabled && <span className="text-[10px] text-gray-600">every {inventorySyncFrequency}h</span>}
+                          </div>
+                          <span className="text-[11px] font-mono text-gray-300">
+                            {inventorySyncEnabled ? <>{invCalls} <span className="text-gray-500">calls</span></> : <span className="text-gray-600">off</span>}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <ShoppingCart className="w-3 h-3 text-blue-400" />
+                            <span className="text-[11px] text-gray-400">Orders</span>
+                            {ordersSyncEnabled && <span className="text-[10px] text-gray-600">every {ordersSyncFrequency}m</span>}
+                          </div>
+                          <div className="flex items-center gap-1 text-right">
+                            <span className="text-[11px] font-mono text-gray-300">
+                              {ordersSyncEnabled ? <>{ordCalls} <span className="text-gray-500">calls</span></> : <span className="text-gray-600">off</span>}
+                            </span>
+                            {ordersSyncEnabled && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="w-3 h-3 text-gray-600 cursor-default shrink-0" />
+                                </TooltipTrigger>
+                                <TooltipContent side="left" className="max-w-[220px] text-xs">
+                                  +2 calls per new/changed order (detail + items fetch) — not included in estimate since order volume varies.
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <Globe className="w-3 h-3 text-green-400" />
+                            <span className="text-[11px] text-gray-400">BrickOwl Channel</span>
+                          </div>
+                          <span className="text-[11px] font-mono text-gray-600">0 calls</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
 
               </div>
             )}
