@@ -112,11 +112,12 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
     mutationFn: () => apiRequest('POST', '/api/sync/channel', { fullScan }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/sync/statuses'] });
-      toast({ title: 'Channel sync started', description: 'BrickOwl is syncing in the background.' });
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-sync/status'] });
       setDrawerOpen(false);
+      toast({ title: 'Channel sync complete', description: 'BrickOwl inventory has been updated.' });
     },
-    onError: () => {
-      toast({ title: 'Sync failed', description: 'Could not start channel sync.', variant: 'destructive' });
+    onError: (err: any) => {
+      toast({ title: 'Sync failed', description: err?.message || 'Could not sync BrickOwl channel.', variant: 'destructive' });
     },
   });
 

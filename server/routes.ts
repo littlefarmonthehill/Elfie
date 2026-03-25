@@ -11874,6 +11874,13 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
   app.post("/api/sync/bricklink/inventory", isApproved, async (req: any, res) => {
     const orgId = reqOrgId(req);
     const SYNC_ID = 'bricklink_inventory';
+    if (syncLock.isRunning()) {
+      const blocker = syncLock.getActive().join(', ');
+      return res.status(409).json({ success: false, error: `Cannot start Inventory Sync: ${blocker} is already running.` });
+    }
+    if (!syncLock.acquire('Inventory Sync')) {
+      return res.status(409).json({ success: false, error: 'Inventory sync is already in progress.' });
+    }
     try {
       await db.insert(syncMetadata).values({
         id: SYNC_ID, orgId, lastSyncStatus: 'in_progress', lastSyncTime: new Date(),
@@ -11910,21 +11917,17 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         }
       })();
     } catch (error: any) {
-      const isConflict = error?.message?.toLowerCase().includes('blocked') || error?.message?.toLowerCase().includes('already in progress') || error?.message?.toLowerCase().includes('already running');
       console.error("BrickLink sync error:", error);
-      if (!isConflict) {
-        await db.insert(syncMetadata).values({
-          id: SYNC_ID, orgId, lastSyncStatus: 'error', lastSyncTime: new Date(),
-          recordsAdded: 0, recordsUpdated: 0, errorMessage: error.message,
-        }).onConflictDoUpdate({
-          target: syncMetadata.id,
-          set: { lastSyncStatus: 'error', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: error.message },
-        }).catch(() => {});
-      }
-      res.status(isConflict ? 409 : 500).json({
-        success: false,
-        error: isConflict ? error.message : "Failed to sync BrickLink inventory",
-      });
+      await db.insert(syncMetadata).values({
+        id: SYNC_ID, orgId, lastSyncStatus: 'error', lastSyncTime: new Date(),
+        recordsAdded: 0, recordsUpdated: 0, errorMessage: error.message,
+      }).onConflictDoUpdate({
+        target: syncMetadata.id,
+        set: { lastSyncStatus: 'error', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: error.message },
+      }).catch(() => {});
+      res.status(500).json({ success: false, error: "Failed to sync BrickLink inventory" });
+    } finally {
+      syncLock.release('Inventory Sync');
     }
   });
 

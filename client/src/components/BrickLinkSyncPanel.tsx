@@ -48,7 +48,28 @@ export default function BrickLinkSyncPanel({ onOpenSettings }: BrickLinkSyncPane
   });
 
   const lastSync = syncStatuses?.inventory;
-  const isRunning = lastSync?.lastSyncStatus === 'in_progress';
+
+  const syncMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/sync/bricklink/inventory', {}),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sync/statuses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
+      setDrawerOpen(false);
+      const added = data?.data?.inventoryAdded ?? 0;
+      const updated = data?.data?.inventoryUpdated ?? 0;
+      toast({
+        title: 'BrickLink inventory sync complete',
+        description: added > 0 || updated > 0
+          ? `${added} lot${added !== 1 ? 's' : ''} added, ${updated} updated.`
+          : 'No changes detected.',
+      });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Sync failed', description: err?.message || 'Could not sync BrickLink inventory.', variant: 'destructive' });
+    },
+  });
+
+  const isRunning = lastSync?.lastSyncStatus === 'in_progress' || syncMutation.isPending;
 
   const prevIsRunningRef = useRef(isRunning);
   useEffect(() => {
@@ -64,17 +85,6 @@ export default function BrickLinkSyncPanel({ onOpenSettings }: BrickLinkSyncPane
     queryKey: ['/api/sync/bricklink/progress'],
     refetchInterval: isRunning ? 2000 : false,
     enabled: isRunning,
-  });
-
-  const syncMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/sync/bricklink/inventory', {}),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/sync/statuses'] });
-      toast({ title: 'BrickLink sync started', description: 'Inventory is syncing in the background.' });
-    },
-    onError: () => {
-      toast({ title: 'Sync failed', description: 'Could not start BrickLink sync.', variant: 'destructive' });
-    },
   });
 
   const progressPct = progressData?.progress ?? 0;
