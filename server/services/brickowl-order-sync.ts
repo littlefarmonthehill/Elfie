@@ -1,10 +1,11 @@
 import { db } from "../db";
-import { orders, orderDetails, syncMetadata } from "@shared/schema";
+import { orders, orderDetails, channelLotLinks } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { getBrickOwlOrders, getBrickOwlOrderDetails, mapBrickOwlStatus } from "./brickowl-orders";
-import { getBrickOwlInventory } from "./brickowl";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
 import { upsertSyncMetadata, resolveExistingOrder, resolveOrderStatus } from "./order-sync-helpers";
+
+const BO_CHANNEL = 'brickowl' as const;
 
 const SYNC_ID = 'brickowl_orders';
 
@@ -62,23 +63,23 @@ export async function syncBrickOwlOrders(
       console.log(`🔄 Full sync requested`);
     }
 
-    // Build the canonical BO lot_id → BL inventory ID map from live BrickOwl inventory.
-    // The channel sync tags every BL-sourced BO lot with external_lot_ids.other = BL inventory ID.
-    // Fetching this once here avoids repeated API calls during item processing.
-    console.log(`🦉 Fetching BrickOwl inventory to build lot→BL inventory map...`);
+    // Build the canonical BO lot_id → BL inventory ID map from channel_lot_links.
+    // This is a single indexed DB query — no external API call needed.
+    // For lots not yet in the table the per-item fallback reads external_lot_ids.other
+    // from the order item itself (populated by BrickOwl from the external_id we set on create).
+    console.log(`🦉 Building lot→BL inventory map from channel_lot_links...`);
     let boLotToBlInvId = new Map<string, number>();
     try {
-      const boInventory = await getBrickOwlInventory(false, orgId);
-      for (const lot of boInventory) {
-        const blInvIdStr = lot.external_lot_ids?.other;
-        if (blInvIdStr && lot.lot_id) {
-          const blInvId = parseInt(blInvIdStr, 10);
-          if (!isNaN(blInvId)) boLotToBlInvId.set(lot.lot_id, blInvId);
-        }
+      const links = await db
+        .select({ channelLotId: channelLotLinks.channelLotId, blInvId: channelLotLinks.blInvId })
+        .from(channelLotLinks)
+        .where(and(eq(channelLotLinks.orgId, orgId), eq(channelLotLinks.channel, BO_CHANNEL)));
+      for (const link of links) {
+        boLotToBlInvId.set(link.channelLotId, link.blInvId);
       }
       console.log(`🦉 Built lot map: ${boLotToBlInvId.size} BO lots linked to BL inventory`);
     } catch (err: any) {
-      console.warn(`⚠️ Could not fetch BO inventory for lot map (will fall back to order item data): ${err.message}`);
+      console.warn(`⚠️ Could not query channel_lot_links for lot map (will fall back to order item data): ${err.message}`);
     }
 
     const boOrders = await getBrickOwlOrders(apiKey, { limit: options.limit, orderTime });

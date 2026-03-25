@@ -537,20 +537,41 @@ export async function syncInventoryItem(
   error?: string;
 }> {
   try {
-    // If inventory not provided, fetch it (for backwards compatibility)
-    if (!brickowlInventory) {
-      brickowlInventory = await getBrickOwlInventory(false, orgId);
-    }
-
     const newPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
     const condition = blItem.newOrUsed === 'N' ? 'new' : 'usedg';
 
     // ─── STEP 1: Match by BrickLink inventory ID tag (fast, reliable) ───────
-    // Lots our sync previously created/tagged will always be found here.
-    // Use the pre-built Map for O(1) lookup when available; fall back to linear scan.
-    const taggedLot = taggedLotMap
-      ? taggedLotMap.get(blItem.id.toString())
-      : brickowlInventory.find((lot: any) => lot.external_lot_ids?.other === blItem.id.toString());
+    // Priority: pre-built taggedLotMap → channel_lot_links DB lookup → linear scan of brickowlInventory.
+    // The BO inventory is fetched lazily (only if needed for Step 2/3 adopt+create paths).
+    let taggedLot: any = null;
+    if (taggedLotMap) {
+      taggedLot = taggedLotMap.get(blItem.id.toString());
+    } else {
+      // Single-item call: query channel_lot_links for this specific BL inv ID (O(1) DB lookup).
+      const [link] = await db
+        .select({ channelLotId: channelLotLinks.channelLotId })
+        .from(channelLotLinks)
+        .where(and(
+          eq(channelLotLinks.blInvId, blItem.id),
+          eq(channelLotLinks.channel, BO_CHANNEL),
+          ...(orgId ? [eq(channelLotLinks.orgId, orgId)] : []),
+        ))
+        .limit(1);
+
+      if (link) {
+        // Found in mapping table — resolve the full lot object for change detection.
+        // Fetch BO inventory lazily if not provided by the caller.
+        if (!brickowlInventory) {
+          brickowlInventory = await getBrickOwlInventory(false, orgId);
+        }
+        taggedLot = brickowlInventory.find((lot: any) => lot.lot_id === link.channelLotId);
+      } else if (brickowlInventory) {
+        // Not in channel_lot_links (pre-dates mapping) — fall back to linear scan.
+        taggedLot = brickowlInventory.find((lot: any) => lot.external_lot_ids?.other === blItem.id.toString());
+      }
+      // If neither channelLotLinks nor brickowlInventory has a match, taggedLot remains null
+      // and we fall through to Step 2 (BOID lookup / adopt / create).
+    }
 
     if (taggedLot) {
       const existingQty = parseInt(taggedLot.qty);
@@ -599,6 +620,11 @@ export async function syncInventoryItem(
     const boid = await lookupBoid(blItem.itemNo, blItem.itemType);
 
     if (boid) {
+      // Need the full BO inventory to scan for untagged lots (adopt path).
+      // Fetch lazily here — avoids the API call when Step 1 succeeds (common case).
+      if (!brickowlInventory) {
+        brickowlInventory = await getBrickOwlInventory(false, orgId);
+      }
       const untaggedMatches = brickowlInventory.filter((lot: any) =>
         lot.boid === boid && lot.condition === condition
       );
