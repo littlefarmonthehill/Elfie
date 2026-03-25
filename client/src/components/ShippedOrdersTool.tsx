@@ -60,6 +60,29 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
     },
   });
 
+  const resetToAwaitingMutation = useMutation({
+    mutationFn: async (orderId: string) =>
+      apiRequest('POST', `/api/orders/${encodeURIComponent(orderId)}/reset-to-awaiting`),
+    onSuccess: (_data, orderId) => {
+      toast({
+        title: "Order status reset",
+        description: "Order moved back to awaiting shipment.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/shipped'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
+    },
+    onError: (err: any) => {
+      let msg = "Failed to reset order status";
+      try {
+        const raw = err?.message || "";
+        const jsonStr = raw.includes(": ") ? raw.substring(raw.indexOf(": ") + 2) : raw;
+        const parsed = JSON.parse(jsonStr);
+        msg = parsed.error || msg;
+      } catch {}
+      toast({ title: "Cannot reset status", description: msg, variant: "destructive" });
+    },
+  });
+
   const toggleTestMutation = useMutation({
     mutationFn: async (orderId: string) =>
       apiRequest('PATCH', `/api/orders/${encodeURIComponent(orderId)}/toggle-test`),
@@ -385,6 +408,23 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                           }
                           {order.isTest ? "Remove Test Flag" : "Mark as Test Order"}
                         </DropdownMenuItem>
+                        {order.marketplace === 'BrickOwl' && order.orderStatus === 'shipped' && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => resetToAwaitingMutation.mutate(order.id)}
+                              disabled={resetToAwaitingMutation.isPending}
+                              data-testid={`menu-reset-awaiting-${order.orderNumber}`}
+                              className="text-cyan-400 focus:text-cyan-300"
+                            >
+                              {resetToAwaitingMutation.isPending
+                                ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                : <RotateCcw className="w-4 h-4 mr-2" />
+                              }
+                              Reset to Awaiting Shipment
+                            </DropdownMenuItem>
+                          </>
+                        )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onClick={() => returnToQueueMutation.mutate(order.id)}

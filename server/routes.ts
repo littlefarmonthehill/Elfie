@@ -4497,6 +4497,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reset a BrickOwl order's status back to awaiting_shipment
+  // Used to correct orders that were incorrectly set to 'shipped' (e.g. accidental label, BO sync mismatch)
+  app.post("/api/orders/:id/reset-to-awaiting", isApproved, async (req: any, res) => {
+    try {
+      const orgId  = reqOrgId(req);
+      const orderId = decodeURIComponent(req.params.id);
+
+      const [order] = await db.select().from(orders)
+        .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)))
+        .limit(1);
+      if (!order) return res.status(404).json({ error: "Order not found" });
+
+      if (order.marketplace !== 'BrickOwl') {
+        return res.status(400).json({ error: "Only BrickOwl orders can be reset this way" });
+      }
+      if (order.orderStatus !== 'shipped') {
+        return res.status(400).json({ error: `Order is not in shipped status (current: ${order.orderStatus})` });
+      }
+
+      const [updated] = await db.update(orders)
+        .set({
+          orderStatus: 'awaiting_shipment',
+          previousStatus: 'shipped',
+          workflowStatus: null,
+          shipDate: null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)))
+        .returning();
+
+      console.log(`🔄 Order ${orderId} reset from shipped → awaiting_shipment by ${orgId}`);
+      res.json({ success: true, orderStatus: updated.orderStatus });
+    } catch (error) {
+      console.error("Error resetting order status:", error);
+      res.status(500).json({ error: "Failed to reset order status" });
+    }
+  });
+
   // Get items sold in a specific category
   app.get("/api/analytics/categories/:categoryId/items", isApproved, async (req, res) => {
     try {

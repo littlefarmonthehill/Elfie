@@ -55,9 +55,13 @@ export async function syncBrickOwlOrders(
         .limit(1);
       
       if (previousSync?.lastSyncTime) {
-        // BrickOwl API expects Unix timestamp
-        orderTime = Math.floor(previousSync.lastSyncTime.getTime() / 1000);
-        console.log(`📅 Incremental sync: fetching orders modified since ${previousSync.lastSyncTime.toISOString()} (timestamp: ${orderTime})`);
+        // BrickOwl API expects Unix timestamp.
+        // Subtract a 4-hour lookback buffer so orders placed during the previous sync window
+        // (between sync start and when lastSyncTime was written) are never permanently skipped.
+        const LOOKBACK_SECONDS = 4 * 3600; // 4 hours
+        orderTime = Math.floor(previousSync.lastSyncTime.getTime() / 1000) - LOOKBACK_SECONDS;
+        const lookbackDate = new Date(orderTime * 1000);
+        console.log(`📅 Incremental sync: fetching orders placed since ${lookbackDate.toISOString()} (4h lookback from last sync at ${previousSync.lastSyncTime.toISOString()})`);
       } else {
         console.log(`🔄 No previous sync found - performing full sync`);
       }
