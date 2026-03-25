@@ -153,6 +153,7 @@ export class EasyPostShippingVendor implements IShippingVendor {
         options: {
           label_format: 'PDF',
           label_size: '4x6',
+          ...(request.reference ? { label_message: request.reference } : {}),
         },
         reference: request.reference,
         // Customs info for international shipments
