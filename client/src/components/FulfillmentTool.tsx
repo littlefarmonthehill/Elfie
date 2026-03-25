@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe, GitMerge } from "lucide-react";
 import { printPackingSlips, printPicklist, buildShortCodeMap } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, shippingTier, toggleSetItem } from "@/lib/item-utils";
@@ -70,6 +70,7 @@ type Order = {
   orderDate: string | null;
   requestedShippingService: string | null;
   workflowStatus: WorkflowStatus | null;
+  mergeDetectedAt: string | null;
 };
 
 type FulfillmentItem = {
@@ -298,6 +299,12 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
     },
   });
+
+  const dismissMerge = useMutation({
+    mutationFn: (orderId: string) => apiRequest('POST', `/api/orders/${orderId}/dismiss-merge`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] }),
+  });
+
   const [showSplitConfirmDialog, setShowSplitConfirmDialog] = useState(false);
   const [splitOrderNumber, setSplitOrderNumber] = useState<string>("");
 
@@ -1044,6 +1051,43 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
             </span>
           </button>
         </div>
+
+        {/* ── Merge alert banner — shown when BO merged an order while it's open ── */}
+        {(() => {
+          const mergedOrders = selectedOrderId
+            ? data?.orders.filter(o => o.id === selectedOrderId && o.mergeDetectedAt)
+            : data?.orders.filter(o => selectedOrders.has(o.id) && o.mergeDetectedAt);
+          if (!mergedOrders?.length) return null;
+          return (
+            <div className="mb-1 space-y-1">
+              {mergedOrders.map(o => (
+                <div
+                  key={o.id}
+                  className="flex items-start gap-1.5 px-2.5 py-2 rounded border border-red-500/30 bg-red-500/8 text-[11px] text-red-200/90 leading-relaxed"
+                  data-testid={`banner-merge-alert-${o.id}`}
+                >
+                  <GitMerge className="w-3 h-3 shrink-0 mt-px text-red-400" />
+                  <div className="flex-1 min-w-0">
+                    {!selectedOrderId && (
+                      <span className="font-mono text-red-400/70 mr-1">BO.{o.orderNumber.replace(/^(BL\.|BO\.)/i, '')}</span>
+                    )}
+                    <span className="font-medium text-red-300">BrickOwl order merged</span>
+                    <span className="text-red-200/70 ml-1">— items or quantities changed. Review the pick list before shipping.</span>
+                  </div>
+                  <button
+                    onClick={() => dismissMerge.mutate(o.id)}
+                    disabled={dismissMerge.isPending}
+                    className="shrink-0 text-red-400/60 hover:text-red-300 transition-colors ml-1"
+                    data-testid={`button-dismiss-merge-${o.id}`}
+                    title="Dismiss merge alert"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
 
         {/* ── Customer note banner — shown when selected order has a buyer note ── */}
         {(() => {

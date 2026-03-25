@@ -2077,6 +2077,13 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-83 (platform sync-admin defaults + floors) complete.');
 
+    // ── Phase-84: merge_detected_at on orders ─────────────────────────────────
+    await client.query(`
+      ALTER TABLE orders
+        ADD COLUMN IF NOT EXISTS merge_detected_at timestamptz
+    `);
+    console.log('[Migration] Phase-84 (merge_detected_at on orders) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

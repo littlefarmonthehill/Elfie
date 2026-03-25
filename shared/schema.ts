@@ -340,6 +340,7 @@ export const orders = pgTable("orders", {
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   workflowStatus: text("workflow_status").default('new').notNull(),
+  mergeDetectedAt: timestamp("merge_detected_at"), // Set when BO order merge adds/changes items mid-fulfillment
 }, (table) => ({
   orgIdIdx: index("orders_org_id_idx").on(table.orgId),
   orgIdDateIdx: index("orders_org_id_date_idx").on(table.orgId, table.orderDate),

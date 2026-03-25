@@ -343,9 +343,15 @@ async function processBrickOwlOrder(
       console.error(`⚠️ Inventory adjustment failed for new BrickOwl order ${effectiveOrderId}:`, error);
     });
   } else if (itemsChanged) {
-    // Items were added or quantities changed on an existing order — re-run inventory adjustment
-    // so the deduction reflects the merged/updated line items.
-    console.log(`🔀 Order ${effectiveOrderId}: items changed on existing order — re-triggering inventory adjustment`);
+    // Items were added or quantities changed on an existing order — this is a BrickOwl merge.
+    // 1. Stamp merge_detected_at so the fulfillment UI can warn the operator.
+    // 2. Re-run inventory adjustment so the deduction reflects the merged line items.
+    console.log(`🔀 Order ${effectiveOrderId}: merge detected — stamping merge_detected_at and re-triggering inventory adjustment`);
+    await db
+      .update(orders)
+      .set({ mergeDetectedAt: new Date() })
+      .where(eq(orders.id, effectiveOrderId));
+
     adjustInventoryForOrder(effectiveOrderId).catch(error => {
       console.error(`⚠️ Inventory adjustment failed after merge for BrickOwl order ${effectiveOrderId}:`, error);
     });

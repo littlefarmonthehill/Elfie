@@ -15602,6 +15602,22 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     }
   });
 
+  // Dismiss merge alert for an order (clears merge_detected_at)
+  app.post("/api/orders/:orderId/dismiss-merge", isApproved, async (req: any, res) => {
+    try {
+      const orgId = req.user?.orgId;
+      const { orderId } = req.params;
+      await db
+        .update(orders)
+        .set({ mergeDetectedAt: null, updatedAt: sql`CURRENT_TIMESTAMP` })
+        .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error dismissing merge alert:", error);
+      res.status(500).json({ error: "Failed to dismiss merge alert" });
+    }
+  });
+
   // Update fulfilled status for an order detail item
   app.put("/api/fulfillment/item/:itemId/fulfill", isApproved, async (req, res) => {
     try {
