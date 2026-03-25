@@ -15343,9 +15343,16 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
           }
 
           if (activeVendorIds.length === 0) {
-            return res.status(400).json({ error: alreadyManifested
-              ? 'All shipments have already been manifested in EasyPost. Nothing new to add to an EOD form.'
-              : 'All shipments were rejected by EasyPost as not found. They may have been voided.' });
+            // All shipments were already handled by EasyPost — not an error, just nothing new to do.
+            return res.json({
+              alreadyManifested: alreadyManifested,
+              allVoided: !alreadyManifested,
+              shipmentCount: 0,
+              skippedCount: skippedIds.length,
+              formUrl: null,
+              scanFormId: null,
+              eodFormId: null,
+            });
           }
           continue;
         }

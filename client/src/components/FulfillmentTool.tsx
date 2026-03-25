@@ -362,10 +362,18 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
   const scanFormMutation = useMutation({
     mutationFn: async () => apiRequest('POST', '/api/shipments/scan-form', {}),
     onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/shipments/end-of-day'] });
+      if (data?.alreadyManifested) {
+        toast({ title: "Already Manifested", description: "All shipments were already scanned by EasyPost. Your EOD is complete." });
+        return;
+      }
+      if (data?.allVoided) {
+        toast({ title: "Nothing to Scan", description: "All shipments appear to have been voided in EasyPost." });
+        return;
+      }
       if (data?.formUrl) {
         setScanFormUrl(data.formUrl);
         window.open(data.formUrl, '_blank');
-        queryClient.invalidateQueries({ queryKey: ['/api/shipments/end-of-day'] });
         const skipped = data.skippedCount > 0 ? ` — ${data.skippedCount} skipped (not found in EasyPost)` : '';
         toast({ title: "EOD Form Ready", description: `Generated for ${data.shipmentCount} shipment${data.shipmentCount !== 1 ? 's' : ''}${skipped}` });
       }
