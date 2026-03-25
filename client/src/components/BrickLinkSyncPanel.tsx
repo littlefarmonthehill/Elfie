@@ -88,7 +88,7 @@ export default function BrickLinkSyncPanel({ onOpenSettings }: BrickLinkSyncPane
   });
 
   const progressPct = progressData?.progress ?? 0;
-  const showProgress = isRunning && progressData?.status === 'in_progress';
+  const showProgress = isRunning;
 
   function relTime(iso: string | null | undefined): string {
     if (!iso) return '';

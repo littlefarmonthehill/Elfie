@@ -217,6 +217,20 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
           <ChevronRight className="w-3.5 h-3.5 text-gray-600 shrink-0" />
         </div>
 
+        {showProgress && (
+          <div className="space-y-1" data-testid={`${cfg.testId}-progress`}>
+            <Progress value={progressPct} className="h-1.5" />
+            <div className="flex justify-between text-[10px] text-gray-500">
+              <span>
+                {progressData?.currentStep
+                  ? progressData.currentStep
+                  : 'Syncing…'}
+              </span>
+              <span className="tabular-nums">{progressPct}%</span>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           {stats != null && (
             <span className="text-[10px] text-gray-400">
@@ -246,18 +260,6 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
             <span className="text-[10px] text-gray-500">Never synced</span>
           )}
         </div>
-
-        {showProgress && (
-          <div className="space-y-1" data-testid={`${cfg.testId}-progress`}>
-            <Progress value={progressPct} className="h-1.5" />
-            {progressData?.currentStep && (
-              <div className="flex justify-between text-[10px] text-gray-500">
-                <span>{progressData.currentStep}</span>
-                {progressPct > 0 && <span className="tabular-nums">{progressPct}%</span>}
-              </div>
-            )}
-          </div>
-        )}
       </button>
 
       <Drawer open={drawerOpen} onOpenChange={(open) => { setDrawerOpen(open); if (!open) setShowFromPicker(false); }}>
