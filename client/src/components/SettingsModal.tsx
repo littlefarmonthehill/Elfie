@@ -2771,6 +2771,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean;
     syncTierPrice: boolean; syncSalePercent: boolean;
     syncBulkQty: boolean; syncLotWeight: boolean;
+    syncStockroomModes: Record<string, 'skip'|'hidden'|'active'>;
   }>({
     queryKey: ['/api/channel-sync/config'],
     enabled: open && activeSection === 'platforms',
@@ -2787,15 +2788,19 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     setSyncFieldSalePercent(channelSyncFieldConfig.syncSalePercent);
     setSyncFieldBulkQty(channelSyncFieldConfig.syncBulkQty ?? true);
     setSyncFieldLotWeight(channelSyncFieldConfig.syncLotWeight ?? true);
-    setSyncStockroomModes((channelSyncFieldConfig as any).syncStockroomModes ?? { A: 'skip', B: 'skip', C: 'skip' });
+    setSyncStockroomModes(channelSyncFieldConfig.syncStockroomModes ?? { A: 'skip', B: 'skip', C: 'skip' });
   }, [channelSyncFieldConfig]);
 
   const updateSyncFieldMutation = useMutation({
     mutationFn: (patch: Partial<{ syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean; syncTierPrice: boolean; syncSalePercent: boolean; syncBulkQty: boolean; syncLotWeight: boolean; syncStockroomModes: Record<string, 'skip'|'hidden'|'active'> }>) =>
       apiRequest('PATCH', '/api/channel-sync/config', patch),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/channel-sync/config'] });
-      channelSyncFieldConfigLoaded.current = false; // allow re-init on next load
+    onSuccess: (updatedConfig) => {
+      // Write the PATCH response directly into the cache — no follow-up GET needed.
+      // This prevents any race-condition window where a background refetch could
+      // return stale data and snap the UI back to the previous value.
+      queryClient.setQueryData(['/api/channel-sync/config'], updatedConfig);
+      // Also refresh the scope panel so it reflects the new stockroom modes.
+      queryClient.invalidateQueries({ queryKey: ['/api/channel-sync/scope'] });
     },
   });
 
