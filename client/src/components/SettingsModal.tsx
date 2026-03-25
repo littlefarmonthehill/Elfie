@@ -5636,473 +5636,508 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
             {activeSection === 'autoSync' && (
               <div className="space-y-4 min-h-[400px]">
 
-                {/* Header */}
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-100">Auto-Sync Schedule</h3>
-                    <p className="text-xs text-gray-400 mt-0.5">Background services that keep your data up to date automatically</p>
+              {expandedAutoSyncService === null ? (
+                /* ══ LIST VIEW ══════════════════════════════════════════════ */
+                <>
+                  {/* Header */}
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-100">Auto-Sync Schedule</h3>
+                      <p className="text-xs text-gray-400 mt-0.5">Background services that keep your data up to date automatically</p>
+                    </div>
+                    {rateLimit && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium transition-colors hover:opacity-80 ${
+                            rateLimit.blocked ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                            : rateLimit.warning ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
+                            : 'bg-blue-500/10 border-blue-500/30 text-blue-300'
+                          }`}>
+                            <BarChart2 className="w-3 h-3" />
+                            <span>BrickLink API:</span>
+                            <span className="font-mono font-semibold">{rateLimit.callsLast24h.toLocaleString()}</span>
+                            <span className="text-gray-400">/ 5,000</span>
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent side="bottom" align="end" className="w-96 p-3 max-h-[80vh] overflow-y-auto bg-gray-900 border-gray-700">
+                          <ApiCallSchedule buckets={rateLimit.hourlyBuckets ?? []} callsLast24h={rateLimit.callsLast24h} ceiling={5000} timezone={timezone} />
+                        </PopoverContent>
+                      </Popover>
+                    )}
                   </div>
-                  {rateLimit && (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium transition-colors hover:opacity-80 ${
-                          rateLimit.blocked ? 'bg-red-500/10 border-red-500/30 text-red-400'
-                          : rateLimit.warning ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
-                          : 'bg-blue-500/10 border-blue-500/30 text-blue-300'
-                        }`}>
-                          <BarChart2 className="w-3 h-3" />
-                          <span>BrickLink API:</span>
-                          <span className="font-mono font-semibold">{rateLimit.callsLast24h.toLocaleString()}</span>
-                          <span className="text-gray-400">/ 5,000</span>
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent side="bottom" align="end" className="w-96 p-3 max-h-[80vh] overflow-y-auto bg-gray-900 border-gray-700">
-                        <ApiCallSchedule buckets={rateLimit.hourlyBuckets ?? []} callsLast24h={rateLimit.callsLast24h} ceiling={5000} timezone={timezone} />
-                      </PopoverContent>
-                    </Popover>
-                  )}
-                </div>
 
-                {/* ── Service list ─────────────────────────────────────────── */}
-                <div className="rounded-md border border-gray-700/80 bg-gray-800/20 divide-y divide-gray-700/40">
+                  {/* Service list — toggle only, tap row to configure */}
+                  <div className="rounded-md border border-gray-700/80 bg-gray-800/20 divide-y divide-gray-700/40">
 
-                  {/* ── Row 1: BrickLink Inventory ── */}
-                  <div id="autosync-inventory-card">
-                    <div className="flex items-center gap-3 px-4 py-3">
-                      <div className="w-7 h-7 rounded-md bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
-                        <Package className="w-3.5 h-3.5 text-purple-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-gray-100">BrickLink Inventory</p>
-                        <p className="text-[10px] text-gray-500 leading-tight">Pulls your live BrickLink store into E.L.F.I.E.</p>
-                      </div>
-                      {inventorySyncEnabled && (
-                        <button
-                          onClick={() => setExpandedAutoSyncService(expandedAutoSyncService === 'inventory' ? null : 'inventory')}
-                          className="flex items-center gap-1 px-2 py-0.5 rounded border border-purple-500/30 bg-purple-500/10 text-[10px] font-medium text-purple-300 hover:bg-purple-500/20 transition-colors shrink-0"
-                          data-testid="button-inventory-configure"
-                        >
-                          Every {inventorySyncFrequency}h
-                          {expandedAutoSyncService === 'inventory'
-                            ? <ChevronDown className="w-3 h-3" />
-                            : <ChevronRight className="w-3 h-3" />}
-                        </button>
-                      )}
+                    {/* Row: BrickLink Inventory */}
+                    <div id="autosync-inventory-card" className="flex items-center gap-2 pl-4 pr-3 py-3">
+                      <button
+                        onClick={() => { if (inventorySyncEnabled) setExpandedAutoSyncService('inventory'); }}
+                        disabled={!inventorySyncEnabled}
+                        className="flex items-center gap-3 flex-1 min-w-0 text-left disabled:cursor-default"
+                        data-testid="button-inventory-configure"
+                      >
+                        <div className="w-7 h-7 rounded-md bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
+                          <Package className="w-3.5 h-3.5 text-purple-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-gray-100">BrickLink Inventory</p>
+                          <p className="text-[10px] text-gray-500 leading-tight">
+                            {inventorySyncEnabled ? `Every ${inventorySyncFrequency}h` : 'Pulls your live BrickLink store into E.L.F.I.E.'}
+                          </p>
+                        </div>
+                        {inventorySyncEnabled && <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
+                      </button>
                       <Switch
                         checked={inventorySyncEnabled}
                         onCheckedChange={(checked) => {
                           setInventorySyncEnabled(checked);
                           updateSettingsMutation.mutate({ inventorySyncEnabled: checked });
-                          if (checked) setExpandedAutoSyncService('inventory');
-                          else if (expandedAutoSyncService === 'inventory') setExpandedAutoSyncService(null);
                         }}
                         data-testid="switch-inventory-sync"
                       />
                     </div>
-                    {inventorySyncEnabled && expandedAutoSyncService === 'inventory' && (
-                      <div className="border-t border-gray-700/50 bg-gray-900/30 divide-y divide-gray-700/40">
-                        <div className="flex items-center justify-between gap-3 px-4 py-3">
-                          <Label className="text-xs text-gray-300">Run every</Label>
-                          <Select
-                            value={String(inventorySyncFrequency)}
-                            onValueChange={(v) => {
-                              const hours = Number(v);
-                              setInventorySyncFrequency(hours);
-                              updateSettingsMutation.mutate({ inventorySyncFrequency: hours });
-                            }}
-                          >
-                            <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-inventory-frequency">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="6">Every 6 hours</SelectItem>
-                              <SelectItem value="12">Every 12 hours</SelectItem>
-                              <SelectItem value="24">Every 24 hours</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="px-4 py-2.5">
-                          <SyncStatusLine entry={syncStatuses?.inventory ?? null} />
-                        </div>
-                        {platformSyncData && (
-                          <div className="px-4 py-2.5 grid grid-cols-3 gap-2">
-                            <div>
-                              <p className="text-[10px] text-gray-500">Lots</p>
-                              <p className="text-xs font-bold text-white font-mono">{platformSyncData.source.stats.totalLots?.toLocaleString() ?? '—'}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-gray-500">Parts</p>
-                              <p className="text-xs font-bold text-white font-mono">{platformSyncData.source.stats.totalParts?.toLocaleString() ?? '—'}</p>
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-gray-500">Last Synced</p>
-                              <p className="text-[10px] text-gray-400">{platformSyncData.source.stats.lastSyncedAt ? new Date(platformSyncData.source.stats.lastSyncedAt).toLocaleString() : 'Never'}</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
 
-                  {/* ── Row 2: Orders ── */}
-                  <div id="autosync-orders-card">
-                    <div className="flex items-center gap-3 px-4 py-3">
-                      <div className="w-7 h-7 rounded-md bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
-                        <ShoppingCart className="w-3.5 h-3.5 text-blue-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-gray-100">Orders</p>
-                        <p className="text-[10px] text-gray-500 leading-tight">Syncs new orders from BrickLink and BrickOwl</p>
-                      </div>
-                      {ordersSyncEnabled && (
-                        <button
-                          onClick={() => setExpandedAutoSyncService(expandedAutoSyncService === 'orders' ? null : 'orders')}
-                          className="flex items-center gap-1 px-2 py-0.5 rounded border border-blue-500/30 bg-blue-500/10 text-[10px] font-medium text-blue-300 hover:bg-blue-500/20 transition-colors shrink-0"
-                          data-testid="button-orders-configure"
-                        >
-                          Every {ordersSyncFrequency}m
-                          {expandedAutoSyncService === 'orders'
-                            ? <ChevronDown className="w-3 h-3" />
-                            : <ChevronRight className="w-3 h-3" />}
-                        </button>
-                      )}
+                    {/* Row: Orders */}
+                    <div id="autosync-orders-card" className="flex items-center gap-2 pl-4 pr-3 py-3">
+                      <button
+                        onClick={() => { if (ordersSyncEnabled) setExpandedAutoSyncService('orders'); }}
+                        disabled={!ordersSyncEnabled}
+                        className="flex items-center gap-3 flex-1 min-w-0 text-left disabled:cursor-default"
+                        data-testid="button-orders-configure"
+                      >
+                        <div className="w-7 h-7 rounded-md bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                          <ShoppingCart className="w-3.5 h-3.5 text-blue-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-gray-100">Orders</p>
+                          <p className="text-[10px] text-gray-500 leading-tight">
+                            {ordersSyncEnabled ? `Every ${ordersSyncFrequency}m` : 'Syncs new orders from BrickLink and BrickOwl'}
+                          </p>
+                        </div>
+                        {ordersSyncEnabled && <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
+                      </button>
                       <Switch
                         checked={ordersSyncEnabled}
                         onCheckedChange={(checked) => {
                           setOrdersSyncEnabled(checked);
                           updateSettingsMutation.mutate({ ordersSyncEnabled: checked });
-                          if (checked) setExpandedAutoSyncService('orders');
-                          else if (expandedAutoSyncService === 'orders') setExpandedAutoSyncService(null);
                         }}
                         data-testid="switch-orders-sync"
                       />
                     </div>
-                    {ordersSyncEnabled && expandedAutoSyncService === 'orders' && (
-                      <div className="border-t border-gray-700/50 bg-gray-900/30 divide-y divide-gray-700/40">
-                        <div className="flex items-center justify-between gap-3 px-4 py-3">
-                          <Label className="text-xs text-gray-300">Run every</Label>
-                          <Select
-                            value={String(ordersSyncFrequency)}
-                            onValueChange={(v) => {
-                              const mins = Number(v);
-                              setOrdersSyncFrequency(mins);
-                              setOrdersSyncFrequencyStr(String(mins));
-                              updateSettingsMutation.mutate({ ordersSyncFrequency: mins });
-                            }}
-                          >
-                            <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-orders-frequency">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="15">15 minutes</SelectItem>
-                              <SelectItem value="30">30 minutes</SelectItem>
-                              <SelectItem value="60">1 hour</SelectItem>
-                              <SelectItem value="120">2 hours</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="px-4 py-2.5">
-                          <SyncStatusLine entry={syncStatuses?.orders ?? null} />
-                        </div>
-                      </div>
-                    )}
-                  </div>
 
-                  {/* ── Row 3: BrickOwl Channel ── */}
-                  <div id="autosync-channel-card">
-                    <div className="flex items-center gap-3 px-4 py-3">
-                      <div className="w-7 h-7 rounded-md bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0">
-                        <Globe className="w-3.5 h-3.5 text-green-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-gray-100">BrickOwl Channel</p>
-                        <p className="text-[10px] text-gray-500 leading-tight">Pushes your inventory from E.L.F.I.E. to BrickOwl</p>
-                      </div>
-                      {channelSyncEnabled && (
-                        <button
-                          onClick={() => setExpandedAutoSyncService(expandedAutoSyncService === 'channel' ? null : 'channel')}
-                          className="flex items-center gap-1 px-2 py-0.5 rounded border border-green-500/30 bg-green-500/10 text-[10px] font-medium text-green-300 hover:bg-green-500/20 transition-colors shrink-0"
-                          data-testid="button-channel-configure"
-                        >
-                          Every {channelSyncFrequency}h
-                          {expandedAutoSyncService === 'channel'
-                            ? <ChevronDown className="w-3 h-3" />
-                            : <ChevronRight className="w-3 h-3" />}
-                        </button>
-                      )}
+                    {/* Row: BrickOwl Channel */}
+                    <div id="autosync-channel-card" className="flex items-center gap-2 pl-4 pr-3 py-3">
+                      <button
+                        onClick={() => { if (channelSyncEnabled) setExpandedAutoSyncService('channel'); }}
+                        disabled={!channelSyncEnabled}
+                        className="flex items-center gap-3 flex-1 min-w-0 text-left disabled:cursor-default"
+                        data-testid="button-channel-configure"
+                      >
+                        <div className="w-7 h-7 rounded-md bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0">
+                          <Globe className="w-3.5 h-3.5 text-green-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-gray-100">BrickOwl Channel</p>
+                          <p className="text-[10px] text-gray-500 leading-tight">
+                            {channelSyncEnabled ? `Every ${channelSyncFrequency}h` : 'Pushes your inventory from E.L.F.I.E. to BrickOwl'}
+                          </p>
+                        </div>
+                        {channelSyncEnabled && <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
+                      </button>
                       <Switch
                         checked={channelSyncEnabled}
                         onCheckedChange={(checked) => {
                           setChannelSyncEnabled(checked);
                           updateSettingsMutation.mutate({ channelSyncEnabled: checked });
-                          if (checked) setExpandedAutoSyncService('channel');
-                          else if (expandedAutoSyncService === 'channel') setExpandedAutoSyncService(null);
                         }}
                         data-testid="switch-channel-sync"
                       />
                     </div>
-                    {channelSyncEnabled && expandedAutoSyncService === 'channel' && (
-                      <div className="border-t border-gray-700/50 bg-gray-900/30 divide-y divide-gray-700/40">
-                        {/* Frequency */}
-                        <div className="flex items-center justify-between gap-3 px-4 py-3">
-                          <Label className="text-xs text-gray-300">Run every</Label>
-                          <Select
-                            value={String(channelSyncFrequency)}
-                            onValueChange={(v) => {
-                              const hours = Number(v);
-                              setChannelSyncFrequency(hours);
-                              updateSettingsMutation.mutate({ channelSyncFrequency: hours });
-                            }}
-                          >
-                            <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-channel-frequency">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="1">Every hour</SelectItem>
-                              <SelectItem value="2">Every 2 hours</SelectItem>
-                              <SelectItem value="4">Every 4 hours</SelectItem>
-                              <SelectItem value="6">Every 6 hours</SelectItem>
-                              <SelectItem value="12">Every 12 hours</SelectItem>
-                              <SelectItem value="24">Every 24 hours</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        {/* Status */}
-                        <div className="px-4 py-2.5">
-                          <SyncStatusLine entry={syncStatuses?.channel ?? null} />
-                        </div>
-                        {/* Last result */}
-                        {channelLastResult && (
-                          <div className="px-4 py-3 space-y-2" data-testid="card-channel-last-result">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Last Sync</span>
-                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
-                                channelLastResult.status === 'success' ? 'bg-green-900/50 text-green-400' :
-                                channelLastResult.status === 'partial' ? 'bg-yellow-900/50 text-yellow-400' :
-                                'bg-red-900/50 text-red-400'
-                              }`} data-testid="text-channel-last-status">
-                                {channelLastResult.status === 'success' ? 'Success' : channelLastResult.status === 'partial' ? 'Partial' : 'Error'}
-                              </span>
-                              <span className="text-[10px] text-gray-500" data-testid="text-channel-last-time">{formatRelativeTime(channelLastResult.completedAt)}</span>
-                              <span className="text-[10px] text-gray-600 capitalize" data-testid="text-channel-last-mode">
-                                {channelLastResult.mode === 'full_control' ? 'Full Control' : channelLastResult.mode === 'matched_sync' ? 'Matched Sync' : channelLastResult.mode === 'analysis' ? 'Analysis' : channelLastResult.mode}
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-4 gap-2">
-                              <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-created"><div className="text-sm font-bold text-green-400">{channelLastResult.lotsCreated}</div><div className="text-[9px] text-gray-500 mt-0.5">Created</div></div>
-                              <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-updated"><div className="text-sm font-bold text-blue-400">{channelLastResult.lotsUpdated}</div><div className="text-[9px] text-gray-500 mt-0.5">Updated</div></div>
-                              <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-skipped"><div className="text-sm font-bold text-gray-400">{channelLastResult.lotsSkipped}</div><div className="text-[9px] text-gray-500 mt-0.5">Skipped</div></div>
-                              <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-errors"><div className={`text-sm font-bold ${channelLastResult.errorCount > 0 ? 'text-red-400' : 'text-gray-400'}`}>{channelLastResult.errorCount}</div><div className="text-[9px] text-gray-500 mt-0.5">Errors</div></div>
-                            </div>
-                            {channelLastResult.errors.length > 0 && (
-                              <div className="space-y-1 mt-1" data-testid="list-channel-errors">
-                                {channelLastResult.errors.slice(0, 3).map((err, i) => (
-                                  <p key={i} className="text-[10px] text-red-400/80 truncate">{err}</p>
-                                ))}
-                                {channelLastResult.errors.length > 3 && <p className="text-[10px] text-gray-600">+{channelLastResult.errors.length - 3} more errors</p>}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        {/* Sync Mode */}
-                        <div className="px-4 py-3 space-y-2">
-                          <div className="flex items-center gap-1.5">
-                            <Label className="text-xs text-gray-200">Sync Mode</Label>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Info className="w-3 h-3 text-gray-500 shrink-0 cursor-default" />
-                              </TooltipTrigger>
-                              <TooltipContent side="right" className="max-w-xs text-xs">
-                                Controls how the channel sync behaves across all connected sales channels.
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
-                          <div className="grid grid-cols-1 gap-1.5">
-                            {([
-                              { id: 'analysis', label: 'Analysis', desc: 'Read-only — compare channels, no edits made' },
-                              { id: 'full_control', label: 'Full Control', desc: 'Create new lots + full sync of all fields on existing' },
-                              { id: 'matched_sync', label: 'Matched Sync', desc: 'Full sync of all fields on matched lots — never create new' },
-                            ] as const).map(({ id, label, desc }) => (
-                              <button
-                                key={id}
-                                onClick={() => { setChannelSyncMode(id); updateSettingsMutation.mutate({ channelSyncMode: id }); }}
-                                className={`flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors ${channelSyncMode === id ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
-                                data-testid={`button-sync-mode-${id}`}
-                              >
-                                <div className={`mt-0.5 w-3 h-3 rounded-full border-2 shrink-0 ${channelSyncMode === id ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
-                                <div>
-                                  <span className="text-xs font-medium text-gray-200">{label}</span>
-                                  <p className="text-[10px] text-gray-500 mt-0.5">{desc}</p>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        {/* Fields config */}
-                        <button
-                          onClick={() => setChannelSyncFieldsOpen(!channelSyncFieldsOpen)}
-                          className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-xs text-gray-400 hover:text-gray-200 transition-colors group"
-                          data-testid="button-channel-fields-toggle"
-                        >
-                          <span className="font-medium">Configure sync fields</span>
-                          {channelSyncFieldsOpen
-                            ? <ChevronDown className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />
-                            : <ChevronRight className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />}
-                        </button>
-                        {channelSyncFieldsOpen && (
-                          <div className="px-4 pb-3 space-y-2">
-                            <Label className="text-xs text-gray-200">Fields to Sync</Label>
-                            <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="flex items-center justify-between gap-3 px-3 py-2.5 opacity-60 cursor-default">
-                                    <div className="min-w-0">
-                                      <p className="text-xs font-medium text-gray-200 flex items-center gap-1.5">Quantity {channelSyncMode !== 'analysis' && <Lock className="w-2.5 h-2.5 text-gray-500" />}</p>
-                                      <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Syncs the lot quantity from BrickLink</p>
-                                    </div>
-                                    <Switch checked disabled data-testid="switch-sync-field-qty" />
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent side="left" className="max-w-xs text-xs">
-                                  {channelSyncMode === 'analysis' ? 'Analysis mode — no writes.' : 'Quantity is always synced and cannot be disabled.'}
-                                </TooltipContent>
-                              </Tooltip>
-                              <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-                                <div className="min-w-0">
-                                  <p className="text-xs font-medium text-gray-200">Base Price</p>
-                                  <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Syncs the listing price from BrickLink to existing lots</p>
-                                </div>
-                                <Switch checked={syncFieldPrice} onCheckedChange={(c) => { setSyncFieldPrice(c); updateSyncFieldMutation.mutate({ syncPrice: c }); }} data-testid="switch-sync-field-syncPrice" />
-                              </div>
-                              {([
-                                { key: 'syncRemarks',      label: 'Remarks',          desc: 'BrickLink Remarks → BrickOwl personal note',            value: syncFieldRemarks,     set: setSyncFieldRemarks     },
-                                { key: 'syncDescription',  label: 'Description',      desc: 'BrickLink Description → BrickOwl public note',           value: syncFieldDescription, set: setSyncFieldDescription },
-                                { key: 'syncTierPrice',    label: 'Tier Pricing',     desc: 'Syncs bulk discount tiers from BrickLink',               value: syncFieldTierPrice,   set: setSyncFieldTierPrice   },
-                                { key: 'syncSalePercent',  label: 'Sale %',           desc: 'Syncs BrickLink sale rate to BrickOwl sale %',           value: syncFieldSalePercent, set: setSyncFieldSalePercent },
-                                { key: 'syncBulkQty',      label: 'Min Quantity',     desc: 'BrickLink Bulk → BrickOwl bulk_qty',                     value: syncFieldBulkQty,     set: setSyncFieldBulkQty     },
-                                { key: 'syncLotWeight',    label: 'Custom Lot Weight',desc: 'BrickLink My Weight → BrickOwl lot_weight',              value: syncFieldLotWeight,   set: setSyncFieldLotWeight   },
-                              ] as const).map(({ key, label, desc, value, set }) => (
-                                <div key={key} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-medium text-gray-200">{label}</p>
-                                    <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{desc}</p>
-                                  </div>
-                                  <Switch checked={value} onCheckedChange={(c) => { set(c); updateSyncFieldMutation.mutate({ [key]: c }); }} data-testid={`switch-sync-field-${key}`} />
-                                </div>
-                              ))}
-                              <div className="px-3 pt-2 pb-1">
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">BrickLink Stockrooms</p>
-                                <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">
-                                  <strong className="text-gray-400">Skip</strong> — ignore entirely.{' '}
-                                  <strong className="text-gray-400">Hidden</strong> — sync but mark not-for-sale.{' '}
-                                  <strong className="text-gray-400">Active</strong> — sync as a normal listing.
-                                </p>
-                              </div>
-                              {(['A', 'B', 'C'] as const).map((id) => {
-                                const current = syncStockroomModes[id] ?? 'skip';
-                                return (
-                                  <div key={id} className="flex items-center justify-between gap-3 px-3 py-2">
-                                    <p className="text-xs font-medium text-gray-200 shrink-0">Stockroom {id}</p>
-                                    <div className="flex gap-1">
-                                      {(['skip', 'hidden', 'active'] as const).map((mode) => (
-                                        <Button key={mode} size="sm" variant={current === mode ? 'default' : 'ghost'} className="text-[10px] capitalize"
-                                          onClick={() => { const next = { ...syncStockroomModes, [id]: mode }; setSyncStockroomModes(next); updateSyncFieldMutation.mutate({ syncStockroomModes: next }); }}
-                                          data-testid={`button-sync-stockroom-${id}-${mode}`}
-                                        >{mode}</Button>
-                                      ))}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
+
                   </div>
 
-                </div>
-
-                {/* ── Estimated 24h BL API Burn Rate ──────────────────── */}
-                {(() => {
-                  const DAILY_LIMIT = 5000;
-                  const invSyncsPerDay  = inventorySyncEnabled  ? Math.floor(24 / inventorySyncFrequency)       : 0;
-                  const ordSyncsPerDay  = ordersSyncEnabled     ? Math.floor(1440 / ordersSyncFrequency)        : 0;
-                  // Channel sync makes 0 BL API calls — reads local DB, writes to BrickOwl only
-                  const invCalls  = invSyncsPerDay;      // 1 BL call per inventory sync run
-                  const ordCalls  = ordSyncsPerDay;      // 1 BL call per orders sync run (list fetch)
-                  const totalEst  = invCalls + ordCalls;
-                  const pct       = Math.min(100, Math.round((totalEst / DAILY_LIMIT) * 100));
-                  const barColor  = pct >= 75 ? 'bg-red-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-green-500';
-                  const pctColor  = pct >= 75 ? 'text-red-400' : pct >= 40 ? 'text-yellow-400' : 'text-green-400';
-                  return (
-                    <div className="rounded-md border border-gray-700/80 bg-gray-800/20">
-                      <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-gray-700/50">
-                        <div className="flex items-center gap-1.5">
-                          <BarChart2 className="w-3 h-3 text-gray-400" />
-                          <p className="text-xs font-semibold text-gray-200">Estimated 24h BL API Burn</p>
-                        </div>
-                        <span className={`text-xs font-bold font-mono ${pctColor}`}>
-                          ~{totalEst.toLocaleString()} <span className="text-gray-500 font-normal">/ {DAILY_LIMIT.toLocaleString()} calls</span>
-                        </span>
-                      </div>
-
-                      {/* Progress bar */}
-                      <div className="px-4 pt-3 pb-1">
-                        <div className="w-full h-1.5 rounded-full bg-gray-700/60">
-                          <div
-                            className={`h-1.5 rounded-full transition-all duration-300 ${barColor}`}
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                        <p className={`text-[10px] mt-1 ${pctColor}`}>{pct}% of daily limit</p>
-                      </div>
-
-                      {/* Per-service breakdown */}
-                      <div className="px-4 pb-3 pt-1 space-y-1.5">
-                        <div className="flex items-center justify-between">
+                  {/* Burn rate card */}
+                  {(() => {
+                    const DAILY_LIMIT = 5000;
+                    const invSyncsPerDay = inventorySyncEnabled ? Math.floor(24 / inventorySyncFrequency) : 0;
+                    const ordSyncsPerDay = ordersSyncEnabled    ? Math.floor(1440 / ordersSyncFrequency)  : 0;
+                    const invCalls  = invSyncsPerDay;
+                    const ordCalls  = ordSyncsPerDay;
+                    const totalEst  = invCalls + ordCalls;
+                    const pct       = Math.min(100, Math.round((totalEst / DAILY_LIMIT) * 100));
+                    const barColor  = pct >= 75 ? 'bg-red-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-green-500';
+                    const pctColor  = pct >= 75 ? 'text-red-400' : pct >= 40 ? 'text-yellow-400' : 'text-green-400';
+                    return (
+                      <div className="rounded-md border border-gray-700/80 bg-gray-800/20">
+                        <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-gray-700/50">
                           <div className="flex items-center gap-1.5">
-                            <Package className="w-3 h-3 text-purple-400" />
-                            <span className="text-[11px] text-gray-400">BrickLink Inventory</span>
-                            {inventorySyncEnabled && <span className="text-[10px] text-gray-600">every {inventorySyncFrequency}h</span>}
+                            <BarChart2 className="w-3 h-3 text-gray-400" />
+                            <p className="text-xs font-semibold text-gray-200">Estimated 24h BL API Burn</p>
                           </div>
-                          <span className="text-[11px] font-mono text-gray-300">
-                            {inventorySyncEnabled ? <>{invCalls} <span className="text-gray-500">calls</span></> : <span className="text-gray-600">off</span>}
+                          <span className={`text-xs font-bold font-mono ${pctColor}`}>
+                            ~{totalEst.toLocaleString()} <span className="text-gray-500 font-normal">/ {DAILY_LIMIT.toLocaleString()} calls</span>
                           </span>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <ShoppingCart className="w-3 h-3 text-blue-400" />
-                            <span className="text-[11px] text-gray-400">Orders</span>
-                            {ordersSyncEnabled && <span className="text-[10px] text-gray-600">every {ordersSyncFrequency}m</span>}
+                        <div className="px-4 pt-3 pb-1">
+                          <div className="w-full h-1.5 rounded-full bg-gray-700/60">
+                            <div className={`h-1.5 rounded-full transition-all duration-300 ${barColor}`} style={{ width: `${pct}%` }} />
                           </div>
-                          <div className="flex items-center gap-1 text-right">
-                            <span className="text-[11px] font-mono text-gray-300">
-                              {ordersSyncEnabled ? <>{ordCalls} <span className="text-gray-500">calls</span></> : <span className="text-gray-600">off</span>}
-                            </span>
-                            {ordersSyncEnabled && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Info className="w-3 h-3 text-gray-600 cursor-default shrink-0" />
-                                </TooltipTrigger>
-                                <TooltipContent side="left" className="max-w-[220px] text-xs">
-                                  +2 calls per new/changed order (detail + items fetch) — not included in estimate since order volume varies.
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </div>
+                          <p className={`text-[10px] mt-1 ${pctColor}`}>{pct}% of daily limit</p>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <Globe className="w-3 h-3 text-green-400" />
-                            <span className="text-[11px] text-gray-400">BrickOwl Channel</span>
+                        <div className="px-4 pb-3 pt-1 space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <Package className="w-3 h-3 text-purple-400" />
+                              <span className="text-[11px] text-gray-400">BrickLink Inventory</span>
+                              {inventorySyncEnabled && <span className="text-[10px] text-gray-600">every {inventorySyncFrequency}h</span>}
+                            </div>
+                            <span className="text-[11px] font-mono text-gray-300">
+                              {inventorySyncEnabled ? <>{invCalls} <span className="text-gray-500">calls</span></> : <span className="text-gray-600">off</span>}
+                            </span>
                           </div>
-                          <span className="text-[11px] font-mono text-gray-600">0 calls</span>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <ShoppingCart className="w-3 h-3 text-blue-400" />
+                              <span className="text-[11px] text-gray-400">Orders</span>
+                              {ordersSyncEnabled && <span className="text-[10px] text-gray-600">every {ordersSyncFrequency}m</span>}
+                            </div>
+                            <div className="flex items-center gap-1 text-right">
+                              <span className="text-[11px] font-mono text-gray-300">
+                                {ordersSyncEnabled ? <>{ordCalls} <span className="text-gray-500">calls</span></> : <span className="text-gray-600">off</span>}
+                              </span>
+                              {ordersSyncEnabled && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Info className="w-3 h-3 text-gray-600 cursor-default shrink-0" />
+                                  </TooltipTrigger>
+                                  <TooltipContent side="left" className="max-w-[220px] text-xs">
+                                    +2 calls per new/changed order (detail + items fetch) — not included in estimate since order volume varies.
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <Globe className="w-3 h-3 text-green-400" />
+                              <span className="text-[11px] text-gray-400">BrickOwl Channel</span>
+                            </div>
+                            <span className="text-[11px] font-mono text-gray-600">0 calls</span>
+                          </div>
                         </div>
                       </div>
+                    );
+                  })()}
+                </>
+              ) : (
+                /* ══ DETAIL VIEW ═════════════════════════════════════════════ */
+                <>
+                  {/* Back header */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setExpandedAutoSyncService(null)}
+                      className="p-1.5 rounded-md hover:bg-gray-700/50 transition-colors shrink-0"
+                      data-testid="button-autosync-back"
+                    >
+                      <ChevronLeft className="w-4 h-4 text-gray-400" />
+                    </button>
+                    {expandedAutoSyncService === 'inventory' && (
+                      <>
+                        <div className="w-7 h-7 rounded-md bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
+                          <Package className="w-3.5 h-3.5 text-purple-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-100">BrickLink Inventory</p>
+                          <p className="text-[10px] text-gray-500">Sync schedule &amp; settings</p>
+                        </div>
+                      </>
+                    )}
+                    {expandedAutoSyncService === 'orders' && (
+                      <>
+                        <div className="w-7 h-7 rounded-md bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                          <ShoppingCart className="w-3.5 h-3.5 text-blue-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-100">Orders</p>
+                          <p className="text-[10px] text-gray-500">Sync schedule &amp; settings</p>
+                        </div>
+                      </>
+                    )}
+                    {expandedAutoSyncService === 'channel' && (
+                      <>
+                        <div className="w-7 h-7 rounded-md bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0">
+                          <Globe className="w-3.5 h-3.5 text-green-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-100">BrickOwl Channel</p>
+                          <p className="text-[10px] text-gray-500">Sync schedule &amp; settings</p>
+                        </div>
+                      </>
+                    )}
+                    {/* Enable/disable toggle in header */}
+                    <div className="ml-auto flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] text-gray-500">
+                        {expandedAutoSyncService === 'inventory' ? (inventorySyncEnabled ? 'Enabled' : 'Disabled')
+                         : expandedAutoSyncService === 'orders' ? (ordersSyncEnabled ? 'Enabled' : 'Disabled')
+                         : channelSyncEnabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                      {expandedAutoSyncService === 'inventory' && (
+                        <Switch checked={inventorySyncEnabled} onCheckedChange={(c) => { setInventorySyncEnabled(c); updateSettingsMutation.mutate({ inventorySyncEnabled: c }); if (!c) setExpandedAutoSyncService(null); }} data-testid="switch-inventory-sync-detail" />
+                      )}
+                      {expandedAutoSyncService === 'orders' && (
+                        <Switch checked={ordersSyncEnabled} onCheckedChange={(c) => { setOrdersSyncEnabled(c); updateSettingsMutation.mutate({ ordersSyncEnabled: c }); if (!c) setExpandedAutoSyncService(null); }} data-testid="switch-orders-sync-detail" />
+                      )}
+                      {expandedAutoSyncService === 'channel' && (
+                        <Switch checked={channelSyncEnabled} onCheckedChange={(c) => { setChannelSyncEnabled(c); updateSettingsMutation.mutate({ channelSyncEnabled: c }); if (!c) setExpandedAutoSyncService(null); }} data-testid="switch-channel-sync-detail" />
+                      )}
                     </div>
-                  );
-                })()}
+                  </div>
+
+                  {/* Detail config card */}
+                  <div className="rounded-md border border-gray-700/80 bg-gray-800/20 divide-y divide-gray-700/40">
+
+                    {/* ── Inventory detail ── */}
+                    {expandedAutoSyncService === 'inventory' && (<>
+                      <div className="flex items-center justify-between gap-3 px-4 py-3">
+                        <Label className="text-xs text-gray-300">Run every</Label>
+                        <Select
+                          value={String(inventorySyncFrequency)}
+                          onValueChange={(v) => { const hours = Number(v); setInventorySyncFrequency(hours); updateSettingsMutation.mutate({ inventorySyncFrequency: hours }); }}
+                        >
+                          <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-inventory-frequency">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="6">Every 6 hours</SelectItem>
+                            <SelectItem value="12">Every 12 hours</SelectItem>
+                            <SelectItem value="24">Every 24 hours</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="px-4 py-2.5">
+                        <SyncStatusLine entry={syncStatuses?.inventory ?? null} />
+                      </div>
+                      {platformSyncData && (
+                        <div className="px-4 py-3 grid grid-cols-3 gap-2">
+                          <div>
+                            <p className="text-[10px] text-gray-500">Lots</p>
+                            <p className="text-xs font-bold text-white font-mono">{platformSyncData.source.stats.totalLots?.toLocaleString() ?? '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-gray-500">Parts</p>
+                            <p className="text-xs font-bold text-white font-mono">{platformSyncData.source.stats.totalParts?.toLocaleString() ?? '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-gray-500">Last Synced</p>
+                            <p className="text-[10px] text-gray-400">{platformSyncData.source.stats.lastSyncedAt ? new Date(platformSyncData.source.stats.lastSyncedAt).toLocaleString() : 'Never'}</p>
+                          </div>
+                        </div>
+                      )}
+                    </>)}
+
+                    {/* ── Orders detail ── */}
+                    {expandedAutoSyncService === 'orders' && (<>
+                      <div className="flex items-center justify-between gap-3 px-4 py-3">
+                        <Label className="text-xs text-gray-300">Run every</Label>
+                        <Select
+                          value={String(ordersSyncFrequency)}
+                          onValueChange={(v) => { const mins = Number(v); setOrdersSyncFrequency(mins); setOrdersSyncFrequencyStr(String(mins)); updateSettingsMutation.mutate({ ordersSyncFrequency: mins }); }}
+                        >
+                          <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-orders-frequency">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="15">15 minutes</SelectItem>
+                            <SelectItem value="30">30 minutes</SelectItem>
+                            <SelectItem value="60">1 hour</SelectItem>
+                            <SelectItem value="120">2 hours</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="px-4 py-2.5">
+                        <SyncStatusLine entry={syncStatuses?.orders ?? null} />
+                      </div>
+                    </>)}
+
+                    {/* ── BrickOwl Channel detail ── */}
+                    {expandedAutoSyncService === 'channel' && (<>
+                      {/* Frequency */}
+                      <div className="flex items-center justify-between gap-3 px-4 py-3">
+                        <Label className="text-xs text-gray-300">Run every</Label>
+                        <Select
+                          value={String(channelSyncFrequency)}
+                          onValueChange={(v) => { const hours = Number(v); setChannelSyncFrequency(hours); updateSettingsMutation.mutate({ channelSyncFrequency: hours }); }}
+                        >
+                          <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-channel-frequency">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">Every hour</SelectItem>
+                            <SelectItem value="2">Every 2 hours</SelectItem>
+                            <SelectItem value="4">Every 4 hours</SelectItem>
+                            <SelectItem value="6">Every 6 hours</SelectItem>
+                            <SelectItem value="12">Every 12 hours</SelectItem>
+                            <SelectItem value="24">Every 24 hours</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {/* Status */}
+                      <div className="px-4 py-2.5">
+                        <SyncStatusLine entry={syncStatuses?.channel ?? null} />
+                      </div>
+                      {/* Last sync result */}
+                      {channelLastResult && (
+                        <div className="px-4 py-3 space-y-2" data-testid="card-channel-last-result">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Last Sync</span>
+                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                              channelLastResult.status === 'success' ? 'bg-green-900/50 text-green-400' :
+                              channelLastResult.status === 'partial' ? 'bg-yellow-900/50 text-yellow-400' :
+                              'bg-red-900/50 text-red-400'
+                            }`} data-testid="text-channel-last-status">
+                              {channelLastResult.status === 'success' ? 'Success' : channelLastResult.status === 'partial' ? 'Partial' : 'Error'}
+                            </span>
+                            <span className="text-[10px] text-gray-500" data-testid="text-channel-last-time">{formatRelativeTime(channelLastResult.completedAt)}</span>
+                            <span className="text-[10px] text-gray-600 capitalize" data-testid="text-channel-last-mode">
+                              {channelLastResult.mode === 'full_control' ? 'Full Control' : channelLastResult.mode === 'matched_sync' ? 'Matched Sync' : channelLastResult.mode === 'analysis' ? 'Analysis' : channelLastResult.mode}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-4 gap-2">
+                            <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-created"><div className="text-sm font-bold text-green-400">{channelLastResult.lotsCreated}</div><div className="text-[9px] text-gray-500 mt-0.5">Created</div></div>
+                            <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-updated"><div className="text-sm font-bold text-blue-400">{channelLastResult.lotsUpdated}</div><div className="text-[9px] text-gray-500 mt-0.5">Updated</div></div>
+                            <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-skipped"><div className="text-sm font-bold text-gray-400">{channelLastResult.lotsSkipped}</div><div className="text-[9px] text-gray-500 mt-0.5">Skipped</div></div>
+                            <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-errors"><div className={`text-sm font-bold ${channelLastResult.errorCount > 0 ? 'text-red-400' : 'text-gray-400'}`}>{channelLastResult.errorCount}</div><div className="text-[9px] text-gray-500 mt-0.5">Errors</div></div>
+                          </div>
+                          {channelLastResult.errors.length > 0 && (
+                            <div className="space-y-1 mt-1" data-testid="list-channel-errors">
+                              {channelLastResult.errors.slice(0, 3).map((err, i) => (
+                                <p key={i} className="text-[10px] text-red-400/80 truncate">{err}</p>
+                              ))}
+                              {channelLastResult.errors.length > 3 && <p className="text-[10px] text-gray-600">+{channelLastResult.errors.length - 3} more errors</p>}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {/* Sync Mode */}
+                      <div className="px-4 py-3 space-y-2">
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-xs text-gray-200">Sync Mode</Label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="w-3 h-3 text-gray-500 shrink-0 cursor-default" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-xs text-xs">
+                              Controls how the channel sync behaves across all connected sales channels.
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <div className="grid grid-cols-1 gap-1.5">
+                          {([
+                            { id: 'analysis',     label: 'Analysis',     desc: 'Read-only — compare channels, no edits made' },
+                            { id: 'full_control', label: 'Full Control', desc: 'Create new lots + full sync of all fields on existing' },
+                            { id: 'matched_sync', label: 'Matched Sync', desc: 'Full sync of all fields on matched lots — never create new' },
+                          ] as const).map(({ id, label, desc }) => (
+                            <button
+                              key={id}
+                              onClick={() => { setChannelSyncMode(id); updateSettingsMutation.mutate({ channelSyncMode: id }); }}
+                              className={`flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors ${channelSyncMode === id ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
+                              data-testid={`button-sync-mode-${id}`}
+                            >
+                              <div className={`mt-0.5 w-3 h-3 rounded-full border-2 shrink-0 ${channelSyncMode === id ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
+                              <div>
+                                <span className="text-xs font-medium text-gray-200">{label}</span>
+                                <p className="text-[10px] text-gray-500 mt-0.5">{desc}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {/* Sync fields */}
+                      <button
+                        onClick={() => setChannelSyncFieldsOpen(!channelSyncFieldsOpen)}
+                        className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-xs text-gray-400 hover:text-gray-200 transition-colors group"
+                        data-testid="button-channel-fields-toggle"
+                      >
+                        <span className="font-medium">Configure sync fields</span>
+                        {channelSyncFieldsOpen
+                          ? <ChevronDown className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />
+                          : <ChevronRight className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />}
+                      </button>
+                      {channelSyncFieldsOpen && (
+                        <div className="px-4 pb-3 space-y-2">
+                          <Label className="text-xs text-gray-200">Fields to Sync</Label>
+                          <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center justify-between gap-3 px-3 py-2.5 opacity-60 cursor-default">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium text-gray-200 flex items-center gap-1.5">Quantity {channelSyncMode !== 'analysis' && <Lock className="w-2.5 h-2.5 text-gray-500" />}</p>
+                                    <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Syncs the lot quantity from BrickLink</p>
+                                  </div>
+                                  <Switch checked disabled data-testid="switch-sync-field-qty" />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="max-w-xs text-xs">
+                                {channelSyncMode === 'analysis' ? 'Analysis mode — no writes.' : 'Quantity is always synced and cannot be disabled.'}
+                              </TooltipContent>
+                            </Tooltip>
+                            <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-gray-200">Base Price</p>
+                                <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Syncs the listing price from BrickLink to existing lots</p>
+                              </div>
+                              <Switch checked={syncFieldPrice} onCheckedChange={(c) => { setSyncFieldPrice(c); updateSyncFieldMutation.mutate({ syncPrice: c }); }} data-testid="switch-sync-field-syncPrice" />
+                            </div>
+                            {([
+                              { key: 'syncRemarks',      label: 'Remarks',           desc: 'BrickLink Remarks → BrickOwl personal note',           value: syncFieldRemarks,     set: setSyncFieldRemarks     },
+                              { key: 'syncDescription',  label: 'Description',       desc: 'BrickLink Description → BrickOwl public note',          value: syncFieldDescription, set: setSyncFieldDescription },
+                              { key: 'syncTierPrice',    label: 'Tier Pricing',      desc: 'Syncs bulk discount tiers from BrickLink',              value: syncFieldTierPrice,   set: setSyncFieldTierPrice   },
+                              { key: 'syncSalePercent',  label: 'Sale %',            desc: 'Syncs BrickLink sale rate to BrickOwl sale %',          value: syncFieldSalePercent, set: setSyncFieldSalePercent },
+                              { key: 'syncBulkQty',      label: 'Min Quantity',      desc: 'BrickLink Bulk → BrickOwl bulk_qty',                    value: syncFieldBulkQty,     set: setSyncFieldBulkQty     },
+                              { key: 'syncLotWeight',    label: 'Custom Lot Weight', desc: 'BrickLink My Weight → BrickOwl lot_weight',             value: syncFieldLotWeight,   set: setSyncFieldLotWeight   },
+                            ] as const).map(({ key, label, desc, value, set }) => (
+                              <div key={key} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-medium text-gray-200">{label}</p>
+                                  <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{desc}</p>
+                                </div>
+                                <Switch checked={value} onCheckedChange={(c) => { set(c); updateSyncFieldMutation.mutate({ [key]: c }); }} data-testid={`switch-sync-field-${key}`} />
+                              </div>
+                            ))}
+                            <div className="px-3 pt-2 pb-1">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">BrickLink Stockrooms</p>
+                              <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">
+                                <strong className="text-gray-400">Skip</strong> — ignore entirely.{' '}
+                                <strong className="text-gray-400">Hidden</strong> — sync but mark not-for-sale.{' '}
+                                <strong className="text-gray-400">Active</strong> — sync as a normal listing.
+                              </p>
+                            </div>
+                            {(['A', 'B', 'C'] as const).map((id) => {
+                              const current = syncStockroomModes[id] ?? 'skip';
+                              return (
+                                <div key={id} className="flex items-center justify-between gap-3 px-3 py-2">
+                                  <p className="text-xs font-medium text-gray-200 shrink-0">Stockroom {id}</p>
+                                  <div className="flex gap-1">
+                                    {(['skip', 'hidden', 'active'] as const).map((mode) => (
+                                      <Button key={mode} size="sm" variant={current === mode ? 'default' : 'ghost'} className="text-[10px] capitalize"
+                                        onClick={() => { const next = { ...syncStockroomModes, [id]: mode }; setSyncStockroomModes(next); updateSyncFieldMutation.mutate({ syncStockroomModes: next }); }}
+                                        data-testid={`button-sync-stockroom-${id}-${mode}`}
+                                      >{mode}</Button>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </>)}
+
+                  </div>
+                </>
+              )}
 
               </div>
             )}
