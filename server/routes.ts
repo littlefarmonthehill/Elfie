@@ -4404,7 +4404,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .set({
           orderStatus: 'awaiting_shipment',
           previousStatus: 'shipped',
-          workflowStatus: null,
+          workflowStatus: 'new',
           shipDate: null,
           updatedAt: new Date(),
         })
@@ -15258,16 +15258,24 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
           orderNumber: orders.orderNumber,
           sku: orderDetails.sku,
           bricklinkPartNumber: sql<string>`COALESCE(
-            ${blInventory.itemNo},
+            -- Only use BL inventory part number for BrickLink orders (BO SKUs are BO inventory IDs, not BL)
+            CASE WHEN ${orders.marketplace} = 'BrickLink' THEN ${blInventory.itemNo} ELSE NULL END,
             TRIM(SUBSTRING(${orderDetails.sku} FROM '.LGO-(.+)$')),
             TRIM(SUBSTRING(${orderDetails.name} FROM 'LEGO-([^ ]+)')),
-            TRIM(SUBSTRING(${orderDetails.name} FROM 'Part ([^ ]+)'))
+            TRIM(SUBSTRING(${orderDetails.name} FROM 'Part ([^ ]+)')),
+            -- Extract first part number from BrickOwl name parentheses, e.g. "... (6141 / 30057)"
+            TRIM(SUBSTRING(${orderDetails.name} FROM '\\(([0-9a-zA-Z]+)'))
           )`,
           name: orderDetails.name,
           quantity: orderDetails.quantity,
           fulfilled: orderDetails.fulfilled,
           colorName: sql<string>`COALESCE(
-            (SELECT bc.name FROM bl_colors bc WHERE bc.id = ${orderDetails.colorId} LIMIT 1),
+            -- For BrickLink orders only: look up color by BL color ID stored in order_details
+            -- BrickOwl uses its own color ID system — do NOT use BO color_id as a BL color lookup
+            CASE WHEN ${orders.marketplace} = 'BrickLink'
+              THEN (SELECT bc.name FROM bl_colors bc WHERE bc.id = ${orderDetails.colorId} LIMIT 1)
+              ELSE NULL
+            END,
             ${blColors.name},
             (SELECT bc.name FROM bl_colors bc WHERE order_details.name ILIKE '%' || bc.name || '%' ORDER BY LENGTH(bc.name) DESC LIMIT 1)
           )`,
@@ -15290,7 +15298,12 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         })
         .from(orderDetails)
         .innerJoin(orders, eq(orderDetails.orderId, orders.id))
-        .leftJoin(blInventory, eq(sql`CAST(${blInventory.id} AS TEXT)`, orderDetails.sku))
+        // Only join BL inventory for BrickLink orders — BO SKUs are BrickOwl inventory IDs
+        // which coincidentally share the same numeric space and cause incorrect matches
+        .leftJoin(blInventory, and(
+          eq(sql`CAST(${blInventory.id} AS TEXT)`, orderDetails.sku),
+          eq(orders.marketplace, 'BrickLink')
+        ))
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .leftJoin(inventoryLocations, eq(blInventory.id, inventoryLocations.inventoryId))
         .leftJoin(whBins, eq(inventoryLocations.binId, whBins.id))

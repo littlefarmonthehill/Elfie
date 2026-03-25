@@ -292,9 +292,7 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
   shipmentId: string;
   rates: any[];
 }> {
-  const vendor = await getShippingVendor();
-
-  // Get order details for address
+  // Get order first so we have orgId for credential lookup
   const [order] = await db
     .select()
     .from(orders)
@@ -304,6 +302,8 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
   if (!order) {
     throw new Error(`Order ${request.orderId} not found`);
   }
+
+  const vendor = await getShippingVendor(undefined, order.orgId);
 
   // Parse ship-to address from order (allow override from inline card address edit)
   const baseShipTo = parseAddress(order.shipTo, order.customerUsername || 'Customer');
