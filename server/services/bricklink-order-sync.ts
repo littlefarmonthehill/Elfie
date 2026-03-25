@@ -338,7 +338,7 @@ async function processBrickLinkOrder(
     shippingAmount: cost?.shipping ? cost.shipping.toString() : '0',
     taxAmount: cost?.salesTax_collected_by_bl ? cost.salesTax_collected_by_bl.toString() : (cost?.vat_amount ? cost.vat_amount.toString() : '0'),
     internalNotes: null,
-    customerNotes: orderDetail?.remarks || blOrder.remarks || null,
+    customerNotes: orderDetail?.buyer_remark || blOrder.buyer_remark || null,
     requestedShippingService: shipping?.method || null,
     carrierCode: null,
     serviceCode: null,

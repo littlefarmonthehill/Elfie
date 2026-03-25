@@ -3770,6 +3770,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/admin/cleanup-duplicate-picklist-items
+  // Removes duplicate picklist_items rows (same order_detail_id), keeping the most-progressed one.
+  app.post("/api/admin/cleanup-duplicate-picklist-items", isApproved, async (req: any, res) => {
+    try {
+      const result = await db.execute(sql`
+        DELETE FROM picklist_items
+        WHERE id IN (
+          SELECT id FROM (
+            SELECT id,
+                   ROW_NUMBER() OVER (
+                     PARTITION BY order_detail_id
+                     ORDER BY pulled DESC, created_at ASC
+                   ) AS rn
+            FROM picklist_items
+          ) ranked
+          WHERE rn > 1
+        )
+      `);
+      const deleted = (result as any).rowCount ?? 0;
+      console.log(`[Admin] cleanup-duplicate-picklist-items: removed ${deleted} duplicate rows`);
+      res.json({ ok: true, deleted });
+    } catch (err: any) {
+      console.error('[Admin] cleanup-duplicate-picklist-items error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /api/admin/fix-bo-visibility — set a specific BO lot invisible by BL inventory ID
   // Body: { blInventoryId: number, forSale: 0|1 }
   app.post("/api/admin/fix-bo-visibility", isApproved, async (req: any, res) => {
@@ -14782,8 +14809,20 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         db.select().from(picklistItems).where(inArray(picklistItems.orderId, orderIds)),
       ]);
 
+      // ── Deduplicate picklist items by orderDetailId ────────────────────────
+      // Guard against race-condition duplicates that may exist in the DB.
+      // Keep the most-progressed item (pulled preferred, then oldest createdAt).
+      const dedupedPicklistMap = new Map<string, typeof existingPicklistItems[0]>();
+      for (const item of existingPicklistItems) {
+        const existing = dedupedPicklistMap.get(item.orderDetailId);
+        if (!existing || (item.pulled && !existing.pulled) || (!item.pulled && !existing.pulled && item.createdAt < existing.createdAt)) {
+          dedupedPicklistMap.set(item.orderDetailId, item);
+        }
+      }
+      const dedupedPicklistItems = Array.from(dedupedPicklistMap.values());
+
       // ── Batch-create missing picklist items (was N+1) ─────────────────────
-      const existingDetailIds = new Set(existingPicklistItems.map(p => p.orderDetailId));
+      const existingDetailIds = new Set(dedupedPicklistItems.map(p => p.orderDetailId));
       const missingDetails = activeOrderDetails.filter(d => !existingDetailIds.has(d.id));
 
       if (missingDetails.length > 0) {
@@ -14828,14 +14867,21 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         // requests both pass the existingDetailIds check before either insert commits.
         await db.insert(picklistItems).values(newRows).onConflictDoNothing();
 
-        // Refresh picklist items after insert
+        // Refresh picklist items after insert and re-deduplicate
         const refreshed = await db.select().from(picklistItems).where(inArray(picklistItems.orderId, orderIds));
-        existingPicklistItems.length = 0;
-        existingPicklistItems.push(...refreshed);
+        const refreshedDedupMap = new Map<string, typeof refreshed[0]>();
+        for (const item of refreshed) {
+          const ex = refreshedDedupMap.get(item.orderDetailId);
+          if (!ex || (item.pulled && !ex.pulled) || (!item.pulled && !ex.pulled && item.createdAt < ex.createdAt)) {
+            refreshedDedupMap.set(item.orderDetailId, item);
+          }
+        }
+        dedupedPicklistItems.length = 0;
+        dedupedPicklistItems.push(...Array.from(refreshedDedupMap.values()));
       }
 
       // ── Apply filters ───────────────────────────────────────────────────────
-      let filteredItems = [...existingPicklistItems];
+      let filteredItems = [...dedupedPicklistItems];
       if (filter === 'to_pull') {
         filteredItems = filteredItems.filter(item => !item.pulled);
       }
@@ -14981,6 +15027,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
             orderId: item.orderId,
             orderNumber: order?.orderNumber,
             marketplace: order?.marketplace ?? null,
+            customerNotes: order?.customerNotes ?? null,
             itemName: detail?.name,
             quantity: detail?.quantity,
             sku: detail?.sku,
