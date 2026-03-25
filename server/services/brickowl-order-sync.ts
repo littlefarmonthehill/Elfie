@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { orders, orderDetails, channelLotLinks } from "@shared/schema";
+import { orders, orderDetails, channelLotLinks, syncMetadata } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { getBrickOwlOrders, getBrickOwlOrderDetails, mapBrickOwlStatus } from "./brickowl-orders";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
