@@ -2972,7 +2972,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       .slice(0, 8);
   })();
 
-  useEffect(() => { setActiveGeneralTab('info'); }, [activeSection]);
 
 
   const { data: platformOrgs, isLoading: platformOrgsLoading, isError: platformOrgsError, error: platformOrgsQueryError, refetch: refetchPlatformOrgs } = useQuery<OrgWithUsage[]>({
