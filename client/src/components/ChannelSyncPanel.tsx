@@ -1179,6 +1179,19 @@ function OverviewContent({
                 <p className="text-[10px] text-red-300/80">{lastSync.errorMessage}</p>
               </div>
             )}
+            {lastResult?.errors?.length > 0 && (
+              <div className="rounded border border-red-500/20 bg-red-950/10 px-2 py-1.5 space-y-0.5">
+                <p className="text-[9px] font-semibold text-red-400/80 uppercase tracking-wide mb-1">Error details ({lastResult.errors.length})</p>
+                <div className="max-h-28 overflow-y-auto space-y-0.5">
+                  {lastResult.errors.slice(0, 50).map((err: string, i: number) => (
+                    <p key={i} className="text-[10px] text-red-300/70 font-mono leading-tight">{err}</p>
+                  ))}
+                  {lastResult.errors.length > 50 && (
+                    <p className="text-[10px] text-red-400/50 italic">…and {lastResult.errors.length - 50} more</p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

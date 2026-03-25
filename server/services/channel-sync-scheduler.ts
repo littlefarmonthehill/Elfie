@@ -57,17 +57,14 @@ async function getActiveChannelSyncOrg(): Promise<{ id: string; tz: string; freq
 
 export async function startChannelSyncScheduler() {
   console.log('🌐 Channel sync scheduler initialized');
-  // Restore last sync result from DB so the UI shows data after a deploy
+  // Restore last sync result from DB so the UI shows data after a deploy.
+  // Use id-only lookup since id is the PK (one row per sync job across all orgs).
   try {
-    const rows = await db.select().from(appSettings);
-    const firstOrg = rows.find(r => r.channelSyncEnabled) ?? rows[0];
-    if (firstOrg) {
-      const [meta] = await db.select().from(syncMetadata)
-        .where(and(eq(syncMetadata.orgId, firstOrg.id), eq(syncMetadata.id, SYNC_ID))).limit(1);
-      if (meta?.lastSyncMetaJson) {
-        channelSyncLastResult = JSON.parse(meta.lastSyncMetaJson);
-        console.log('[Channel] Restored last sync result from DB');
-      }
+    const [meta] = await db.select().from(syncMetadata)
+      .where(eq(syncMetadata.id, SYNC_ID)).limit(1);
+    if (meta?.lastSyncMetaJson) {
+      channelSyncLastResult = JSON.parse(meta.lastSyncMetaJson);
+      console.log('[Channel] Restored last sync result from DB');
     }
   } catch (e: any) {
     console.warn('[Channel] Could not restore last sync result (non-fatal):', e.message);
