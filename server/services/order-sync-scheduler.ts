@@ -2,8 +2,9 @@ import { db } from "../db";
 import { appSettings, syncMetadata } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { syncLock } from "./sync-lock";
-import { runPlatformOrderSync } from "./order-sync-core";
+import { runPlatformOrderSync, SyncPlatform } from "./order-sync-core";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
+import { upsertSyncMetadata } from "./order-sync-helpers";
 
 const MAX_RETRIES = 5;
 const RETRY_BASE_MS = 5 * 60 * 1000;
@@ -26,8 +27,8 @@ function isWithinActiveWindow(startHHMM: string, endHHMM: string, tz: string): b
 }
 
 /**
- * Return all orgs that have order sync enabled and are within their active window.
- * Returns the first matching org's settings (used for frequency/metadata).
+ * Return the first org that has order sync enabled and is within its active window,
+ * along with the configured sync frequency.
  */
 async function getActiveOrderSyncOrg(): Promise<{ orgId: string; frequencyMs: number } | null> {
   const rows = await db.select().from(appSettings);
@@ -41,12 +42,26 @@ async function getActiveOrderSyncOrg(): Promise<{ orgId: string; frequencyMs: nu
   return null;
 }
 
-// ── BrickLink order sync ────────────────────────────────────────────────────
+// ── Per-platform retry state ─────────────────────────────────────────────────
 
-const blRetry = { count: 0, nextAt: 0 };
+const retryState: Record<string, { count: number; nextAt: number }> = {
+  bricklink: { count: 0, nextAt: 0 },
+  brickowl:  { count: 0, nextAt: 0 },
+};
 
-async function checkAndRunBrickLinkSync() {
+// ── Shared check-and-run logic ───────────────────────────────────────────────
+
+/**
+ * Check whether a scheduled sync is due for a given platform, then run it.
+ * Handles active-window gating, retry back-off, and lock contention.
+ */
+async function checkAndRunPlatformSync(platform: 'bricklink' | 'brickowl') {
+  const syncId   = platform === 'bricklink' ? 'bricklink_orders' : 'brickowl_orders';
+  const label    = platform === 'bricklink' ? 'BrickLink' : 'BrickOwl';
+  const retry    = retryState[platform];
+
   try {
+    // Resolve the active org, retrying once on transient DB connection errors
     let active: { orgId: string; frequencyMs: number } | null;
     try {
       active = await getActiveOrderSyncOrg();
@@ -59,123 +74,60 @@ async function checkAndRunBrickLinkSync() {
 
     if (!active) return;
 
-    const SYNC_ID = 'bricklink_orders';
-    const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, active.orgId), eq(syncMetadata.id, SYNC_ID))).limit(1);
+    const [meta] = await db
+      .select()
+      .from(syncMetadata)
+      .where(and(eq(syncMetadata.orgId, active.orgId), eq(syncMetadata.id, syncId)))
+      .limit(1);
     const lastRunTs = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
 
+    // Back-off logic: when in error state use exponential retry, otherwise use normal frequency
     if (meta?.lastSyncStatus === 'error') {
-      if (blRetry.count >= MAX_RETRIES) {
+      if (retry.count >= MAX_RETRIES) {
         if (Date.now() - lastRunTs < active.frequencyMs) return;
-        blRetry.count = 0;
+        retry.count = 0;
       } else {
-        if (Date.now() < blRetry.nextAt) return;
-        console.log(`[BrickLink Order Sync] Retrying after failure (attempt ${blRetry.count + 1}/${MAX_RETRIES})...`);
+        if (Date.now() < retry.nextAt) return;
+        console.log(`[${label} Order Sync] Retrying after failure (attempt ${retry.count + 1}/${MAX_RETRIES})...`);
       }
     } else {
       if (Date.now() - lastRunTs < active.frequencyMs) return;
-      blRetry.count = 0;
+      retry.count = 0;
     }
 
     if (syncLock.isBlockedFor('Order Sync')) {
       const blocker = syncLock.getBlockersFor('Order Sync').join(', ');
-      console.log(`⏭️ BrickLink order sync skipped — incompatible sync is running: ${blocker}`);
+      console.log(`⏭️ ${label} order sync skipped — incompatible sync is running: ${blocker}`);
       recordSyncIssue({
         syncType: 'order_sync',
         platform: 'scheduler',
         issueType: 'scheduler_blocked',
-        issueDescription: `Scheduled BrickLink order sync was blocked by: ${blocker}.`,
+        issueDescription: `Scheduled ${label} order sync was blocked by: ${blocker}.`,
         severity: 'medium',
         metadata: { blockedBy: blocker, timestamp: new Date().toISOString() },
       });
       return;
     }
 
-    await runScheduledPlatformSync('bricklink', SYNC_ID, blRetry, active.orgId);
+    await runScheduledPlatformSync(platform, syncId, label, retry, active.orgId);
   } catch (error) {
-    console.error('❌ Error in BrickLink order sync scheduler:', error);
+    console.error(`❌ Error in ${label} order sync scheduler:`, error);
   }
 }
-
-// ── BrickOwl order sync ─────────────────────────────────────────────────────
-
-const boRetry = { count: 0, nextAt: 0 };
-
-async function checkAndRunBrickOwlSync() {
-  try {
-    let active: { orgId: string; frequencyMs: number } | null;
-    try {
-      active = await getActiveOrderSyncOrg();
-    } catch (connErr: any) {
-      if (connErr.message?.includes('Connection terminated') || connErr.code === 'ECONNRESET') {
-        await new Promise(r => setTimeout(r, 3000));
-        active = await getActiveOrderSyncOrg();
-      } else throw connErr;
-    }
-
-    if (!active) return;
-
-    const SYNC_ID = 'brickowl_orders';
-    const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, active.orgId), eq(syncMetadata.id, SYNC_ID))).limit(1);
-    const lastRunTs = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
-
-    if (meta?.lastSyncStatus === 'error') {
-      if (boRetry.count >= MAX_RETRIES) {
-        if (Date.now() - lastRunTs < active.frequencyMs) return;
-        boRetry.count = 0;
-      } else {
-        if (Date.now() < boRetry.nextAt) return;
-        console.log(`[BrickOwl Order Sync] Retrying after failure (attempt ${boRetry.count + 1}/${MAX_RETRIES})...`);
-      }
-    } else {
-      if (Date.now() - lastRunTs < active.frequencyMs) return;
-      boRetry.count = 0;
-    }
-
-    if (syncLock.isBlockedFor('Order Sync')) {
-      const blocker = syncLock.getBlockersFor('Order Sync').join(', ');
-      console.log(`⏭️ BrickOwl order sync skipped — incompatible sync is running: ${blocker}`);
-      recordSyncIssue({
-        syncType: 'order_sync',
-        platform: 'scheduler',
-        issueType: 'scheduler_blocked',
-        issueDescription: `Scheduled BrickOwl order sync was blocked by: ${blocker}.`,
-        severity: 'medium',
-        metadata: { blockedBy: blocker, timestamp: new Date().toISOString() },
-      });
-      return;
-    }
-
-    await runScheduledPlatformSync('brickowl', SYNC_ID, boRetry, active.orgId);
-  } catch (error) {
-    console.error('❌ Error in BrickOwl order sync scheduler:', error);
-  }
-}
-
-// ── Shared runner ───────────────────────────────────────────────────────────
 
 async function runScheduledPlatformSync(
   platform: 'bricklink' | 'brickowl',
   syncId: string,
+  label: string,
   retry: { count: number; nextAt: number },
   orgId: string,
 ) {
-  const label = platform === 'bricklink' ? 'BrickLink' : 'BrickOwl';
   console.log(`\n🔄 Starting scheduled ${label} order sync...`);
 
-  await db.insert(syncMetadata).values({
-    id: syncId,
-    lastSyncStatus: 'in_progress',
-    lastSyncTime: new Date(),
-    recordsAdded: 0,
-    recordsUpdated: 0,
-    orgId,
-  }).onConflictDoUpdate({
-    target: syncMetadata.id,
-    set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: null },
-  });
+  await upsertSyncMetadata(syncId, orgId, { status: 'in_progress' });
 
   try {
-    const result = await runPlatformOrderSync(platform, {
+    const result = await runPlatformOrderSync(platform as SyncPlatform, {
       fullSync: false,
       withEmbeddings: true,
       withStuckCheck: true,
@@ -184,18 +136,7 @@ async function runScheduledPlatformSync(
     const added = platform === 'bricklink' ? result.bricklink.ordersAdded : result.brickowl.ordersAdded;
     console.log(`\n✨ Scheduled ${label} order sync complete — ${added} new orders`);
 
-    await db.insert(syncMetadata).values({
-      id: syncId,
-      lastSyncStatus: 'success',
-      lastSyncTime: new Date(),
-      recordsAdded: added,
-      recordsUpdated: 0,
-      errorMessage: null,
-      orgId,
-    }).onConflictDoUpdate({
-      target: syncMetadata.id,
-      set: { lastSyncStatus: 'success', updatedAt: new Date(), recordsAdded: added, recordsUpdated: 0, errorMessage: null },
-    });
+    await upsertSyncMetadata(syncId, orgId, { status: 'success', recordsAdded: added, recordsUpdated: 0 });
 
     retry.count = 0;
     resolveSchedulerIssues('order_sync');
@@ -204,24 +145,14 @@ async function runScheduledPlatformSync(
     retry.nextAt = Date.now() + retry.count * RETRY_BASE_MS;
     const minsUntilRetry = retry.count * 5;
     console.error(`❌ Scheduled ${label} order sync failed (attempt ${retry.count}/${MAX_RETRIES}): ${error.message}`);
+
     if (retry.count < MAX_RETRIES) {
       console.log(`[${label} Order Sync] Next retry in ${minsUntilRetry} minute(s)`);
     } else {
       console.log(`[${label} Order Sync] All ${MAX_RETRIES} retries exhausted — resuming normal schedule`);
     }
 
-    await db.insert(syncMetadata).values({
-      id: syncId,
-      lastSyncStatus: 'error',
-      lastSyncTime: new Date(),
-      recordsAdded: 0,
-      recordsUpdated: 0,
-      errorMessage: error.message,
-      orgId,
-    }).onConflictDoUpdate({
-      target: syncMetadata.id,
-      set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },
-    });
+    await upsertSyncMetadata(syncId, orgId, { status: 'error', errorMessage: error.message });
 
     recordSyncIssue({
       syncType: 'order_sync',
@@ -234,17 +165,19 @@ async function runScheduledPlatformSync(
   }
 }
 
-// ── Public API ──────────────────────────────────────────────────────────────
+// ── Public API ───────────────────────────────────────────────────────────────
 
 export async function startOrderSyncScheduler() {
   console.log('🕒 Order sync scheduler initialized');
-  // Stagger BrickOwl by 30 s to avoid hammering the lock simultaneously
-  await checkAndRunBrickLinkSync();
-  setTimeout(async () => {
-    await checkAndRunBrickOwlSync();
-    setInterval(async () => { await checkAndRunBrickOwlSync(); }, 60 * 1000);
+
+  // Stagger BrickOwl by 30 s to avoid both channels hitting the lock simultaneously
+  await checkAndRunPlatformSync('bricklink');
+  setInterval(() => checkAndRunPlatformSync('bricklink'), 60 * 1000);
+
+  setTimeout(() => {
+    checkAndRunPlatformSync('brickowl');
+    setInterval(() => checkAndRunPlatformSync('brickowl'), 60 * 1000);
   }, 30 * 1000);
-  setInterval(async () => { await checkAndRunBrickLinkSync(); }, 60 * 1000);
 }
 
 export function stopOrderSyncScheduler() {

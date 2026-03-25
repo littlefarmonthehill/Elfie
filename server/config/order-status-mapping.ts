@@ -181,32 +181,6 @@ export function getInventoryImpact(normalizedStatus: string): InventoryImpact {
 }
 
 /**
- * Check if status transition requires inventory adjustment.
- *
- * NOTE: As of the "reduce-on-receipt" update, inventory is now managed via the
- * `inventoryDeducted` flag on the order record rather than status transitions.
- * See `server/services/inventory-adjustment.ts` for the current logic.
- *
- * This function is kept for reference and potential use in edge cases,
- * but is no longer the primary decision-maker.
- */
-export function shouldAdjustInventory(
-  fromStatus: string | null,
-  toStatus: string
-): { shouldAdjust: boolean; impact: InventoryImpact } {
-  if (toStatus === 'shipped' && fromStatus !== 'shipped') {
-    return { shouldAdjust: true, impact: 'reduce' };
-  }
-  if (toStatus === 'cancelled' || toStatus === 'returned') {
-    if (fromStatus === 'shipped') {
-      return { shouldAdjust: true, impact: 'restore' };
-    }
-    return { shouldAdjust: false, impact: 'none' };
-  }
-  return { shouldAdjust: false, impact: 'none' };
-}
-
-/**
  * Get all possible statuses for a platform
  */
 export function getPlatformStatuses(platform: string): Array<string | number> {

@@ -9,13 +9,19 @@ import { recordSyncIssue } from './sync-issue-service';
  * - The platform that generated the sale is EXCLUDED from receiving inventory updates
  *   (it already manages its own inventory for that order).
  * - All other platforms receive inventory updates.
- * - BrickLink uses delta-based adjustments ("+N" / "-N" strings).
+ * - BrickLink uses delta-based adjustments ("+N" / "-N").
  * - BrickOwl uses absolute quantity updates.
  *
  * Supported Platforms:
  * - BrickLink (delta adjustments)
  * - BrickOwl (absolute quantity)
- * - eBay, BigCommerce, Amazon (future)
+ *
+ * Adding a new channel:
+ *   1. Add its update function below following the same signature as
+ *      updateBrickOwlQuantity / updateBrickLinkQuantityDelta.
+ *   2. Call it (with source exclusion) inside syncInventoryItemAcrossPlatforms.
+ *   3. Pre-fetch any inventory data the channel needs in syncMultipleItemsAcrossPlatforms
+ *      and pass it through as a context parameter to avoid N+1 API calls.
  */
 
 export interface PlatformSyncResult {
@@ -37,26 +43,32 @@ export interface SyncItem {
   newQuantity: number;    // Absolute quantity — used for BrickOwl and absolute-setter platforms
   quantityDelta: number;  // Delta change — used for BrickLink (negative = reduce, positive = restore)
   sourcePlatform: string; // The platform that originated the sale; will be skipped
-  orgId?: string;         // Org whose BrickLink credentials to use for the adjustment
+  orgId?: string;         // Org whose credentials to use for the adjustment
   // Optional context for error tracking
   orderId?: string;
   orderNumber?: string;
   itemNo?: string;
 }
 
+/** Pre-fetched context shared across all items in a single bulk sync run. */
+interface SyncContext {
+  /** Map of BL inventory ID (string) → BrickOwl lot, built from live BO inventory. */
+  boInventoryMap: Map<string, any>;
+}
+
+// ── BrickOwl ─────────────────────────────────────────────────────────────────
+
 /**
- * Update a single inventory item's quantity on BrickOwl (absolute)
+ * Update a single inventory item's quantity on BrickOwl (absolute).
+ * Requires a pre-built inventory map to avoid repeated full-inventory API calls.
  */
 async function updateBrickOwlQuantity(
-  item: SyncItem
+  item: SyncItem,
+  boInventoryMap: Map<string, any>
 ): Promise<{ success: boolean; error?: string }> {
-  const { inventoryId, newQuantity, orderId, orderNumber, itemNo } = item;
+  const { inventoryId, newQuantity, orgId, orderId, orderNumber, itemNo } = item;
   try {
-    const brickowlInventory = await getBrickOwlInventory(false);
-
-    const matchingLot = brickowlInventory.find(
-      lot => lot.external_lot_ids?.other === inventoryId
-    );
+    const matchingLot = boInventoryMap.get(inventoryId);
 
     if (!matchingLot) {
       const errMsg = `No BrickOwl lot found with BrickLink inventory ID: ${inventoryId}`;
@@ -64,7 +76,7 @@ async function updateBrickOwlQuantity(
         syncType: 'cross_platform_sync',
         platform: 'brickowl',
         itemId: inventoryId,
-        itemNo: itemNo,
+        itemNo,
         issueType: 'lot_not_found',
         issueDescription: `${errMsg}${orderNumber ? ` (order ${orderNumber})` : ''}`,
         severity: 'high',
@@ -73,22 +85,19 @@ async function updateBrickOwlQuantity(
       return { success: false, error: errMsg };
     }
 
-    await updateBrickOwlLot({
-      lot_id: matchingLot.lot_id,
-      absolute_quantity: newQuantity,
-    });
+    await updateBrickOwlLot({ lot_id: matchingLot.lot_id, absolute_quantity: newQuantity });
 
     console.log(`✓ BrickOwl: Updated lot ${matchingLot.lot_id} to quantity ${newQuantity}`);
     return { success: true };
 
   } catch (error: any) {
-    console.error(`✗ BrickOwl sync error for inventory ${inventoryId}:`, error);
     const errMsg = error.message || 'Unknown error';
+    console.error(`✗ BrickOwl sync error for inventory ${inventoryId}:`, error);
     await recordSyncIssue({
       syncType: 'cross_platform_sync',
       platform: 'brickowl',
       itemId: inventoryId,
-      itemNo: itemNo,
+      itemNo,
       issueType: 'update_failed',
       issueDescription: `BrickOwl quantity update failed for inventory ${inventoryId}${orderNumber ? ` (order ${orderNumber})` : ''}: ${errMsg}`,
       severity: 'high',
@@ -98,8 +107,10 @@ async function updateBrickOwlQuantity(
   }
 }
 
+// ── BrickLink ─────────────────────────────────────────────────────────────────
+
 /**
- * Update a single inventory item's quantity on BrickLink (delta)
+ * Update a single inventory item's quantity on BrickLink (delta).
  */
 async function updateBrickLinkQuantityDelta(
   item: SyncItem
@@ -113,7 +124,7 @@ async function updateBrickLinkQuantityDelta(
         syncType: 'cross_platform_sync',
         platform: 'bricklink',
         itemId: inventoryId,
-        itemNo: itemNo,
+        itemNo,
         issueType: 'invalid_inventory_id',
         issueDescription: `${errMsg}${orderNumber ? ` (order ${orderNumber})` : ''}`,
         severity: 'high',
@@ -121,13 +132,14 @@ async function updateBrickLinkQuantityDelta(
       });
       return { success: false, error: errMsg };
     }
+
     const result = await adjustBrickLinkInventoryDelta(numericId, quantityDelta, orgId);
     if (!result.success && result.error) {
       await recordSyncIssue({
         syncType: 'cross_platform_sync',
         platform: 'bricklink',
         itemId: inventoryId,
-        itemNo: itemNo,
+        itemNo,
         issueType: 'update_failed',
         issueDescription: `BrickLink delta update failed for inventory ${inventoryId}${orderNumber ? ` (order ${orderNumber})` : ''}: ${result.error}`,
         severity: 'high',
@@ -135,14 +147,15 @@ async function updateBrickLinkQuantityDelta(
       });
     }
     return result;
+
   } catch (error: any) {
-    console.error(`✗ BrickLink sync error for inventory ${inventoryId}:`, error);
     const errMsg = error.message || 'Unknown error';
+    console.error(`✗ BrickLink sync error for inventory ${inventoryId}:`, error);
     await recordSyncIssue({
       syncType: 'cross_platform_sync',
       platform: 'bricklink',
       itemId: inventoryId,
-      itemNo: itemNo,
+      itemNo,
       issueType: 'update_failed',
       issueDescription: `BrickLink delta update failed for inventory ${inventoryId}${orderNumber ? ` (order ${orderNumber})` : ''}: ${errMsg}`,
       severity: 'high',
@@ -152,11 +165,15 @@ async function updateBrickLinkQuantityDelta(
   }
 }
 
+// ── Orchestration ─────────────────────────────────────────────────────────────
+
 /**
  * Synchronize a single inventory item across all platforms except the source.
+ * Accepts a pre-built context to avoid redundant API calls in bulk operations.
  */
 export async function syncInventoryItemAcrossPlatforms(
-  item: SyncItem
+  item: SyncItem,
+  context?: SyncContext
 ): Promise<CrossPlatformSyncResult> {
   const { inventoryId, quantityDelta, sourcePlatform } = item;
   const source = sourcePlatform.toLowerCase();
@@ -165,7 +182,7 @@ export async function syncInventoryItemAcrossPlatforms(
 
   const platformResults: PlatformSyncResult[] = [];
 
-  // BrickLink — use delta, skip if BrickLink is the source
+  // BrickLink — skip if it's the source
   if (source !== 'bricklink') {
     const result = await updateBrickLinkQuantityDelta(item);
     platformResults.push({
@@ -179,9 +196,10 @@ export async function syncInventoryItemAcrossPlatforms(
     console.log(`⏭️  Skipping BrickLink (source platform)`);
   }
 
-  // BrickOwl — use absolute quantity, skip if BrickOwl is the source
+  // BrickOwl — skip if it's the source
   if (source !== 'brickowl') {
-    const result = await updateBrickOwlQuantity(item);
+    const boInventoryMap = context?.boInventoryMap ?? new Map();
+    const result = await updateBrickOwlQuantity(item, boInventoryMap);
     platformResults.push({
       platform: 'BrickOwl',
       success: result.success,
@@ -206,16 +224,42 @@ export async function syncInventoryItemAcrossPlatforms(
 }
 
 /**
- * Bulk synchronization: Update multiple inventory items across platforms.
- * Runs asynchronously (fire-and-forget) to avoid blocking order processing.
+ * Bulk synchronization: Update multiple inventory items across all platforms.
+ *
+ * BrickOwl inventory is fetched once here and reused for every item, avoiding
+ * an N+1 API call pattern that does not scale with larger catalogs.
+ *
+ * Runs as fire-and-forget — callers should not await this for order processing
+ * to remain fast.
  */
 export async function syncMultipleItemsAcrossPlatforms(
   items: SyncItem[]
 ): Promise<void> {
   console.log(`\n🌐 Starting bulk cross-platform sync for ${items.length} items...`);
 
+  // Determine orgId for BrickOwl lookup (use the first item's org; all items in a
+  // single bulk sync should belong to the same org).
+  const orgId = items[0]?.orgId;
+
+  // Pre-fetch BrickOwl inventory once and index by BL inventory ID.
+  // This avoids fetching the full inventory list once per item.
+  let boInventoryMap = new Map<string, any>();
+  try {
+    const boInventory = await getBrickOwlInventory(false, orgId);
+    for (const lot of boInventory) {
+      if (lot.external_lot_ids?.other) {
+        boInventoryMap.set(lot.external_lot_ids.other, lot);
+      }
+    }
+    console.log(`🌐 Pre-fetched BrickOwl inventory: ${boInventoryMap.size} lots indexed`);
+  } catch (err: any) {
+    console.warn(`⚠️ Could not pre-fetch BrickOwl inventory for bulk sync — individual items will be skipped if their lot is not found: ${err.message}`);
+  }
+
+  const context: SyncContext = { boInventoryMap };
+
   const syncPromises = items.map(item =>
-    syncInventoryItemAcrossPlatforms(item).catch(error => {
+    syncInventoryItemAcrossPlatforms(item, context).catch(error => {
       console.error(`✗ Cross-platform sync failed for ${item.inventoryId}:`, error);
     })
   );

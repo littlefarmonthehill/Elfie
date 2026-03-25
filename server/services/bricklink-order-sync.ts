@@ -1,11 +1,13 @@
 import { db } from "../db";
-import { orders, orderDetails, orderAdjustments, syncMetadata, blInventory, blCatalog } from "@shared/schema";
-import { eq, and, sql, isNull } from "drizzle-orm";
-import { getBrickLinkOrders, getBrickLinkOrderDetail, getBrickLinkOrderItems, mapBrickLinkStatusSync, mapBrickLinkCondition } from "./bricklink-orders";
+import { orders, orderDetails, orderAdjustments, blInventory, blCatalog } from "@shared/schema";
+import { eq, and, sql } from "drizzle-orm";
+import { getBrickLinkOrders, getBrickLinkOrderDetail, getBrickLinkOrderItems, mapBrickLinkCondition } from "./bricklink-orders";
 import { bricklinkRequest } from "./bricklink";
 import { mapPlatformStatus } from "../config/order-status-mapping";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
+import { upsertSyncMetadata, resolveExistingOrder, resolveOrderStatus } from "./order-sync-helpers";
 
+const SYNC_ID = 'bricklink_orders';
 
 /**
  * Fetch a single BrickLink inventory lot by ID and upsert it into the local db.
@@ -76,15 +78,12 @@ export interface BrickLinkOrderSyncResult {
   needsInventorySync?: boolean;
 }
 
-// Sync lock to prevent concurrent syncs
-let isSyncing = false;
-
 /**
- * Sync orders directly from BrickLink API
- * 
- * This replaces ShipStation as the source for BrickLink orders.
- * Orders are fetched from BrickLink, written to the orders table,
- * and inventory adjustments are triggered automatically.
+ * Sync orders directly from BrickLink API.
+ *
+ * Uses status-comparison incremental sync: fetch all orders, filter locally to
+ * only process orders that are new or have changed status since the last run.
+ * Full sync mode bypasses this filter and processes every order.
  */
 export async function syncBrickLinkOrders(
   consumerKey: string,
@@ -92,13 +91,8 @@ export async function syncBrickLinkOrders(
   tokenValue: string,
   tokenSecret: string,
   orgId: string,
-  options: {
-    limit?: number;
-    fullSync?: boolean;
-  } = {}
+  options: { limit?: number; fullSync?: boolean } = {}
 ): Promise<BrickLinkOrderSyncResult> {
-  const syncId = 'bricklink_orders';
-  
   const result: BrickLinkOrderSyncResult = {
     ordersAdded: 0,
     ordersUpdated: 0,
@@ -107,78 +101,61 @@ export async function syncBrickLinkOrders(
     errors: [],
   };
 
-  // Prevent concurrent syncs
-  if (isSyncing) {
-    console.log(`⚠️ BrickLink order sync already in progress, skipping`);
-    result.errors.push('Sync already in progress');
-    return result;
-  }
-  
-  isSyncing = true;
-
   try {
     console.log(`\n📦 Starting BrickLink order sync...`);
-    
-    // Fetch ALL orders from BrickLink API (no status filter)
+
     const fetchedOrders = await getBrickLinkOrders(consumerKey, consumerSecret, tokenValue, tokenSecret, {
       direction: 'in',
     });
-    
+
     console.log(`📦 Fetched ${fetchedOrders.length} total orders from BrickLink API`);
-    
+
     // Sort newest first so new orders get processed quickly
-    fetchedOrders.sort((a: any, b: any) => 
+    fetchedOrders.sort((a: any, b: any) =>
       new Date(b.date_status_changed || b.date_ordered).getTime() - new Date(a.date_status_changed || a.date_ordered).getTime()
     );
-    
+
     if (fetchedOrders.length > 0) {
       const newest = fetchedOrders.slice(0, 3);
       console.log(`📋 Newest orders:`, newest.map((o: any) => `#${o.order_id} status=${o.status} date_ordered=${o.date_ordered} date_changed=${o.date_status_changed}`));
     }
-    
-    // For incremental sync: only process orders that are new or have changed status
-    // For full sync: process all orders
-    // This is much more reliable than timestamp-based filtering
+
     let allOrders = fetchedOrders;
     if (!options.fullSync) {
-      // Get all existing BrickLink order IDs and their statuses from our DB
+      // Incremental: only process orders that are new or have changed status.
+      // More reliable than timestamp-based filtering because BrickLink's timestamps can be inconsistent.
       const existingOrders = await db
         .select({ id: orders.id, orderStatus: orders.orderStatus })
         .from(orders)
         .where(and(eq(orders.orgId, orgId), sql`${orders.id} LIKE 'bl-%'`));
-      
+
       const existingMap = new Map(existingOrders.map(o => [o.id, o.orderStatus]));
-      
+
       allOrders = fetchedOrders.filter((order: any) => {
         const orderId = `bl-${order.order_id}`;
         const existing = existingMap.get(orderId);
-        if (!existing) return true; // New order - process it
-        // Allow shipped orders through if BrickLink signals a return via payment status.
-        // BrickLink keeps order status as COMPLETED on returns — only payment.status changes.
+        if (!existing) return true; // New order — process it
+
+        // BrickLink keeps order status as COMPLETED on returns; only payment.status changes.
         const isPaymentReturned = order.payment?.status === 'Returned';
-        // Already marked as returned locally — skip regardless of BrickLink status.
-        // BrickLink always shows COMPLETED for returned orders, so without this guard
-        // the status comparison below would perpetually find a mismatch ('returned' vs 'shipped')
-        // and re-process the same orders every sync without making any real change.
+        // Already returned locally — skip to prevent perpetual reprocessing.
         if (existing === 'returned') return false;
-        if (existing === 'shipped') return isPaymentReturned; // Only let through if it's a return
+        if (existing === 'shipped') return isPaymentReturned;
+
         const newStatus = mapPlatformStatus('bricklink', order.status);
-        if (existing !== newStatus) return true; // Status changed - process it
-        return false; // Already synced, same status - skip
+        return existing !== newStatus; // Status changed — process it
       });
-      
+
       console.log(`📅 Incremental: ${allOrders.length} new/changed orders to process (skipped ${fetchedOrders.length - allOrders.length} unchanged)`);
     }
-    
-    // Apply limit after filtering
+
     if (options.limit && allOrders.length > options.limit) {
       console.log(`📦 Applying limit: processing ${options.limit} of ${allOrders.length} orders`);
       allOrders = allOrders.slice(0, options.limit);
     }
-    
+
     result.totalOrders = allOrders.length;
-    
-    // Process each order
+
     for (const blOrder of allOrders) {
       try {
         await processBrickLinkOrder(blOrder, consumerKey, consumerSecret, tokenValue, tokenSecret, orgId, result);
@@ -187,9 +164,9 @@ export async function syncBrickLinkOrders(
         result.errors.push(`Order ${blOrder.order_id}: ${error.message}`);
       }
     }
-    
-    // If any returns were detected, trigger a BrickLink inventory sync so our
-    // local quantities reflect what the seller restored on BrickLink's side.
+
+    // If any returns were detected, trigger a BrickLink inventory sync so local
+    // quantities reflect what the seller restored on BrickLink's side.
     if (result.needsInventorySync) {
       console.log(`↩️ Return(s) detected — triggering BrickLink inventory sync to pull restored quantities...`);
       import('./bricklink').then(({ syncBricklinkInventory }) => {
@@ -199,62 +176,31 @@ export async function syncBrickLinkOrders(
       });
     }
 
-    // Update sync metadata
-    await db.insert(syncMetadata).values({
-      id: syncId,
-      lastSyncTime: new Date(),
-      lastSyncStatus: 'success',
+    await upsertSyncMetadata(SYNC_ID, orgId, {
+      status: 'success',
       recordsAdded: result.ordersAdded,
       recordsUpdated: result.ordersUpdated,
-      errorMessage: null,
-      orgId,
-    }).onConflictDoUpdate({
-      target: syncMetadata.id,
-      set: {
-        lastSyncTime: new Date(),
-        lastSyncStatus: 'success',
-        recordsAdded: result.ordersAdded,
-        recordsUpdated: result.ordersUpdated,
-        errorMessage: null,
-      },
     });
-    
+
     console.log(`✓ BrickLink order sync complete:`, {
       ordersAdded: result.ordersAdded,
       ordersUpdated: result.ordersUpdated,
       orderDetailsAdded: result.orderDetailsAdded,
       errors: result.errors.length,
     });
-    
+
     return result;
-    
+
   } catch (error: any) {
     console.error('✗ BrickLink order sync failed:', error);
-    
-    // Update sync metadata with error
-    await db.insert(syncMetadata).values({
-      id: syncId,
-      lastSyncTime: new Date(),
-      lastSyncStatus: 'failed',
-      errorMessage: error.message,
-      orgId,
-    }).onConflictDoUpdate({
-      target: syncMetadata.id,
-      set: {
-        lastSyncTime: new Date(),
-        lastSyncStatus: 'failed',
-        errorMessage: error.message,
-      },
-    });
-    
+    await upsertSyncMetadata(SYNC_ID, orgId, { status: 'error', errorMessage: error.message });
     throw error;
-  } finally {
-    isSyncing = false;
   }
 }
 
 /**
- * Process a single BrickLink order
+ * Process a single BrickLink order: upsert the order record, backfill any
+ * missing inventory lots, upsert line items, and trigger inventory adjustments.
  */
 async function processBrickLinkOrder(
   blOrder: any,
@@ -266,34 +212,14 @@ async function processBrickLinkOrder(
   result: BrickLinkOrderSyncResult
 ): Promise<void> {
   const orderId = `bl-${blOrder.order_id}`;
-  
-  // Check if order already exists — first by canonical bl- ID, then by legacy BL. order_number
-  // This prevents a full sync from creating duplicate records for orders stored in the old format
-  let [existingOrder] = await db
-    .select()
-    .from(orders)
-    .where(eq(orders.id, orderId))
-    .limit(1);
-  
-  if (!existingOrder) {
-    const [legacyOrder] = await db
-      .select()
-      .from(orders)
-      .where(eq(orders.orderNumber, `BL.${blOrder.order_id}`))
-      .limit(1);
-    if (legacyOrder) {
-      existingOrder = legacyOrder;
-    }
-  }
-  
-  // Map BrickLink status to normalized status.
-  // BrickLink keeps order status as COMPLETED on returns — the return is signalled
-  // by payment.status === 'Returned'. Detect that here before anything else.
+
+  // Canonical ID → legacy "BL." prefix format (prevents duplicate records on full sync)
+  const existingOrder = await resolveExistingOrder(orderId, `BL.${blOrder.order_id}`);
+
   const isReturn = blOrder.payment?.status === 'Returned';
   const normalizedStatus = isReturn ? 'returned' : mapPlatformStatus('bricklink', blOrder.status);
-  
-  // Fetch full order details (includes cost breakdown with shipping/tax)
-  // The order list endpoint only returns summary data without cost details
+
+  // Fetch full order detail for cost/shipping/address breakdown
   let orderDetail: any = null;
   try {
     orderDetail = await getBrickLinkOrderDetail(
@@ -302,17 +228,10 @@ async function processBrickLinkOrder(
   } catch (err: any) {
     console.warn(`⚠️ Could not fetch order detail for ${blOrder.order_id}: ${err.message}`);
   }
-  
-  // Use detail data for cost/shipping/address, fall back to list data
+
   const cost = orderDetail?.cost || blOrder.cost || {};
   const shipping = orderDetail?.shipping || blOrder.shipping || {};
-  
-  // BrickLink does not expose a top-level order weight field.
-  // We will compute it from order items (item.weight * quantity) after the items loop.
-  // Keep a placeholder so the orderData structure is consistent.
-  const blTotalWeightOz: number | null = null;
 
-  // Prepare order data
   const orderData = {
     id: orderId,
     orderNumber: blOrder.order_id.toString(),
@@ -336,63 +255,57 @@ async function processBrickLinkOrder(
     shipByDate: null,
     orderTotal: cost?.grand_total ? cost.grand_total.toString() : '0',
     shippingAmount: cost?.shipping ? cost.shipping.toString() : '0',
-    taxAmount: cost?.salesTax_collected_by_bl ? cost.salesTax_collected_by_bl.toString() : (cost?.vat_amount ? cost.vat_amount.toString() : '0'),
+    taxAmount: cost?.salesTax_collected_by_bl
+      ? cost.salesTax_collected_by_bl.toString()
+      : (cost?.vat_amount ? cost.vat_amount.toString() : '0'),
     internalNotes: null,
     customerNotes: orderDetail?.buyer_remark || blOrder.buyer_remark || null,
     requestedShippingService: shipping?.method || null,
     carrierCode: null,
     serviceCode: null,
-    weight: blTotalWeightOz ? blTotalWeightOz.toString() : null,
-    weightUnits: blTotalWeightOz ? 'oz' : null,
+    weight: null,
+    weightUnits: null,
     updatedAt: new Date(),
   };
-  
-  // Insert or update order
+
   if (existingOrder) {
-    // Protect locally-shipped orders: if we've marked this order as shipped locally,
-    // don't let a sync from BrickLink demote the status (BrickLink may lag behind,
-    // or our update to BrickLink may have failed temporarily).
-    // Exception: returns are a legitimate status change from BrickLink — always allow them through.
-    const isLocallyShipped = existingOrder.orderStatus === 'shipped';
-    const wouldDemote = isLocallyShipped && normalizedStatus !== 'shipped' && !isReturn;
-    
-    const updatedStatus = wouldDemote ? 'shipped' : normalizedStatus;
-    
-    if (wouldDemote) {
+    const { status: updatedStatus, wasDemotionBlocked } = resolveOrderStatus(
+      existingOrder.orderStatus,
+      normalizedStatus,
+      isReturn
+    );
+
+    if (wasDemotionBlocked) {
       console.log(`🔒 Order ${orderId}: Preserving local shipped status (BrickLink shows: ${normalizedStatus})`);
     }
 
-    // Update existing order (use existingOrder.id in case it was found via legacy order_number lookup)
-    // Separate weight from core data — only populate weight from BL if user hasn't manually set one
-    const { weight: blWeight, weightUnits: blWeightUnits, ...coreOrderData } = orderData;
+    const { weight: _w, weightUnits: _wu, ...coreOrderData } = orderData;
     await db
       .update(orders)
       .set({
         ...coreOrderData,
-        id: existingOrder.id, // Preserve the existing ID — don't rename old-format records
+        id: existingOrder.id,
         orderStatus: updatedStatus,
-        previousStatus: existingOrder.orderStatus, // Preserve current status as previous
+        previousStatus: existingOrder.orderStatus,
         // Only set BL weight if no weight is saved yet (don't overwrite manual entries)
-        ...(existingOrder.weight == null && blWeight ? { weight: blWeight, weightUnits: blWeightUnits } : {}),
+        ...(existingOrder.weight == null && orderData.weight
+          ? { weight: orderData.weight, weightUnits: orderData.weightUnits }
+          : {}),
       })
       .where(eq(orders.id, existingOrder.id));
-    
+
     result.ordersUpdated++;
-    
-    // If status changed (and we didn't protect it), trigger inventory adjustment
+
     const effectiveStatusChange = existingOrder.orderStatus !== updatedStatus;
     if (effectiveStatusChange) {
       console.log(`📦 Order ${orderId} status changed: ${existingOrder.orderStatus} → ${updatedStatus}`);
 
       if (isReturn) {
-        // For returns, BrickLink has the seller restore inventory directly on their platform.
-        // Skip our own inventory adjustment to avoid double-counting.
-        // Instead, flag that an inventory sync should run after this order is processed.
+        // BrickLink has the seller restore inventory directly — skip our own adjustment
+        // to avoid double-counting. Flag for a post-sync inventory pull instead.
         console.log(`↩️ Order ${orderId} is a return — skipping inventory adjustment, inventory sync will run after.`);
         result.needsInventorySync = true;
 
-        // Record the refund in order_adjustments from BrickLink's own cost data.
-        // Use a deterministic external ID so this is idempotent across sync runs.
         const externalId = `bl-${blOrder.order_id}-return`;
         const refundAmount = cost?.grand_total ? Number(cost.grand_total) : null;
         if (refundAmount && refundAmount > 0) {
@@ -418,7 +331,6 @@ async function processBrickLinkOrder(
           console.warn(`⚠️ Order ${orderId}: BrickLink return detected but cost.grand_total is missing or zero — refund adjustment NOT recorded. cost=${JSON.stringify(cost)}`);
         }
       } else {
-        // Trigger inventory adjustment asynchronously
         adjustInventoryForOrder(orderId).catch(error => {
           console.error(`⚠️ Inventory adjustment failed for order ${orderId}:`, error);
           result.errors.push(`Inventory adjustment failed for ${orderId}: ${error.message}`);
@@ -426,14 +338,13 @@ async function processBrickLinkOrder(
       }
     }
   } else {
-    // Insert new order
     await db.insert(orders).values([{ ...orderData, orgId }]);
     result.ordersAdded++;
   }
-  
+
   const isNewOrder = !existingOrder;
-  
-  // Fetch order items
+
+  // Fetch and process order line items
   const blOrderItems = await getBrickLinkOrderItems(
     blOrder.order_id,
     consumerKey,
@@ -441,64 +352,49 @@ async function processBrickLinkOrder(
     tokenValue,
     tokenSecret
   );
-  
+
   console.log(`📦 Order ${orderId}: Fetched ${blOrderItems.length} items`);
-  
-  // Accumulate total order weight in grams from line items (item.weight × quantity)
+
   let itemsTotalWeightGrams = 0;
 
-  // Process order items
   for (const item of blOrderItems) {
     try {
       const lineItemKey = `bl-${blOrder.order_id}-${item.inventory_id}`;
-      
-      // Check if line item already exists
+
       const [existingItem] = await db
         .select()
         .from(orderDetails)
-        .where(
-          and(
-            eq(orderDetails.orderId, orderId),
-            eq(orderDetails.lineItemKey, lineItemKey)
-          )
-        )
+        .where(and(eq(orderDetails.orderId, orderId), eq(orderDetails.lineItemKey, lineItemKey)))
         .limit(1);
-      
-      // Accumulate total order weight (item.weight is grams per unit)
+
       if (item.weight && item.quantity) {
         itemsTotalWeightGrams += parseFloat(item.weight) * item.quantity;
       }
 
-      // Save BrickLink's per-piece catalog weight to bl_catalog_weight (not my_weight, which is user's field).
-      // item.weight from the order items API is the official catalog weight in grams.
-      if (item.inventory_id) {
+      // Opportunistically save the catalog weight from the order item API response
+      if (item.inventory_id && item.item?.no && item.item?.type) {
         try {
           const unitWeightGrams = item.weight ? parseFloat(item.weight) : null;
           if (unitWeightGrams && unitWeightGrams > 0) {
             const wg = unitWeightGrams;
-            // Update bl_catalog by (itemNo, itemType, colorId) if we have the item identity
-            if (item.item?.no && item.item?.type) {
-              await db.update(blCatalog)
-                .set({
-                  blCatalogWeight: sql`CASE WHEN ${blCatalog.blCatalogWeight} IS NULL OR ${blCatalog.blCatalogWeight} = 0 THEN ${wg} ELSE ${blCatalog.blCatalogWeight} END`,
-                  updatedAt: new Date(),
-                })
-                .where(and(
-                  eq(blCatalog.itemNo, item.item.no),
-                  eq(blCatalog.itemType, item.item.type),
-                  eq(blCatalog.colorId, item.color_id ?? 0),
-                ));
-            }
+            await db.update(blCatalog)
+              .set({
+                blCatalogWeight: sql`CASE WHEN ${blCatalog.blCatalogWeight} IS NULL OR ${blCatalog.blCatalogWeight} = 0 THEN ${wg} ELSE ${blCatalog.blCatalogWeight} END`,
+                updatedAt: new Date(),
+              })
+              .where(and(
+                eq(blCatalog.itemNo, item.item.no),
+                eq(blCatalog.itemType, item.item.type),
+                eq(blCatalog.colorId, item.color_id ?? 0),
+              ));
           }
         } catch (invErr: any) {
           console.warn(`⚠️ Could not save catalog weight for lot ${item.inventory_id}: ${invErr.message}`);
         }
       }
 
-      // ── Missing inventory check ──────────────────────────────────────────────
-      // If this lot doesn't exist in the local db (e.g. it was newly listed during
-      // the day before the nightly inventory sync ran), fetch it from BrickLink now
-      // so that inventory adjustment can deduct stock correctly.
+      // If this lot doesn't exist locally, fetch it now so inventory adjustment
+      // can deduct stock correctly (handles lots listed since the last inventory sync).
       if (item.inventory_id) {
         const [existingLot] = await db
           .select({ id: blInventory.id })
@@ -512,14 +408,12 @@ async function processBrickLinkOrder(
         }
       }
 
-      if (existingItem) {
-        continue; // Order detail already exists — inventory backfill above still ran
-      }
+      if (existingItem) continue; // Inventory backfill above still ran
 
-      const orderDetailData = {
+      await db.insert(orderDetails).values([{
         orderId,
         lineItemKey,
-        sku: item.inventory_id ? item.inventory_id.toString() : null,  // BrickLink inventory ID
+        sku: item.inventory_id ? item.inventory_id.toString() : null,
         itemNo: item.item?.no || null,
         name: item.item?.name || `${item.item?.no || ''} - unknown`,
         quantity: item.quantity,
@@ -537,9 +431,7 @@ async function processBrickLinkOrder(
         condition: mapBrickLinkCondition(item.new_or_used),
         fulfilled: false,
         fulfilledAt: null,
-      };
-      
-      await db.insert(orderDetails).values([orderDetailData]);
+      }]);
       result.orderDetailsAdded++;
 
     } catch (error: any) {
@@ -548,12 +440,11 @@ async function processBrickLinkOrder(
     }
   }
 
-  // After items are processed, write the computed total weight to the order record
-  // if no weight is already saved (avoids overwriting manual edits)
+  // Write computed total weight if no weight is already saved
   if (itemsTotalWeightGrams > 0) {
     const computedWeightOz = Math.round(itemsTotalWeightGrams * 0.035274 * 100) / 100;
-    const currentOrder = await db.select({ weight: orders.weight }).from(orders).where(eq(orders.id, orderId)).limit(1);
-    if (currentOrder[0] && currentOrder[0].weight == null) {
+    const [currentOrder] = await db.select({ weight: orders.weight }).from(orders).where(eq(orders.id, orderId)).limit(1);
+    if (currentOrder?.weight == null) {
       await db.update(orders)
         .set({ weight: computedWeightOz.toString(), weightUnits: 'oz' })
         .where(eq(orders.id, orderId));

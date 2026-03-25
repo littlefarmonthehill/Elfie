@@ -4,75 +4,67 @@ import { eq, and } from "drizzle-orm";
 import { getBrickOwlOrders, getBrickOwlOrderDetails, mapBrickOwlStatus } from "./brickowl-orders";
 import { getBrickOwlInventory } from "./brickowl";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
+import { upsertSyncMetadata, resolveExistingOrder, resolveOrderStatus } from "./order-sync-helpers";
 
+const SYNC_ID = 'brickowl_orders';
 
 export interface BrickOwlOrderSyncResult {
   ordersAdded: number;
   ordersUpdated: number;
   orderDetailsAdded: number;
-  skusMigrated: number;
   totalOrders: number;
   errors: string[];
 }
 
 /**
- * Sync orders directly from BrickOwl API
- * 
- * This replaces ShipStation as the source for BrickOwl orders.
- * Orders are fetched from BrickOwl, written to the orders table,
- * and inventory adjustments are triggered automatically.
+ * Sync orders directly from BrickOwl API.
+ *
+ * Uses timestamp-based incremental sync: fetches only orders placed since the last
+ * successful sync (with a 4-hour lookback buffer to cover edge cases).
+ * Full sync mode fetches all orders regardless of timestamp.
  */
 export async function syncBrickOwlOrders(
   apiKey: string,
   orgId: string,
-  options: {
-    limit?: number;
-    fullSync?: boolean;
-  } = {}
+  options: { limit?: number; fullSync?: boolean } = {}
 ): Promise<BrickOwlOrderSyncResult> {
-  const syncId = 'brickowl_orders';
-  
   const result: BrickOwlOrderSyncResult = {
     ordersAdded: 0,
     ordersUpdated: 0,
     orderDetailsAdded: 0,
-    skusMigrated: 0,
     totalOrders: 0,
     errors: [],
   };
 
   try {
     console.log(`\n🦉 Starting BrickOwl order sync...`);
-    
-    // Check if incremental sync should be used
+
+    // Determine lookback timestamp for incremental sync
     let orderTime: number | undefined = undefined;
-    
+
     if (!options.fullSync) {
-      // Check for previous sync
       const [previousSync] = await db
         .select()
         .from(syncMetadata)
-        .where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, syncId)))
+        .where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, SYNC_ID)))
         .limit(1);
-      
+
       if (previousSync?.lastSyncTime) {
-        // BrickOwl API expects Unix timestamp.
-        // Subtract a 4-hour lookback buffer so orders placed during the previous sync window
-        // (between sync start and when lastSyncTime was written) are never permanently skipped.
-        const LOOKBACK_SECONDS = 4 * 3600; // 4 hours
+        // Subtract a 4-hour buffer so orders placed during the previous sync window are never skipped.
+        const LOOKBACK_SECONDS = 4 * 3600;
         orderTime = Math.floor(previousSync.lastSyncTime.getTime() / 1000) - LOOKBACK_SECONDS;
         const lookbackDate = new Date(orderTime * 1000);
-        console.log(`📅 Incremental sync: fetching orders placed since ${lookbackDate.toISOString()} (4h lookback from last sync at ${previousSync.lastSyncTime.toISOString()})`);
+        console.log(`📅 Incremental sync: fetching orders since ${lookbackDate.toISOString()} (4h lookback from last sync at ${previousSync.lastSyncTime.toISOString()})`);
       } else {
-        console.log(`🔄 No previous sync found - performing full sync`);
+        console.log(`🔄 No previous sync found — performing full sync`);
       }
     } else {
       console.log(`🔄 Full sync requested`);
     }
 
-    // Fetch live BrickOwl inventory to build the canonical boLotId → BL inventory ID map.
+    // Build the canonical BO lot_id → BL inventory ID map from live BrickOwl inventory.
     // The channel sync tags every BL-sourced BO lot with external_lot_ids.other = BL inventory ID.
-    // This is the authoritative link — part number, color, and condition all come from BL inventory.
+    // Fetching this once here avoids repeated API calls during item processing.
     console.log(`🦉 Fetching BrickOwl inventory to build lot→BL inventory map...`);
     let boLotToBlInvId = new Map<string, number>();
     try {
@@ -88,17 +80,11 @@ export async function syncBrickOwlOrders(
     } catch (err: any) {
       console.warn(`⚠️ Could not fetch BO inventory for lot map (will fall back to order item data): ${err.message}`);
     }
-    
-    // Fetch orders from BrickOwl API
-    const boOrders = await getBrickOwlOrders(apiKey, {
-      limit: options.limit,
-      orderTime: orderTime,
-    });
-    
+
+    const boOrders = await getBrickOwlOrders(apiKey, { limit: options.limit, orderTime });
     result.totalOrders = boOrders.length;
     console.log(`🦉 Fetched ${result.totalOrders} orders from BrickOwl`);
-    
-    // Process each order
+
     for (const boOrder of boOrders) {
       try {
         await processBrickOwlOrder(boOrder, orgId, apiKey, result, boLotToBlInvId);
@@ -107,82 +93,47 @@ export async function syncBrickOwlOrders(
         result.errors.push(`Order ${boOrder.order_id}: ${error.message}`);
       }
     }
-    
-    // Update sync metadata
-    await db.insert(syncMetadata).values({
-      id: syncId,
-      lastSyncTime: new Date(),
-      lastSyncStatus: 'success',
+
+    await upsertSyncMetadata(SYNC_ID, orgId, {
+      status: 'success',
       recordsAdded: result.ordersAdded,
       recordsUpdated: result.ordersUpdated,
-      errorMessage: null,
-      orgId,
-    }).onConflictDoUpdate({
-      target: syncMetadata.id,
-      set: {
-        lastSyncTime: new Date(),
-        lastSyncStatus: 'success',
-        recordsAdded: result.ordersAdded,
-        recordsUpdated: result.ordersUpdated,
-        errorMessage: null,
-      },
     });
-    
+
     console.log(`✓ BrickOwl order sync complete:`, {
       ordersAdded: result.ordersAdded,
       ordersUpdated: result.ordersUpdated,
       orderDetailsAdded: result.orderDetailsAdded,
-      skusMigrated: result.skusMigrated,
       errors: result.errors.length,
     });
-    
+
     return result;
-    
+
   } catch (error: any) {
     console.error('✗ BrickOwl order sync failed:', error);
-    
-    // Update sync metadata with error
-    await db.insert(syncMetadata).values({
-      id: syncId,
-      lastSyncTime: new Date(),
-      lastSyncStatus: 'failed',
-      errorMessage: error.message,
-      orgId,
-    }).onConflictDoUpdate({
-      target: syncMetadata.id,
-      set: {
-        lastSyncTime: new Date(),
-        lastSyncStatus: 'failed',
-        errorMessage: error.message,
-      },
-    });
-    
+    await upsertSyncMetadata(SYNC_ID, orgId, { status: 'error', errorMessage: error.message });
     throw error;
   }
 }
 
 /**
- * Safely parse timestamp to Date
- * Prefers ISO format over Unix timestamp
+ * Safely parse a timestamp to a Date, preferring ISO format over Unix timestamp.
  */
 function safeTimestampToDate(isoString: string | null | undefined, unixTimestamp: number | null | undefined): Date | null {
-  // Try ISO string first (more reliable)
   if (isoString) {
     const date = new Date(isoString);
     if (!isNaN(date.getTime())) return date;
   }
-  
-  // Fallback to Unix timestamp
   if (unixTimestamp) {
     const date = new Date(unixTimestamp * 1000);
     if (!isNaN(date.getTime())) return date;
   }
-  
   return null;
 }
 
 /**
- * Process a single BrickOwl order
+ * Process a single BrickOwl order: upsert the order record, upsert line items,
+ * and trigger inventory adjustments.
  */
 async function processBrickOwlOrder(
   boOrder: any,
@@ -192,59 +143,19 @@ async function processBrickOwlOrder(
   boLotToBlInvId: Map<string, number> = new Map()
 ): Promise<void> {
   const orderId = `bo-${boOrder.order_id}`;
-  
-  // Check if order already exists — first by canonical bo- ID, then by legacy BO. order_number
-  // This prevents a full sync from creating duplicate records for orders stored in the old format
-  let [existingOrder] = await db
-    .select()
-    .from(orders)
-    .where(eq(orders.id, orderId))
-    .limit(1);
-  
-  if (!existingOrder) {
-    // Try legacy BO. prefixed order_number format first
-    const [legacyOrderBo] = await db
-      .select()
-      .from(orders)
-      .where(eq(orders.orderNumber, `BO.${boOrder.order_id}`))
-      .limit(1);
-    if (legacyOrderBo) {
-      existingOrder = legacyOrderBo;
-    }
-  }
 
-  if (!existingOrder) {
-    // Also try plain numeric order_number (old records stored order_number without any prefix)
-    const [legacyOrderNumeric] = await db
-      .select()
-      .from(orders)
-      .where(eq(orders.orderNumber, String(boOrder.order_id)))
-      .limit(1);
-    if (legacyOrderNumeric) {
-      existingOrder = legacyOrderNumeric;
-    }
-  }
-  
-  // Debug: log raw status fields to confirm what BrickOwl returns
-  console.log(`🦉 [BO status debug] order ${orderId} — status_id: ${boOrder.status_id}, status: ${boOrder.status}, status_name: ${boOrder.status_name}`);
+  // Canonical ID → "BO." prefix format → plain numeric (covers all legacy record formats)
+  const existingOrder = await resolveExistingOrder(
+    orderId,
+    `BO.${boOrder.order_id}`,
+    String(boOrder.order_id)
+  );
 
-  // Map BrickOwl status to normalized status (numeric ID + text fallback)
   const normalizedStatus = mapBrickOwlStatus(boOrder.status_id, boOrder.status ?? boOrder.status_name);
-  
-  // Use the actual existing order's ID for all DB operations
-  // (in case we found a legacy order via the BO. order_number fallback)
   const effectiveOrderId = existingOrder?.id ?? orderId;
 
-  // Fetch full order details (including items)
   const brickOwlOrderData = await getBrickOwlOrderDetails(apiKey, boOrder.order_id);
 
-  // Temporary debug: log all note-related fields from BO order detail response
-  const noteFields = Object.entries(brickOwlOrderData)
-    .filter(([k]) => /note|comment|remark|message|buyer/i.test(k))
-    .reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {});
-  console.log(`🦉 [BO note fields] order ${orderId}:`, JSON.stringify(noteFields));
-
-  // Safely parse order date - prefer ISO format from list API, then detail view, then now
   const orderDate =
     safeTimestampToDate(boOrder.iso_order_time, boOrder.order_time) ??
     safeTimestampToDate(brickOwlOrderData.iso_order_time, brickOwlOrderData.order_time) ??
@@ -252,13 +163,12 @@ async function processBrickOwlOrder(
 
   let isNewOrder = false;
 
-  // Build the full order payload used for both insert and update
   const orderData = {
     id: orderId,
     orderNumber: boOrder.order_id.toString(),
     orderKey: `BO.${boOrder.order_id}`,
     marketplace: 'BrickOwl',
-    orderDate: orderDate,
+    orderDate,
     orderStatus: normalizedStatus,
     previousStatus: existingOrder?.orderStatus || null,
     customerUsername: brickOwlOrderData.buyer_name || null,
@@ -307,23 +217,19 @@ async function processBrickOwlOrder(
   };
 
   if (!existingOrder) {
-    // Insert new order
     await db.insert(orders).values([{ ...orderData, orgId }]);
     result.ordersAdded++;
     isNewOrder = true;
   } else {
-    // Protect locally-shipped orders: don't let BrickOwl demote status
-    // (BrickOwl may lag behind after we mark an order as shipped)
-    const isLocallyShipped = existingOrder.orderStatus === 'shipped';
-    const wouldDemote = isLocallyShipped && normalizedStatus !== 'shipped';
+    const { status: updatedStatus, wasDemotionBlocked } = resolveOrderStatus(
+      existingOrder.orderStatus,
+      normalizedStatus
+    );
 
-    if (wouldDemote) {
+    if (wasDemotionBlocked) {
       console.log(`🔒 BrickOwl order ${effectiveOrderId}: Preserving local shipped status (BrickOwl shows: ${normalizedStatus})`);
     }
 
-    const updatedStatus = wouldDemote ? 'shipped' : normalizedStatus;
-
-    // Update full order data on every sync (shipping address, totals, customer info, status)
     await db
       .update(orders)
       .set({
@@ -336,7 +242,6 @@ async function processBrickOwlOrder(
 
     result.ordersUpdated++;
 
-    // If status actually changed, trigger inventory adjustment
     if (existingOrder.orderStatus !== updatedStatus) {
       console.log(`📦 BrickOwl order ${effectiveOrderId} status changed: ${existingOrder.orderStatus} → ${updatedStatus}`);
       adjustInventoryForOrder(effectiveOrderId).catch(error => {
@@ -344,42 +249,25 @@ async function processBrickOwlOrder(
       });
     }
   }
-  
-  // Process order items
+
+  // Process order line items
   const items = brickOwlOrderData.items || [];
   console.log(`🦉 Order ${effectiveOrderId}: Processing ${items.length} items`);
-  
+
   for (const item of items) {
     try {
-      // Match existing line item key format: {order_id}-{lot_id} (without "bo-" prefix)
       const lineItemKey = `${boOrder.order_id}-${item.lot_id}`;
-      
-      // Check if line item already exists
+
       const [existingItem] = await db
         .select()
         .from(orderDetails)
-        .where(
-          and(
-            eq(orderDetails.orderId, effectiveOrderId),
-            eq(orderDetails.lineItemKey, lineItemKey)
-          )
-        )
+        .where(and(eq(orderDetails.orderId, effectiveOrderId), eq(orderDetails.lineItemKey, lineItemKey)))
         .limit(1);
-      
-      if (existingItem) {
-        // Item already exists - skip it
-        // Note: Historical SKU migration is handled in bulk at the start of full syncs
-        // Only new orders/items from this point forward
-        continue;
-      }
-      
-      // Resolve BrickLink inventory ID via the BO lot → BL inv link.
-      // Priority:
-      //   1. boLotToBlInvId map built from live BO inventory (external_lot_ids.other on the lot)
-      //   2. external_lot_ids.other on the order item itself (same field, sometimes present)
-      // When found, all part/color/condition data comes from bl_inventory — no BO fields needed.
-      let brickLinkInvId: number | null = null;
 
+      if (existingItem) continue;
+
+      // Resolve BL inventory ID: prefer the pre-built lot map, fall back to the item's own field.
+      let brickLinkInvId: number | null = null;
       const fromMap = boLotToBlInvId.get(String(item.lot_id));
       if (fromMap) {
         brickLinkInvId = fromMap;
@@ -388,14 +276,10 @@ async function processBrickOwlOrder(
         if (!isNaN(parsed)) brickLinkInvId = parsed;
       }
 
-      // sku = string form of the BL inventory ID (null when no link is resolved)
-      const skuValue: string | null = brickLinkInvId ? String(brickLinkInvId) : null;
-
-      const orderDetailData = {
+      await db.insert(orderDetails).values([{
         orderId: effectiveOrderId,
         lineItemKey,
-        sku: skuValue,
-        // Keep the BO item name as-is — part/color/condition come from bl_inventory via bricklinkInventoryId
+        sku: brickLinkInvId ? String(brickLinkInvId) : null,
         name: item.name || '',
         quantity: item.ordered_quantity,
         unitPrice: item.base_price ? item.base_price.toString() : '0',
@@ -408,23 +292,19 @@ async function processBrickOwlOrder(
         customField2: null,
         customField3: null,
         bricklinkInventoryId: brickLinkInvId,
-        // colorId and condition are resolved from bl_inventory at display time (via bricklinkInventoryId join)
         colorId: null,
         condition: null,
         fulfilled: false,
         fulfilledAt: null,
-      };
-      
-      await db.insert(orderDetails).values([orderDetailData]);
+      }]);
       result.orderDetailsAdded++;
-      
+
     } catch (error: any) {
       console.error(`✗ Error processing order item for order ${orderId}:`, error);
       result.errors.push(`Order ${orderId} item error: ${error.message}`);
     }
   }
 
-  // Trigger inventory adjustment for new orders after items are inserted
   if (isNewOrder) {
     console.log(`📦 New BrickOwl order ${effectiveOrderId} — triggering inventory adjustment`);
     adjustInventoryForOrder(effectiveOrderId).catch(error => {
