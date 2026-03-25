@@ -174,7 +174,6 @@ export const blInventory = pgTable("bl_inventory", {
   tierQuantity3: integer("tier_quantity_3"),
   myWeight: decimal("my_weight", { precision: 10, scale: 4 }),
   orgId: varchar("org_id"),                          // FK → organizations.id
-  boLotId: text("bo_lot_id"),                       // BrickOwl lot_id linked to this BL inventory lot (set by channel sync)
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   deletedAt: timestamp("deleted_at"),               // Soft delete: set when item disappears from BL; cleared if it reappears
@@ -184,8 +183,6 @@ export const blInventory = pgTable("bl_inventory", {
   // Index for item lookup
   itemNoIdx: index("bl_inv_item_no_idx").on(table.itemNo),
   orgIdIdx: index("bl_inv_org_id_idx").on(table.orgId),
-  // Index for BO lot ID lookups (used by cross-platform sync and order reconciliation)
-  boLotIdIdx: index("bl_inv_bo_lot_id_idx").on(table.boLotId),
 }));
 
 export const insertBlInventorySchema = createInsertSchema(blInventory).omit({
@@ -195,6 +192,32 @@ export const insertBlInventorySchema = createInsertSchema(blInventory).omit({
 
 export type InsertBlInventory = z.infer<typeof insertBlInventorySchema>;
 export type BlInventory = typeof blInventory.$inferSelect;
+
+// ── Channel Lot Links ──────────────────────────────────────────────────────────
+// Global BL lot ID → channel lot ID mapping table.
+// BrickLink inventory is the source of truth (SOT); every external channel
+// (BrickOwl, Amazon, eBay, …) gets one row per BL lot it mirrors.
+// Populated/refreshed during each channel sync run (upsert on conflict).
+//
+//   blInvId + orgId + channel → channelLotId   (forward:  BL → channel)
+//   channel + channelLotId    → blInvId         (reverse:  channel → BL)
+export const channelLotLinks = pgTable("channel_lot_links", {
+  blInvId:      integer("bl_inv_id").notNull().references(() => blInventory.id, { onDelete: 'cascade' }),
+  orgId:        varchar("org_id").notNull(),
+  channel:      text("channel").notNull(),        // 'brickowl' | 'amazon' | 'ebay' | …
+  channelLotId: text("channel_lot_id").notNull(), // Lot / listing ID on the external channel
+  syncedAt:     timestamp("synced_at").defaultNow().notNull(),
+}, (table) => ({
+  pk:             primaryKey({ columns: [table.blInvId, table.orgId, table.channel] }),
+  // Reverse lookup — given a channel lot ID, resolve the BL inventory item
+  channelLotIdx:  index("cll_channel_lot_idx").on(table.channel, table.channelLotId),
+  // All linked lots for an org × channel (e.g. "list all BO lots we've synced for org-a")
+  orgChannelIdx:  index("cll_org_channel_idx").on(table.orgId, table.channel),
+}));
+
+export const insertChannelLotLinkSchema = createInsertSchema(channelLotLinks);
+export type InsertChannelLotLink = z.infer<typeof insertChannelLotLinkSchema>;
+export type ChannelLotLink = typeof channelLotLinks.$inferSelect;
 
 // ── Shared Part Catalog ────────────────────────────────────────────────────────
 // One row per (itemNo, itemType, colorId) — no org_id.

@@ -1,6 +1,11 @@
 import { updateBrickOwlLot, getBrickOwlInventory } from './brickowl';
 import { adjustBrickLinkInventoryDelta } from './bricklink';
 import { recordSyncIssue } from './sync-issue-service';
+import { db } from '../db';
+import { channelLotLinks } from '@shared/schema';
+import { eq, and, inArray } from 'drizzle-orm';
+
+const BO_CHANNEL = 'brickowl' as const;
 
 /**
  * Cross-Platform Inventory Synchronization Service
@@ -226,8 +231,9 @@ export async function syncInventoryItemAcrossPlatforms(
 /**
  * Bulk synchronization: Update multiple inventory items across all platforms.
  *
- * BrickOwl inventory is fetched once here and reused for every item, avoiding
- * an N+1 API call pattern that does not scale with larger catalogs.
+ * BL inventory IDs are resolved to channel lot IDs via the local channel_lot_links
+ * table (O(1) DB lookup, no external API call). Only items not yet in the table
+ * (pre-dating the mapping feature) fall back to a one-time live BO inventory fetch.
  *
  * Runs as fire-and-forget — callers should not await this for order processing
  * to remain fast.
@@ -241,19 +247,46 @@ export async function syncMultipleItemsAcrossPlatforms(
   // single bulk sync should belong to the same org).
   const orgId = items[0]?.orgId;
 
-  // Pre-fetch BrickOwl inventory once and index by BL inventory ID.
-  // This avoids fetching the full inventory list once per item.
+  // ── Primary: resolve BL→BO lot IDs from the local channel_lot_links table ──
+  // This is a single indexed DB query — no external API call needed.
   let boInventoryMap = new Map<string, any>();
+  const blInvIds = items
+    .map(i => parseInt(i.inventoryId, 10))
+    .filter(id => !isNaN(id));
+
   try {
-    const boInventory = await getBrickOwlInventory(false, orgId);
-    for (const lot of boInventory) {
-      if (lot.external_lot_ids?.other) {
-        boInventoryMap.set(lot.external_lot_ids.other, lot);
+    if (blInvIds.length > 0 && orgId) {
+      const links = await db
+        .select({ blInvId: channelLotLinks.blInvId, channelLotId: channelLotLinks.channelLotId })
+        .from(channelLotLinks)
+        .where(and(eq(channelLotLinks.orgId, orgId), eq(channelLotLinks.channel, BO_CHANNEL), inArray(channelLotLinks.blInvId, blInvIds)));
+      for (const link of links) {
+        boInventoryMap.set(String(link.blInvId), { lot_id: link.channelLotId });
       }
+      console.log(`🌐 Resolved ${boInventoryMap.size}/${blInvIds.length} BL→BO lot links from local table`);
     }
-    console.log(`🌐 Pre-fetched BrickOwl inventory: ${boInventoryMap.size} lots indexed`);
   } catch (err: any) {
-    console.warn(`⚠️ Could not pre-fetch BrickOwl inventory for bulk sync — individual items will be skipped if their lot is not found: ${err.message}`);
+    console.warn(`⚠️ Could not query channel_lot_links — will fall back to live BO inventory: ${err.message}`);
+  }
+
+  // ── Fallback: fetch live BO inventory for items not yet in channel_lot_links ──
+  // Covers lots created before this feature was deployed. Once the channel sync
+  // has run at least once for an org, this fallback path will never trigger.
+  const unresolved = blInvIds.filter(id => !boInventoryMap.has(String(id)));
+  if (unresolved.length > 0) {
+    console.log(`🌐 ${unresolved.length} items not in channel_lot_links — falling back to live BO inventory fetch`);
+    try {
+      const boInventory = await getBrickOwlInventory(false, orgId);
+      for (const lot of boInventory) {
+        const extId = lot.external_lot_ids?.other;
+        if (extId && !boInventoryMap.has(extId)) {
+          boInventoryMap.set(extId, lot);
+        }
+      }
+      console.log(`🌐 Fallback BO inventory fetched: ${boInventoryMap.size} total lots now indexed`);
+    } catch (err: any) {
+      console.warn(`⚠️ Could not fetch live BO inventory for fallback: ${err.message}`);
+    }
   }
 
   const context: SyncContext = { boInventoryMap };

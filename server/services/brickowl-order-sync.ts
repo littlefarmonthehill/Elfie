@@ -292,6 +292,7 @@ async function processBrickOwlOrder(
         customField2: null,
         customField3: null,
         bricklinkInventoryId: brickLinkInvId,
+        boLotId: item.lot_id != null ? String(item.lot_id) : null,
         colorId: null,
         condition: null,
         fulfilled: false,

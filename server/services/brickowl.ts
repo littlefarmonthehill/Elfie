@@ -1,7 +1,9 @@
 import { db } from "../db";
-import { appSettings, blInventory, blColors } from "@shared/schema";
+import { appSettings, blInventory, blColors, channelLotLinks } from "@shared/schema";
 import { eq, isNotNull, isNull, inArray, sql, and, gt } from "drizzle-orm";
 import { decodeHTML } from "entities";
+
+const BO_CHANNEL = 'brickowl' as const;
 
 // Normalize a note/description string so both sides of a BL↔BO comparison are
 // always in the same canonical form before being compared or pushed to BrickOwl.
@@ -765,22 +767,28 @@ export async function syncBrickLinkToBrickOwl(
     if (extId) taggedLotMap.set(extId, lot);
   }
 
-  // ── Write-back: persist BO lot IDs to bl_inventory for all tagged lots ────
-  // This gives us a local BL↔BO link so order sync and cross-platform sync
-  // can do O(1) lookups without re-fetching the full BO inventory each time.
+  // ── Write-back: upsert all tagged BL↔BO lot links into channel_lot_links ───
+  // Keeps our local mapping table current so cross-platform sync and order
+  // reconciliation can resolve channel lot IDs with an O(1) DB lookup instead
+  // of re-fetching the full BrickOwl inventory on every triggered sync.
   if (taggedLotMap.size > 0 && orgId) {
     const entries = [...taggedLotMap.entries()]
-      .map(([blInvIdStr, lot]) => ({ id: parseInt(blInvIdStr, 10), boLotId: String(lot.lot_id) }))
-      .filter(e => !isNaN(e.id));
+      .map(([blInvIdStr, lot]) => ({ blInvId: parseInt(blInvIdStr, 10), channelLotId: String(lot.lot_id) }))
+      .filter(e => !isNaN(e.blInvId));
     const CHUNK = 50;
     for (let i = 0; i < entries.length; i += CHUNK) {
       await Promise.all(
         entries.slice(i, i + CHUNK).map(e =>
-          db.update(blInventory).set({ boLotId: e.boLotId }).where(eq(blInventory.id, e.id))
+          db.insert(channelLotLinks)
+            .values({ blInvId: e.blInvId, orgId: orgId!, channel: BO_CHANNEL, channelLotId: e.channelLotId, syncedAt: new Date() })
+            .onConflictDoUpdate({
+              target: [channelLotLinks.blInvId, channelLotLinks.orgId, channelLotLinks.channel],
+              set: { channelLotId: e.channelLotId, syncedAt: new Date() },
+            })
         )
       );
     }
-    console.log(`[ChannelSync] ✓ Wrote back ${entries.length} BO lot IDs to bl_inventory`);
+    console.log(`[ChannelSync] ✓ Upserted ${entries.length} lot links into channel_lot_links`);
   }
 
   // Pre-load the BO color map once so Phase 1 color-mismatch checks are
@@ -1261,9 +1269,10 @@ export async function syncBrickLinkToBrickOwl(
       if (untagged.length === 1) {
         // Adopt single pre-existing untagged lot
         try {
+          const adoptedLotId = untagged[0].lot_id;
           const itemSalePercent = fields.salePercent ? (item.saleRate ?? 0) : undefined;
           await updateBrickOwlLot({
-            lot_id: untagged[0].lot_id,
+            lot_id: adoptedLotId,
             external_id: item.id.toString(),
             absolute_quantity: item.quantity,
             price: newPrice,
@@ -1276,9 +1285,18 @@ export async function syncBrickLinkToBrickOwl(
             ...(itemBulkQty   !== undefined && { bulk_qty:    itemBulkQty   }),
             ...(itemLotWeight !== undefined && { lot_weight:  itemLotWeight }),
           }, orgId);
+          // Persist the BL↔BO link now that we've successfully adopted the lot
+          if (orgId) {
+            await db.insert(channelLotLinks)
+              .values({ blInvId: item.id, orgId, channel: BO_CHANNEL, channelLotId: adoptedLotId, syncedAt: new Date() })
+              .onConflictDoUpdate({
+                target: [channelLotLinks.blInvId, channelLotLinks.orgId, channelLotLinks.channel],
+                set: { channelLotId: adoptedLotId, syncedAt: new Date() },
+              });
+          }
           result.lotsUpdated++;
           result.totalApiCalls++;
-          console.log(`[ChannelSync] ✓ Adopted lot ${untagged[0].lot_id} for ${item.itemNo}`);
+          console.log(`[ChannelSync] ✓ Adopted lot ${adoptedLotId} for ${item.itemNo}`);
         } catch (err) {
           result.errors.push(`${item.itemNo}: adopt failed — ${err instanceof Error ? err.message : err}`);
           result.lotsSkipped++;
@@ -1291,7 +1309,7 @@ export async function syncBrickLinkToBrickOwl(
         // Create new lot
         try {
           const itemSalePercent = fields.salePercent ? (item.saleRate ?? 0) : undefined;
-          await createBrickOwlLot({
+          const createResp = await createBrickOwlLot({
             boid,
             quantity: item.quantity,
             price: newPrice,
@@ -1307,7 +1325,17 @@ export async function syncBrickLinkToBrickOwl(
           }, orgId);
           result.lotsCreated++;
           result.totalApiCalls++;
-          console.log(`[ChannelSync] ✓ Created lot for ${item.itemNo} (BOID ${boid})`);
+          // Persist the new BL↔BO link if the API returned a lot_id in the response
+          const newLotId = createResp?.lot_id?.toString();
+          if (newLotId && orgId) {
+            await db.insert(channelLotLinks)
+              .values({ blInvId: item.id, orgId, channel: BO_CHANNEL, channelLotId: newLotId, syncedAt: new Date() })
+              .onConflictDoUpdate({
+                target: [channelLotLinks.blInvId, channelLotLinks.orgId, channelLotLinks.channel],
+                set: { channelLotId: newLotId, syncedAt: new Date() },
+              });
+          }
+          console.log(`[ChannelSync] ✓ Created lot ${newLotId ?? '(id pending next sync)'} for ${item.itemNo} (BOID ${boid})`);
         } catch (err) {
           result.errors.push(`${item.itemNo}: create failed — ${err instanceof Error ? err.message : err}`);
           result.lotsSkipped++;
