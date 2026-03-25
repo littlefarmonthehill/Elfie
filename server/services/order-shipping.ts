@@ -7,7 +7,7 @@
 import { db } from '../db';
 import { orders, orderDetails, orderSplits, orderSplitItems, shipments, orderAdjustments, appSettings } from '@shared/schema';
 import { eq, and, inArray, desc, sql } from 'drizzle-orm';
-import { getShippingVendor } from './easypost';
+import { getShippingProvider } from './shipping-factory';
 import type { CreateShipmentRequest, BuyLabelRequest, Address, Parcel, CustomsInfo, TaxIdentifier } from './shipping-vendor';
 
 // ── Order shortcode — mirrors PackingSlip.tsx logic exactly ──────────────────
@@ -303,7 +303,7 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
     throw new Error(`Order ${request.orderId} not found`);
   }
 
-  const vendor = await getShippingVendor(undefined, order.orgId);
+  const vendor = await getShippingProvider(order.orgId);
 
   // Parse ship-to address from order (allow override from inline card address edit)
   const baseShipTo = parseAddress(order.shipTo, order.customerUsername || 'Customer');
@@ -390,7 +390,7 @@ export async function purchaseLabel(
   const [cfg] = await db.select().from(appSettings).where(eqLocal(appSettings.orgId, orgId)).limit(1);
   const isTestMode = (cfg?.easypostKeyMode ?? 'test') !== 'production';
 
-  const vendor = await getShippingVendor(undefined, orgId);
+  const vendor = await getShippingProvider(orgId);
 
   const buyRequest: BuyLabelRequest = {
     shipmentId,

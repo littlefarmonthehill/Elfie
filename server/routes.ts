@@ -5432,6 +5432,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // Provider Registry — returns the catalogue of all coded integrations
+  app.get("/api/providers", async (_req, res) => {
+    try {
+      const { getAllProviders } = await import("./services/provider-registry");
+      res.json({ providers: getAllProviders() });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Active integrations for an org, enriched with registry metadata
+  app.get("/api/providers/active", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { getAllProviders } = await import("./services/provider-registry");
+      const allProviders = getAllProviders();
+      const rows = await db.select().from(orgIntegrations).where(eq(orgIntegrations.orgId, orgId));
+      const connected = new Map(rows.map(r => [r.channel, r]));
+      const result = allProviders.map(p => ({
+        ...p,
+        integration: connected.has(p.key) ? {
+          id:          connected.get(p.key)!.id,
+          isConnected: connected.get(p.key)!.isConnected,
+          displayName: connected.get(p.key)!.displayName,
+          lastTestedAt: connected.get(p.key)!.lastTestedAt,
+        } : null,
+      }));
+      res.json({ providers: result });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // Org Integrations (selling channels: BrickOwl, eBay, Amazon, etc.)
   app.get("/api/org/integrations", isApproved, async (req: any, res) => {
     try {
@@ -15623,8 +15656,8 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
       const { address } = req.body;
       if (!address) return res.status(400).json({ error: "address is required" });
 
-      const { getShippingVendor } = await import("./services/easypost");
-      const vendor = await getShippingVendor(undefined, orgId);
+      const { getShippingProvider } = await import("./services/shipping-factory");
+      const vendor = await getShippingProvider(orgId);
       const result = await vendor.validateAddress(address);
       res.json(result);
     } catch (error: any) {
