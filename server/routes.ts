@@ -15760,7 +15760,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         return res.status(404).json({ error: "No orders found" });
       }
       
-      // Fetch order items with inventory data (part number, color, condition)
+      // Fetch order items with inventory data (part number, color, condition, image)
       const items = await db.select({
         orderId: orderDetails.orderId,
         inventoryId: sql<string>`COALESCE(
@@ -15791,10 +15791,16 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         )`,
         comment: blInventory.description,
         colorId: orderDetails.colorId,
+        imageUrl: blCatalog.imageUrl,
       })
         .from(orderDetails)
         .leftJoin(blInventory, eq(sql`CAST(${blInventory.id} AS TEXT)`, orderDetails.sku))
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
+        .leftJoin(blCatalog, and(
+          eq(blInventory.itemNo, blCatalog.itemNo),
+          eq(blInventory.itemType, blCatalog.itemType),
+          eq(blInventory.colorId, blCatalog.colorId),
+        ))
         .where(inArray(orderDetails.orderId, orderIds));
       
       // Group items by order

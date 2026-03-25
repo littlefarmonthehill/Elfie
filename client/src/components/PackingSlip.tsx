@@ -36,6 +36,7 @@ type PackingSlipOrder = {
     inventoryId: string | null;
     bricklinkPartNumber: string | null;
     colorId?: number | null;
+    imageUrl?: string | null;
     name: string;
     quantity: number;
     colorName: string | null;
@@ -224,69 +225,85 @@ const condLabel  = (c: string | null | undefined) => c === 'N' ? 'New' : c === '
 const partKey    = (item: PicklistItem) => item.partNumber || item.sku || '';
 
 /**
- * Load a part thumbnail for PDF embedding via the server-side image proxy.
- * The proxy checks object storage first (persistent), then BL CDN (fallback),
- * and processes the PNG (white-bg removal) — same bytes PartImage shows in the UI.
+ * Unified part image loader for PDF embedding (picklist + packing slip).
  *
- * Why the proxy instead of loading BrickLink URLs directly in the browser:
- *   - BrickLink CDN does NOT send CORS headers, so `canvas.toDataURL()` throws
- *     a security error after drawing a cross-origin image, even when the image
- *     loads fine in a plain <img> tag.
- *   - The server proxy (/api/images/parts/:partNum/:colorId) fetches from
- *     BrickLink server-side, processes the image, and serves it same-origin —
- *     so canvas access is always permitted.
- *   - The proxy also builds the correct CDN URL from the part number and color ID
- *     (https://img.bricklink.com/ItemImage/PN/{colorId}/{partNum}.png) regardless
- *     of what is stored in bl_catalog.imageUrl (which is NULL for ~99% of rows).
+ * Priority (same as partImageSources in lib/part-image.ts):
+ *   1. /api/images/parts/:partNum/:colorId  — object storage → BL CDN → processed PNG
+ *   2. /api/images/proxy?url=...            — any imageUrl from bl_catalog / BrickOwl
+ *
+ * All URLs are same-origin server proxies — no CORS tainting of the canvas.
+ *
+ * The returned data URL is always a SQUARE PNG (the shorter side is padded with
+ * transparent pixels). This prevents jsPDF from squishing non-square images when
+ * they are drawn into the fixed-size IMG_W × IMG_H cell.
+ *
+ * Grayscale conversion is applied when grayscale=true.
  */
-async function loadItemImage(partNum: string, colorId: number): Promise<string | null> {
-  const proxyUrl = `/api/images/parts/${encodeURIComponent(partNum)}/${colorId}`;
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width  = img.naturalWidth  || img.width  || 1;
-        canvas.height = img.naturalHeight || img.height || 1;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) { resolve(null); return; }
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      } catch {
-        resolve(null);
-      }
-    };
-    img.onerror = () => resolve(null);
-    img.src = proxyUrl;
-  });
+async function loadItemImageForPDF(opts: {
+  partNumber?: string | null;
+  colorId?: number | null;
+  imageUrl?: string | null;
+  grayscale?: boolean;
+}): Promise<string | null> {
+  const { partNumber, colorId, imageUrl, grayscale = true } = opts;
+
+  // Build candidate URLs in priority order (all same-origin proxies)
+  const urls: string[] = [];
+  if (partNumber && colorId != null) {
+    urls.push(`/api/images/parts/${encodeURIComponent(partNumber)}/${colorId}`);
+  }
+  if (imageUrl) {
+    const proxied = imageUrl.startsWith('/api/')
+      ? imageUrl
+      : `/api/images/proxy?url=${encodeURIComponent(imageUrl)}`;
+    if (!urls.includes(proxied)) urls.push(proxied);
+  }
+
+  for (const url of urls) {
+    const dataUrl = await loadUrlToSquarePNG(url, grayscale);
+    if (dataUrl) return dataUrl;
+  }
+  return null;
 }
 
-async function loadItemImageGrayscale(partNum: string, colorId: number): Promise<string | null> {
-  const dataUrl = await loadItemImage(partNum, colorId);
-  if (!dataUrl) return null;
+/** Load a URL into a square (padded) grayscale-optional canvas data URL. */
+function loadUrlToSquarePNG(url: string, grayscale: boolean): Promise<string | null> {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
       try {
+        const w = img.naturalWidth  || img.width  || 0;
+        const h = img.naturalHeight || img.height || 0;
+        if (!w || !h) { resolve(null); return; }
+
+        // Pad to square so jsPDF renders without squishing
+        const sz  = Math.max(w, h);
+        const dx  = Math.floor((sz - w) / 2);
+        const dy  = Math.floor((sz - h) / 2);
+
         const canvas = document.createElement('canvas');
-        canvas.width  = img.naturalWidth  || img.width  || 1;
-        canvas.height = img.naturalHeight || img.height || 1;
+        canvas.width  = sz;
+        canvas.height = sz;
         const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const d = imageData.data;
-        for (let i = 0; i < d.length; i += 4) {
-          const g = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
-          d[i] = d[i + 1] = d[i + 2] = g;
+        ctx.drawImage(img, dx, dy, w, h);
+
+        if (grayscale) {
+          const imageData = ctx.getImageData(0, 0, sz, sz);
+          const d = imageData.data;
+          for (let i = 0; i < d.length; i += 4) {
+            const g = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
+            d[i] = d[i + 1] = d[i + 2] = g;
+          }
+          ctx.putImageData(imageData, 0, 0);
         }
-        ctx.putImageData(imageData, 0, 0);
+
         resolve(canvas.toDataURL('image/png'));
       } catch {
         resolve(null);
       }
     };
     img.onerror = () => resolve(null);
-    img.src = dataUrl;
+    img.src = url;
   });
 }
 
@@ -310,9 +327,11 @@ export async function printPicklist(items: PicklistItem[]): Promise<void> {
   // ── Pre-load all images concurrently ───────────────────────────────────────
   const imageDataUrls = await Promise.all(
     items.map(item =>
-      item.partNumber && item.colorId != null
-        ? loadItemImageGrayscale(item.partNumber, item.colorId)
-        : Promise.resolve(null)
+      loadItemImageForPDF({
+        partNumber: item.partNumber,
+        colorId:    item.colorId,
+        imageUrl:   item.imageUrl,
+      })
     )
   );
 
@@ -484,9 +503,11 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
     // Pre-load grayscale images for all items in this order
     const itemImageUrls = await Promise.all(
       order.items.map(item =>
-        item.bricklinkPartNumber && item.colorId != null
-          ? loadItemImageGrayscale(item.bricklinkPartNumber, item.colorId)
-          : Promise.resolve(null)
+        loadItemImageForPDF({
+          partNumber: item.bricklinkPartNumber,
+          colorId:    item.colorId,
+          imageUrl:   item.imageUrl,
+        })
       )
     );
 
