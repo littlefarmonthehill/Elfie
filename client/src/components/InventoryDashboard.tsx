@@ -437,7 +437,12 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
               ) : (
                 <div className="divide-y divide-gray-800">
                   {browseData?.rows.map((row: any) => (
-                    <div key={row.id} className="flex items-center gap-3 py-2.5" data-testid={`row-lot-${row.id}`}>
+                    <div
+                      key={row.id}
+                      className="flex items-center gap-3 py-2.5 cursor-pointer hover-elevate rounded-md"
+                      data-testid={`row-lot-${row.id}`}
+                      onClick={() => onItemClick?.('inventory', row.id)}
+                    >
                       {row.colorRgb && (
                         <div
                           className="w-3 h-3 rounded-full flex-shrink-0 ring-1 ring-gray-600"
