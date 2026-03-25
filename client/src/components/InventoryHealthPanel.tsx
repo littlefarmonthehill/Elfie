@@ -511,6 +511,114 @@ function groupHistoryByDate(rows: HistoryRow[]): { label: string; rows: HistoryR
   return groups;
 }
 
+interface SyncJobEntry {
+  jobKey: string;
+  time: string;
+  rows: HistoryRow[];
+}
+
+interface SyncDateEntry {
+  label: string;
+  jobs: SyncJobEntry[];
+}
+
+function groupSyncByDateAndJob(rows: HistoryRow[]): SyncDateEntry[] {
+  // Cluster rows into jobs: same source_ref = same job; otherwise 5-min bucket
+  const jobMap = new Map<string, SyncJobEntry>();
+  for (const row of rows) {
+    const jobKey = row.source_ref
+      ? `ref:${row.source_ref}`
+      : `t:${Math.floor(new Date(row.changed_at).getTime() / (5 * 60_000))}`;
+    if (!jobMap.has(jobKey)) {
+      jobMap.set(jobKey, { jobKey, time: row.changed_at, rows: [] });
+    }
+    jobMap.get(jobKey)!.rows.push(row);
+  }
+
+  // Group jobs by date
+  const dateMap = new Map<string, SyncDateEntry>();
+  for (const job of jobMap.values()) {
+    const label = dateGroupLabel(job.time);
+    if (!dateMap.has(label)) dateMap.set(label, { label, jobs: [] });
+    dateMap.get(label)!.jobs.push(job);
+  }
+
+  // Sort jobs within each date DESC by time
+  for (const d of dateMap.values()) {
+    d.jobs.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+  }
+
+  return Array.from(dateMap.values());
+}
+
+function SyncJobGroupView({ job, defaultExpanded }: { job: SyncJobEntry; defaultExpanded?: boolean }) {
+  const [expanded, setExpanded] = useState(defaultExpanded ?? false);
+
+  const jobTime = new Date(job.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const changeCount = job.rows.length;
+
+  return (
+    <div className="mb-1">
+      {/* Job header row */}
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="w-full flex items-center gap-2 py-1.5 text-left hover-elevate rounded px-1"
+        data-testid={`button-sync-job-${job.jobKey}`}
+      >
+        <ChevronRight className={`w-3 h-3 text-muted-foreground/60 flex-shrink-0 transition-transform duration-150 ${expanded ? 'rotate-90' : ''}`} />
+        <span className="text-[11px] font-medium text-foreground/70">{jobTime}</span>
+        <span className="text-[10px] text-muted-foreground/50">·</span>
+        <span className="text-[10px] text-muted-foreground/60">{changeCount} change{changeCount !== 1 ? 's' : ''}</span>
+      </button>
+
+      {/* Expanded item list */}
+      {expanded && (
+        <div className="ml-4 pl-3 border-l border-border/30 mb-2">
+          {job.rows.map((row) => (
+            <div
+              key={row.id}
+              className="flex items-start gap-3 py-2 border-b border-border/20 last:border-0"
+              data-testid={`history-row-${row.id}`}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-mono text-foreground/80">{row.item_no}</span>
+                  {row.color_name && row.color_name !== 'No Color' && (
+                    <span className="text-[9px] text-muted-foreground">{row.color_name}</span>
+                  )}
+                  <span className="text-[9px] font-mono text-muted-foreground/40">#{row.inventory_id}</span>
+                </div>
+                {row.item_name && (
+                  <div className="text-[10px] text-muted-foreground truncate mt-0.5">{row.item_name}</div>
+                )}
+                {row.field === 'catalogSuperseded' || row.field === 'catalogObsolete' ? (
+                  <div className="flex items-center gap-1.5 mt-1 text-[10px]">
+                    <span className="text-muted-foreground">{fieldLabel(row.field)}</span>
+                    <span className="text-muted-foreground/40">—</span>
+                    {formatHistoryValue(row.field, row.new_value)}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 mt-1 text-[10px]">
+                    <span className="text-muted-foreground">{fieldLabel(row.field)}</span>
+                    <span className="text-muted-foreground/60">{formatHistoryValue(row.field, row.old_value)}</span>
+                    <span className="text-muted-foreground/40">→</span>
+                    <span className={row.field === 'quantity'
+                      ? (Number(row.new_value ?? 0) < Number(row.old_value ?? 0) ? 'text-red-400' : 'text-green-400')
+                      : 'text-blue-400'
+                    }>
+                      {formatHistoryValue(row.field, row.new_value)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function buildHistoryUrl(theme: HistoryThemeDef, page: number): string {
   const params = new URLSearchParams({ page: String(page) });
   if (theme.fields)  params.set('fields',  theme.fields.join(','));
@@ -570,11 +678,34 @@ function HistoryView() {
                 : `No ${theme.label.toLowerCase()} changes recorded yet`}
             </span>
           </div>
+        ) : themeId === 'sync' ? (
+          /* ── Sync view: Date → Job (collapsible) → Items ── */
+          <div>
+            {groupSyncByDateAndJob(rows).map((dateGroup, dateIdx) => (
+              <div key={dateGroup.label}>
+                <div className="sticky top-0 z-10 flex items-center gap-2 py-1.5 bg-background/95 backdrop-blur-sm">
+                  <span className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wide">
+                    {dateGroup.label}
+                  </span>
+                  <div className="flex-1 h-px bg-border/40" />
+                </div>
+                <div className="py-1">
+                  {dateGroup.jobs.map((job, jobIdx) => (
+                    <SyncJobGroupView
+                      key={job.jobKey}
+                      job={job}
+                      defaultExpanded={dateIdx === 0 && jobIdx === 0}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
+          /* ── Default flat view: Date → Items ── */
           <div>
             {groupHistoryByDate(rows).map((group) => (
               <div key={group.label}>
-                {/* Date separator */}
                 <div className="sticky top-0 z-10 flex items-center gap-2 py-1.5 bg-background/95 backdrop-blur-sm">
                   <span className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wide">
                     {group.label}
