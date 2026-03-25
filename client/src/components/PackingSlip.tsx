@@ -608,15 +608,18 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
       // Wrap service text to fit within the value column (48mm wide).
       const maxSvcW = 48 - 1; // 1mm margin
       svcLines = doc.splitTextToSize(serviceDisplay, maxSvcW);
+      // Draw a single highlight rect behind ALL wrapped lines when priority/express
+      if (stampTier && svcLines.length > 0) {
+        const maxLineW = Math.max(...svcLines.map((l: string) => doc.getTextWidth(l)));
+        const firstLineY = infoTopY + 17;
+        const totalH = (svcLines.length - 1) * 5 + 4.6;
+        doc.setFillColor(255, 235, 59);
+        doc.setDrawColor(255, 235, 59);
+        doc.rect(metaX - maxLineW - 1.5, firstLineY - 3.2, maxLineW + 3, totalH, 'F');
+      }
+      doc.setTextColor(0, 0, 0);
       svcLines.forEach((line: string, i: number) => {
         const lineY = infoTopY + 17 + i * 5;
-        if (stampTier && i === 0) {
-          const svcW = doc.getTextWidth(line);
-          doc.setFillColor(255, 235, 59);
-          doc.setDrawColor(255, 235, 59);
-          doc.rect(metaX - svcW - 1.5, lineY - 3.2, svcW + 3, 4.6, 'F');
-          doc.setTextColor(0, 0, 0);
-        }
         doc.text(line, metaX, lineY, { align: 'right' });
       });
       doc.setDrawColor(170, 170, 170);
