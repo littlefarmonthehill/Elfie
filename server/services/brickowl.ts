@@ -89,6 +89,66 @@ export interface BrickOwlInventoryLot {
   lot_weight?: string | null; // Custom lot weight (BrickLink myWeight)
 }
 
+// ─── Retry helper ────────────────────────────────────────────────────────────
+// Wraps a raw fetch call with automatic retry for:
+//   429  — rate-limited: honours Retry-After header, falls back to 2 s
+//   5xx  — transient server/load error: exponential back-off (1 s, 2 s, 4 s)
+//   network errors (ECONNRESET, ETIMEDOUT, etc.) — same exponential back-off
+// Permanent 4xx errors (400, 401, 403, 404) are not retried.
+const BO_MAX_RETRIES = 3;
+
+async function brickowlFetchWithRetry(
+  url: string,
+  options: RequestInit,
+  context: string,
+): Promise<Response> {
+  let lastErr: Error | undefined;
+  for (let attempt = 0; attempt <= BO_MAX_RETRIES; attempt++) {
+    let response: Response;
+    try {
+      response = await fetch(url, options);
+    } catch (networkErr) {
+      lastErr = networkErr instanceof Error ? networkErr : new Error(String(networkErr));
+      if (attempt < BO_MAX_RETRIES) {
+        const delay = Math.pow(2, attempt) * 1000;
+        console.warn(`[BrickOwl] ${context} — network error (attempt ${attempt + 1}/${BO_MAX_RETRIES + 1}), retrying in ${delay}ms: ${lastErr.message}`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      throw lastErr;
+    }
+
+    if (response.status === 429) {
+      const retryAfterRaw = response.headers.get('Retry-After');
+      const retryAfterSec = retryAfterRaw ? parseInt(retryAfterRaw, 10) : 2;
+      const delay = (isNaN(retryAfterSec) ? 2 : retryAfterSec) * 1000;
+      if (attempt < BO_MAX_RETRIES) {
+        console.warn(`[BrickOwl] ${context} — rate limited (429), waiting ${delay}ms then retry ${attempt + 1}/${BO_MAX_RETRIES}`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      const body = await response.text().catch(() => '');
+      throw new Error(`[BrickOwl] ${context} — rate limit exceeded after ${BO_MAX_RETRIES} retries: ${body}`);
+    }
+
+    if (response.status >= 500) {
+      const delay = Math.pow(2, attempt) * 1000;
+      lastErr = new Error(`[BrickOwl] ${context} — server error ${response.status}`);
+      if (attempt < BO_MAX_RETRIES) {
+        console.warn(`[BrickOwl] ${context} — server error ${response.status} (attempt ${attempt + 1}/${BO_MAX_RETRIES + 1}), retrying in ${delay}ms`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+      const body = await response.text().catch(() => '');
+      throw new Error(`[BrickOwl] ${context} — server error after ${BO_MAX_RETRIES} retries: ${response.status} ${response.statusText} - ${body}`);
+    }
+
+    // 2xx / 3xx / permanent 4xx — return as-is (caller decides what to do with non-ok 4xx)
+    return response;
+  }
+  throw lastErr ?? new Error(`[BrickOwl] ${context} — unexpected retry loop exit`);
+}
+
 // Make a BrickOwl API GET request
 async function brickowlGet(endpoint: string, params?: Record<string, string>, orgId?: string): Promise<any> {
   if (!orgId) throw new Error('[BrickOwl] orgId is required — BrickOwl credentials are per-org.');
@@ -98,19 +158,18 @@ async function brickowlGet(endpoint: string, params?: Record<string, string>, or
     throw new Error(`[BrickOwl] BrickOwl API key is not configured for org "${orgId}". Add it in Settings > API Credentials.`);
   }
 
-  // Build URL with API key and params
   const queryParams = new URLSearchParams({ key: apiKey, ...params });
   const url = `https://api.brickowl.com/v1${endpoint}?${queryParams.toString()}`;
-  
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-    },
-  });
+
+  const response = await brickowlFetchWithRetry(
+    url,
+    { method: 'GET', headers: { Accept: 'application/json' } },
+    `GET ${endpoint}`,
+  );
 
   if (!response.ok) {
-    throw new Error(`BrickOwl API error: ${response.status} ${response.statusText}`);
+    const errorText = await response.text().catch(() => '');
+    throw new Error(`BrickOwl API error: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
   return response.json();
@@ -125,20 +184,21 @@ async function brickowlPost(endpoint: string, data: Record<string, any>, orgId?:
     throw new Error(`[BrickOwl] BrickOwl API key is not configured for org "${orgId}". Add it in Settings > API Credentials.`);
   }
 
-  // BrickOwl requires application/x-www-form-urlencoded for POST
   const formData = new URLSearchParams({ key: apiKey, ...data });
   const url = `https://api.brickowl.com/v1${endpoint}`;
-  
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
+
+  const response = await brickowlFetchWithRetry(
+    url,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData.toString(),
     },
-    body: formData.toString(),
-  });
+    `POST ${endpoint}`,
+  );
 
   if (!response.ok) {
-    const errorText = await response.text();
+    const errorText = await response.text().catch(() => '');
     throw new Error(`BrickOwl API error: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
@@ -315,14 +375,18 @@ async function brickowlBatch(
     requests: JSON.stringify({ requests }),
   });
 
-  const response = await fetch('https://api.brickowl.com/v1/bulk/batch', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: formData.toString(),
-  });
+  const response = await brickowlFetchWithRetry(
+    'https://api.brickowl.com/v1/bulk/batch',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData.toString(),
+    },
+    'POST /bulk/batch',
+  );
 
   if (!response.ok) {
-    const errorText = await response.text();
+    const errorText = await response.text().catch(() => '');
     throw new Error(`BrickOwl Batch API error: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
@@ -1071,8 +1135,11 @@ export async function syncBrickLinkToBrickOwl(
   );
 
   let updateProgress = 0;
-  // Steps: batch qty-only + individual field calls (qty folded in for multi-change lots) + adoptions
-  const totalPhase2 = qtyOnlyJobs.length + fieldJobs.length + toAdopt.length; // toAdopt used for display; zero-qty already filtered into adoptCandidates
+  // Steps: batch qty-only + individual field calls (qty folded in for multi-change lots) + adoptions.
+  // Use only non-zero-qty adoptions — zero-qty items are skipped immediately and never
+  // increment updateProgress, so including them in the total would make the bar never reach 100%.
+  const nonZeroAdoptCount = toAdopt.filter(item => item.quantity > 0).length;
+  const totalPhase2 = qtyOnlyJobs.length + fieldJobs.length + nonZeroAdoptCount;
 
   // ── 2a-i: Batch qty-only lots (fast) ──────────────────────────────────────
   // Send ONLY lot_id + absolute_quantity — no price, no notes, no extras.
