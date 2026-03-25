@@ -2007,7 +2007,18 @@ export async function runMigrations() {
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS inv_history_org_idx ON inventory_history (org_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS inv_history_inv_idx ON inventory_history (inventory_id)`);
-    await client.query(`CREATE INDEX IF NOT EXISTS inv_history_at_idx  ON inventory_history (changed_at DESC)`);
+    // Create index as ascending (no DESC) to match the Drizzle schema definition.
+    // If it previously existed as DESC, drop and recreate it so Drizzle no longer
+    // detects a diff and generates the same DROP+CREATE migration on every deploy.
+    const { rowCount: descCount } = await client.query(`
+      SELECT 1 FROM pg_indexes
+      WHERE indexname = 'inv_history_at_idx' AND indexdef LIKE '%DESC%'
+      LIMIT 1
+    `);
+    if ((descCount ?? 0) > 0) {
+      await client.query(`DROP INDEX IF EXISTS inv_history_at_idx`);
+    }
+    await client.query(`CREATE INDEX IF NOT EXISTS inv_history_at_idx ON inventory_history (changed_at)`);
     console.log('[Migration] Phase-80 (inventory_history table) complete.');
 
     console.log('[Migration] All startup migrations finished successfully.');
