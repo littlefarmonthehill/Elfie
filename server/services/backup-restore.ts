@@ -367,7 +367,7 @@ export async function applyDifferentialRecovery(
   });
 
   // Acquire inventory sync lock to prevent conflicts
-  const lockAcquired = await syncLock.acquireInventoryLock();
+  const lockAcquired = syncLock.acquire('Inventory Sync');
   
   if (!lockAcquired) {
     throw new Error('Failed to acquire inventory sync lock for differential recovery');
@@ -510,7 +510,7 @@ export async function applyDifferentialRecovery(
 
   } finally {
     // Always release the lock
-    syncLock.releaseInventoryLock();
+    syncLock.release('Inventory Sync');
   }
 }
 

@@ -12428,7 +12428,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       const { getOrderSyncIsRunning } = await import("./services/order-sync-core");
       const { getRebrickableSyncIsRunning } = await import("./services/rebrickable.js");
       const isActuallyRunning: Record<string, boolean> = {
-        bricklink_inventory:    syncLock.isInventorySyncRunning(),
+        bricklink_inventory:    syncLock.getActive().includes('Inventory Sync'),
         priceomatic_cache:      getPomIsRunning(),
         channel_sync:           getChannelSyncIsRunning(),
         bricklink_orders:       getOrderSyncIsRunning(),

@@ -4,6 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { syncBricklinkData } from "./bricklink";
 import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
+import { upsertSyncMetadata, withDbRetry } from "./order-sync-helpers";
 
 /**
  * After each successful inventory sync, embed any items that don't yet have a
@@ -29,9 +30,9 @@ async function triggerClipCatalogUpdate(): Promise<void> {
   }
 }
 
-const SYNC_ID = 'bricklink_inventory';
+const SYNC_ID   = 'bricklink_inventory';
 const SYNC_TYPE = 'inventory_sync';
-const MAX_RETRIES = 5;
+const MAX_RETRIES   = 5;
 const RETRY_BASE_MS = 5 * 60 * 1000; // 5 minutes base — each retry adds another 5 min
 
 // In-memory retry state — resets on server restart (intentional)
@@ -63,16 +64,7 @@ async function getEnabledInventorySyncOrgs(now: Date): Promise<Array<{ id: strin
 async function checkAndRunInventorySync() {
   try {
     const now = new Date();
-    let orgs: Array<{ id: string; tz: string; scheduledTime: string }>;
-    try {
-      orgs = await getEnabledInventorySyncOrgs(now);
-    } catch (connErr: any) {
-      if (connErr.message?.includes('Connection terminated') || connErr.code === 'ECONNRESET') {
-        console.log('[Inventory] DB connection blip, retrying in 3s...');
-        await new Promise(r => setTimeout(r, 3000));
-        orgs = await getEnabledInventorySyncOrgs(now);
-      } else throw connErr;
-    }
+    const orgs = await withDbRetry(() => getEnabledInventorySyncOrgs(now));
 
     if (orgs.length === 0) return;
 
@@ -101,8 +93,10 @@ async function checkAndRunInventorySync() {
       retry.count = 0; // Fresh day, reset retries
     }
 
-    if (syncLock.isRunning()) {
-      const blocker = syncLock.getActive().join(', ');
+    // Check if Inventory Sync is blocked by an incompatible sync already running
+    const blockers = syncLock.getBlockersFor('Inventory Sync');
+    if (blockers.length > 0) {
+      const blocker = blockers.join(', ');
       console.log(`⏭️ Inventory sync skipped — blocked by: ${blocker} — will retry next minute`);
       recordSyncIssue({
         syncType: SYNC_TYPE,
@@ -127,17 +121,7 @@ async function runAutomatedInventorySync(
 ) {
   console.log(`\n🔄 Starting automated inventory sync (BrickLink → Local DB) for ${orgs.length} org(s)...`);
 
-  await db.insert(syncMetadata).values({
-    id: SYNC_ID,
-    lastSyncStatus: 'in_progress',
-    lastSyncTime: new Date(),
-    recordsAdded: 0,
-    recordsUpdated: 0,
-    orgId: primaryOrgId,
-  }).onConflictDoUpdate({
-    target: syncMetadata.id,
-    set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: null },
-  });
+  await upsertSyncMetadata(SYNC_ID, primaryOrgId, { status: 'in_progress' });
 
   try {
     let totalAdded = 0;
@@ -156,24 +140,10 @@ async function runAutomatedInventorySync(
     console.log(`  📊 Inventory: ${totalAdded} added, ${totalUpdated} updated`);
     console.log(`  🔗 API Calls: ${totalApiCalls}`);
 
-    await db.insert(syncMetadata).values({
-      id: SYNC_ID,
-      lastSyncStatus: 'success',
-      lastSyncTime: new Date(),
+    await upsertSyncMetadata(SYNC_ID, primaryOrgId, {
+      status: 'success',
       recordsAdded: totalAdded,
       recordsUpdated: totalUpdated,
-      errorMessage: null,
-      orgId: primaryOrgId,
-    }).onConflictDoUpdate({
-      target: syncMetadata.id,
-      set: {
-        lastSyncStatus: 'success',
-        lastSyncTime: new Date(),
-        updatedAt: new Date(),
-        recordsAdded: totalAdded,
-        recordsUpdated: totalUpdated,
-        errorMessage: null,
-      },
     });
 
     retry.count = 0;
@@ -197,17 +167,9 @@ async function runAutomatedInventorySync(
       console.log(`[Inventory] All ${MAX_RETRIES} retries exhausted`);
     }
 
-    await db.insert(syncMetadata).values({
-      id: SYNC_ID,
-      lastSyncStatus: 'error',
-      lastSyncTime: new Date(),
-      recordsAdded: 0,
-      recordsUpdated: 0,
+    await upsertSyncMetadata(SYNC_ID, primaryOrgId, {
+      status: 'error',
       errorMessage: error.message,
-      orgId: primaryOrgId,
-    }).onConflictDoUpdate({
-      target: syncMetadata.id,
-      set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },
     });
 
     recordSyncIssue({

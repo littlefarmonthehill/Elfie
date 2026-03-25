@@ -198,10 +198,6 @@ export async function bricklinkRequest(endpoint: string, queryParams?: Record<st
   // Route credentials: platform org → platform_settings, real orgs → app_settings
   const { consumerKey, consumerSecret, tokenValue, tokenSecret } = await getBricklinkCredentials(orgId);
 
-  if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
-    throw new Error('BrickLink credentials not configured. Please add them in Settings.');
-  }
-
   // Check rate limit before making request (per-org)
   const rateLimit = await checkRateLimit(orgId);
   if (!rateLimit.allowed) {
@@ -262,17 +258,6 @@ export async function bricklinkRequest(endpoint: string, queryParams?: Record<st
     }
     
     success = true; // Only mark as success if both HTTP and meta.code are OK
-    
-    // Log API response for debugging
-    if (endpoint.includes('/inventories')) {
-      console.log(`BrickLink inventory response meta:`, json.meta);
-      console.log(`BrickLink inventory data type:`, Array.isArray(json.data) ? 'array' : typeof json.data);
-      console.log(`BrickLink inventory items count:`, Array.isArray(json.data) ? json.data.length : 'not an array');
-      if (Array.isArray(json.data) && json.data.length > 0) {
-        console.log(`First inventory item:`, JSON.stringify(json.data[0]));
-      }
-    }
-    
     return { data: json.data, apiCalls: 1 };
   } finally {
     // Track the API call exactly once, regardless of success or failure
@@ -284,10 +269,6 @@ export async function bricklinkRequest(endpoint: string, queryParams?: Record<st
 async function bricklinkPutRequest(endpoint: string, body: any, orgId: string = PLATFORM_ORG_ID): Promise<{ data: any; apiCalls: number }> {
   // Route credentials: platform org → platform_settings, real orgs → app_settings
   const { consumerKey, consumerSecret, tokenValue, tokenSecret } = await getBricklinkCredentials(orgId);
-
-  if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
-    throw new Error('BrickLink credentials not configured. Please add them in Settings.');
-  }
 
   // Check rate limit before making request (per-org)
   const rateLimit = await checkRateLimit(orgId);
@@ -559,8 +540,6 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
       return { added: 0, updated: 0, apiCalls };
     }
 
-    console.log(`First item sample:`, JSON.stringify(items[0]).substring(0, 200));
-    
     // Get all existing inventory IDs for this org in one query for comparison (including soft-deleted)
     const existingItems = await db.select({ id: blInventory.id, deletedAt: blInventory.deletedAt }).from(blInventory).where(eq(blInventory.orgId, orgId));
     const existingIds = new Set(existingItems.map(item => item.id));
@@ -1023,77 +1002,8 @@ export async function syncBricklinkInventory(callComplete = true, orgId: string 
   }
 }
 
-// OLD VERSION WITH STATUS FILTERS - KEPT FOR REFERENCE
-async function syncBricklinkInventoryByStatus(orgId: string = PLATFORM_ORG_ID): Promise<{ added: number; updated: number; apiCalls: number }> {
-  try {
-    let added = 0;
-    let updated = 0;
-    let totalApiCalls = 0;
-
-    console.log('Starting BrickLink inventory sync...');
-    
-    // Fetch inventory from all statuses (Y=available, S/B/C=stockrooms, N=unavailable, R=reserved)
-    // We'll make separate calls for each status to ensure we get everything
-    const statuses = ['Y', 'S', 'B', 'C', 'N', 'R'];
-    
-    for (const status of statuses) {
-      console.log(`Fetching inventory with status: ${status}`);
-      
-      try {
-        const { data: responseData, apiCalls } = await bricklinkRequest('/inventories', { status }, orgId);
-        totalApiCalls += apiCalls;
-        
-        const items = Array.isArray(responseData) ? responseData : [];
-        console.log(`Received ${items.length} items with status ${status}`);
-        
-        for (const item of items) {
-          const existing = await db.select().from(blInventory).where(eq(blInventory.id, item.inventory_id));
-          
-          if (existing.length === 0) {
-            await db.insert(blInventory).values({
-              id: item.inventory_id,
-              itemNo: item.item.no,
-              itemType: item.item.type,
-              colorId: item.color_id || 0,
-              quantity: item.quantity,
-              newOrUsed: item.new_or_used,
-              unitPrice: item.unit_price,
-            });
-            added++;
-          } else {
-            const needsUpdate = existing[0].quantity !== item.quantity || 
-                                existing[0].unitPrice !== item.unit_price;
-            if (needsUpdate) {
-              await db.update(blInventory)
-                .set({ 
-                  quantity: item.quantity,
-                  unitPrice: item.unit_price,
-                  updatedAt: new Date() 
-                })
-                .where(eq(blInventory.id, item.inventory_id));
-              updated++;
-            }
-          }
-        }
-      } catch (statusError) {
-        console.error(`Error fetching status ${status}:`, statusError);
-        // Continue with other statuses even if one fails
-      }
-    }
-
-    console.log(`BrickLink inventory sync complete: ${added} added, ${updated} updated, ${totalApiCalls} API calls`);
-
-    return { added, updated, apiCalls: totalApiCalls };
-  } catch (error) {
-    console.error('Error syncing BrickLink inventory:', error);
-    throw error;
-  }
-}
-
 export async function syncBricklinkData(orgId: string = PLATFORM_ORG_ID): Promise<BricklinkSyncResult> {
-  
-  // Acquire inventory sync lock to prevent order sync conflicts
-  const lockAcquired = await syncLock.acquireInventoryLock();
+  const lockAcquired = syncLock.acquire('Inventory Sync');
   if (!lockAcquired) {
     throw new Error('Inventory sync already in progress');
   }
@@ -1133,88 +1043,20 @@ export async function syncBricklinkData(orgId: string = PLATFORM_ORG_ID): Promis
     syncProgressTracker.error(error instanceof Error ? error.message : 'Comprehensive sync failed');
     throw error;
   } finally {
-    // Always release the lock, even if sync fails
-    syncLock.releaseInventoryLock();
+    syncLock.release('Inventory Sync');
   }
 }
 
 // ====== PRICE-O-MAGIC FUNCTIONS ======
 
-// Make a BrickLink Catalog API request (different base URL)
+/**
+ * Alias of `bricklinkRequest` for catalog/price-guide endpoints.
+ * The BrickLink Catalog API uses the same /api/store/v1 base and identical OAuth
+ * flow — this wrapper exists only to make call-sites self-documenting.
+ */
 export async function bricklinkCatalogRequest(endpoint: string, queryParams?: Record<string, string>, orgId: string = PLATFORM_ORG_ID): Promise<{ data: any; apiCalls: number }> {
-  // Route credentials: platform org → platform_settings, real orgs → app_settings
-  const { consumerKey, consumerSecret, tokenValue, tokenSecret } = await getBricklinkCredentials(orgId);
-
-  if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
-    throw new Error('BrickLink credentials not configured. Please add them in Settings.');
-  }
-
-  // Check rate limit (per-org)
-  const rateLimit = await checkRateLimit(orgId);
-  if (!rateLimit.allowed) {
-    throw new Error(rateLimit.warning || 'API rate limit exceeded');
-  }
-
-  // Create OAuth client
-  const oauth = new OAuth({
-    consumer: {
-      key: consumerKey,
-      secret: consumerSecret,
-    },
-    signature_method: 'HMAC-SHA1',
-    hash_function(baseString, key) {
-      return crypto.createHmac('sha1', key).update(baseString).digest('base64');
-    },
-  });
-
-  const token = {
-    key: cleanToken(tokenValue),
-    secret: cleanToken(tokenSecret),
-  };
-
-  // Catalog API uses same /api/store/v1 base as other endpoints
-  let url = `https://api.bricklink.com/api/store/v1${endpoint}`;
-  if (queryParams && Object.keys(queryParams).length > 0) {
-    const params = new URLSearchParams(queryParams);
-    const qs = params.toString();
-    if (qs) url = `${url}?${qs}`;
-  }
-  
-  const requestData = { url, method: 'GET' };
-  const authHeader = oauth.toHeader(oauth.authorize(requestData, token));
-  
-  let success = false;
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        ...authHeader,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`BrickLink Catalog API error (${response.status}):`, errorText);
-      throw new Error(`BrickLink Catalog API error: ${response.statusText}`);
-    }
-
-    const json = await response.json();
-    
-    if (json.meta && json.meta.code !== 200) {
-      console.error(`BrickLink Catalog API error (meta.code ${json.meta.code}):`, json.meta.description || json.meta.message);
-      throw new Error(`BrickLink Catalog API error: ${json.meta.description || json.meta.message}`);
-    }
-    
-    success = true;
-    return { data: json.data, apiCalls: 1 };
-  } finally {
-    await trackApiCall(endpoint, success, orgId);
-  }
+  return bricklinkRequest(endpoint, queryParams, orgId);
 }
-
-
-
 
 // Calculate Price-O-Matic suggested price with premium
 function calculateSuggestedPrice(

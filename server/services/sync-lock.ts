@@ -86,18 +86,6 @@ class SyncLockManager {
     return [...this.activeSyncs];
   }
 
-  // ── Backward-compat shims used by bricklink.ts ──────────────────────────────
-  async acquireInventoryLock(): Promise<boolean> {
-    return this.acquire('Inventory Sync');
-  }
-
-  releaseInventoryLock(): void {
-    this.release('Inventory Sync');
-  }
-
-  isInventorySyncRunning(): boolean {
-    return this.activeSyncs.has('Inventory Sync');
-  }
 }
 
 // Global singleton

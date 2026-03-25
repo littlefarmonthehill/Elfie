@@ -3,22 +3,44 @@ import { orders, syncMetadata } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 /**
- * Shared helpers for order sync across all channels.
+ * Shared helpers for sync operations across all channels and schedulers.
  * Add new channel adapters here rather than duplicating these patterns.
  */
+
+// ── DB Connection Resilience ──────────────────────────────────────────────────
+
+/**
+ * Run `fn` once; on a transient DB connection error (ECONNRESET / "Connection
+ * terminated") wait 3 s and try again exactly once.  All other errors re-throw
+ * immediately.  Used by every scheduler's outer try/catch so the single-retry
+ * pattern isn't duplicated across files.
+ */
+export async function withDbRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err: any) {
+    const isTransient =
+      err.message?.includes('Connection terminated') || err.code === 'ECONNRESET';
+    if (!isTransient) throw err;
+    await new Promise(r => setTimeout(r, 3000));
+    return fn();
+  }
+}
 
 // ── Sync Metadata ────────────────────────────────────────────────────────────
 
 interface SyncMetadataPayload {
-  status: 'in_progress' | 'success' | 'error';
+  status: 'in_progress' | 'success' | 'partial' | 'error';
   recordsAdded?: number;
   recordsUpdated?: number;
   errorMessage?: string | null;
+  /** Optional JSON blob of the last full sync result (channel sync stores lotsCreated/updated/errors/mode). */
+  lastSyncMetaJson?: string | null;
 }
 
 /**
  * Upsert a sync_metadata row for a given sync operation.
- * Centralizes the identical upsert pattern used by every channel sync.
+ * Centralizes the identical upsert pattern used by every channel and scheduler sync.
  */
 export async function upsertSyncMetadata(
   syncId: string,
@@ -34,6 +56,7 @@ export async function upsertSyncMetadata(
     recordsAdded: payload.recordsAdded ?? 0,
     recordsUpdated: payload.recordsUpdated ?? 0,
     errorMessage: payload.errorMessage ?? null,
+    lastSyncMetaJson: payload.lastSyncMetaJson ?? null,
   };
   await db
     .insert(syncMetadata)
@@ -46,6 +69,7 @@ export async function upsertSyncMetadata(
         recordsAdded: payload.recordsAdded ?? 0,
         recordsUpdated: payload.recordsUpdated ?? 0,
         errorMessage: payload.errorMessage ?? null,
+        lastSyncMetaJson: payload.lastSyncMetaJson ?? null,
         updatedAt: now,
       },
     });

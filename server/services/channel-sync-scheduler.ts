@@ -4,9 +4,11 @@ import { eq, and } from "drizzle-orm";
 import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig, isChannelSyncAbortRequested } from "./brickowl";
 import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
+import { upsertSyncMetadata, withDbRetry } from "./order-sync-helpers";
 
+const SYNC_ID   = 'channel_sync';
 const SYNC_TYPE = 'channel_sync';
-const MAX_RETRIES = 5;
+const MAX_RETRIES   = 5;
 const RETRY_BASE_MS = 5 * 60 * 1000;
 
 const retry = { count: 0, nextAt: 0 };
@@ -67,9 +69,9 @@ export async function startChannelSyncScheduler() {
     const firstOrg = rows.find(r => r.channelSyncEnabled) ?? rows[0];
     if (firstOrg) {
       const [meta] = await db.select().from(syncMetadata)
-        .where(and(eq(syncMetadata.orgId, firstOrg.id), eq(syncMetadata.id, 'channel_sync'))).limit(1);
-      if ((meta as any)?.lastSyncMetaJson) {
-        channelSyncLastResult = JSON.parse((meta as any).lastSyncMetaJson);
+        .where(and(eq(syncMetadata.orgId, firstOrg.id), eq(syncMetadata.id, SYNC_ID))).limit(1);
+      if (meta?.lastSyncMetaJson) {
+        channelSyncLastResult = JSON.parse(meta.lastSyncMetaJson);
         console.log('[Channel] Restored last sync result from DB');
       }
     }
@@ -82,22 +84,13 @@ export async function startChannelSyncScheduler() {
 async function checkAndRunChannelSync() {
   try {
     const now = new Date();
-    let activeOrg: { id: string; tz: string; scheduledTime: string } | null;
-    try {
-      activeOrg = await getActiveChannelSyncOrg(now);
-    } catch (connErr: any) {
-      if (connErr.message?.includes('Connection terminated') || connErr.code === 'ECONNRESET') {
-        console.log('[Channel] DB connection blip, retrying in 3s...');
-        await new Promise(r => setTimeout(r, 3000));
-        activeOrg = await getActiveChannelSyncOrg(now);
-      } else throw connErr;
-    }
+    const activeOrg = await withDbRetry(() => getActiveChannelSyncOrg(now));
 
     if (!activeOrg) return;
 
     const { id: orgId, tz, scheduledTime } = activeOrg;
 
-    const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'channel_sync'))).limit(1);
+    const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, SYNC_ID))).limit(1);
     const lastRunTs = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
 
     if (meta?.lastSyncStatus === 'error') {
@@ -115,8 +108,23 @@ async function checkAndRunChannelSync() {
       retry.count = 0;
     }
 
-    if (getChannelSyncIsRunning()) {
-      console.log('⏭️ Channel sync already in progress, skipping this cycle');
+    // Single lock check: covers both "already running" and "blocked by another sync"
+    const blockers = syncLock.getBlockersFor('Channel Sync');
+    if (blockers.length > 0) {
+      if (blockers.includes('Channel Sync')) {
+        console.log('⏭️ Channel sync already in progress, skipping this cycle');
+      } else {
+        const blocker = blockers.join(', ');
+        console.log(`⏭️ Channel sync blocked by: ${blocker} — will retry next minute`);
+        recordSyncIssue({
+          syncType: SYNC_TYPE,
+          platform: 'scheduler',
+          issueType: 'scheduler_blocked',
+          issueDescription: `Scheduled channel sync (${scheduledTime}) is blocked by: ${blocker}. Retrying every minute.`,
+          severity: 'medium',
+          metadata: { blockedBy: blocker, scheduledTime, timestamp: new Date().toISOString() },
+        });
+      }
       return;
     }
 
@@ -144,20 +152,6 @@ async function checkAndRunChannelSync() {
       console.warn('[Channel] Could not check inventory sync status (non-fatal):', e.message);
     }
 
-    if (syncLock.isRunning()) {
-      const blocker = syncLock.getActive().join(', ');
-      console.log(`⏭️ Channel sync blocked by: ${blocker} — will retry next minute`);
-      recordSyncIssue({
-        syncType: SYNC_TYPE,
-        platform: 'scheduler',
-        issueType: 'scheduler_blocked',
-        issueDescription: `Scheduled channel sync (${scheduledTime}) is blocked by: ${blocker}. Retrying every minute.`,
-        severity: 'medium',
-        metadata: { blockedBy: blocker, scheduledTime, timestamp: new Date().toISOString() },
-      });
-      return;
-    }
-
     await runScheduledChannelSync(false, orgId);
   } catch (error) {
     console.error('❌ Error in channel sync scheduler:', error);
@@ -183,8 +177,8 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string) {
   let sinceTime: Date | undefined;
   try {
     const whereClause = orgId
-      ? and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'channel_sync'))
-      : eq(syncMetadata.id, 'channel_sync');
+      ? and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, SYNC_ID))
+      : eq(syncMetadata.id, SYNC_ID);
     const [prevMeta] = await db.select().from(syncMetadata).where(whereClause).limit(1);
     if (!forceFullScan && prevMeta?.lastSyncStatus === 'success' && prevMeta.lastSyncTime) {
       sinceTime = new Date(prevMeta.lastSyncTime);
@@ -195,17 +189,7 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string) {
   } catch { /* non-fatal — default to full sync */ }
 
   const effectiveOrgId = orgId ?? '';
-  await db.insert(syncMetadata).values({
-    id: 'channel_sync',
-    lastSyncStatus: 'in_progress',
-    lastSyncTime: new Date(),
-    recordsAdded: 0,
-    recordsUpdated: 0,
-    orgId: effectiveOrgId,
-  }).onConflictDoUpdate({
-    target: syncMetadata.id,
-    set: { lastSyncStatus: 'in_progress', lastSyncTime: new Date(), updatedAt: new Date(), errorMessage: null },
-  });
+  await upsertSyncMetadata(SYNC_ID, effectiveOrgId, { status: 'in_progress' });
 
   try {
     // Read sync mode + field config from org settings
@@ -239,7 +223,7 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string) {
     }, syncFields, sinceTime, orgId);
     const wasAborted = isChannelSyncAbortRequested();
     const hasErrors = result.errors.length > 0;
-    const status = wasAborted ? 'partial' : hasErrors ? 'partial' : 'success';
+    const status: 'success' | 'partial' | 'error' = wasAborted || hasErrors ? 'partial' : 'success';
     const completionNote = wasAborted ? '(stopped by user)' : '';
     console.log(`\n✨ Channel sync ${wasAborted ? 'stopped' : 'complete'}! ${result.lotsCreated} created, ${result.lotsUpdated} updated, ${result.lotsSkipped} skipped, ${result.errors.length} errors (mode: ${syncMode}) ${completionNote}`);
 
@@ -255,25 +239,12 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string) {
       errors: result.errors.slice(0, 20),
     };
 
-    const metaJson = JSON.stringify(channelSyncLastResult);
-    await db.insert(syncMetadata).values({
-      id: 'channel_sync',
-      lastSyncStatus: status,
-      lastSyncTime: new Date(),
+    await upsertSyncMetadata(SYNC_ID, effectiveOrgId, {
+      status,
       recordsAdded: result.lotsCreated,
       recordsUpdated: result.lotsUpdated,
       errorMessage: hasErrors ? `${result.errors.length} lots failed` : null,
-      orgId: effectiveOrgId,
-    } as any).onConflictDoUpdate({
-      target: syncMetadata.id,
-      set: {
-        lastSyncStatus: status,
-        updatedAt: new Date(),
-        recordsAdded: result.lotsCreated,
-        recordsUpdated: result.lotsUpdated,
-        errorMessage: hasErrors ? `${result.errors.length} lots failed` : null,
-        lastSyncMetaJson: metaJson,
-      } as any,
+      lastSyncMetaJson: JSON.stringify(channelSyncLastResult),
     });
 
     retry.count = 0;
@@ -289,17 +260,9 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string) {
       console.log(`[Channel] All ${MAX_RETRIES} retries exhausted`);
     }
 
-    await db.insert(syncMetadata).values({
-      id: 'channel_sync',
-      lastSyncStatus: 'error',
-      lastSyncTime: new Date(),
-      recordsAdded: 0,
-      recordsUpdated: 0,
+    await upsertSyncMetadata(SYNC_ID, effectiveOrgId, {
+      status: 'error',
       errorMessage: error.message,
-      orgId: effectiveOrgId,
-    }).onConflictDoUpdate({
-      target: syncMetadata.id,
-      set: { lastSyncStatus: 'error', updatedAt: new Date(), errorMessage: error.message },
     });
 
     recordSyncIssue({
