@@ -1045,6 +1045,29 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
           </button>
         </div>
 
+        {/* ── Customer note banner — shown when selected order has a buyer note ── */}
+        {(() => {
+          const noteOrders = selectedOrderId
+            ? data?.orders.filter(o => o.id === selectedOrderId && o.customerNotes)
+            : data?.orders.filter(o => selectedOrders.has(o.id) && o.customerNotes);
+          if (!noteOrders?.length) return null;
+          return (
+            <div className="mb-1 space-y-1">
+              {noteOrders.map(o => (
+                <div key={o.id} className="flex items-start gap-1.5 px-2.5 py-2 rounded border border-amber-500/25 bg-amber-500/5 text-[11px] text-amber-200/90 leading-relaxed">
+                  <MessageCircle className="w-3 h-3 shrink-0 mt-px text-amber-400 fill-current" />
+                  <div className="min-w-0">
+                    {!selectedOrderId && (
+                      <span className="font-mono text-amber-400/70 mr-1">{o.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{o.orderNumber.replace(/^(BL\.|BO\.)/i, '')}</span>
+                    )}
+                    <span>{o.customerNotes}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
         {/* ── Tab switcher: Fulfillment | Shipping ── */}
         <div className="tool-tab-bar">
           <button

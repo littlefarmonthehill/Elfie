@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Package, Loader2, ChevronDown, ChevronRight, ScanLine, Camera, X, CheckCircle2, AlertCircle, MessageCircle } from "lucide-react";
+import { Package, Loader2, ChevronDown, ChevronRight, ScanLine, Camera, X, CheckCircle2, AlertCircle } from "lucide-react";
 import { printPicklist } from "./PackingSlip";
 
 type WarehouseLocation = {
@@ -624,12 +624,6 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                                 {item.inventoryId != null && <span className="not-italic text-gray-500">{(item.comment || item.remarks) ? ' ' : ''}Lot {item.inventoryId}</span>}
                               </div>
                             )}
-                            {item.customerNotes && (
-                              <div className="mt-0.5 flex items-start gap-1 text-[10px] text-amber-300/90">
-                                <MessageCircle className="w-2.5 h-2.5 shrink-0 mt-px fill-current" />
-                                <span>{item.customerNotes}</span>
-                              </div>
-                            )}
                           </div>
                         </div>
                       ))}
@@ -732,12 +726,6 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                             {item.comment && <span className="italic bg-yellow-300/70 text-yellow-900 px-0.5 rounded-sm">{item.comment}</span>}
                             {item.remarks && <span className="not-italic text-gray-400">{item.comment ? ' ' : ''}{item.remarks}</span>}
                             {item.inventoryId != null && <span className="not-italic text-gray-500">{(item.comment || item.remarks) ? ' ' : ''}Lot {item.inventoryId}</span>}
-                          </div>
-                        )}
-                        {item.customerNotes && (
-                          <div className="mt-0.5 flex items-start gap-1 text-[10px] text-amber-300/90">
-                            <MessageCircle className="w-2.5 h-2.5 shrink-0 mt-px fill-current" />
-                            <span>{item.customerNotes}</span>
                           </div>
                         )}
                       </div>
