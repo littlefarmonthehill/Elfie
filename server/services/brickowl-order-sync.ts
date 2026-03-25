@@ -41,13 +41,16 @@ export async function syncBrickOwlOrders(
   try {
     console.log(`\n🦉 Starting BrickOwl order sync...`);
 
-    // Determine lookback timestamp for incremental sync
-    let orderTime: number | undefined = undefined;
+    // Determine lookback timestamp for incremental sync.
+    // We use update_time (not order_time) so that merges, status changes, and item
+    // additions on older orders are all caught — not just newly placed orders.
+    let updateTime: number | undefined = undefined;
+    let orderTime: number | undefined = undefined; // only used for explicit sinceDate fallback
 
     if (options.sinceDate) {
-      // Explicit "from date" — use it directly as the API timestamp filter
+      // Explicit "from date" — filter by order placement time for date-scoped historical pulls
       orderTime = Math.floor(new Date(options.sinceDate).getTime() / 1000);
-      console.log(`📅 Date-scoped sync: fetching orders since ${options.sinceDate}`);
+      console.log(`📅 Date-scoped sync: fetching orders placed since ${options.sinceDate}`);
     } else if (!options.fullSync) {
       const [previousSync] = await db
         .select()
@@ -56,11 +59,12 @@ export async function syncBrickOwlOrders(
         .limit(1);
 
       if (previousSync?.lastSyncTime) {
-        // Subtract a 4-hour buffer so orders placed during the previous sync window are never skipped.
-        const LOOKBACK_SECONDS = 4 * 3600;
-        orderTime = Math.floor(previousSync.lastSyncTime.getTime() / 1000) - LOOKBACK_SECONDS;
-        const lookbackDate = new Date(orderTime * 1000);
-        console.log(`📅 Incremental sync: fetching orders since ${lookbackDate.toISOString()} (4h lookback from last sync at ${previousSync.lastSyncTime.toISOString()})`);
+        // Use update_time with a 30-minute lookback buffer.
+        // Shorter buffer is fine here because update_time catches modifications, not just creation.
+        const LOOKBACK_SECONDS = 30 * 60;
+        updateTime = Math.floor(previousSync.lastSyncTime.getTime() / 1000) - LOOKBACK_SECONDS;
+        const lookbackDate = new Date(updateTime * 1000);
+        console.log(`📅 Incremental sync: fetching orders updated since ${lookbackDate.toISOString()} (30m lookback from last sync at ${previousSync.lastSyncTime.toISOString()})`);
       } else {
         console.log(`🔄 No previous sync found — performing full sync`);
       }
@@ -87,7 +91,7 @@ export async function syncBrickOwlOrders(
       console.warn(`⚠️ Could not query channel_lot_links for lot map (will fall back to order item data): ${err.message}`);
     }
 
-    const boOrders = await getBrickOwlOrders(apiKey, { limit: options.limit, orderTime });
+    const boOrders = await getBrickOwlOrders(apiKey, { limit: options.limit, updateTime, orderTime });
     result.totalOrders = boOrders.length;
     console.log(`🦉 Fetched ${result.totalOrders} orders from BrickOwl`);
 
@@ -259,9 +263,13 @@ async function processBrickOwlOrder(
     }
   }
 
-  // Process order line items
+  // Process order line items.
+  // We do a full upsert pass on every sync so that merges (where BrickOwl adds items
+  // or increases quantities on an existing order) are reflected immediately.
   const items = brickOwlOrderData.items || [];
   console.log(`🦉 Order ${effectiveOrderId}: Processing ${items.length} items`);
+
+  let itemsChanged = false;
 
   for (const item of items) {
     try {
@@ -273,9 +281,21 @@ async function processBrickOwlOrder(
         .where(and(eq(orderDetails.orderId, effectiveOrderId), eq(orderDetails.lineItemKey, lineItemKey)))
         .limit(1);
 
-      if (existingItem) continue;
+      if (existingItem) {
+        // Item already recorded — check if quantity changed (happens when BrickOwl merges orders)
+        const newQty = item.ordered_quantity ?? existingItem.quantity;
+        if (existingItem.quantity !== newQty) {
+          await db
+            .update(orderDetails)
+            .set({ quantity: newQty })
+            .where(eq(orderDetails.id, existingItem.id));
+          itemsChanged = true;
+          console.log(`🔀 Order ${effectiveOrderId}: lot ${item.lot_id} qty updated ${existingItem.quantity} → ${newQty} (merge detected)`);
+        }
+        continue;
+      }
 
-      // Resolve BL inventory ID: prefer the pre-built lot map, fall back to the item's own field.
+      // New line item — resolve BL inventory ID from the lot map or the item's own field.
       let brickLinkInvId: number | null = null;
       const fromMap = boLotToBlInvId.get(String(item.lot_id));
       if (fromMap) {
@@ -308,6 +328,8 @@ async function processBrickOwlOrder(
         fulfilledAt: null,
       }]);
       result.orderDetailsAdded++;
+      itemsChanged = true;
+      console.log(`➕ Order ${effectiveOrderId}: new item lot ${item.lot_id} added (merge or late addition)`);
 
     } catch (error: any) {
       console.error(`✗ Error processing order item for order ${orderId}:`, error);
@@ -319,6 +341,13 @@ async function processBrickOwlOrder(
     console.log(`📦 New BrickOwl order ${effectiveOrderId} — triggering inventory adjustment`);
     adjustInventoryForOrder(effectiveOrderId).catch(error => {
       console.error(`⚠️ Inventory adjustment failed for new BrickOwl order ${effectiveOrderId}:`, error);
+    });
+  } else if (itemsChanged) {
+    // Items were added or quantities changed on an existing order — re-run inventory adjustment
+    // so the deduction reflects the merged/updated line items.
+    console.log(`🔀 Order ${effectiveOrderId}: items changed on existing order — re-triggering inventory adjustment`);
+    adjustInventoryForOrder(effectiveOrderId).catch(error => {
+      console.error(`⚠️ Inventory adjustment failed after merge for BrickOwl order ${effectiveOrderId}:`, error);
     });
   }
 }

@@ -4,7 +4,8 @@ const BRICKOWL_API_BASE = 'https://api.brickowl.com/v1';
 export async function getBrickOwlOrders(
   apiKey: string,
   options: {
-    orderTime?: number; // Unix timestamp
+    orderTime?: number;  // Unix timestamp — filter by order PLACED time (legacy, use updateTime for incremental)
+    updateTime?: number; // Unix timestamp — filter by order UPDATED time (catches merges, status changes, etc.)
     limit?: number;
   } = {}
 ): Promise<any[]> {
@@ -12,7 +13,11 @@ export async function getBrickOwlOrders(
     key: apiKey,
   });
 
-  if (options.orderTime) {
+  if (options.updateTime) {
+    // Prefer update_time so we catch merges, status changes, and item additions on older orders
+    params.append('update_time', options.updateTime.toString());
+    params.append('sort_by', 'updated');
+  } else if (options.orderTime) {
     params.append('order_time', options.orderTime.toString());
   }
   if (options.limit) {
