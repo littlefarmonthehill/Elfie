@@ -198,12 +198,12 @@ async function processBrickOwlOrder(
     billTo: null,
     shipByDate: null,
     orderTotal: (
-      brickOwlOrderData.sub_total ??
-      brickOwlOrderData.total_price ??
-      brickOwlOrderData.total ??
       brickOwlOrderData.grand_total ??
+      brickOwlOrderData.total_price ??
       brickOwlOrderData.base_order_amount ??
       brickOwlOrderData.order_total ??
+      brickOwlOrderData.total ??
+      brickOwlOrderData.sub_total ??
       0
     ).toString(),
     shippingAmount: (

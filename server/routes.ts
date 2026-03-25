@@ -4885,6 +4885,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Format response to match OrderDetail component expectations
+      // Note: BrickLink stores shipTo as {name, street1, street2, ...}
+      //       BrickOwl stores shipTo as {name, address1, address2, ...}
+      //       Always fall back to both field-name conventions.
       const formattedOrder = {
         orderId: order.id,
         orderNumber: order.orderNumber,
@@ -4894,10 +4897,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 order.orderStatus === 'awaiting_payment' ? 'Pending' as const :
                 'Paid' as const,
         customer: {
-          name: order.customerUsername || 'Unknown Customer',
+          name: shipToData.name || order.customerUsername || 'Unknown Customer',
           email: order.customerEmail || '',
-          address: shipToData.street1 || '',
-          address2: shipToData.street2 || '',
+          address: shipToData.street1 || shipToData.address1 || '',
+          address2: shipToData.street2 || shipToData.address2 || '',
           address3: shipToData.street3 || '',
           city: shipToData.city || '',
           state: shipToData.state || '',
@@ -4924,6 +4927,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         labelUrl: shipment?.labelUrl || undefined,
         shippingCarrier: shipment?.carrier || undefined,
         shippingService: shipment?.service || undefined,
+        customerNotes: order.customerNotes || null,
+        internalNotes: order.internalNotes || null,
+        requestedShippingService: order.requestedShippingService || null,
         isRepeatCustomer: isRepeatCustomer,
         adjustments: adjustments.map(a => ({
           id: a.id,

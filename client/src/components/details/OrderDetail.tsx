@@ -56,6 +56,9 @@ interface OrderDetailProps {
       notes?: string | null;
       createdAt: string;
     }>;
+    customerNotes?: string | null;
+    internalNotes?: string | null;
+    requestedShippingService?: string | null;
     isRepeatCustomer?: boolean;
     previousOrders?: Array<{
       orderId: string;
@@ -262,6 +265,30 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
             <span className="text-gray-400">{data.customer.city}, {data.customer.state}</span>
           </div>
         </div>
+
+        {/* Customer / Internal Notes */}
+        {(data.customerNotes || data.internalNotes) && (
+          <div className="space-y-1">
+            {data.customerNotes && (
+              <div className="flex items-start gap-1.5 rounded border border-lego-blue/30 bg-lego-blue/5 px-2 py-1.5" data-testid="text-customer-notes">
+                <Package className="h-3 w-3 text-lego-blue/70 flex-shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-[9px] font-semibold text-lego-blue/70 uppercase tracking-wide mb-0.5">Customer note</p>
+                  <p className="text-[10px] text-gray-300 leading-snug">{data.customerNotes}</p>
+                </div>
+              </div>
+            )}
+            {data.internalNotes && (
+              <div className="flex items-start gap-1.5 rounded border border-lego-yellow/30 bg-lego-yellow/5 px-2 py-1.5" data-testid="text-internal-notes">
+                <Pencil className="h-3 w-3 text-lego-yellow/70 flex-shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-[9px] font-semibold text-lego-yellow/70 uppercase tracking-wide mb-0.5">Internal note</p>
+                  <p className="text-[10px] text-gray-300 leading-snug">{data.internalNotes}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Edit Form */}
@@ -441,10 +468,18 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
               <span className="text-gray-400">Subtotal</span>
               <span className="font-mono text-white">${subtotal.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">Shipping</span>
-              <span className="font-mono text-white">${shipping.toFixed(2)}</span>
+            <div className="flex justify-between items-center gap-2">
+              <span className="text-gray-400 flex items-center gap-1 min-w-0">
+                Shipping
+                {data.requestedShippingService && (
+                  <span className="text-[8px] text-gray-600 truncate hidden md:inline">({data.requestedShippingService})</span>
+                )}
+              </span>
+              <span className="font-mono text-white flex-shrink-0">${shipping.toFixed(2)}</span>
             </div>
+            {data.requestedShippingService && (
+              <div className="text-[8px] text-gray-600 -mt-0.5 md:hidden truncate">{data.requestedShippingService}</div>
+            )}
             <div className="flex justify-between">
               <span className="text-gray-400">Tax</span>
               <span className="font-mono text-white">${tax.toFixed(2)}</span>
