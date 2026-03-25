@@ -174,6 +174,7 @@ export const blInventory = pgTable("bl_inventory", {
   tierQuantity3: integer("tier_quantity_3"),
   myWeight: decimal("my_weight", { precision: 10, scale: 4 }),
   orgId: varchar("org_id"),                          // FK → organizations.id
+  boLotId: text("bo_lot_id"),                       // BrickOwl lot_id linked to this BL inventory lot (set by channel sync)
   syncedAt: timestamp("synced_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   deletedAt: timestamp("deleted_at"),               // Soft delete: set when item disappears from BL; cleared if it reappears
@@ -183,6 +184,8 @@ export const blInventory = pgTable("bl_inventory", {
   // Index for item lookup
   itemNoIdx: index("bl_inv_item_no_idx").on(table.itemNo),
   orgIdIdx: index("bl_inv_org_id_idx").on(table.orgId),
+  // Index for BO lot ID lookups (used by cross-platform sync and order reconciliation)
+  boLotIdIdx: index("bl_inv_bo_lot_id_idx").on(table.boLotId),
 }));
 
 export const insertBlInventorySchema = createInsertSchema(blInventory).omit({
@@ -346,6 +349,7 @@ export const orderDetails = pgTable("order_details", {
   customField2: text("custom_field_2"), // ShipStation custom field 2
   customField3: text("custom_field_3"), // ShipStation custom field 3
   bricklinkInventoryId: integer("bricklink_inventory_id"), // BrickLink inventory ID (from options/description)
+  boLotId: text("bo_lot_id"),               // BrickOwl lot_id of the purchased lot (from BO order item)
   itemNo: text("item_no"), // BrickLink part/item number (e.g. "3001")
   colorId: integer("color_id"), // BrickLink color ID (from options/description)
   condition: text("condition"), // New/Used (from options/description)

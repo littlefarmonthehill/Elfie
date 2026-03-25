@@ -765,6 +765,24 @@ export async function syncBrickLinkToBrickOwl(
     if (extId) taggedLotMap.set(extId, lot);
   }
 
+  // ── Write-back: persist BO lot IDs to bl_inventory for all tagged lots ────
+  // This gives us a local BL↔BO link so order sync and cross-platform sync
+  // can do O(1) lookups without re-fetching the full BO inventory each time.
+  if (taggedLotMap.size > 0 && orgId) {
+    const entries = [...taggedLotMap.entries()]
+      .map(([blInvIdStr, lot]) => ({ id: parseInt(blInvIdStr, 10), boLotId: String(lot.lot_id) }))
+      .filter(e => !isNaN(e.id));
+    const CHUNK = 50;
+    for (let i = 0; i < entries.length; i += CHUNK) {
+      await Promise.all(
+        entries.slice(i, i + CHUNK).map(e =>
+          db.update(blInventory).set({ boLotId: e.boLotId }).where(eq(blInventory.id, e.id))
+        )
+      );
+    }
+    console.log(`[ChannelSync] ✓ Wrote back ${entries.length} BO lot IDs to bl_inventory`);
+  }
+
   // Pre-load the BO color map once so Phase 1 color-mismatch checks are
   // instant (resolveBoColorId reads from the in-memory cache after this).
   await loadBoColorMap(orgId);
