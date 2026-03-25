@@ -519,8 +519,16 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderIds }),
       });
-      const data = await response.json();
-      await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined);
+      const slipData = await response.json();
+      await printPackingSlips(slipData, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined);
+
+      // Promote any printed orders that are still "new" → "processing"
+      const newOrderIds = orderIds.filter(id =>
+        data?.orders.find(o => o.id === id)?.workflowStatus === 'new'
+      );
+      if (newOrderIds.length > 0) {
+        await updateWorkflowStatusBulk.mutateAsync({ orderIds: newOrderIds, status: 'processing' });
+      }
     } catch (error) {
       console.error('Error fetching packing slip data:', error);
       toast({
