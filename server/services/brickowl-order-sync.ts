@@ -238,6 +238,12 @@ async function processBrickOwlOrder(
   // Fetch full order details (including items)
   const brickOwlOrderData = await getBrickOwlOrderDetails(apiKey, boOrder.order_id);
 
+  // Temporary debug: log all note-related fields from BO order detail response
+  const noteFields = Object.entries(brickOwlOrderData)
+    .filter(([k]) => /note|comment|remark|message|buyer/i.test(k))
+    .reduce((acc, [k, v]) => ({ ...acc, [k]: v }), {});
+  console.log(`🦉 [BO note fields] order ${orderId}:`, JSON.stringify(noteFields));
+
   // Safely parse order date - prefer ISO format from list API, then detail view, then now
   const orderDate =
     safeTimestampToDate(boOrder.iso_order_time, boOrder.order_time) ??
