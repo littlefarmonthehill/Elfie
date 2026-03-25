@@ -152,7 +152,15 @@ async function checkAndRunChannelSync() {
       console.warn('[Channel] Could not check inventory sync status (non-fatal):', e.message);
     }
 
-    await runScheduledChannelSync(false, orgId);
+    // Scheduled syncs always run a full comparison against BrickOwl.
+    // BrickOwl is not the source of truth — manual edits made directly on BO
+    // (price, qty, notes) are invisible to an incremental scan because the
+    // corresponding BL item's updatedAt hasn't changed.  A full scan is the
+    // only way to guarantee BO stays consistent with BL on every scheduled run.
+    // Note: the BrickOwl inventory fetch is always full regardless (there is no
+    // incremental list API), so the extra cost over incremental is just an
+    // in-memory DB read with no additional API calls.
+    await runScheduledChannelSync(true, orgId);
   } catch (error) {
     console.error('❌ Error in channel sync scheduler:', error);
   }
