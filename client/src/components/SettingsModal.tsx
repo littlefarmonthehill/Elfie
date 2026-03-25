@@ -5,7 +5,7 @@ import type { AppSettings, User, Organization, OrgIntegration } from "@shared/sc
 import { DimensionWheel, ScoringWheel, type PricingInsight } from "@/components/PriceOMaticDashboard";
 import { APP_VERSION, APP_NAME } from "@shared/version";
 import { CAPABILITY_STATUS_STYLES, CAPABILITY_STATUS_LABELS, CAPABILITY_STATUS_DOT_COLORS, TOS_SECTIONS, TOS_LAST_UPDATED } from "@/lib/constants";
-import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ExternalLink, Building2, Search, Flag, Zap, Globe, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save, ClipboardPaste, Headphones, MessageCircle, Send, Target, Map, ListTodo, Crosshair, ThumbsUp, BarChart3, Warehouse, Bell, BellRing, BellOff } from "lucide-react";
+import { X, Download, Trash2, Settings, Package, Sparkles, Database, Clock, Shield, History, AlertTriangle, CheckCircle2, Calendar, RotateCcw, FileText, HardDrive, Upload, CloudUpload, Smartphone, RefreshCw, Users, Wrench, Info, Layers, Play, Pause, Loader2, ChevronDown, ChevronRight, ChevronLeft, BarChart2, Eye, ShoppingCart, Brain, TrendingUp, ImageIcon, Plus, Pencil, Lock, LogOut, CreditCard, Share2, PlusSquare, ShieldCheck, ShieldAlert, Activity, ExternalLink, Building2, Search, Flag, Zap, Globe, EyeOff, ClipboardList, Megaphone, Tag, Key, Copy, Blocks, DollarSign, Save, ClipboardPaste, Headphones, MessageCircle, Send, Target, Map, ListTodo, Crosshair, ThumbsUp, BarChart3, Warehouse, Bell, BellRing, BellOff } from "lucide-react";
 import WarehouseManagement from "@/components/WarehouseManagement";
 import NotificationsSection from "@/components/NotificationsSection";
 import { parseBricklinkPaste, getPasteStatus, type PasteStatus } from "@/lib/bricklink-paste";
@@ -2505,6 +2505,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [pomApiBudgetPct, setPomApiBudgetPct] = useState(70);
   const [catalogDetailApiBudgetPct, setCatalogDetailApiBudgetPct] = useState(20);
   const [rebrickableImageSyncEnabled, setRebrickableImageSyncEnabled] = useState(true);
+  const [expandedAutoSyncService, setExpandedAutoSyncService] = useState<'inventory' | 'orders' | 'channel' | null>(null);
+  const [expandedAdminPanel, setExpandedAdminPanel] = useState<'defaults' | 'floors' | 'health' | null>('health');
   const [channelSyncEnabled, setChannelSyncEnabled] = useState(false);
   const [channelSyncTime, setChannelSyncTime] = useState("03:00");
   const [channelSyncFrequency, setChannelSyncFrequency] = useState(4);
@@ -5677,359 +5679,364 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   )}
                 </div>
 
-                {/* ── Card 1: BrickLink Inventory Sync ───────────────────────── */}
-                <div id="autosync-inventory-card" className="rounded-md border border-gray-700/80 bg-gray-800/20">
-                  {/* Card header */}
-                  <div className="flex items-center justify-between gap-3 px-4 py-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-md bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
-                        <Package className="w-4 h-4 text-purple-400" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-semibold text-gray-100">BrickLink Inventory</p>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${inventorySyncEnabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-500'}`}>
-                            {inventorySyncEnabled ? 'Active' : 'Off'}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-0.5">Pulls your live BrickLink store into E.L.F.I.E.</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={inventorySyncEnabled}
-                      onCheckedChange={(checked) => {
-                        setInventorySyncEnabled(checked);
-                        updateSettingsMutation.mutate({ inventorySyncEnabled: checked });
-                      }}
-                      data-testid="switch-inventory-sync"
-                    />
-                  </div>
+                {/* ── Service list ─────────────────────────────────────────── */}
+                <div className="rounded-md border border-gray-700/80 bg-gray-800/20 divide-y divide-gray-700/40">
 
-                  {inventorySyncEnabled && (
-                    <div className="border-t border-gray-700/60 divide-y divide-gray-700/40">
-                      {/* Frequency */}
-                      <div className="flex items-center justify-between gap-3 px-4 py-3">
-                        <Label className="text-xs text-gray-300">Run every</Label>
-                        <Select
-                          value={String(inventorySyncFrequency)}
-                          onValueChange={(v) => {
-                            const hours = Number(v);
-                            setInventorySyncFrequency(hours);
-                            updateSettingsMutation.mutate({ inventorySyncFrequency: hours });
-                          }}
+                  {/* ── Row 1: BrickLink Inventory ── */}
+                  <div id="autosync-inventory-card">
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <div className="w-7 h-7 rounded-md bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
+                        <Package className="w-3.5 h-3.5 text-purple-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-gray-100">BrickLink Inventory</p>
+                        <p className="text-[10px] text-gray-500 leading-tight">Pulls your live BrickLink store into E.L.F.I.E.</p>
+                      </div>
+                      {inventorySyncEnabled && (
+                        <button
+                          onClick={() => setExpandedAutoSyncService(expandedAutoSyncService === 'inventory' ? null : 'inventory')}
+                          className="flex items-center gap-1 px-2 py-0.5 rounded border border-purple-500/30 bg-purple-500/10 text-[10px] font-medium text-purple-300 hover:bg-purple-500/20 transition-colors shrink-0"
+                          data-testid="button-inventory-configure"
                         >
-                          <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-inventory-frequency">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="6">Every 6 hours</SelectItem>
-                            <SelectItem value="12">Every 12 hours</SelectItem>
-                            <SelectItem value="24">Every 24 hours</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {/* Status */}
-                      <div className="px-4 py-2.5">
-                        <SyncStatusLine entry={syncStatuses?.inventory ?? null} />
-                      </div>
-                      {/* BrickLink store snapshot */}
-                      {platformSyncData && (
-                        <div className="px-4 py-2.5 grid grid-cols-3 gap-2">
-                          <div>
-                            <p className="text-[10px] text-gray-500">Lots</p>
-                            <p className="text-xs font-bold text-white font-mono">{platformSyncData.source.stats.totalLots?.toLocaleString() ?? '—'}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-gray-500">Parts</p>
-                            <p className="text-xs font-bold text-white font-mono">{platformSyncData.source.stats.totalParts?.toLocaleString() ?? '—'}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-gray-500">Last Synced</p>
-                            <p className="text-[10px] text-gray-400">{platformSyncData.source.stats.lastSyncedAt ? new Date(platformSyncData.source.stats.lastSyncedAt).toLocaleString() : 'Never'}</p>
-                          </div>
-                        </div>
+                          Every {inventorySyncFrequency}h
+                          {expandedAutoSyncService === 'inventory'
+                            ? <ChevronDown className="w-3 h-3" />
+                            : <ChevronRight className="w-3 h-3" />}
+                        </button>
                       )}
+                      <Switch
+                        checked={inventorySyncEnabled}
+                        onCheckedChange={(checked) => {
+                          setInventorySyncEnabled(checked);
+                          updateSettingsMutation.mutate({ inventorySyncEnabled: checked });
+                          if (checked) setExpandedAutoSyncService('inventory');
+                          else if (expandedAutoSyncService === 'inventory') setExpandedAutoSyncService(null);
+                        }}
+                        data-testid="switch-inventory-sync"
+                      />
                     </div>
-                  )}
-                </div>
-
-                {/* ── Card 2: Orders Sync ─────────────────────────────────────── */}
-                <div id="autosync-orders-card" className="rounded-md border border-gray-700/80 bg-gray-800/20">
-                  <div className="flex items-center justify-between gap-3 px-4 py-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-md bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
-                        <ShoppingCart className="w-4 h-4 text-blue-400" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-semibold text-gray-100">Orders</p>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${ordersSyncEnabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-500'}`}>
-                            {ordersSyncEnabled ? 'Active' : 'Off'}
-                          </span>
+                    {inventorySyncEnabled && expandedAutoSyncService === 'inventory' && (
+                      <div className="border-t border-gray-700/50 bg-gray-900/30 divide-y divide-gray-700/40">
+                        <div className="flex items-center justify-between gap-3 px-4 py-3">
+                          <Label className="text-xs text-gray-300">Run every</Label>
+                          <Select
+                            value={String(inventorySyncFrequency)}
+                            onValueChange={(v) => {
+                              const hours = Number(v);
+                              setInventorySyncFrequency(hours);
+                              updateSettingsMutation.mutate({ inventorySyncFrequency: hours });
+                            }}
+                          >
+                            <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-inventory-frequency">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="6">Every 6 hours</SelectItem>
+                              <SelectItem value="12">Every 12 hours</SelectItem>
+                              <SelectItem value="24">Every 24 hours</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
-                        <p className="text-xs text-gray-500 mt-0.5">Syncs new orders from BrickLink and BrickOwl</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={ordersSyncEnabled}
-                      onCheckedChange={(checked) => {
-                        setOrdersSyncEnabled(checked);
-                        updateSettingsMutation.mutate({ ordersSyncEnabled: checked });
-                      }}
-                      data-testid="switch-orders-sync"
-                    />
-                  </div>
-
-                  {ordersSyncEnabled && (
-                    <div className="border-t border-gray-700/60 divide-y divide-gray-700/40">
-                      {/* Frequency */}
-                      <div className="flex items-center justify-between gap-3 px-4 py-3">
-                        <Label className="text-xs text-gray-300">Run every</Label>
-                        <Select
-                          value={String(ordersSyncFrequency)}
-                          onValueChange={(v) => {
-                            const mins = Number(v);
-                            setOrdersSyncFrequency(mins);
-                            setOrdersSyncFrequencyStr(String(mins));
-                            updateSettingsMutation.mutate({ ordersSyncFrequency: mins });
-                          }}
-                        >
-                          <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-orders-frequency">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="15">15 minutes</SelectItem>
-                            <SelectItem value="30">30 minutes</SelectItem>
-                            <SelectItem value="60">1 hour</SelectItem>
-                            <SelectItem value="120">2 hours</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {/* Status */}
-                      <div className="px-4 py-2.5">
-                        <SyncStatusLine entry={syncStatuses?.orders ?? null} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* ── Card 3: BrickOwl Channel Sync ──────────────────────────── */}
-                <div id="autosync-channel-card" className="rounded-md border border-gray-700/80 bg-gray-800/20">
-                  <div className="flex items-center justify-between gap-3 px-4 py-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-md bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0">
-                        <Globe className="w-4 h-4 text-green-400" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-semibold text-gray-100">BrickOwl Channel</p>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${channelSyncEnabled ? 'bg-green-500/20 text-green-400' : 'bg-gray-700 text-gray-500'}`}>
-                            {channelSyncEnabled ? 'Active' : 'Off'}
-                          </span>
+                        <div className="px-4 py-2.5">
+                          <SyncStatusLine entry={syncStatuses?.inventory ?? null} />
                         </div>
-                        <p className="text-xs text-gray-500 mt-0.5">Pushes your inventory from E.L.F.I.E. to BrickOwl</p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={channelSyncEnabled}
-                      onCheckedChange={(checked) => {
-                        setChannelSyncEnabled(checked);
-                        updateSettingsMutation.mutate({ channelSyncEnabled: checked });
-                      }}
-                      data-testid="switch-channel-sync"
-                    />
-                  </div>
-
-                  {channelSyncEnabled && (
-                    <div className="border-t border-gray-700/60 divide-y divide-gray-700/40">
-                      {/* Frequency */}
-                      <div className="flex items-center justify-between gap-3 px-4 py-3">
-                        <Label className="text-xs text-gray-300">Run every</Label>
-                        <Select
-                          value={String(channelSyncFrequency)}
-                          onValueChange={(v) => {
-                            const hours = Number(v);
-                            setChannelSyncFrequency(hours);
-                            updateSettingsMutation.mutate({ channelSyncFrequency: hours });
-                          }}
-                        >
-                          <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-channel-frequency">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="1">Every hour</SelectItem>
-                            <SelectItem value="2">Every 2 hours</SelectItem>
-                            <SelectItem value="4">Every 4 hours</SelectItem>
-                            <SelectItem value="6">Every 6 hours</SelectItem>
-                            <SelectItem value="12">Every 12 hours</SelectItem>
-                            <SelectItem value="24">Every 24 hours</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Last sync status line */}
-                      <div className="px-4 py-2.5">
-                        <SyncStatusLine entry={syncStatuses?.channel ?? null} />
-                      </div>
-
-                      {/* Last result card */}
-                      {channelLastResult && (
-                        <div className="px-4 py-3 space-y-2" data-testid="card-channel-last-result">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Last Sync</span>
-                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
-                              channelLastResult.status === 'success' ? 'bg-green-900/50 text-green-400' :
-                              channelLastResult.status === 'partial' ? 'bg-yellow-900/50 text-yellow-400' :
-                              'bg-red-900/50 text-red-400'
-                            }`} data-testid="text-channel-last-status">
-                              {channelLastResult.status === 'success' ? 'Success' : channelLastResult.status === 'partial' ? 'Partial' : 'Error'}
-                            </span>
-                            <span className="text-[10px] text-gray-500" data-testid="text-channel-last-time">{formatRelativeTime(channelLastResult.completedAt)}</span>
-                            <span className="text-[10px] text-gray-600 capitalize" data-testid="text-channel-last-mode">
-                              {channelLastResult.mode === 'full_control' ? 'Full Control' : channelLastResult.mode === 'matched_sync' ? 'Matched Sync' : channelLastResult.mode === 'analysis' ? 'Analysis' : channelLastResult.mode}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-4 gap-2">
-                            <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-created"><div className="text-sm font-bold text-green-400">{channelLastResult.lotsCreated}</div><div className="text-[9px] text-gray-500 mt-0.5">Created</div></div>
-                            <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-updated"><div className="text-sm font-bold text-blue-400">{channelLastResult.lotsUpdated}</div><div className="text-[9px] text-gray-500 mt-0.5">Updated</div></div>
-                            <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-skipped"><div className="text-sm font-bold text-gray-400">{channelLastResult.lotsSkipped}</div><div className="text-[9px] text-gray-500 mt-0.5">Skipped</div></div>
-                            <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-errors"><div className={`text-sm font-bold ${channelLastResult.errorCount > 0 ? 'text-red-400' : 'text-gray-400'}`}>{channelLastResult.errorCount}</div><div className="text-[9px] text-gray-500 mt-0.5">Errors</div></div>
-                          </div>
-                          {channelLastResult.errors.length > 0 && (
-                            <div className="space-y-1 mt-1" data-testid="list-channel-errors">
-                              {channelLastResult.errors.slice(0, 3).map((err, i) => (
-                                <p key={i} className="text-[10px] text-red-400/80 truncate">{err}</p>
-                              ))}
-                              {channelLastResult.errors.length > 3 && <p className="text-[10px] text-gray-600">+{channelLastResult.errors.length - 3} more errors</p>}
+                        {platformSyncData && (
+                          <div className="px-4 py-2.5 grid grid-cols-3 gap-2">
+                            <div>
+                              <p className="text-[10px] text-gray-500">Lots</p>
+                              <p className="text-xs font-bold text-white font-mono">{platformSyncData.source.stats.totalLots?.toLocaleString() ?? '—'}</p>
                             </div>
-                          )}
-                        </div>
-                      )}
+                            <div>
+                              <p className="text-[10px] text-gray-500">Parts</p>
+                              <p className="text-xs font-bold text-white font-mono">{platformSyncData.source.stats.totalParts?.toLocaleString() ?? '—'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-gray-500">Last Synced</p>
+                              <p className="text-[10px] text-gray-400">{platformSyncData.source.stats.lastSyncedAt ? new Date(platformSyncData.source.stats.lastSyncedAt).toLocaleString() : 'Never'}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
-                      {/* Sync Mode selector */}
-                      <div className="px-4 py-3 space-y-2">
-                        <div className="flex items-center gap-1.5">
-                          <Label className="text-xs text-gray-200">Sync Mode</Label>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="w-3 h-3 text-gray-500 shrink-0 cursor-default" />
-                            </TooltipTrigger>
-                            <TooltipContent side="right" className="max-w-xs text-xs">
-                              Controls how the channel sync behaves across all connected sales channels.
-                            </TooltipContent>
-                          </Tooltip>
+                  {/* ── Row 2: Orders ── */}
+                  <div id="autosync-orders-card">
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <div className="w-7 h-7 rounded-md bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                        <ShoppingCart className="w-3.5 h-3.5 text-blue-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-gray-100">Orders</p>
+                        <p className="text-[10px] text-gray-500 leading-tight">Syncs new orders from BrickLink and BrickOwl</p>
+                      </div>
+                      {ordersSyncEnabled && (
+                        <button
+                          onClick={() => setExpandedAutoSyncService(expandedAutoSyncService === 'orders' ? null : 'orders')}
+                          className="flex items-center gap-1 px-2 py-0.5 rounded border border-blue-500/30 bg-blue-500/10 text-[10px] font-medium text-blue-300 hover:bg-blue-500/20 transition-colors shrink-0"
+                          data-testid="button-orders-configure"
+                        >
+                          Every {ordersSyncFrequency}m
+                          {expandedAutoSyncService === 'orders'
+                            ? <ChevronDown className="w-3 h-3" />
+                            : <ChevronRight className="w-3 h-3" />}
+                        </button>
+                      )}
+                      <Switch
+                        checked={ordersSyncEnabled}
+                        onCheckedChange={(checked) => {
+                          setOrdersSyncEnabled(checked);
+                          updateSettingsMutation.mutate({ ordersSyncEnabled: checked });
+                          if (checked) setExpandedAutoSyncService('orders');
+                          else if (expandedAutoSyncService === 'orders') setExpandedAutoSyncService(null);
+                        }}
+                        data-testid="switch-orders-sync"
+                      />
+                    </div>
+                    {ordersSyncEnabled && expandedAutoSyncService === 'orders' && (
+                      <div className="border-t border-gray-700/50 bg-gray-900/30 divide-y divide-gray-700/40">
+                        <div className="flex items-center justify-between gap-3 px-4 py-3">
+                          <Label className="text-xs text-gray-300">Run every</Label>
+                          <Select
+                            value={String(ordersSyncFrequency)}
+                            onValueChange={(v) => {
+                              const mins = Number(v);
+                              setOrdersSyncFrequency(mins);
+                              setOrdersSyncFrequencyStr(String(mins));
+                              updateSettingsMutation.mutate({ ordersSyncFrequency: mins });
+                            }}
+                          >
+                            <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-orders-frequency">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="15">15 minutes</SelectItem>
+                              <SelectItem value="30">30 minutes</SelectItem>
+                              <SelectItem value="60">1 hour</SelectItem>
+                              <SelectItem value="120">2 hours</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
-                        <div className="grid grid-cols-1 gap-1.5">
-                          {([
-                            { id: 'analysis', label: 'Analysis', desc: 'Read-only — compare channels, no edits made' },
-                            { id: 'full_control', label: 'Full Control', desc: 'Create new lots + full sync of all fields on existing' },
-                            { id: 'matched_sync', label: 'Matched Sync', desc: 'Full sync of all fields on matched lots — never create new' },
-                          ] as const).map(({ id, label, desc }) => (
-                            <button
-                              key={id}
-                              onClick={() => { setChannelSyncMode(id); updateSettingsMutation.mutate({ channelSyncMode: id }); }}
-                              className={`flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors ${channelSyncMode === id ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
-                              data-testid={`button-sync-mode-${id}`}
-                            >
-                              <div className={`mt-0.5 w-3 h-3 rounded-full border-2 shrink-0 ${channelSyncMode === id ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
-                              <div>
-                                <span className="text-xs font-medium text-gray-200">{label}</span>
-                                <p className="text-[10px] text-gray-500 mt-0.5">{desc}</p>
-                              </div>
-                            </button>
-                          ))}
+                        <div className="px-4 py-2.5">
+                          <SyncStatusLine entry={syncStatuses?.orders ?? null} />
                         </div>
                       </div>
+                    )}
+                  </div>
 
-                      {/* Fields config — collapsible */}
-                      <button
-                        onClick={() => setChannelSyncFieldsOpen(!channelSyncFieldsOpen)}
-                        className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-xs text-gray-400 hover:text-gray-200 transition-colors group"
-                        data-testid="button-channel-fields-toggle"
-                      >
-                        <span className="font-medium">Configure sync fields</span>
-                        {channelSyncFieldsOpen
-                          ? <ChevronDown className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />
-                          : <ChevronRight className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />}
-                      </button>
-
-                      {channelSyncFieldsOpen && (
-                        <div className="px-4 pb-3 space-y-2">
-                          <Label className="text-xs text-gray-200">Fields to Sync</Label>
-                          <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
-                            {/* Quantity — always on */}
+                  {/* ── Row 3: BrickOwl Channel ── */}
+                  <div id="autosync-channel-card">
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <div className="w-7 h-7 rounded-md bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0">
+                        <Globe className="w-3.5 h-3.5 text-green-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-gray-100">BrickOwl Channel</p>
+                        <p className="text-[10px] text-gray-500 leading-tight">Pushes your inventory from E.L.F.I.E. to BrickOwl</p>
+                      </div>
+                      {channelSyncEnabled && (
+                        <button
+                          onClick={() => setExpandedAutoSyncService(expandedAutoSyncService === 'channel' ? null : 'channel')}
+                          className="flex items-center gap-1 px-2 py-0.5 rounded border border-green-500/30 bg-green-500/10 text-[10px] font-medium text-green-300 hover:bg-green-500/20 transition-colors shrink-0"
+                          data-testid="button-channel-configure"
+                        >
+                          Every {channelSyncFrequency}h
+                          {expandedAutoSyncService === 'channel'
+                            ? <ChevronDown className="w-3 h-3" />
+                            : <ChevronRight className="w-3 h-3" />}
+                        </button>
+                      )}
+                      <Switch
+                        checked={channelSyncEnabled}
+                        onCheckedChange={(checked) => {
+                          setChannelSyncEnabled(checked);
+                          updateSettingsMutation.mutate({ channelSyncEnabled: checked });
+                          if (checked) setExpandedAutoSyncService('channel');
+                          else if (expandedAutoSyncService === 'channel') setExpandedAutoSyncService(null);
+                        }}
+                        data-testid="switch-channel-sync"
+                      />
+                    </div>
+                    {channelSyncEnabled && expandedAutoSyncService === 'channel' && (
+                      <div className="border-t border-gray-700/50 bg-gray-900/30 divide-y divide-gray-700/40">
+                        {/* Frequency */}
+                        <div className="flex items-center justify-between gap-3 px-4 py-3">
+                          <Label className="text-xs text-gray-300">Run every</Label>
+                          <Select
+                            value={String(channelSyncFrequency)}
+                            onValueChange={(v) => {
+                              const hours = Number(v);
+                              setChannelSyncFrequency(hours);
+                              updateSettingsMutation.mutate({ channelSyncFrequency: hours });
+                            }}
+                          >
+                            <SelectTrigger className="w-40 h-8 text-xs" data-testid="select-channel-frequency">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">Every hour</SelectItem>
+                              <SelectItem value="2">Every 2 hours</SelectItem>
+                              <SelectItem value="4">Every 4 hours</SelectItem>
+                              <SelectItem value="6">Every 6 hours</SelectItem>
+                              <SelectItem value="12">Every 12 hours</SelectItem>
+                              <SelectItem value="24">Every 24 hours</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {/* Status */}
+                        <div className="px-4 py-2.5">
+                          <SyncStatusLine entry={syncStatuses?.channel ?? null} />
+                        </div>
+                        {/* Last result */}
+                        {channelLastResult && (
+                          <div className="px-4 py-3 space-y-2" data-testid="card-channel-last-result">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wide">Last Sync</span>
+                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                                channelLastResult.status === 'success' ? 'bg-green-900/50 text-green-400' :
+                                channelLastResult.status === 'partial' ? 'bg-yellow-900/50 text-yellow-400' :
+                                'bg-red-900/50 text-red-400'
+                              }`} data-testid="text-channel-last-status">
+                                {channelLastResult.status === 'success' ? 'Success' : channelLastResult.status === 'partial' ? 'Partial' : 'Error'}
+                              </span>
+                              <span className="text-[10px] text-gray-500" data-testid="text-channel-last-time">{formatRelativeTime(channelLastResult.completedAt)}</span>
+                              <span className="text-[10px] text-gray-600 capitalize" data-testid="text-channel-last-mode">
+                                {channelLastResult.mode === 'full_control' ? 'Full Control' : channelLastResult.mode === 'matched_sync' ? 'Matched Sync' : channelLastResult.mode === 'analysis' ? 'Analysis' : channelLastResult.mode}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-4 gap-2">
+                              <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-created"><div className="text-sm font-bold text-green-400">{channelLastResult.lotsCreated}</div><div className="text-[9px] text-gray-500 mt-0.5">Created</div></div>
+                              <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-updated"><div className="text-sm font-bold text-blue-400">{channelLastResult.lotsUpdated}</div><div className="text-[9px] text-gray-500 mt-0.5">Updated</div></div>
+                              <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-skipped"><div className="text-sm font-bold text-gray-400">{channelLastResult.lotsSkipped}</div><div className="text-[9px] text-gray-500 mt-0.5">Skipped</div></div>
+                              <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-errors"><div className={`text-sm font-bold ${channelLastResult.errorCount > 0 ? 'text-red-400' : 'text-gray-400'}`}>{channelLastResult.errorCount}</div><div className="text-[9px] text-gray-500 mt-0.5">Errors</div></div>
+                            </div>
+                            {channelLastResult.errors.length > 0 && (
+                              <div className="space-y-1 mt-1" data-testid="list-channel-errors">
+                                {channelLastResult.errors.slice(0, 3).map((err, i) => (
+                                  <p key={i} className="text-[10px] text-red-400/80 truncate">{err}</p>
+                                ))}
+                                {channelLastResult.errors.length > 3 && <p className="text-[10px] text-gray-600">+{channelLastResult.errors.length - 3} more errors</p>}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {/* Sync Mode */}
+                        <div className="px-4 py-3 space-y-2">
+                          <div className="flex items-center gap-1.5">
+                            <Label className="text-xs text-gray-200">Sync Mode</Label>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="flex items-center justify-between gap-3 px-3 py-2.5 opacity-60 cursor-default">
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-medium text-gray-200 flex items-center gap-1.5">Quantity {channelSyncMode !== 'analysis' && <Lock className="w-2.5 h-2.5 text-gray-500" />}</p>
-                                    <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Syncs the lot quantity from BrickLink</p>
-                                  </div>
-                                  <Switch checked disabled data-testid="switch-sync-field-qty" />
-                                </div>
+                                <Info className="w-3 h-3 text-gray-500 shrink-0 cursor-default" />
                               </TooltipTrigger>
-                              <TooltipContent side="left" className="max-w-xs text-xs">
-                                {channelSyncMode === 'analysis' ? 'Analysis mode — no writes.' : 'Quantity is always synced and cannot be disabled.'}
+                              <TooltipContent side="right" className="max-w-xs text-xs">
+                                Controls how the channel sync behaves across all connected sales channels.
                               </TooltipContent>
                             </Tooltip>
-
-                            {/* Base Price */}
-                            <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-                              <div className="min-w-0">
-                                <p className="text-xs font-medium text-gray-200">Base Price</p>
-                                <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Syncs the listing price from BrickLink to existing lots</p>
-                              </div>
-                              <Switch checked={syncFieldPrice} onCheckedChange={(c) => { setSyncFieldPrice(c); updateSyncFieldMutation.mutate({ syncPrice: c }); }} data-testid="switch-sync-field-syncPrice" />
-                            </div>
-
-                            {/* Optional fields */}
+                          </div>
+                          <div className="grid grid-cols-1 gap-1.5">
                             {([
-                              { key: 'syncRemarks',      label: 'Remarks',          desc: 'BrickLink Remarks → BrickOwl personal note',            value: syncFieldRemarks,     set: setSyncFieldRemarks     },
-                              { key: 'syncDescription',  label: 'Description',      desc: 'BrickLink Description → BrickOwl public note',           value: syncFieldDescription, set: setSyncFieldDescription },
-                              { key: 'syncTierPrice',    label: 'Tier Pricing',     desc: 'Syncs bulk discount tiers from BrickLink',               value: syncFieldTierPrice,   set: setSyncFieldTierPrice   },
-                              { key: 'syncSalePercent',  label: 'Sale %',           desc: 'Syncs BrickLink sale rate to BrickOwl sale %',           value: syncFieldSalePercent, set: setSyncFieldSalePercent },
-                              { key: 'syncBulkQty',      label: 'Min Quantity',     desc: 'BrickLink Bulk → BrickOwl bulk_qty',                     value: syncFieldBulkQty,     set: setSyncFieldBulkQty     },
-                              { key: 'syncLotWeight',    label: 'Custom Lot Weight',desc: 'BrickLink My Weight → BrickOwl lot_weight',              value: syncFieldLotWeight,   set: setSyncFieldLotWeight   },
-                            ] as const).map(({ key, label, desc, value, set }) => (
-                              <div key={key} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                                <div className="min-w-0">
-                                  <p className="text-xs font-medium text-gray-200">{label}</p>
-                                  <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{desc}</p>
+                              { id: 'analysis', label: 'Analysis', desc: 'Read-only — compare channels, no edits made' },
+                              { id: 'full_control', label: 'Full Control', desc: 'Create new lots + full sync of all fields on existing' },
+                              { id: 'matched_sync', label: 'Matched Sync', desc: 'Full sync of all fields on matched lots — never create new' },
+                            ] as const).map(({ id, label, desc }) => (
+                              <button
+                                key={id}
+                                onClick={() => { setChannelSyncMode(id); updateSettingsMutation.mutate({ channelSyncMode: id }); }}
+                                className={`flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors ${channelSyncMode === id ? 'border-blue-500/60 bg-blue-500/10' : 'border-gray-700 bg-gray-800/40 hover:border-gray-600'}`}
+                                data-testid={`button-sync-mode-${id}`}
+                              >
+                                <div className={`mt-0.5 w-3 h-3 rounded-full border-2 shrink-0 ${channelSyncMode === id ? 'border-blue-400 bg-blue-400' : 'border-gray-500'}`} />
+                                <div>
+                                  <span className="text-xs font-medium text-gray-200">{label}</span>
+                                  <p className="text-[10px] text-gray-500 mt-0.5">{desc}</p>
                                 </div>
-                                <Switch checked={value} onCheckedChange={(c) => { set(c); updateSyncFieldMutation.mutate({ [key]: c }); }} data-testid={`switch-sync-field-${key}`} />
-                              </div>
+                              </button>
                             ))}
-
-                            {/* Stockrooms */}
-                            <div className="px-3 pt-2 pb-1">
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">BrickLink Stockrooms</p>
-                              <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">
-                                <strong className="text-gray-400">Skip</strong> — ignore entirely.{' '}
-                                <strong className="text-gray-400">Hidden</strong> — sync but mark not-for-sale.{' '}
-                                <strong className="text-gray-400">Active</strong> — sync as a normal listing.
-                              </p>
-                            </div>
-                            {(['A', 'B', 'C'] as const).map((id) => {
-                              const current = syncStockroomModes[id] ?? 'skip';
-                              return (
-                                <div key={id} className="flex items-center justify-between gap-3 px-3 py-2">
-                                  <p className="text-xs font-medium text-gray-200 shrink-0">Stockroom {id}</p>
-                                  <div className="flex gap-1">
-                                    {(['skip', 'hidden', 'active'] as const).map((mode) => (
-                                      <Button key={mode} size="sm" variant={current === mode ? 'default' : 'ghost'} className="text-[10px] capitalize"
-                                        onClick={() => { const next = { ...syncStockroomModes, [id]: mode }; setSyncStockroomModes(next); updateSyncFieldMutation.mutate({ syncStockroomModes: next }); }}
-                                        data-testid={`button-sync-stockroom-${id}-${mode}`}
-                                      >{mode}</Button>
-                                    ))}
-                                  </div>
-                                </div>
-                              );
-                            })}
                           </div>
                         </div>
-                      )}
-                    </div>
-                  )}
+                        {/* Fields config */}
+                        <button
+                          onClick={() => setChannelSyncFieldsOpen(!channelSyncFieldsOpen)}
+                          className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-xs text-gray-400 hover:text-gray-200 transition-colors group"
+                          data-testid="button-channel-fields-toggle"
+                        >
+                          <span className="font-medium">Configure sync fields</span>
+                          {channelSyncFieldsOpen
+                            ? <ChevronDown className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />
+                            : <ChevronRight className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />}
+                        </button>
+                        {channelSyncFieldsOpen && (
+                          <div className="px-4 pb-3 space-y-2">
+                            <Label className="text-xs text-gray-200">Fields to Sync</Label>
+                            <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center justify-between gap-3 px-3 py-2.5 opacity-60 cursor-default">
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-medium text-gray-200 flex items-center gap-1.5">Quantity {channelSyncMode !== 'analysis' && <Lock className="w-2.5 h-2.5 text-gray-500" />}</p>
+                                      <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Syncs the lot quantity from BrickLink</p>
+                                    </div>
+                                    <Switch checked disabled data-testid="switch-sync-field-qty" />
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="left" className="max-w-xs text-xs">
+                                  {channelSyncMode === 'analysis' ? 'Analysis mode — no writes.' : 'Quantity is always synced and cannot be disabled.'}
+                                </TooltipContent>
+                              </Tooltip>
+                              <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-medium text-gray-200">Base Price</p>
+                                  <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">Syncs the listing price from BrickLink to existing lots</p>
+                                </div>
+                                <Switch checked={syncFieldPrice} onCheckedChange={(c) => { setSyncFieldPrice(c); updateSyncFieldMutation.mutate({ syncPrice: c }); }} data-testid="switch-sync-field-syncPrice" />
+                              </div>
+                              {([
+                                { key: 'syncRemarks',      label: 'Remarks',          desc: 'BrickLink Remarks → BrickOwl personal note',            value: syncFieldRemarks,     set: setSyncFieldRemarks     },
+                                { key: 'syncDescription',  label: 'Description',      desc: 'BrickLink Description → BrickOwl public note',           value: syncFieldDescription, set: setSyncFieldDescription },
+                                { key: 'syncTierPrice',    label: 'Tier Pricing',     desc: 'Syncs bulk discount tiers from BrickLink',               value: syncFieldTierPrice,   set: setSyncFieldTierPrice   },
+                                { key: 'syncSalePercent',  label: 'Sale %',           desc: 'Syncs BrickLink sale rate to BrickOwl sale %',           value: syncFieldSalePercent, set: setSyncFieldSalePercent },
+                                { key: 'syncBulkQty',      label: 'Min Quantity',     desc: 'BrickLink Bulk → BrickOwl bulk_qty',                     value: syncFieldBulkQty,     set: setSyncFieldBulkQty     },
+                                { key: 'syncLotWeight',    label: 'Custom Lot Weight',desc: 'BrickLink My Weight → BrickOwl lot_weight',              value: syncFieldLotWeight,   set: setSyncFieldLotWeight   },
+                              ] as const).map(({ key, label, desc, value, set }) => (
+                                <div key={key} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium text-gray-200">{label}</p>
+                                    <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{desc}</p>
+                                  </div>
+                                  <Switch checked={value} onCheckedChange={(c) => { set(c); updateSyncFieldMutation.mutate({ [key]: c }); }} data-testid={`switch-sync-field-${key}`} />
+                                </div>
+                              ))}
+                              <div className="px-3 pt-2 pb-1">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">BrickLink Stockrooms</p>
+                                <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">
+                                  <strong className="text-gray-400">Skip</strong> — ignore entirely.{' '}
+                                  <strong className="text-gray-400">Hidden</strong> — sync but mark not-for-sale.{' '}
+                                  <strong className="text-gray-400">Active</strong> — sync as a normal listing.
+                                </p>
+                              </div>
+                              {(['A', 'B', 'C'] as const).map((id) => {
+                                const current = syncStockroomModes[id] ?? 'skip';
+                                return (
+                                  <div key={id} className="flex items-center justify-between gap-3 px-3 py-2">
+                                    <p className="text-xs font-medium text-gray-200 shrink-0">Stockroom {id}</p>
+                                    <div className="flex gap-1">
+                                      {(['skip', 'hidden', 'active'] as const).map((mode) => (
+                                        <Button key={mode} size="sm" variant={current === mode ? 'default' : 'ghost'} className="text-[10px] capitalize"
+                                          onClick={() => { const next = { ...syncStockroomModes, [id]: mode }; setSyncStockroomModes(next); updateSyncFieldMutation.mutate({ syncStockroomModes: next }); }}
+                                          data-testid={`button-sync-stockroom-${id}-${mode}`}
+                                        >{mode}</Button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                 </div>
 
                 {/* API limit note */}
@@ -9112,286 +9119,340 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   <p className="text-xs text-gray-400 mt-0.5">Control sync defaults, per-plan frequency floors, and org-level health across all tenants</p>
                 </div>
 
-                {/* ── Card: Global Controls ─────────────────────────────── */}
-                <div className="rounded-md border border-gray-700/80 bg-gray-800/20">
-                  <div className="px-4 py-3 border-b border-gray-700/60">
-                    <p className="text-xs font-semibold text-gray-200">Global Controls</p>
-                  </div>
-                  <div className="divide-y divide-gray-700/40">
-                    {/* Emergency Pause */}
-                    <div className="flex items-center justify-between gap-3 px-4 py-3">
-                      <div>
-                        <p className="text-xs font-medium text-gray-200 flex items-center gap-1.5">
-                          <AlertTriangle className="w-3 h-3 text-red-400 shrink-0" />
-                          Emergency Pause
-                        </p>
-                        <p className="text-[10px] text-gray-500 mt-0.5">Immediately halts all org inventory and channel syncs platform-wide</p>
-                      </div>
-                      <Switch
-                        checked={globalSyncPaused}
-                        onCheckedChange={(checked) => {
-                          setGlobalSyncPaused(checked);
-                          updatePlatformSettingsMutation.mutate({ globalSyncPaused: checked } as any);
-                        }}
-                        data-testid="switch-global-sync-paused"
-                      />
-                    </div>
-                    {/* Default Inventory Frequency */}
-                    <div className="flex items-center justify-between gap-3 px-4 py-3">
-                      <div>
-                        <p className="text-xs font-medium text-gray-200">Default Inventory Frequency</p>
-                        <p className="text-[10px] text-gray-500 mt-0.5">What new orgs inherit for BrickLink inventory sync</p>
-                      </div>
-                      <Select value={String(defaultInventoryFreqHours)} onValueChange={(v) => { const h = Number(v); setDefaultInventoryFreqHours(h); updatePlatformSettingsMutation.mutate({ defaultInventoryFreqHours: h } as any); }}>
-                        <SelectTrigger className="w-36 h-8 text-xs" data-testid="select-default-inventory-freq">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="6">Every 6 hours</SelectItem>
-                          <SelectItem value="12">Every 12 hours</SelectItem>
-                          <SelectItem value="24">Every 24 hours</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {/* Default Orders Frequency */}
-                    <div className="flex items-center justify-between gap-3 px-4 py-3">
-                      <div>
-                        <p className="text-xs font-medium text-gray-200">Default Orders Frequency</p>
-                        <p className="text-[10px] text-gray-500 mt-0.5">What new orgs inherit for order sync polling</p>
-                      </div>
-                      <Select value={String(defaultOrdersFreqMins)} onValueChange={(v) => { const m = Number(v); setDefaultOrdersFreqMins(m); updatePlatformSettingsMutation.mutate({ defaultOrdersFreqMins: m } as any); }}>
-                        <SelectTrigger className="w-36 h-8 text-xs" data-testid="select-default-orders-freq">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="15">15 minutes</SelectItem>
-                          <SelectItem value="30">30 minutes</SelectItem>
-                          <SelectItem value="60">1 hour</SelectItem>
-                          <SelectItem value="120">2 hours</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {/* Default Channel Frequency */}
-                    <div className="flex items-center justify-between gap-3 px-4 py-3">
-                      <div>
-                        <p className="text-xs font-medium text-gray-200">Default Channel Frequency</p>
-                        <p className="text-[10px] text-gray-500 mt-0.5">What new orgs inherit for channel (BrickOwl, etc.) sync</p>
-                      </div>
-                      <Select value={String(defaultChannelFreqHours)} onValueChange={(v) => { const h = Number(v); setDefaultChannelFreqHours(h); updatePlatformSettingsMutation.mutate({ defaultChannelFreqHours: h } as any); }}>
-                        <SelectTrigger className="w-36 h-8 text-xs" data-testid="select-default-channel-freq">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">Every hour</SelectItem>
-                          <SelectItem value="2">Every 2 hours</SelectItem>
-                          <SelectItem value="4">Every 4 hours</SelectItem>
-                          <SelectItem value="6">Every 6 hours</SelectItem>
-                          <SelectItem value="12">Every 12 hours</SelectItem>
-                          <SelectItem value="24">Every 24 hours</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
+                {/* ── Config panel list ──────────────────────────────────── */}
+                <div className="rounded-md border border-gray-700/80 bg-gray-800/20 divide-y divide-gray-700/40">
 
-                {/* ── Card: Frequency Floors by Plan ─────────────────────── */}
-                <div className="rounded-md border border-gray-700/80 bg-gray-800/20">
-                  <div className="px-4 py-3 border-b border-gray-700/60 flex items-center gap-1.5">
-                    <p className="text-xs font-semibold text-gray-200">Frequency Floors by Plan</p>
-                    <Tooltip>
-                      <TooltipTrigger asChild><Info className="w-3 h-3 text-gray-500 cursor-default" /></TooltipTrigger>
-                      <TooltipContent side="right" className="max-w-xs text-xs">Orgs on each plan cannot sync faster than these minimums. Prevents API abuse on low-tier plans.</TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <div className="p-4">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
-                          <th className="text-left pb-2 pr-4">Plan</th>
-                          <th className="text-center pb-2 px-2">Inventory</th>
-                          <th className="text-center pb-2 px-2">Orders</th>
-                          <th className="text-center pb-2 px-2">Channel</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-700/40">
-                        {(['beta', 'core', 'pro'] as const).map((plan) => (
-                          <tr key={plan}>
-                            <td className="py-2 pr-4 font-medium text-gray-300 capitalize">{plan}</td>
-                            {/* Inventory floor */}
-                            <td className="py-2 px-2 text-center">
-                              <Select
-                                value={String(syncFloorsByPlan.inventory?.[plan] ?? 24)}
-                                onValueChange={(v) => {
-                                  const next = { ...syncFloorsByPlan, inventory: { ...syncFloorsByPlan.inventory, [plan]: Number(v) } };
-                                  setSyncFloorsByPlan(next);
-                                  updatePlatformSettingsMutation.mutate({ syncFloorsByPlan: next } as any);
-                                }}
-                              >
-                                <SelectTrigger className="h-7 text-[10px] w-24 mx-auto" data-testid={`select-floor-inventory-${plan}`}>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="6">6 h</SelectItem>
-                                  <SelectItem value="12">12 h</SelectItem>
-                                  <SelectItem value="24">24 h</SelectItem>
-                                  <SelectItem value="48">48 h</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </td>
-                            {/* Orders floor */}
-                            <td className="py-2 px-2 text-center">
-                              <Select
-                                value={String(syncFloorsByPlan.orders?.[plan] ?? 30)}
-                                onValueChange={(v) => {
-                                  const next = { ...syncFloorsByPlan, orders: { ...syncFloorsByPlan.orders, [plan]: Number(v) } };
-                                  setSyncFloorsByPlan(next);
-                                  updatePlatformSettingsMutation.mutate({ syncFloorsByPlan: next } as any);
-                                }}
-                              >
-                                <SelectTrigger className="h-7 text-[10px] w-24 mx-auto" data-testid={`select-floor-orders-${plan}`}>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="15">15 min</SelectItem>
-                                  <SelectItem value="30">30 min</SelectItem>
-                                  <SelectItem value="60">60 min</SelectItem>
-                                  <SelectItem value="120">2 h</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </td>
-                            {/* Channel floor */}
-                            <td className="py-2 px-2 text-center">
-                              <Select
-                                value={String(syncFloorsByPlan.channel?.[plan] ?? 4)}
-                                onValueChange={(v) => {
-                                  const next = { ...syncFloorsByPlan, channel: { ...syncFloorsByPlan.channel, [plan]: Number(v) } };
-                                  setSyncFloorsByPlan(next);
-                                  updatePlatformSettingsMutation.mutate({ syncFloorsByPlan: next } as any);
-                                }}
-                              >
-                                <SelectTrigger className="h-7 text-[10px] w-24 mx-auto" data-testid={`select-floor-channel-${plan}`}>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="1">1 h</SelectItem>
-                                  <SelectItem value="2">2 h</SelectItem>
-                                  <SelectItem value="4">4 h</SelectItem>
-                                  <SelectItem value="6">6 h</SelectItem>
-                                  <SelectItem value="12">12 h</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* ── Card: Org Sync Health ──────────────────────────────── */}
-                <div className="rounded-md border border-gray-700/80 bg-gray-800/20">
-                  <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-700/60">
-                    <p className="text-xs font-semibold text-gray-200">Org Sync Health</p>
-                    <span className="text-[10px] text-gray-500">Refreshes every 30s</span>
-                  </div>
-                  {!orgSyncStatus ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
+                  {/* ── Row: Emergency Pause ── */}
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <div className="w-7 h-7 rounded-md bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
                     </div>
-                  ) : orgSyncStatus.length === 0 ? (
-                    <p className="text-xs text-gray-500 text-center py-6">No org sync data yet</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 border-b border-gray-700/40">
-                            <th className="text-left px-4 py-2">Organization</th>
-                            <th className="text-center px-3 py-2">Inventory</th>
-                            <th className="text-center px-3 py-2">Orders</th>
-                            <th className="text-center px-3 py-2">Channel</th>
-                            <th className="text-right px-4 py-2">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-700/30">
-                          {orgSyncStatus.map((entry) => {
-                            const getSyncCell = (id: string) => {
-                              const s = entry.syncs.find(x => x.id === id);
-                              if (!s) return <span className="text-gray-600">—</span>;
-                              const isRunning = s.lastSyncStatus === 'in_progress';
-                              const isError = s.lastSyncStatus === 'error' || s.lastSyncStatus === 'failed';
-                              const isOk = s.lastSyncStatus === 'success';
-                              const dotCls = isRunning ? 'bg-yellow-400 animate-pulse' : isError ? 'bg-red-400' : isOk ? 'bg-green-400' : 'bg-gray-600';
-                              return (
-                                <div className="flex flex-col items-center gap-0.5">
-                                  <div className={`w-2 h-2 rounded-full ${dotCls}`} />
-                                  <span className="text-[10px] text-gray-400 leading-tight">{formatRelativeTime(s.lastSyncTime)}</span>
-                                  {isError && s.errorMessage && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild><AlertTriangle className="w-2.5 h-2.5 text-red-400 cursor-default" /></TooltipTrigger>
-                                      <TooltipContent className="max-w-xs text-xs text-red-300">{s.errorMessage}</TooltipContent>
-                                    </Tooltip>
-                                  )}
-                                </div>
-                              );
-                            };
-                            const triggerKey = (t: string) => `${entry.orgId}:${t}`;
-                            const isTriggering = (t: string) => triggeringSync === triggerKey(t);
-                            const doTrigger = async (type: 'inventory' | 'orders' | 'channel') => {
-                              setTriggeringSync(triggerKey(type));
-                              try {
-                                await apiRequest('POST', `/api/platform-admin/org-sync-trigger/${entry.orgId}/${type}`);
-                                queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/org-sync-status'] });
-                              } catch (e: any) {
-                                console.error('Trigger failed:', e);
-                              } finally {
-                                setTriggeringSync(null);
-                              }
-                            };
-                            return (
-                              <tr key={entry.orgId} data-testid={`row-org-sync-${entry.orgId}`}>
-                                <td className="px-4 py-3">
-                                  <p className="font-medium text-gray-200 truncate max-w-[140px]">{entry.orgName}</p>
-                                  <p className="text-[10px] text-gray-600 font-mono truncate max-w-[140px]">{entry.orgId}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-100">Emergency Pause</p>
+                      <p className="text-[10px] text-gray-500 leading-tight">Immediately halts all inventory and channel syncs platform-wide</p>
+                    </div>
+                    {globalSyncPaused && (
+                      <span className="text-[10px] px-2 py-0.5 rounded border border-red-500/30 bg-red-500/10 text-red-400 font-medium shrink-0">Paused</span>
+                    )}
+                    <Switch
+                      checked={globalSyncPaused}
+                      onCheckedChange={(checked) => {
+                        setGlobalSyncPaused(checked);
+                        updatePlatformSettingsMutation.mutate({ globalSyncPaused: checked } as any);
+                      }}
+                      data-testid="switch-global-sync-paused"
+                    />
+                  </div>
+
+                  {/* ── Row: Default Frequencies ── */}
+                  <div>
+                    <button
+                      onClick={() => setExpandedAdminPanel(expandedAdminPanel === 'defaults' ? null : 'defaults')}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                      data-testid="button-admin-defaults-toggle"
+                    >
+                      <div className="w-7 h-7 rounded-md bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
+                        <Clock className="w-3.5 h-3.5 text-blue-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-gray-100">Default Frequencies</p>
+                        <p className="text-[10px] text-gray-500 leading-tight">Inventory, orders, and channel defaults for new orgs</p>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded border border-blue-500/30 bg-blue-500/10 text-blue-300 font-medium shrink-0">
+                        {defaultInventoryFreqHours}h · {defaultOrdersFreqMins}m · {defaultChannelFreqHours}h
+                      </span>
+                      {expandedAdminPanel === 'defaults'
+                        ? <ChevronDown className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                        : <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
+                    </button>
+                    {expandedAdminPanel === 'defaults' && (
+                      <div className="border-t border-gray-700/50 bg-gray-900/30 divide-y divide-gray-700/40">
+                        <div className="flex items-center justify-between gap-3 px-4 py-3">
+                          <div>
+                            <p className="text-xs font-medium text-gray-200">Default Inventory Frequency</p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">What new orgs inherit for BrickLink inventory sync</p>
+                          </div>
+                          <Select value={String(defaultInventoryFreqHours)} onValueChange={(v) => { const h = Number(v); setDefaultInventoryFreqHours(h); updatePlatformSettingsMutation.mutate({ defaultInventoryFreqHours: h } as any); }}>
+                            <SelectTrigger className="w-36 h-8 text-xs" data-testid="select-default-inventory-freq">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="6">Every 6 hours</SelectItem>
+                              <SelectItem value="12">Every 12 hours</SelectItem>
+                              <SelectItem value="24">Every 24 hours</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 px-4 py-3">
+                          <div>
+                            <p className="text-xs font-medium text-gray-200">Default Orders Frequency</p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">What new orgs inherit for order sync polling</p>
+                          </div>
+                          <Select value={String(defaultOrdersFreqMins)} onValueChange={(v) => { const m = Number(v); setDefaultOrdersFreqMins(m); updatePlatformSettingsMutation.mutate({ defaultOrdersFreqMins: m } as any); }}>
+                            <SelectTrigger className="w-36 h-8 text-xs" data-testid="select-default-orders-freq">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="15">15 minutes</SelectItem>
+                              <SelectItem value="30">30 minutes</SelectItem>
+                              <SelectItem value="60">1 hour</SelectItem>
+                              <SelectItem value="120">2 hours</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 px-4 py-3">
+                          <div>
+                            <p className="text-xs font-medium text-gray-200">Default Channel Frequency</p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">What new orgs inherit for channel (BrickOwl, etc.) sync</p>
+                          </div>
+                          <Select value={String(defaultChannelFreqHours)} onValueChange={(v) => { const h = Number(v); setDefaultChannelFreqHours(h); updatePlatformSettingsMutation.mutate({ defaultChannelFreqHours: h } as any); }}>
+                            <SelectTrigger className="w-36 h-8 text-xs" data-testid="select-default-channel-freq">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">Every hour</SelectItem>
+                              <SelectItem value="2">Every 2 hours</SelectItem>
+                              <SelectItem value="4">Every 4 hours</SelectItem>
+                              <SelectItem value="6">Every 6 hours</SelectItem>
+                              <SelectItem value="12">Every 12 hours</SelectItem>
+                              <SelectItem value="24">Every 24 hours</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── Row: Frequency Floors by Plan ── */}
+                  <div>
+                    <button
+                      onClick={() => setExpandedAdminPanel(expandedAdminPanel === 'floors' ? null : 'floors')}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                      data-testid="button-admin-floors-toggle"
+                    >
+                      <div className="w-7 h-7 rounded-md bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center shrink-0">
+                        <ShieldAlert className="w-3.5 h-3.5 text-yellow-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-gray-100">Frequency Floors by Plan</p>
+                        <p className="text-[10px] text-gray-500 leading-tight">Minimum sync intervals per plan tier — prevents API abuse</p>
+                      </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-3 h-3 text-gray-600 shrink-0 cursor-default" />
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="max-w-xs text-xs">Orgs on each plan cannot sync faster than these minimums.</TooltipContent>
+                      </Tooltip>
+                      {expandedAdminPanel === 'floors'
+                        ? <ChevronDown className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                        : <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
+                    </button>
+                    {expandedAdminPanel === 'floors' && (
+                      <div className="border-t border-gray-700/50 bg-gray-900/30 p-4">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                              <th className="text-left pb-2 pr-4">Plan</th>
+                              <th className="text-center pb-2 px-2">Inventory</th>
+                              <th className="text-center pb-2 px-2">Orders</th>
+                              <th className="text-center pb-2 px-2">Channel</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-700/40">
+                            {(['beta', 'core', 'pro'] as const).map((plan) => (
+                              <tr key={plan}>
+                                <td className="py-2 pr-4 font-medium text-gray-300 capitalize">{plan}</td>
+                                <td className="py-2 px-2 text-center">
+                                  <Select
+                                    value={String(syncFloorsByPlan.inventory?.[plan] ?? 24)}
+                                    onValueChange={(v) => {
+                                      const next = { ...syncFloorsByPlan, inventory: { ...syncFloorsByPlan.inventory, [plan]: Number(v) } };
+                                      setSyncFloorsByPlan(next);
+                                      updatePlatformSettingsMutation.mutate({ syncFloorsByPlan: next } as any);
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-7 text-[10px] w-24 mx-auto" data-testid={`select-floor-inventory-${plan}`}>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="6">6 h</SelectItem>
+                                      <SelectItem value="12">12 h</SelectItem>
+                                      <SelectItem value="24">24 h</SelectItem>
+                                      <SelectItem value="48">48 h</SelectItem>
+                                    </SelectContent>
+                                  </Select>
                                 </td>
-                                <td className="px-3 py-3 text-center">{getSyncCell('bricklink_inventory')}</td>
-                                <td className="px-3 py-3 text-center">{getSyncCell('bricklink_orders')}</td>
-                                <td className="px-3 py-3 text-center">{getSyncCell('channel_sync')}</td>
-                                <td className="px-4 py-3 text-right">
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button size="sm" variant="ghost" className="text-[10px] h-7 px-2 gap-1" data-testid={`button-trigger-org-${entry.orgId}`}>
-                                        {isTriggering('inventory') || isTriggering('orders') || isTriggering('channel')
-                                          ? <Loader2 className="w-3 h-3 animate-spin" />
-                                          : <Play className="w-3 h-3" />}
-                                        Trigger
-                                        <ChevronDown className="w-2.5 h-2.5" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-44 text-xs">
-                                      <DropdownMenuItem onClick={() => doTrigger('inventory')} disabled={isTriggering('inventory')} data-testid={`menu-trigger-inventory-${entry.orgId}`}>
-                                        <Package className="w-3 h-3 mr-2 text-purple-400" />
-                                        {isTriggering('inventory') ? 'Running…' : 'Inventory Sync'}
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => doTrigger('orders')} disabled={isTriggering('orders')} data-testid={`menu-trigger-orders-${entry.orgId}`}>
-                                        <ShoppingCart className="w-3 h-3 mr-2 text-blue-400" />
-                                        {isTriggering('orders') ? 'Running…' : 'Orders Sync'}
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => doTrigger('channel')} disabled={isTriggering('channel')} data-testid={`menu-trigger-channel-${entry.orgId}`}>
-                                        <Globe className="w-3 h-3 mr-2 text-green-400" />
-                                        {isTriggering('channel') ? 'Running…' : 'Channel Sync'}
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
+                                <td className="py-2 px-2 text-center">
+                                  <Select
+                                    value={String(syncFloorsByPlan.orders?.[plan] ?? 30)}
+                                    onValueChange={(v) => {
+                                      const next = { ...syncFloorsByPlan, orders: { ...syncFloorsByPlan.orders, [plan]: Number(v) } };
+                                      setSyncFloorsByPlan(next);
+                                      updatePlatformSettingsMutation.mutate({ syncFloorsByPlan: next } as any);
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-7 text-[10px] w-24 mx-auto" data-testid={`select-floor-orders-${plan}`}>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="15">15 min</SelectItem>
+                                      <SelectItem value="30">30 min</SelectItem>
+                                      <SelectItem value="60">60 min</SelectItem>
+                                      <SelectItem value="120">2 h</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </td>
+                                <td className="py-2 px-2 text-center">
+                                  <Select
+                                    value={String(syncFloorsByPlan.channel?.[plan] ?? 4)}
+                                    onValueChange={(v) => {
+                                      const next = { ...syncFloorsByPlan, channel: { ...syncFloorsByPlan.channel, [plan]: Number(v) } };
+                                      setSyncFloorsByPlan(next);
+                                      updatePlatformSettingsMutation.mutate({ syncFloorsByPlan: next } as any);
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-7 text-[10px] w-24 mx-auto" data-testid={`select-floor-channel-${plan}`}>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="1">1 h</SelectItem>
+                                      <SelectItem value="2">2 h</SelectItem>
+                                      <SelectItem value="4">4 h</SelectItem>
+                                      <SelectItem value="6">6 h</SelectItem>
+                                      <SelectItem value="12">12 h</SelectItem>
+                                    </SelectContent>
+                                  </Select>
                                 </td>
                               </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
 
+                  {/* ── Row: Org Sync Health ── */}
+                  <div>
+                    <button
+                      onClick={() => setExpandedAdminPanel(expandedAdminPanel === 'health' ? null : 'health')}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                      data-testid="button-admin-health-toggle"
+                    >
+                      <div className="w-7 h-7 rounded-md bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0">
+                        <Activity className="w-3.5 h-3.5 text-green-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-gray-100">Org Sync Health</p>
+                        <p className="text-[10px] text-gray-500 leading-tight">Live status and manual triggers across all tenants</p>
+                      </div>
+                      <span className="text-[10px] text-gray-600 shrink-0">Refreshes every 30s</span>
+                      {expandedAdminPanel === 'health'
+                        ? <ChevronDown className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                        : <ChevronRight className="w-3.5 h-3.5 text-gray-500 shrink-0" />}
+                    </button>
+                    {expandedAdminPanel === 'health' && (
+                      <div className="border-t border-gray-700/50 bg-gray-900/30">
+                        {!orgSyncStatus ? (
+                          <div className="flex items-center justify-center py-8">
+                            <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
+                          </div>
+                        ) : orgSyncStatus.length === 0 ? (
+                          <p className="text-xs text-gray-500 text-center py-6">No org sync data yet</p>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 border-b border-gray-700/40">
+                                  <th className="text-left px-4 py-2">Organization</th>
+                                  <th className="text-center px-3 py-2">Inventory</th>
+                                  <th className="text-center px-3 py-2">Orders</th>
+                                  <th className="text-center px-3 py-2">Channel</th>
+                                  <th className="text-right px-4 py-2">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-700/30">
+                                {orgSyncStatus.map((entry) => {
+                                  const getSyncCell = (id: string) => {
+                                    const s = entry.syncs.find(x => x.id === id);
+                                    if (!s) return <span className="text-gray-600">—</span>;
+                                    const isRunning = s.lastSyncStatus === 'in_progress';
+                                    const isError = s.lastSyncStatus === 'error' || s.lastSyncStatus === 'failed';
+                                    const isOk = s.lastSyncStatus === 'success';
+                                    const dotCls = isRunning ? 'bg-yellow-400 animate-pulse' : isError ? 'bg-red-400' : isOk ? 'bg-green-400' : 'bg-gray-600';
+                                    return (
+                                      <div className="flex flex-col items-center gap-0.5">
+                                        <div className={`w-2 h-2 rounded-full ${dotCls}`} />
+                                        <span className="text-[10px] text-gray-400 leading-tight">{formatRelativeTime(s.lastSyncTime)}</span>
+                                        {isError && s.errorMessage && (
+                                          <Tooltip>
+                                            <TooltipTrigger asChild><AlertTriangle className="w-2.5 h-2.5 text-red-400 cursor-default" /></TooltipTrigger>
+                                            <TooltipContent className="max-w-xs text-xs text-red-300">{s.errorMessage}</TooltipContent>
+                                          </Tooltip>
+                                        )}
+                                      </div>
+                                    );
+                                  };
+                                  const triggerKey = (t: string) => `${entry.orgId}:${t}`;
+                                  const isTriggering = (t: string) => triggeringSync === triggerKey(t);
+                                  const doTrigger = async (type: 'inventory' | 'orders' | 'channel') => {
+                                    setTriggeringSync(triggerKey(type));
+                                    try {
+                                      await apiRequest('POST', `/api/platform-admin/org-sync-trigger/${entry.orgId}/${type}`);
+                                      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/org-sync-status'] });
+                                    } catch (e: any) {
+                                      console.error('Trigger failed:', e);
+                                    } finally {
+                                      setTriggeringSync(null);
+                                    }
+                                  };
+                                  return (
+                                    <tr key={entry.orgId} data-testid={`row-org-sync-${entry.orgId}`}>
+                                      <td className="px-4 py-3">
+                                        <p className="font-medium text-gray-200 truncate max-w-[140px]">{entry.orgName}</p>
+                                        <p className="text-[10px] text-gray-600 font-mono truncate max-w-[140px]">{entry.orgId}</p>
+                                      </td>
+                                      <td className="px-3 py-3 text-center">{getSyncCell('bricklink_inventory')}</td>
+                                      <td className="px-3 py-3 text-center">{getSyncCell('bricklink_orders')}</td>
+                                      <td className="px-3 py-3 text-center">{getSyncCell('channel_sync')}</td>
+                                      <td className="px-4 py-3 text-right">
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                            <Button size="sm" variant="ghost" className="text-[10px] h-7 px-2 gap-1" data-testid={`button-trigger-org-${entry.orgId}`}>
+                                              {isTriggering('inventory') || isTriggering('orders') || isTriggering('channel')
+                                                ? <Loader2 className="w-3 h-3 animate-spin" />
+                                                : <Play className="w-3 h-3" />}
+                                              Trigger
+                                              <ChevronDown className="w-2.5 h-2.5" />
+                                            </Button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent align="end" className="w-44 text-xs">
+                                            <DropdownMenuItem onClick={() => doTrigger('inventory')} disabled={isTriggering('inventory')} data-testid={`menu-trigger-inventory-${entry.orgId}`}>
+                                              <Package className="w-3 h-3 mr-2 text-purple-400" />
+                                              {isTriggering('inventory') ? 'Running…' : 'Inventory Sync'}
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => doTrigger('orders')} disabled={isTriggering('orders')} data-testid={`menu-trigger-orders-${entry.orgId}`}>
+                                              <ShoppingCart className="w-3 h-3 mr-2 text-blue-400" />
+                                              {isTriggering('orders') ? 'Running…' : 'Orders Sync'}
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => doTrigger('channel')} disabled={isTriggering('channel')} data-testid={`menu-trigger-channel-${entry.orgId}`}>
+                                              <Globe className="w-3 h-3 mr-2 text-green-400" />
+                                              {isTriggering('channel') ? 'Running…' : 'Channel Sync'}
+                                            </DropdownMenuItem>
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                </div>
               </div>
             )}
 
