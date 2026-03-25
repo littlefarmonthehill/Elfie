@@ -3692,8 +3692,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Cleanup: delete stale orders stuck in awaiting_* status, older than a given date
-  // ?before=YYYY-MM-DD (default 2 years ago); targets awaiting_payment, awaiting_shipment, awaiting_fulfillment
+  // POST /api/admin/backfill-bo-bl-links
+  // For each BO order_detail whose bricklink_inventory_id is NULL or points to a non-existent BL lot,
+  // look up the BO lot ID from lineItemKey and resolve the real BL inventory ID via live BO inventory.
+  app.post("/api/admin/backfill-bo-bl-links", isApproved, async (req: any, res) => {
+    const orgId = reqOrgId(req);
+    try {
+      const { getBrickOwlInventory } = await import('./services/brickowl');
+
+      // Step 1: Build boLotId → BL inventory ID map from live BO inventory
+      const boInventory = await getBrickOwlInventory(false, orgId);
+      const boLotToBlInvId = new Map<string, number>();
+      for (const lot of boInventory) {
+        const blInvIdStr = lot.external_lot_ids?.other;
+        if (blInvIdStr && lot.lot_id) {
+          const parsed = parseInt(blInvIdStr, 10);
+          if (!isNaN(parsed)) boLotToBlInvId.set(String(lot.lot_id), parsed);
+        }
+      }
+
+      // Step 2: Find BO order_details with a broken or missing BL inventory link
+      const brokenRows = await db.execute(sql`
+        SELECT od.id, od.order_id, od.line_item_key, od.sku, od.bricklink_inventory_id
+        FROM order_details od
+        JOIN orders o ON o.id = od.order_id
+        WHERE o.marketplace = 'BrickOwl'
+          AND (
+            od.bricklink_inventory_id IS NULL
+            OR NOT EXISTS (
+              SELECT 1 FROM bl_inventory bi WHERE bi.id = od.bricklink_inventory_id
+            )
+          )
+      `);
+
+      let fixed = 0;
+      const failures: string[] = [];
+
+      for (const row of (brokenRows as any).rows) {
+        // lineItemKey format: '{boOrderId}-{boLotId}'
+        const key: string = row.line_item_key || '';
+        const dashIdx = key.indexOf('-');
+        const boLotId = dashIdx >= 0 ? key.slice(dashIdx + 1) : null;
+
+        if (!boLotId) {
+          failures.push(`id=${row.id}: cannot extract lot from key '${key}'`);
+          continue;
+        }
+
+        const blInvId = boLotToBlInvId.get(boLotId);
+        if (!blInvId) {
+          failures.push(`id=${row.id}: BO lot ${boLotId} not found in live inventory`);
+          continue;
+        }
+
+        await db.execute(sql`
+          UPDATE order_details
+          SET bricklink_inventory_id = ${blInvId},
+              sku                    = ${String(blInvId)},
+              color_id               = NULL,
+              condition              = NULL
+          WHERE id = ${row.id}
+        `);
+        fixed++;
+      }
+
+      console.log(`[Admin] backfill-bo-bl-links: ${fixed} rows fixed, ${failures.length} could not be resolved`);
+      res.json({
+        ok: true,
+        inventoryLotsInMap: boLotToBlInvId.size,
+        brokenFound: (brokenRows as any).rows.length,
+        fixed,
+        failures,
+      });
+    } catch (err: any) {
+      console.error('[Admin] backfill-bo-bl-links error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /api/admin/fix-bo-visibility — set a specific BO lot invisible by BL inventory ID
   // Body: { blInventoryId: number, forSale: 0|1 }
   app.post("/api/admin/fix-bo-visibility", isApproved, async (req: any, res) => {

@@ -1,7 +1,8 @@
 import { db } from "../db";
 import { orders, orderDetails, syncMetadata } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
-import { getBrickOwlOrders, getBrickOwlOrderDetails, mapBrickOwlStatus, mapBrickOwlCondition } from "./brickowl-orders";
+import { getBrickOwlOrders, getBrickOwlOrderDetails, mapBrickOwlStatus } from "./brickowl-orders";
+import { getBrickOwlInventory } from "./brickowl";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
 
 
@@ -67,27 +68,25 @@ export async function syncBrickOwlOrders(
       }
     } else {
       console.log(`🔄 Full sync requested`);
-      
-      // For full syncs: Run batch migration of historical data FIRST (much faster than item-by-item)
-      console.log(`🔄 Running batch migration for historical BrickOwl orders...`);
-      const migrationResult = await db.execute(`
-        UPDATE order_details od
-        SET bricklink_inventory_id = CAST(od.sku AS INTEGER)
-        FROM orders o
-        WHERE od.order_id = o.id
-          AND o.marketplace = 'BrickOwl'
-          AND od.sku ~ '^\\d+$'
-          AND od.sku != '0'
-          AND od.bricklink_inventory_id IS NULL
-      `);
-      
-      const rowsUpdated = (migrationResult as any).rowCount || 0;
-      if (rowsUpdated > 0) {
-        console.log(`✅ Batch migrated ${rowsUpdated} historical BrickOwl items`);
-        result.skusMigrated += rowsUpdated;
-      } else {
-        console.log(`✅ No historical items need migration`);
+    }
+
+    // Fetch live BrickOwl inventory to build the canonical boLotId → BL inventory ID map.
+    // The channel sync tags every BL-sourced BO lot with external_lot_ids.other = BL inventory ID.
+    // This is the authoritative link — part number, color, and condition all come from BL inventory.
+    console.log(`🦉 Fetching BrickOwl inventory to build lot→BL inventory map...`);
+    let boLotToBlInvId = new Map<string, number>();
+    try {
+      const boInventory = await getBrickOwlInventory(false, orgId);
+      for (const lot of boInventory) {
+        const blInvIdStr = lot.external_lot_ids?.other;
+        if (blInvIdStr && lot.lot_id) {
+          const blInvId = parseInt(blInvIdStr, 10);
+          if (!isNaN(blInvId)) boLotToBlInvId.set(lot.lot_id, blInvId);
+        }
       }
+      console.log(`🦉 Built lot map: ${boLotToBlInvId.size} BO lots linked to BL inventory`);
+    } catch (err: any) {
+      console.warn(`⚠️ Could not fetch BO inventory for lot map (will fall back to order item data): ${err.message}`);
     }
     
     // Fetch orders from BrickOwl API
@@ -102,7 +101,7 @@ export async function syncBrickOwlOrders(
     // Process each order
     for (const boOrder of boOrders) {
       try {
-        await processBrickOwlOrder(boOrder, orgId, apiKey, result);
+        await processBrickOwlOrder(boOrder, orgId, apiKey, result, boLotToBlInvId);
       } catch (error: any) {
         console.error(`✗ Error processing BrickOwl order ${boOrder.order_id}:`, error);
         result.errors.push(`Order ${boOrder.order_id}: ${error.message}`);
@@ -189,7 +188,8 @@ async function processBrickOwlOrder(
   boOrder: any,
   orgId: string,
   apiKey: string,
-  result: BrickOwlOrderSyncResult
+  result: BrickOwlOrderSyncResult,
+  boLotToBlInvId: Map<string, number> = new Map()
 ): Promise<void> {
   const orderId = `bo-${boOrder.order_id}`;
   
@@ -367,20 +367,30 @@ async function processBrickOwlOrder(
         continue;
       }
       
-      // Determine BrickLink inventory ID — only trust explicit cross-reference from API
+      // Resolve BrickLink inventory ID via the BO lot → BL inv link.
+      // Priority:
+      //   1. boLotToBlInvId map built from live BO inventory (external_lot_ids.other on the lot)
+      //   2. external_lot_ids.other on the order item itself (same field, sometimes present)
+      // When found, all part/color/condition data comes from bl_inventory — no BO fields needed.
       let brickLinkInvId: number | null = null;
-      let skuValue: string | null = null;
-      
-      if (item.external_lot_ids?.other) {
-        brickLinkInvId = parseInt(item.external_lot_ids.other, 10);
-        skuValue = item.external_lot_ids.other;
+
+      const fromMap = boLotToBlInvId.get(String(item.lot_id));
+      if (fromMap) {
+        brickLinkInvId = fromMap;
+      } else if (item.external_lot_ids?.other) {
+        const parsed = parseInt(item.external_lot_ids.other, 10);
+        if (!isNaN(parsed)) brickLinkInvId = parsed;
       }
-      
+
+      // sku = string form of the BL inventory ID (null when no link is resolved)
+      const skuValue: string | null = brickLinkInvId ? String(brickLinkInvId) : null;
+
       const orderDetailData = {
         orderId: effectiveOrderId,
         lineItemKey,
-        sku: skuValue,  // BrickLink inventory ID (standardized)
-        name: `${item.boid || ''} - ${item.name || ''}`,
+        sku: skuValue,
+        // Keep the BO item name as-is — part/color/condition come from bl_inventory via bricklinkInventoryId
+        name: item.name || '',
         quantity: item.ordered_quantity,
         unitPrice: item.base_price ? item.base_price.toString() : '0',
         taxAmount: null,
@@ -392,8 +402,9 @@ async function processBrickOwlOrder(
         customField2: null,
         customField3: null,
         bricklinkInventoryId: brickLinkInvId,
-        colorId: item.color_id,
-        condition: mapBrickOwlCondition(item.condition),
+        // colorId and condition are resolved from bl_inventory at display time (via bricklinkInventoryId join)
+        colorId: null,
+        condition: null,
         fulfilled: false,
         fulfilledAt: null,
       };
