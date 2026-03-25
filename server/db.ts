@@ -2058,6 +2058,14 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-81 (picklist_items unique index on order_detail_id) complete.');
 
+    // ── Phase-82: inventory_sync_frequency + channel_sync_frequency columns ──────
+    await client.query(`
+      ALTER TABLE app_settings
+        ADD COLUMN IF NOT EXISTS inventory_sync_frequency integer DEFAULT 24,
+        ADD COLUMN IF NOT EXISTS channel_sync_frequency   integer DEFAULT 4
+    `);
+    console.log('[Migration] Phase-82 (inventory_sync_frequency + channel_sync_frequency) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

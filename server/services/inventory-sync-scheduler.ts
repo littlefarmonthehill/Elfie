@@ -44,53 +44,43 @@ export async function startInventorySyncScheduler() {
 }
 
 /**
- * Return all orgs that have inventory sync enabled and have passed their scheduled time today.
+ * Return all orgs that have inventory sync enabled.
+ * Interval-based: runs every N hours since the last successful run.
  */
-async function getEnabledInventorySyncOrgs(now: Date): Promise<Array<{ id: string; tz: string; scheduledTime: string }>> {
+async function getEnabledInventorySyncOrgs(): Promise<Array<{ id: string; frequencyMs: number }>> {
   const rows = await db.select().from(appSettings);
-  return rows.filter(s => {
-    if (!s.inventorySyncEnabled) return false;
-    const tz = s.timezone || 'America/Chicago';
-    const localTimeStr = now.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
-    const [hStr, mStr] = localTimeStr.replace(/\u202f/g, '').split(':');
-    const currentTotalMinutes = parseInt(hStr) * 60 + parseInt(mStr);
-    const scheduledTime = s.inventorySyncTime || '02:00';
-    const [schedH, schedM] = scheduledTime.split(':');
-    const scheduledTotalMinutes = parseInt(schedH) * 60 + parseInt(schedM);
-    return currentTotalMinutes >= scheduledTotalMinutes;
-  }).map(s => ({ id: s.id, tz: s.timezone || 'America/Chicago', scheduledTime: s.inventorySyncTime || '02:00' }));
+  return rows
+    .filter(s => s.inventorySyncEnabled)
+    .map(s => ({ id: s.id, frequencyMs: (s.inventorySyncFrequency ?? 24) * 60 * 60 * 1000 }));
 }
 
 async function checkAndRunInventorySync() {
   try {
-    const now = new Date();
-    const orgs = await withDbRetry(() => getEnabledInventorySyncOrgs(now));
+    const orgs = await withDbRetry(() => getEnabledInventorySyncOrgs());
 
     if (orgs.length === 0) return;
 
     // Use the first enabled org for the platform-level metadata check (dedup/retry state)
     const primaryOrg = orgs[0];
-    const tz = primaryOrg.tz;
-    const scheduledTime = primaryOrg.scheduledTime;
+    const frequencyMs = primaryOrg.frequencyMs;
 
-    // Fetch last run metadata (platform-level record keyed by SYNC_ID)
+    // Fetch last run metadata
     const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, primaryOrg.id), eq(syncMetadata.id, SYNC_ID))).limit(1);
     const lastRunTs = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
 
     if (meta?.lastSyncStatus === 'error') {
       // Retry logic: up to MAX_RETRIES with incremental delays
       if (retry.count >= MAX_RETRIES) {
-        console.log(`[Inventory] All ${MAX_RETRIES} retries exhausted — waiting for next scheduled window`);
+        console.log(`[Inventory] All ${MAX_RETRIES} retries exhausted — waiting for next interval`);
         return;
       }
       if (Date.now() < retry.nextAt) return; // Wait for retry delay
       console.log(`[Inventory] Retrying after failure (attempt ${retry.count + 1}/${MAX_RETRIES})...`);
     } else {
-      // Calendar-date dedup in local timezone — only run once per calendar day
-      const todayStr = now.toLocaleDateString('en-US', { timeZone: tz });
-      const lastRunStr = lastRunTs ? new Date(lastRunTs).toLocaleDateString('en-US', { timeZone: tz }) : '';
-      if (todayStr === lastRunStr) { retry.count = 0; return; } // Already ran today successfully
-      retry.count = 0; // Fresh day, reset retries
+      // Interval-based dedup: only run if enough time has elapsed since last success
+      const elapsed = Date.now() - lastRunTs;
+      if (lastRunTs > 0 && elapsed < frequencyMs) { retry.count = 0; return; }
+      retry.count = 0;
     }
 
     // Check if Inventory Sync is blocked by an incompatible sync already running
@@ -102,9 +92,9 @@ async function checkAndRunInventorySync() {
         syncType: SYNC_TYPE,
         platform: 'scheduler',
         issueType: 'scheduler_blocked',
-        issueDescription: `Scheduled inventory sync (${scheduledTime}) is blocked by: ${blocker}. Retrying every minute until the lock clears.`,
+        issueDescription: `Scheduled inventory sync is blocked by: ${blocker}. Retrying every minute until the lock clears.`,
         severity: 'medium',
-        metadata: { blockedBy: blocker, scheduledTime, timestamp: new Date().toISOString() },
+        metadata: { blockedBy: blocker, frequencyHours: Math.round(frequencyMs / 3600000), timestamp: new Date().toISOString() },
       });
       return;
     }
@@ -116,7 +106,7 @@ async function checkAndRunInventorySync() {
 }
 
 async function runAutomatedInventorySync(
-  orgs: Array<{ id: string; tz: string; scheduledTime: string }>,
+  orgs: Array<{ id: string; frequencyMs: number }>,
   primaryOrgId: string,
 ) {
   console.log(`\n🔄 Starting automated inventory sync (BrickLink → Local DB) for ${orgs.length} org(s)...`);

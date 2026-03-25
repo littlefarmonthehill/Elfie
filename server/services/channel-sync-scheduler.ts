@@ -41,22 +41,16 @@ export function getChannelSyncLastResult() {
 }
 
 /**
- * Return the first org that has channel sync enabled and has passed the scheduled time today.
+ * Return the first org that has channel sync enabled.
+ * Interval-based: runs every N hours since the last successful run.
  */
-async function getActiveChannelSyncOrg(now: Date): Promise<{ id: string; tz: string; scheduledTime: string } | null> {
+async function getActiveChannelSyncOrg(): Promise<{ id: string; tz: string; frequencyMs: number } | null> {
   const rows = await db.select().from(appSettings);
   for (const s of rows) {
     if (!s.channelSyncEnabled) continue;
     const tz = s.timezone || 'America/Chicago';
-    const localTimeStr = now.toLocaleString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
-    const [hStr, mStr] = localTimeStr.replace(/\u202f/g, '').split(':');
-    const currentTotalMinutes = parseInt(hStr) * 60 + parseInt(mStr);
-    const scheduledTime = s.channelSyncTime || '03:00';
-    const [schedH, schedM] = scheduledTime.split(':');
-    const scheduledTotalMinutes = parseInt(schedH) * 60 + parseInt(schedM);
-    if (currentTotalMinutes >= scheduledTotalMinutes) {
-      return { id: s.id, tz, scheduledTime };
-    }
+    const frequencyMs = (s.channelSyncFrequency ?? 4) * 60 * 60 * 1000;
+    return { id: s.id, tz, frequencyMs };
   }
   return null;
 }
@@ -84,27 +78,26 @@ export async function startChannelSyncScheduler() {
 async function checkAndRunChannelSync() {
   try {
     const now = new Date();
-    const activeOrg = await withDbRetry(() => getActiveChannelSyncOrg(now));
+    const activeOrg = await withDbRetry(() => getActiveChannelSyncOrg());
 
     if (!activeOrg) return;
 
-    const { id: orgId, tz, scheduledTime } = activeOrg;
+    const { id: orgId, tz, frequencyMs } = activeOrg;
 
     const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, SYNC_ID))).limit(1);
     const lastRunTs = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : 0;
 
     if (meta?.lastSyncStatus === 'error') {
       if (retry.count >= MAX_RETRIES) {
-        console.log(`[Channel] All ${MAX_RETRIES} retries exhausted — waiting for next scheduled window`);
+        console.log(`[Channel] All ${MAX_RETRIES} retries exhausted — waiting for next interval`);
         return;
       }
       if (Date.now() < retry.nextAt) return;
       console.log(`[Channel] Retrying after failure (attempt ${retry.count + 1}/${MAX_RETRIES})...`);
     } else {
-      // Calendar-date dedup in local timezone
-      const todayStr = now.toLocaleDateString('en-US', { timeZone: tz });
-      const lastRunStr = lastRunTs ? new Date(lastRunTs).toLocaleDateString('en-US', { timeZone: tz }) : '';
-      if (todayStr === lastRunStr) { retry.count = 0; return; }
+      // Interval-based dedup: only run if enough time has elapsed since last success
+      const elapsed = Date.now() - lastRunTs;
+      if (lastRunTs > 0 && elapsed < frequencyMs) { retry.count = 0; return; }
       retry.count = 0;
     }
 
@@ -120,33 +113,28 @@ async function checkAndRunChannelSync() {
           syncType: SYNC_TYPE,
           platform: 'scheduler',
           issueType: 'scheduler_blocked',
-          issueDescription: `Scheduled channel sync (${scheduledTime}) is blocked by: ${blocker}. Retrying every minute.`,
+          issueDescription: `Scheduled channel sync is blocked by: ${blocker}. Retrying every minute.`,
           severity: 'medium',
-          metadata: { blockedBy: blocker, scheduledTime, timestamp: new Date().toISOString() },
+          metadata: { blockedBy: blocker, frequencyHours: Math.round(frequencyMs / 3600000), timestamp: new Date().toISOString() },
         });
       }
       return;
     }
 
-    // Warn if today's BL inventory sync failed — channel sync will still run but
-    // BrickOwl data may not reflect the latest inventory state.
+    // Warn if the most recent BL inventory sync is stale (older than the channel sync frequency)
     try {
       const [invMeta] = await db.select().from(syncMetadata)
         .where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'bricklink_inventory'))).limit(1);
-      if (invMeta?.lastSyncStatus === 'error' && invMeta.lastSyncTime) {
-        const todayStr = now.toLocaleDateString('en-US', { timeZone: tz });
-        const invDateStr = new Date(invMeta.lastSyncTime).toLocaleDateString('en-US', { timeZone: tz });
-        if (todayStr === invDateStr) {
-          console.warn('[Channel] ⚠️  BrickLink inventory sync failed today — channel sync will run with yesterday\'s inventory data');
-          recordSyncIssue({
-            syncType: SYNC_TYPE,
-            platform: 'scheduler',
-            issueType: 'stale_source_data',
-            issueDescription: `Channel sync is running but today's BrickLink inventory sync failed. BrickOwl quantities and prices may not reflect the latest inventory state.`,
-            severity: 'high',
-            metadata: { inventorySyncStatus: 'error', inventorySyncError: invMeta.errorMessage, timestamp: new Date().toISOString() },
-          });
-        }
+      if (invMeta?.lastSyncStatus === 'error') {
+        console.warn('[Channel] ⚠️  BrickLink inventory sync last failed — channel sync may use stale inventory data');
+        recordSyncIssue({
+          syncType: SYNC_TYPE,
+          platform: 'scheduler',
+          issueType: 'stale_source_data',
+          issueDescription: `Channel sync is running but the last BrickLink inventory sync failed. BrickOwl quantities and prices may not reflect the latest inventory state.`,
+          severity: 'high',
+          metadata: { inventorySyncStatus: 'error', inventorySyncError: invMeta.errorMessage, timestamp: new Date().toISOString() },
+        });
       }
     } catch (e: any) {
       console.warn('[Channel] Could not check inventory sync status (non-fatal):', e.message);

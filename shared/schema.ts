@@ -537,7 +537,8 @@ export const appSettings = pgTable("app_settings", {
   boUkVatNumber: text("bo_uk_vat_number"),         // BrickOwl UK VAT number
   // Automation & Scheduling
   inventorySyncEnabled: boolean("inventory_sync_enabled").default(false).notNull(),
-  inventorySyncTime: text("inventory_sync_time").default('02:00'), // Time of day (HH:MM format)
+  inventorySyncTime: text("inventory_sync_time").default('02:00'), // Legacy: time of day (HH:MM) — kept for backward compat
+  inventorySyncFrequency: integer("inventory_sync_frequency").default(24), // Hours between automated inventory syncs
   priceOMaticEnabled: boolean("price_o_matic_enabled").default(false).notNull(),
   ordersSyncEnabled: boolean("orders_sync_enabled").default(false).notNull(),
   ordersSyncFrequency: integer("orders_sync_frequency").default(15).notNull(), // minutes
@@ -612,7 +613,8 @@ export const appSettings = pgTable("app_settings", {
   pomSugPremMult: real("pom_sug_prem_mult").default(0.5).notNull(),
   // Channel Sync (Local DB → BrickOwl / other platforms)
   channelSyncEnabled: boolean("channel_sync_enabled").default(false).notNull(), // Push local inventory to all sales channels on a schedule
-  channelSyncTime: text("channel_sync_time").default('03:00'),                  // Time of day (HH:MM) — run AFTER inbound + order syncs settle
+  channelSyncTime: text("channel_sync_time").default('03:00'),                  // Legacy: time of day (HH:MM) — kept for backward compat
+  channelSyncFrequency: integer("channel_sync_frequency").default(4),           // Hours between automated channel syncs
   channelSyncMode: text("channel_sync_mode").default('analysis').notNull(), // 'analysis' = read-only compare only, 'full_control' = create + update all, 'matched_sync' = full sync of matched/tagged items only (no creates)
   pomDeepSpaceKeys: text("pom_deep_space_keys").default('[]'),                  // JSON array of item keys excluded from POM orbit view
   pomFutureMissionsKeys: text("pom_future_missions_keys").default('[]'),        // JSON array of item keys queued in Future Missions
