@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { orders, orderDetails, syncMetadata } from "@shared/schema";
+import { orders, orderDetails, syncMetadata, shipments } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { getBrickOwlOrders, getBrickOwlOrderDetails, mapBrickOwlStatus, mapBrickOwlCondition } from "./brickowl-orders";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
@@ -309,10 +309,27 @@ async function processBrickOwlOrder(
     // (BrickOwl may lag behind after we mark an order as shipped)
     const isLocallyShipped = existingOrder.orderStatus === 'shipped';
     const wouldDemote = isLocallyShipped && normalizedStatus !== 'shipped';
-    const updatedStatus = wouldDemote ? 'shipped' : normalizedStatus;
 
     if (wouldDemote) {
       console.log(`🔒 BrickOwl order ${effectiveOrderId}: Preserving local shipped status (BrickOwl shows: ${normalizedStatus})`);
+    }
+
+    // Guard: don't promote an order to 'shipped' based solely on BrickOwl's status
+    // unless we have a local shipment record (i.e. a label was created in E.L.F.I.E.).
+    // BrickOwl may return status 5/6 for historical orders re-imported during a sync,
+    // or due to status drift — without us having actually shipped the order locally.
+    let updatedStatus = wouldDemote ? 'shipped' : normalizedStatus;
+    if (normalizedStatus === 'shipped' && existingOrder.orderStatus !== 'shipped') {
+      const [localShipment] = await db
+        .select({ id: shipments.id })
+        .from(shipments)
+        .where(eq(shipments.orderId, effectiveOrderId))
+        .limit(1);
+
+      if (!localShipment) {
+        console.warn(`⚠️ BrickOwl order ${effectiveOrderId}: BrickOwl reports 'shipped' but no local shipment record found — blocking promotion, capping at 'awaiting_shipment'`);
+        updatedStatus = 'awaiting_shipment';
+      }
     }
 
     // Update full order data on every sync (shipping address, totals, customer info, status)
