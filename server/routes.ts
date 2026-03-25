@@ -10277,14 +10277,21 @@ Format search_web URLs as markdown links.`;
         if (raw && typeof raw === 'object' && !Array.isArray(raw) &&
             Object.values(raw).every((v: unknown) => typeof v === 'string' && validModes.has(v as string))) {
           patch.syncStockroomModes = raw as Record<string, string>;
+        } else {
+          console.warn(`[ChannelSyncConfig] PATCH rejected invalid syncStockroomModes for ${orgId}:`, JSON.stringify(raw));
         }
       }
-      if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'No valid fields provided' });
+      if (Object.keys(patch).length === 0) {
+        console.warn(`[ChannelSyncConfig] PATCH 400 for ${orgId} — no valid fields in body:`, JSON.stringify(req.body));
+        return res.status(400).json({ error: 'No valid fields provided' });
+      }
+      console.log(`[ChannelSyncConfig] PATCH for ${orgId} — applying:`, JSON.stringify(patch));
 
       // Upsert
       const [existing] = await db.select({ id: channelSyncConfig.id }).from(channelSyncConfig).where(eq(channelSyncConfig.orgId, orgId)).limit(1);
       if (existing) {
         const [updated] = await db.update(channelSyncConfig).set({ ...patch, updatedAt: new Date() }).where(eq(channelSyncConfig.orgId, orgId)).returning();
+        console.log(`[ChannelSyncConfig] PATCH updated — syncStockroomModes now:`, JSON.stringify(updated?.syncStockroomModes));
         return res.json(updated);
       } else {
         const [inserted] = await db.insert(channelSyncConfig).values({
@@ -10298,9 +10305,11 @@ Format search_web URLs as markdown links.`;
           syncLotWeight:    (patch.syncLotWeight       as boolean)  ?? true,
           syncStockroomModes: (patch.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
         }).returning();
+        console.log(`[ChannelSyncConfig] PATCH inserted — syncStockroomModes now:`, JSON.stringify(inserted?.syncStockroomModes));
         return res.json(inserted);
       }
     } catch (err) {
+      console.error('[ChannelSyncConfig] PATCH error:', err instanceof Error ? err.message : String(err));
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
     }
   });

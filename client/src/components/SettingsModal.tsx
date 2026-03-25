@@ -2775,7 +2775,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   }>({
     queryKey: ['/api/channel-sync/config'],
     enabled: open && activeSection === 'platforms',
-    staleTime: 30000,
   });
   // Sync local state from server config whenever the data arrives or modal re-opens.
   // Switches save immediately on change so there's no partially-committed local state to protect.
@@ -2801,6 +2800,24 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       queryClient.setQueryData(['/api/channel-sync/config'], updatedConfig);
       // Also refresh the scope panel so it reflects the new stockroom modes.
       queryClient.invalidateQueries({ queryKey: ['/api/channel-sync/scope'] });
+    },
+    onError: (err) => {
+      // Revert all local sync-field state to whatever the server last confirmed.
+      if (channelSyncFieldConfig) {
+        setSyncFieldPrice(channelSyncFieldConfig.syncPrice);
+        setSyncFieldRemarks(channelSyncFieldConfig.syncRemarks);
+        setSyncFieldDescription(channelSyncFieldConfig.syncDescription);
+        setSyncFieldTierPrice(channelSyncFieldConfig.syncTierPrice);
+        setSyncFieldSalePercent(channelSyncFieldConfig.syncSalePercent);
+        setSyncFieldBulkQty(channelSyncFieldConfig.syncBulkQty ?? true);
+        setSyncFieldLotWeight(channelSyncFieldConfig.syncLotWeight ?? true);
+        setSyncStockroomModes(channelSyncFieldConfig.syncStockroomModes ?? { A: 'skip', B: 'skip', C: 'skip' });
+      }
+      toast({
+        title: 'Failed to save sync settings',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive',
+      });
     },
   });
 
