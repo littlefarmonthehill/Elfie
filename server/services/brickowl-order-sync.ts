@@ -170,6 +170,21 @@ async function processBrickOwlOrder(
 
   const brickOwlOrderData = await getBrickOwlOrderDetails(apiKey, boOrder.order_id);
 
+  // Debug log — remove after confirming correct field names for name + tax
+  console.log(`🦉 [DEBUG] BO order ${boOrder.order_id} raw fields:`, {
+    ship_name: brickOwlOrderData.ship_name,
+    ship_first_name: brickOwlOrderData.ship_first_name,
+    ship_last_name: brickOwlOrderData.ship_last_name,
+    buyer_name: brickOwlOrderData.buyer_name,
+    tax_amount: brickOwlOrderData.tax_amount,
+    base_tax_amount: brickOwlOrderData.base_tax_amount,
+    tax: brickOwlOrderData.tax,
+    vat: brickOwlOrderData.vat,
+    vat_amount: brickOwlOrderData.vat_amount,
+    grand_total: brickOwlOrderData.grand_total,
+    ship_total: brickOwlOrderData.ship_total,
+  });
+
   const orderDate =
     safeTimestampToDate(boOrder.iso_order_time, boOrder.order_time) ??
     safeTimestampToDate(brickOwlOrderData.iso_order_time, brickOwlOrderData.order_time) ??
@@ -188,8 +203,13 @@ async function processBrickOwlOrder(
     customerUsername: brickOwlOrderData.buyer_name || null,
     customerEmail: brickOwlOrderData.buyer_email || null,
     shipTo: JSON.stringify({
-      // BrickOwl has no separate ship_name — the recipient name is buyer_name
-      name: brickOwlOrderData.ship_name || brickOwlOrderData.buyer_name || '',
+      // Prefer ship_first_name + ship_last_name (actual recipient name).
+      // ship_name on BrickOwl's API is the SELLER's store name, not the buyer's name.
+      // Fall back to buyer_name (display name) if the split fields are missing.
+      name: (
+        [brickOwlOrderData.ship_first_name, brickOwlOrderData.ship_last_name]
+          .filter(Boolean).join(' ').trim()
+      ) || brickOwlOrderData.buyer_name || '',
       address1: brickOwlOrderData.ship_street_1 || '',
       address2: brickOwlOrderData.ship_street_2 || '',
       city: brickOwlOrderData.ship_city || '',
@@ -222,6 +242,7 @@ async function processBrickOwlOrder(
       0
     ).toString(),
     taxAmount: (
+      brickOwlOrderData.base_tax_amount ??  // Primary BrickOwl field (from order/view)
       brickOwlOrderData.tax_amount ??
       brickOwlOrderData.vat ??
       brickOwlOrderData.vat_amount ??
