@@ -4,6 +4,15 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -43,11 +52,15 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<DateRangeValue>('mtd');
-  const [eodPending, setEodPending] = useState<string | null>(null); // orderId being fetched
+  const [eodPending, setEodPending] = useState<string | null>(null);
 
-  const returnToQueueMutation = useMutation({
+  // Return dialog state
+  const [returnDialog, setReturnDialog] = useState<{ open: boolean; order: ShippedOrder | null }>({ open: false, order: null });
+  const [returnAmount, setReturnAmount] = useState("");
+
+  const returnToFulfillmentMutation = useMutation({
     mutationFn: async (orderId: string) =>
-      apiRequest('POST', `/api/orders/${encodeURIComponent(orderId)}/status`, { status: 'awaiting_shipment' }),
+      apiRequest('POST', `/api/orders/${encodeURIComponent(orderId)}/return-to-fulfillment`),
     onSuccess: () => {
       toast({ title: "Order returned to fulfillment queue" });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/shipped'] });
@@ -60,33 +73,10 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
     },
   });
 
-  const resetToAwaitingMutation = useMutation({
-    mutationFn: async (orderId: string) =>
-      apiRequest('POST', `/api/orders/${encodeURIComponent(orderId)}/reset-to-awaiting`),
-    onSuccess: (_data, orderId) => {
-      toast({
-        title: "Order status reset",
-        description: "Order moved back to awaiting shipment.",
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/orders/shipped'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
-    },
-    onError: (err: any) => {
-      let msg = "Failed to reset order status";
-      try {
-        const raw = err?.message || "";
-        const jsonStr = raw.includes(": ") ? raw.substring(raw.indexOf(": ") + 2) : raw;
-        const parsed = JSON.parse(jsonStr);
-        msg = parsed.error || msg;
-      } catch {}
-      toast({ title: "Cannot reset status", description: msg, variant: "destructive" });
-    },
-  });
-
   const toggleTestMutation = useMutation({
     mutationFn: async (orderId: string) =>
       apiRequest('PATCH', `/api/orders/${encodeURIComponent(orderId)}/toggle-test`),
-    onSuccess: (data: any, orderId) => {
+    onSuccess: (data: any) => {
       toast({
         title: data.isTest ? "Marked as test order" : "Test flag removed",
         description: data.isTest
@@ -107,6 +97,28 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
     },
   });
 
+  const markReturnedMutation = useMutation({
+    mutationFn: async ({ orderId, refundAmount }: { orderId: string; refundAmount: number }) =>
+      apiRequest('POST', `/api/orders/${encodeURIComponent(orderId)}/mark-returned`, { refundAmount }),
+    onSuccess: () => {
+      toast({ title: "Order marked as returned", description: "Refund recorded. You can now mark this order as a test order." });
+      setReturnDialog({ open: false, order: null });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/shipped'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
+    },
+    onError: (err: any) => {
+      let msg = "Failed to mark order as returned";
+      try {
+        const raw = err?.message || "";
+        const jsonStr = raw.includes(": ") ? raw.substring(raw.indexOf(": ") + 2) : raw;
+        const parsed = JSON.parse(jsonStr);
+        msg = parsed.error || msg;
+      } catch {}
+      toast({ title: "Return failed", description: msg, variant: "destructive" });
+    },
+  });
+
   const { data: org } = useQuery<any>({
     queryKey: ['/api/org'],
   });
@@ -115,12 +127,8 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
     queryKey: ['/api/orders/shipped', searchQuery, dateRange],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (searchQuery.trim()) {
-        params.set('search', searchQuery.trim());
-      }
-      if (dateRange && dateRange !== 'all') {
-        params.set('range', dateRange);
-      }
+      if (searchQuery.trim()) params.set('search', searchQuery.trim());
+      if (dateRange && dateRange !== 'all') params.set('range', dateRange);
       const response = await fetch(`/api/orders/shipped?${params.toString()}`);
       if (!response.ok) throw new Error('Failed to fetch shipped orders');
       return response.json();
@@ -137,12 +145,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
       const data = await response.json();
       await printPackingSlips(data, org ? { name: org.name, address: org.address, logoUrl: org.logoUrl } : undefined);
     } catch (error) {
-      console.error('Error fetching packing slip data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to generate packing slip",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to generate packing slip", variant: "destructive" });
     }
   };
 
@@ -182,7 +185,6 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
         }));
       await printPicklist(picklistItems);
     } catch (error) {
-      console.error('Error printing picklist:', error);
       toast({ title: "Error", description: "Failed to generate picklist", variant: "destructive" });
     }
   };
@@ -191,15 +193,11 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
     if (order.labelUrl) {
       window.open(order.labelUrl, '_blank');
     } else {
-      toast({
-        title: "No Label Available",
-        description: "This order doesn't have a shipping label URL.",
-        variant: "destructive",
-      });
+      toast({ title: "No Label Available", description: "This order doesn't have a shipping label URL.", variant: "destructive" });
     }
   };
 
-  const handlePrintLotLabels = (orderId: string) => {
+  const handlePrintLotLabels = (_orderId: string) => {
     toast({
       title: "Lot Labels",
       description: "Lot label printing will be implemented soon. This feature is coming in a future update.",
@@ -216,14 +214,27 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
       }
       if (!response.ok) throw new Error('Failed to fetch EOD form');
       const data = await response.json();
-      if (data?.formUrl) {
-        window.open(data.formUrl, '_blank');
-      }
+      if (data?.formUrl) window.open(data.formUrl, '_blank');
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Could not retrieve EOD form", variant: "destructive" });
     } finally {
       setEodPending(null);
     }
+  };
+
+  const openReturnDialog = (order: ShippedOrder) => {
+    setReturnAmount(order.orderTotal ?? "0");
+    setReturnDialog({ open: true, order });
+  };
+
+  const handleConfirmReturn = () => {
+    if (!returnDialog.order) return;
+    const amount = parseFloat(returnAmount);
+    if (isNaN(amount) || amount < 0) {
+      toast({ title: "Invalid amount", description: "Please enter a valid refund amount.", variant: "destructive" });
+      return;
+    }
+    markReturnedMutation.mutate({ orderId: returnDialog.order.id, refundAmount: amount });
   };
 
   if (isLoading) {
@@ -241,7 +252,6 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
           <DateRangeSelector value={dateRange} onChange={setDateRange} compact scaled />
         </div>
 
-        {/* Search Bar */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -256,7 +266,6 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
           </div>
         </div>
 
-        {/* Results Count */}
         {shippedOrders && shippedOrders.length > 0 && (
           <div className="text-sm text-gray-400 flex items-center gap-2">
             <span>Showing {shippedOrders.length} {shippedOrders.length === 1 ? 'order' : 'orders'}</span>
@@ -266,7 +275,6 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
           </div>
         )}
 
-        {/* Shipped Orders List */}
         {!shippedOrders || shippedOrders.length === 0 ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-center text-gray-400">
@@ -282,9 +290,11 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
               let shipTo: any = {};
               try {
                 shipTo = typeof order.shipTo === 'string' ? JSON.parse(order.shipTo) : order.shipTo;
-              } catch (e) {
-                console.error('Error parsing shipTo:', e);
-              }
+              } catch {}
+
+              const isBrickOwl = order.marketplace === 'BrickOwl';
+              const isShipped = order.orderStatus === 'shipped';
+              const isReturned = order.orderStatus === 'returned';
 
               return (
                 <div
@@ -294,7 +304,6 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                   onClick={() => onItemClick?.('order', order.id)}
                 >
                   <div className="flex items-start justify-between gap-4">
-                    {/* Order Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <h3 className="text-sm font-mono font-bold text-white">
@@ -305,7 +314,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                             {order.marketplace}
                           </Badge>
                         )}
-                        {order.orderStatus === 'returned' && (
+                        {isReturned && (
                           <Badge className="text-xs bg-red-900/60 text-red-300 border border-red-700/50 gap-1">
                             <RotateCcw className="w-3 h-3" />
                             Returned
@@ -318,7 +327,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                           </Badge>
                         )}
                       </div>
-                      
+
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-400">
                         <span>{order.customerUsername || shipTo.name || 'Unknown'}</span>
                         <span className="text-gray-600">•</span>
@@ -340,7 +349,6 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                       </div>
                     </div>
 
-                    {/* Actions Dropdown */}
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -395,9 +403,12 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                           }
                           Print EOD Form
                         </DropdownMenuItem>
+
                         <DropdownMenuSeparator />
+
+                        {/* Mark as Test — always available; backend enforces refund requirement */}
                         <DropdownMenuItem
-                          onClick={() => toggleTestMutation.mutate(order.id)}
+                          onClick={(e) => { e.stopPropagation(); toggleTestMutation.mutate(order.id); }}
                           disabled={toggleTestMutation.isPending}
                           data-testid={`menu-toggle-test-${order.orderNumber}`}
                           className="text-purple-400 focus:text-purple-300"
@@ -408,32 +419,33 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                           }
                           {order.isTest ? "Remove Test Flag" : "Mark as Test Order"}
                         </DropdownMenuItem>
-                        {order.marketplace === 'BrickOwl' && order.orderStatus === 'shipped' && (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => resetToAwaitingMutation.mutate(order.id)}
-                              disabled={resetToAwaitingMutation.isPending}
-                              data-testid={`menu-reset-awaiting-${order.orderNumber}`}
-                              className="text-cyan-400 focus:text-cyan-300"
-                            >
-                              {resetToAwaitingMutation.isPending
-                                ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                : <RotateCcw className="w-4 h-4 mr-2" />
-                              }
-                              Reset to Awaiting Shipment
-                            </DropdownMenuItem>
-                          </>
+
+                        {/* BO-only: manual return (BL returns come via API sync) */}
+                        {isBrickOwl && isShipped && (
+                          <DropdownMenuItem
+                            onClick={(e) => { e.stopPropagation(); openReturnDialog(order); }}
+                            data-testid={`menu-mark-returned-${order.orderNumber}`}
+                            className="text-red-400 focus:text-red-300"
+                          >
+                            <RotateCcw className="w-4 h-4 mr-2" />
+                            Mark as Returned
+                          </DropdownMenuItem>
                         )}
+
                         <DropdownMenuSeparator />
+
+                        {/* Single "Return to Fulfillment" for all channels */}
                         <DropdownMenuItem
-                          onClick={() => returnToQueueMutation.mutate(order.id)}
-                          disabled={returnToQueueMutation.isPending}
-                          data-testid={`menu-return-to-queue-${order.orderNumber}`}
+                          onClick={(e) => { e.stopPropagation(); returnToFulfillmentMutation.mutate(order.id); }}
+                          disabled={returnToFulfillmentMutation.isPending}
+                          data-testid={`menu-return-to-fulfillment-${order.orderNumber}`}
                           className="text-amber-400 focus:text-amber-300"
                         >
-                          <RotateCcw className="w-4 h-4 mr-2" />
-                          Return to Fulfillment Queue
+                          {returnToFulfillmentMutation.isPending
+                            ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            : <RotateCcw className="w-4 h-4 mr-2" />
+                          }
+                          Return to Fulfillment
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -445,6 +457,52 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
         )}
       </div>
 
+      {/* BrickOwl Return Dialog */}
+      <Dialog open={returnDialog.open} onOpenChange={(open) => !open && setReturnDialog({ open: false, order: null })}>
+        <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle>Mark as Returned</DialogTitle>
+            <DialogDescription>
+              Order {returnDialog.order?.orderNumber} — enter the amount to refund. Defaults to the full order total.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="refund-amount">Refund Amount ($)</Label>
+              <Input
+                id="refund-amount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={returnAmount}
+                onChange={(e) => setReturnAmount(e.target.value)}
+                data-testid="input-refund-amount"
+              />
+              <p className="text-xs text-muted-foreground">
+                Order total: ${returnDialog.order?.orderTotal ?? "0.00"}. A full refund unlocks "Mark as Test".
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setReturnDialog({ open: false, order: null })}
+              data-testid="button-cancel-return"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmReturn}
+              disabled={markReturnedMutation.isPending}
+              data-testid="button-confirm-return"
+            >
+              {markReturnedMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RotateCcw className="w-4 h-4 mr-2" />}
+              Mark as Returned
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

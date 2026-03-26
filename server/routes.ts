@@ -4553,6 +4553,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mark a BrickOwl shipped order as returned (manual — BO has no API return flow)
+  // Creates a refund adjustment and sets status → returned, restoring inventory.
+  app.post("/api/orders/:id/mark-returned", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const orderId = decodeURIComponent(req.params.id);
+      const { refundAmount } = req.body;
+
+      const [order] = await db.select().from(orders)
+        .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)))
+        .limit(1);
+      if (!order) return res.status(404).json({ error: "Order not found" });
+      if (order.marketplace !== 'BrickOwl') {
+        return res.status(400).json({ error: "Manual returns are only needed for BrickOwl orders" });
+      }
+      if (order.orderStatus === 'returned') {
+        return res.status(400).json({ error: "Order is already marked as returned" });
+      }
+
+      const amount = refundAmount != null ? Number(refundAmount) : Number(order.orderTotal ?? 0);
+      if (isNaN(amount) || amount < 0) {
+        return res.status(400).json({ error: "Invalid refund amount" });
+      }
+
+      // Insert refund adjustment (negative amount = refund/deduction)
+      await db.insert(orderAdjustments).values({
+        orderId,
+        orgId,
+        type: 'refund',
+        amount: (-amount).toFixed(2),
+        notes: `BrickOwl manual return — refund of $${amount.toFixed(2)}`,
+      });
+
+      // Update order to returned + restore inventory via updateOrderStatus
+      const { updateOrderStatus } = await import('./services/inventory-adjustment');
+      await updateOrderStatus(orderId, 'returned');
+
+      console.log(`↩️ BO order ${orderId} manually marked returned with refund $${amount.toFixed(2)} by org ${orgId}`);
+      res.json({ success: true, orderStatus: 'returned', refundAmount: amount });
+    } catch (error: any) {
+      console.error("Error marking order as returned:", error);
+      res.status(500).json({ error: error.message || "Failed to mark order as returned" });
+    }
+  });
+
+  // Unified "return to fulfillment" — correct status per channel + proper cleanup
+  app.post("/api/orders/:id/return-to-fulfillment", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const orderId = decodeURIComponent(req.params.id);
+
+      const [order] = await db.select().from(orders)
+        .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)))
+        .limit(1);
+      if (!order) return res.status(404).json({ error: "Order not found" });
+
+      // BrickOwl: awaiting_shipment (BO skips awaiting_fulfillment in its workflow)
+      // BrickLink + all others: awaiting_fulfillment
+      const targetStatus = order.marketplace === 'BrickOwl'
+        ? 'awaiting_shipment'
+        : 'awaiting_fulfillment';
+
+      await db.update(orders)
+        .set({
+          orderStatus: targetStatus,
+          previousStatus: order.orderStatus,
+          workflowStatus: 'new',
+          shipDate: null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)));
+
+      console.log(`🔄 Order ${orderId} returned to fulfillment (${targetStatus}) by org ${orgId}`);
+      res.json({ success: true, orderStatus: targetStatus });
+    } catch (error: any) {
+      console.error("Error returning order to fulfillment:", error);
+      res.status(500).json({ error: error.message || "Failed to return order to fulfillment" });
+    }
+  });
+
   // Get items sold in a specific category
   app.get("/api/analytics/categories/:categoryId/items", isApproved, async (req, res) => {
     try {
