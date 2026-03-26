@@ -136,6 +136,10 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
       if (!response.ok) throw new Error('Failed to fetch picklist');
       return response.json();
     },
+    staleTime: 0,
+    refetchInterval: 30000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
 
   // Options factory closes over current `filter` on each render (TanStack Query v5 observes options)

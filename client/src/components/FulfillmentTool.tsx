@@ -324,18 +324,27 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     });
   }, [data]);
 
-  // When new orders appear (e.g. a BO order synced mid-session), the PicklistTool's cached
-  // "All" query becomes stale and won't include the new order's picklist items.
-  // Invalidate all picklist cache entries so the next render fetches fresh data.
+  // When new orders appear mid-session (e.g. a BO order synced on another device),
+  // the PicklistTool's cached "All" query becomes stale and won't include the new
+  // order's picklist items.  Invalidate all picklist cache entries on any order-set
+  // change AFTER the initial load so the next render fetches fresh data.
+  //
+  // NOTE: we use isInitialLoadDone instead of the old "prev.size > 0" guard.
+  // The old guard failed when a device started with 0 orders and then received its
+  // first order — prev.size was 0 so invalidation was suppressed, leaving the
+  // "All" tab serving a stale empty response while "To Pull" (a different query key,
+  // never cached) correctly fetched fresh data.
   const prevOrderIdsRef = useRef<Set<string>>(new Set());
+  const isInitialOrderLoadDone = useRef(false);
   useEffect(() => {
     if (!data?.orders) return;
     const currentIds = new Set(data.orders.map((o: any) => o.id));
     const prev = prevOrderIdsRef.current;
     const hasNewOrder = [...currentIds].some(id => !prev.has(id));
-    if (hasNewOrder && prev.size > 0) {
+    if (hasNewOrder && isInitialOrderLoadDone.current) {
       queryClient.invalidateQueries({ queryKey: ['/api/picklist'] });
     }
+    isInitialOrderLoadDone.current = true;
     prevOrderIdsRef.current = currentIds;
   }, [data]);
 
