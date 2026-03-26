@@ -1,177 +1,158 @@
 /**
  * Order Status Mapping Configuration
- * 
- * This centralizes all order status mappings across platforms and defines
- * inventory impact for each status transition.
+ *
+ * This is the single source of truth for how platform-specific order statuses
+ * map to ELFIE's normalized internal statuses, and what inventory impact each
+ * transition carries.
+ *
+ * BrickOwl status IDs (authoritative — from https://www.brickowl.com/api_docs):
+ *   0 = Pending            (awaiting payment)
+ *   1 = Payment Submitted  (buyer initiated payment)
+ *   2 = Payment Received   (payment confirmed)
+ *   3 = Processing         (seller picking/packing)
+ *   4 = Processed          (packed, ready to dispatch)
+ *   5 = Shipped            (dispatched to buyer)
+ *   6 = Received           (buyer confirmed receipt)
+ *   7 = On Hold
+ *   8 = Cancelled
+ *
+ * BrickLink statuses (from BrickLink API docs):
+ *   PENDING    Order placed, payment pending
+ *   PAID       Payment received
+ *   PACKED     Order packed
+ *   SHIPPED    Order shipped to buyer
+ *   COMPLETED  Buyer confirmed receipt
+ *   PURGED     Cancelled/archived
+ *   OCR        Order Cancellation Requested
+ *   NPB        Non-Paying Buyer
+ *   NRS        Non-Receiving Seller
+ *   NPX        Non-Paying (expired)
+ *
+ * NOTE: BrickOwl sync uses mapBrickOwlStatus() in brickowl-orders.ts (not this
+ * file) as its runtime mapping. The brickOwl arrays here are kept in sync with
+ * that function and are used for display purposes.
  */
 
 export type InventoryImpact = 'reduce' | 'restore' | 'none';
 
 export interface StatusMapping {
-  // Our normalized status (used internally)
   normalizedStatus: string;
-  
-  // Display name
   displayName: string;
-  
-  // Platform-specific status values
   brickLink?: string[];
-  brickOwl?: number[]; // BrickOwl uses numeric status IDs
+  brickOwl?: number[];
   ebay?: string[];
   amazon?: string[];
-  
-  // Inventory impact when order reaches this status
   inventoryImpact: InventoryImpact;
-  
-  // Description of what this status means
   description: string;
 }
 
-/**
- * Master status mapping configuration
- * 
- * Inventory Impact Rules:
- * - 'reduce': Decrease inventory quantity by order line item quantities (only when shipped)
- * - 'restore': Increase inventory quantity by order line item quantities (only if previously shipped)
- * - 'none': No change to inventory
- * 
- * IMPORTANT: 'restore' should only be applied if the order was previously 'shipped'.
- * If an order is cancelled before shipping, no inventory adjustment is needed.
- * Implementation must check previous status before applying restore logic.
- */
 export const ORDER_STATUS_MAPPINGS: Record<string, StatusMapping> = {
-  // Order placed but payment not yet received
-  'awaiting_payment': {
+  awaiting_payment: {
     normalizedStatus: 'awaiting_payment',
     displayName: 'Awaiting Payment',
-    brickLink: [], // BrickLink doesn't have this status
-    brickOwl: [], // BrickOwl doesn't have this status
+    brickLink: [],
+    brickOwl: [0, 1, 7],
     ebay: ['AwaitingPayment'],
     amazon: ['Pending'],
-    inventoryImpact: 'none', // Don't reduce inventory until shipped
-    description: 'Order placed, waiting for payment confirmation'
+    inventoryImpact: 'none',
+    description: 'Order placed — waiting for payment confirmation',
   },
 
-  // Payment received, ready to fulfill
-  'awaiting_fulfillment': {
-    normalizedStatus: 'awaiting_fulfillment',
-    displayName: 'Awaiting Fulfillment',
-    brickLink: [], // BrickLink uses PENDING
-    brickOwl: [], // BrickOwl uses Processing
-    inventoryImpact: 'none', // Don't reduce inventory until shipped
-    description: 'Payment received, ready to pick and pack'
-  },
-
-  // Order being prepared for shipment
-  'awaiting_shipment': {
+  awaiting_shipment: {
     normalizedStatus: 'awaiting_shipment',
     displayName: 'Awaiting Shipment',
-    brickLink: ['PENDING'], // BrickLink PENDING maps here
-    brickOwl: [1], // BrickOwl status_id 1 = Processing
+    brickLink: ['PENDING', 'PAID', 'PACKED'],
+    brickOwl: [2, 3, 4],
     ebay: ['AwaitingShipment'],
     amazon: ['Unshipped'],
-    inventoryImpact: 'none', // Don't reduce inventory until shipped
-    description: 'Order picked/packed, waiting to ship'
+    inventoryImpact: 'none',
+    description: 'Payment confirmed — order is being picked, packed, or queued to ship',
   },
 
-  // Order has been shipped to customer
-  'shipped': {
+  shipped: {
     normalizedStatus: 'shipped',
     displayName: 'Shipped',
-    brickLink: ['COMPLETED'], // BrickLink COMPLETED maps here
-    brickOwl: [2], // BrickOwl status_id 2 = Shipped
+    brickLink: ['SHIPPED', 'COMPLETED'],
+    brickOwl: [5, 6],
     ebay: ['Shipped'],
     amazon: ['Shipped'],
-    inventoryImpact: 'reduce', // Reduce inventory when shipped
-    description: 'Order shipped and in transit to customer'
+    inventoryImpact: 'reduce',
+    description: 'Order dispatched — inventory deducted',
   },
 
-  // Order delivered successfully
-  'delivered': {
+  delivered: {
     normalizedStatus: 'delivered',
     displayName: 'Delivered',
-    inventoryImpact: 'none', // Already reduced at shipped
-    description: 'Order successfully delivered to customer'
+    brickLink: [],
+    brickOwl: [],
+    inventoryImpact: 'none',
+    description: 'Order confirmed delivered by buyer — no additional inventory change',
   },
 
-  // Order cancelled before shipment
-  'cancelled': {
+  cancelled: {
     normalizedStatus: 'cancelled',
     displayName: 'Cancelled',
-    brickLink: ['PURGED'], // BrickLink PURGED maps here
-    brickOwl: [3], // BrickOwl status_id 3 = Cancelled
+    brickLink: ['PURGED', 'NPB', 'NRS', 'NPX'],
+    brickOwl: [8],
     ebay: ['Cancelled'],
     amazon: ['Cancelled'],
-    inventoryImpact: 'restore', // Add inventory back when cancelled
-    description: 'Order cancelled, inventory restored'
+    inventoryImpact: 'restore',
+    description: 'Order cancelled — inventory restored only if it was previously deducted (post-ship cancel)',
   },
 
-  // Order returned after delivery
-  'returned': {
-    normalizedStatus: 'returned',
-    displayName: 'Returned',
-    inventoryImpact: 'restore', // Add inventory back when returned
-    description: 'Order returned by customer, inventory restored'
-  },
-
-  // Order on hold (payment issue, verification needed, etc.)
-  'on_hold': {
+  on_hold: {
     normalizedStatus: 'on_hold',
     displayName: 'On Hold',
+    brickLink: ['OCR'],
+    brickOwl: [],
     ebay: ['OnHold'],
-    inventoryImpact: 'none', // No inventory change while on hold
-    description: 'Order on hold pending issue resolution'
-  }
+    inventoryImpact: 'none',
+    description: 'Order paused pending issue resolution (e.g. cancellation request, dispute)',
+  },
+
+  returned: {
+    normalizedStatus: 'returned',
+    displayName: 'Returned',
+    brickLink: [],
+    brickOwl: [],
+    inventoryImpact: 'restore',
+    description: 'Order returned by buyer — inventory restored',
+  },
 };
 
 /**
- * Map platform status to normalized status
+ * Map a platform-specific status value to our normalized internal status.
+ * BrickLink and eBay/Amazon use string codes; BrickOwl uses numeric IDs.
+ *
+ * NOTE: BrickOwl sync calls mapBrickOwlStatus() directly (brickowl-orders.ts)
+ * and does NOT use this function at runtime.
  */
 export function mapPlatformStatus(platform: string, platformStatus: string | number): string {
-  // Search through all mappings to find matching platform status
   for (const [normalizedStatus, mapping] of Object.entries(ORDER_STATUS_MAPPINGS)) {
     switch (platform.toLowerCase()) {
       case 'bricklink':
-        if (mapping.brickLink?.includes(platformStatus as string)) {
-          return normalizedStatus;
-        }
+        if (mapping.brickLink?.includes(platformStatus as string)) return normalizedStatus;
         break;
       case 'brickowl':
-        if (mapping.brickOwl?.includes(platformStatus as number)) {
-          return normalizedStatus;
-        }
+        if (mapping.brickOwl?.includes(platformStatus as number)) return normalizedStatus;
         break;
       case 'ebay':
-        if (mapping.ebay?.includes(platformStatus as string)) {
-          return normalizedStatus;
-        }
+        if (mapping.ebay?.includes(platformStatus as string)) return normalizedStatus;
         break;
       case 'amazon':
-        if (mapping.amazon?.includes(platformStatus as string)) {
-          return normalizedStatus;
-        }
+        if (mapping.amazon?.includes(platformStatus as string)) return normalizedStatus;
         break;
     }
   }
-  
-  // Default fallback
   return 'awaiting_shipment';
 }
 
-/**
- * Get inventory impact for a status
- */
 export function getInventoryImpact(normalizedStatus: string): InventoryImpact {
-  const mapping = ORDER_STATUS_MAPPINGS[normalizedStatus];
-  return mapping?.inventoryImpact || 'none';
+  return ORDER_STATUS_MAPPINGS[normalizedStatus]?.inventoryImpact ?? 'none';
 }
 
-/**
- * Get all possible statuses for a platform
- */
 export function getPlatformStatuses(platform: string): Array<string | number> {
   const statuses: Array<string | number> = [];
-  
   for (const mapping of Object.values(ORDER_STATUS_MAPPINGS)) {
     switch (platform.toLowerCase()) {
       case 'bricklink':
@@ -188,6 +169,5 @@ export function getPlatformStatuses(platform: string): Array<string | number> {
         break;
     }
   }
-  
-  return Array.from(new Set(statuses)); // Remove duplicates
+  return Array.from(new Set(statuses));
 }

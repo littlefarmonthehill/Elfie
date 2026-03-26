@@ -28,6 +28,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { EmbeddingsManager, UniversalCatalogSection } from "@/components/EmbeddingsManager";
+import { MappingSection } from "@/components/MappingSection";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -45,7 +46,7 @@ interface SettingsModalProps {
   isBrickspotterOnly?: boolean;
 }
 
-type ActiveSection = 'general' | 'team' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'notifications' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformTeam' | 'platformScheduler' | 'syncAdmin' | 'priceomatic' | 'ieStrategies' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | 'platformElfie' | 'platformNotifications' | 'autoSync' | null;
+type ActiveSection = 'general' | 'team' | 'platforms' | 'ai' | 'automation' | 'data' | 'enrichment' | 'warehouse' | 'notifications' | 'mapping' | 'about' | 'legal' | 'orgs' | 'impersonation' | 'auditLog' | 'announcements' | 'billingOverview' | 'plansAndPricing' | 'apiKeys' | 'platformGeneral' | 'platformTeam' | 'platformScheduler' | 'syncAdmin' | 'priceomatic' | 'ieStrategies' | 'supportQueue' | 'productVision' | 'productOkrs' | 'productRoadmap' | 'productBacklog' | 'maintenance' | 'platformElfie' | 'platformNotifications' | 'autoSync' | null;
 
 interface OrgWithUsage extends Organization {
   userCount: number;
@@ -3947,6 +3948,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain, bsVisible: true },
     { id: 'warehouse' as const, label: 'Warehouse', icon: Warehouse, bsVisible: false },
     { id: 'notifications' as const, label: 'Notifications', icon: Bell, bsVisible: false },
+    { id: 'mapping' as const, label: 'Mappings', icon: Map, bsVisible: false },
     { id: 'about' as const, label: 'About & Credits', icon: Info, bsVisible: true },
     { id: 'legal' as const, label: 'Legal & Terms', icon: FileText, bsVisible: true },
   ];
@@ -11026,6 +11028,11 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
             {/* Notifications */}
             {activeSection === 'notifications' && <NotificationsSection />}
+
+            {/* Mappings */}
+            {activeSection === 'mapping' && (
+              <MappingSection />
+            )}
 
             {/* About & Credits */}
             {activeSection === 'about' && (

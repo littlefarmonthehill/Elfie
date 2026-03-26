@@ -558,6 +558,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/admin/mappings/status — return the canonical status mapping config
+  app.get('/api/admin/mappings/status', isAuthenticated, async (_req, res) => {
+    try {
+      const { ORDER_STATUS_MAPPINGS } = await import('./config/order-status-mapping');
+      res.json(ORDER_STATUS_MAPPINGS);
+    } catch (error) {
+      console.error('Error fetching status mappings:', error);
+      res.status(500).json({ error: 'Failed to fetch status mappings' });
+    }
+  });
+
+  // GET /api/admin/mappings/sku-links — channel lot links for the requesting org
+  app.get('/api/admin/mappings/sku-links', isAuthenticated, async (req: any, res) => {
+    try {
+      const orgId = getOrgId(req);
+      const links = await db
+        .select({
+          blInvId:      channelLotLinks.blInvId,
+          orgId:        channelLotLinks.orgId,
+          channel:      channelLotLinks.channel,
+          channelLotId: channelLotLinks.channelLotId,
+          syncedAt:     channelLotLinks.syncedAt,
+          itemNo:       blInventory.itemNo,
+          itemType:     blInventory.itemType,
+          colorId:      blInventory.colorId,
+          description:  blInventory.description,
+        })
+        .from(channelLotLinks)
+        .leftJoin(blInventory, eq(channelLotLinks.blInvId, blInventory.id))
+        .where(eq(channelLotLinks.orgId, orgId))
+        .orderBy(channelLotLinks.channel, channelLotLinks.blInvId);
+      res.json(links);
+    } catch (error) {
+      console.error('Error fetching SKU links:', error);
+      res.status(500).json({ error: 'Failed to fetch SKU links' });
+    }
+  });
+
   // GET /api/admin/organizations/:id/limits — get org's current usage vs limits
   app.get('/api/admin/organizations/:id/limits', isAuthenticated, async (req, res) => {
     try {
