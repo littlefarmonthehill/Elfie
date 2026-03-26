@@ -12162,6 +12162,28 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         return res.status(400).json({ error: "No items provided" });
       }
 
+      // Consolidate seller items by itemNo|colorId|condition (safety net for unconsolidated uploads)
+      type SellerItem = { itemNo: string; colorId: number; condition: string; quantity: number; price?: number; _pricedQty?: number };
+      const consolidatedMap = new Map<string, SellerItem>();
+      for (const item of items) {
+        const key = `${item.itemNo}|${item.colorId ?? 0}|${item.condition}`;
+        const ex = consolidatedMap.get(key);
+        if (ex) {
+          if (item.price != null && ex.price != null) {
+            const pricedQty = ex._pricedQty ?? ex.quantity;
+            ex.price = (ex.price * pricedQty + item.price * item.quantity) / (pricedQty + item.quantity);
+            ex._pricedQty = pricedQty + item.quantity;
+          } else if (item.price != null) {
+            ex.price = item.price;
+            ex._pricedQty = item.quantity;
+          }
+          ex.quantity += item.quantity;
+        } else {
+          consolidatedMap.set(key, { ...item, _pricedQty: item.price != null ? item.quantity : 0 });
+        }
+      }
+      const sellerItems = [...consolidatedMap.values()].map(({ _pricedQty: _, ...rest }) => rest);
+
       // Load org's current active inventory
       const orgInv = await db
         .select({
@@ -12187,7 +12209,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       }
 
       // Collect unique item numbers for catalog/price lookups
-      const uniqueItemNos = [...new Set(items.map(i => i.itemNo))];
+      const uniqueItemNos = [...new Set(sellerItems.map(i => i.itemNo))];
 
       // Fetch catalog metadata (names)
       const catalogRows = await db
@@ -12229,7 +12251,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       let newEstMarketValue = 0;
       let hasNewEstMarket = false;
 
-      for (const item of items) {
+      for (const item of sellerItems) {
         const key = `${item.itemNo}|${item.colorId ?? 0}|${item.condition}`;
         const catKey = `${item.itemNo}|${item.colorId ?? 0}`;
         const cat = catalogMap.get(catKey) ?? { itemName: null, colorName: null };
@@ -12281,7 +12303,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
 
       res.json({
         summary: {
-          totalSellerLots: items.length,
+          totalSellerLots: sellerItems.length,
           totalSellerQty,
           totalSellerValue: hasSellerValue ? Math.round(totalSellerValue * 100) / 100 : null,
           commonLots: common.length,

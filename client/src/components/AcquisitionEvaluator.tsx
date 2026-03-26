@@ -205,35 +205,60 @@ function parseXLSX(buffer: ArrayBuffer): AcqItem[] {
   return parseCSV(csvStr);
 }
 
-async function parseFile(file: File): Promise<AcqItem[]> {
+/**
+ * Merge duplicate rows that share the same itemNo + colorId + condition.
+ * Quantities are summed; prices are weighted-averaged across rows that have them.
+ * Returns the consolidated list plus the original row count before merging.
+ */
+function consolidate(items: AcqItem[]): { items: AcqItem[]; rawRows: number } {
+  const rawRows = items.length;
+  const map = new Map<string, AcqItem & { _pricedQty: number }>();
+  for (const item of items) {
+    const key = `${item.itemNo}|${item.colorId}|${item.condition}`;
+    const ex = map.get(key);
+    if (ex) {
+      if (item.price != null && ex.price != null) {
+        // Weighted average: keep running total / qty
+        ex.price = (ex.price * ex._pricedQty + item.price * item.quantity) / (ex._pricedQty + item.quantity);
+        ex._pricedQty += item.quantity;
+      } else if (item.price != null) {
+        ex.price = item.price;
+        ex._pricedQty = item.quantity;
+      }
+      ex.quantity += item.quantity;
+    } else {
+      map.set(key, { ...item, _pricedQty: item.price != null ? item.quantity : 0 });
+    }
+  }
+  const consolidated = [...map.values()].map(({ _pricedQty: _, ...rest }) => rest);
+  return { items: consolidated, rawRows };
+}
+
+async function parseFile(file: File): Promise<{ items: AcqItem[]; rawRows: number }> {
   const name = file.name.toLowerCase();
+  let raw: AcqItem[];
 
   if (name.endsWith(".bsx") || name.endsWith(".brickstore")) {
-    const text = await file.text();
-    return parseBSX(text);
-  }
-  if (name.endsWith(".xml")) {
+    raw = parseBSX(await file.text());
+  } else if (name.endsWith(".xml")) {
     const text = await file.text();
     const fmt = detectXMLFormat(text);
-    if (fmt === 'bsx') return parseBSX(text);
-    if (fmt === 'blxml') return parseBLXML(text);
-    return parseBLXML(text);
-  }
-  if (name.endsWith(".csv")) {
+    raw = fmt === 'bsx' ? parseBSX(text) : parseBLXML(text);
+  } else if (name.endsWith(".csv")) {
+    raw = parseCSV(await file.text());
+  } else if (name.endsWith(".xlsx") || name.endsWith(".xls") || name.endsWith(".ods")) {
+    raw = parseXLSX(await file.arrayBuffer());
+  } else {
     const text = await file.text();
-    return parseCSV(text);
+    if (text.trim().startsWith("<")) {
+      const fmt = detectXMLFormat(text);
+      raw = fmt === 'bsx' ? parseBSX(text) : parseBLXML(text);
+    } else {
+      raw = parseCSV(text);
+    }
   }
-  if (name.endsWith(".xlsx") || name.endsWith(".xls") || name.endsWith(".ods")) {
-    const buf = await file.arrayBuffer();
-    return parseXLSX(buf);
-  }
-  const text = await file.text();
-  if (text.trim().startsWith("<")) {
-    const fmt = detectXMLFormat(text);
-    if (fmt === 'bsx') return parseBSX(text);
-    return parseBLXML(text);
-  }
-  return parseCSV(text);
+
+  return consolidate(raw);
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -339,7 +364,7 @@ export default function AcquisitionEvaluator() {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-  const [parsed, setParsed] = useState<AcqItem[] | null>(null);
+  const [parsed, setParsed] = useState<{ items: AcqItem[]; rawRows: number } | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [result, setResult] = useState<AcqResult | null>(null);
@@ -361,12 +386,12 @@ export default function AcquisitionEvaluator() {
     setParsed(null);
     setFileName(file.name);
     try {
-      const items = await parseFile(file);
+      const { items, rawRows } = await parseFile(file);
       if (items.length === 0) {
         setParseError("No inventory items found in this file. Check that it's a valid BSX, BrickLink XML, or CSV file with item numbers and quantities.");
         return;
       }
-      setParsed(items);
+      setParsed({ items, rawRows });
     } catch (e: any) {
       setParseError(e.message || "Failed to parse file.");
     }
@@ -453,7 +478,12 @@ export default function AcquisitionEvaluator() {
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-white truncate">{fileName}</p>
               <p className="text-xs text-violet-300 mt-0.5">
-                {parsed.length.toLocaleString()} lots parsed &nbsp;·&nbsp; {parsed.reduce((a, b) => a + b.quantity, 0).toLocaleString()} total pieces
+                {parsed.items.length.toLocaleString()} lots &nbsp;·&nbsp; {parsed.items.reduce((a, b) => a + b.quantity, 0).toLocaleString()} pieces
+                {parsed.rawRows > parsed.items.length && (
+                  <span className="text-amber-400 ml-1">
+                    &nbsp;·&nbsp; consolidated from {parsed.rawRows.toLocaleString()} rows
+                  </span>
+                )}
               </p>
             </div>
             <Button size="icon" variant="ghost" onClick={reset} data-testid="acq-reset-file">
@@ -462,7 +492,7 @@ export default function AcquisitionEvaluator() {
           </div>
           <div className="flex gap-2">
             <Button
-              onClick={() => evaluateMutation.mutate(parsed)}
+              onClick={() => evaluateMutation.mutate(parsed.items)}
               disabled={evaluateMutation.isPending}
               className="flex-1"
               data-testid="acq-run-btn"
