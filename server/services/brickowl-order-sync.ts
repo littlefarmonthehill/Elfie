@@ -187,7 +187,8 @@ async function processBrickOwlOrder(
     customerUsername: brickOwlOrderData.buyer_name || null,
     customerEmail: brickOwlOrderData.buyer_email || null,
     shipTo: JSON.stringify({
-      name: brickOwlOrderData.ship_name || '',
+      // BrickOwl has no separate ship_name — the recipient name is buyer_name
+      name: brickOwlOrderData.ship_name || brickOwlOrderData.buyer_name || '',
       address1: brickOwlOrderData.ship_street_1 || '',
       address2: brickOwlOrderData.ship_street_2 || '',
       city: brickOwlOrderData.ship_city || '',
