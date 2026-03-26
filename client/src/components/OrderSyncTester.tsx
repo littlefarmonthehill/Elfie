@@ -109,8 +109,8 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                 <div className="text-xs md:text-base lg:text-lg text-muted-foreground bg-muted/30 p-3 rounded">
                   <p className="font-medium mb-1">Dry-Run Testing Mode</p>
                   <p>
-                    This test fetches historical orders from BrickLink/BrickOwl APIs and compares them
-                    with existing ShipStation orders. No data is written to the database. Use this to
+                    This test fetches recent pending orders from BrickLink/BrickOwl APIs and compares them
+                    with orders in the local database. No data is written to the database. Use this to
                     validate the mapping logic before enabling live synchronization.
                   </p>
                 </div>
@@ -154,20 +154,20 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                               {result.platform}
                             </Badge>
                             <span className="font-mono text-sm font-bold">
-                              #{result.shipstationOrder?.orderNumber || result.platformOrder?.orderNumber || 'N/A'}
+                              #{result.localOrder?.orderNumber || result.platformOrder?.orderNumber || 'N/A'}
                             </span>
                           </div>
                         </div>
                         <div className="text-right">
-                          {result.shipstationOrder ? (
+                          {result.localOrder ? (
                             <div className="flex items-center gap-2 text-green-600">
                               <CheckCircle className="h-4 w-4" />
-                              <span className="text-xs font-medium">In ShipStation</span>
+                              <span className="text-xs font-medium">In Local DB</span>
                             </div>
                           ) : (
                             <div className="flex items-center gap-2 text-orange-600">
                               <AlertTriangle className="h-4 w-4" />
-                              <span className="text-xs font-medium">Not in ShipStation</span>
+                              <span className="text-xs font-medium">Not in Local DB</span>
                             </div>
                           )}
                         </div>
@@ -184,57 +184,57 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                                 <thead>
                                   <tr className="border-b">
                                     <th className="text-left py-2 font-medium text-muted-foreground w-1/3">Field</th>
-                                    <th className="text-left py-2 font-medium text-muted-foreground w-1/3">ShipStation</th>
+                                    <th className="text-left py-2 font-medium text-muted-foreground w-1/3">Local DB</th>
                                     <th className="text-left py-2 font-medium text-muted-foreground w-1/3">{result.platform}</th>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y">
                                   <tr>
                                     <td className="py-2">Order Number</td>
-                                    <td className="py-2 font-mono">{result.shipstationOrder?.orderNumber || '-'}</td>
+                                    <td className="py-2 font-mono">{result.localOrder?.orderNumber || '-'}</td>
                                     <td className="py-2 font-mono">{result.platformOrder?.orderNumber || '-'}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Customer</td>
-                                    <td className="py-2">{result.shipstationOrder?.customerUsername || '-'}</td>
+                                    <td className="py-2">{result.localOrder?.customerUsername || '-'}</td>
                                     <td className="py-2">{result.platformOrder?.customerUsername || '-'}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Email</td>
-                                    <td className="py-2">{result.shipstationOrder?.customerEmail || '-'}</td>
+                                    <td className="py-2">{result.localOrder?.customerEmail || '-'}</td>
                                     <td className="py-2">{result.platformOrder?.customerEmail || '-'}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Order Date</td>
-                                    <td className="py-2">{result.shipstationOrder?.orderDate ? new Date(result.shipstationOrder.orderDate).toLocaleDateString() : '-'}</td>
+                                    <td className="py-2">{result.localOrder?.orderDate ? new Date(result.localOrder.orderDate).toLocaleDateString() : '-'}</td>
                                     <td className="py-2">{result.platformOrder?.orderDate ? new Date(result.platformOrder.orderDate).toLocaleDateString() : '-'}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Status</td>
-                                    <td className="py-2 capitalize">{result.shipstationOrder?.orderStatus?.replace(/_/g, ' ') || '-'}</td>
+                                    <td className="py-2 capitalize">{result.localOrder?.orderStatus?.replace(/_/g, ' ') || '-'}</td>
                                     <td className="py-2 capitalize">{result.platformOrder?.orderStatus?.replace(/_/g, ' ') || '-'}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Total</td>
-                                    <td className="py-2">${result.shipstationOrder?.orderTotal || '0'}</td>
+                                    <td className="py-2">${result.localOrder?.orderTotal || '0'}</td>
                                     <td className="py-2">${result.platformOrder?.orderTotal || '0'}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Ship Name</td>
-                                    <td className="py-2">{result.shipstationOrder?.shipTo?.name || '-'}</td>
+                                    <td className="py-2">{result.localOrder?.shipTo?.name || '-'}</td>
                                     <td className="py-2">{result.platformOrder?.shippingAddress?.name || '-'}</td>
                                   </tr>
                                   <tr>
                                     <td className="py-2">Ship Address</td>
                                     <td className="py-2">
-                                      {result.shipstationOrder?.shipTo ? (
+                                      {result.localOrder?.shipTo ? (
                                         <>
-                                          {result.shipstationOrder.shipTo.street1}
-                                          {result.shipstationOrder.shipTo.street2 && `, ${result.shipstationOrder.shipTo.street2}`}
+                                          {result.localOrder.shipTo.street1}
+                                          {result.localOrder.shipTo.street2 && `, ${result.localOrder.shipTo.street2}`}
                                           <br />
-                                          {result.shipstationOrder.shipTo.city}, {result.shipstationOrder.shipTo.state} {result.shipstationOrder.shipTo.postalCode}
+                                          {result.localOrder.shipTo.city}, {result.localOrder.shipTo.state} {result.localOrder.shipTo.postalCode}
                                           <br />
-                                          {result.shipstationOrder.shipTo.country}
+                                          {result.localOrder.shipTo.country}
                                         </>
                                       ) : '-'}
                                     </td>
@@ -260,17 +260,17 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                         {/* Order Detail - Line Items */}
                         <AccordionItem value="detail">
                           <AccordionTrigger className="text-sm font-medium">
-                            Order Detail (SS: {result.shipstationItems?.length || 0} items, {result.platform}: {result.platformItems?.length || 0} items)
+                            Order Detail (Local: {result.localItems?.length || 0} items, {result.platform}: {result.platformItems?.length || 0} items)
                           </AccordionTrigger>
                           <AccordionContent>
-                            {/* ShipStation Items */}
+                            {/* Local DB Items */}
                             <div className="mb-6">
                               <h4 className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-2">
                                 <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded">
-                                  ShipStation Items ({result.shipstationItems?.length || 0})
+                                  Local DB Items ({result.localItems?.length || 0})
                                 </span>
                               </h4>
-                              {result.shipstationItems && result.shipstationItems.length > 0 ? (
+                              {result.localItems && result.localItems.length > 0 ? (
                                 <div className="overflow-x-auto">
                                   <table className="w-full text-xs">
                                     <thead>
@@ -284,7 +284,7 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y">
-                                      {result.shipstationItems.map((item: any, itemIdx: number) => (
+                                      {result.localItems.map((item: any, itemIdx: number) => (
                                         <tr key={itemIdx}>
                                           <td className="py-2">{item.name}</td>
                                           <td className="py-2 font-mono text-[10px] md:text-sm">{item.sku || '-'}</td>
@@ -306,7 +306,7 @@ export default function OrderSyncTester({ open, onOpenChange }: OrderSyncTesterP
                                   </table>
                                 </div>
                               ) : (
-                                <p className="text-xs text-muted-foreground py-4">No items found in ShipStation</p>
+                                <p className="text-xs text-muted-foreground py-4">No items found in local database</p>
                               )}
                             </div>
 

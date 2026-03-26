@@ -160,19 +160,6 @@ export const PROVIDER_REGISTRY: Record<string, ProviderDefinition> = {
     ],
   },
 
-  shipstation: {
-    key:         'shipstation',
-    name:        'ShipStation',
-    type:        'shipping',
-    status:      'live',
-    description: 'Full-featured order and shipping management with multi-carrier support.',
-    accentColor: 'blue',
-    docsUrl:     'https://www.shipstation.com/docs/api/',
-    credentialFields: [
-      { key: 'apiKey',    label: 'API Key',    type: 'password', required: true },
-      { key: 'apiSecret', label: 'API Secret', type: 'password', required: true },
-    ],
-  },
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

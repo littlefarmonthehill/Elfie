@@ -1343,9 +1343,9 @@ function MaintenancePanel() {
   return (
     <div className="px-3 pt-3 pb-4 space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-gray-100 mb-0.5">ShipStation Duplicate Order Cleanup</h3>
+        <h3 className="text-sm font-semibold text-gray-100 mb-0.5">Duplicate Order Cleanup</h3>
         <p className="text-xs text-gray-400">
-          Removes ShipStation-synced duplicate BL orders (bare numeric IDs) where a proper <code className="bg-gray-800 px-1 rounded">bl-XXXXXX</code> record already exists.
+          Removes legacy duplicate BL orders (bare numeric IDs like BL.XXXXXX) where a proper <code className="bg-gray-800 px-1 rounded">bl-XXXXXX</code> record already exists.
         </p>
       </div>
 
@@ -4746,7 +4746,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       <span className="app-label">Shipping</span>
                       <Button size="sm" variant="ghost" className="h-6 text-xs gap-1 text-gray-400 -mr-1"
                         data-testid="button-add-shipping-vendor"
-                        onClick={() => { setAddIntegrationType('shipping'); setAddIntChannel('shipstation'); setAddIntDisplayName('ShipStation'); setAddIntApiKey(''); }}>
+                        onClick={() => { setAddIntegrationType('shipping'); setAddIntChannel('easypost'); setAddIntDisplayName('EasyPost'); setAddIntApiKey(''); }}>
                         <Plus className="w-3 h-3" /> Add
                       </Button>
                     </div>
@@ -4775,10 +4775,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         <p className="text-xs font-medium text-gray-100">Add Shipping Vendor</p>
                         <div className="space-y-2">
                           <Label className="text-xs text-gray-200">Platform</Label>
-                          <Select value={addIntChannel} onValueChange={(v) => { setAddIntChannel(v); const n: Record<string,string> = { shipstation: 'ShipStation', pirateship: 'Pirate Ship', stamps_com: 'Stamps.com', shipbob: 'ShipBob', other: 'Other' }; setAddIntDisplayName(n[v] || ''); }}>
+                          <Select value={addIntChannel} onValueChange={(v) => { setAddIntChannel(v); const n: Record<string,string> = { easypost: 'EasyPost', pirateship: 'Pirate Ship', stamps_com: 'Stamps.com', shipbob: 'ShipBob', other: 'Other' }; setAddIntDisplayName(n[v] || ''); }}>
                             <SelectTrigger className="text-xs h-8" data-testid="select-add-shipping-vendor"><SelectValue placeholder="Select platform..." /></SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="shipstation">ShipStation</SelectItem>
+                              <SelectItem value="easypost">EasyPost</SelectItem>
                               <SelectItem value="pirateship">Pirate Ship</SelectItem>
                               <SelectItem value="stamps_com">Stamps.com</SelectItem>
                               <SelectItem value="shipbob">ShipBob</SelectItem>
@@ -4788,7 +4788,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         </div>
                         <div className="space-y-2">
                           <Label className="text-xs text-gray-200">Display Name</Label>
-                          <Input className="text-xs" placeholder="e.g. ShipStation Account" value={addIntDisplayName} onChange={(e) => setAddIntDisplayName(e.target.value)} data-testid="input-add-display-name" />
+                          <Input className="text-xs" placeholder="e.g. My Shipping Account" value={addIntDisplayName} onChange={(e) => setAddIntDisplayName(e.target.value)} data-testid="input-add-display-name" />
                         </div>
                         <div className="space-y-2">
                           <Label className="text-xs text-gray-200">API Key</Label>

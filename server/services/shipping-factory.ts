@@ -43,11 +43,6 @@ export async function getShippingProvider(orgId: string): Promise<IShippingVendo
       return getShippingVendor(apiKey, orgId); // orgId used for appSettings fallback
     }
 
-    case 'shipstation':
-      // ShipStation implements order import (shipstation.ts) but not the
-      // IShippingVendor label-buying interface yet. Throw a clear error.
-      throw new Error('ShipStation label purchasing is not yet implemented. Use EasyPost for shipping labels.');
-
     // Future providers — add cases here:
     // case 'pirateship': {
     //   const { PirateshipVendor } = await import('./pirateship');

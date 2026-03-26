@@ -332,7 +332,7 @@ export default function Home() {
               data: {
                 orderId: String(id),
                 orderNumber: orderNumber,
-                platform: 'ShipStation' as const,
+                platform: 'BrickLink' as const,
                 status: 'Paid' as const,
                 customer: {
                   name: 'Customer',

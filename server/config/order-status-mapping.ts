@@ -15,7 +15,6 @@ export interface StatusMapping {
   displayName: string;
   
   // Platform-specific status values
-  shipStation?: string[];
   brickLink?: string[];
   brickOwl?: number[]; // BrickOwl uses numeric status IDs
   ebay?: string[];
@@ -45,7 +44,6 @@ export const ORDER_STATUS_MAPPINGS: Record<string, StatusMapping> = {
   'awaiting_payment': {
     normalizedStatus: 'awaiting_payment',
     displayName: 'Awaiting Payment',
-    shipStation: ['awaiting_payment'],
     brickLink: [], // BrickLink doesn't have this status
     brickOwl: [], // BrickOwl doesn't have this status
     ebay: ['AwaitingPayment'],
@@ -58,7 +56,6 @@ export const ORDER_STATUS_MAPPINGS: Record<string, StatusMapping> = {
   'awaiting_fulfillment': {
     normalizedStatus: 'awaiting_fulfillment',
     displayName: 'Awaiting Fulfillment',
-    shipStation: ['awaiting_fulfillment'],
     brickLink: [], // BrickLink uses PENDING
     brickOwl: [], // BrickOwl uses Processing
     inventoryImpact: 'none', // Don't reduce inventory until shipped
@@ -69,7 +66,6 @@ export const ORDER_STATUS_MAPPINGS: Record<string, StatusMapping> = {
   'awaiting_shipment': {
     normalizedStatus: 'awaiting_shipment',
     displayName: 'Awaiting Shipment',
-    shipStation: ['awaiting_shipment'],
     brickLink: ['PENDING'], // BrickLink PENDING maps here
     brickOwl: [1], // BrickOwl status_id 1 = Processing
     ebay: ['AwaitingShipment'],
@@ -82,7 +78,6 @@ export const ORDER_STATUS_MAPPINGS: Record<string, StatusMapping> = {
   'shipped': {
     normalizedStatus: 'shipped',
     displayName: 'Shipped',
-    shipStation: ['shipped'],
     brickLink: ['COMPLETED'], // BrickLink COMPLETED maps here
     brickOwl: [2], // BrickOwl status_id 2 = Shipped
     ebay: ['Shipped'],
@@ -95,7 +90,6 @@ export const ORDER_STATUS_MAPPINGS: Record<string, StatusMapping> = {
   'delivered': {
     normalizedStatus: 'delivered',
     displayName: 'Delivered',
-    shipStation: ['delivered'],
     inventoryImpact: 'none', // Already reduced at shipped
     description: 'Order successfully delivered to customer'
   },
@@ -104,7 +98,6 @@ export const ORDER_STATUS_MAPPINGS: Record<string, StatusMapping> = {
   'cancelled': {
     normalizedStatus: 'cancelled',
     displayName: 'Cancelled',
-    shipStation: ['cancelled'],
     brickLink: ['PURGED'], // BrickLink PURGED maps here
     brickOwl: [3], // BrickOwl status_id 3 = Cancelled
     ebay: ['Cancelled'],
@@ -117,7 +110,6 @@ export const ORDER_STATUS_MAPPINGS: Record<string, StatusMapping> = {
   'returned': {
     normalizedStatus: 'returned',
     displayName: 'Returned',
-    shipStation: ['returned'],
     inventoryImpact: 'restore', // Add inventory back when returned
     description: 'Order returned by customer, inventory restored'
   },
@@ -126,7 +118,6 @@ export const ORDER_STATUS_MAPPINGS: Record<string, StatusMapping> = {
   'on_hold': {
     normalizedStatus: 'on_hold',
     displayName: 'On Hold',
-    shipStation: ['on_hold'],
     ebay: ['OnHold'],
     inventoryImpact: 'none', // No inventory change while on hold
     description: 'Order on hold pending issue resolution'
@@ -140,11 +131,6 @@ export function mapPlatformStatus(platform: string, platformStatus: string | num
   // Search through all mappings to find matching platform status
   for (const [normalizedStatus, mapping] of Object.entries(ORDER_STATUS_MAPPINGS)) {
     switch (platform.toLowerCase()) {
-      case 'shipstation':
-        if (mapping.shipStation?.includes(platformStatus as string)) {
-          return normalizedStatus;
-        }
-        break;
       case 'bricklink':
         if (mapping.brickLink?.includes(platformStatus as string)) {
           return normalizedStatus;
@@ -188,9 +174,6 @@ export function getPlatformStatuses(platform: string): Array<string | number> {
   
   for (const mapping of Object.values(ORDER_STATUS_MAPPINGS)) {
     switch (platform.toLowerCase()) {
-      case 'shipstation':
-        if (mapping.shipStation) statuses.push(...mapping.shipStation);
-        break;
       case 'bricklink':
         if (mapping.brickLink) statuses.push(...mapping.brickLink);
         break;

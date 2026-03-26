@@ -610,7 +610,7 @@ async function syncToBrickOwl(order: any, trackingNumber: string): Promise<void>
 /**
  * Parse address string to Address object
  * Supports multiple formats:
- * - ShipStation format: "Name\nStreet\nCity, State ZIP\nCountry"
+ * - Multi-line format: "Name\nStreet\nCity, State ZIP\nCountry"
  * - BrickLink format: various formats
  * - Empty/null: returns test address
  */

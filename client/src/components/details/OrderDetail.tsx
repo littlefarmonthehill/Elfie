@@ -16,7 +16,7 @@ interface OrderDetailProps {
     loading?: boolean;
     orderId?: string;
     orderNumber?: string;
-    platform?: 'BrickLink' | 'BrickOwl' | 'ShipStation' | 'Other';
+    platform?: 'BrickLink' | 'BrickOwl' | 'Other';
     status?: 'Pending' | 'Paid' | 'Shipped' | 'Cancelled';
     customer?: {
       name: string;

@@ -14,8 +14,6 @@ const SECRET_FIELDS = [
   'stripeSecretKey',
   'easypostApiKey',
   'easypostTestApiKey',
-  'shipstationApiKey',
-  'shipstationApiSecret',
 ] as const;
 
 function maskSecret(value: string | null | undefined): string | null {
@@ -40,7 +38,6 @@ import { setupAuth, isAuthenticated, isApproved, isOrgOwner, getOrgId, isSuperAd
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, bricklinkCatalogRequest, calculateSuggestedPriceWithSupply } from "./services/bricklink";
 import { getPomIsRunning, setPomIsRunning } from "./services/pom-scheduler";
 import { syncLock } from "./services/sync-lock";
-import { syncShipStationOrders } from "./services/shipstation";
 import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig } from "./services/brickowl";
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
@@ -672,9 +669,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/platform-admin/cleanup-shipstation-duplicate-orders
+  // POST /api/platform-admin/cleanup-duplicate-orders
   // Dry-run by default. Pass ?confirm=true to actually delete.
-  // Removes bare-numeric ShipStation-synced BL orders where a proper bl-{X} order already exists.
+  // Removes bare-numeric BL.X orders where a proper bl-{X} order already exists.
   app.post('/api/platform-admin/cleanup-shipstation-duplicate-orders', isSuperAdmin, async (req, res) => {
     try {
       const confirm = req.query.confirm === 'true';
@@ -689,7 +686,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dupIds = (dupsResult.rows as any[]).map(r => r.dup_id as string);
 
       if (!confirm) {
-        // Dry run — count what would be deleted
         const detailCountResult = await db.execute(sql`
           SELECT COUNT(*) as cnt
           FROM order_details od
@@ -712,7 +708,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ message: 'No duplicate orders found — nothing to delete.' });
       }
 
-      // Step 1: Delete order_details (no cascade on this FK)
       await db.execute(sql`
         DELETE FROM order_details
         WHERE order_id IN (
@@ -722,7 +717,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         )
       `);
 
-      // Step 2: Delete the duplicate orders (order_adjustments + picklist_items cascade automatically)
       await db.execute(sql`
         DELETE FROM orders
         WHERE id IN (
@@ -732,12 +726,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         )
       `);
 
-      console.log(`[AdminCleanup] Deleted ${dupIds.length} ShipStation duplicate orders and their related records`);
+      console.log(`[AdminCleanup] Deleted ${dupIds.length} duplicate BL orders and their related records`);
 
       return res.json({
         success: true,
         ordersDeleted: dupIds.length,
-        message: `Deleted ${dupIds.length} ShipStation duplicate BL orders`,
+        message: `Deleted ${dupIds.length} duplicate BL orders`,
       });
     } catch (error: any) {
       console.error('[AdminCleanup] Error during duplicate order cleanup:', error.message);
@@ -4971,7 +4965,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const formattedOrder = {
         orderId: order.id,
         orderNumber: order.orderNumber,
-        platform: 'ShipStation' as const,
+        platform: (order.marketplace === 'BrickOwl' ? 'BrickOwl' : 'BrickLink') as const,
         status: order.orderStatus === 'shipped' ? 'Shipped' as const :
                 order.orderStatus === 'cancelled' ? 'Cancelled' as const :
                 order.orderStatus === 'awaiting_payment' ? 'Pending' as const :
@@ -12234,53 +12228,6 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
-  // Get ShipStation sync progress (for real-time UI updates)
-  app.get("/api/sync/shipstation/orders/progress", isApproved, async (req: any, res) => {
-    try {
-      const orgId = reqOrgId(req);
-      const [metadata] = await db
-        .select()
-        .from(syncMetadata)
-        .where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'shipstation_orders')))
-        .limit(1);
-      
-      if (!metadata) {
-        res.json({ status: 'idle', progress: null });
-        return;
-      }
-      
-      res.json({
-        status: metadata.lastSyncStatus,
-        progress: metadata.errorMessage ? JSON.parse(metadata.errorMessage) : null,
-        lastSync: metadata.lastSyncTime,
-        recordsAdded: metadata.recordsAdded,
-        recordsUpdated: metadata.recordsUpdated,
-      });
-    } catch (error) {
-      console.error("Error fetching sync progress:", error);
-      res.status(500).json({ error: "Failed to fetch sync progress" });
-    }
-  });
-
-  app.post("/api/sync/shipstation/orders", isApproved, async (req, res) => {
-    try {
-      // Check for fullSync query parameter
-      const fullSync = req.query.fullSync === 'true' || req.body.fullSync === true;
-      const result = await syncShipStationOrders(fullSync);
-      res.json({
-        success: true,
-        data: result,
-        syncType: fullSync ? 'full' : 'incremental',
-      });
-    } catch (error) {
-      console.error("ShipStation sync error:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to sync ShipStation orders",
-      });
-    }
-  });
-
   // BrickLink order sync endpoint
   app.post("/api/sync/bricklink/orders", isApproved, async (req: any, res) => {
     try {
@@ -16119,9 +16066,9 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
           const { getBrickLinkOrders, getBrickLinkOrderItems, mapBrickLinkStatus, mapBrickLinkCondition } = 
             await import('./services/bricklink-orders');
 
-          // Fetch recent PENDING BrickLink orders from ShipStation database
+          // Fetch recent PENDING BrickLink orders from our local database
           // Note: BrickLink/BrickOwl APIs may not return items for shipped/completed orders
-          console.log('Fetching recent PENDING BrickLink orders from ShipStation...');
+          console.log('Fetching recent PENDING BrickLink orders from local database...');
           const recentBLOrders = await db.select()
             .from(orders)
             .where(and(
@@ -16135,7 +16082,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
             .orderBy(desc(orders.orderDate))
             .limit(limit);
 
-          console.log(`Found ${recentBLOrders.length} recent BrickLink orders in ShipStation`);
+          console.log(`Found ${recentBLOrders.length} recent BrickLink orders in local database`);
 
         for (const ssOrder of recentBLOrders) {
           try {
@@ -16143,12 +16090,12 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
             const orderId = ssOrder.orderNumber.replace('BL.', '');
             console.log(`Processing BrickLink order ${orderId}...`);
             
-            // Fetch ShipStation order items from database
+            // Fetch local order items from database
             const ssItems = await db.select()
               .from(orderDetails)
               .where(eq(orderDetails.orderId, ssOrder.id));
             
-            console.log(`ShipStation has ${ssItems.length} items for order ${orderId}`);
+            console.log(`Local DB has ${ssItems.length} items for order ${orderId}`);
 
             // Try to fetch platform order header and items
             let platformOrder = null;
@@ -16210,7 +16157,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
               console.error(`BrickLink API error for order ${orderId}:`, apiErr.message);
             }
 
-            // Map ShipStation items with warehouse bins
+            // Map local order items with warehouse bins
             const itemsWithBins = await Promise.all(ssItems.map(async (item: any) => {
               const binInfo = await db
                 .select({
@@ -16239,10 +16186,10 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
 
             results.push({
               platform: 'BrickLink',
-              shipstationOrder: ssOrder, // ShipStation order with full details
-              shipstationItems: itemsWithBins, // ShipStation items from database
-              platformOrder: platformOrder, // Platform order header (if available)
-              platformItems: platformItems, // Platform items from API (may be empty for shipped orders)
+              localOrder: ssOrder,
+              localItems: itemsWithBins,
+              platformOrder: platformOrder,
+              platformItems: platformItems,
               issues: [],
             });
           } catch (orderError: any) {
@@ -16266,9 +16213,9 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         const { getBrickOwlOrders, getBrickOwlOrderDetails, mapBrickOwlStatus, mapBrickOwlCondition } = 
           await import('./services/brickowl-orders');
 
-        // Fetch recent PENDING BrickOwl orders from ShipStation database
+        // Fetch recent PENDING BrickOwl orders from our local database
         // Note: BrickLink/BrickOwl APIs may not return items for shipped/completed orders
-        console.log('Fetching recent PENDING BrickOwl orders from ShipStation...');
+        console.log('Fetching recent PENDING BrickOwl orders from local database...');
         const recentBOOrders = await db.select()
           .from(orders)
           .where(and(
@@ -16282,7 +16229,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
           .orderBy(desc(orders.orderDate))
           .limit(limit);
 
-        console.log(`Found ${recentBOOrders.length} recent BrickOwl orders in ShipStation`);
+        console.log(`Found ${recentBOOrders.length} recent BrickOwl orders in local database`);
 
         for (const ssOrder of recentBOOrders) {
           try {
@@ -16290,12 +16237,12 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
             const orderId = ssOrder.orderNumber.replace('BO.', '');
             console.log(`Processing BrickOwl order ${orderId}...`);
             
-            // Fetch ShipStation order items from database
+            // Fetch local order items from database
             const ssItems = await db.select()
               .from(orderDetails)
               .where(eq(orderDetails.orderId, ssOrder.id));
             
-            console.log(`ShipStation has ${ssItems.length} items for order ${orderId}`);
+            console.log(`Local DB has ${ssItems.length} items for order ${orderId}`);
 
             // Try to fetch platform order header and items
             let platformOrder = null;
@@ -16348,7 +16295,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
               console.error(`BrickOwl API error for order ${orderId}:`, apiErr.message);
             }
 
-            // Map ShipStation items with warehouse bins
+            // Map local order items with warehouse bins
             const itemsWithBins = await Promise.all(ssItems.map(async (item: any) => {
               const binInfo = await db
                 .select({
@@ -16377,10 +16324,10 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
 
             results.push({
               platform: 'BrickOwl',
-              shipstationOrder: ssOrder, // ShipStation order with full details
-              shipstationItems: itemsWithBins, // ShipStation items from database
-              platformOrder: platformOrder, // Platform order header (if available)
-              platformItems: platformItems, // Platform items from API (may be empty for shipped orders)
+              localOrder: ssOrder,
+              localItems: itemsWithBins,
+              platformOrder: platformOrder,
+              platformItems: platformItems,
               issues: [],
             });
           } catch (err: any) {

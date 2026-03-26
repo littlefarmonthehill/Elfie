@@ -186,16 +186,12 @@ export default function MarketplaceDiagnostic() {
         </h3>
         <div className="text-xs text-gray-300 space-y-2">
           <p>
-            <strong className="text-white">The Issue:</strong> ShipStation is storing generic internal order numbers (like "963", "2166") instead of the marketplace-specific order numbers. These don't match any detection patterns.
-          </p>
-          <p>
-            <strong className="text-white">Why This Happens:</strong> When orders are imported into ShipStation from different sources, the original marketplace order number isn't always preserved in the order_number field. It may be in a different field or not synced at all.
+            <strong className="text-white">The Issue:</strong> Some orders have generic internal order numbers (like "963", "2166") instead of the marketplace-specific order numbers. These don't match any detection patterns.
           </p>
           <p>
             <strong className="text-white">Solutions:</strong>
           </p>
           <ul className="list-disc list-inside space-y-1 ml-2">
-            <li>Check your ShipStation settings to ensure marketplace order IDs are being imported</li>
             <li>Run a Full Sync to re-extract marketplace data for all orders</li>
             <li>For orders that truly can't be detected, they'll remain as "Unknown"</li>
           </ul>

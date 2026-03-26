@@ -2,7 +2,7 @@
  * Shipping Vendor Abstraction Layer
  * 
  * This interface defines the contract that all shipping vendors must implement.
- * This allows us to easily swap between different shipping providers (EasyPost, ShipStation, etc.)
+ * This allows us to easily swap between different shipping providers (EasyPost, Pirateship, etc.)
  * without changing the rest of the application.
  */
 

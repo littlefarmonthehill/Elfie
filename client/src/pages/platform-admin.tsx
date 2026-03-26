@@ -213,7 +213,7 @@ function DuplicateOrderCleanup() {
       <div className="flex items-start gap-3">
         <div className="flex-1">
           <p className="text-sm text-muted-foreground">
-            Removes ShipStation-synced duplicate BL orders (bare numeric IDs) where a proper <code className="text-xs bg-muted px-1 py-0.5 rounded">bl-XXXXXX</code> record already exists. Run dry run first to preview.
+            Removes legacy duplicate BL orders (bare numeric IDs like BL.XXXXXX) where a proper <code className="text-xs bg-muted px-1 py-0.5 rounded">bl-XXXXXX</code> record already exists. Run dry run first to preview.
           </p>
         </div>
       </div>
@@ -353,7 +353,7 @@ export default function PlatformAdmin() {
             Maintenance Tools
           </h2>
           <div className="border-t pt-4">
-            <p className="text-sm font-medium mb-2">ShipStation Duplicate Order Cleanup</p>
+            <p className="text-sm font-medium mb-2">Duplicate Order Cleanup</p>
             <DuplicateOrderCleanup />
           </div>
         </div>
