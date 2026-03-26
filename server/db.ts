@@ -1353,6 +1353,7 @@ export async function runMigrations() {
            'C', CASE WHEN 'C' = ANY(sync_stockroom_ids) THEN 'active' ELSE 'skip' END
          )
        WHERE sync_stockroom_ids IS NOT NULL
+         AND cardinality(sync_stockroom_ids) > 0
     `);
     await client.query(`
       ALTER TABLE channel_sync_config
