@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Package, DollarSign, User, MapPin, Calendar, Truck, RefreshCcw, Pencil, X, Save, Weight, RotateCcw, CreditCard, ShieldCheck, Plus } from "lucide-react";
+import { Package, DollarSign, User, MapPin, Calendar, Truck, RefreshCcw, Pencil, X, Save, Weight, RotateCcw, CreditCard, ShieldCheck, Plus, MessageCircle } from "lucide-react";
 import { shortCode } from "@/components/PackingSlip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -84,6 +84,7 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showCustomerNote, setShowCustomerNote] = useState(false);
   const [editForm, setEditForm] = useState({
     street1: data.customer?.address || '',
     street2: data.customer?.address2 || '',
@@ -269,6 +270,18 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
               <Calendar className="h-4 w-4" />
               <span className="font-medium">{new Date(data.orderDate!).toLocaleDateString()}</span>
             </div>
+            {data.customerNotes && (
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setShowCustomerNote(v => !v)}
+                data-testid="button-toggle-customer-note"
+                title="Customer note"
+                className={showCustomerNote ? 'text-amber-400' : 'text-amber-500/50'}
+              >
+                <MessageCircle className="h-3.5 w-3.5 fill-current" />
+              </Button>
+            )}
             {canEdit && !isEditing && (
               <Button
                 size="icon"
@@ -298,11 +311,11 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
         {/* Customer / Internal Notes */}
         {(data.customerNotes || data.internalNotes) && (
           <div className="space-y-1">
-            {data.customerNotes && (
-              <div className="flex items-start gap-1.5 rounded border border-lego-blue/30 bg-lego-blue/5 px-2 py-1.5" data-testid="text-customer-notes">
-                <Package className="h-3 w-3 text-lego-blue/70 flex-shrink-0 mt-0.5" />
+            {data.customerNotes && showCustomerNote && (
+              <div className="flex items-start gap-1.5 rounded border border-amber-500/30 bg-amber-500/5 px-2 py-1.5" data-testid="text-customer-notes">
+                <MessageCircle className="h-3 w-3 text-amber-400/70 flex-shrink-0 mt-0.5 fill-current" />
                 <div className="min-w-0">
-                  <p className="text-[9px] font-semibold text-lego-blue/70 uppercase tracking-wide mb-0.5">Customer note</p>
+                  <p className="text-[9px] font-semibold text-amber-400/70 uppercase tracking-wide mb-0.5">Customer note</p>
                   <p className="text-[10px] text-gray-300 leading-snug">{data.customerNotes}</p>
                 </div>
               </div>
