@@ -126,13 +126,20 @@ export function resolveOrderStatus(
   existingStatus: string,
   incomingStatus: string,
   isReturn = false
-): { status: string; wasDemotionBlocked: boolean } {
+): { status: string; wasDemotionBlocked: boolean; isShippedCancellation: boolean } {
   if (isReturn) {
-    return { status: incomingStatus, wasDemotionBlocked: false };
+    return { status: incomingStatus, wasDemotionBlocked: false, isShippedCancellation: false };
   }
   const wouldDemote = existingStatus === 'shipped' && incomingStatus !== 'shipped';
   if (wouldDemote) {
-    return { status: 'shipped', wasDemotionBlocked: true };
+    // BrickOwl sellers use "cancel" the same way BrickLink uses "return" — the seller
+    // cancels a shipped order when items come back.  Allow cancelled to override shipped
+    // so we can restore inventory (without pushing to other channels), but block all other
+    // backward status movements (e.g. shipped → awaiting_shipment caused by stale BL data).
+    if (incomingStatus === 'cancelled') {
+      return { status: 'cancelled', wasDemotionBlocked: false, isShippedCancellation: true };
+    }
+    return { status: 'shipped', wasDemotionBlocked: true, isShippedCancellation: false };
   }
-  return { status: incomingStatus, wasDemotionBlocked: false };
+  return { status: incomingStatus, wasDemotionBlocked: false, isShippedCancellation: false };
 }

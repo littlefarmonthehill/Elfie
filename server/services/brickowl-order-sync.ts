@@ -239,7 +239,7 @@ async function processBrickOwlOrder(
     result.ordersAdded++;
     isNewOrder = true;
   } else {
-    const { status: updatedStatus, wasDemotionBlocked } = resolveOrderStatus(
+    const { status: updatedStatus, wasDemotionBlocked, isShippedCancellation } = resolveOrderStatus(
       existingOrder.orderStatus,
       normalizedStatus
     );
@@ -262,9 +262,20 @@ async function processBrickOwlOrder(
 
     if (existingOrder.orderStatus !== updatedStatus) {
       console.log(`📦 BrickOwl order ${effectiveOrderId} status changed: ${existingOrder.orderStatus} → ${updatedStatus}`);
-      adjustInventoryForOrder(effectiveOrderId, 'bo-status-change').catch(error => {
-        console.error(`⚠️ Inventory adjustment failed for BrickOwl order ${effectiveOrderId}:`, error);
-      });
+
+      if (isShippedCancellation) {
+        // Seller cancelled a shipped order on BrickOwl's side — treat this the same way
+        // BrickLink handles returns: restore local inventory but skip cross-platform sync.
+        // The scheduled channel sync will propagate the restored quantities on its own cycle.
+        console.log(`↩️ BrickOwl order ${effectiveOrderId} cancelled after shipping — restoring local inventory (no cross-platform push)`);
+        adjustInventoryForOrder(effectiveOrderId, 'bo-shipped-cancel', { skipCrossPlatformSync: true }).catch(error => {
+          console.error(`⚠️ Inventory restore failed for cancelled BrickOwl order ${effectiveOrderId}:`, error);
+        });
+      } else {
+        adjustInventoryForOrder(effectiveOrderId, 'bo-status-change').catch(error => {
+          console.error(`⚠️ Inventory adjustment failed for BrickOwl order ${effectiveOrderId}:`, error);
+        });
+      }
     }
   }
 
