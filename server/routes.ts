@@ -15837,11 +15837,16 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
           END
         )`,
         comment: blInventory.description,
-        colorId: orderDetails.colorId,
+        colorId: sql<number>`COALESCE(${orderDetails.colorId}, ${blInventory.colorId})`,
         imageUrl: blCatalog.imageUrl,
       })
         .from(orderDetails)
-        .leftJoin(blInventory, eq(sql`CAST(${blInventory.id} AS TEXT)`, orderDetails.sku))
+        .leftJoin(blInventory, or(
+          // BO orders: bricklinkInventoryId is set directly from the channel_lot_links mapping
+          eq(blInventory.id, orderDetails.bricklinkInventoryId),
+          // BL orders: bricklinkInventoryId is null; sku is the numeric BL inventory ID
+          and(isNull(orderDetails.bricklinkInventoryId), eq(sql`CAST(${blInventory.id} AS TEXT)`, orderDetails.sku))
+        ))
         .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
         .leftJoin(blCatalog, and(
           eq(blInventory.itemNo, blCatalog.itemNo),
