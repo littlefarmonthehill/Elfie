@@ -262,7 +262,7 @@ async function processBrickOwlOrder(
 
     if (existingOrder.orderStatus !== updatedStatus) {
       console.log(`📦 BrickOwl order ${effectiveOrderId} status changed: ${existingOrder.orderStatus} → ${updatedStatus}`);
-      adjustInventoryForOrder(effectiveOrderId).catch(error => {
+      adjustInventoryForOrder(effectiveOrderId, 'bo-status-change').catch(error => {
         console.error(`⚠️ Inventory adjustment failed for BrickOwl order ${effectiveOrderId}:`, error);
       });
     }
@@ -350,7 +350,7 @@ async function processBrickOwlOrder(
 
   if (isNewOrder) {
     console.log(`📦 New BrickOwl order ${effectiveOrderId} — triggering inventory adjustment`);
-    adjustInventoryForOrder(effectiveOrderId).catch(error => {
+    adjustInventoryForOrder(effectiveOrderId, 'bo-new-order').catch(error => {
       console.error(`⚠️ Inventory adjustment failed for new BrickOwl order ${effectiveOrderId}:`, error);
     });
   } else if (itemsChanged) {
@@ -363,7 +363,7 @@ async function processBrickOwlOrder(
       .set({ mergeDetectedAt: new Date() })
       .where(eq(orders.id, effectiveOrderId));
 
-    adjustInventoryForOrder(effectiveOrderId).catch(error => {
+    adjustInventoryForOrder(effectiveOrderId, 'bo-merge').catch(error => {
       console.error(`⚠️ Inventory adjustment failed after merge for BrickOwl order ${effectiveOrderId}:`, error);
     });
   }

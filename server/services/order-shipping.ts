@@ -484,7 +484,7 @@ export async function purchaseLabel(
   // Trigger inventory adjustment (imported from existing service)
   try {
     const { adjustInventoryForOrder } = await import('./inventory-adjustment');
-    await adjustInventoryForOrder(orderId);
+    await adjustInventoryForOrder(orderId, 'shipping-label');
   } catch (error) {
     console.error('Error adjusting inventory:', error);
     // Don't fail the shipment if inventory adjustment fails

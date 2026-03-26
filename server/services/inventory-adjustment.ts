@@ -20,7 +20,9 @@ import { recordInventoryChanges } from "./inventory-history";
  *   will affect a row — the second returns 0 rows and exits immediately. This eliminates
  *   the BO status-change + merge race that previously caused double BrickLink deductions.
  */
-export async function adjustInventoryForOrder(orderId: string) {
+export async function adjustInventoryForOrder(orderId: string, _caller?: string) {
+  const callerTag = _caller ? ` [caller:${_caller}]` : '';
+  console.log(`🔍 [AdjInv] adjustInventoryForOrder called for ${orderId}${callerTag}`);
   const [order] = await db
     .select()
     .from(orders)

@@ -5162,7 +5162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const orderId = req.params.id;
 
       const { adjustInventoryForOrder } = await import('./services/inventory-adjustment');
-      const result = await adjustInventoryForOrder(orderId);
+      const result = await adjustInventoryForOrder(orderId, 'manual-api');
 
       res.json(result);
     } catch (error) {

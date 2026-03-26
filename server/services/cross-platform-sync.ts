@@ -146,6 +146,7 @@ async function updateBrickLinkQuantityDelta(
       return { success: false, error: errMsg };
     }
 
+    console.log(`🎯 [BL-DELTA] Sending delta ${quantityDelta > 0 ? '+' : ''}${quantityDelta} to BrickLink inventory ${inventoryId}${orderId ? ` (order ${orderId})` : ''}`);
     const result = await adjustBrickLinkInventoryDelta(numericId, quantityDelta, orgId);
     if (!result.success && result.error) {
       await recordSyncIssue({
