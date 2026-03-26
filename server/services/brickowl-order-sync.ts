@@ -218,7 +218,9 @@ async function processBrickOwlOrder(
       };
     })(),
     internalNotes: null,
-    customerNotes: brickOwlOrderData.buyer_notes || null,
+    // BrickOwl API returns the buyer's order note as "order_note".
+    // Legacy alias "buyer_notes" kept as fallback for any older API variations.
+    customerNotes: brickOwlOrderData.order_note || brickOwlOrderData.buyer_notes || null,
     requestedShippingService: brickOwlOrderData.ship_method_name || null,
     carrierCode: null,
     serviceCode: null,

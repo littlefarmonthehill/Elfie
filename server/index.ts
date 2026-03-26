@@ -385,6 +385,24 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       console.error('[Startup] fix-10: merge group backfill failed (non-fatal):', mergeFixErr.message);
     }
 
+    // 4a-fix-11. Backfill customer_notes for bo-9061604.
+    // The sync code was reading brickOwlOrderData.buyer_notes instead of order_note —
+    // the correct BrickOwl API field name.  The note "can't wait to eat these" was
+    // confirmed by the user from the BrickOwl UI.  Idempotent — only writes if NULL.
+    try {
+      const noteFixResult = await pool.query(`
+        UPDATE orders
+        SET customer_notes = $1
+        WHERE id = 'bo-9061604'
+          AND (customer_notes IS NULL OR customer_notes = '')
+      `, ["can't wait to eat these"]);
+      if (noteFixResult.rowCount && noteFixResult.rowCount > 0) {
+        console.log(`[Startup] fix-11: backfilled customer_notes for bo-9061604.`);
+      }
+    } catch (noteFixErr: any) {
+      console.error('[Startup] fix-11: customer_notes backfill failed (non-fatal):', noteFixErr.message);
+    }
+
     try {
 
       // 4b. Warm up the DB connection (wakes Neon serverless from idle)
