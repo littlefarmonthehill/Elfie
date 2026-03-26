@@ -2442,6 +2442,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
   // Platform Information
   const [platformNameInput, setPlatformNameInput] = useState("");
+  const [platformTaglineInput, setPlatformTaglineInput] = useState("");
   const [platformNameSaving, setPlatformNameSaving] = useState(false);
 
   // Platform BrickLink Settings (stored on platform settings row, used for PoM & data enrichment)
@@ -3092,7 +3093,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     retry: 0,
   });
 
-  type PlatformInfoData = { platformName: string };
+  type PlatformInfoData = { platformName: string; tagline: string };
   const { data: platformInfoData } = useQuery<PlatformInfoData>({
     queryKey: ['/api/platform-admin/platform-services/platform-info'],
     enabled: open && (activeSection === 'apiKeys' || activeSection === 'platformGeneral') && superAdmin,
@@ -3103,6 +3104,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   useEffect(() => {
     if (platformInfoData) {
       setPlatformNameInput(platformInfoData.platformName || '');
+      setPlatformTaglineInput(platformInfoData.tagline || '');
     }
   }, [platformInfoData]);
 
@@ -9108,7 +9110,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         <span className="text-xs font-semibold text-gray-200">Platform Information</span>
                       </div>
                       <div className="px-4 py-3 space-y-3">
-                        <p className="text-[11px] text-gray-400 leading-relaxed">Set the display name for this platform. This name is used across all platform services to identify platform-level usage and operations.</p>
+                        <p className="text-[11px] text-gray-400 leading-relaxed">Set the display name and tagline for this platform. The tagline appears on the public landing page.</p>
                         <div>
                           <label className="block app-label mb-1">Platform Name</label>
                           <input
@@ -9121,6 +9123,19 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500"
                           />
                         </div>
+                        <div>
+                          <label className="block app-label mb-1">Tagline</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Authentic bricks. AI-powered tools."
+                            value={platformTaglineInput}
+                            onChange={e => setPlatformTaglineInput(e.target.value)}
+                            maxLength={200}
+                            data-testid="input-platform-tagline"
+                            className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500"
+                          />
+                          <p className="text-[10px] text-gray-500 mt-1">Shown on the public landing page below the hero headline.</p>
+                        </div>
                         <div className="flex items-center gap-2 pt-1">
                           <button
                             onClick={async () => {
@@ -9129,14 +9144,15 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                 const res = await fetch('/api/platform-admin/platform-services/platform-info', {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ platformName: platformNameInput }),
+                                  body: JSON.stringify({ platformName: platformNameInput, tagline: platformTaglineInput }),
                                 });
                                 if (!res.ok) throw new Error('Failed to save');
                                 queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/platform-services/platform-info'] });
                                 queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/platform-services/openai-billing/by-org'] });
-                                toast({ title: "Saved", description: "Platform name updated." });
+                                queryClient.invalidateQueries({ queryKey: ['/api/public/platform-info'] });
+                                toast({ title: "Saved", description: "Platform info updated." });
                               } catch {
-                                toast({ title: "Error", description: "Failed to save platform name.", variant: "destructive" });
+                                toast({ title: "Error", description: "Failed to save platform info.", variant: "destructive" });
                               } finally {
                                 setPlatformNameSaving(false);
                               }
@@ -9155,14 +9171,15 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     <div className="sm-card">
                       <div className="sm-card-header">
                         <Info className="h-3.5 w-3.5 text-gray-500" />
-                        <span className="text-xs font-semibold text-gray-200">Where This Name Appears</span>
+                        <span className="text-xs font-semibold text-gray-200">Where These Appear</span>
                       </div>
                       <div className="px-4 py-3 space-y-2">
                         <div className="grid grid-cols-1 gap-2">
                           {[
-                            { label: 'OpenAI Cost Attribution', desc: 'Identifies platform-level AI usage (Elfie, embeddings) separate from org usage' },
-                            { label: 'BrickLink Usage Tracking', desc: 'Labels platform API calls for Price-o-Matic and catalog enrichment' },
-                            { label: 'Services', desc: 'Display name for all platform-scoped operations and billing' },
+                            { label: 'Landing Page Tagline', desc: 'Shown publicly on the hero section of the product landing page (planetbrick.com)' },
+                            { label: 'OpenAI Cost Attribution', desc: 'Platform name identifies platform-level AI usage (Elfie, embeddings) separate from org usage' },
+                            { label: 'BrickLink Usage Tracking', desc: 'Platform name labels platform API calls for Price-o-Matic and catalog enrichment' },
+                            { label: 'Services', desc: 'Platform name display for all platform-scoped operations and billing' },
                           ].map(({ label, desc }) => (
                             <div key={label} className="bg-gray-900/40 border border-gray-700/60 rounded px-3 py-2">
                               <p className="text-[10px] font-medium text-gray-300 mb-0.5">{label}</p>

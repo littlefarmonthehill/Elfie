@@ -674,6 +674,7 @@ export const platformSettings = pgTable("platform_settings", {
   id: varchar("id").primaryKey().default('platform'),
   // Branding & AI credentials
   platformName: text("platform_name"),
+  tagline: text("tagline"),
   openaiApiKey: text("openai_api_key"),
   selectedModel: text("selected_model").default('gpt-4o-mini'),
   systemPrompt: text("system_prompt"),

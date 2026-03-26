@@ -879,33 +879,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/platform-admin/platform-services/platform-info — get platform name
+  // GET /api/platform-admin/platform-services/platform-info — get platform name + tagline
   app.get('/api/platform-admin/platform-services/platform-info', isSuperAdmin, async (_req, res) => {
     try {
       const platSettings = await getPlatformSettings();
-      res.json({ platformName: platSettings?.platformName || '' });
+      res.json({ platformName: platSettings?.platformName || '', tagline: platSettings?.tagline || '' });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || 'Failed to load platform info' });
     }
   });
 
-  // POST /api/platform-admin/platform-services/platform-info — save platform name
+  // POST /api/platform-admin/platform-services/platform-info — save platform name + tagline
   app.post('/api/platform-admin/platform-services/platform-info', isSuperAdmin, async (req, res) => {
     try {
-      const { platformName } = req.body as { platformName: string };
+      const { platformName, tagline } = req.body as { platformName: string; tagline?: string };
       if (typeof platformName !== 'string' || platformName.length > 100) {
         return res.status(400).json({ message: 'Platform name must be a string (max 100 chars)' });
       }
+      if (tagline !== undefined && (typeof tagline !== 'string' || tagline.length > 200)) {
+        return res.status(400).json({ message: 'Tagline must be a string (max 200 chars)' });
+      }
       await db
         .insert(platformSettings)
-        .values({ id: 'platform', platformName: platformName.trim() || null })
+        .values({ id: 'platform', platformName: platformName.trim() || null, tagline: tagline?.trim() || null })
         .onConflictDoUpdate({
           target: platformSettings.id,
-          set: { platformName: platformName.trim() || null, updatedAt: sql`CURRENT_TIMESTAMP` },
+          set: {
+            platformName: platformName.trim() || null,
+            tagline: tagline?.trim() || null,
+            updatedAt: sql`CURRENT_TIMESTAMP`,
+          },
         });
       res.json({ ok: true });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || 'Failed to save platform info' });
+    }
+  });
+
+  // GET /api/public/platform-info — unauthenticated endpoint for landing page branding
+  app.get('/api/public/platform-info', async (_req, res) => {
+    try {
+      const platSettings = await getPlatformSettings();
+      res.json({ tagline: platSettings?.tagline || null });
+    } catch {
+      res.json({ tagline: null });
     }
   });
 

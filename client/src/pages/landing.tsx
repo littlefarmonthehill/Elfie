@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Zap, ScanLine, Globe, ExternalLink, Wrench, Users, BarChart2, Sparkles } from "lucide-react";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
@@ -704,7 +705,7 @@ const HERO_CARDS = [
   { id: "signin" as Panel, label: "Sign In", sub: "Studio access",      color: MGNT,  rgb: "255,0,204",   delay: "0.14s" },
 ];
 
-function Hero({ onSelect }: { onSelect: (p: NonNullable<Panel>) => void }) {
+function Hero({ onSelect, tagline }: { onSelect: (p: NonNullable<Panel>) => void; tagline?: string | null }) {
   return (
     <div style={{
       position: "absolute", inset: 0, zIndex: 1,
@@ -755,9 +756,11 @@ function Hero({ onSelect }: { onSelect: (p: NonNullable<Panel>) => void }) {
             The LEGO universe,<br />
             <span style={{ color: TEAL, textShadow: `0 0 32px ${TEAL}55` }}>engineered.</span>
           </h1>
-          <p style={{ fontSize: "clamp(11px,2.6vw,15px)", color: "rgba(200,220,255,0.6)", margin: "clamp(6px,1.5vw,10px) auto 0", maxWidth: "340px", lineHeight: 1.55 }}>
-            Authentic bricks. AI-powered tools.<br />One brand, two worlds.
-          </p>
+          {(tagline || "Authentic bricks. AI-powered tools.\nOne brand, two worlds.").split("\n").map((line, i) => (
+            <p key={i} style={{ fontSize: "clamp(11px,2.6vw,15px)", color: "rgba(200,220,255,0.6)", margin: i === 0 ? "clamp(6px,1.5vw,10px) auto 0" : "0 auto", maxWidth: "400px", lineHeight: 1.55 }}>
+              {line}
+            </p>
+          ))}
         </div>
       </div>
 
@@ -801,6 +804,12 @@ export default function LandingPage() {
   const [panel, setPanel] = useState<Panel>(null);
   const { canPromptInstall, showInstallOption, isInstalled, isInstalling, isIos, install } = usePwaInstall();
 
+  const { data: publicInfo } = useQuery<{ tagline: string | null }>({
+    queryKey: ['/api/public/platform-info'],
+    staleTime: 5 * 60 * 1000,
+    retry: 0,
+  });
+
   return (
     <div style={{ height: "100dvh", width: "100%", overflow: "hidden", background: "#05030F", backgroundImage: `radial-gradient(ellipse 900px 600px at 50% 50%, rgba(10,5,50,0.8) 0%, transparent 70%), radial-gradient(ellipse 500px 700px at 15% 60%, rgba(80,0,160,0.15) 0%, transparent 55%), radial-gradient(ellipse 400px 600px at 85% 40%, rgba(0,180,200,0.1) 0%, transparent 55%)`, position: "relative", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" }}>
       <style>{GLOBAL_CSS}</style>
@@ -831,7 +840,7 @@ export default function LandingPage() {
       />
 
       {/* Hero */}
-      <Hero onSelect={setPanel} />
+      <Hero onSelect={setPanel} tagline={publicInfo?.tagline} />
     </div>
   );
 }
