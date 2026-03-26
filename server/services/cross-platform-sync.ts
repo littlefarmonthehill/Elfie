@@ -84,21 +84,21 @@ async function updateBrickOwlQuantity(
 
     if (!matchingLot) {
       const errMsg = `No BrickOwl lot found with BrickLink inventory ID: ${inventoryId}`;
-      console.warn(`⚠️ ${errMsg}. This usually means the channel sync has not run yet (channelLotLinks empty) and the BO lot has no external_lot_ids.other or boid match. Run the channel sync once to establish BL→BO lot mappings.`);
+      console.warn(`⚠️ ${errMsg}. No matching entry in channel_lot_links and no external_lot_ids.other match in live BO inventory for BL inv ${inventoryId}.`);
       await recordSyncIssue({
         syncType: 'cross_platform_sync',
         platform: 'brickowl',
         itemId: inventoryId,
         itemNo,
         issueType: 'lot_not_found',
-        issueDescription: `${errMsg}${orderNumber ? ` (order ${orderNumber})` : ''}. Channel sync may not have run yet.`,
+        issueDescription: `${errMsg}${orderNumber ? ` (order ${orderNumber})` : ''}. No channel_lot_links entry and no external_lot_ids.other match found.`,
         severity: 'high',
         metadata: { inventoryId, orderId, orderNumber, itemNo, newQuantity },
       });
       return { success: false, error: errMsg };
     }
 
-    await updateBrickOwlLot({ lot_id: matchingLot.lot_id, absolute_quantity: newQuantity });
+    await updateBrickOwlLot({ lot_id: matchingLot.lot_id, absolute_quantity: newQuantity }, orgId);
 
     console.log(`✓ BrickOwl: Updated lot ${matchingLot.lot_id} to quantity ${newQuantity}`);
     return { success: true };
