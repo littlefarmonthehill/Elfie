@@ -16079,6 +16079,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
 
       // Resolve merge group linked order reference for display in shipping card
       let linkedOrderRef: string | null = null;
+      let linkedOrderNumber: string | null = null;
       if (order.mergeGroupId) {
         const linkedOrder = await db
           .select({ id: orders.id, orderNumber: orders.orderNumber, marketplace: orders.marketplace })
@@ -16092,6 +16093,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
           .limit(1)
           .then(rows => rows[0] ?? null);
         if (linkedOrder) {
+          linkedOrderNumber = linkedOrder.orderNumber;
           const prefix = linkedOrder.marketplace === 'BrickOwl' ? 'BO.' : 'BL.';
           const num = (linkedOrder.orderNumber || '').replace(/^(BL\.|BO\.)/i, '');
           linkedOrderRef = `${prefix}${num}`;
@@ -16104,6 +16106,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         marketplace: order.marketplace,
         mergeGroupId: order.mergeGroupId ?? null,
         linkedOrderRef,
+        linkedOrderNumber,
         requestedService: order.requestedShippingService,
         savedWeight: order.weight ? Number(order.weight) : null,
         savedWeightUnits: order.weightUnits || "oz",

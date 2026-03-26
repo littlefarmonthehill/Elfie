@@ -11,6 +11,7 @@ import {
   Loader2, CheckCircle2, AlertTriangle, ExternalLink,
   Pencil, X, ChevronDown, ChevronUp, Globe, Plus,
 } from "lucide-react";
+import { shortCode } from "@/components/PackingSlip";
 import type { AppSettings } from "@shared/schema";
 
 const EU_COUNTRIES = new Set([
@@ -63,6 +64,7 @@ type OrderShippingSummary = {
   marketplace: string | null;
   mergeGroupId: string | null;
   linkedOrderRef: string | null;
+  linkedOrderNumber: string | null;
   requestedService: string | null;
   savedWeight: number | null;
   savedWeightUnits: string;
@@ -456,10 +458,10 @@ export default function InlineShippingCard({
           <span className="text-sm font-bold text-white font-mono">
             {summary.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(summary.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
           </span>
-          {summary.linkedOrderRef && (
-            <span className="flex items-center gap-0.5 text-[10px] text-violet-400/80 font-mono shrink-0">
+          {(summary.linkedOrderNumber || summary.linkedOrderRef) && (
+            <span className="flex items-center gap-0.5 text-[10px] text-violet-400/80 font-mono shrink-0" title="Merged order">
               <Plus className="w-2.5 h-2.5" />
-              {summary.linkedOrderRef}
+              {summary.linkedOrderNumber ? shortCode(summary.linkedOrderNumber) : summary.linkedOrderRef}
             </span>
           )}
           {isReady && (

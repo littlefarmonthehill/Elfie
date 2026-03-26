@@ -8,7 +8,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe, Plus } from "lucide-react";
-import { printPackingSlips, printPicklist, buildShortCodeMap } from "./PackingSlip";
+
+import { printPackingSlips, printPicklist, buildShortCodeMap, shortCode } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
 import { cleanItemName, shippingTier, toggleSetItem } from "@/lib/item-utils";
 import InlineShippingCard, { ShippingReadyState, PurchasedLabelResult, OrderItem } from "./InlineShippingCard";
@@ -281,7 +282,6 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
   // Split order state
   const [isSplitMode, setIsSplitMode] = useState(false);
   const [selectedItemsForSplit, setSelectedItemsForSplit] = useState<Set<string>>(new Set());
-  const [commentOrderId, setCommentOrderId] = useState<string | null>(null);
   const [statusPickerOrderId, setStatusPickerOrderId] = useState<string | null>(null);
   const [activeWorkflowFilter, setActiveWorkflowFilter] = useState<WorkflowStatus | null>(null);
 
@@ -917,8 +917,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                             return (
                               <div key={order.id}>
                                 <div
-                                  onClick={() => handleOrderToggle(order.id)}
-                                  className={`flex flex-col py-2 cursor-pointer transition-colors border-l-[3px] ${isSelected ? 'border-l-purple-500 bg-purple-950/30' : 'border-l-transparent'}`}
+                                  className={`flex flex-col py-2 transition-colors border-l-[3px] ${isSelected ? 'border-l-purple-500 bg-purple-950/30' : 'border-l-transparent'}`}
                                   data-testid={`order-${order.orderNumber}`}
                                 >
                                   {/* Line 1: shortcode-circle · flag · order# · lots · meta icons | workflow status */}
@@ -940,26 +939,23 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                       {flag && (
                                         <span className="text-sm leading-none shrink-0" data-testid={`flag-${order.id}`}>{flag}</span>
                                       )}
-                                      {/* Order number */}
-                                      <span className={`font-mono text-xs font-semibold shrink-0 ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}>
+                                      {/* Order number — tap target for selection */}
+                                      <button
+                                        onClick={() => handleOrderToggle(order.id)}
+                                        className={`font-mono text-xs font-semibold shrink-0 hover:opacity-80 transition-opacity ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}
+                                        data-testid={`button-select-order-${order.id}`}
+                                      >
                                         {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
-                                      </span>
+                                      </button>
                                       {/* Lot count */}
                                       {lotCount > 0 && (
                                         <span className="w-5 h-5 rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] font-bold text-white tabular-nums shrink-0" data-testid={`lot-count-${order.id}`}>
                                           {lotCount}
                                         </span>
                                       )}
-                                      {/* Customer comment icon */}
+                                      {/* Customer note indicator — static icon, full note visible in flyout */}
                                       {order.customerNotes && (
-                                        <button
-                                          onClick={(e) => { e.stopPropagation(); setCommentOrderId(commentOrderId === order.id ? null : order.id); }}
-                                          className={`rounded transition-colors shrink-0 ${commentOrderId === order.id ? 'text-amber-400' : 'text-amber-500/60 hover:text-amber-400'}`}
-                                          data-testid={`button-customer-note-${order.id}`}
-                                          title="Customer note"
-                                        >
-                                          <MessageCircle className="w-3.5 h-3.5 fill-current" />
-                                        </button>
+                                        <MessageCircle className="w-3.5 h-3.5 fill-current text-amber-500/60 shrink-0" title="Has customer note" />
                                       )}
                                       {/* Insurance indicator (BrickLink only) */}
                                       {order.insuranceAmount && Number(order.insuranceAmount) > 0 && (
@@ -1002,23 +998,21 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                       )}
                                       {/* Merge group indicator — links related orders created from a BO merge */}
                                       {order.mergeGroupId && (() => {
-                                        // For the original order (mergeGroupId === own id), find a delta order linked to it.
-                                        // For a delta order, find the original (id === mergeGroupId).
                                         const isOriginal = order.mergeGroupId === order.id;
                                         const linkedOrder = isOriginal
                                           ? data?.orders.find(o => o.mergeGroupId === order.id && o.id !== order.id)
                                           : data?.orders.find(o => o.id === order.mergeGroupId);
-                                        const linkedNum = linkedOrder
-                                          ? `${linkedOrder.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}${(linkedOrder.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}`
-                                          : order.mergeGroupId.replace(/^bo-/, 'BO.').replace(/-m\d+$/, '');
+                                        const linkedCode = linkedOrder
+                                          ? (orderShortCodeMap.get(linkedOrder.orderNumber) ?? shortCode(linkedOrder.orderNumber ?? linkedOrder.id))
+                                          : shortCode(order.mergeGroupId);
                                         return (
                                           <span
                                             className="flex items-center gap-0.5 text-[10px] text-violet-400/80 font-mono shrink-0"
                                             data-testid={`text-merge-group-${order.id}`}
-                                            title={`Merged with ${linkedNum}`}
+                                            title="Merged order"
                                           >
                                             <Plus className="w-2.5 h-2.5" />
-                                            {linkedNum}
+                                            {linkedCode}
                                           </span>
                                         );
                                       })()}
@@ -1026,12 +1020,6 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                   </div>
                                 </div>
 
-                                {/* Inline customer note */}
-                                {order.customerNotes && commentOrderId === order.id && (
-                                  <div className="ml-5 mb-2 px-2.5 py-2 rounded border border-amber-500/25 bg-amber-500/5 text-[11px] text-amber-200/90 leading-relaxed">
-                                    {order.customerNotes}
-                                  </div>
-                                )}
 
                                 {/* Inline workflow status picker */}
                                 {statusPickerOrderId === order.id && (

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Package, DollarSign, User, MapPin, Calendar, Truck, RefreshCcw, Pencil, X, Save, Weight, RotateCcw, CreditCard, ShieldCheck, Plus } from "lucide-react";
+import { shortCode } from "@/components/PackingSlip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -246,19 +247,19 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
             <Badge className={getStatusColor(data.status!) + ' text-[9px] md:text-xs h-5 px-2 font-bold'}>{data.status!}</Badge>
             {data.mergeGroupId && (() => {
               const linked = data.mergeLinkedOrders?.[0];
-              const linkedNum = linked
-                ? (linked.orderNumber ?? linked.orderId.replace(/^bo-/, 'BO.').replace(/-m\d+$/, ''))
-                : data.mergeGroupId.replace(/^bo-/, 'BO.').replace(/-m\d+$/, '');
+              const linkedCode = linked
+                ? shortCode(linked.orderNumber || linked.orderId)
+                : shortCode(data.mergeGroupId);
               return (
                 <button
                   onClick={() => linked && onOrderSelect?.(linked.orderId)}
                   disabled={!linked}
                   className="flex items-center gap-0.5 text-[10px] text-violet-400/80 font-mono shrink-0 hover:text-violet-300 disabled:cursor-default"
-                  title={`Merged with ${linkedNum}`}
+                  title={`Merged order`}
                   data-testid="button-merge-group-icon"
                 >
                   <Plus className="w-2.5 h-2.5" />
-                  {linkedNum}
+                  {linkedCode}
                 </button>
               );
             })()}
