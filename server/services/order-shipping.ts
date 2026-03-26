@@ -419,6 +419,7 @@ export async function purchaseLabel(
     .insert(shipments)
     .values({
       orderId,
+      orgId,
       vendorCode: 'easypost',
       vendorShipmentId: label.shipmentId,
       carrier: label.carrier,

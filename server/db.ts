@@ -2091,6 +2091,16 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-85 (insurance_amount on orders) complete.');
 
+    // ── Phase-86: backfill orgId on shipments from their linked orders ──────────
+    const { rowCount: backfilledShipments } = await client.query(`
+      UPDATE shipments s
+      SET org_id = o.org_id
+      FROM orders o
+      WHERE s.order_id = o.id
+        AND s.org_id IS NULL
+    `);
+    console.log(`[Migration] Phase-86 (backfill shipments.org_id) complete — ${backfilledShipments} rows updated.`);
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
