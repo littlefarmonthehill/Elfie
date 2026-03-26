@@ -1652,17 +1652,17 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
     : null;
 
   return (
-    <div className="space-y-4 sm:space-y-12 p-1 sm:p-6">
+    <div className="space-y-3 p-1 sm:p-2">
 
       {/* ── Persistent toolbar — accessible in every workflow state ──────── */}
-      <div className="flex items-center justify-between gap-2 -mb-2 sm:-mb-8">
+      <div className="flex items-center justify-between gap-2 -mb-1">
         <button
           onClick={openBatches}
           data-testid="button-brickanalyzer-batches-persistent"
           className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-200 transition-colors"
         >
-          <Layers className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
-          <span className="sm:text-xl">
+          <Layers className="w-3.5 h-3.5" />
+          <span>
             {allBatches?.length ? `${allBatches.length} batch${allBatches.length !== 1 ? 'es' : ''}` : 'Batches'}
           </span>
         </button>
@@ -1672,21 +1672,21 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
             data-testid="button-brickanalyzer-new-scan-persistent"
             className="flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-200 transition-colors"
           >
-            <Plus className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
-            <span className="sm:text-xl">New Scan</span>
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Scan</span>
           </button>
         )}
       </div>
 
       {/* ── Python AI service not ready ──────────────────────────────────── */}
       {!pythonReady && (
-        <div className="flex items-start gap-2.5 bg-amber-950/50 border border-amber-500/40 rounded-lg px-3 sm:px-10 py-2.5 sm:py-7">
+        <div className="flex items-start gap-2 bg-amber-950/50 border border-amber-500/40 rounded-lg px-3 py-2">
           <div className="shrink-0 mt-0.5">
-            <div className="w-3.5 h-3.5 sm:w-7 sm:h-7 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
+            <div className="w-3.5 h-3.5 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
           </div>
           <div className="space-y-0.5 min-w-0">
-            <p className="text-xs sm:text-2xl font-semibold text-amber-300">AI engine starting up</p>
-            <p className="text-xs sm:text-xl text-amber-400/80 leading-relaxed">
+            <p className="text-xs font-semibold text-amber-300">AI engine starting up</p>
+            <p className="text-xs text-amber-400/80 leading-relaxed">
               Photos sent now will go to Brickognize only — contour detection and CLIP visual matching aren't available yet. Usually ready in 15–30 seconds.
             </p>
           </div>
@@ -1695,11 +1695,11 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
 
       {/* ── BrickLink API limit warning ──────────────────────────────────── */}
       {blRateLimit?.blocked && (
-        <div className="flex items-start gap-2.5 bg-red-950/50 border border-red-500/40 rounded-lg px-3 sm:px-10 py-2.5 sm:py-7">
-          <AlertTriangle className="w-4 h-4 sm:w-9 sm:h-9 text-red-400 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 bg-red-950/50 border border-red-500/40 rounded-lg px-3 py-2">
+          <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
           <div className="space-y-0.5 min-w-0">
-            <p className="text-xs sm:text-2xl font-semibold text-red-300">BrickLink API limit reached</p>
-            <p className="text-xs sm:text-2xl text-red-400/80 leading-relaxed">
+            <p className="text-xs font-semibold text-red-300">BrickLink API limit reached</p>
+            <p className="text-xs text-red-400/80 leading-relaxed">
               Brick Spotter can still identify pieces, but price lookups and color matching won't work until the limit resets.
               {blResetStr && <span className="text-red-300"> Resets around <strong>{blResetStr}</strong>.</span>}
             </p>
@@ -1846,14 +1846,14 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
             {/* Mode toggle row */}
             <div className="flex">
               <button
-                className={`flex-1 py-2.5 sm:py-7 text-xs sm:text-2xl font-semibold transition-colors ${scanMode === "auto" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"}`}
+                className={`flex-1 py-2 text-xs font-semibold transition-colors ${scanMode === "auto" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"}`}
                 onClick={() => { handleScanModeChange("auto"); setShowSettings(false); }}
                 data-testid="button-scan-mode-auto"
               >
                 Auto
               </button>
               <button
-                className={`flex-1 py-2.5 sm:py-7 text-xs sm:text-2xl font-semibold transition-colors border-l border-gray-700 ${scanMode === "manual" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"}`}
+                className={`flex-1 py-2 text-xs font-semibold transition-colors border-l border-gray-700 ${scanMode === "manual" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-gray-300 hover:bg-gray-800/60"}`}
                 onClick={() => { handleScanModeChange("manual"); setShowSettings(true); }}
                 data-testid="button-scan-mode-manual"
               >
@@ -1863,9 +1863,9 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
 
             {/* Auto mode: brief description */}
             {scanMode === "auto" && (
-              <div className="px-3 py-2.5 sm:px-10 sm:py-8 border-t border-gray-700/60 space-y-1">
-                <p className="text-[11px] sm:text-2xl text-gray-300 font-medium">Smart 3-pass scan</p>
-                <p className="text-[10px] sm:text-xl text-gray-500 leading-relaxed">
+              <div className="px-3 py-2 border-t border-gray-700/60 space-y-0.5">
+                <p className="text-[11px] text-gray-300 font-medium">Smart 3-pass scan</p>
+                <p className="text-[10px] text-gray-500 leading-relaxed">
                   Your Manual settings are used as the core pass. Two additional passes run alongside — one tuned for large pieces and minifigs, one for small/fine pieces. Minifig regions block smaller-piece passes from subdividing them.
                 </p>
               </div>
@@ -1878,8 +1878,8 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
               onClick={() => setShowSettings(v => !v)}
               data-testid="button-brickanalyzer-settings-toggle"
             >
-              <span className="flex items-center gap-2 text-xs sm:text-2xl font-medium text-gray-400">
-                <Settings2 className="w-3.5 h-3.5 sm:w-7 sm:h-7" />
+              <span className="flex items-center gap-2 text-xs font-medium text-gray-400">
+                <Settings2 className="w-3.5 h-3.5" />
                 Scan Settings
               </span>
               <span className="flex items-center gap-2">
@@ -1891,7 +1891,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
             </button>
 
             {showSettings && (
-              <div className="px-3 sm:px-10 pb-3 sm:pb-10 space-y-4 sm:space-y-12 border-t border-gray-700 pt-3 sm:pt-10">
+              <div className="px-3 pb-3 space-y-4 border-t border-gray-700 pt-3">
 
                 {/* ── Contour settings ──────────────────────────────────────── */}
 
@@ -2044,9 +2044,9 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
 
       {/* ── UPLOADING ───────────────────────────────────────────────────── */}
       {uiState === "uploading" && (
-        <div className="flex flex-col items-center gap-3 py-12 sm:py-24">
-          <Loader2 className="w-8 h-8 sm:w-20 sm:h-20 text-lego-blue animate-spin" />
-          <p className="text-sm sm:text-2xl text-gray-300">Detecting pieces...</p>
+        <div className="flex flex-col items-center gap-3 py-12">
+          <Loader2 className="w-8 h-8 text-lego-blue animate-spin" />
+          <p className="text-sm text-gray-300">Detecting pieces...</p>
         </div>
       )}
 
@@ -2054,14 +2054,14 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
       {uiState === "previewing" && previewData && (
         <div className="space-y-3">
           {/* Header bar */}
-          <div className="flex flex-wrap items-center gap-2 bg-gray-800/60 border border-gray-700 rounded-lg px-3 sm:px-10 py-2 sm:py-6">
+          <div className="flex flex-wrap items-center gap-2 bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-2">
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
-              <ScanSearch className="w-4 h-4 sm:w-9 sm:h-9 text-purple-400 shrink-0" />
-              <span className="text-sm sm:text-2xl font-medium text-purple-300">
+              <ScanSearch className="w-4 h-4 text-purple-400 shrink-0" />
+              <span className="text-sm font-medium text-purple-300">
                 {previewBoxes.length} zone{previewBoxes.length !== 1 ? "s" : ""} detected
               </span>
             </div>
-            <span className="text-xs sm:text-2xl text-gray-500">Review before identifying</span>
+            <span className="text-xs text-gray-500">Review before identifying</span>
           </div>
 
           {/* Action buttons — placed above image so they're always visible */}
@@ -2295,10 +2295,10 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
       {/* ── FAILED ──────────────────────────────────────────────────────── */}
       {uiState === "failed" && (
         <div className="space-y-3">
-          <div className="flex flex-col items-center gap-3 py-8 sm:py-16">
-            <X className="w-8 h-8 sm:w-20 sm:h-20 text-lego-red" />
-            <p className="text-sm sm:text-2xl text-gray-300">Scan failed</p>
-            <p className="text-xs sm:text-2xl text-gray-500 text-center">{scan?.errorMessage || "Something went wrong. Please try again."}</p>
+          <div className="flex flex-col items-center gap-3 py-8">
+            <X className="w-8 h-8 text-lego-red" />
+            <p className="text-sm text-gray-300">Scan failed</p>
+            <p className="text-xs text-gray-500 text-center">{scan?.errorMessage || "Something went wrong. Please try again."}</p>
           </div>
           <div className="flex flex-col gap-2">
             <Button
@@ -2330,12 +2330,12 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
       {uiState === "complete" && (
         <div className="space-y-3">
           {/* Summary bar */}
-          <div className="flex flex-wrap items-center gap-2 bg-gray-800/60 border border-gray-700 rounded-lg px-3 sm:px-10 py-2 sm:py-6">
+          <div className="flex flex-wrap items-center gap-2 bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-2">
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
-              <CheckCircle className="w-4 h-4 sm:w-9 sm:h-9 text-green-400 shrink-0" />
-              <span className="text-sm sm:text-2xl font-medium text-green-300">Scan complete</span>
+              <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
+              <span className="text-sm font-medium text-green-300">Scan complete</span>
             </div>
-            <div className="flex gap-3 text-xs sm:text-2xl font-mono text-gray-400 flex-wrap">
+            <div className="flex gap-3 text-xs font-mono text-gray-400 flex-wrap">
               <span>{results.length} piece{results.length !== 1 ? "s" : ""} found</span>
               <span>{inStockCount} in your store</span>
               <span>{withPriceCount} priced</span>
