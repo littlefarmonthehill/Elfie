@@ -138,6 +138,13 @@ export async function adjustInventoryForOrder(
 
         const oldQty = currentItem?.quantity ?? 0;
         const newQty = Math.max(0, oldQty - qty);
+        // actualDelta reflects what ACTUALLY changed in the DB (may be 0 if floor-clamped).
+        // This is critical for cross-platform sync: sending a -N delta to BrickLink when
+        // local inventory was already at 0 (clamped) would drive BrickLink qty negative.
+        const actualDelta = newQty - oldQty; // 0 when clamped, -qty when fully applied
+        if (actualDelta === 0 && oldQty === 0) {
+          console.log(`⚠️ [AdjInv] Floor-clamp for inv ${item.bricklinkInventoryId} on order ${orderId}: ordered ${qty} but local qty was already 0 — cross-platform delta suppressed to prevent oversell propagation`);
+        }
         await recordInventoryChanges([{
           orgId: order.orgId,
           inventoryId: item.bricklinkInventoryId,
@@ -149,7 +156,7 @@ export async function adjustInventoryForOrder(
           oldValue: String(oldQty),
           newValue: String(newQty),
         }]);
-        adjustments.push({ inventoryId: item.bricklinkInventoryId, quantityChange: -qty, action: 'reduced' });
+        adjustments.push({ inventoryId: item.bricklinkInventoryId, quantityChange: actualDelta, action: 'reduced' });
       } else if (impact === 'restore') {
         await db
           .update(blInventory)
@@ -201,6 +208,14 @@ export async function adjustInventoryForOrder(
         const itemsToSync: SyncItem[] = [];
 
         for (const adj of adjustments) {
+          // Skip items where the actual local change was zero (floor-clamped).
+          // Sending a zero or phantom delta to BrickLink would either be a no-op
+          // or, worse, drive their qty negative when inventory was already at 0.
+          if (adj.quantityChange === 0) {
+            console.log(`⏭️ [AdjInv] Cross-platform sync suppressed for inv ${adj.inventoryId} (order ${orderId}): actual local delta=0 (floor-clamped — another channel already absorbed this lot)`);
+            continue;
+          }
+
           const [inventoryItem] = await db
             .select()
             .from(blInventory)
@@ -211,7 +226,7 @@ export async function adjustInventoryForOrder(
             itemsToSync.push({
               inventoryId: inventoryItem.id.toString(),
               newQuantity: inventoryItem.quantity,       // Absolute — for BrickOwl
-              quantityDelta: adj.quantityChange,          // Delta — for BrickLink
+              quantityDelta: adj.quantityChange,          // Actual delta — for BrickLink
               sourcePlatform,
               orgId: order.orgId,                        // Use org credentials, not platform
             });
