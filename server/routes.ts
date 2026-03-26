@@ -12151,6 +12151,157 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
+  // POST /api/inventory/acquisition-evaluate — compare an uploaded seller inventory against org's stock
+  app.post("/api/inventory/acquisition-evaluate", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { items } = req.body as {
+        items: { itemNo: string; colorId: number; condition: string; quantity: number; price?: number }[];
+      };
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: "No items provided" });
+      }
+
+      // Load org's current active inventory
+      const orgInv = await db
+        .select({
+          itemNo: blInventory.itemNo,
+          colorId: blInventory.colorId,
+          condition: blInventory.newOrUsed,
+          quantity: blInventory.quantity,
+          unitPrice: blInventory.unitPrice,
+        })
+        .from(blInventory)
+        .where(and(eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt)));
+
+      // Build a lookup map: "itemNo|colorId|condition" → org lot
+      const orgMap = new Map<string, { quantity: number; unitPrice: string | null }>();
+      for (const lot of orgInv) {
+        const key = `${lot.itemNo}|${lot.colorId ?? 0}|${lot.condition}`;
+        const existing = orgMap.get(key);
+        if (existing) {
+          existing.quantity += lot.quantity;
+        } else {
+          orgMap.set(key, { quantity: lot.quantity, unitPrice: lot.unitPrice });
+        }
+      }
+
+      // Collect unique item numbers for catalog/price lookups
+      const uniqueItemNos = [...new Set(items.map(i => i.itemNo))];
+
+      // Fetch catalog metadata (names)
+      const catalogRows = await db
+        .select({ itemNo: blCatalog.itemNo, colorId: blCatalog.colorId, itemName: blCatalog.itemName, colorName: blCatalog.colorName })
+        .from(blCatalog)
+        .where(inArray(blCatalog.itemNo, uniqueItemNos));
+      const catalogMap = new Map<string, { itemName: string | null; colorName: string | null }>();
+      for (const r of catalogRows) {
+        catalogMap.set(`${r.itemNo}|${r.colorId ?? 0}`, { itemName: r.itemName, colorName: r.colorName });
+      }
+
+      // Fetch price guide for new/used market averages
+      const priceRows = await db
+        .select({
+          itemNo: priceGuideCache.itemNo,
+          colorId: priceGuideCache.colorId,
+          newOrUsed: priceGuideCache.newOrUsed,
+          stockAvgPrice: priceGuideCache.stockAvgPrice,
+        })
+        .from(priceGuideCache)
+        .where(inArray(priceGuideCache.itemNo, uniqueItemNos));
+      const priceMap = new Map<string, number | null>();
+      for (const r of priceRows) {
+        const k = `${r.itemNo}|${r.colorId ?? 0}|${r.newOrUsed}`;
+        priceMap.set(k, r.stockAvgPrice ? parseFloat(r.stockAvgPrice) : null);
+      }
+
+      const common: any[] = [];
+      const newItems: any[] = [];
+
+      let totalSellerQty = 0;
+      let totalSellerValue = 0;
+      let hasSellerValue = false;
+      let commonSellerQty = 0;
+      let commonSellerValue = 0;
+      let commonOrgListValue = 0;
+      let newSellerQty = 0;
+      let newSellerValue = 0;
+      let newEstMarketValue = 0;
+      let hasNewEstMarket = false;
+
+      for (const item of items) {
+        const key = `${item.itemNo}|${item.colorId ?? 0}|${item.condition}`;
+        const catKey = `${item.itemNo}|${item.colorId ?? 0}`;
+        const cat = catalogMap.get(catKey) ?? { itemName: null, colorName: null };
+        const marketNew = priceMap.get(`${item.itemNo}|${item.colorId ?? 0}|N`) ?? null;
+        const marketUsed = priceMap.get(`${item.itemNo}|${item.colorId ?? 0}|U`) ?? null;
+
+        totalSellerQty += item.quantity;
+        if (item.price != null) {
+          totalSellerValue += item.price * item.quantity;
+          hasSellerValue = true;
+        }
+
+        const orgLot = orgMap.get(key);
+        if (orgLot) {
+          commonSellerQty += item.quantity;
+          if (item.price != null) { commonSellerValue += item.price * item.quantity; }
+          if (orgLot.unitPrice != null) { commonOrgListValue += parseFloat(orgLot.unitPrice) * orgLot.quantity; }
+          common.push({
+            itemNo: item.itemNo,
+            colorId: item.colorId ?? 0,
+            colorName: cat.colorName,
+            itemName: cat.itemName,
+            condition: item.condition,
+            sellerQty: item.quantity,
+            sellerPrice: item.price ?? null,
+            orgQty: orgLot.quantity,
+            orgPrice: orgLot.unitPrice != null ? parseFloat(orgLot.unitPrice) : null,
+            marketAvgNew: marketNew,
+            marketAvgUsed: marketUsed,
+          });
+        } else {
+          newSellerQty += item.quantity;
+          if (item.price != null) { newSellerValue += item.price * item.quantity; hasSellerValue = true; }
+          const mktPrice = item.condition === 'N' ? marketNew : marketUsed;
+          if (mktPrice != null) { newEstMarketValue += mktPrice * item.quantity; hasNewEstMarket = true; }
+          newItems.push({
+            itemNo: item.itemNo,
+            colorId: item.colorId ?? 0,
+            colorName: cat.colorName,
+            itemName: cat.itemName,
+            condition: item.condition,
+            sellerQty: item.quantity,
+            sellerPrice: item.price ?? null,
+            marketAvgNew: marketNew,
+            marketAvgUsed: marketUsed,
+          });
+        }
+      }
+
+      res.json({
+        summary: {
+          totalSellerLots: items.length,
+          totalSellerQty,
+          totalSellerValue: hasSellerValue ? Math.round(totalSellerValue * 100) / 100 : null,
+          commonLots: common.length,
+          commonSellerQty,
+          commonSellerValue: commonSellerValue > 0 ? Math.round(commonSellerValue * 100) / 100 : null,
+          commonOrgListValue: commonOrgListValue > 0 ? Math.round(commonOrgListValue * 100) / 100 : null,
+          newLots: newItems.length,
+          newSellerQty,
+          newSellerValue: newSellerValue > 0 ? Math.round(newSellerValue * 100) / 100 : null,
+          newEstMarketValue: hasNewEstMarket ? Math.round(newEstMarketValue * 100) / 100 : null,
+        },
+        common,
+        newItems,
+      });
+    } catch (error: any) {
+      console.error("Acquisition evaluate error:", error);
+      res.status(500).json({ error: error.message || "Evaluation failed" });
+    }
+  });
+
   // Rate Limit Status — always reports the requesting org's own BL API usage.
   // Each org uses its own BL credentials for all operations (BrickSpotter, POM, sync).
   app.get("/api/bricklink/rate-limit", isApproved, async (req, res) => {

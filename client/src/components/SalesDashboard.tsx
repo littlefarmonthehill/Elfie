@@ -17,10 +17,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import AcquisitionEvaluator from "@/components/AcquisitionEvaluator";
 
 type TimePeriod = 'mtd' | 'ytd' | '1y' | '5y';
 
-export type SalesDrawer = 'chart' | 'platform-perf' | 'business-intel' | null;
+export type SalesDrawer = 'chart' | 'platform-perf' | 'business-intel' | 'acquisition-evaluator' | null;
 
 interface BusinessInsight {
   id: string;
@@ -1364,6 +1365,11 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
           </ToolDrawer>
         )}
 
+        {activeDrawer === 'acquisition-evaluator' && (
+          <ToolDrawer icon={Package} iconColor="text-violet-400" title="Acquisition Evaluator" onClose={closeDrawer} closeTestId="button-close-acquisition-evaluator" contentClassName="flex-1 overflow-y-auto px-4 pt-4 pb-4">
+            <AcquisitionEvaluator />
+          </ToolDrawer>
+        )}
         {activeDrawer === 'business-intel' && (
           <BusinessIntelDrawer onClose={closeDrawer} />
         )}
@@ -1504,6 +1510,21 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
                 <ArrowRight className="w-3 h-3 md:w-4 md:h-4 text-orange-400/70 group-hover:text-orange-200 transition-colors" />
               </div>
               )}
+            </button>
+            <button
+              onClick={() => onDrawerChange?.('acquisition-evaluator')}
+              data-testid="tool-acquisition-evaluator"
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-violet-500/50 bg-gradient-to-br from-violet-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              style={{ '--tool-glow-color': 'rgba(139,92,246,0.35)' } as React.CSSProperties}
+            >
+              <div className="flex items-center gap-2">
+                <div className="rounded-lg bg-violet-900/70 p-1.5 ring-1 ring-violet-500/45 shadow-[0_0_10px_rgba(139,92,246,0.22)]">
+                  <Package className={cn("w-3.5 h-3.5 text-violet-200", "md:w-5 md:h-5")} />
+                </div>
+                <span className={cn("text-xs font-bold text-violet-100 leading-tight flex-1", "md:text-sm")}>Acquisition Evaluator</span>
+                <ArrowRight className="w-3 h-3 text-violet-500/60 group-hover:text-violet-400 transition-colors" />
+              </div>
+              <p className="text-[10px] md:text-xs text-violet-300/60 leading-snug">Analyze a seller's inventory against your stock</p>
             </button>
           </div>
         </div>
