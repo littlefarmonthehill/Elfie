@@ -207,9 +207,14 @@ async function processBrickOwlOrder(
       0
     ).toString(),
     shippingAmount: (
+      // BO documented field (order/view). Try it first so non-standard aliases don't
+      // short-circuit at 0 if the API happens to include them with a zero value.
+      brickOwlOrderData.base_ship_amount ??
+      // ship_total is returned by the order/list API and the manual-import path
+      boOrder.ship_total ??
+      // Legacy / undocumented aliases kept as final fallbacks
       brickOwlOrderData.ship_cost ??
       brickOwlOrderData.shipping_cost ??
-      brickOwlOrderData.base_ship_amount ??
       brickOwlOrderData.total_shipping ??
       brickOwlOrderData.shipping ??
       0
