@@ -367,6 +367,24 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       console.error('[Startup] False-refund cleanup failed (non-fatal):', cleanupErr.message);
     }
 
+    // 4a-fix-10. One-time backfill: link bo-4895817 ↔ bo-8362106 via mergeGroupId.
+    // These two orders share lot 9323751 (BrickOwl merged them), but the delta-creation
+    // code ran against an older build that didn't set mergeGroupId.  Both orders should
+    // show the "+" indicator in each other's flyout.  Idempotent — no-op if already set.
+    try {
+      const mergeFixResult = await pool.query(`
+        UPDATE orders
+        SET merge_group_id = 'bo-4895817'
+        WHERE id IN ('bo-4895817', 'bo-8362106')
+          AND (merge_group_id IS NULL OR merge_group_id = '')
+      `);
+      if (mergeFixResult.rowCount && mergeFixResult.rowCount > 0) {
+        console.log(`[Startup] fix-10: linked ${mergeFixResult.rowCount} order(s) into merge group bo-4895817 (bo-4895817 ↔ bo-8362106).`);
+      }
+    } catch (mergeFixErr: any) {
+      console.error('[Startup] fix-10: merge group backfill failed (non-fatal):', mergeFixErr.message);
+    }
+
     try {
 
       // 4b. Warm up the DB connection (wakes Neon serverless from idle)

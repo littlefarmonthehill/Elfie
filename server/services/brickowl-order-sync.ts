@@ -524,11 +524,13 @@ async function processBrickOwlOrder(
     // Create a new "delta" order that contains only the additional items so the operator
     // can process it like any regular order.  Both the original and the delta order are
     // linked via mergeGroupId so the UI can display the "+" indicator on each.
+    console.log(`🔀 Order ${effectiveOrderId}: merge detected (isNewOrder=${isNewOrder}, deltaItems=${deltaItems.length}) — creating delta order`);
+    try {
     const mergeGroupId = effectiveOrderId;
     const deltaOrderId = `${effectiveOrderId}-m${Date.now()}`;
     const deltaOrderNumber = `${boOrder.order_id}-M`;
 
-    console.log(`🔀 Order ${effectiveOrderId}: merge detected — creating delta order ${deltaOrderId}`);
+    console.log(`🔀 Order ${effectiveOrderId}: inserting delta order ${deltaOrderId}`);
 
     await db.insert(orders).values([{
       id: deltaOrderId,
@@ -601,5 +603,9 @@ async function processBrickOwlOrder(
     adjustInventoryForOrder(deltaOrderId, 'bo-merge-delta').catch(error => {
       console.error(`⚠️ Inventory adjustment failed for delta merge order ${deltaOrderId}:`, error);
     });
+    } catch (mergeErr: any) {
+      console.error(`✗ Order ${effectiveOrderId}: merge delta creation failed:`, mergeErr.message, mergeErr.stack);
+      result.errors.push(`Order ${effectiveOrderId} merge delta error: ${mergeErr.message}`);
+    }
   }
 }
