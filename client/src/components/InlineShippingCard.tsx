@@ -48,6 +48,7 @@ const PACKAGES: PackageOption[] = [
 
 type ShipAddress = {
   name: string;
+  company?: string;
   street1: string;
   street2: string;
   city: string;

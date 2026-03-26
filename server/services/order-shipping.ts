@@ -305,16 +305,30 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
 
   const vendor = await getShippingProvider(order.orgId);
 
-  // Parse ship-to address from order (allow override from inline card address edit)
-  const baseShipTo = parseAddress(order.shipTo, order.customerUsername || 'Customer');
+  // Parse ship-to address from order JSON (allow override from inline card address edit)
+  let shipToData: any = {};
+  try {
+    shipToData = typeof order.shipTo === 'string' ? JSON.parse(order.shipTo) : (order.shipTo || {});
+  } catch {}
+  const baseShipTo: Address = {
+    name:    shipToData.name    || '',
+    company: shipToData.company || undefined,
+    street1: shipToData.street1 || shipToData.address1 || '',
+    street2: shipToData.street2 || shipToData.address2 || undefined,
+    city:    shipToData.city    || '',
+    state:   shipToData.state   || '',
+    zip:     shipToData.postalCode || shipToData.zip || '',
+    country: shipToData.country || 'US',
+  };
   const shipTo: Address = request.overrideToAddress
     ? {
-        name: request.overrideToAddress.name || baseShipTo.name,
+        name:    request.overrideToAddress.name    || baseShipTo.name,
+        company: (request.overrideToAddress as any).company || baseShipTo.company,
         street1: request.overrideToAddress.street1 || baseShipTo.street1,
         street2: request.overrideToAddress.street2 ?? baseShipTo.street2,
-        city: request.overrideToAddress.city || baseShipTo.city,
-        state: request.overrideToAddress.state || baseShipTo.state,
-        zip: request.overrideToAddress.zip || baseShipTo.zip,
+        city:    request.overrideToAddress.city    || baseShipTo.city,
+        state:   request.overrideToAddress.state   || baseShipTo.state,
+        zip:     request.overrideToAddress.zip     || baseShipTo.zip,
         country: request.overrideToAddress.country || baseShipTo.country || 'US',
       }
     : baseShipTo;

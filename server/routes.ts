@@ -4897,7 +4897,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 order.orderStatus === 'awaiting_payment' ? 'Pending' as const :
                 'Paid' as const,
         customer: {
-          name: shipToData.name || order.customerUsername || 'Unknown Customer',
+          name: shipToData.name || '',
           email: order.customerEmail || '',
           address: shipToData.street1 || shipToData.address1 || '',
           address2: shipToData.street2 || shipToData.address2 || '',
@@ -15757,7 +15757,8 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         weightEstimateGrams: Math.round(totalWeightGrams * 10) / 10,
         weightEstimateOz: totalWeightOz,
         address: {
-          name: shipToData.name || order.customerUsername || "",
+          name: shipToData.name || "",
+          company: shipToData.company || "",
           street1: shipToData.street1 || shipToData.address1 || "",
           street2: shipToData.street2 || shipToData.address2 || "",
           city: shipToData.city || "",
