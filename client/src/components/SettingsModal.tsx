@@ -2372,6 +2372,14 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const isMobile = useIsMobile();
   const [clearDataDialog, setClearDataDialog] = useState<'inventory' | 'orders' | null>(null);
   const [cleanupRunning, setCleanupRunning] = useState(false);
+  const [testOrdersDialog, setTestOrdersDialog] = useState(false);
+  const [testOrdersPreview, setTestOrdersPreview] = useState<{
+    count: number;
+    orders: { id: string; orderNumber: string | null; orderStatus: string; orderTotal: string | null; inventoryDeducted: boolean; platform: string | null }[];
+    withActiveInventory: string[];
+  } | null>(null);
+  const [testOrdersLoading, setTestOrdersLoading] = useState(false);
+  const [testOrdersDeleting, setTestOrdersDeleting] = useState(false);
   const [restoreWizardOpen, setRestoreWizardOpen] = useState(false);
   const [restoreStep, setRestoreStep] = useState<'select' | 'warning' | 'restoring' | 'syncing' | 'differential' | 'verification' | 'complete'>('select');
   const [restoreDate, setRestoreDate] = useState('2025-10-18');
@@ -3578,6 +3586,41 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const handleClearData = (type: 'inventory' | 'orders') => {
     // TODO: Implement clear data functionality
     setClearDataDialog(null);
+  };
+
+  const handleOpenTestOrdersDialog = async () => {
+    setTestOrdersLoading(true);
+    setTestOrdersPreview(null);
+    setTestOrdersDialog(true);
+    try {
+      const res = await fetch('/api/orders/test-preview');
+      const data = await res.json();
+      setTestOrdersPreview(data);
+    } catch {
+      toast({ title: 'Could not load test orders', variant: 'destructive' });
+      setTestOrdersDialog(false);
+    } finally {
+      setTestOrdersLoading(false);
+    }
+  };
+
+  const handleDeleteTestOrders = async () => {
+    setTestOrdersDeleting(true);
+    try {
+      const res = await fetch('/api/orders/test', { method: 'DELETE' });
+      const data = await res.json();
+      if (data.deleted === 0) {
+        toast({ title: 'No test orders found', description: 'Nothing to delete.' });
+      } else {
+        toast({ title: `Removed ${data.deleted} test order${data.deleted !== 1 ? 's' : ''}`, description: 'All associated records have been deleted. No inventory quantities were changed.' });
+      }
+      setTestOrdersDialog(false);
+      setTestOrdersPreview(null);
+    } catch {
+      toast({ title: 'Delete failed', description: 'Could not remove test orders.', variant: 'destructive' });
+    } finally {
+      setTestOrdersDeleting(false);
+    }
   };
 
   const handleCleanupOldOrders = async () => {
@@ -7380,6 +7423,16 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     >
                       <Trash2 className="h-3 w-3 mr-2" />
                       Clear All Order Data
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+                      onClick={handleOpenTestOrdersDialog}
+                      data-testid="button-remove-test-orders"
+                    >
+                      <Trash2 className="h-3 w-3 mr-2" />
+                      Remove Test Orders
                     </Button>
                     <div className="bg-red-500/10 border border-red-500/30 rounded p-2">
                       <p className="text-[10px] md:text-sm text-red-300">
@@ -11242,6 +11295,78 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
         </DialogContent>
       </Dialog>
 
+
+      {/* Remove Test Orders Dialog */}
+      <ResponsiveModal
+        open={testOrdersDialog}
+        onOpenChange={(open) => { if (!open && !testOrdersDeleting) { setTestOrdersDialog(false); setTestOrdersPreview(null); } }}
+        title="Remove Test Orders"
+        icon={Trash2}
+        iconColor="text-amber-400"
+        description="Permanently delete all test orders and their associated records"
+        testId="modal-remove-test-orders"
+      >
+        <div className="space-y-4">
+          {testOrdersLoading && (
+            <p className="text-sm text-gray-400">Scanning for test orders...</p>
+          )}
+          {!testOrdersLoading && testOrdersPreview && (
+            <>
+              {testOrdersPreview.count === 0 ? (
+                <p className="text-sm text-gray-400">No test orders found. Nothing to delete.</p>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-300">
+                    Found <strong className="text-white">{testOrdersPreview.count} test order{testOrdersPreview.count !== 1 ? 's' : ''}</strong>. The following will be permanently deleted:
+                  </p>
+                  <ul className="text-xs text-gray-400 space-y-1 ml-3 list-disc">
+                    <li>All {testOrdersPreview.count} test order record{testOrdersPreview.count !== 1 ? 's' : ''}</li>
+                    <li>All associated order details, adjustments, picklist items, and shipments</li>
+                  </ul>
+                  <p className="text-xs text-gray-500">
+                    Inventory quantities will <strong className="text-gray-300">not</strong> be changed — this only removes the order records.
+                  </p>
+                  {testOrdersPreview.withActiveInventory.length > 0 && (
+                    <div className="bg-amber-500/10 border border-amber-500/30 rounded p-3 space-y-1">
+                      <p className="text-xs font-medium text-amber-300">
+                        {testOrdersPreview.withActiveInventory.length} order{testOrdersPreview.withActiveInventory.length !== 1 ? 's have' : ' has'} inventory that was not returned
+                      </p>
+                      <p className="text-xs text-amber-400/80">
+                        These orders still have quantities deducted from your inventory. Since no quantities will be restored on delete, those lots may be under-counted after removal. Consider manually returning these orders first if you need accurate stock counts.
+                      </p>
+                    </div>
+                  )}
+                  <div className="bg-red-500/10 border border-red-500/30 rounded p-2">
+                    <p className="text-xs text-red-300">This action cannot be undone.</p>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setTestOrdersDialog(false); setTestOrdersPreview(null); }}
+              disabled={testOrdersDeleting}
+              data-testid="button-cancel-test-orders"
+            >
+              Cancel
+            </Button>
+            {testOrdersPreview && testOrdersPreview.count > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleDeleteTestOrders}
+                disabled={testOrdersDeleting}
+                data-testid="button-confirm-remove-test-orders"
+              >
+                {testOrdersDeleting ? 'Deleting...' : `Delete ${testOrdersPreview.count} Order${testOrdersPreview.count !== 1 ? 's' : ''}`}
+              </Button>
+            )}
+          </div>
+        </div>
+      </ResponsiveModal>
 
       {/* Clear Data Confirmation Dialog */}
       <ResponsiveModal

@@ -3881,6 +3881,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Test Order Cleanup ─────────────────────────────────────────────────────
+
+  // Preview: returns metadata about test orders without deleting anything
+  app.get("/api/orders/test-preview", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const rows = await db
+        .select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          orderStatus: orders.orderStatus,
+          orderTotal: orders.orderTotal,
+          inventoryDeducted: orders.inventoryDeducted,
+          platform: orders.platform,
+        })
+        .from(orders)
+        .where(and(eq(orders.orgId, orgId), eq(orders.isTest, true)))
+        .orderBy(asc(orders.orderDate));
+
+      const withActiveInventory = rows.filter(r => r.inventoryDeducted);
+      res.json({
+        count: rows.length,
+        orders: rows,
+        withActiveInventory: withActiveInventory.map(r => r.id),
+      });
+    } catch (err: any) {
+      console.error('Test order preview error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Delete: removes all test orders and their associated records — no inventory changes
+  app.delete("/api/orders/test", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+
+      // Fetch the IDs scoped to this org
+      const testRows = await db
+        .select({ id: orders.id })
+        .from(orders)
+        .where(and(eq(orders.orgId, orgId), eq(orders.isTest, true)));
+
+      if (testRows.length === 0) {
+        return res.json({ deleted: 0, message: 'No test orders found.' });
+      }
+
+      const ids = testRows.map(r => r.id);
+
+      // Delete children in dependency order, then the parent orders
+      await db.delete(orderAdjustments).where(inArray(orderAdjustments.orderId, ids));
+      await db.delete(picklistItems).where(inArray(picklistItems.orderId, ids));
+      await db.delete(orderDetails).where(inArray(orderDetails.orderId, ids));
+      await db.delete(shipments).where(inArray(shipments.orderId, ids));
+      await db.delete(orders).where(and(eq(orders.orgId, orgId), eq(orders.isTest, true)));
+
+      console.log(`🗑️ Deleted ${ids.length} test orders for org ${orgId}`);
+      res.json({ deleted: ids.length });
+    } catch (err: any) {
+      console.error('Test order delete error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Lightweight endpoint for Sales Dashboard - orders without details
   app.get("/api/orders/summary", isApproved, async (req: any, res) => {
     try {
