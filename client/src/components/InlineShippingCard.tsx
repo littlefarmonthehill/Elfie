@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, CheckCircle2, AlertTriangle, ExternalLink,
-  Pencil, X, ChevronDown, ChevronUp, Globe,
+  Pencil, X, ChevronDown, ChevronUp, Globe, Plus,
 } from "lucide-react";
 import type { AppSettings } from "@shared/schema";
 
@@ -61,6 +61,8 @@ type OrderShippingSummary = {
   orderId: string;
   orderNumber: string;
   marketplace: string | null;
+  mergeGroupId: string | null;
+  linkedOrderRef: string | null;
   requestedService: string | null;
   savedWeight: number | null;
   savedWeightUnits: string;
@@ -421,7 +423,9 @@ export default function InlineShippingCard({
       <div className="border border-green-500/40 rounded-lg p-3 bg-green-500/10 flex items-center gap-3 flex-wrap">
         <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
         <div className="flex-1 min-w-0">
-          <span className="text-sm font-bold text-green-300">{summary.orderNumber}</span>
+          <span className="text-sm font-bold text-green-300 font-mono">
+            {summary.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(summary.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
+          </span>
           <span className="text-[11px] text-gray-400 ml-2">
             {purchasedLabel.service}
           </span>
@@ -447,27 +451,34 @@ export default function InlineShippingCard({
     >
       <div className="px-3 pt-2.5 pb-2 space-y-2">
 
-        {/* ── Row 1: Order number + preferred service ── */}
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-sm font-bold text-white font-mono">{summary.orderNumber}</span>
-            {isReady && (
-              <span className="text-[9px] font-bold bg-green-500/20 text-green-400 border border-green-500/30 rounded px-1 py-0.5 uppercase tracking-wide">
-                Ready
-              </span>
-            )}
-            {isTestMode && (
-              <span className="text-[9px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded px-1 py-0.5 uppercase tracking-wide">
-                Test Rates
-              </span>
-            )}
-          </div>
-          {summary.requestedService && (
-            <span className="text-[10px] text-blue-300 font-medium truncate text-right">
-              {summary.requestedService}
+        {/* ── Row 1: Order number (with prefix) + merge ref + status badges ── */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-bold text-white font-mono">
+            {summary.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(summary.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
+          </span>
+          {summary.linkedOrderRef && (
+            <span className="flex items-center gap-0.5 text-[10px] text-violet-400/80 font-mono shrink-0">
+              <Plus className="w-2.5 h-2.5" />
+              {summary.linkedOrderRef}
+            </span>
+          )}
+          {isReady && (
+            <span className="text-[9px] font-bold bg-green-500/20 text-green-400 border border-green-500/30 rounded px-1 py-0.5 uppercase tracking-wide">
+              Ready
+            </span>
+          )}
+          {isTestMode && (
+            <span className="text-[9px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded px-1 py-0.5 uppercase tracking-wide">
+              Test Rates
             </span>
           )}
         </div>
+        {/* ── Row 2: Requested shipping service (buyer's preference) ── */}
+        {summary.requestedService && (
+          <div className="text-[10px] text-blue-300 font-medium -mt-1">
+            {summary.requestedService}
+          </div>
+        )}
 
         {/* ── International shipment banner ── */}
         {(() => {

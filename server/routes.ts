@@ -15926,10 +15926,33 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         shipToData = typeof order.shipTo === "string" ? JSON.parse(order.shipTo) : (order.shipTo || {});
       } catch {}
 
+      // Resolve merge group linked order reference for display in shipping card
+      let linkedOrderRef: string | null = null;
+      if (order.mergeGroupId) {
+        const linkedOrder = await db
+          .select({ id: orders.id, orderNumber: orders.orderNumber, marketplace: orders.marketplace })
+          .from(orders)
+          .where(
+            and(
+              eq(orders.mergeGroupId, order.mergeGroupId),
+              sql`${orders.id} != ${orderId}`
+            )
+          )
+          .limit(1)
+          .then(rows => rows[0] ?? null);
+        if (linkedOrder) {
+          const prefix = linkedOrder.marketplace === 'BrickOwl' ? 'BO.' : 'BL.';
+          const num = (linkedOrder.orderNumber || '').replace(/^(BL\.|BO\.)/i, '');
+          linkedOrderRef = `${prefix}${num}`;
+        }
+      }
+
       res.json({
         orderId,
         orderNumber: order.orderNumber,
         marketplace: order.marketplace,
+        mergeGroupId: order.mergeGroupId ?? null,
+        linkedOrderRef,
         requestedService: order.requestedShippingService,
         savedWeight: order.weight ? Number(order.weight) : null,
         savedWeightUnits: order.weightUnits || "oz",

@@ -240,7 +240,9 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
       <div className="bg-gradient-to-r from-lego-blue/15 via-lego-blue/5 to-transparent border border-lego-blue/30 rounded-lg p-3">
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-2">
-            <h3 className="text-[10px] md:text-sm font-black text-white">ORDER #{data.orderNumber!}</h3>
+            <h3 className="text-[10px] md:text-sm font-black text-white font-mono">
+              {data.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(data.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
+            </h3>
             <Badge className={getStatusColor(data.status!) + ' text-[9px] md:text-xs h-5 px-2 font-bold'}>{data.status!}</Badge>
             {data.mergeGroupId && (() => {
               const linked = data.mergeLinkedOrders?.[0];
