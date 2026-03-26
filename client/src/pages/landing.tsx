@@ -699,13 +699,22 @@ function TvPanel({
 
 // ─── Hero Page ────────────────────────────────────────────────────────────────
 
-const HERO_CARDS = [
+const HERO_CARDS_BASE = [
   { id: "shop"   as Panel, label: "Shop",    sub: "LEGO parts stores",  color: AMBER, rgb: "255,184,48",  delay: "0s"    },
   { id: "studio" as Panel, label: "Studio",  sub: "Seller platform",    color: TEAL,  rgb: "0,255,238",   delay: "0.07s" },
   { id: "signin" as Panel, label: "Sign In", sub: "Studio access",      color: MGNT,  rgb: "255,0,204",   delay: "0.14s" },
 ];
 
-function Hero({ onSelect, tagline }: { onSelect: (p: NonNullable<Panel>) => void; tagline?: string | null }) {
+type PublicBrandInfo = {
+  tagline?: string | null;
+  shopName?: string | null;
+  shopTagline?: string | null;
+  studioName?: string | null;
+  studioTagline?: string | null;
+};
+
+function Hero({ onSelect, brand }: { onSelect: (p: NonNullable<Panel>) => void; brand?: PublicBrandInfo | null }) {
+  const tagline = brand?.tagline;
   return (
     <div style={{
       position: "absolute", inset: 0, zIndex: 1,
@@ -766,7 +775,14 @@ function Hero({ onSelect, tagline }: { onSelect: (p: NonNullable<Panel>) => void
 
       {/* Hero cards */}
       <div style={{ flexShrink: 0, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "clamp(8px,2vw,14px)" }}>
-        {HERO_CARDS.map(c => (
+        {HERO_CARDS_BASE.map(c => {
+          const label = c.id === "shop" && brand?.shopName ? brand.shopName
+                      : c.id === "studio" && brand?.studioName ? brand.studioName
+                      : c.label;
+          const sub   = c.id === "shop" && brand?.shopTagline ? brand.shopTagline
+                      : c.id === "studio" && brand?.studioTagline ? brand.studioTagline
+                      : c.sub;
+          return (
           <button
             key={c.id!}
             onClick={() => onSelect(c.id!)}
@@ -788,11 +804,12 @@ function Hero({ onSelect, tagline }: { onSelect: (p: NonNullable<Panel>) => void
               <div style={{ width: "clamp(16px,4vw,22px)", height: "clamp(16px,4vw,22px)", borderRadius: "50%", background: c.color, boxShadow: `0 0 8px ${c.color}` }} />
             </div>
             <div>
-              <div style={{ fontSize: "clamp(11px,2.8vw,15px)", fontWeight: 800, color: "#FFF", lineHeight: 1.2 }}>{c.label}</div>
-              <div style={{ fontSize: "clamp(8px,1.8vw,10px)", color: `rgba(${c.rgb},0.7)`, fontFamily: "monospace", marginTop: "2px", lineHeight: 1.3 }}>{c.sub}</div>
+              <div style={{ fontSize: "clamp(11px,2.8vw,15px)", fontWeight: 800, color: "#FFF", lineHeight: 1.2 }}>{label}</div>
+              <div style={{ fontSize: "clamp(8px,1.8vw,10px)", color: `rgba(${c.rgb},0.7)`, fontFamily: "monospace", marginTop: "2px", lineHeight: 1.3 }}>{sub}</div>
             </div>
           </button>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -804,7 +821,7 @@ export default function LandingPage() {
   const [panel, setPanel] = useState<Panel>(null);
   const { canPromptInstall, showInstallOption, isInstalled, isInstalling, isIos, install } = usePwaInstall();
 
-  const { data: publicInfo } = useQuery<{ tagline: string | null }>({
+  const { data: publicInfo } = useQuery<PublicBrandInfo>({
     queryKey: ['/api/public/platform-info'],
     staleTime: 5 * 60 * 1000,
     retry: 0,
@@ -840,7 +857,7 @@ export default function LandingPage() {
       />
 
       {/* Hero */}
-      <Hero onSelect={setPanel} tagline={publicInfo?.tagline} />
+      <Hero onSelect={setPanel} brand={publicInfo} />
     </div>
   );
 }

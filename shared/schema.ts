@@ -675,6 +675,12 @@ export const platformSettings = pgTable("platform_settings", {
   // Branding & AI credentials
   platformName: text("platform_name"),
   tagline: text("tagline"),
+  // Shop brand (Landing page "Shop" button)
+  shopName: text("shop_name"),
+  shopTagline: text("shop_tagline"),
+  // Studio / App brand (Landing page "Studio" button)
+  studioName: text("studio_name"),
+  studioTagline: text("studio_tagline"),
   openaiApiKey: text("openai_api_key"),
   selectedModel: text("selected_model").default('gpt-4o-mini'),
   systemPrompt: text("system_prompt"),

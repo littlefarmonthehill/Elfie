@@ -879,34 +879,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/platform-admin/platform-services/platform-info — get platform name + tagline
+  // GET /api/platform-admin/platform-services/platform-info — get platform name + all brand fields
   app.get('/api/platform-admin/platform-services/platform-info', isSuperAdmin, async (_req, res) => {
     try {
       const platSettings = await getPlatformSettings();
-      res.json({ platformName: platSettings?.platformName || '', tagline: platSettings?.tagline || '' });
+      res.json({
+        platformName: platSettings?.platformName || '',
+        tagline: platSettings?.tagline || '',
+        shopName: platSettings?.shopName || '',
+        shopTagline: platSettings?.shopTagline || '',
+        studioName: platSettings?.studioName || '',
+        studioTagline: platSettings?.studioTagline || '',
+      });
     } catch (err: any) {
       res.status(500).json({ message: err?.message || 'Failed to load platform info' });
     }
   });
 
-  // POST /api/platform-admin/platform-services/platform-info — save platform name + tagline
+  // POST /api/platform-admin/platform-services/platform-info — save platform name + all brand fields
   app.post('/api/platform-admin/platform-services/platform-info', isSuperAdmin, async (req, res) => {
     try {
-      const { platformName, tagline } = req.body as { platformName: string; tagline?: string };
+      const { platformName, tagline, shopName, shopTagline, studioName, studioTagline } =
+        req.body as { platformName: string; tagline?: string; shopName?: string; shopTagline?: string; studioName?: string; studioTagline?: string };
       if (typeof platformName !== 'string' || platformName.length > 100) {
         return res.status(400).json({ message: 'Platform name must be a string (max 100 chars)' });
       }
-      if (tagline !== undefined && (typeof tagline !== 'string' || tagline.length > 200)) {
-        return res.status(400).json({ message: 'Tagline must be a string (max 200 chars)' });
-      }
       await db
         .insert(platformSettings)
-        .values({ id: 'platform', platformName: platformName.trim() || null, tagline: tagline?.trim() || null })
+        .values({
+          id: 'platform',
+          platformName: platformName.trim() || null,
+          tagline: tagline?.trim() || null,
+          shopName: shopName?.trim() || null,
+          shopTagline: shopTagline?.trim() || null,
+          studioName: studioName?.trim() || null,
+          studioTagline: studioTagline?.trim() || null,
+        })
         .onConflictDoUpdate({
           target: platformSettings.id,
           set: {
             platformName: platformName.trim() || null,
             tagline: tagline?.trim() || null,
+            shopName: shopName?.trim() || null,
+            shopTagline: shopTagline?.trim() || null,
+            studioName: studioName?.trim() || null,
+            studioTagline: studioTagline?.trim() || null,
             updatedAt: sql`CURRENT_TIMESTAMP`,
           },
         });
@@ -920,9 +937,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/public/platform-info', async (_req, res) => {
     try {
       const platSettings = await getPlatformSettings();
-      res.json({ tagline: platSettings?.tagline || null });
+      res.json({
+        tagline: platSettings?.tagline || null,
+        shopName: platSettings?.shopName || null,
+        shopTagline: platSettings?.shopTagline || null,
+        studioName: platSettings?.studioName || null,
+        studioTagline: platSettings?.studioTagline || null,
+      });
     } catch {
-      res.json({ tagline: null });
+      res.json({ tagline: null, shopName: null, shopTagline: null, studioName: null, studioTagline: null });
     }
   });
 

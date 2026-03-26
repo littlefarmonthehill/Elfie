@@ -2440,9 +2440,13 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [blParsedTokens, setBlParsedTokens] = useState<{ tokenValue: string; tokenSecret: string }[]>([]);
   const [blOcrProcessing, setBlOcrProcessing] = useState(false);
 
-  // Platform Information
+  // Platform Information — all brand fields
   const [platformNameInput, setPlatformNameInput] = useState("");
   const [platformTaglineInput, setPlatformTaglineInput] = useState("");
+  const [shopNameInput, setShopNameInput] = useState("");
+  const [shopTaglineInput, setShopTaglineInput] = useState("");
+  const [studioNameInput, setStudioNameInput] = useState("");
+  const [studioTaglineInput, setStudioTaglineInput] = useState("");
   const [platformNameSaving, setPlatformNameSaving] = useState(false);
 
   // Platform BrickLink Settings (stored on platform settings row, used for PoM & data enrichment)
@@ -3093,7 +3097,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     retry: 0,
   });
 
-  type PlatformInfoData = { platformName: string; tagline: string };
+  type PlatformInfoData = { platformName: string; tagline: string; shopName: string; shopTagline: string; studioName: string; studioTagline: string };
   const { data: platformInfoData } = useQuery<PlatformInfoData>({
     queryKey: ['/api/platform-admin/platform-services/platform-info'],
     enabled: open && (activeSection === 'apiKeys' || activeSection === 'platformGeneral') && superAdmin,
@@ -3105,6 +3109,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     if (platformInfoData) {
       setPlatformNameInput(platformInfoData.platformName || '');
       setPlatformTaglineInput(platformInfoData.tagline || '');
+      setShopNameInput(platformInfoData.shopName || '');
+      setShopTaglineInput(platformInfoData.shopTagline || '');
+      setStudioNameInput(platformInfoData.studioName || '');
+      setStudioTaglineInput(platformInfoData.studioTagline || '');
     }
   }, [platformInfoData]);
 
@@ -9109,33 +9117,57 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         <Building2 className="h-3.5 w-3.5 text-violet-400/80" />
                         <span className="text-xs font-semibold text-gray-200">Platform Information</span>
                       </div>
-                      <div className="px-4 py-3 space-y-3">
-                        <p className="text-[11px] text-gray-400 leading-relaxed">Set the display name and tagline for this platform. The tagline appears on the public landing page.</p>
-                        <div>
-                          <label className="block app-label mb-1">Platform Name</label>
-                          <input
-                            type="text"
-                            placeholder="e.g. E.L.F.I.E."
-                            value={platformNameInput}
-                            onChange={e => setPlatformNameInput(e.target.value)}
-                            maxLength={100}
-                            data-testid="input-platform-name"
-                            className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500"
-                          />
+                      <div className="px-4 py-3 space-y-4">
+                        <p className="text-[11px] text-gray-400 leading-relaxed">Configure the name and tagline for each brand. These appear on the public landing page.</p>
+
+                        {/* ── Brand 1: Main ── */}
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-semibold text-violet-400 uppercase tracking-widest">Main Brand</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block app-label mb-1">Name</label>
+                              <input type="text" placeholder="e.g. PlanetBrick" value={platformNameInput} onChange={e => setPlatformNameInput(e.target.value)} maxLength={100} data-testid="input-platform-name" className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500" />
+                            </div>
+                            <div>
+                              <label className="block app-label mb-1">Tagline</label>
+                              <input type="text" placeholder="e.g. Intelligent Elements" value={platformTaglineInput} onChange={e => setPlatformTaglineInput(e.target.value)} maxLength={200} data-testid="input-platform-tagline" className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500" />
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-gray-500">Shown in the hero headline area of the landing page.</p>
                         </div>
-                        <div>
-                          <label className="block app-label mb-1">Tagline</label>
-                          <input
-                            type="text"
-                            placeholder="e.g. Authentic bricks. AI-powered tools."
-                            value={platformTaglineInput}
-                            onChange={e => setPlatformTaglineInput(e.target.value)}
-                            maxLength={200}
-                            data-testid="input-platform-tagline"
-                            className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500"
-                          />
-                          <p className="text-[10px] text-gray-500 mt-1">Shown on the public landing page below the hero headline.</p>
+
+                        {/* ── Brand 2: Shop ── */}
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-semibold text-amber-400 uppercase tracking-widest">Shop Brand</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block app-label mb-1">Name</label>
+                              <input type="text" placeholder="e.g. PlanetBrick.com" value={shopNameInput} onChange={e => setShopNameInput(e.target.value)} maxLength={100} data-testid="input-shop-name" className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500" />
+                            </div>
+                            <div>
+                              <label className="block app-label mb-1">Tagline</label>
+                              <input type="text" placeholder="e.g. The galaxy's junkyard" value={shopTaglineInput} onChange={e => setShopTaglineInput(e.target.value)} maxLength={200} data-testid="input-shop-tagline" className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500" />
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-gray-500">Shown on the Shop button (first card) on the landing page.</p>
                         </div>
+
+                        {/* ── Brand 3: Studio / App ── */}
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-semibold text-teal-400 uppercase tracking-widest">Studio / App Brand</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block app-label mb-1">Name</label>
+                              <input type="text" placeholder="e.g. E.L.F.I.E." value={studioNameInput} onChange={e => setStudioNameInput(e.target.value)} maxLength={100} data-testid="input-studio-name" className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500" />
+                            </div>
+                            <div>
+                              <label className="block app-label mb-1">Tagline</label>
+                              <input type="text" placeholder="e.g. Your LEGO universe, live" value={studioTaglineInput} onChange={e => setStudioTaglineInput(e.target.value)} maxLength={200} data-testid="input-studio-tagline" className="w-full min-w-0 bg-gray-900/60 border border-gray-700 rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-gray-500" />
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-gray-500">Shown on the Studio button (second card) on the landing page.</p>
+                        </div>
+
                         <div className="flex items-center gap-2 pt-1">
                           <button
                             onClick={async () => {
@@ -9144,15 +9176,22 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                 const res = await fetch('/api/platform-admin/platform-services/platform-info', {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ platformName: platformNameInput, tagline: platformTaglineInput }),
+                                  body: JSON.stringify({
+                                    platformName: platformNameInput,
+                                    tagline: platformTaglineInput,
+                                    shopName: shopNameInput,
+                                    shopTagline: shopTaglineInput,
+                                    studioName: studioNameInput,
+                                    studioTagline: studioTaglineInput,
+                                  }),
                                 });
                                 if (!res.ok) throw new Error('Failed to save');
                                 queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/platform-services/platform-info'] });
                                 queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/platform-services/openai-billing/by-org'] });
                                 queryClient.invalidateQueries({ queryKey: ['/api/public/platform-info'] });
-                                toast({ title: "Saved", description: "Platform info updated." });
+                                toast({ title: "Saved", description: "Brand info updated." });
                               } catch {
-                                toast({ title: "Error", description: "Failed to save platform info.", variant: "destructive" });
+                                toast({ title: "Error", description: "Failed to save brand info.", variant: "destructive" });
                               } finally {
                                 setPlatformNameSaving(false);
                               }
@@ -9162,7 +9201,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             className="inline-flex items-center gap-1.5 text-[10px] font-medium text-violet-400 hover:text-violet-300 border border-violet-500/30 rounded px-3 py-1.5 transition-colors disabled:opacity-50"
                           >
                             {platformNameSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                            Save
+                            Save All
                           </button>
                         </div>
                       </div>
@@ -9176,10 +9215,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       <div className="px-4 py-3 space-y-2">
                         <div className="grid grid-cols-1 gap-2">
                           {[
-                            { label: 'Landing Page Tagline', desc: 'Shown publicly on the hero section of the product landing page (planetbrick.com)' },
-                            { label: 'OpenAI Cost Attribution', desc: 'Platform name identifies platform-level AI usage (Elfie, embeddings) separate from org usage' },
-                            { label: 'BrickLink Usage Tracking', desc: 'Platform name labels platform API calls for Price-o-Matic and catalog enrichment' },
-                            { label: 'Services', desc: 'Platform name display for all platform-scoped operations and billing' },
+                            { label: 'Main Brand → Landing Page Hero', desc: 'Name and tagline shown in the hero text area on the public landing page' },
+                            { label: 'Shop Brand → Shop Card', desc: 'Name and tagline shown on the Shop button (first card) on the landing page' },
+                            { label: 'Studio Brand → Studio Card', desc: 'Name and tagline shown on the Studio button (second card) on the landing page' },
+                            { label: 'Platform Name → API Attribution', desc: 'Identifies platform-level AI/BrickLink usage separate from org usage in logs and billing' },
                           ].map(({ label, desc }) => (
                             <div key={label} className="bg-gray-900/40 border border-gray-700/60 rounded px-3 py-2">
                               <p className="text-[10px] font-medium text-gray-300 mb-0.5">{label}</p>
