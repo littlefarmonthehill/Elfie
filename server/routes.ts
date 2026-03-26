@@ -3,6 +3,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { getRecentLogs, clearLogs } from "./services/server-log-buffer";
 import { decodeHTML } from "entities";
+import { addConnection, removeConnection, broadcast } from "./sse";
 
 const SECRET_FIELDS = [
   'openaiApiKey',
@@ -183,6 +184,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
   app.get('/api/health', (_req, res) => { res.json({ ok: true }); });
+
+  // ── Server-Sent Events ─────────────────────────────────────────────────────
+  // One persistent connection per browser tab.  The client (useSSE hook) opens
+  // this on mount and uses it to receive invalidation signals so all team
+  // members see updates from each other instantly, without tight polling.
+  app.get('/api/events', isApproved, (req: any, res) => {
+    const orgId = reqOrgId(req);
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    addConnection(orgId, res);
+
+    // Keep-alive ping every 25 s — prevents proxies from timing out the connection.
+    const ping = setInterval(() => {
+      try { res.write(': ping\n\n'); } catch { clearInterval(ping); }
+    }, 25000);
+
+    req.on('close', () => {
+      clearInterval(ping);
+      removeConnection(orgId, res);
+    });
+  });
 
   // ── Public static documents ────────────────────────────────────────────────
   app.get('/dbs-service-agreement.html', (_req, res) => {
@@ -5186,7 +5211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (packageHeight !== undefined) updateData.packageHeight = packageHeight !== null && packageHeight !== '' ? packageHeight.toString() : null;
 
       await db.update(orders).set(updateData).where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)));
-
+      broadcast(orgId, 'order.updated', { orderId });
       res.json({ success: true });
     } catch (error) {
       console.error("Error updating order:", error);
@@ -12300,12 +12325,14 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       const { limit, fullSync, sinceDate } = req.body;
       const { runPlatformOrderSync } = await import("./services/order-sync-core");
       const result = await runPlatformOrderSync("bricklink", { limit, fullSync, sinceDate });
+      const orgId = reqOrgId(req);
       res.json({ success: true, data: result });
-      if ((result.bricklink.ordersAdded ?? 0) > 0) {
-        const orgId = reqOrgId(req);
+      const added = result.bricklink.ordersAdded ?? 0;
+      if (added > 0) {
+        broadcast(orgId, 'order.synced', { platform: 'bricklink', added });
         const { sendOrderSyncNotifications } = await import("./services/push-notifications");
         const newRows = await db.select({ orderNumber: orders.orderNumber })
-          .from(orders).where(eq(orders.orgId, orgId)).orderBy(desc(orders.syncedAt)).limit(result.bricklink.ordersAdded!);
+          .from(orders).where(eq(orders.orgId, orgId)).orderBy(desc(orders.syncedAt)).limit(added);
         sendOrderSyncNotifications(orgId, newRows).catch(() => {});
       }
     } catch (error: any) {
@@ -12321,12 +12348,14 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       const { limit, fullSync, sinceDate } = req.body;
       const { runPlatformOrderSync } = await import("./services/order-sync-core");
       const result = await runPlatformOrderSync("brickowl", { limit, fullSync, sinceDate });
+      const orgId = reqOrgId(req);
       res.json({ success: true, data: result });
-      if ((result.brickowl.ordersAdded ?? 0) > 0) {
-        const orgId = reqOrgId(req);
+      const added = result.brickowl.ordersAdded ?? 0;
+      if (added > 0) {
+        broadcast(orgId, 'order.synced', { platform: 'brickowl', added });
         const { sendOrderSyncNotifications } = await import("./services/push-notifications");
         const newRows = await db.select({ orderNumber: orders.orderNumber })
-          .from(orders).where(eq(orders.orgId, orgId)).orderBy(desc(orders.syncedAt)).limit(result.brickowl.ordersAdded!);
+          .from(orders).where(eq(orders.orgId, orgId)).orderBy(desc(orders.syncedAt)).limit(added);
         sendOrderSyncNotifications(orgId, newRows).catch(() => {});
       }
     } catch (error: any) {
@@ -12342,12 +12371,13 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       const { limit = 50, fullSync = false } = req.body;
       const { runPlatformOrderSync } = await import("./services/order-sync-core");
       const result = await runPlatformOrderSync("all", { limit, fullSync });
+      const orgId = reqOrgId(req);
       const anySuccess = result.bricklink.success || result.brickowl.success;
       const allSkipped = result.bricklink.skipped && result.brickowl.skipped;
       const totalAdded = (result.bricklink.ordersAdded ?? 0) + (result.brickowl.ordersAdded ?? 0);
       res.json({ success: anySuccess, allSkipped, results: result });
       if (totalAdded > 0) {
-        const orgId = reqOrgId(req);
+        broadcast(orgId, 'order.synced', { platform: 'all', added: totalAdded });
         const { sendOrderSyncNotifications } = await import("./services/push-notifications");
         const newRows = await db.select({ orderNumber: orders.orderNumber })
           .from(orders).where(eq(orders.orgId, orgId)).orderBy(desc(orders.syncedAt)).limit(totalAdded);
@@ -14586,10 +14616,12 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
   });
 
   // Delete inventory location (unassign item from bin)
-  app.delete("/api/warehouse/locations/:id", isApproved, async (req, res) => {
+  app.delete("/api/warehouse/locations/:id", isApproved, async (req: any, res) => {
     try {
+      const orgId = reqOrgId(req);
       const id = parseInt(req.params.id);
       await db.delete(inventoryLocations).where(eq(inventoryLocations.id, id));
+      broadcast(orgId, 'warehouse.location_changed', { locationId: id });
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting location:", error);
@@ -15294,7 +15326,8 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         .update(picklistItems)
         .set(updateData)
         .where(eq(picklistItems.binId, binId));
-      
+
+      broadcast(reqOrgId(req as any), 'picklist.pulled', { binId, pulled });
       res.json({ success: true, binId, pulled });
     } catch (error) {
       console.error("Error updating bin pulled status:", error);
@@ -15336,6 +15369,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         pulledAt: pulled === true ? sql`CURRENT_TIMESTAMP` : null,
       };
       await db.update(picklistItems).set(updateData).where(eq(picklistItems.id, itemId));
+      broadcast(reqOrgId(req as any), 'picklist.pulled', { itemId, pulled });
       res.json({ success: true, itemId, pulled });
     } catch (error) {
       console.error("Error updating item pulled status:", error);
@@ -15735,6 +15769,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         .update(orders)
         .set({ workflowStatus: status, updatedAt: sql`CURRENT_TIMESTAMP` })
         .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)));
+      broadcast(orgId, 'order.workflow_changed', { orderId, status });
       res.json({ success: true });
     } catch (error) {
       console.error("Error updating workflow status:", error);
@@ -15783,7 +15818,8 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         .update(orderDetails)
         .set(updateData)
         .where(eq(orderDetails.id, itemId));
-      
+
+      broadcast(reqOrgId(req as any), 'picklist.fulfilled', { itemId, fulfilled });
       res.json({ success: true, itemId, fulfilled });
     } catch (error) {
       console.error("Error updating item fulfilled status:", error);

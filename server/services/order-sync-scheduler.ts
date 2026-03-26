@@ -5,6 +5,7 @@ import { syncLock } from "./sync-lock";
 import { runPlatformOrderSync, SyncPlatform } from "./order-sync-core";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 import { upsertSyncMetadata } from "./order-sync-helpers";
+import { broadcast } from "../sse";
 
 const MAX_RETRIES = 5;
 const RETRY_BASE_MS = 5 * 60 * 1000;
@@ -116,6 +117,10 @@ async function runScheduledPlatformSync(
     console.log(`\n✨ Scheduled ${label} order sync complete — ${added} new orders`);
 
     await upsertSyncMetadata(syncId, orgId, { status: 'success', recordsAdded: added, recordsUpdated: 0 });
+
+    if ((added ?? 0) > 0) {
+      broadcast(orgId, 'order.synced', { platform, added, source: 'scheduler' });
+    }
 
     retry.count = 0;
     resolveSchedulerIssues('order_sync');

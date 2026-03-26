@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useServiceWorker } from "@/hooks/use-service-worker";
 import { useAuth } from "@/hooks/useAuth";
+import { useSSE } from "@/hooks/use-sse";
 import Home from "@/pages/home";
 import Signup from "@/pages/signup";
 import Landing from "@/pages/landing";
@@ -15,6 +16,14 @@ import ForgotPassword from "@/pages/forgot-password";
 import ResetPassword from "@/pages/reset-password";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
+
+// Thin wrapper: mounts the SSE connection only for fully authenticated users.
+// useSSE() opens a persistent /api/events connection so every team member's
+// browser receives live cache-invalidation signals when another user makes a change.
+function AuthenticatedHome() {
+  useSSE();
+  return <Home />;
+}
 
 function Router() {
   const { isAuthenticated, isApproved, isLoading, superAdmin } = useAuth();
@@ -57,7 +66,7 @@ function Router() {
         ) : !isApproved ? (
           <PendingApproval />
         ) : (
-          <Home />
+          <AuthenticatedHome />
         )}
       </Route>
 
