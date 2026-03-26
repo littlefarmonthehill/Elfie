@@ -19,6 +19,9 @@ import {
   Database,
   ShoppingCart,
   Activity,
+  ArrowLeft,
+  Plus,
+  Pencil,
 } from "lucide-react";
 import {
   Drawer,
@@ -33,9 +36,12 @@ interface BrickLinkSyncPanelProps {
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing', focusTarget?: 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel' | 'channelSync') => void;
 }
 
+type ChangeDetailType = 'added' | 'updated' | null;
+
 export default function BrickLinkSyncPanel({ onOpenSettings }: BrickLinkSyncPanelProps) {
   const { toast } = useToast();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [changeDetail, setChangeDetail] = useState<ChangeDetailType>(null);
 
   const { data: syncStatuses } = useQuery<any>({
     queryKey: ['/api/sync/statuses'],
@@ -78,6 +84,7 @@ export default function BrickLinkSyncPanel({ onOpenSettings }: BrickLinkSyncPane
     if (wasRunning && !isRunning) {
       queryClient.invalidateQueries({ queryKey: ['/api/sync/statuses'] });
       queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/sync/bricklink/recent-changes'] });
     }
   }, [isRunning]);
 
@@ -85,6 +92,13 @@ export default function BrickLinkSyncPanel({ onOpenSettings }: BrickLinkSyncPane
     queryKey: ['/api/sync/bricklink/progress'],
     refetchInterval: isRunning ? 2000 : false,
     enabled: isRunning,
+  });
+
+  const { data: recentChanges, isLoading: recentChangesLoading } = useQuery<{ items: any[]; totalCount: number }>({
+    queryKey: ['/api/sync/bricklink/recent-changes', changeDetail],
+    queryFn: () => apiRequest('GET', `/api/sync/bricklink/recent-changes?type=${changeDetail}&limit=50`),
+    enabled: drawerOpen && changeDetail !== null,
+    staleTime: 30000,
   });
 
   const progressPct = progressData?.progress ?? 0;
@@ -112,6 +126,9 @@ export default function BrickLinkSyncPanel({ onOpenSettings }: BrickLinkSyncPane
     lastSync?.lastSyncStatus === 'partial'  ? AlertTriangle :
     lastSync?.lastSyncStatus === 'error' || lastSync?.lastSyncStatus === 'failed' ? XCircle :
     Clock;
+
+  const addedCount = lastSync?.recordsAdded ?? 0;
+  const updatedCount = lastSync?.recordsUpdated ?? 0;
 
   return (
     <>
@@ -161,7 +178,7 @@ export default function BrickLinkSyncPanel({ onOpenSettings }: BrickLinkSyncPane
             <span className={`flex items-center gap-1 text-[10px] ${syncStatusColor}`}>
               <SyncStatusIcon className="w-2.5 h-2.5" />
               {lastSync.lastSyncStatus === 'success'
-                ? `+${lastSync.recordsAdded ?? 0} added, ${lastSync.recordsUpdated ?? 0} updated`
+                ? `+${addedCount} added, ${updatedCount} updated`
                 : lastSync.lastSyncStatus === 'in_progress'
                 ? 'syncing…'
                 : lastSync.errorMessage ?? lastSync.lastSyncStatus}
@@ -175,16 +192,30 @@ export default function BrickLinkSyncPanel({ onOpenSettings }: BrickLinkSyncPane
         </div>
       </button>
 
-      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+      <Drawer open={drawerOpen} onOpenChange={(open) => { setDrawerOpen(open); if (!open) setChangeDetail(null); }}>
         <DrawerContent className="bg-gray-950 border-gray-800 h-[75vh] flex flex-col rounded-t-2xl">
           <DrawerHeader className="p-0 flex-shrink-0">
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 rounded-full bg-gray-600" />
             </div>
             <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-gray-800">
-              <Package className="w-4 h-4 text-orange-400 flex-shrink-0" />
+              {changeDetail ? (
+                <button
+                  onClick={() => setChangeDetail(null)}
+                  className="text-gray-400 hover:text-gray-200 transition-colors mr-1"
+                  data-testid="button-back-change-detail"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+              ) : (
+                <Package className="w-4 h-4 text-orange-400 flex-shrink-0" />
+              )}
               <DrawerTitle className="text-sm font-semibold text-gray-100 flex-1">
-                BrickLink — Inventory Sync
+                {changeDetail === 'added'
+                  ? 'Recently Added Lots'
+                  : changeDetail === 'updated'
+                  ? 'Recently Updated Lots'
+                  : 'BrickLink — Inventory Sync'}
               </DrawerTitle>
               <DrawerClose
                 className="ml-2 text-gray-500 hover:text-gray-200 transition-colors"
@@ -197,120 +228,185 @@ export default function BrickLinkSyncPanel({ onOpenSettings }: BrickLinkSyncPane
           </DrawerHeader>
 
           <div className="flex-1 overflow-y-auto min-h-0 px-4 pt-3 pb-6 space-y-4">
-            {/* Action buttons */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={isRunning || syncMutation.isPending}
-                onClick={() => syncMutation.mutate()}
-                data-testid="button-bricklink-sync-now"
-              >
-                {syncMutation.isPending || isRunning ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                ) : (
-                  <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-                )}
-                {isRunning ? 'Syncing…' : 'Sync Now'}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => { setDrawerOpen(false); onOpenSettings?.('platforms', 'schedulerInventory'); }}
-                data-testid="button-bricklink-schedule"
-              >
-                <CalendarClock className="w-3.5 h-3.5 mr-1.5" />
-                Schedule
-              </Button>
-            </div>
 
-            <Separator className="bg-gray-700/60" />
-
-            {/* Live progress */}
-            {isRunning && (
-              <div className="space-y-2 rounded-lg border border-blue-500/30 bg-blue-950/20 p-3">
-                <div className="flex items-center gap-2 text-xs text-blue-300">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span className="font-medium">Sync in progress</span>
-                </div>
-                {progressData && (
-                  <>
-                    <Progress value={progressPct} className="h-2" />
-                    <div className="flex justify-between text-[10px] text-gray-400">
-                      <span>{progressData.currentStep ?? 'Syncing…'}</span>
-                      <span className="tabular-nums font-mono">{progressPct}%</span>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Last sync summary */}
-            {lastSync && (
+            {/* ── Change detail drilldown ── */}
+            {changeDetail ? (
               <div className="space-y-2">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-0.5">Last Sync</p>
-                <div className="rounded-lg border border-gray-700/60 bg-gray-900/50 p-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <SyncStatusIcon className={`w-4 h-4 shrink-0 ${syncStatusColor}`} />
-                    <span className={`text-sm font-medium ${syncStatusColor}`}>
-                      {lastSync.lastSyncStatus === 'success'  ? 'Completed successfully'  :
-                       lastSync.lastSyncStatus === 'in_progress' ? 'In progress…'           :
-                       lastSync.lastSyncStatus === 'error'    ? 'Failed'                   :
-                       lastSync.lastSyncStatus ?? 'Unknown'}
-                    </span>
-                    {lastSync.lastSyncTime && (
-                      <span className="text-[10px] text-gray-500 ml-auto">{relTime(lastSync.lastSyncTime)}</span>
-                    )}
+                <div className="flex items-center gap-2 px-0.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 flex-1">
+                    {changeDetail === 'added' ? 'Most recently added' : 'Most recently updated'}
+                  </p>
+                  <span className="text-[10px] text-gray-600">showing up to 50</span>
+                </div>
+                {recentChangesLoading ? (
+                  <div className="flex items-center gap-2 py-6 justify-center text-gray-500 text-xs">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Loading…
                   </div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { label: 'Lots',    value: inventoryStats?.totalLots,    icon: Database,     color: 'text-orange-300' },
-                      { label: 'Parts',   value: inventoryStats?.totalParts,   icon: Hash,         color: 'text-orange-300' },
-                      { label: 'Added',   value: lastSync.recordsAdded,         icon: Package,      color: 'text-green-400'  },
-                    ].map(({ label, value, icon: Icon, color }) => (
-                      <div key={label} className="rounded bg-gray-800/60 px-2 py-1.5 text-center">
-                        <p className={`text-base font-mono font-bold ${color}`}>
-                          {value != null ? Number(value).toLocaleString() : '—'}
-                        </p>
-                        <p className="text-[9px] text-gray-500 mt-0.5">{label}</p>
+                ) : !recentChanges?.items?.length ? (
+                  <div className="rounded-lg border border-gray-700/50 bg-gray-900/40 p-4 text-center text-xs text-gray-500">
+                    No items found
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {recentChanges.items.map((item: any) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center gap-3 rounded-md bg-gray-900/50 px-2.5 py-2"
+                        data-testid={`row-bl-change-${item.id}`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-mono font-semibold text-orange-300">{item.itemNo}</span>
+                            <span className="text-[9px] text-gray-600">{item.newOrUsed === 'N' ? 'New' : 'Used'}</span>
+                            {item.colorName && (
+                              <span className="text-[9px] text-gray-500 truncate">{item.colorName}</span>
+                            )}
+                          </div>
+                          {item.itemName && (
+                            <p className="text-[10px] text-gray-400 truncate mt-0.5">{item.itemName}</p>
+                          )}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-[10px] font-mono font-semibold text-white">×{item.quantity?.toLocaleString()}</p>
+                          {item.unitPrice && (
+                            <p className="text-[9px] text-gray-500">${parseFloat(item.unitPrice).toFixed(2)}</p>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
-
-                  {lastSync.recordsUpdated > 0 && (
-                    <p className="text-[10px] text-gray-400">
-                      <span className="font-mono font-semibold text-yellow-300">{Number(lastSync.recordsUpdated).toLocaleString()}</span>
-                      {' '}lots updated
-                    </p>
-                  )}
-
-                  {lastSync.errorMessage && lastSync.lastSyncStatus !== 'success' && (
-                    <div className="flex items-start gap-1.5 rounded border border-red-500/30 bg-red-950/20 px-2 py-1.5">
-                      <XCircle className="w-3 h-3 text-red-400 shrink-0 mt-0.5" />
-                      <p className="text-[10px] text-red-300/80">{lastSync.errorMessage}</p>
-                    </div>
-                  )}
+                )}
+              </div>
+            ) : (
+              <>
+                {/* Action buttons */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={isRunning || syncMutation.isPending}
+                    onClick={() => syncMutation.mutate()}
+                    data-testid="button-bricklink-sync-now"
+                  >
+                    {syncMutation.isPending || isRunning ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                    ) : (
+                      <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                    )}
+                    {isRunning ? 'Syncing…' : 'Sync Now'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => { setDrawerOpen(false); onOpenSettings?.('platforms', 'schedulerInventory'); }}
+                    data-testid="button-bricklink-schedule"
+                  >
+                    <CalendarClock className="w-3.5 h-3.5 mr-1.5" />
+                    Schedule
+                  </Button>
                 </div>
-              </div>
-            )}
 
-            {/* What this sync does */}
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-0.5">About This Sync</p>
-              <div className="rounded-lg border border-gray-700/50 bg-gray-900/40 p-3 space-y-1.5">
-                {[
-                  { icon: ShoppingCart, text: 'Pulls your live inventory from BrickLink into E.L.F.I.E.' },
-                  { icon: Activity,     text: 'Detects new lots, quantity changes, price updates, and deletions' },
-                  { icon: Database,     text: 'Powers Price-o-Matic, Catalog Enrichment, and Channel Sync' },
-                ].map(({ icon: Icon, text }, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <Icon className="w-3 h-3 text-orange-400/70 shrink-0 mt-0.5" />
-                    <p className="text-[10px] text-gray-400">{text}</p>
+                <Separator className="bg-gray-700/60" />
+
+                {/* Live progress */}
+                {isRunning && (
+                  <div className="space-y-2 rounded-lg border border-blue-500/30 bg-blue-950/20 p-3">
+                    <div className="flex items-center gap-2 text-xs text-blue-300">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span className="font-medium">Sync in progress</span>
+                    </div>
+                    {progressData && (
+                      <>
+                        <Progress value={progressPct} className="h-2" />
+                        <div className="flex justify-between text-[10px] text-gray-400">
+                          <span>{progressData.currentStep ?? 'Syncing…'}</span>
+                          <span className="tabular-nums font-mono">{progressPct}%</span>
+                        </div>
+                      </>
+                    )}
                   </div>
-                ))}
-              </div>
-            </div>
+                )}
+
+                {/* Last sync summary */}
+                {lastSync && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-0.5">Last Sync</p>
+                    <div className="rounded-lg border border-gray-700/60 bg-gray-900/50 p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <SyncStatusIcon className={`w-4 h-4 shrink-0 ${syncStatusColor}`} />
+                        <span className={`text-sm font-medium ${syncStatusColor}`}>
+                          {lastSync.lastSyncStatus === 'success'  ? 'Completed successfully'  :
+                           lastSync.lastSyncStatus === 'in_progress' ? 'In progress…'           :
+                           lastSync.lastSyncStatus === 'error'    ? 'Failed'                   :
+                           lastSync.lastSyncStatus ?? 'Unknown'}
+                        </span>
+                        {lastSync.lastSyncTime && (
+                          <span className="text-[10px] text-gray-500 ml-auto">{relTime(lastSync.lastSyncTime)}</span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { label: 'Lots',    value: inventoryStats?.totalLots,    color: 'text-orange-300', clickable: false },
+                          { label: 'Parts',   value: inventoryStats?.totalParts,   color: 'text-orange-300', clickable: false },
+                          { label: 'Added',   value: addedCount,                   color: 'text-green-400',  clickable: true,  type: 'added'   as const },
+                          { label: 'Updated', value: updatedCount,                 color: 'text-yellow-300', clickable: true,  type: 'updated' as const },
+                        ].map(({ label, value, color, clickable, type }) =>
+                          clickable ? (
+                            <button
+                              key={label}
+                              onClick={() => setChangeDetail(type!)}
+                              className="rounded bg-gray-800/60 px-2 py-1.5 text-center hover-elevate active-elevate-2 w-full"
+                              data-testid={`button-bl-stat-${label.toLowerCase()}`}
+                            >
+                              <p className={`text-base font-mono font-bold ${color}`}>
+                                {value != null ? Number(value).toLocaleString() : '—'}
+                              </p>
+                              <p className="text-[9px] text-gray-500 mt-0.5 flex items-center justify-center gap-0.5">
+                                {label}
+                                <ChevronRight className="w-2.5 h-2.5 text-gray-600" />
+                              </p>
+                            </button>
+                          ) : (
+                            <div key={label} className="rounded bg-gray-800/60 px-2 py-1.5 text-center">
+                              <p className={`text-base font-mono font-bold ${color}`}>
+                                {value != null ? Number(value).toLocaleString() : '—'}
+                              </p>
+                              <p className="text-[9px] text-gray-500 mt-0.5">{label}</p>
+                            </div>
+                          )
+                        )}
+                      </div>
+
+                      {lastSync.errorMessage && lastSync.lastSyncStatus !== 'success' && (
+                        <div className="flex items-start gap-1.5 rounded border border-red-500/30 bg-red-950/20 px-2 py-1.5">
+                          <XCircle className="w-3 h-3 text-red-400 shrink-0 mt-0.5" />
+                          <p className="text-[10px] text-red-300/80">{lastSync.errorMessage}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* What this sync does */}
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-0.5">About This Sync</p>
+                  <div className="rounded-lg border border-gray-700/50 bg-gray-900/40 p-3 space-y-1.5">
+                    {[
+                      { icon: ShoppingCart, text: 'Pulls your live inventory from BrickLink into E.L.F.I.E.' },
+                      { icon: Activity,     text: 'Detects new lots, quantity changes, price updates, and deletions' },
+                      { icon: Database,     text: 'Powers Price-o-Matic, Catalog Enrichment, and Channel Sync' },
+                    ].map(({ icon: Icon, text }, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <Icon className="w-3 h-3 text-orange-400/70 shrink-0 mt-0.5" />
+                        <p className="text-[10px] text-gray-400">{text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </DrawerContent>
       </Drawer>

@@ -43,7 +43,7 @@ import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig } from "./s
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, platformSettings, insertPlatformSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions, channelSyncConfig } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, platformSettings, insertPlatformSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions, channelSyncConfig, channelLotLinks } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -12395,6 +12395,93 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         }).catch(() => {});
       }
       res.status(alreadyRunning ? 409 : 500).json({ success: false, error: alreadyRunning ? error.message : "Failed to sync BrickLink inventory" });
+    }
+  });
+
+  // GET /api/sync/bricklink/recent-changes — items added/updated in the most recent BL inventory sync
+  app.get('/api/sync/bricklink/recent-changes', isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const type = (req.query.type as string) === 'updated' ? 'updated' : 'added';
+      const limit = Math.min(parseInt(req.query.limit as string) || 30, 100);
+
+      const [meta] = await db.select().from(syncMetadata).where(eq(syncMetadata.id, 'bricklink_inventory')).limit(1);
+
+      const items = await db
+        .select({
+          id: blInventory.id,
+          itemNo: blInventory.itemNo,
+          colorId: blInventory.colorId,
+          quantity: blInventory.quantity,
+          unitPrice: blInventory.unitPrice,
+          newOrUsed: blInventory.newOrUsed,
+          isStockRoom: blInventory.isStockRoom,
+          syncedAt: blInventory.syncedAt,
+          updatedAt: blInventory.updatedAt,
+          itemName: blCatalog.itemName,
+          colorName: blCatalog.colorName,
+        })
+        .from(blInventory)
+        .leftJoin(blCatalog, and(
+          eq(blInventory.itemNo, blCatalog.itemNo),
+          eq(blInventory.itemType, blCatalog.itemType),
+          eq(sql`COALESCE(${blInventory.colorId}, 0)`, sql`COALESCE(${blCatalog.colorId}, 0)`),
+        ))
+        .where(and(eq(blInventory.orgId, orgId), isNull(blInventory.deletedAt)))
+        .orderBy(type === 'added' ? desc(blInventory.syncedAt) : desc(blInventory.updatedAt))
+        .limit(limit);
+
+      res.json({
+        items,
+        lastSyncTime: meta?.lastSyncTime ?? null,
+        totalCount: type === 'added' ? (meta?.recordsAdded ?? 0) : (meta?.recordsUpdated ?? 0),
+      });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // GET /api/sync/channel/recent-changes — lots created/updated in the most recent channel sync
+  app.get('/api/sync/channel/recent-changes', isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const type = (req.query.type as string) === 'updated' ? 'updated' : 'created';
+      const limit = Math.min(parseInt(req.query.limit as string) || 30, 100);
+
+      const [meta] = await db.select().from(syncMetadata).where(eq(syncMetadata.id, 'channel_sync')).limit(1);
+
+      const items = await db
+        .select({
+          blInvId: channelLotLinks.blInvId,
+          channelLotId: channelLotLinks.channelLotId,
+          linkedAt: channelLotLinks.syncedAt,
+          itemNo: blInventory.itemNo,
+          colorId: blInventory.colorId,
+          quantity: blInventory.quantity,
+          unitPrice: blInventory.unitPrice,
+          newOrUsed: blInventory.newOrUsed,
+          updatedAt: blInventory.updatedAt,
+          itemName: blCatalog.itemName,
+          colorName: blCatalog.colorName,
+        })
+        .from(channelLotLinks)
+        .leftJoin(blInventory, eq(channelLotLinks.blInvId, blInventory.id))
+        .leftJoin(blCatalog, and(
+          eq(blInventory.itemNo, blCatalog.itemNo),
+          eq(blInventory.itemType, blCatalog.itemType),
+          eq(sql`COALESCE(${blInventory.colorId}, 0)`, sql`COALESCE(${blCatalog.colorId}, 0)`),
+        ))
+        .where(and(eq(channelLotLinks.orgId, orgId), eq(channelLotLinks.channel, 'brickowl')))
+        .orderBy(type === 'created' ? desc(channelLotLinks.syncedAt) : desc(blInventory.updatedAt))
+        .limit(limit);
+
+      res.json({
+        items,
+        lastSyncTime: meta?.lastSyncTime ?? null,
+        totalCount: type === 'created' ? (meta?.recordsAdded ?? 0) : (meta?.recordsUpdated ?? 0),
+      });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
     }
   });
 
