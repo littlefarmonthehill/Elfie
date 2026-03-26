@@ -918,7 +918,8 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                             return (
                               <div key={order.id}>
                                 <div
-                                  className={`flex flex-col py-2 transition-colors border-l-[3px] ${isSelected ? 'border-l-purple-500 bg-purple-950/30' : 'border-l-transparent'}`}
+                                  onClick={() => handleOrderToggle(order.id)}
+                                  className={`flex flex-col py-2 cursor-pointer transition-colors border-l-[3px] ${isSelected ? 'border-l-purple-500 bg-purple-950/30' : 'border-l-transparent'}`}
                                   data-testid={`order-${order.orderNumber}`}
                                 >
                                   {/* Line 1: shortcode-circle · flag · order# · lots · meta icons | workflow status */}
@@ -940,14 +941,13 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                       {flag && (
                                         <span className="text-sm leading-none shrink-0" data-testid={`flag-${order.id}`}>{flag}</span>
                                       )}
-                                      {/* Order number — tap target for selection */}
-                                      <button
-                                        onClick={() => handleOrderToggle(order.id)}
-                                        className={`font-mono text-xs font-semibold shrink-0 hover:opacity-80 transition-opacity ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}
-                                        data-testid={`button-select-order-${order.id}`}
+                                      {/* Order number */}
+                                      <span
+                                        className={`font-mono text-xs font-semibold shrink-0 ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}
+                                        data-testid={`text-order-number-${order.id}`}
                                       >
                                         {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
-                                      </button>
+                                      </span>
                                       {/* Lot count */}
                                       {lotCount > 0 && (
                                         <span className="w-5 h-5 rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] font-bold text-white tabular-nums shrink-0" data-testid={`lot-count-${order.id}`}>
