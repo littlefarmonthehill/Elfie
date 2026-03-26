@@ -12,6 +12,7 @@ import {
   Pencil, X, ChevronDown, ChevronUp, Globe, Plus,
 } from "lucide-react";
 import { shortCode } from "@/components/PackingSlip";
+import { shippingTier } from "@/lib/item-utils";
 import type { AppSettings } from "@shared/schema";
 
 const EU_COUNTRIES = new Set([
@@ -453,13 +454,29 @@ export default function InlineShippingCard({
     >
       <div className="px-3 pt-2.5 pb-2 space-y-2">
 
-        {/* ── Row 1: Order number (with prefix) + merge ref + status badges ── */}
+        {/* ── Row 1: Shortcode circle + Order number (with prefix) + merge ref + status badges ── */}
         <div className="flex items-center gap-2 flex-wrap">
+          {(() => {
+            const tier = shippingTier(summary.requestedService);
+            const code = shortCode(summary.orderNumber || summary.orderId);
+            return (
+              <span
+                className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold font-mono shrink-0 tabular-nums ${
+                  tier === 'express'  ? 'bg-blue-700/80 text-blue-100' :
+                  tier === 'priority' ? 'bg-red-700/80 text-red-100'   :
+                  'bg-gray-800 text-amber-400'
+                }`}
+                title={tier === 'express' ? 'Express shipping' : tier === 'priority' ? 'Priority shipping' : undefined}
+              >
+                {code}
+              </span>
+            );
+          })()}
           <span className="text-sm font-bold text-white font-mono">
             {summary.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(summary.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
           </span>
           {(summary.linkedOrderNumber || summary.linkedOrderRef) && (
-            <span className="flex items-center gap-0.5 text-[10px] text-violet-400/80 font-mono shrink-0" title="Merged order">
+            <span className="flex items-center gap-0.5 text-[10px] text-amber-400/80 font-mono shrink-0" title="Merged order">
               <Plus className="w-2.5 h-2.5" />
               {summary.linkedOrderNumber ? shortCode(summary.linkedOrderNumber) : summary.linkedOrderRef}
             </span>

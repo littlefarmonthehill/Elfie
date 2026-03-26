@@ -255,7 +255,7 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
                 <button
                   onClick={() => linked && onOrderSelect?.(linked.orderId)}
                   disabled={!linked}
-                  className="flex items-center gap-0.5 text-[10px] text-violet-400/80 font-mono shrink-0 hover:text-violet-300 disabled:cursor-default"
+                  className="flex items-center gap-0.5 text-[10px] text-amber-400/80 font-mono shrink-0 hover:text-amber-300 disabled:cursor-default"
                   title={`Merged order`}
                   data-testid="button-merge-group-icon"
                 >

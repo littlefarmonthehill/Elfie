@@ -283,6 +283,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
   const [isSplitMode, setIsSplitMode] = useState(false);
   const [selectedItemsForSplit, setSelectedItemsForSplit] = useState<Set<string>>(new Set());
   const [statusPickerOrderId, setStatusPickerOrderId] = useState<string | null>(null);
+  const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const [activeWorkflowFilter, setActiveWorkflowFilter] = useState<WorkflowStatus | null>(null);
 
   const updateWorkflowStatus = useMutation({
@@ -953,9 +954,16 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                           {lotCount}
                                         </span>
                                       )}
-                                      {/* Customer note indicator — static icon, full note visible in flyout */}
+                                      {/* Customer note — tap to toggle inline */}
                                       {order.customerNotes && (
-                                        <MessageCircle className="w-3.5 h-3.5 fill-current text-amber-500/60 shrink-0" title="Has customer note" />
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); setOpenNoteId(openNoteId === order.id ? null : order.id); }}
+                                          className={`shrink-0 transition-colors ${openNoteId === order.id ? 'text-amber-400' : 'text-amber-500/50 hover:text-amber-400'}`}
+                                          data-testid={`button-customer-note-${order.id}`}
+                                          title="Customer note"
+                                        >
+                                          <MessageCircle className="w-3.5 h-3.5 fill-current" />
+                                        </button>
                                       )}
                                       {/* Insurance indicator (BrickLink only) */}
                                       {order.insuranceAmount && Number(order.insuranceAmount) > 0 && (
@@ -1007,7 +1015,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                           : shortCode(order.mergeGroupId);
                                         return (
                                           <span
-                                            className="flex items-center gap-0.5 text-[10px] text-violet-400/80 font-mono shrink-0"
+                                            className="flex items-center gap-0.5 text-[10px] text-amber-400/80 font-mono shrink-0"
                                             data-testid={`text-merge-group-${order.id}`}
                                             title="Merged order"
                                           >
@@ -1020,6 +1028,13 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                   </div>
                                 </div>
 
+
+                                {/* Inline customer note */}
+                                {openNoteId === order.id && order.customerNotes && (
+                                  <div className="ml-5 mb-1 px-2 py-1.5 rounded border border-amber-500/25 bg-amber-500/5 text-[11px] text-amber-200/90 leading-relaxed">
+                                    {order.customerNotes}
+                                  </div>
+                                )}
 
                                 {/* Inline workflow status picker */}
                                 {statusPickerOrderId === order.id && (
