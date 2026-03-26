@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { orders, orderDetails, channelLotLinks, syncMetadata } from "@shared/schema";
+import { orders, orderDetails, orderAdjustments, channelLotLinks, syncMetadata } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 import { getBrickOwlOrders, getBrickOwlOrderDetails, mapBrickOwlStatus } from "./brickowl-orders";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
@@ -268,6 +268,35 @@ async function processBrickOwlOrder(
         // BrickLink handles returns: restore local inventory but skip cross-platform sync.
         // The scheduled channel sync will propagate the restored quantities on its own cycle.
         console.log(`↩️ BrickOwl order ${effectiveOrderId} cancelled after shipping — restoring local inventory (no cross-platform push)`);
+
+        // Record a refund adjustment (idempotent — keyed on the external transaction ID).
+        // BrickOwl overwrites the order total on cancel, so we use whatever amount their
+        // API last returned as the refund figure, same as the BrickLink return flow does.
+        const externalId = `bo-${boOrder.order_id}-cancel`;
+        const refundAmount = Number(orderData.orderTotal);
+        if (refundAmount > 0) {
+          const [existingAdj] = await db
+            .select({ id: orderAdjustments.id })
+            .from(orderAdjustments)
+            .where(eq(orderAdjustments.externalTransactionId, externalId))
+            .limit(1);
+          if (!existingAdj) {
+            await db.insert(orderAdjustments).values({
+              orderId: effectiveOrderId,
+              orgId,
+              type: 'refund',
+              amount: (-refundAmount).toFixed(2),
+              paymentMethod: 'brickowl',
+              externalTransactionId: externalId,
+              reason: 'Customer cancellation after shipment',
+              notes: `BrickOwl order ${boOrder.order_id} cancelled after shipping — refund of $${refundAmount.toFixed(2)}`,
+            });
+            console.log(`↩️ BrickOwl order ${effectiveOrderId}: recorded refund adjustment of -$${refundAmount.toFixed(2)}`);
+          }
+        } else {
+          console.warn(`⚠️ BrickOwl order ${effectiveOrderId}: cancelled after shipping but order total is missing or zero — refund adjustment NOT recorded`);
+        }
+
         adjustInventoryForOrder(effectiveOrderId, 'bo-shipped-cancel', { skipCrossPlatformSync: true }).catch(error => {
           console.error(`⚠️ Inventory restore failed for cancelled BrickOwl order ${effectiveOrderId}:`, error);
         });
