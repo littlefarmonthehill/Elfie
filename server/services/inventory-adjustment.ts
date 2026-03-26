@@ -81,20 +81,40 @@ export async function adjustInventoryForOrder(orderId: string, _caller?: string)
     .from(orderDetails)
     .where(eq(orderDetails.orderId, orderId));
 
-  const adjustments: Array<{ inventoryId: number; quantityChange: number; action: string }> = [];
-  const errors: Array<{ inventoryId: number | null; sku: string; error: string }> = [];
+  // Deduplicate by bricklinkInventoryId — sum quantities so that any duplicate
+  // order_detail rows (e.g. from a BrickOwl lot_id rotation creating a second row
+  // before the guard was in place) never cause the same BL inventory to be
+  // adjusted twice in a single pass.
+  const dedupedItems = new Map<number, { inventoryId: number; totalQty: number; sku: string }>();
+  const noIdItems: Array<{ sku: string }> = [];
 
   for (const item of lineItems) {
     if (!item.bricklinkInventoryId) {
-      errors.push({
-        inventoryId: null,
-        sku: item.sku || 'unknown',
-        error: 'No BrickLink inventory ID found'
-      });
+      noIdItems.push({ sku: item.sku || 'unknown' });
       continue;
     }
+    const existing = dedupedItems.get(item.bricklinkInventoryId);
+    if (existing) {
+      existing.totalQty += item.quantity;
+      console.warn(`⚠️ [AdjInv] Duplicate order_detail row for BL inv ${item.bricklinkInventoryId} on order ${orderId} — quantities merged (${existing.totalQty - item.quantity} + ${item.quantity})`);
+    } else {
+      dedupedItems.set(item.bricklinkInventoryId, {
+        inventoryId: item.bricklinkInventoryId,
+        totalQty: item.quantity,
+        sku: item.sku || 'unknown',
+      });
+    }
+  }
 
-    const qty = item.quantity;
+  const adjustments: Array<{ inventoryId: number; quantityChange: number; action: string }> = [];
+  const errors: Array<{ inventoryId: number | null; sku: string; error: string }> = [];
+
+  for (const { sku } of noIdItems) {
+    errors.push({ inventoryId: null, sku, error: 'No BrickLink inventory ID found' });
+  }
+
+  for (const { inventoryId: invId, totalQty: qty, sku } of dedupedItems.values()) {
+    const item = { bricklinkInventoryId: invId, quantity: qty, sku };
 
     try {
       const [currentItem] = await db

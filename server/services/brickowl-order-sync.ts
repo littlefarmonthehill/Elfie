@@ -316,6 +316,36 @@ async function processBrickOwlOrder(
         if (!isNaN(parsed)) brickLinkInvId = parsed;
       }
 
+      // Guard: if a row for this BL inventory ID already exists in the order (under a
+      // different lot_id), BrickOwl re-listed the lot rather than genuinely adding a new one.
+      // Update the existing row's lot keys in place so the lineItemKey stays current,
+      // but do NOT count this as a merge-worthy change or insert a duplicate row.
+      if (brickLinkInvId) {
+        const [existingByInvId] = await db
+          .select()
+          .from(orderDetails)
+          .where(and(
+            eq(orderDetails.orderId, effectiveOrderId),
+            eq(orderDetails.bricklinkInventoryId, brickLinkInvId)
+          ))
+          .limit(1);
+
+        if (existingByInvId) {
+          // Same BL inventory item already exists with a different lot_id.
+          // This is a lot_id rotation on BrickOwl's side, not a customer-requested merge.
+          // Refresh the key columns so future lookups hit the new lot_id.
+          await db
+            .update(orderDetails)
+            .set({
+              lineItemKey,
+              boLotId: item.lot_id != null ? String(item.lot_id) : null,
+            })
+            .where(eq(orderDetails.id, existingByInvId.id));
+          console.log(`🔄 Order ${effectiveOrderId}: lot ${item.lot_id} replaced lot_id for BL inv ${brickLinkInvId} — lot_id rotation, not a merge`);
+          continue; // Do NOT set itemsChanged — this is not a real merge
+        }
+      }
+
       await db.insert(orderDetails).values([{
         orderId: effectiveOrderId,
         lineItemKey,
@@ -340,7 +370,7 @@ async function processBrickOwlOrder(
       }]);
       result.orderDetailsAdded++;
       itemsChanged = true;
-      console.log(`➕ Order ${effectiveOrderId}: new item lot ${item.lot_id} added (merge or late addition)`);
+      console.log(`➕ Order ${effectiveOrderId}: new item lot ${item.lot_id} added (genuine merge or late addition)`);
 
     } catch (error: any) {
       console.error(`✗ Error processing order item for order ${orderId}:`, error);
@@ -354,17 +384,34 @@ async function processBrickOwlOrder(
       console.error(`⚠️ Inventory adjustment failed for new BrickOwl order ${effectiveOrderId}:`, error);
     });
   } else if (itemsChanged) {
-    // Items were added or quantities changed on an existing order — this is a BrickOwl merge.
+    // Items were added or quantities changed on an existing order — genuine BrickOwl merge.
     // 1. Stamp merge_detected_at so the fulfillment UI can warn the operator.
-    // 2. Re-run inventory adjustment so the deduction reflects the merged line items.
-    console.log(`🔀 Order ${effectiveOrderId}: merge detected — stamping merge_detected_at and re-triggering inventory adjustment`);
+    // 2. Only call adjustInventoryForOrder if the order has not yet been deducted.
+    //    If inventoryDeducted=true, the full-order adjustment would be a no-op anyway
+    //    (the atomic claim guard prevents re-deduction), but we read the flag explicitly
+    //    here to make the intent clear and prevent any future edge-case double-deduction.
+    console.log(`🔀 Order ${effectiveOrderId}: merge detected — stamping merge_detected_at`);
     await db
       .update(orders)
       .set({ mergeDetectedAt: new Date() })
       .where(eq(orders.id, effectiveOrderId));
 
-    adjustInventoryForOrder(effectiveOrderId, 'bo-merge').catch(error => {
-      console.error(`⚠️ Inventory adjustment failed after merge for BrickOwl order ${effectiveOrderId}:`, error);
-    });
+    const [orderForMerge] = await db
+      .select({ inventoryDeducted: orders.inventoryDeducted })
+      .from(orders)
+      .where(eq(orders.id, effectiveOrderId))
+      .limit(1);
+
+    if (!orderForMerge?.inventoryDeducted) {
+      // Order not yet deducted — treat merge items as the initial deduction
+      adjustInventoryForOrder(effectiveOrderId, 'bo-merge').catch(error => {
+        console.error(`⚠️ Inventory adjustment failed after merge for BrickOwl order ${effectiveOrderId}:`, error);
+      });
+    } else {
+      // Already deducted — newly merged items are flagged via mergeDetectedAt for
+      // operator review. A future delta-adjustment path will handle auto-deduction
+      // of only the incremental quantities.
+      console.log(`ℹ️ Order ${effectiveOrderId}: merge detected but inventory already deducted — skipping re-adjustment. Operator should review the merge warning.`);
+    }
   }
 }
