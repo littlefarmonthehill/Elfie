@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Package, Link2 } from "lucide-react";
+import { Package, Link2 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -41,6 +41,36 @@ const BO_STATUS_LABELS: Record<number, string> = {
   8: "Cancelled",
 };
 
+// ── Platform workflow statuses that apply to each normalized status ────────────
+// These are the ELFIE-internal workflow_status values used in the fulfillment UI.
+
+const PLATFORM_WORKFLOW_STATUSES: Record<string, Array<{ label: string; description: string }>> = {
+  awaiting_payment: [
+    { label: "new",     description: "Order queued, payment pending" },
+  ],
+  awaiting_shipment: [
+    { label: "new",        description: "Queued for fulfillment" },
+    { label: "processing", description: "Being picked / packed" },
+    { label: "bump",       description: "Prioritised to top of queue" },
+    { label: "issue",      description: "Flagged — needs attention" },
+  ],
+  shipped: [
+    { label: "done", description: "Fulfilled and dispatched" },
+  ],
+  delivered: [
+    { label: "done", description: "Confirmed delivered" },
+  ],
+  cancelled: [
+    { label: "done", description: "Resolved — order closed" },
+  ],
+  on_hold: [
+    { label: "on_hold", description: "Paused pending resolution" },
+  ],
+  returned: [
+    { label: "done", description: "Resolved — return complete" },
+  ],
+};
+
 // ── Status badge styling ───────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
@@ -51,6 +81,15 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled:          "bg-red-900/60 text-red-300",
   on_hold:            "bg-amber-900/60 text-amber-300",
   returned:           "bg-purple-900/60 text-purple-300",
+};
+
+const WORKFLOW_COLORS: Record<string, string> = {
+  new:        "bg-gray-600/70 text-gray-300",
+  processing: "bg-blue-800/70 text-blue-300",
+  bump:       "bg-violet-800/70 text-violet-300",
+  issue:      "bg-amber-800/70 text-amber-300",
+  on_hold:    "bg-amber-800/70 text-amber-300",
+  done:       "bg-green-800/70 text-green-300",
 };
 
 const IMPACT_COLORS: Record<string, string> = {
@@ -65,6 +104,27 @@ const IMPACT_LABELS: Record<string, string> = {
   none:    "None",
 };
 
+// ── Channel section within the second column ───────────────────────────────────
+
+function ChannelBlock({
+  label,
+  color,
+  children,
+}: {
+  label: string;
+  color: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-2">
+      <span className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${color}`}>
+        {label}
+      </span>
+      <div className="flex flex-wrap gap-1 pt-0.5">{children}</div>
+    </div>
+  );
+}
+
 // ── Status tab ────────────────────────────────────────────────────────────────
 
 function StatusTab() {
@@ -76,7 +136,7 @@ function StatusTab() {
     return (
       <div className="p-4 space-y-2">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-12 rounded-md bg-gray-800 animate-pulse" />
+          <div key={i} className="h-14 rounded-md bg-gray-800 animate-pulse" />
         ))}
       </div>
     );
@@ -89,81 +149,128 @@ function StatusTab() {
   return (
     <div className="p-4 space-y-4">
       <p className="text-xs text-gray-400 leading-relaxed">
-        These mappings define how each channel's native order statuses translate to
-        ELFIE's internal statuses, and what happens to inventory at each transition.
-        This is read-only — changes require a code deployment.
+        How each channel's native statuses map to ELFIE's internal statuses, and
+        what happens to inventory at each transition. Read-only — changes require a
+        code deployment.
       </p>
 
-      {/* Header row */}
+      {/* Table */}
       <div className="sm-card overflow-hidden">
-        <div className="grid grid-cols-[180px_1fr_1fr_90px] gap-0 border-b border-gray-700 bg-gray-800/60 px-4 py-2">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Internal Status</span>
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">BrickLink</span>
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">BrickOwl</span>
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-right">Inventory</span>
+        {/* Header */}
+        <div className="grid grid-cols-[160px_1fr_72px] gap-0 border-b border-gray-700 bg-gray-800/60 px-4 py-2">
+          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+            Internal Status
+          </span>
+          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+            Channel Statuses
+          </span>
+          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide text-right">
+            Inventory
+          </span>
         </div>
 
-        {entries.map(([key, m], idx) => (
-          <div
-            key={key}
-            className={`grid grid-cols-[180px_1fr_1fr_90px] gap-0 px-4 py-3 ${
-              idx < entries.length - 1 ? "border-b border-gray-700/60" : ""
-            }`}
-          >
-            {/* Internal status */}
-            <div className="flex flex-col gap-1">
-              <span className={`inline-flex items-center self-start rounded px-1.5 py-0.5 text-[10px] font-semibold ${STATUS_COLORS[key] ?? "bg-gray-700 text-gray-300"}`}>
-                {m.displayName}
-              </span>
-              <span className="text-[10px] text-gray-500 leading-tight">{m.description}</span>
-            </div>
+        {entries.map(([key, m], idx) => {
+          const platformStates = PLATFORM_WORKFLOW_STATUSES[key] ?? [];
+          const hasBL = m.brickLink && m.brickLink.length > 0;
+          const hasBO = m.brickOwl && m.brickOwl.length > 0;
 
-            {/* BrickLink statuses */}
-            <div className="flex flex-wrap gap-1 pt-0.5 pr-2">
-              {m.brickLink && m.brickLink.length > 0 ? (
-                m.brickLink.map(s => (
-                  <span key={s} className="rounded bg-gray-700/80 px-1.5 py-0.5 text-[10px] font-mono text-gray-300">
-                    {s}
-                  </span>
-                ))
-              ) : (
-                <span className="text-[10px] text-gray-600">—</span>
-              )}
-            </div>
+          return (
+            <div
+              key={key}
+              className={`grid grid-cols-[160px_1fr_72px] gap-0 px-4 py-3 ${
+                idx < entries.length - 1 ? "border-b border-gray-700/60" : ""
+              }`}
+            >
+              {/* Col 1 — Internal status */}
+              <div className="flex flex-col gap-1 pr-3">
+                <span
+                  className={`inline-flex items-center self-start rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                    STATUS_COLORS[key] ?? "bg-gray-700 text-gray-300"
+                  }`}
+                >
+                  {m.displayName}
+                </span>
+                <span className="text-[10px] text-gray-500 leading-tight">
+                  {m.description}
+                </span>
+              </div>
 
-            {/* BrickOwl statuses */}
-            <div className="flex flex-col gap-0.5 pt-0.5 pr-2">
-              {m.brickOwl && m.brickOwl.length > 0 ? (
-                m.brickOwl.map(id => (
-                  <span key={id} className="text-[10px] text-gray-300">
-                    <span className="font-mono text-gray-500 mr-1">{id}</span>
-                    {BO_STATUS_LABELS[id] ?? "Unknown"}
-                  </span>
-                ))
-              ) : (
-                <span className="text-[10px] text-gray-600">—</span>
-              )}
-            </div>
+              {/* Col 2 — All channel statuses */}
+              <div className="flex flex-col gap-2 pr-3">
+                {/* Platform (ELFIE) — always first */}
+                {platformStates.length > 0 && (
+                  <ChannelBlock label="ELFIE" color="bg-violet-900/50 text-violet-300">
+                    {platformStates.map(ws => (
+                      <div key={ws.label} className="flex items-center gap-1">
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[10px] font-mono font-semibold ${
+                            WORKFLOW_COLORS[ws.label] ?? "bg-gray-700 text-gray-300"
+                          }`}
+                        >
+                          {ws.label}
+                        </span>
+                        <span className="text-[10px] text-gray-500">{ws.description}</span>
+                      </div>
+                    ))}
+                  </ChannelBlock>
+                )}
 
-            {/* Inventory impact */}
-            <div className="text-right pt-0.5">
-              <span className={`text-xs font-semibold ${IMPACT_COLORS[m.inventoryImpact]}`}>
-                {IMPACT_LABELS[m.inventoryImpact]}
-              </span>
+                {/* BrickLink */}
+                {hasBL && (
+                  <ChannelBlock label="BrickLink" color="bg-orange-900/50 text-orange-300">
+                    {m.brickLink!.map(s => (
+                      <span
+                        key={s}
+                        className="rounded bg-gray-700/80 px-1.5 py-0.5 text-[10px] font-mono text-gray-300"
+                      >
+                        {s}
+                      </span>
+                    ))}
+                  </ChannelBlock>
+                )}
+
+                {/* BrickOwl */}
+                {hasBO && (
+                  <ChannelBlock label="BrickOwl" color="bg-sky-900/50 text-sky-300">
+                    {m.brickOwl!.map(id => (
+                      <span key={id} className="text-[10px] text-gray-300 whitespace-nowrap">
+                        <span className="font-mono text-gray-500 mr-1">{id}</span>
+                        {BO_STATUS_LABELS[id] ?? "Unknown"}
+                      </span>
+                    ))}
+                  </ChannelBlock>
+                )}
+
+                {/* Nothing mapped */}
+                {!hasBL && !hasBO && platformStates.length === 0 && (
+                  <span className="text-[10px] text-gray-600">No channel mappings</span>
+                )}
+              </div>
+
+              {/* Col 3 — Inventory impact */}
+              <div className="text-right pt-0.5">
+                <span className={`text-xs font-semibold ${IMPACT_COLORS[m.inventoryImpact]}`}>
+                  {IMPACT_LABELS[m.inventoryImpact]}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Legend */}
       <div className="flex flex-wrap gap-4 px-1">
         {(["reduce", "restore", "none"] as const).map(impact => (
           <div key={impact} className="flex items-center gap-1.5">
-            <span className={`text-xs font-semibold ${IMPACT_COLORS[impact]}`}>{IMPACT_LABELS[impact]}</span>
+            <span className={`text-xs font-semibold ${IMPACT_COLORS[impact]}`}>
+              {IMPACT_LABELS[impact]}
+            </span>
             <span className="text-xs text-gray-500">
-              {impact === "reduce" ? "— inventory decremented when order reaches this status" :
-               impact === "restore" ? "— inventory restored if previously deducted" :
-               "— no inventory change"}
+              {impact === "reduce"
+                ? "— inventory decremented when order reaches this status"
+                : impact === "restore"
+                ? "— inventory restored if previously deducted"
+                : "— no inventory change"}
             </span>
           </div>
         ))}
@@ -209,7 +316,6 @@ function SkuLinksTab() {
     );
   });
 
-  // Group by channel for display
   const channels = Array.from(new Set(filtered.map(l => l.channel))).sort();
 
   return (
@@ -220,7 +326,6 @@ function SkuLinksTab() {
         inventory sync.
       </p>
 
-      {/* Search */}
       <div className="relative">
         <input
           type="text"
@@ -311,7 +416,6 @@ export function MappingSection() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Tab bar */}
       <div className="tool-tab-bar px-4">
         {TABS.map(tab => (
           <button
@@ -325,7 +429,6 @@ export function MappingSection() {
         ))}
       </div>
 
-      {/* Tab content */}
       <div className="flex-1 overflow-y-auto">
         {activeTab === "status" && <StatusTab />}
         {activeTab === "skus"   && <SkuLinksTab />}
