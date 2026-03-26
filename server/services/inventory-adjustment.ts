@@ -20,7 +20,11 @@ import { recordInventoryChanges } from "./inventory-history";
  *   will affect a row — the second returns 0 rows and exits immediately. This eliminates
  *   the BO status-change + merge race that previously caused double BrickLink deductions.
  */
-export async function adjustInventoryForOrder(orderId: string, _caller?: string) {
+export async function adjustInventoryForOrder(
+  orderId: string,
+  _caller?: string,
+  options?: { skipCrossPlatformSync?: boolean }
+) {
   const callerTag = _caller ? ` [caller:${_caller}]` : '';
   console.log(`🔍 [AdjInv] adjustInventoryForOrder called for ${orderId}${callerTag}`);
   const [order] = await db
@@ -187,7 +191,9 @@ export async function adjustInventoryForOrder(orderId: string, _caller?: string)
   });
 
   // Cross-platform sync — fire-and-forget
-  if (adjustments.length > 0) {
+  // Skipped when skipCrossPlatformSync is true (e.g. BO manual returns — let the
+  // scheduled sync push the restored quantities to external channels on its own cycle).
+  if (adjustments.length > 0 && !options?.skipCrossPlatformSync) {
     const sourcePlatform = order.marketplace || 'unknown';
 
     (async () => {
@@ -219,6 +225,8 @@ export async function adjustInventoryForOrder(orderId: string, _caller?: string)
         console.error(`⚠️ Cross-platform sync failed for order ${orderId}:`, error);
       }
     })();
+  } else if (adjustments.length > 0 && options?.skipCrossPlatformSync) {
+    console.log(`⏭️ [AdjInv] Cross-platform sync skipped for order ${orderId} (skipCrossPlatformSync=true) — ${adjustments.length} local adjustment(s) made, channels will update on next scheduled sync.`);
   }
 
   return {
@@ -233,7 +241,7 @@ export async function adjustInventoryForOrder(orderId: string, _caller?: string)
 /**
  * Update order status and trigger inventory adjustment.
  */
-export async function updateOrderStatus(orderId: string, newStatus: string) {
+export async function updateOrderStatus(orderId: string, newStatus: string, options?: { skipCrossPlatformSync?: boolean }) {
   const [currentOrder] = await db
     .select()
     .from(orders)
@@ -259,6 +267,6 @@ export async function updateOrderStatus(orderId: string, newStatus: string) {
     })
     .where(eq(orders.id, orderId));
 
-  const result = await adjustInventoryForOrder(orderId);
+  const result = await adjustInventoryForOrder(orderId, undefined, options);
   return result;
 }

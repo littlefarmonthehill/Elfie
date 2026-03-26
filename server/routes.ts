@@ -4580,9 +4580,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes: `BrickOwl manual return — refund of $${amount.toFixed(2)}`,
       });
 
-      // Update order to returned + restore inventory via updateOrderStatus
+      // Update order to returned + restore local inventory.
+      // Cross-platform sync is intentionally skipped here — same as the BrickLink return flow.
+      // The scheduled channel sync will propagate the restored quantities to external platforms
+      // on its own cycle, giving the seller time to inspect returned items first.
       const { updateOrderStatus } = await import('./services/inventory-adjustment');
-      await updateOrderStatus(orderId, 'returned');
+      await updateOrderStatus(orderId, 'returned', { skipCrossPlatformSync: true });
 
       console.log(`↩️ BO order ${orderId} manually marked returned with refund $${amount.toFixed(2)} by org ${orgId}`);
       res.json({ success: true, orderStatus: 'returned', refundAmount: amount });
