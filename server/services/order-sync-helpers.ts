@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { orders, syncMetadata } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 /**
  * Shared helpers for sync operations across all channels and schedulers.
@@ -81,16 +81,20 @@ export async function upsertSyncMetadata(
  * Find an existing order by its canonical ID, falling back to one or more legacy
  * order_number formats (e.g. "BL.12345", "BO.12345", plain numeric string).
  *
+ * Scoped to the given orgId so that a multi-tenant environment never accidentally
+ * matches an order belonging to a different organization.
+ *
  * Returns the first match found, or undefined if the order is new.
  */
 export async function resolveExistingOrder(
   canonicalId: string,
+  orgId: string,
   ...legacyOrderNumbers: string[]
 ) {
   const [byId] = await db
     .select()
     .from(orders)
-    .where(eq(orders.id, canonicalId))
+    .where(and(eq(orders.id, canonicalId), eq(orders.orgId, orgId)))
     .limit(1);
 
   if (byId) return byId;
@@ -99,7 +103,7 @@ export async function resolveExistingOrder(
     const [byNumber] = await db
       .select()
       .from(orders)
-      .where(eq(orders.orderNumber, legacyNum))
+      .where(and(eq(orders.orderNumber, legacyNum), eq(orders.orgId, orgId)))
       .limit(1);
     if (byNumber) return byNumber;
   }

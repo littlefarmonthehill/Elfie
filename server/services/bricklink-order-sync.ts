@@ -229,7 +229,7 @@ async function processBrickLinkOrder(
   const orderId = `bl-${blOrder.order_id}`;
 
   // Canonical ID → legacy "BL." prefix format (prevents duplicate records on full sync)
-  const existingOrder = await resolveExistingOrder(orderId, `BL.${blOrder.order_id}`);
+  const existingOrder = await resolveExistingOrder(orderId, orgId, `BL.${blOrder.order_id}`);
 
   const isReturn = blOrder.payment?.status === 'Returned';
   const normalizedStatus = isReturn ? 'returned' : mapPlatformStatus('bricklink', blOrder.status);
@@ -283,6 +283,8 @@ async function processBrickLinkOrder(
     weightUnits: null,
     updatedAt: new Date(),
   };
+
+  let isNewOrder = false;
 
   if (existingOrder) {
     const { status: updatedStatus, wasDemotionBlocked } = resolveOrderStatus(
@@ -347,18 +349,55 @@ async function processBrickLinkOrder(
           console.warn(`⚠️ Order ${orderId}: BrickLink return detected but cost.grand_total is missing or zero — refund adjustment NOT recorded. cost=${JSON.stringify(cost)}`);
         }
       } else {
-        adjustInventoryForOrder(orderId).catch(error => {
+        console.log(`🔄 BrickLink order ${orderId} status changed (${existingOrder.orderStatus} → ${updatedStatus}) — triggering inventory adjustment`);
+        adjustInventoryForOrder(orderId, 'bl-status-change').catch(error => {
           console.error(`⚠️ Inventory adjustment failed for order ${orderId}:`, error);
           result.errors.push(`Inventory adjustment failed for ${orderId}: ${error.message}`);
         });
       }
     }
   } else {
-    await db.insert(orders).values([{ ...orderData, orgId }]);
-    result.ordersAdded++;
-  }
+    // UPSERT instead of plain INSERT — mirrors the BrickOwl sync fix.
+    // Handles race conditions from concurrent manual syncs and server restarts.
+    // inventoryDeducted is intentionally excluded from the conflict update set so
+    // a previously-deducted order is never double-deducted on a re-sync.
+    const [upserted] = await db
+      .insert(orders)
+      .values([{ ...orderData, orgId }])
+      .onConflictDoUpdate({
+        target: orders.id,
+        set: {
+          orderStatus:              sql`EXCLUDED.order_status`,
+          previousStatus:           sql`EXCLUDED.previous_status`,
+          customerUsername:         sql`EXCLUDED.customer_username`,
+          customerEmail:            sql`EXCLUDED.customer_email`,
+          shipTo:                   sql`EXCLUDED.ship_to`,
+          billTo:                   sql`EXCLUDED.bill_to`,
+          shipByDate:               sql`EXCLUDED.ship_by_date`,
+          orderTotal:               sql`EXCLUDED.order_total`,
+          shippingAmount:           sql`EXCLUDED.shipping_amount`,
+          taxAmount:                sql`EXCLUDED.tax_amount`,
+          insuranceAmount:          sql`EXCLUDED.insurance_amount`,
+          internalNotes:            sql`EXCLUDED.internal_notes`,
+          customerNotes:            sql`EXCLUDED.customer_notes`,
+          requestedShippingService: sql`EXCLUDED.requested_shipping_service`,
+          carrierCode:              sql`EXCLUDED.carrier_code`,
+          serviceCode:              sql`EXCLUDED.service_code`,
+          updatedAt:                sql`EXCLUDED.updated_at`,
+          // inventoryDeducted: deliberately NOT included — preserves true from a prior sync session
+          // orgId: deliberately NOT included — org never changes on a re-sync
+        },
+      })
+      .returning({ id: orders.id, inventoryDeducted: orders.inventoryDeducted });
 
-  const isNewOrder = !existingOrder;
+    if (!upserted?.inventoryDeducted) {
+      result.ordersAdded++;
+    } else {
+      console.log(`⚠️ BrickLink order ${orderId}: UPSERT conflict — inventoryDeducted already true (prior sync session). Skipping re-adjustment.`);
+      result.ordersUpdated++;
+    }
+    isNewOrder = !upserted?.inventoryDeducted;
+  }
 
   // Fetch and process order line items
   const blOrderItems = await getBrickLinkOrderItems(

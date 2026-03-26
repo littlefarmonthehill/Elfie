@@ -160,6 +160,7 @@ async function processBrickOwlOrder(
   // Canonical ID → "BO." prefix format → plain numeric (covers all legacy record formats)
   const existingOrder = await resolveExistingOrder(
     orderId,
+    orgId,
     `BO.${boOrder.order_id}`,
     String(boOrder.order_id)
   );
@@ -342,6 +343,7 @@ async function processBrickOwlOrder(
           console.error(`⚠️ Inventory restore failed for cancelled BrickOwl order ${effectiveOrderId}:`, error);
         });
       } else {
+        console.log(`🔄 BrickOwl order ${effectiveOrderId} status changed (${existingOrder.orderStatus} → ${updatedStatus}) — triggering inventory adjustment`);
         adjustInventoryForOrder(effectiveOrderId, 'bo-status-change').catch(error => {
           console.error(`⚠️ Inventory adjustment failed for BrickOwl order ${effectiveOrderId}:`, error);
         });
