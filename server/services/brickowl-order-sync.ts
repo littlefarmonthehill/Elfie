@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { orders, orderDetails, orderAdjustments, channelLotLinks, syncMetadata } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { getBrickOwlOrders, getBrickOwlOrderDetails, mapBrickOwlStatus } from "./brickowl-orders";
 import { adjustInventoryForOrder } from "./inventory-adjustment";
 import { upsertSyncMetadata, resolveExistingOrder, resolveOrderStatus } from "./order-sync-helpers";
@@ -236,9 +236,49 @@ async function processBrickOwlOrder(
   };
 
   if (!existingOrder) {
-    await db.insert(orders).values([{ ...orderData, orgId }]);
-    result.ordersAdded++;
-    isNewOrder = true;
+    // UPSERT instead of plain INSERT — handles race conditions from multi-device manual syncs
+    // and cross-session re-inserts after server restarts.  inventoryDeducted is intentionally
+    // excluded from the conflict update set so a previously-deducted order is never re-deducted.
+    const [upserted] = await db
+      .insert(orders)
+      .values([{ ...orderData, orgId }])
+      .onConflictDoUpdate({
+        target: orders.id,
+        set: {
+          orderStatus:               sql`EXCLUDED.order_status`,
+          previousStatus:            sql`EXCLUDED.previous_status`,
+          customerUsername:          sql`EXCLUDED.customer_username`,
+          customerEmail:             sql`EXCLUDED.customer_email`,
+          shipTo:                    sql`EXCLUDED.ship_to`,
+          billTo:                    sql`EXCLUDED.bill_to`,
+          shipByDate:                sql`EXCLUDED.ship_by_date`,
+          orderTotal:                sql`EXCLUDED.order_total`,
+          shippingAmount:            sql`EXCLUDED.shipping_amount`,
+          taxAmount:                 sql`EXCLUDED.tax_amount`,
+          internalNotes:             sql`EXCLUDED.internal_notes`,
+          customerNotes:             sql`EXCLUDED.customer_notes`,
+          requestedShippingService:  sql`EXCLUDED.requested_shipping_service`,
+          carrierCode:               sql`EXCLUDED.carrier_code`,
+          serviceCode:               sql`EXCLUDED.service_code`,
+          updatedAt:                 sql`EXCLUDED.updated_at`,
+          // inventoryDeducted: deliberately NOT included — preserves true from a prior sync session
+          // orgId: deliberately NOT included — org never changes on a re-sync
+        },
+      })
+      .returning({ id: orders.id, inventoryDeducted: orders.inventoryDeducted });
+
+    if (!upserted?.inventoryDeducted) {
+      // Fresh insert (or conflict with an un-deducted row) — treat as new, fire inventory adjustment.
+      result.ordersAdded++;
+      isNewOrder = true;
+    } else {
+      // Conflict with a row that already has inventoryDeducted=true — a prior sync session
+      // (multi-device manual sync, server restart, etc.) already processed this order.
+      // The atomic guard in adjustInventoryForOrder would block a duplicate anyway, but we
+      // skip the fire-and-forget entirely to avoid unnecessary DB chatter.
+      console.log(`⚠️ Order ${orderId}: UPSERT conflict — inventoryDeducted already true (prior sync session). Skipping re-adjustment.`);
+      result.ordersUpdated++;
+    }
   } else {
     const { status: updatedStatus, wasDemotionBlocked, isShippedCancellation } = resolveOrderStatus(
       existingOrder.orderStatus,
