@@ -352,7 +352,10 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch all warehouse locations for this inventory item
+  // Fetch all warehouse locations for this inventory item.
+  // staleTime: 0 + refetchInterval: 60s ensures that if another team member moves
+  // this part to a different bin while the drawer is open, the location refreshes
+  // automatically rather than serving stale data indefinitely.
   const { data: warehouseLocation } = useQuery<any[]>({
     queryKey: ['/api/warehouse/locations/inventory', data.id],
     queryFn: async () => {
@@ -361,6 +364,10 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
       return res.json();
     },
     enabled: !data.loading && !!data.id && !data.isBrickLinkCatalog,
+    staleTime: 0,
+    refetchInterval: 60000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
 
   const removeLocationMutation = useMutation({
