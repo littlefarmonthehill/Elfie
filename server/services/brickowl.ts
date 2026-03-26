@@ -1297,9 +1297,15 @@ export async function syncBrickLinkToBrickOwl(
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        result.errors.push(`${job.blItemNo} lot_id=${job.lot_id}: ${msg}`);
-        result.lotsSkipped++;
-        console.error(`[ChannelSync] Individual update error lot_id=${job.lot_id}:`, msg);
+        if (msg.includes('scheduled for deletion')) {
+          // BrickOwl has this lot queued for removal — skip silently, not our error
+          console.warn(`[ChannelSync] Skipping lot_id=${job.lot_id} (${job.blItemNo}): BrickOwl item is scheduled for deletion`);
+          result.lotsSkipped++;
+        } else {
+          result.errors.push(`${job.blItemNo} lot_id=${job.lot_id}: ${msg}`);
+          result.lotsSkipped++;
+          console.error(`[ChannelSync] Individual update error lot_id=${job.lot_id}:`, msg);
+        }
       }
 
       updateProgress++;
@@ -1451,8 +1457,15 @@ export async function syncBrickLinkToBrickOwl(
           }
           console.log(`[ChannelSync] ✓ Created lot ${newLotId ?? '(id pending next sync)'} for ${item.itemNo} (BOID ${boid})`);
         } catch (err) {
-          result.errors.push(`${item.itemNo}: create failed — ${err instanceof Error ? err.message : err}`);
-          result.lotsSkipped++;
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes('scheduled for deletion')) {
+            // BrickOwl has this lot queued for removal — skip silently, not our error
+            console.warn(`[ChannelSync] Skipping ${item.itemNo} (BOID ${boid}): BrickOwl item is scheduled for deletion`);
+            result.lotsSkipped++;
+          } else {
+            result.errors.push(`${item.itemNo}: create failed — ${msg}`);
+            result.lotsSkipped++;
+          }
         }
       }
     }
