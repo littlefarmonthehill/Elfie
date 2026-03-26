@@ -338,6 +338,40 @@ async function processBrickOwlOrder(
         });
       }
     }
+
+    // Detect partial refund: BrickOwl keeps the order status unchanged (e.g. still "shipped")
+    // but lowers base_order_total — showing the original amount in parentheses in their UI.
+    // We detect this as a total decrease and record an idempotent refund adjustment.
+    // The idempotency key encodes the new total so repeat syncs don't double-record it,
+    // but a second partial refund (different resulting total) will still be captured.
+    if (!wasDemotionBlocked && existingOrder.orderStatus === updatedStatus) {
+      const oldTotal = Number(existingOrder.orderTotal ?? 0);
+      const newTotal = Number(orderData.orderTotal ?? 0);
+      const refundDelta = oldTotal - newTotal;
+
+      if (refundDelta > 0.009) {
+        const externalId = `bo-${boOrder.order_id}-partial-${Math.round(newTotal * 100)}`;
+        const [existingAdj] = await db
+          .select({ id: orderAdjustments.id })
+          .from(orderAdjustments)
+          .where(eq(orderAdjustments.externalTransactionId, externalId))
+          .limit(1);
+
+        if (!existingAdj) {
+          await db.insert(orderAdjustments).values({
+            orderId: effectiveOrderId,
+            orgId,
+            type: 'refund',
+            amount: (-refundDelta).toFixed(2),
+            paymentMethod: 'brickowl',
+            externalTransactionId: externalId,
+            reason: 'Partial refund',
+            notes: `BrickOwl order ${boOrder.order_id} partial refund — order total changed from $${oldTotal.toFixed(2)} to $${newTotal.toFixed(2)}`,
+          });
+          console.log(`💳 BrickOwl order ${effectiveOrderId}: recorded partial refund of -$${refundDelta.toFixed(2)} ($${oldTotal.toFixed(2)} → $${newTotal.toFixed(2)})`);
+        }
+      }
+    }
   }
 
   // Process order line items.
