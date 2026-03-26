@@ -3899,7 +3899,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     { id: 'team' as const, label: 'Team', icon: Users, bsVisible: false },
     { id: 'platforms' as const, label: 'Services', icon: Layers, bsVisible: false },
     { id: 'autoSync' as const, label: 'Auto-Sync Schedule', icon: RefreshCw, bsVisible: false },
-    { id: 'priceomatic' as const, label: 'Price-o-Matic', icon: TrendingUp, bsVisible: false },
     { id: 'ieStrategies' as const, label: 'IE Strategies', icon: Target, bsVisible: false },
     { id: 'data' as const, label: 'Store Data', icon: HardDrive, bsVisible: false },
     { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain, bsVisible: true },
@@ -6385,6 +6384,16 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
             {activeSection === 'priceomatic' && (
               <div className="space-y-4 min-h-[400px]">
 
+                {/* Breadcrumb back to IE Strategies */}
+                <button
+                  onClick={() => setActiveSection('ieStrategies')}
+                  className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-300 transition-colors"
+                  data-testid="button-pom-back-to-ie-strategies"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  IE Strategies
+                </button>
+
                 {/* Scoring collapsible */}
                 <div>
                   <button
@@ -6947,6 +6956,22 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     data-testid="textarea-ie-strategy-pricing"
                   />
                   <p className="text-[10px] text-gray-600">Included in every Pricing Agent and POM AI prompt.</p>
+
+                  {/* Price-o-Matic tile — tap to open the full POM settings screen */}
+                  <button
+                    onClick={() => setActiveSection('priceomatic')}
+                    className="w-full flex items-center gap-3 px-3 py-3 rounded-md bg-gray-800/40 border border-gray-700/40 hover-elevate text-left mt-1"
+                    data-testid="button-open-priceomatic-from-strategies"
+                  >
+                    <div className="w-8 h-8 rounded bg-purple-600/20 border border-purple-500/30 flex items-center justify-center shrink-0">
+                      <TrendingUp className="w-4 h-4 text-purple-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-200">Price-o-Matic</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">Scoring weights, pricing dimensions &amp; AI settings</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-gray-500 shrink-0" />
+                  </button>
                 </div>
 
                 <Separator className="bg-gray-700/40" />
