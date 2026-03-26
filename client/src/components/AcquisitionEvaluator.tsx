@@ -347,8 +347,7 @@ export default function AcquisitionEvaluator() {
 
   const evaluateMutation = useMutation({
     mutationFn: async (items: AcqItem[]) => {
-      const res = await apiRequest("POST", "/api/inventory/acquisition-evaluate", { items });
-      return res.json() as Promise<AcqResult>;
+      return await apiRequest("POST", "/api/inventory/acquisition-evaluate", { items }) as AcqResult;
     },
     onSuccess: (data) => setResult(data),
     onError: (e: any) => {
