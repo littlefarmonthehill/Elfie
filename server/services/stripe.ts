@@ -4,11 +4,19 @@ import { organizations, plans } from "@shared/schema";
 import type { Plan } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
+// Cached at startup by initStripeKey() called from server/index.ts
+let _stripeSecretKey: string | null = null;
+
+export function initStripeKey(key: string): void {
+  _stripeSecretKey = key;
+}
+
 function getStripeClient(): Stripe {
-  if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error("STRIPE_SECRET_KEY is not configured. Please add your Stripe secret key to connect billing.");
+  const key = _stripeSecretKey;
+  if (!key) {
+    throw new Error("Stripe secret key is not configured. Add it in Platform Settings.");
   }
-  return new Stripe(process.env.STRIPE_SECRET_KEY, {
+  return new Stripe(key, {
     apiVersion: "2025-01-27-ac.0",
   });
 }

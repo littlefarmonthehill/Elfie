@@ -27,7 +27,7 @@ async function getOpenAI(): Promise<OpenAI | null> {
   try {
     const [row] = await db.select({ key: platformSettings.openaiApiKey })
       .from(platformSettings).where(eq(platformSettings.id, 'platform')).limit(1);
-    const key = row?.key || process.env.OPENAI_API_KEY;
+    const key = row?.key;
     if (!key) return null;
     return new OpenAI({ apiKey: key });
   } catch { return null; }

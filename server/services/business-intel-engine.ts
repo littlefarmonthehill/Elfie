@@ -574,7 +574,7 @@ export async function generateOrgInsights(orgId: string): Promise<number> {
     .where(eq(platformSettings.id, 'platform'))
     .limit(1);
 
-  const apiKey = platRow?.openaiApiKey || process.env.OPENAI_API_KEY;
+  const apiKey = platRow?.openaiApiKey;
   if (!apiKey) {
     console.error('[BusinessIntel] No OpenAI API key available');
     return 0;

@@ -170,6 +170,15 @@ async function processBrickOwlOrder(
 
   const brickOwlOrderData = await getBrickOwlOrderDetails(apiKey, boOrder.order_id);
 
+  // Diagnostic: log all field names for orders where we expect a buyer note, so we can
+  // identify the exact API field name.  Remove once confirmed.
+  if (boOrder.order_id.toString() === '9061604') {
+    console.log(`[BO Debug] bo-9061604 all API keys: ${Object.keys(brickOwlOrderData).join(', ')}`);
+    const noteFields = Object.entries(brickOwlOrderData)
+      .filter(([k]) => /note|comment|message|buyer/i.test(k));
+    console.log(`[BO Debug] bo-9061604 note-like fields: ${JSON.stringify(noteFields)}`);
+  }
+
   const orderDate =
     safeTimestampToDate(boOrder.iso_order_time, boOrder.order_time) ??
     safeTimestampToDate(brickOwlOrderData.iso_order_time, brickOwlOrderData.order_time) ??
@@ -248,7 +257,9 @@ async function processBrickOwlOrder(
           shippingAmount:            sql`EXCLUDED.shipping_amount`,
           taxAmount:                 sql`EXCLUDED.tax_amount`,
           internalNotes:             sql`EXCLUDED.internal_notes`,
-          customerNotes:             sql`EXCLUDED.customer_notes`,
+          // COALESCE: never overwrite an existing note with null — preserve it if the
+          // API returns no note field (wrong field name, blank response, etc.)
+          customerNotes:             sql`COALESCE(EXCLUDED.customer_notes, orders.customer_notes)`,
           requestedShippingService:  sql`EXCLUDED.requested_shipping_service`,
           carrierCode:               sql`EXCLUDED.carrier_code`,
           serviceCode:               sql`EXCLUDED.service_code`,
@@ -288,6 +299,8 @@ async function processBrickOwlOrder(
         id: existingOrder.id,
         orderStatus: updatedStatus,
         previousStatus: existingOrder.orderStatus,
+        // Preserve existing note if the sync returns null (wrong field name, blank API response, etc.)
+        customerNotes: orderData.customerNotes ?? existingOrder.customerNotes ?? null,
       })
       .where(eq(orders.id, effectiveOrderId));
 

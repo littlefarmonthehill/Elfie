@@ -88,10 +88,10 @@ async function getBricklinkCredentials(orgId: string): Promise<{ consumerKey: st
       .from(platformSettings)
       .where(eq(platformSettings.id, 'platform'))
       .limit(1);
-    const consumerKey    = cleanToken(platRow?.blConsumerKey    || process.env.BRICKLINK_CONSUMER_KEY    || '');
-    const consumerSecret = cleanToken(platRow?.blConsumerSecret || process.env.BRICKLINK_CONSUMER_SECRET || '');
-    const tokenValue     = cleanToken(platRow?.blTokenValue     || process.env.BRICKLINK_TOKEN_VALUE     || '');
-    const tokenSecret    = cleanToken(platRow?.blTokenSecret    || process.env.BRICKLINK_TOKEN_SECRET    || '');
+    const consumerKey    = cleanToken(platRow?.blConsumerKey    || '');
+    const consumerSecret = cleanToken(platRow?.blConsumerSecret || '');
+    const tokenValue     = cleanToken(platRow?.blTokenValue     || '');
+    const tokenSecret    = cleanToken(platRow?.blTokenSecret    || '');
     if (!consumerKey || !consumerSecret || !tokenValue || !tokenSecret) {
       throw new Error('[BrickLink] Platform BrickLink credentials are not configured. Add them in Platform Settings.');
     }

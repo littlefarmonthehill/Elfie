@@ -21,6 +21,7 @@ import { startRebrickableSetsScheduler } from "./services/rebrickable-sets-sched
 import { startImageHarvester } from "./services/image-store";
 import { startService as startSegmentService, warmupClip } from "./services/segmentClient";
 import { pool, db, runMigrations } from "./db";
+import { initStripeKey } from "./services/stripe";
 import { blInventory, blCatalogClipEmbeddings, embeddingJobs } from "@shared/schema";
 import { sql as drizzleSqlCount, inArray } from "drizzle-orm";
 
@@ -411,6 +412,26 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
         console.log('[DB] Connection warmed up successfully');
       } catch (warmupErr) {
         console.error('[DB] Warm-up query failed (continuing anyway):', warmupErr);
+      }
+
+      // 4b-stripe. Load Stripe secret key from platform_settings into the in-memory cache.
+      // stripe.ts no longer reads process.env.STRIPE_SECRET_KEY — this is the sole source.
+      try {
+        const { platformSettings: platSettingsTable } = await import('@shared/schema');
+        const { eq: eqOp } = await import('drizzle-orm');
+        const [platRow] = await db
+          .select({ stripeSecretKey: platSettingsTable.stripeSecretKey })
+          .from(platSettingsTable)
+          .where(eqOp(platSettingsTable.id, 'platform'))
+          .limit(1);
+        if (platRow?.stripeSecretKey) {
+          initStripeKey(platRow.stripeSecretKey);
+          console.log('[Startup] Stripe secret key loaded from platform settings.');
+        } else {
+          console.warn('[Startup] No Stripe secret key found in platform settings — billing features unavailable.');
+        }
+      } catch (stripeInitErr: any) {
+        console.error('[Startup] Failed to load Stripe key (non-fatal):', stripeInitErr.message);
       }
 
       // 4c. Clear stale in_progress sync records from a previous crash

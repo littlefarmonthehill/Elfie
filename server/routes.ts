@@ -11866,7 +11866,7 @@ Format search_web URLs as markdown links.`;
       }
 
       const itemInsightsPlatSettings = await getPlatformSettings();
-      const apiKey = itemInsightsPlatSettings?.openaiApiKey || process.env.OPENAI_API_KEY;
+      const apiKey = itemInsightsPlatSettings?.openaiApiKey;
       if (!apiKey) return res.status(500).json({ error: "No AI API key configured" });
 
       const prompt = `You are a LEGO/BrickLink business advisor. Analyze this specific inventory item and provide actionable business insights.
@@ -12053,7 +12053,7 @@ Return ONLY a JSON array, no markdown, no explanation.`;
       }
 
       const catalogInsightsPlatSettings = await getPlatformSettings();
-      const apiKey = catalogInsightsPlatSettings?.openaiApiKey || process.env.OPENAI_API_KEY;
+      const apiKey = catalogInsightsPlatSettings?.openaiApiKey;
       if (!apiKey) return res.status(500).json({ error: "No AI API key configured" });
 
       const prompt = `You are a LEGO/BrickLink business advisor. This is a catalog item the seller does NOT currently have in inventory. Analyze the market data and provide insights to help them decide whether to source and sell this item.
@@ -13538,8 +13538,11 @@ Based on the pricing strategy, market data, and any relevant trends, provide:
 
 Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
 
+      const pomPlatSettings = await getPlatformSettings();
+      const pomOpenAiKey = pomPlatSettings?.openaiApiKey;
+      if (!pomOpenAiKey) return res.status(500).json({ error: "No AI API key configured" });
       const OpenAI = (await import('openai')).default;
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const openai = new OpenAI({ apiKey: pomOpenAiKey });
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
