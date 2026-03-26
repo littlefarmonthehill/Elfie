@@ -11,7 +11,7 @@ import BrickSpotterWelcome, { hasCompletedBsWelcome } from "@/components/BrickSp
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Organization } from "@shared/schema";
 import Header from "@/components/Header";
-import DashboardNav, { DashboardType } from "@/components/DashboardNav";
+import DashboardNav, { DashboardNavRail, DashboardType } from "@/components/DashboardNav";
 import SettingsModal from "@/components/SettingsModal";
 import InventoryDashboard from "@/components/InventoryDashboard";
 import SalesDashboard, { SalesDrawer } from "@/components/SalesDashboard";
@@ -1007,9 +1007,9 @@ export default function Home() {
 
         {isBrickspotterOnly ? (
           <>
-            {/* BS-only MOBILE layout — single GeneralDashboard, all sections */}
-            <div className="lg:hidden h-full overflow-y-auto">
-              <div className="h-full p-2 md:p-4 border-lego-yellow/30 bg-gradient-to-br from-lego-yellow/10 via-gray-950/80 to-lego-yellow/5 rounded-lg border overflow-hidden">
+            {/* BS-only MOBILE layout (< md) — single GeneralDashboard, all sections */}
+            <div className="md:hidden h-full overflow-y-auto">
+              <div className="h-full p-2 border-lego-yellow/30 bg-gradient-to-br from-lego-yellow/10 via-gray-950/80 to-lego-yellow/5 rounded-lg border overflow-hidden">
                 <GeneralDashboard
                   onItemClick={handleDashboardItemClick}
                   onOpenBrickanalyzer={() => setActiveInventoryDrawer('brickanalyzer')}
@@ -1020,11 +1020,17 @@ export default function Home() {
               </div>
             </div>
 
-            {/* BS-only DESKTOP layout — Plan info (left) + Ops Central (right), no inventory column */}
-            <div className="hidden lg:flex h-full p-4 gap-4">
-              <div className="flex h-full w-full rounded-2xl border border-white/8 bg-gradient-to-br from-gray-900/60 via-gray-950/80 to-gray-900/60 shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-hidden">
-                {/* Left column — Your Plan */}
-                <div className="w-[420px] xl:w-[480px] flex-shrink-0 h-full overflow-y-auto border-r border-white/5">
+            {/* BS-only TABLET + DESKTOP layout (md+) — Plan info (left) + Ops Central (right) */}
+            <div className="hidden md:flex h-full p-3 gap-3">
+              <div className="flex h-full w-full rounded-2xl border border-white/10 bg-gradient-to-br from-gray-900/50 via-gray-950/90 to-gray-900/50 shadow-[0_0_60px_rgba(0,0,0,0.5)] overflow-hidden relative">
+                <div className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-white/15 rounded-tl-2xl pointer-events-none z-10" />
+                <div className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 border-white/15 rounded-tr-2xl pointer-events-none z-10" />
+                <div className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 border-white/15 rounded-bl-2xl pointer-events-none z-10" />
+                <div className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-white/15 rounded-br-2xl pointer-events-none z-10" />
+                <div
+                  className="flex-shrink-0 h-full overflow-y-auto border-r border-white/5"
+                  style={{ width: 'clamp(260px, 32vw, 500px)' }}
+                >
                   <GeneralDashboard
                     onOpenBrickanalyzer={() => setActiveInventoryDrawer('brickanalyzer')}
                     onOpenBilling={() => setBillingOpen(true)}
@@ -1032,7 +1038,6 @@ export default function Home() {
                     section="plan"
                   />
                 </div>
-                {/* Right column — Ops Central with BrickSpotter launch */}
                 <div className="flex-1 h-full overflow-y-auto p-3">
                   <GeneralDashboard
                     onItemClick={handleDashboardItemClick}
@@ -1056,9 +1061,9 @@ export default function Home() {
           </>
         ) : (
           <>
-            {/* MOBILE layout (< lg): single column */}
-            <div className="lg:hidden h-full overflow-y-auto">
-              <div className={cn("h-full p-2 md:p-4 transition-[padding] duration-300", !navHidden && "pb-20 md:pb-24")}>
+            {/* MOBILE layout (< md): single column with bottom nav */}
+            <div className="md:hidden h-full overflow-y-auto">
+              <div className={cn("h-full p-2 transition-[padding] duration-300", !navHidden && "pb-20")}>
                 <div className={`h-full rounded-lg border overflow-hidden ${
                   activeDashboard === 'dashboard' ? 'border-lego-red/30 bg-gradient-to-br from-lego-red/15 via-gray-950/80 to-lego-red/5' :
                   activeDashboard === 'inventory' ? 'border-lego-blue/30 bg-gradient-to-br from-lego-blue/15 via-gray-950/80 to-lego-blue/5' :
@@ -1073,11 +1078,54 @@ export default function Home() {
               </div>
             </div>
 
-            {/* DESKTOP layout (lg+): Your Plan (left) | Dynamic Board (center 2x) | Ops Central (right) */}
-            <div className="hidden lg:flex h-full p-4 gap-4">
-              <div className="flex h-full w-full rounded-2xl border border-white/8 bg-gradient-to-br from-gray-900/60 via-gray-950/80 to-gray-900/60 shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-hidden">
-                {/* Left column — Your Plan */}
-                <div className="w-[345px] xl:w-[400px] flex-shrink-0 h-full overflow-y-auto border-r border-white/5">
+            {/* TABLET layout (md to lg): vertical rail nav + active dashboard */}
+            <div className="hidden md:flex lg:hidden h-full p-2 gap-2">
+              {/* Control panel outer frame */}
+              <div className="flex h-full w-full rounded-xl border border-white/10 bg-gradient-to-br from-gray-900/50 via-gray-950/90 to-gray-900/50 shadow-[0_0_60px_rgba(0,0,0,0.5)] overflow-hidden relative">
+                {/* Corner accent brackets — cockpit chrome */}
+                <div className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-white/15 rounded-tl-xl pointer-events-none z-10" />
+                <div className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 border-white/15 rounded-tr-xl pointer-events-none z-10" />
+                <div className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 border-white/15 rounded-bl-xl pointer-events-none z-10" />
+                <div className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-white/15 rounded-br-xl pointer-events-none z-10" />
+
+                {/* Vertical nav rail */}
+                <div className="w-[62px] flex-shrink-0 border-r border-white/5 bg-gray-950/60 h-full">
+                  <DashboardNavRail
+                    active={activeDashboard}
+                    onSelect={(d) => { closeActiveDrawer(); setActiveDashboard(d); }}
+                  />
+                </div>
+
+                {/* Active dashboard content */}
+                <div className="flex-1 min-w-0 h-full relative overflow-hidden">
+                  <div className={`h-full overflow-y-auto ${
+                    activeDashboard === 'dashboard' ? 'bg-gradient-to-br from-lego-red/8 via-transparent to-lego-red/4' :
+                    activeDashboard === 'inventory' ? 'bg-gradient-to-br from-lego-blue/8 via-transparent to-lego-blue/4' :
+                    activeDashboard === 'orders' ? 'bg-gradient-to-br from-lego-orange/8 via-transparent to-lego-orange/4' :
+                    activeDashboard === 'sales' ? 'bg-gradient-to-br from-lego-green/8 via-transparent to-lego-green/4' :
+                    'bg-gradient-to-br from-lego-yellow/8 via-transparent to-lego-yellow/4'
+                  }`}>
+                    {renderMobileDashboard()}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* DESKTOP layout (lg+): Ops Central (left) | Dynamic Board (center) | Your Plan (right) */}
+            <div className="hidden lg:flex h-full p-3 gap-3">
+              {/* Outer control panel frame */}
+              <div className="flex h-full w-full rounded-2xl border border-white/10 bg-gradient-to-br from-gray-900/50 via-gray-950/90 to-gray-900/50 shadow-[0_0_80px_rgba(0,0,0,0.6)] overflow-hidden relative">
+                {/* Corner accent brackets — mission control chrome */}
+                <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-white/15 rounded-tl-2xl pointer-events-none z-10" />
+                <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-white/15 rounded-tr-2xl pointer-events-none z-10" />
+                <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-white/15 rounded-bl-2xl pointer-events-none z-10" />
+                <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-white/15 rounded-br-2xl pointer-events-none z-10" />
+
+                {/* Left panel — Ops Central overview */}
+                <div
+                  className="flex-shrink-0 h-full overflow-y-auto border-r border-white/5 bg-gradient-to-b from-lego-red/5 via-transparent to-transparent"
+                  style={{ width: 'clamp(240px, 22vw, 370px)' }}
+                >
                   <GeneralDashboard
                     onItemClick={handleDashboardItemClick}
                     onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
@@ -1086,30 +1134,53 @@ export default function Home() {
                     onOpenBilling={() => setBillingOpen(true)}
                     onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
                     onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
-                    section="plan"
+                    section="ops"
                   />
                 </div>
 
-                {/* Center column — dynamic dashboard with drawer overlay */}
+                {/* Center panel — active dashboard with tool overlay */}
                 <div className="flex-1 h-full relative min-w-0 flex flex-col">
+                  {/* Tab bar embedded in center top */}
+                  <div className="flex-shrink-0 border-b border-white/5 bg-gray-950/40 flex items-center px-2 h-10">
+                    {([
+                      { id: 'inventory' as DashboardType, label: 'Inventory', activeClass: 'text-lego-blue border-lego-blue', dimClass: 'text-lego-blue/50 border-transparent' },
+                      { id: 'orders' as DashboardType, label: 'Orders', activeClass: 'text-lego-orange border-lego-orange', dimClass: 'text-lego-orange/50 border-transparent' },
+                      { id: 'marketing' as DashboardType, label: 'Marketing', activeClass: 'text-lego-yellow border-lego-yellow', dimClass: 'text-lego-yellow/50 border-transparent' },
+                      { id: 'sales' as DashboardType, label: 'Insights', activeClass: 'text-lego-green border-lego-green', dimClass: 'text-lego-green/50 border-transparent' },
+                    ]).map(({ id, label, activeClass, dimClass }) => (
+                      <button
+                        key={id}
+                        onClick={() => { closeActiveDrawer(); setActiveDashboard(id); }}
+                        data-testid={`desktop-tab-${id}`}
+                        className={cn(
+                          "px-3 h-full text-xs font-medium transition-colors border-b-2 -mb-px",
+                          activeDashboard === id ? activeClass : dimClass
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
                   <div className="flex-1 overflow-hidden min-h-0">
                     <div className={`h-full overflow-y-auto ${
-                      activeDashboard === 'inventory' ? 'bg-gradient-to-br from-lego-blue/10 via-transparent to-lego-blue/5' :
-                      activeDashboard === 'orders' ? 'bg-gradient-to-br from-lego-orange/10 via-transparent to-lego-orange/5' :
-                      activeDashboard === 'sales' ? 'bg-gradient-to-br from-lego-green/10 via-transparent to-lego-green/5' :
-                      'bg-gradient-to-br from-lego-yellow/10 via-transparent to-lego-yellow/5'
+                      activeDashboard === 'inventory' ? 'bg-gradient-to-br from-lego-blue/8 via-transparent to-lego-blue/4' :
+                      activeDashboard === 'orders' ? 'bg-gradient-to-br from-lego-orange/8 via-transparent to-lego-orange/4' :
+                      activeDashboard === 'sales' ? 'bg-gradient-to-br from-lego-green/8 via-transparent to-lego-green/4' :
+                      'bg-gradient-to-br from-lego-yellow/8 via-transparent to-lego-yellow/4'
                     }`}>
-                      <div style={{ transformOrigin: 'top left', transform: 'scale(0.88)', width: '113.6%' }}>
-                        {renderDynamicDashboard()}
-                      </div>
+                      {renderDynamicDashboard()}
                     </div>
                   </div>
 
-                  {/* Drawer overlay — covers entire dynamic board */}
+                  {/* Drawer overlay — covers entire center panel */}
                   {((activeInventoryDrawer && activeInventoryDrawer !== 'inventoryhealth') || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer || billingOpen || detailModal.open) && (
-                    <div className="absolute inset-0 z-20 flex flex-col">
-                      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={() => { closeActiveDrawer(); setDetailModal({ open: false, data: null }); }} />
-                      <div className="relative flex-1 bg-gray-950/95 border border-white/10 rounded-lg m-3 overflow-y-auto shadow-2xl animate-[slideUp_250ms_ease-out]">
+                    <div className="absolute inset-0 z-20 flex flex-col" style={{ top: '2.5rem' }}>
+                      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={() => { closeActiveDrawer(); setDetailModal({ open: false, data: null }); }} />
+                      <div className={cn(
+                        "relative flex-1 bg-gray-950/95 border border-white/10 rounded-lg shadow-2xl animate-[slideUp_250ms_ease-out] overflow-hidden flex flex-col",
+                        activeInventoryDrawer === 'brickanalyzer' ? "m-1" : "m-2"
+                      )}>
                         {detailModal.open ? (
                           <DetailModal
                             open={detailModal.open}
@@ -1126,8 +1197,11 @@ export default function Home() {
                   )}
                 </div>
 
-                {/* Right column — Ops Central cards */}
-                <div className="w-[400px] xl:w-[450px] flex-shrink-0 h-full overflow-y-auto border-l border-white/5 p-3">
+                {/* Right panel — Your Plan / subscription info */}
+                <div
+                  className="flex-shrink-0 h-full overflow-y-auto border-l border-white/5 bg-gradient-to-b from-lego-blue/5 via-transparent to-transparent"
+                  style={{ width: 'clamp(260px, 24vw, 400px)' }}
+                >
                   <GeneralDashboard
                     onItemClick={handleDashboardItemClick}
                     onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
@@ -1136,7 +1210,7 @@ export default function Home() {
                     onOpenBilling={() => setBillingOpen(true)}
                     onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
                     onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
-                    section="ops"
+                    section="plan"
                   />
                 </div>
               </div>
@@ -1360,13 +1434,13 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      {/* Bottom Nav — mobile/tablet only; hidden for BrickSpotter-only plans */}
+      {/* Bottom Nav — phone only (< md); tablets use the vertical rail, desktop has tab bar */}
       {!isBrickspotterOnly && (
-        <div className="lg:hidden">
+        <div className="md:hidden">
           <DashboardNav
             active={activeDashboard}
             onSelect={(d) => { closeActiveDrawer(); setActiveDashboard(d); }}
-            hideOpsCentral={isDesktop}
+            hideOpsCentral={false}
             onHiddenChange={setNavHidden}
           />
         </div>

@@ -1725,12 +1725,12 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
             data-testid="input-brickanalyzer-file"
           />
           <button
-            className="w-full flex flex-col items-center justify-center gap-3 py-16 sm:py-20 text-center rounded-xl border border-dashed border-gray-700 hover:border-purple-500/50 hover:bg-purple-950/20 transition-colors cursor-pointer"
+            className="w-full flex flex-col items-center justify-center gap-3 py-16 sm:py-24 lg:py-0 lg:min-h-[45vh] text-center rounded-xl border border-dashed border-gray-700 hover:border-purple-500/50 hover:bg-purple-950/20 transition-colors cursor-pointer"
             data-testid="button-brickanalyzer-idle-trigger"
             onClick={() => fileInputRef.current?.click()}
           >
-            <Camera className="w-12 h-12 sm:w-28 sm:h-28 text-gray-500" />
-            <p className="text-sm sm:text-3xl text-gray-400">
+            <Camera className="w-12 h-12 sm:w-28 sm:h-28 lg:w-32 lg:h-32 text-gray-500" />
+            <p className="text-sm sm:text-3xl lg:text-2xl text-gray-400">
               Tap to take a photo or pick from your library.
             </p>
           </button>

@@ -24,7 +24,7 @@ interface DashboardNavProps {
   onHiddenChange?: (hidden: boolean) => void;
 }
 
-const dashboards: { id: DashboardType; label: string; color: string; activeClass: string; inactiveClass: string; icon: any }[] = [
+export const dashboards: { id: DashboardType; label: string; color: string; activeClass: string; inactiveClass: string; icon: any }[] = [
   { id: 'dashboard', label: 'Ops Central', color: 'lego-red', activeClass: 'text-lego-red', inactiveClass: 'text-lego-red/75', icon: Rocket },
   { id: 'inventory', label: 'Inventory', color: 'lego-blue', activeClass: 'text-lego-blue', inactiveClass: 'text-lego-blue/75', icon: ToyBrick },
   { id: 'orders', label: 'Orders', color: 'lego-orange', activeClass: 'text-lego-orange', inactiveClass: 'text-lego-orange/75', icon: Orbit },
@@ -143,10 +143,10 @@ export default function DashboardNav({ active, onSelect, hideOpsCentral, onHidde
                       dashboard.color === 'lego-green' && "bg-lego-green",
                     )} />
                   )}
-                  <Icon className="relative w-5 h-5 md:w-6 md:h-6 shrink-0" strokeWidth={isActive ? 2.2 : 1.6} />
+                  <Icon className="relative w-5 h-5 shrink-0" strokeWidth={isActive ? 2.2 : 1.6} />
                 </div>
                 <span className={cn(
-                  "text-[10px] md:text-xs font-medium truncate max-w-full",
+                  "text-[10px] font-medium truncate max-w-full",
                   isActive && "font-semibold"
                 )}>
                   {dashboard.label}
@@ -168,5 +168,76 @@ export default function DashboardNav({ active, onSelect, hideOpsCentral, onHidde
         </div>
       </nav>
     </>
+  );
+}
+
+interface DashboardNavRailProps {
+  active: DashboardType;
+  onSelect: (dashboard: DashboardType) => void;
+  hideOpsCentral?: boolean;
+  compact?: boolean;
+}
+
+export function DashboardNavRail({ active, onSelect, hideOpsCentral, compact }: DashboardNavRailProps) {
+  const filtered = hideOpsCentral ? dashboards.filter(d => d.id !== 'dashboard') : dashboards;
+
+  return (
+    <div className="flex flex-col items-center py-2 gap-0.5 h-full overflow-hidden">
+      {filtered.map((dashboard) => {
+        const isActive = active === dashboard.id;
+        const Icon = dashboard.icon;
+
+        return (
+          <button
+            key={dashboard.id}
+            onClick={() => onSelect(dashboard.id)}
+            data-testid={`rail-tab-${dashboard.id}`}
+            title={dashboard.label}
+            className={cn(
+              "relative flex flex-col items-center gap-1 w-full transition-colors duration-200 rounded-md",
+              compact ? "py-2 px-1" : "py-2.5 px-1",
+              isActive ? dashboard.activeClass : dashboard.inactiveClass
+            )}
+          >
+            {isActive && (
+              <div className={cn(
+                "absolute left-0 top-2 bottom-2 w-[2px] rounded-full",
+                dashboard.color === 'lego-red' && "bg-lego-red shadow-[0_0_6px_2px] shadow-lego-red/50",
+                dashboard.color === 'lego-blue' && "bg-lego-blue shadow-[0_0_6px_2px] shadow-lego-blue/50",
+                dashboard.color === 'lego-orange' && "bg-lego-orange shadow-[0_0_6px_2px] shadow-lego-orange/50",
+                dashboard.color === 'lego-yellow' && "bg-lego-yellow shadow-[0_0_6px_2px] shadow-lego-yellow/50",
+                dashboard.color === 'lego-green' && "bg-lego-green shadow-[0_0_6px_2px] shadow-lego-green/50",
+              )} />
+            )}
+
+            <div className="relative">
+              {isActive && (
+                <div className={cn(
+                  "absolute inset-0 rounded-full blur-md scale-[2.5] opacity-30",
+                  dashboard.color === 'lego-red' && "bg-lego-red",
+                  dashboard.color === 'lego-blue' && "bg-lego-blue",
+                  dashboard.color === 'lego-orange' && "bg-lego-orange",
+                  dashboard.color === 'lego-yellow' && "bg-lego-yellow",
+                  dashboard.color === 'lego-green' && "bg-lego-green",
+                )} />
+              )}
+              <Icon
+                className={cn("relative shrink-0", compact ? "w-4 h-4" : "w-5 h-5")}
+                strokeWidth={isActive ? 2.2 : 1.6}
+              />
+            </div>
+
+            {!compact && (
+              <span className={cn(
+                "text-[9px] font-medium leading-tight text-center px-0.5 w-full",
+                isActive && "font-semibold"
+              )}>
+                {dashboard.label}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
   );
 }
