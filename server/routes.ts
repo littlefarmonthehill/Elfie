@@ -5070,18 +5070,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch order items
       const items = await db.select().from(orderDetails).where(eq(orderDetails.orderId, orderId));
 
-      // Look up BrickLink part numbers for items missing the stored item_no
-      // (backfill for older order records synced before item_no was added)
-      const missingItemNoIds = items
-        .filter(i => !i.itemNo && i.bricklinkInventoryId != null)
+      // Look up BrickLink part numbers and current quantities for all items that
+      // have a bricklinkInventoryId (covers both the backfill case and stock-warning logic).
+      const allInventoryIds = items
+        .filter(i => i.bricklinkInventoryId != null)
         .map(i => i.bricklinkInventoryId as number);
       const fallbackItemNoMap: Record<number, string> = {};
-      if (missingItemNoIds.length > 0) {
+      const currentQtyMap: Record<number, number> = {};
+      if (allInventoryIds.length > 0) {
         const blItems = await db
-          .select({ id: blInventory.id, itemNo: blInventory.itemNo })
+          .select({ id: blInventory.id, itemNo: blInventory.itemNo, quantity: blInventory.quantity })
           .from(blInventory)
-          .where(inArray(blInventory.id, missingItemNoIds));
-        for (const bi of blItems) fallbackItemNoMap[bi.id] = bi.itemNo;
+          .where(inArray(blInventory.id, allInventoryIds));
+        for (const bi of blItems) {
+          fallbackItemNoMap[bi.id] = bi.itemNo;
+          currentQtyMap[bi.id] = bi.quantity;
+        }
       }
 
       // Fetch adjustments (refunds, credits)
@@ -5152,15 +5156,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         weight: order.weight ? Number(order.weight) : null,
         weightUnits: order.weightUnits || 'oz',
-        items: items.map(item => ({
-          partNumber: item.itemNo
-            || (item.bricklinkInventoryId ? fallbackItemNoMap[item.bricklinkInventoryId] : undefined)
-            || item.sku
-            || '',
-          name: item.name,
-          quantity: item.quantity,
-          price: Number(item.unitPrice) || 0,
-        })),
+        items: items.map(item => {
+          const invId = item.bricklinkInventoryId;
+          const currentInventoryQty = invId != null && invId in currentQtyMap ? currentQtyMap[invId] : null;
+          // stockWarning: current stock on hand is less than what was ordered.
+          // Covers both "already at 0" (full sellout) and partial stock shortage.
+          const stockWarning = currentInventoryQty !== null && currentInventoryQty < item.quantity;
+          return {
+            partNumber: item.itemNo
+              || (invId ? fallbackItemNoMap[invId] : undefined)
+              || item.sku
+              || '',
+            name: item.name,
+            quantity: item.quantity,
+            price: Number(item.unitPrice) || 0,
+            currentInventoryQty,
+            stockWarning,
+          };
+        }),
         shipping: Number(order.shippingAmount) || 0,
         tax: Number(order.taxAmount) || 0,
         total: Number(order.orderTotal) || 0,

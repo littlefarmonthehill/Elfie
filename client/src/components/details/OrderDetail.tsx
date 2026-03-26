@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Package, DollarSign, User, MapPin, Calendar, Truck, RefreshCcw, Pencil, X, Save, Weight, RotateCcw, CreditCard, ShieldCheck, Plus, MessageCircle } from "lucide-react";
+import { Package, DollarSign, User, MapPin, Calendar, Truck, RefreshCcw, Pencil, X, Save, Weight, RotateCcw, CreditCard, ShieldCheck, Plus, MessageCircle, AlertTriangle } from "lucide-react";
 import { shortCode } from "@/components/PackingSlip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,8 @@ interface OrderDetailProps {
       name: string;
       quantity: number;
       price: number;
+      currentInventoryQty?: number | null;
+      stockWarning?: boolean;
     }>;
     shipping?: number;
     tax?: number;
@@ -470,10 +472,22 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
       )}
 
       {/* Items - Scrollable Table */}
-      <div className="bg-gradient-to-r from-lego-green/10 via-lego-green/5 to-transparent border border-lego-green/30 rounded-lg overflow-hidden">
-        <div className="flex items-center gap-2 px-3 pt-2 pb-1.5">
-          <Package className="h-4 w-4 text-lego-green" />
-          <h4 className="text-[10px] md:text-sm font-black text-lego-green">ITEMS ({data.items.length})</h4>
+      {(() => {
+        const stockIssueItems = data.items.filter(i => i.stockWarning);
+        const hasStockIssue = stockIssueItems.length > 0;
+        return (
+      <div className={`bg-gradient-to-r ${hasStockIssue ? 'from-lego-red/10 via-lego-red/5' : 'from-lego-green/10 via-lego-green/5'} to-transparent border ${hasStockIssue ? 'border-lego-red/40' : 'border-lego-green/30'} rounded-lg overflow-hidden`}>
+        <div className="flex items-center justify-between gap-2 px-3 pt-2 pb-1.5">
+          <div className="flex items-center gap-2">
+            <Package className={`h-4 w-4 ${hasStockIssue ? 'text-lego-red' : 'text-lego-green'}`} />
+            <h4 className={`text-[10px] md:text-sm font-black ${hasStockIssue ? 'text-lego-red' : 'text-lego-green'}`}>ITEMS ({data.items.length})</h4>
+          </div>
+          {hasStockIssue && (
+            <div className="flex items-center gap-1.5 text-[9px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded px-2 py-0.5" data-testid="stock-warning-banner">
+              <AlertTriangle className="h-3 w-3 shrink-0" />
+              <span>{stockIssueItems.length === 1 ? '1 ITEM' : `${stockIssueItems.length} ITEMS`} SHORT ON STOCK</span>
+            </div>
+          )}
         </div>
         
         <ScrollArea className="h-[180px] px-3 pb-2">
@@ -486,10 +500,30 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
               <div className="col-span-2 text-right">TOTAL</div>
             </div>
             {data.items.map((item, index) => (
-              <div key={index} className="grid grid-cols-12 gap-2 text-[10px] md:text-sm items-center py-1 hover:bg-lego-green/5 rounded transition-colors">
-                <div className="col-span-2 font-mono font-bold text-lego-blue truncate" title={item.partNumber}>{item.partNumber}</div>
+              <div
+                key={index}
+                className={`grid grid-cols-12 gap-2 text-[10px] md:text-sm items-center py-1 rounded transition-colors ${item.stockWarning ? 'bg-amber-400/5 hover:bg-amber-400/10' : 'hover:bg-lego-green/5'}`}
+                data-testid={`order-item-row-${index}`}
+              >
+                <div className="col-span-2 font-mono font-bold text-lego-blue truncate flex items-center gap-1" title={item.partNumber}>
+                  {item.stockWarning && (
+                    <AlertTriangle
+                      className="h-3 w-3 shrink-0 text-amber-400"
+                      title={item.currentInventoryQty === 0
+                        ? 'Out of stock — 0 units on hand'
+                        : `Only ${item.currentInventoryQty} in stock (${item.quantity} ordered)`}
+                      data-testid={`stock-warning-icon-${index}`}
+                    />
+                  )}
+                  <span className="truncate">{item.partNumber}</span>
+                </div>
                 <div className="col-span-5 text-white truncate" title={item.name}>{item.name}</div>
-                <div className="col-span-1 text-center font-bold text-gray-300">{item.quantity}</div>
+                <div className={`col-span-1 text-center font-bold ${item.stockWarning ? 'text-amber-400' : 'text-gray-300'}`}>
+                  {item.quantity}
+                  {item.stockWarning && item.currentInventoryQty !== null && item.currentInventoryQty !== undefined && (
+                    <span className="block text-[8px] text-amber-500/80 font-normal leading-none">{item.currentInventoryQty} avail</span>
+                  )}
+                </div>
                 <div className="col-span-2 text-right font-mono text-gray-300">${item.price.toFixed(2)}</div>
                 <div className="col-span-2 text-right font-mono font-bold text-lego-green">${(item.quantity * item.price).toFixed(2)}</div>
               </div>
@@ -497,6 +531,8 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
           </div>
         </ScrollArea>
       </div>
+        );
+      })()}
 
       {/* Financial Summary */}
       <div className="grid grid-cols-2 gap-3">
