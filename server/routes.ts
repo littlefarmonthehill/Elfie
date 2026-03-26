@@ -5157,7 +5157,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     o.orderStatus === 'awaiting_payment' ? 'Pending' as const :
                     'Paid' as const,
           })),
+        mergeGroupId: order.mergeGroupId ?? null,
+        mergeLinkedOrders: [] as Array<{ orderId: string; orderNumber: string | null; orderTotal: string | null; orderStatus: string }>,
       };
+
+      // If this order belongs to a merge group, fetch the sibling orders in the same group.
+      if (order.mergeGroupId) {
+        const siblings = await db
+          .select({ id: orders.id, orderNumber: orders.orderNumber, orderTotal: orders.orderTotal, orderStatus: orders.orderStatus })
+          .from(orders)
+          .where(and(eq(orders.mergeGroupId, order.mergeGroupId), eq(orders.orgId, orgId)));
+        formattedOrder.mergeLinkedOrders = siblings
+          .filter(s => s.id !== orderId)
+          .map(s => ({ orderId: s.id, orderNumber: s.orderNumber, orderTotal: s.orderTotal, orderStatus: s.orderStatus }));
+      }
       
       res.json(formattedOrder);
     } catch (error) {

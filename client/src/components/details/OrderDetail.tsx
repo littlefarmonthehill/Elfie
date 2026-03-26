@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Package, DollarSign, User, MapPin, Calendar, Truck, RefreshCcw, Pencil, X, Save, Weight, RotateCcw, CreditCard, ShieldCheck } from "lucide-react";
+import { Package, DollarSign, User, MapPin, Calendar, Truck, RefreshCcw, Pencil, X, Save, Weight, RotateCcw, CreditCard, ShieldCheck, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,6 +67,13 @@ interface OrderDetailProps {
       orderDate: string;
       total: number;
       status: 'Pending' | 'Paid' | 'Shipped' | 'Cancelled';
+    }>;
+    mergeGroupId?: string | null;
+    mergeLinkedOrders?: Array<{
+      orderId: string;
+      orderNumber: string | null;
+      orderTotal: string | null;
+      orderStatus: string;
     }>;
   };
   onOrderSelect?: (orderId: string) => void;
@@ -235,6 +242,24 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
           <div className="flex items-center gap-2">
             <h3 className="text-[10px] md:text-sm font-black text-white">ORDER #{data.orderNumber!}</h3>
             <Badge className={getStatusColor(data.status!) + ' text-[9px] md:text-xs h-5 px-2 font-bold'}>{data.status!}</Badge>
+            {data.mergeGroupId && (() => {
+              const linked = data.mergeLinkedOrders?.[0];
+              const linkedNum = linked
+                ? (linked.orderNumber ?? linked.orderId.replace(/^bo-/, 'BO.').replace(/-m\d+$/, ''))
+                : data.mergeGroupId.replace(/^bo-/, 'BO.').replace(/-m\d+$/, '');
+              return (
+                <button
+                  onClick={() => linked && onOrderSelect?.(linked.orderId)}
+                  disabled={!linked}
+                  className="flex items-center gap-0.5 text-[10px] text-violet-400/80 font-mono shrink-0 hover:text-violet-300 disabled:cursor-default"
+                  title={`Merged with ${linkedNum}`}
+                  data-testid="button-merge-group-icon"
+                >
+                  <Plus className="w-2.5 h-2.5" />
+                  {linkedNum}
+                </button>
+              );
+            })()}
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 text-[9px] md:text-xs text-gray-400">
