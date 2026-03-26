@@ -283,7 +283,13 @@ async function processBrickOwlOrder(
 
       if (existingItem) {
         // Item already recorded — check if quantity changed (happens when BrickOwl merges orders)
-        const newQty = item.ordered_quantity ?? existingItem.quantity;
+        // Parse ordered_quantity to integer: the BO API returns it as a string (e.g. "11"),
+        // while existingItem.quantity is a number from the DB. Without the parse, strict
+        // inequality (11 !== "11") evaluates to true for EVERY re-sync, stampeding
+        // merge_detected_at and re-triggering adjustInventoryForOrder unnecessarily.
+        const newQty = item.ordered_quantity != null
+          ? parseInt(String(item.ordered_quantity), 10)
+          : existingItem.quantity;
         if (existingItem.quantity !== newQty) {
           await db
             .update(orderDetails)

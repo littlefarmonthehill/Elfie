@@ -4977,7 +4977,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 order.orderStatus === 'awaiting_payment' ? 'Pending' as const :
                 'Paid' as const,
         customer: {
-          name: shipToData.name || '',
+          name: shipToData.name || order.customerUsername || '',
           email: order.customerEmail || '',
           address: shipToData.street1 || shipToData.address1 || '',
           address2: shipToData.street2 || shipToData.address2 || '',
@@ -15964,6 +15964,9 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
           return (a.colorName || '').localeCompare(b.colorName || '');
         });
         
+        // Fall back to customerUsername when ship_name is absent (common for BO orders)
+        if (!shipTo.name) shipTo.name = order.customerUsername || '';
+
         return {
           orderNumber: order.orderNumber,
           orderDate: order.orderDate,
