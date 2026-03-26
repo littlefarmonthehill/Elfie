@@ -204,17 +204,15 @@ async function processBrickOwlOrder(
     }),
     billTo: null,
     shipByDate: null,
-    // BrickOwl does not expose a single "grand_total" — compute from components.
-    // base_order_total = item subtotal only; add shipping + tax for the true order total.
-    // Fall back to grand_total / total_price in case a future API version exposes it directly.
+    // BrickOwl's base_order_total IS the full order total (items + shipping already included).
+    // ship_total and base_tax_amount are stored separately for the breakdown display only —
+    // do NOT add them to base_order_total or shipping will be double-counted.
     ...(() => {
-      const itemsTotal  = Number(brickOwlOrderData.base_order_total  ?? brickOwlOrderData.total_price ?? brickOwlOrderData.order_total ?? brickOwlOrderData.sub_total ?? 0);
+      const orderTotal  = Number(brickOwlOrderData.base_order_total  ?? brickOwlOrderData.total_price ?? brickOwlOrderData.order_total ?? brickOwlOrderData.sub_total ?? 0);
       const shipTotal   = Number(brickOwlOrderData.base_ship_amount   ?? brickOwlOrderData.ship_total  ?? brickOwlOrderData.ship_cost   ?? boOrder.ship_total ?? 0);
       const taxTotal    = Number(brickOwlOrderData.base_tax_amount    ?? brickOwlOrderData.tax_amount  ?? brickOwlOrderData.vat         ?? brickOwlOrderData.tax ?? 0);
-      const grandTotal  = Number(brickOwlOrderData.grand_total ?? 0);
-      const computedTotal = grandTotal > 0 ? grandTotal : (itemsTotal + shipTotal + taxTotal);
       return {
-        orderTotal:     computedTotal.toFixed(2),
+        orderTotal:     orderTotal.toFixed(2),
         shippingAmount: shipTotal.toFixed(2),
         taxAmount:      taxTotal.toFixed(2),
       };
