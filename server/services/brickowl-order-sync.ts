@@ -276,6 +276,15 @@ async function processBrickOwlOrder(
 
   let itemsChanged = false;
 
+  // Collect incremental items produced by a merge:
+  // — for quantity increases on existing items: the delta quantity
+  // — for genuinely new items: the full quantity
+  const deltaItems: Array<{
+    item: any;
+    brickLinkInvId: number | null;
+    deltaQty: number;
+  }> = [];
+
   for (const item of items) {
     try {
       const lineItemKey = `${boOrder.order_id}-${item.lot_id}`;
@@ -296,12 +305,19 @@ async function processBrickOwlOrder(
           ? parseInt(String(item.ordered_quantity), 10)
           : existingItem.quantity;
         if (existingItem.quantity !== newQty) {
+          const deltaQty = newQty - existingItem.quantity;
+          // Update the existing item to the new total so future syncs don't re-detect this change.
           await db
             .update(orderDetails)
             .set({ quantity: newQty })
             .where(eq(orderDetails.id, existingItem.id));
+          if (deltaQty > 0) {
+            // Only positive deltas represent items added by the merge.
+            // Carry the BL inventory ID forward from the existing DB record.
+            deltaItems.push({ item, brickLinkInvId: existingItem.bricklinkInventoryId ?? null, deltaQty });
+          }
           itemsChanged = true;
-          console.log(`🔀 Order ${effectiveOrderId}: lot ${item.lot_id} qty updated ${existingItem.quantity} → ${newQty} (merge detected)`);
+          console.log(`🔀 Order ${effectiveOrderId}: lot ${item.lot_id} qty updated ${existingItem.quantity} → ${newQty} (merge detected, delta: ${deltaQty})`);
         }
         continue;
       }
@@ -346,6 +362,8 @@ async function processBrickOwlOrder(
         }
       }
 
+      // Genuinely new item — insert it into the existing order so future syncs don't
+      // re-detect it, and record it as a delta item for the new merge order.
       await db.insert(orderDetails).values([{
         orderId: effectiveOrderId,
         lineItemKey,
@@ -369,6 +387,7 @@ async function processBrickOwlOrder(
         fulfilledAt: null,
       }]);
       result.orderDetailsAdded++;
+      deltaItems.push({ item, brickLinkInvId, deltaQty: parseInt(String(item.ordered_quantity ?? 1), 10) });
       itemsChanged = true;
       console.log(`➕ Order ${effectiveOrderId}: new item lot ${item.lot_id} added (genuine merge or late addition)`);
 
@@ -383,35 +402,87 @@ async function processBrickOwlOrder(
     adjustInventoryForOrder(effectiveOrderId, 'bo-new-order').catch(error => {
       console.error(`⚠️ Inventory adjustment failed for new BrickOwl order ${effectiveOrderId}:`, error);
     });
-  } else if (itemsChanged) {
-    // Items were added or quantities changed on an existing order — genuine BrickOwl merge.
-    // 1. Stamp merge_detected_at so the fulfillment UI can warn the operator.
-    // 2. Only call adjustInventoryForOrder if the order has not yet been deducted.
-    //    If inventoryDeducted=true, the full-order adjustment would be a no-op anyway
-    //    (the atomic claim guard prevents re-deduction), but we read the flag explicitly
-    //    here to make the intent clear and prevent any future edge-case double-deduction.
-    console.log(`🔀 Order ${effectiveOrderId}: merge detected — stamping merge_detected_at`);
+  } else if (itemsChanged && deltaItems.length > 0) {
+    // Items were added or quantities increased on an existing order — genuine BrickOwl merge.
+    // Create a new "delta" order that contains only the additional items so the operator
+    // can process it like any regular order.  Both the original and the delta order are
+    // linked via mergeGroupId so the UI can display the "+" indicator on each.
+    const mergeGroupId = effectiveOrderId;
+    const deltaOrderId = `${effectiveOrderId}-m${Date.now()}`;
+    const deltaOrderNumber = `${boOrder.order_id}-M`;
+
+    console.log(`🔀 Order ${effectiveOrderId}: merge detected — creating delta order ${deltaOrderId}`);
+
+    await db.insert(orders).values([{
+      id: deltaOrderId,
+      orderNumber: deltaOrderNumber,
+      orderKey: `BO.${deltaOrderNumber}`,
+      marketplace: 'BrickOwl',
+      orderDate: orderData.orderDate,
+      orderStatus: orderData.orderStatus,
+      previousStatus: null,
+      customerUsername: orderData.customerUsername,
+      customerEmail: orderData.customerEmail,
+      shipTo: orderData.shipTo,
+      billTo: null,
+      shipByDate: null,
+      orderTotal: '0',
+      shippingAmount: '0',
+      taxAmount: '0',
+      internalNotes: null,
+      customerNotes: orderData.customerNotes,
+      requestedShippingService: orderData.requestedShippingService,
+      carrierCode: null,
+      serviceCode: null,
+      orgId,
+      workflowStatus: 'new',
+      mergeGroupId,
+    }]);
+
+    // Tag the original order with the same mergeGroupId so both show the "+" indicator.
     await db
       .update(orders)
-      .set({ mergeDetectedAt: new Date() })
+      .set({ mergeGroupId })
       .where(eq(orders.id, effectiveOrderId));
 
-    const [orderForMerge] = await db
-      .select({ inventoryDeducted: orders.inventoryDeducted })
-      .from(orders)
-      .where(eq(orders.id, effectiveOrderId))
-      .limit(1);
-
-    if (!orderForMerge?.inventoryDeducted) {
-      // Order not yet deducted — treat merge items as the initial deduction
-      adjustInventoryForOrder(effectiveOrderId, 'bo-merge').catch(error => {
-        console.error(`⚠️ Inventory adjustment failed after merge for BrickOwl order ${effectiveOrderId}:`, error);
-      });
-    } else {
-      // Already deducted — newly merged items are flagged via mergeDetectedAt for
-      // operator review. A future delta-adjustment path will handle auto-deduction
-      // of only the incremental quantities.
-      console.log(`ℹ️ Order ${effectiveOrderId}: merge detected but inventory already deducted — skipping re-adjustment. Operator should review the merge warning.`);
+    // Insert the delta line items into the new order.
+    for (const { item, brickLinkInvId, deltaQty } of deltaItems) {
+      const lineItemKey = `${deltaOrderId}-${item.lot_id}`;
+      try {
+        await db.insert(orderDetails).values([{
+          orderId: deltaOrderId,
+          lineItemKey,
+          sku: brickLinkInvId ? String(brickLinkInvId) : null,
+          name: item.name || '',
+          quantity: deltaQty,
+          unitPrice: item.base_price ? item.base_price.toString() : '0',
+          taxAmount: null,
+          weight: item.weight ? item.weight.toString() : null,
+          weightUnits: null,
+          description: item.public_note || null,
+          options: null,
+          customField1: null,
+          customField2: null,
+          customField3: null,
+          bricklinkInventoryId: brickLinkInvId,
+          boLotId: item.lot_id != null ? String(item.lot_id) : null,
+          colorId: null,
+          condition: null,
+          fulfilled: false,
+          fulfilledAt: null,
+        }]);
+        result.orderDetailsAdded++;
+      } catch (err: any) {
+        console.error(`✗ Error inserting delta item for merge order ${deltaOrderId}:`, err);
+        result.errors.push(`Merge order ${deltaOrderId} item error: ${err.message}`);
+      }
     }
+
+    result.ordersAdded++;
+
+    // Trigger inventory adjustment for the new delta order.
+    adjustInventoryForOrder(deltaOrderId, 'bo-merge-delta').catch(error => {
+      console.error(`⚠️ Inventory adjustment failed for delta merge order ${deltaOrderId}:`, error);
+    });
   }
 }
