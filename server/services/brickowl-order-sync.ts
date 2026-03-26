@@ -169,18 +169,6 @@ async function processBrickOwlOrder(
 
   const brickOwlOrderData = await getBrickOwlOrderDetails(apiKey, boOrder.order_id);
 
-  // Temporary diagnostic: log every key that might carry shipping cost so we can
-  // identify the correct field name from the BrickOwl API response.
-  const shipDiag: Record<string, any> = {};
-  for (const key of Object.keys(brickOwlOrderData)) {
-    if (/ship|shipp|surcharge|delivery|postage|freight|cost|total|amount|price|fee/i.test(key)) {
-      shipDiag[key] = brickOwlOrderData[key];
-    }
-  }
-  // Also dump the flat list fields in case ship_total lives there
-  console.log(`🦉 [ShipDiag] order ${boOrder.order_id} — view fields:`, JSON.stringify(shipDiag));
-  console.log(`🦉 [ShipDiag] order ${boOrder.order_id} — list fields: ship_total=${boOrder.ship_total} total=${boOrder.total} grand_total=${boOrder.grand_total}`);
-
   const orderDate =
     safeTimestampToDate(boOrder.iso_order_time, boOrder.order_time) ??
     safeTimestampToDate(brickOwlOrderData.iso_order_time, brickOwlOrderData.order_time) ??
@@ -219,16 +207,16 @@ async function processBrickOwlOrder(
       0
     ).toString(),
     shippingAmount: (
-      // BO documented field (order/view). Try it first so non-standard aliases don't
-      // short-circuit at 0 if the API happens to include them with a zero value.
+      // Confirmed field name from BrickOwl order/view endpoint
+      brickOwlOrderData.ship_total ??
+      // Fallback aliases (undocumented / older API versions)
       brickOwlOrderData.base_ship_amount ??
-      // ship_total is returned by the order/list API and the manual-import path
-      boOrder.ship_total ??
-      // Legacy / undocumented aliases kept as final fallbacks
       brickOwlOrderData.ship_cost ??
       brickOwlOrderData.shipping_cost ??
       brickOwlOrderData.total_shipping ??
       brickOwlOrderData.shipping ??
+      // boOrder is from order/list which does NOT carry ship_total — last resort only
+      boOrder.ship_total ??
       0
     ).toString(),
     taxAmount: (
