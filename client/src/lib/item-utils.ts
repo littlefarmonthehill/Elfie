@@ -17,8 +17,13 @@ export function shippingTier(service: string | null | undefined): 'express' | 'p
 
 export function cleanItemName(name: string, partNumber: string | null | undefined): string {
   if (!name || !partNumber) return name || '';
+  // Strip BL-style prefix: "3001 - Brick 2x4" → "Brick 2x4"
   const prefix = `${partNumber} - `;
-  return name.startsWith(prefix) ? name.slice(prefix.length) : name;
+  if (name.startsWith(prefix)) return name.slice(prefix.length);
+  // Strip BO-style suffix: "Brick 2x4 (3001)" → "Brick 2x4"
+  const suffix = ` (${partNumber})`;
+  if (name.endsWith(suffix)) return name.slice(0, -suffix.length).trim();
+  return name;
 }
 
 export function toggleSetItem<T>(prev: Set<T>, item: T): Set<T> {
