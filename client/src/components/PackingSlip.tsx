@@ -491,8 +491,15 @@ export async function printPackingSlips(orders: PackingSlipOrder[], org?: OrgBra
 
   const slipCodeMap = buildShortCodeMap(orders.map(o => o.orderNumber).filter(Boolean));
 
-  for (let idx = 0; idx < orders.length; idx++) {
-    const order = orders[idx];
+  // Sort by shortcode so slips print in ref-code order (AA … ZZ)
+  const sortedForPrint = [...orders].sort((a, b) => {
+    const ca = slipCodeMap.get(a.orderNumber) ?? shortCode(a.orderNumber);
+    const cb = slipCodeMap.get(b.orderNumber) ?? shortCode(b.orderNumber);
+    return ca.localeCompare(cb);
+  });
+
+  for (let idx = 0; idx < sortedForPrint.length; idx++) {
+    const order = sortedForPrint[idx];
     if (idx > 0) doc.addPage();
     const orderStartPage = doc.internal.getNumberOfPages();
     // Explicitly switch to this order's starting page so the footer loop's

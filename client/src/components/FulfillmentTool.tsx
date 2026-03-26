@@ -1286,7 +1286,10 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                       variant="outline"
                       className="border-green-500/40 text-green-300"
                       onClick={async () => {
-                        const urls = batchResults.map(r => r.labelUrl).filter(Boolean) as string[];
+                        const sortedResults = [...batchResults].sort((a, b) =>
+                          shortCode(a.orderNumber).localeCompare(shortCode(b.orderNumber))
+                        );
+                        const urls = sortedResults.map(r => r.labelUrl).filter(Boolean) as string[];
                         if (urls.length === 0) return;
                         if (urls.length === 1) {
                           window.open(urls[0], "_blank");
