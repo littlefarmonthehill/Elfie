@@ -170,22 +170,6 @@ async function processBrickOwlOrder(
 
   const brickOwlOrderData = await getBrickOwlOrderDetails(apiKey, boOrder.order_id);
 
-  // Debug log — remove after confirming correct field names
-  console.log(`🦉 [DEBUG] BO order ${boOrder.order_id} raw fields:`, {
-    ship_name: brickOwlOrderData.ship_name,
-    ship_first_name: brickOwlOrderData.ship_first_name,
-    ship_last_name: brickOwlOrderData.ship_last_name,
-    buyer_name: brickOwlOrderData.buyer_name,
-    base_order_total: brickOwlOrderData.base_order_total,
-    base_tax_amount: brickOwlOrderData.base_tax_amount,
-    base_ship_amount: brickOwlOrderData.base_ship_amount,
-    ship_total: brickOwlOrderData.ship_total,
-    grand_total: brickOwlOrderData.grand_total,
-    tax_amount: brickOwlOrderData.tax_amount,
-    tax: brickOwlOrderData.tax,
-    vat: brickOwlOrderData.vat,
-  });
-
   const orderDate =
     safeTimestampToDate(boOrder.iso_order_time, boOrder.order_time) ??
     safeTimestampToDate(brickOwlOrderData.iso_order_time, brickOwlOrderData.order_time) ??

@@ -409,20 +409,30 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       // 4h. Background services & schedulers
       startSegmentService();
       warmupClip();
-      startInventorySyncScheduler();
-      startPomSyncScheduler();
-      startCatalogDetailScheduler();
-      startCatalogScanScheduler();
-      startChannelSyncScheduler();
-      startOrderSyncScheduler().catch(error => console.error('Failed to start order sync scheduler:', error));
-      startUniversalCatalogScheduler();
-      startRebrickableSetsScheduler().catch((err: any) => console.error('Failed to start Rebrickable sets scheduler:', err));
-      startForumSyncScheduler().catch(error => console.error('Failed to start forum sync scheduler:', error));
-      startMarketNewsSyncScheduler().catch(error => console.error('Failed to start market news sync scheduler:', error));
-      startBusinessIntelScheduler().catch(error => console.error('Failed to start business intel scheduler:', error));
-      startAgentTeamSchedulers();
-      startEmbeddingWorker().catch(error => console.error('Failed to start embedding worker:', error));
-      startImageHarvester();
+
+      // Auto-sync schedulers are PRODUCTION-only.
+      // The dev server shares the production database and API credentials, so running
+      // scheduled syncs in dev would cause double-processing of real orders and
+      // double-deducting real BrickLink inventory.  Manual syncs triggered through
+      // the UI still work in dev — only the background auto-tick is suppressed.
+      if (process.env.NODE_ENV === 'production') {
+        startInventorySyncScheduler();
+        startPomSyncScheduler();
+        startCatalogDetailScheduler();
+        startCatalogScanScheduler();
+        startChannelSyncScheduler();
+        startOrderSyncScheduler().catch(error => console.error('Failed to start order sync scheduler:', error));
+        startUniversalCatalogScheduler();
+        startRebrickableSetsScheduler().catch((err: any) => console.error('Failed to start Rebrickable sets scheduler:', err));
+        startForumSyncScheduler().catch(error => console.error('Failed to start forum sync scheduler:', error));
+        startMarketNewsSyncScheduler().catch(error => console.error('Failed to start market news sync scheduler:', error));
+        startBusinessIntelScheduler().catch(error => console.error('Failed to start business intel scheduler:', error));
+        startAgentTeamSchedulers();
+        startEmbeddingWorker().catch(error => console.error('Failed to start embedding worker:', error));
+        startImageHarvester();
+      } else {
+        console.log('[Dev] Auto-sync schedulers suppressed — dev server shares production DB/credentials. Use manual sync buttons in the UI.');
+      }
 
       // 4i. Auto-resume CLIP visual catalog build (15s: segment service warm-up)
       setTimeout(async () => {
