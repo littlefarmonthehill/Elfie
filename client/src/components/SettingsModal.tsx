@@ -3948,7 +3948,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     { id: 'ai' as const, label: 'E.L.F.I.E.', icon: Brain, bsVisible: true },
     { id: 'warehouse' as const, label: 'Warehouse', icon: Warehouse, bsVisible: false },
     { id: 'notifications' as const, label: 'Notifications', icon: Bell, bsVisible: false },
-    { id: 'mapping' as const, label: 'Mappings', icon: Map, bsVisible: false },
     { id: 'about' as const, label: 'About & Credits', icon: Info, bsVisible: true },
     { id: 'legal' as const, label: 'Legal & Terms', icon: FileText, bsVisible: true },
   ];
@@ -3968,6 +3967,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
         { id: 'auditLog' as const, label: 'Platform Health', icon: ClipboardList },
         { id: 'platformElfie' as const, label: 'E.L.F.I.E. Settings', icon: Brain },
         { id: 'platformNotifications' as const, label: 'Notifications', icon: Bell },
+        { id: 'mapping' as const, label: 'Mappings', icon: Map },
       ],
     },
     {
