@@ -169,6 +169,18 @@ async function processBrickOwlOrder(
 
   const brickOwlOrderData = await getBrickOwlOrderDetails(apiKey, boOrder.order_id);
 
+  // Temporary diagnostic: log every key that might carry shipping cost so we can
+  // identify the correct field name from the BrickOwl API response.
+  const shipDiag: Record<string, any> = {};
+  for (const key of Object.keys(brickOwlOrderData)) {
+    if (/ship|shipp|surcharge|delivery|postage|freight|cost|total|amount|price|fee/i.test(key)) {
+      shipDiag[key] = brickOwlOrderData[key];
+    }
+  }
+  // Also dump the flat list fields in case ship_total lives there
+  console.log(`🦉 [ShipDiag] order ${boOrder.order_id} — view fields:`, JSON.stringify(shipDiag));
+  console.log(`🦉 [ShipDiag] order ${boOrder.order_id} — list fields: ship_total=${boOrder.ship_total} total=${boOrder.total} grand_total=${boOrder.grand_total}`);
+
   const orderDate =
     safeTimestampToDate(boOrder.iso_order_time, boOrder.order_time) ??
     safeTimestampToDate(brickOwlOrderData.iso_order_time, brickOwlOrderData.order_time) ??
