@@ -21,6 +21,13 @@ const BO_CHANNEL = 'brickowl' as const;
  * - BrickLink (delta adjustments)
  * - BrickOwl (absolute quantity)
  *
+ * BrickOwl lot resolution (three-tier lookup):
+ *   1. channelLotLinks table — fast local DB lookup, populated by channel sync.
+ *   2. live BO inventory via external_lot_ids.other — fallback for lots created before
+ *      channelLotLinks existed; requires channel sync to have set external_id on BO lots.
+ *   3. live BO inventory via boid+color_id+condition match against blInventory — works
+ *      even for BO lots created directly in BrickOwl (never touched by our channel sync).
+ *
  * Adding a new channel:
  *   1. Add its update function below following the same signature as
  *      updateBrickOwlQuantity / updateBrickLinkQuantityDelta.
@@ -77,13 +84,14 @@ async function updateBrickOwlQuantity(
 
     if (!matchingLot) {
       const errMsg = `No BrickOwl lot found with BrickLink inventory ID: ${inventoryId}`;
+      console.warn(`⚠️ ${errMsg}. This usually means the channel sync has not run yet (channelLotLinks empty) and the BO lot has no external_lot_ids.other or boid match. Run the channel sync once to establish BL→BO lot mappings.`);
       await recordSyncIssue({
         syncType: 'cross_platform_sync',
         platform: 'brickowl',
         itemId: inventoryId,
         itemNo,
         issueType: 'lot_not_found',
-        issueDescription: `${errMsg}${orderNumber ? ` (order ${orderNumber})` : ''}`,
+        issueDescription: `${errMsg}${orderNumber ? ` (order ${orderNumber})` : ''}. Channel sync may not have run yet.`,
         severity: 'high',
         metadata: { inventoryId, orderId, orderNumber, itemNo, newQuantity },
       });
@@ -231,9 +239,11 @@ export async function syncInventoryItemAcrossPlatforms(
 /**
  * Bulk synchronization: Update multiple inventory items across all platforms.
  *
- * BL inventory IDs are resolved to channel lot IDs via the local channel_lot_links
- * table (O(1) DB lookup, no external API call). Only items not yet in the table
- * (pre-dating the mapping feature) fall back to a one-time live BO inventory fetch.
+ * BL inventory IDs are resolved to BO channel lot IDs via two lookups:
+ *   1. channelLotLinks table — fast local DB lookup, populated by channel sync (preferred).
+ *   2. Live BO inventory via external_lot_ids.other — fallback for lots created before
+ *      the channelLotLinks feature was deployed. Requires the channel sync to have set
+ *      external_id on the BO lot when it was created.
  *
  * Runs as fire-and-forget — callers should not await this for order processing
  * to remain fast.

@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { blInventory, orders, orderDetails } from "@shared/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { syncMultipleItemsAcrossPlatforms, SyncItem } from "./cross-platform-sync";
 import { recordInventoryChanges } from "./inventory-history";
 
@@ -12,6 +12,13 @@ import { recordInventoryChanges } from "./inventory-history";
  * - RESTORE inventory when an order is cancelled or returned (regardless of ship status).
  * - The `inventoryDeducted` flag on the order prevents double-adjustment.
  * - The source platform is excluded from cross-platform sync; all others are updated.
+ *
+ * Race-condition safety:
+ * - The `inventoryDeducted` flag is updated via an atomic conditional UPDATE that acts
+ *   as an optimistic lock. If two concurrent calls both read `inventoryDeducted=false`
+ *   before either writes, only the first DB update (which includes `WHERE inventory_deducted=false`)
+ *   will affect a row — the second returns 0 rows and exits immediately. This eliminates
+ *   the BO status-change + merge race that previously caused double BrickLink deductions.
  */
 export async function adjustInventoryForOrder(orderId: string) {
   const [order] = await db
@@ -41,6 +48,29 @@ export async function adjustInventoryForOrder(orderId: string) {
     return {
       adjusted: false,
       reason: `No adjustment needed (status=${toStatus}, inventoryDeducted=${order.inventoryDeducted})`
+    };
+  }
+
+  // ATOMIC CLAIM — prevents duplicate concurrent adjustments for the same order.
+  // By updating inventoryDeducted FIRST under a conditional WHERE, we guarantee
+  // that only one concurrent caller can proceed even if both read the flag as
+  // false/true simultaneously (e.g. status-change call + merge call in the same sync cycle).
+  const claimed = await db
+    .update(orders)
+    .set({ inventoryDeducted: impact === 'reduce' })
+    .where(and(
+      eq(orders.id, orderId),
+      impact === 'reduce'
+        ? eq(orders.inventoryDeducted, false)   // can only reduce if not yet deducted
+        : eq(orders.inventoryDeducted, true)    // can only restore if previously deducted
+    ))
+    .returning({ id: orders.id });
+
+  if (claimed.length === 0) {
+    console.log(`⏭️ Inventory adjustment for order ${orderId} skipped — already claimed by a concurrent call (inventoryDeducted already at target state)`);
+    return {
+      adjusted: false,
+      reason: `Concurrent claim: inventoryDeducted already at target state for impact=${impact}`,
     };
   }
 
@@ -126,12 +156,6 @@ export async function adjustInventoryForOrder(orderId: string) {
       });
     }
   }
-
-  // Update the inventoryDeducted flag on the order
-  await db
-    .update(orders)
-    .set({ inventoryDeducted: impact === 'reduce' })
-    .where(eq(orders.id, orderId));
 
   console.log(`📦 Inventory adjusted for order ${orderId}:`, {
     status: toStatus,
