@@ -371,7 +371,12 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
     fromAddress: request.fromAddress,
     parcel: request.parcel,
     reference: order.orderNumber
-      ? `${orderShortCode(order.orderNumber)} ${order.orderNumber}`
+      ? (() => {
+          const sc = orderShortCode(order.orderNumber);
+          const prefix = order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.';
+          const num = order.orderNumber.replace(/^bo-/i, '');
+          return `${sc} ${prefix}${num}`;
+        })()
       : undefined,
     customsInfo,
     taxIdentifiers,
