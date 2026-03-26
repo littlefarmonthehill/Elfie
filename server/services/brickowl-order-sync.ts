@@ -349,7 +349,18 @@ async function processBrickOwlOrder(
       const newTotal = Number(orderData.orderTotal ?? 0);
       const refundDelta = oldTotal - newTotal;
 
-      if (refundDelta > 0.009) {
+      // Guard: if the delta is within a few cents of the stored shipping amount, this is
+      // almost certainly a correction of a previously double-counted ship_total (legacy data
+      // from before the order-total fix), not a genuine partial refund.  Skip recording an
+      // adjustment — the order update below will silently correct the stored total.
+      const storedShipping = Number(existingOrder.shippingAmount ?? 0);
+      const looksLikeShippingCorrection = storedShipping > 0 && Math.abs(refundDelta - storedShipping) < 0.02;
+
+      if (looksLikeShippingCorrection) {
+        console.log(`⚠️ Order ${effectiveOrderId}: total decrease of $${refundDelta.toFixed(2)} matches stored shipping $${storedShipping.toFixed(2)} — skipping partial refund (legacy double-count correction)`);
+      }
+
+      if (refundDelta > 0.009 && !looksLikeShippingCorrection) {
         const externalId = `bo-${boOrder.order_id}-partial-${Math.round(newTotal * 100)}`;
         const [existingAdj] = await db
           .select({ id: orderAdjustments.id })

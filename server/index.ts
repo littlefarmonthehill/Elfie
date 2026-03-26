@@ -346,6 +346,27 @@ httpServer.listen({ port, host: "0.0.0.0" }, () => {
       console.warn('[Startup] channel_sync_config migration (non-fatal):', cscErr.message);
     }
 
+    // 4a-fix-9. One-time cleanup: delete partial-refund adjustments that were incorrectly
+    // created when the order-total fix corrected previously double-counted shipping amounts.
+    // Safe to run repeatedly — idempotent (no matching rows after first run).
+    try {
+      const cleanupResult = await pool.query(`
+        DELETE FROM order_adjustments oa
+        USING orders o
+        WHERE oa.order_id = o.id
+          AND oa.external_transaction_id LIKE 'bo-%-partial-%'
+          AND oa.reason = 'Partial refund'
+          AND o.shipping_amount IS NOT NULL
+          AND o.shipping_amount > 0
+          AND ABS(ABS(oa.amount::numeric) - o.shipping_amount::numeric) < 0.02
+      `);
+      if (cleanupResult.rowCount && cleanupResult.rowCount > 0) {
+        console.log(`[Startup] Cleaned up ${cleanupResult.rowCount} false partial-refund adjustment(s) (shipping double-count correction).`);
+      }
+    } catch (cleanupErr: any) {
+      console.error('[Startup] False-refund cleanup failed (non-fatal):', cleanupErr.message);
+    }
+
     try {
 
       // 4b. Warm up the DB connection (wakes Neon serverless from idle)

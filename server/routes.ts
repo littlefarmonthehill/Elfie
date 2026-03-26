@@ -17004,6 +17004,50 @@ Your response MUST be valid JSON with these exact keys: title, refinedDescriptio
     }
   });
 
+  // POST /api/admin/cleanup-false-refunds — one-time cleanup for partial refund adjustments
+  // that were incorrectly created when the order total fix corrected previously double-counted
+  // shipping amounts.  Deletes any adjustment where abs(amount) ≈ the order's shipping_amount
+  // and the external_transaction_id matches the bo-*-partial-* pattern.
+  app.post('/api/admin/cleanup-false-refunds', isSuperAdmin, async (_req, res) => {
+    try {
+      const candidates = await db
+        .select({
+          id: orderAdjustments.id,
+          orderId: orderAdjustments.orderId,
+          amount: orderAdjustments.amount,
+          externalId: orderAdjustments.externalTransactionId,
+          shipping: orders.shippingAmount,
+        })
+        .from(orderAdjustments)
+        .innerJoin(orders, eq(orders.id, orderAdjustments.orderId))
+        .where(
+          and(
+            sql`${orderAdjustments.externalTransactionId} LIKE 'bo-%-partial-%'`,
+            eq(orderAdjustments.reason, 'Partial refund')
+          )
+        );
+
+      const toDelete = candidates.filter(c => {
+        const adjAbs = Math.abs(Number(c.amount));
+        const shipping = Number(c.shipping ?? 0);
+        return shipping > 0 && Math.abs(adjAbs - shipping) < 0.02;
+      });
+
+      if (toDelete.length === 0) {
+        return res.json({ deleted: 0, message: 'No false-refund adjustments found.' });
+      }
+
+      const ids = toDelete.map(r => r.id);
+      await db.delete(orderAdjustments).where(sql`${orderAdjustments.id} = ANY(${ids})`);
+
+      console.log(`🧹 Cleanup: deleted ${ids.length} false partial-refund adjustments:`, ids);
+      return res.json({ deleted: ids.length, ids, orders: toDelete.map(r => r.orderId) });
+    } catch (err: any) {
+      console.error('[Cleanup] false-refund cleanup error:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
