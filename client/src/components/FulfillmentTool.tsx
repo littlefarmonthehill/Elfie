@@ -1128,7 +1128,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                   <MessageCircle className="w-3 h-3 shrink-0 mt-px text-amber-400 fill-current" />
                   <div className="min-w-0 flex-1">
                     <span className="font-mono text-amber-400/70 mr-1">
-                      {o.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{o.orderNumber.replace(/^(BL\.|BO\.)/i, '')}
+                      {orderShortCodeMap.get(o.orderNumber) ?? shortCode(o.orderNumber)}
                     </span>
                     <span className="line-clamp-2 break-words">{o.customerNotes}</span>
                   </div>
