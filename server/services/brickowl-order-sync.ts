@@ -170,19 +170,20 @@ async function processBrickOwlOrder(
 
   const brickOwlOrderData = await getBrickOwlOrderDetails(apiKey, boOrder.order_id);
 
-  // Debug log — remove after confirming correct field names for name + tax
+  // Debug log — remove after confirming correct field names
   console.log(`🦉 [DEBUG] BO order ${boOrder.order_id} raw fields:`, {
     ship_name: brickOwlOrderData.ship_name,
     ship_first_name: brickOwlOrderData.ship_first_name,
     ship_last_name: brickOwlOrderData.ship_last_name,
     buyer_name: brickOwlOrderData.buyer_name,
-    tax_amount: brickOwlOrderData.tax_amount,
+    base_order_total: brickOwlOrderData.base_order_total,
     base_tax_amount: brickOwlOrderData.base_tax_amount,
+    base_ship_amount: brickOwlOrderData.base_ship_amount,
+    ship_total: brickOwlOrderData.ship_total,
+    grand_total: brickOwlOrderData.grand_total,
+    tax_amount: brickOwlOrderData.tax_amount,
     tax: brickOwlOrderData.tax,
     vat: brickOwlOrderData.vat,
-    vat_amount: brickOwlOrderData.vat_amount,
-    grand_total: brickOwlOrderData.grand_total,
-    ship_total: brickOwlOrderData.ship_total,
   });
 
   const orderDate =
@@ -219,36 +220,21 @@ async function processBrickOwlOrder(
     }),
     billTo: null,
     shipByDate: null,
-    orderTotal: (
-      brickOwlOrderData.grand_total ??
-      brickOwlOrderData.total_price ??
-      brickOwlOrderData.base_order_amount ??
-      brickOwlOrderData.order_total ??
-      brickOwlOrderData.total ??
-      brickOwlOrderData.sub_total ??
-      0
-    ).toString(),
-    shippingAmount: (
-      // Confirmed field name from BrickOwl order/view endpoint
-      brickOwlOrderData.ship_total ??
-      // Fallback aliases (undocumented / older API versions)
-      brickOwlOrderData.base_ship_amount ??
-      brickOwlOrderData.ship_cost ??
-      brickOwlOrderData.shipping_cost ??
-      brickOwlOrderData.total_shipping ??
-      brickOwlOrderData.shipping ??
-      // boOrder is from order/list which does NOT carry ship_total — last resort only
-      boOrder.ship_total ??
-      0
-    ).toString(),
-    taxAmount: (
-      brickOwlOrderData.base_tax_amount ??  // Primary BrickOwl field (from order/view)
-      brickOwlOrderData.tax_amount ??
-      brickOwlOrderData.vat ??
-      brickOwlOrderData.vat_amount ??
-      brickOwlOrderData.tax ??
-      0
-    ).toString(),
+    // BrickOwl does not expose a single "grand_total" — compute from components.
+    // base_order_total = item subtotal only; add shipping + tax for the true order total.
+    // Fall back to grand_total / total_price in case a future API version exposes it directly.
+    ...(() => {
+      const itemsTotal  = Number(brickOwlOrderData.base_order_total  ?? brickOwlOrderData.total_price ?? brickOwlOrderData.order_total ?? brickOwlOrderData.sub_total ?? 0);
+      const shipTotal   = Number(brickOwlOrderData.base_ship_amount   ?? brickOwlOrderData.ship_total  ?? brickOwlOrderData.ship_cost   ?? boOrder.ship_total ?? 0);
+      const taxTotal    = Number(brickOwlOrderData.base_tax_amount    ?? brickOwlOrderData.tax_amount  ?? brickOwlOrderData.vat         ?? brickOwlOrderData.tax ?? 0);
+      const grandTotal  = Number(brickOwlOrderData.grand_total ?? 0);
+      const computedTotal = grandTotal > 0 ? grandTotal : (itemsTotal + shipTotal + taxTotal);
+      return {
+        orderTotal:     computedTotal.toFixed(2),
+        shippingAmount: shipTotal.toFixed(2),
+        taxAmount:      taxTotal.toFixed(2),
+      };
+    })(),
     internalNotes: null,
     customerNotes: brickOwlOrderData.buyer_notes || null,
     requestedShippingService: brickOwlOrderData.ship_method_name || null,
