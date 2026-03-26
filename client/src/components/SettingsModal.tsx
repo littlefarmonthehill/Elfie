@@ -4757,14 +4757,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         <p className="text-xs font-medium text-gray-100">Add Sales Channel</p>
                         <div className="space-y-2">
                           <Label className="text-xs text-gray-200">Platform</Label>
-                          <Select value={addIntChannel} onValueChange={(v) => { setAddIntChannel(v); const n: Record<string,string> = { brickowl: 'BrickOwl' }; setAddIntDisplayName(n[v] || ''); }}>
+                          <Select value={addIntChannel} onValueChange={(v) => { setAddIntChannel(v); setAddIntDisplayName(v === 'brickowl' ? 'BrickOwl' : ''); }}>
                             <SelectTrigger className="text-xs h-8" data-testid="select-add-sales-channel"><SelectValue placeholder="Select platform..." /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="brickowl">BrickOwl</SelectItem>
-                              <SelectItem value="ebay" disabled className="opacity-40">eBay <span className="ml-1 text-[10px]">(coming soon)</span></SelectItem>
-                              <SelectItem value="amazon" disabled className="opacity-40">Amazon <span className="ml-1 text-[10px]">(coming soon)</span></SelectItem>
-                              <SelectItem value="etsy" disabled className="opacity-40">Etsy <span className="ml-1 text-[10px]">(coming soon)</span></SelectItem>
-                              <SelectItem value="shopify" disabled className="opacity-40">Shopify <span className="ml-1 text-[10px]">(coming soon)</span></SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -4819,14 +4815,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         <p className="text-xs font-medium text-gray-100">Add Shipping Vendor</p>
                         <div className="space-y-2">
                           <Label className="text-xs text-gray-200">Platform</Label>
-                          <Select value={addIntChannel} onValueChange={(v) => { setAddIntChannel(v); const n: Record<string,string> = { easypost: 'EasyPost', pirateship: 'Pirate Ship', stamps_com: 'Stamps.com', shipbob: 'ShipBob', other: 'Other' }; setAddIntDisplayName(n[v] || ''); }}>
+                          <Select value={addIntChannel} onValueChange={(v) => { setAddIntChannel(v); setAddIntDisplayName(v === 'easypost' ? 'EasyPost' : ''); }}>
                             <SelectTrigger className="text-xs h-8" data-testid="select-add-shipping-vendor"><SelectValue placeholder="Select platform..." /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="easypost">EasyPost</SelectItem>
-                              <SelectItem value="pirateship">Pirate Ship</SelectItem>
-                              <SelectItem value="stamps_com">Stamps.com</SelectItem>
-                              <SelectItem value="shipbob">ShipBob</SelectItem>
-                              <SelectItem value="other">Other</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -6954,7 +6946,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     onChange={(e) => setIeStratVision(e.target.value)}
                     onBlur={() => { if (ieStratVision !== (ieStratData?.visionMission ?? '')) saveIeStratMutation.mutate({ visionMission: ieStratVision }); }}
                     placeholder="e.g. We are PlanetBrick — a curated LEGO parts and sets retailer committed to fast dispatch, fair pricing, and helping builders find exactly what they need. We aim to become the most trusted independent LEGO seller in our region."
-                    className="text-[11px] min-h-[90px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    className="text-[10px] min-h-[90px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
                     data-testid="textarea-ie-strategy-vision"
                   />
                   <p className="text-[10px] text-gray-600">Your business identity and direction. Every agent uses this to frame its signals in the context of who you are.</p>
@@ -6974,7 +6966,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     onChange={(e) => setIeStratSuccess(e.target.value)}
                     onBlur={() => { if (ieStratSuccess !== (ieStratData?.successFactors ?? '')) saveIeStratMutation.mutate({ successFactors: ieStratSuccess }); }}
                     placeholder="If successful: our sell-through rate is above 85%, customers leave unprompted positive feedback mentioning fast shipping and great prices, and we no longer stress about dead stock. We feel calm and in control of our inventory. Repeat buyers make up over 40% of revenue."
-                    className="text-[11px] min-h-[110px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    className="text-[10px] min-h-[110px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
                     data-testid="textarea-ie-strategy-success"
                   />
                   <p className="text-[10px] text-gray-600">Describe the future in vivid terms — what has changed, how you and your customers feel, and what people are saying. Agents use this to elevate signals that move the business toward this future state.</p>
@@ -6997,7 +6989,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     onChange={(e) => setIeStratPricing(e.target.value)}
                     onBlur={() => { if (ieStratPricing !== (ieStratData?.pricingStrategy ?? '')) saveIeStratMutation.mutate({ pricingStrategy: ieStratPricing }); }}
                     placeholder="e.g. We price at a premium above market. Hold prices on retired sets. Prefer fewer high-margin orders over chasing volume."
-                    className="text-[11px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    className="text-[10px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
                     data-testid="textarea-ie-strategy-pricing"
                   />
                   <p className="text-[10px] text-gray-600">Included in every Pricing Agent and POM AI prompt.</p>
@@ -7032,7 +7024,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     onChange={(e) => setIeStratInventory(e.target.value)}
                     onBlur={() => { if (ieStratInventory !== (ieStratData?.inventoryStrategy ?? '')) saveIeStratMutation.mutate({ inventoryStrategy: ieStratInventory }); }}
                     placeholder="e.g. We keep tight stock on high-velocity parts. Liquidate dead stock over 180 days. Prioritise Technic and Creator Expert themes."
-                    className="text-[11px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    className="text-[10px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
                     data-testid="textarea-ie-strategy-inventory"
                   />
                   <p className="text-[10px] text-gray-600">Guides dead stock, reorder urgency, and capital concentration signals.</p>
@@ -7051,7 +7043,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     onChange={(e) => setIeStratOrders(e.target.value)}
                     onBlur={() => { if (ieStratOrders !== (ieStratData?.ordersStrategy ?? '')) saveIeStratMutation.mutate({ ordersStrategy: ieStratOrders }); }}
                     placeholder="e.g. Grow BrickOwl channel revenue. Aim for same-day dispatch. Flag orders over $50 that aren't on tracked shipping."
-                    className="text-[11px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    className="text-[10px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
                     data-testid="textarea-ie-strategy-orders"
                   />
                   <p className="text-[10px] text-gray-600">Guides channel performance, velocity, and fulfillment signals.</p>
@@ -7070,7 +7062,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     onChange={(e) => setIeStratCustomer(e.target.value)}
                     onBlur={() => { if (ieStratCustomer !== (ieStratData?.customerStrategy ?? '')) saveIeStratMutation.mutate({ customerStrategy: ieStratCustomer }); }}
                     placeholder="e.g. Retain repeat buyers over $200 lifetime spend. Flag dormant buyers after 90 days. Re-engage with bulk discount offers."
-                    className="text-[11px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    className="text-[10px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
                     data-testid="textarea-ie-strategy-customer"
                   />
                   <p className="text-[10px] text-gray-600">Guides retention, re-engagement, and VIP buyer signals.</p>
@@ -7089,7 +7081,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     onChange={(e) => setIeStratMarket(e.target.value)}
                     onBlur={() => { if (ieStratMarket !== (ieStratData?.marketStrategy ?? '')) saveIeStratMutation.mutate({ marketStrategy: ieStratMarket }); }}
                     placeholder="e.g. Watch for retiring Star Wars and Icons sets. Prioritise acquisition signals for minifig-heavy sets. Flag price spread opportunities above 1.8x."
-                    className="text-[11px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    className="text-[10px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
                     data-testid="textarea-ie-strategy-market"
                   />
                   <p className="text-[10px] text-gray-600">Guides trend, retirement, and market opportunity signals.</p>
