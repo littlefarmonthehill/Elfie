@@ -935,16 +935,6 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                       <span className={`font-mono text-xs font-semibold shrink-0 ${isSelected ? 'text-purple-300' : 'text-gray-200'}`}>
                                         {order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(order.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
                                       </span>
-                                      {/* Merge indicator — shown when this order is part of a BO merge group */}
-                                      {order.mergeGroupId && (
-                                        <span
-                                          className="shrink-0 w-4 h-4 rounded-full bg-violet-600/70 flex items-center justify-center"
-                                          data-testid={`icon-merge-${order.id}`}
-                                          title="Part of a BrickOwl merged order"
-                                        >
-                                          <Plus className="w-2.5 h-2.5 text-white" />
-                                        </span>
-                                      )}
                                       {/* Lot count */}
                                       {lotCount > 0 && (
                                         <span className="w-5 h-5 rounded-full bg-blue-700/80 flex items-center justify-center text-[9px] font-bold text-white tabular-nums shrink-0" data-testid={`lot-count-${order.id}`}>
@@ -984,7 +974,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                     </button>
                                   </div>
 
-                                  {/* Line 2: pick-complete · globe (intl) · date · view order | comment */}
+                                  {/* Line 2: pick-complete · globe (intl) · date · view order · merge group | comment */}
                                   <div className="flex items-center justify-between pl-2 pr-2 mt-0.5">
                                     <div className="flex items-center gap-1.5">
                                       {isPickComplete && <CheckCircle2 className="w-3 h-3 text-green-400 fill-green-400 shrink-0" />}
@@ -1001,6 +991,28 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                           view order
                                         </button>
                                       )}
+                                      {/* Merge group indicator — links related orders created from a BO merge */}
+                                      {order.mergeGroupId && (() => {
+                                        // For the original order (mergeGroupId === own id), find a delta order linked to it.
+                                        // For a delta order, find the original (id === mergeGroupId).
+                                        const isOriginal = order.mergeGroupId === order.id;
+                                        const linkedOrder = isOriginal
+                                          ? data?.orders.find(o => o.mergeGroupId === order.id && o.id !== order.id)
+                                          : data?.orders.find(o => o.id === order.mergeGroupId);
+                                        const linkedNum = linkedOrder
+                                          ? `${linkedOrder.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}${(linkedOrder.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}`
+                                          : order.mergeGroupId.replace(/^bo-/, 'BO.').replace(/-m\d+$/, '');
+                                        return (
+                                          <span
+                                            className="flex items-center gap-0.5 text-[10px] text-violet-400/80 font-mono shrink-0"
+                                            data-testid={`text-merge-group-${order.id}`}
+                                            title={`Merged with ${linkedNum}`}
+                                          >
+                                            <Plus className="w-2.5 h-2.5" />
+                                            {linkedNum}
+                                          </span>
+                                        );
+                                      })()}
                                     </div>
                                   </div>
                                 </div>
