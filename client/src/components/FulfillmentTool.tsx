@@ -1478,18 +1478,32 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                 <div className="space-y-2">
                   {[...selectedOrders].map((orderId) => {
                     const order = allOrders.find(o => o.id === orderId);
+
+                    const toOrderItem = (item: FulfillmentItem): OrderItem => ({
+                      id: item.id,
+                      sku: item.sku,
+                      bricklinkPartNumber: item.bricklinkPartNumber,
+                      name: item.name,
+                      quantity: item.quantity,
+                      colorName: item.colorName,
+                      condition: item.condition,
+                      binName: item.binName,
+                    });
+
                     const items: OrderItem[] = (data?.items ?? [])
                       .filter(item => item.orderId === orderId)
-                      .map(item => ({
-                        id: item.id,
-                        sku: item.sku,
-                        bricklinkPartNumber: item.bricklinkPartNumber,
-                        name: item.name,
-                        quantity: item.quantity,
-                        colorName: item.colorName,
-                        condition: item.condition,
-                        binName: item.binName,
-                      }));
+                      .map(toOrderItem);
+
+                    // Find merged sibling order and its items
+                    const siblingOrder = order?.mergeGroupId
+                      ? allOrders.find(o => o.mergeGroupId === order.mergeGroupId && o.id !== orderId)
+                      : null;
+                    const siblingItems: OrderItem[] = siblingOrder
+                      ? (data?.items ?? []).filter(item => item.orderId === siblingOrder.id).map(toOrderItem)
+                      : [];
+                    const siblingOrderRef = siblingOrder
+                      ? `${siblingOrder.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}${(siblingOrder.orderNumber ?? '').replace(/^(BL\.|BO\.)/i, '')}`
+                      : undefined;
                     const isThisCardSplitting = isSplitMode && splitTargetOrderId === orderId;
                     const splitItems = (data?.items ?? []).filter(i => i.orderId === orderId);
 
@@ -1554,6 +1568,8 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                             onReadyChange={handleReadyChange}
                             purchasedLabel={purchasedLabels.get(orderId)}
                             orderItems={items}
+                            siblingItems={siblingItems}
+                            siblingOrderRef={siblingOrderRef}
                           />
                         )}
 

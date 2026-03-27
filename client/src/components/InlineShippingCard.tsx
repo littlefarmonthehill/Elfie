@@ -109,6 +109,8 @@ type Props = {
   orderId: string;
   isTestMode: boolean;
   orderItems?: OrderItem[];
+  siblingItems?: OrderItem[];
+  siblingOrderRef?: string;
   onReadyChange: (orderId: string, state: ShippingReadyState | null) => void;
   purchasedLabel?: PurchasedLabelResult;
 };
@@ -128,7 +130,7 @@ const PROD_FROM_ADDRESS = {
 };
 
 export default function InlineShippingCard({
-  orderId, isTestMode, orderItems = [], onReadyChange, purchasedLabel,
+  orderId, isTestMode, orderItems = [], siblingItems = [], siblingOrderRef, onReadyChange, purchasedLabel,
 }: Props) {
   const { toast } = useToast();
 
@@ -786,7 +788,7 @@ export default function InlineShippingCard({
           {detailsOpen ? <ChevronUp className="w-3 h-3 shrink-0" /> : <ChevronDown className="w-3 h-3 shrink-0" />}
           <span>
             {detailsOpen ? "Hide details" : `Show details`}
-            {orderItems.length > 0 && !detailsOpen && ` · ${orderItems.length} item${orderItems.length !== 1 ? "s" : ""}`}
+            {(orderItems.length + siblingItems.length) > 0 && !detailsOpen && ` · ${orderItems.length + siblingItems.length} item${(orderItems.length + siblingItems.length) !== 1 ? "s" : ""}${siblingItems.length > 0 ? " (combined)" : ""}`}
           </span>
           {addressStatus === "invalid" && !detailsOpen && (
             <span className="ml-1 text-yellow-400">· Address needs attention</span>
@@ -858,29 +860,71 @@ export default function InlineShippingCard({
           </div>
 
           {/* Order items section */}
-          {orderItems.length > 0 && (
-            <div className="px-3 py-2.5 space-y-1">
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
-                Order Items ({orderItems.length})
-              </span>
-              <div className="space-y-1 mt-1">
-                {orderItems.map(item => (
-                  <div key={item.id} className="flex items-start gap-2 py-0.5">
-                    <span className="text-[10px] font-bold text-gray-400 shrink-0 mt-0.5">×{item.quantity}</span>
-                    <div className="min-w-0">
-                      <p className="text-[11px] text-gray-200 leading-tight truncate">
-                        {item.bricklinkPartNumber && <span className="text-gray-400">{item.bricklinkPartNumber} · </span>}
-                        {item.name}
-                      </p>
-                      {(item.colorName || item.condition || item.binName) && (
-                        <p className="text-[10px] text-gray-500 leading-tight">
-                          {[item.colorName, item.condition, item.binName && `Bin: ${item.binName}`].filter(Boolean).join(" · ")}
-                        </p>
-                      )}
-                    </div>
+          {(orderItems.length > 0 || siblingItems.length > 0) && (
+            <div className="px-3 py-2.5 space-y-2">
+              {/* This order's items */}
+              {orderItems.length > 0 && (
+                <div className="space-y-1">
+                  {siblingItems.length > 0 && (
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+                      This Order ({orderItems.length})
+                    </span>
+                  )}
+                  {!siblingItems.length && (
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+                      Order Items ({orderItems.length})
+                    </span>
+                  )}
+                  <div className="space-y-1 mt-1">
+                    {orderItems.map(item => (
+                      <div key={item.id} className="flex items-start gap-2 py-0.5">
+                        <span className="text-[10px] font-bold text-gray-400 shrink-0 mt-0.5">×{item.quantity}</span>
+                        <div className="min-w-0">
+                          <p className="text-[11px] text-gray-200 leading-tight truncate">
+                            {item.bricklinkPartNumber && <span className="text-gray-400">{item.bricklinkPartNumber} · </span>}
+                            {item.name}
+                          </p>
+                          {(item.colorName || item.condition || item.binName) && (
+                            <p className="text-[10px] text-gray-500 leading-tight">
+                              {[item.colorName, item.condition, item.binName && `Bin: ${item.binName}`].filter(Boolean).join(" · ")}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
+
+              {/* Merged sibling order's items */}
+              {siblingItems.length > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <Plus className="w-2.5 h-2.5 text-amber-400/70" />
+                    <span className="text-[10px] font-bold text-amber-400/70 uppercase tracking-wide">
+                      {siblingOrderRef ?? "Merged Order"} ({siblingItems.length})
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    {siblingItems.map(item => (
+                      <div key={item.id} className="flex items-start gap-2 py-0.5">
+                        <span className="text-[10px] font-bold text-gray-500 shrink-0 mt-0.5">×{item.quantity}</span>
+                        <div className="min-w-0">
+                          <p className="text-[11px] text-gray-400 leading-tight truncate">
+                            {item.bricklinkPartNumber && <span className="text-gray-500">{item.bricklinkPartNumber} · </span>}
+                            {item.name}
+                          </p>
+                          {(item.colorName || item.condition || item.binName) && (
+                            <p className="text-[10px] text-gray-600 leading-tight">
+                              {[item.colorName, item.condition, item.binName && `Bin: ${item.binName}`].filter(Boolean).join(" · ")}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
