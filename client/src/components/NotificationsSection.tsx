@@ -48,7 +48,7 @@ export default function NotificationsSection() {
     mutationFn: () => apiRequest("POST", "/api/notifications/test"),
     onSuccess: (data: any) => {
       if (data.sent > 0) {
-        toast({ title: "Test notification sent", description: "Check your lock screen, Commander." });
+        toast({ title: "Test notification sent", description: "Check your screen, Commander." });
       } else {
         toast({ title: "Nothing sent", description: "The subscription may have expired. Try disabling and re-enabling.", variant: "destructive" });
       }
@@ -195,7 +195,7 @@ export default function NotificationsSection() {
           Order Notifications
         </h2>
         <p className="text-xs text-muted-foreground mt-1">
-          E.L.F.I.E. will send a lock screen alert on this device when orders arrive during a sync — even if the app is in the background.
+          E.L.F.I.E. will alert this device when orders arrive during a sync — whether the app is open or in the background.
         </p>
       </div>
 
