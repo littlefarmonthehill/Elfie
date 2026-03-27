@@ -113,14 +113,13 @@ function AlertRow({ icon: Icon, iconColor, label, sub, onClick, severity = 'warn
   );
 }
 
-function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, lastActions, onClick, isActive, channelNum, channelHex }: {
+function OpAreaCard({ label, Icon, color, stat, alerts, isRunning, onClick, isActive, channelNum, channelHex }: {
   label: string; Icon: React.ElementType; color: string; stat?: string;
   alerts: Array<{ id: string; icon: React.ElementType; iconColor: string; label: string; sub?: string; severity: 'warn' | 'error' | 'info'; onClick?: () => void }>;
   runningJobs?: React.ReactNode; isRunning?: boolean; lastActions?: Array<{ label: string; time: string; ok: boolean }>;
   onClick?: () => void;
   isActive?: boolean; channelNum?: string; channelHex?: string;
 }) {
-  const [lastActionsOpen, setLastActionsOpen] = useState(false);
   const colorMap: Record<string, { border: string; activeBorder: string; icon: string; headerBg: string; cardBg: string; glow: string; activeGlow: string }> = {
     blue:   { border: 'border-blue-500/30', activeBorder: 'border-blue-400/70', icon: 'text-blue-400', headerBg: 'from-blue-950/50 to-gray-900/80', cardBg: 'bg-gradient-to-br from-blue-950/40 via-gray-950/70 to-blue-950/20', glow: 'shadow-[0_0_15px_rgba(59,130,246,0.08)]', activeGlow: 'shadow-[0_0_18px_rgba(27,124,229,0.35)]' },
     orange: { border: 'border-orange-500/30', activeBorder: 'border-orange-400/70', icon: 'text-orange-400', headerBg: 'from-orange-950/50 to-gray-900/80', cardBg: 'bg-gradient-to-br from-orange-950/40 via-gray-950/70 to-orange-950/20', glow: 'shadow-[0_0_15px_rgba(251,146,60,0.08)]', activeGlow: 'shadow-[0_0_18px_rgba(232,97,28,0.35)]' },
@@ -129,113 +128,72 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
     yellow: { border: 'border-yellow-500/30', activeBorder: 'border-yellow-400/70', icon: 'text-yellow-400', headerBg: 'from-yellow-950/50 to-gray-900/80', cardBg: 'bg-gradient-to-br from-yellow-950/40 via-gray-950/70 to-yellow-950/20', glow: 'shadow-[0_0_15px_rgba(234,179,8,0.08)]', activeGlow: 'shadow-[0_0_18px_rgba(245,194,0,0.35)]' },
   };
   const c = colorMap[color] ?? colorMap.blue;
-
-  const sevOrder: Record<string, number> = { error: 0, warn: 1, info: 2 };
-  const sortedAlerts = [...alerts].sort((a, b) => (sevOrder[a.severity] ?? 9) - (sevOrder[b.severity] ?? 9));
-
-  const hasRunning = !!isRunning;
-  const hasAlerts = sortedAlerts.length > 0;
-  const validActions = (lastActions ?? []).filter(a => a.time !== 'never');
+  const errorAlerts = alerts.filter(a => a.severity === 'error').length;
+  const totalAlerts = alerts.length;
 
   return (
-    <div
-      className={cn("rounded-lg border overflow-hidden transition-all duration-200", isActive ? c.activeBorder : c.border, c.cardBg, isActive ? c.activeGlow : c.glow)}
+    <button
+      onClick={onClick}
+      className={cn(
+        "w-full rounded-lg border overflow-hidden transition-all duration-200 hover-elevate active-elevate-2",
+        "flex items-center justify-between gap-3 px-3 py-2.5 text-left bg-gradient-to-r",
+        isActive ? c.activeBorder : c.border, c.cardBg, isActive ? c.activeGlow : c.glow, c.headerBg
+      )}
       data-testid={`ops-area-${label.toLowerCase()}`}
     >
-      <button
-        onClick={onClick}
-        className={cn("w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left bg-gradient-to-r hover-elevate active-elevate-2 transition-all group", c.headerBg)}
-      >
-        <div className="flex items-center gap-2">
-          <Icon className={cn("w-4 h-4 shrink-0 transition-all", c.icon, isActive && 'drop-shadow-[0_0_4px_currentColor]')} />
-          <span className={cn("text-sm font-bold uppercase tracking-wide transition-all", isActive ? 'text-foreground' : 'text-foreground/80')}>{label}</span>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {stat && <span className="text-xs text-muted-foreground font-medium">{stat}</span>}
-          {channelNum && (
-            <div
-              className="flex flex-col items-center justify-center rounded font-mono font-black leading-none transition-all duration-200"
-              style={{
-                fontSize: '8px', minWidth: '26px', padding: '2px 5px',
-                ...(isActive ? {
-                  background: '#03040C',
-                  border: `1px solid ${channelHex ?? '#00FFEE'}`,
-                  boxShadow: `0 0 6px ${channelHex ?? '#00FFEE'}55, inset 0 0 8px rgba(0,0,0,0.9)`,
-                  color: channelHex ?? '#00FFEE',
-                } : {
-                  background: 'rgba(0,0,0,0.4)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  color: 'rgba(180,200,255,0.28)',
-                }),
-              }}
-            >
-              <span>{channelNum}</span>
-              <span style={{ fontSize: '6px', letterSpacing: '0.15em', opacity: isActive ? 0.7 : 0.5 }}>CH</span>
-            </div>
-          )}
-        </div>
-      </button>
+      <div className="flex items-center gap-2 min-w-0">
+        <Icon className={cn("w-4 h-4 shrink-0 transition-all", c.icon, isActive && 'drop-shadow-[0_0_4px_currentColor]')} />
+        <span className={cn("text-sm font-bold uppercase tracking-wide transition-all truncate", isActive ? 'text-foreground' : 'text-foreground/80')}>{label}</span>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        {stat && <span className="text-xs text-muted-foreground font-medium">{stat}</span>}
 
-      <div className="bg-gray-950/60">
-        {hasAlerts && (
-          <div className="px-3 pt-3 space-y-2">
-            <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Attention</h4>
-            {sortedAlerts.map((a) => (
-              <AlertRow key={a.id} icon={a.icon} iconColor={a.iconColor} label={a.label} sub={a.sub} severity={a.severity} onClick={a.onClick} />
-            ))}
+        {/* Status indicator */}
+        {totalAlerts > 0 ? (
+          <div className={cn(
+            "flex items-center gap-1 rounded-full px-1.5 py-0.5 font-mono font-bold leading-none text-[9px]",
+            errorAlerts > 0
+              ? "bg-red-950/80 border border-red-500/60 text-red-300"
+              : "bg-yellow-950/80 border border-yellow-500/60 text-yellow-300"
+          )}>
+            {errorAlerts > 0
+              ? <XCircle className="w-2.5 h-2.5" />
+              : <AlertTriangle className="w-2.5 h-2.5" />
+            }
+            <span>{totalAlerts}</span>
           </div>
+        ) : isRunning ? (
+          <div className="relative w-2 h-2 shrink-0">
+            <div className="absolute inset-0 rounded-full bg-cyan-400 animate-ping opacity-60" />
+            <div className="absolute inset-0 rounded-full bg-cyan-400" />
+          </div>
+        ) : (
+          <div className="w-2 h-2 rounded-full bg-green-500/70 shrink-0" />
         )}
 
-        {!hasAlerts && !hasRunning && (
-          <div className="px-3 py-2.5 flex items-center gap-1.5">
-            <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0" />
-            <span className="text-xs text-muted-foreground">All {label.toLowerCase()} handled</span>
-          </div>
-        )}
-
-        {hasRunning && (
-          <div className="px-3 pt-3 space-y-2">
-            <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Running</h4>
-            {runningJobs}
-          </div>
-        )}
-
-        {validActions.length > 0 && (
-          <div className="px-3 pb-1 pt-2">
-            <button
-              onClick={(e) => { e.stopPropagation(); setLastActionsOpen(!lastActionsOpen); }}
-              className="w-full flex items-center justify-between gap-2 py-1.5 group"
-              data-testid={`button-last-actions-${label.toLowerCase()}`}
-            >
-              <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-blue-400">
-                <Clock className="w-3 h-3" />
-                Last Actions
-              </span>
-              {lastActionsOpen
-                ? <ChevronDown className="w-3.5 h-3.5 text-blue-400" />
-                : <ChevronUp className="w-3.5 h-3.5 text-blue-400" />
-              }
-            </button>
-            {lastActionsOpen && (
-              <div className="space-y-1 pb-2 pt-1">
-                {validActions.map((a, i) => (
-                  <div key={i} className="flex items-center justify-between gap-2 text-xs">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      {a.ok
-                        ? <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />
-                        : <XCircle className="w-3 h-3 text-red-400 shrink-0" />
-                      }
-                      <span className="text-muted-foreground truncate">{a.label}</span>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground shrink-0">{a.time}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+        {channelNum && (
+          <div
+            className="flex flex-col items-center justify-center rounded font-mono font-black leading-none transition-all duration-200"
+            style={{
+              fontSize: '8px', minWidth: '26px', padding: '2px 5px',
+              ...(isActive ? {
+                background: '#03040C',
+                border: `1px solid ${channelHex ?? '#00FFEE'}`,
+                boxShadow: `0 0 6px ${channelHex ?? '#00FFEE'}55, inset 0 0 8px rgba(0,0,0,0.9)`,
+                color: channelHex ?? '#00FFEE',
+              } : {
+                background: 'rgba(0,0,0,0.4)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                color: 'rgba(180,200,255,0.28)',
+              }),
+            }}
+          >
+            <span>{channelNum}</span>
+            <span style={{ fontSize: '6px', letterSpacing: '0.15em', opacity: isActive ? 0.7 : 0.5 }}>CH</span>
           </div>
         )}
       </div>
-    </div>
+    </button>
   );
 }
 

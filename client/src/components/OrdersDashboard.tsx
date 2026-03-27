@@ -490,16 +490,32 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Selling Channels</h3>
           </div>
           {desktopMode ? (
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => onDrawerChange('bricklinksync')} data-testid="button-orders-bricklink-sync" className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-950/30 p-2.5 text-left hover-elevate active-elevate-2">
-                <div className="p-1 rounded bg-blue-900/60 ring-1 ring-blue-500/40"><Link className="w-3 h-3 text-blue-300" /></div>
+            <div className="flex flex-col gap-1.5">
+              <button
+                onClick={() => onDrawerChange(activeDrawer === 'bricklinksync' ? null : 'bricklinksync')}
+                data-testid="button-orders-bricklink-sync"
+                className={cn("flex items-center gap-2 rounded-lg border p-2.5 text-left hover-elevate active-elevate-2 transition-all",
+                  activeDrawer === 'bricklinksync'
+                    ? "border-blue-400/70 bg-blue-900/50 shadow-[0_0_10px_rgba(59,130,246,0.2)]"
+                    : "border-blue-500/30 bg-blue-950/30"
+                )}
+              >
+                <div className={cn("p-1 rounded ring-1 transition-all", activeDrawer === 'bricklinksync' ? "bg-blue-800/70 ring-blue-400/60" : "bg-blue-900/60 ring-blue-500/40")}><Link className="w-3 h-3 text-blue-300" /></div>
                 <div className="flex-1 min-w-0"><div className="text-xs font-semibold text-blue-100">BrickLink</div><div className="text-[9px] text-gray-500">Orders sync</div></div>
-                <ArrowRight className="w-3 h-3 text-gray-600 flex-shrink-0" />
+                <ArrowRight className={cn("w-3 h-3 flex-shrink-0 transition-colors", activeDrawer === 'bricklinksync' ? "text-blue-400" : "text-gray-600")} />
               </button>
-              <button onClick={() => onDrawerChange('brickowlsync')} data-testid="button-orders-brickowl-sync" className="flex items-center gap-2 rounded-lg border border-orange-500/30 bg-orange-950/30 p-2.5 text-left hover-elevate active-elevate-2">
-                <div className="p-1 rounded bg-orange-900/60 ring-1 ring-orange-500/40"><Globe className="w-3 h-3 text-orange-300" /></div>
+              <button
+                onClick={() => onDrawerChange(activeDrawer === 'brickowlsync' ? null : 'brickowlsync')}
+                data-testid="button-orders-brickowl-sync"
+                className={cn("flex items-center gap-2 rounded-lg border p-2.5 text-left hover-elevate active-elevate-2 transition-all",
+                  activeDrawer === 'brickowlsync'
+                    ? "border-orange-400/70 bg-orange-900/50 shadow-[0_0_10px_rgba(251,146,60,0.2)]"
+                    : "border-orange-500/30 bg-orange-950/30"
+                )}
+              >
+                <div className={cn("p-1 rounded ring-1 transition-all", activeDrawer === 'brickowlsync' ? "bg-orange-800/70 ring-orange-400/60" : "bg-orange-900/60 ring-orange-500/40")}><Globe className="w-3 h-3 text-orange-300" /></div>
                 <div className="flex-1 min-w-0"><div className="text-xs font-semibold text-orange-100">BrickOwl</div><div className="text-[9px] text-gray-500">Orders sync</div></div>
-                <ArrowRight className="w-3 h-3 text-gray-600 flex-shrink-0" />
+                <ArrowRight className={cn("w-3 h-3 flex-shrink-0 transition-colors", activeDrawer === 'brickowlsync' ? "text-orange-400" : "text-gray-600")} />
               </button>
             </div>
           ) : (
