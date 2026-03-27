@@ -67,6 +67,7 @@ type Order = {
   marketplace: string | null;
   customerUsername: string | null;
   customerNotes: string | null;
+  internalNotes: string | null;
   shipTo: any;
   orderDate: string | null;
   requestedShippingService: string | null;
@@ -1570,59 +1571,29 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                             orderItems={items}
                             siblingItems={siblingItems}
                             siblingOrderRef={siblingOrderRef}
+                            internalNotes={order?.internalNotes ?? null}
+                            onSplit={!isThisCardSplitting ? () => handleInitiateSplit(orderId) : undefined}
+                            onMerge={!isThisCardSplitting ? () => { setMergeDialog({ orderId, mergeGroupId: order?.mergeGroupId ?? null }); setMergeSearch(''); } : undefined}
+                            onMarkAsShipped={!isThisCardSplitting ? () => {
+                              const base = allOrders.find(o => o.id === orderId);
+                              const linked = base?.mergeGroupId
+                                ? allOrders.filter(o =>
+                                    o.id !== orderId
+                                    && o.mergeGroupId === base.mergeGroupId
+                                    && (o.workflowStatus || 'new') !== 'done'
+                                  ).map(o => ({ id: o.id, orderNumber: o.orderNumber, marketplace: o.marketplace ?? null }))
+                                : [];
+                              setShipFreeDialog({
+                                orderId,
+                                orderNumber: order?.orderNumber ?? orderId,
+                                marketplace: order?.marketplace ?? null,
+                                linkedOrders: linked,
+                              });
+                              setShipFreeTracking('');
+                              setShipFreeNote('');
+                              setShipFreeAlsoShip(new Set(linked.map(o => o.id)));
+                            } : undefined}
                           />
-                        )}
-
-                        {/* Per-card Split + Merge actions */}
-                        {!isThisCardSplitting && (
-                          <div className="flex items-center gap-1 px-1">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleInitiateSplit(orderId)}
-                              className="text-gray-400 text-xs h-6 px-2"
-                              data-testid={`button-split-order-${orderId}`}
-                            >
-                              <Scissors className="w-3 h-3 mr-1" />Split
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => { setMergeDialog({ orderId, mergeGroupId: order?.mergeGroupId ?? null }); setMergeSearch(''); }}
-                              className="text-gray-400 text-xs h-6 px-2"
-                              data-testid={`button-merge-order-${orderId}`}
-                            >
-                              <Link2 className="w-3 h-3 mr-1" />Merge
-                            </Button>
-                            <div className="w-px h-3 bg-gray-700 mx-0.5 self-center shrink-0" />
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                const base = allOrders.find(o => o.id === orderId);
-                                const linked = base?.mergeGroupId
-                                  ? allOrders.filter(o =>
-                                      o.id !== orderId
-                                      && o.mergeGroupId === base.mergeGroupId
-                                      && (o.workflowStatus || 'new') !== 'done'
-                                    ).map(o => ({ id: o.id, orderNumber: o.orderNumber, marketplace: o.marketplace ?? null }))
-                                  : [];
-                                setShipFreeDialog({
-                                  orderId,
-                                  orderNumber: order?.orderNumber ?? orderId,
-                                  marketplace: order?.marketplace ?? null,
-                                  linkedOrders: linked,
-                                });
-                                setShipFreeTracking('');
-                                setShipFreeNote('');
-                                setShipFreeAlsoShip(new Set(linked.map(o => o.id)));
-                              }}
-                              className="text-gray-400 text-xs h-6 px-2"
-                              data-testid={`button-ship-no-label-${orderId}`}
-                            >
-                              <Package className="w-3 h-3 mr-1" />No Label
-                            </Button>
-                          </div>
                         )}
                       </div>
                     );

@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, CheckCircle2, AlertTriangle, ExternalLink,
   Pencil, X, ChevronDown, ChevronUp, Globe, Plus,
+  Scissors, Link2, Package, StickyNote,
 } from "lucide-react";
 import { shortCode } from "@/components/PackingSlip";
 import { shippingTier } from "@/lib/item-utils";
@@ -111,8 +112,12 @@ type Props = {
   orderItems?: OrderItem[];
   siblingItems?: OrderItem[];
   siblingOrderRef?: string;
+  internalNotes?: string | null;
   onReadyChange: (orderId: string, state: ShippingReadyState | null) => void;
   purchasedLabel?: PurchasedLabelResult;
+  onSplit?: () => void;
+  onMerge?: () => void;
+  onMarkAsShipped?: () => void;
 };
 
 const TEST_FROM_ADDRESS = {
@@ -130,7 +135,8 @@ const PROD_FROM_ADDRESS = {
 };
 
 export default function InlineShippingCard({
-  orderId, isTestMode, orderItems = [], siblingItems = [], siblingOrderRef, onReadyChange, purchasedLabel,
+  orderId, isTestMode, orderItems = [], siblingItems = [], siblingOrderRef, internalNotes,
+  onReadyChange, purchasedLabel, onSplit, onMerge, onMarkAsShipped,
 }: Props) {
   const { toast } = useToast();
 
@@ -779,7 +785,43 @@ export default function InlineShippingCard({
           })()
         ) : null}
 
-        {/* ── Row 4: Details toggle ── */}
+        {/* ── Row 4: Order actions ── */}
+        {(onSplit || onMerge || onMarkAsShipped) && (
+          <div className="flex items-center gap-0.5 -mx-0.5">
+            {onSplit && (
+              <button
+                onClick={onSplit}
+                className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-300 transition-colors px-1.5 py-0.5 rounded"
+                data-testid={`button-split-order-${orderId}`}
+              >
+                <Scissors className="w-3 h-3" />Split
+              </button>
+            )}
+            {onMerge && (
+              <button
+                onClick={onMerge}
+                className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-300 transition-colors px-1.5 py-0.5 rounded"
+                data-testid={`button-merge-order-${orderId}`}
+              >
+                <Link2 className="w-3 h-3" />Merge
+              </button>
+            )}
+            {(onSplit || onMerge) && onMarkAsShipped && (
+              <div className="w-px h-3 bg-gray-700 mx-0.5 self-center shrink-0" />
+            )}
+            {onMarkAsShipped && (
+              <button
+                onClick={onMarkAsShipped}
+                className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-300 transition-colors px-1.5 py-0.5 rounded"
+                data-testid={`button-ship-no-label-${orderId}`}
+              >
+                <Package className="w-3 h-3" />Mark as Shipped
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ── Row 5: Details toggle ── */}
         <button
           className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-300 transition-colors w-full"
           onClick={() => setDetailsOpen(v => !v)}
@@ -925,6 +967,19 @@ export default function InlineShippingCard({
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Internal notes section */}
+          {internalNotes && (
+            <div className="px-3 py-2.5 space-y-1">
+              <div className="flex items-center gap-1 text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+                <StickyNote className="w-3 h-3" />
+                <span>Internal Notes</span>
+              </div>
+              <pre className="text-[11px] text-gray-400 whitespace-pre-wrap font-sans leading-relaxed">
+                {internalNotes}
+              </pre>
             </div>
           )}
 
