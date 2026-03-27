@@ -452,6 +452,32 @@ export default function Home() {
     setRightPanelBrowse(null);
   };
 
+  const applyDefaultDesktopDrawer = (dashboard: DashboardType) => {
+    setActiveInventoryDrawer(null);
+    setActiveOrdersDrawer(null);
+    setActiveMarketingDrawer(null);
+    setActiveSalesDrawer(null);
+    setBillingOpen(false);
+    setRightPanelBrowse(null);
+    switch (dashboard) {
+      case 'inventory': setActiveInventoryDrawer('inventoryhealth'); break;
+      case 'orders':    setActiveOrdersDrawer('fulfillment'); break;
+      case 'marketing': setActiveMarketingDrawer('engage-new'); break;
+      case 'sales':     setActiveSalesDrawer('chart'); break;
+    }
+  };
+
+  const switchDashboardDesktop = (dashboard: DashboardType) => {
+    setActiveDashboard(dashboard);
+    applyDefaultDesktopDrawer(dashboard);
+  };
+
+  useEffect(() => {
+    if (isDesktop) {
+      applyDefaultDesktopDrawer(activeDashboard);
+    }
+  }, [isDesktop]);  // eslint-disable-line react-hooks/exhaustive-deps
+
   const openSettings = (section?: string, pricingExampleOrFocusTarget?: PricingInsight | string, scoringExample?: PricingInsight) => {
     setSettingsInitialSection(section as any);
     if (typeof pricingExampleOrFocusTarget === 'string') {
@@ -1338,7 +1364,7 @@ export default function Home() {
                           return (
                             <button
                               key={dial.id}
-                              onClick={() => { closeActiveDrawer(); setActiveDashboard(dial.id); }}
+                              onClick={() => switchDashboardDesktop(dial.id)}
                               data-testid={`desktop-dial-${dial.id}`}
                               style={{ flex: 1, background: isActive ? `rgba(${dial.rgb},0.15)` : 'rgba(255,255,255,0.03)', border: `1px solid ${isActive ? dial.hex : 'rgba(190,210,255,0.13)'}`, borderRadius: '5px', padding: '3px 2px', cursor: 'pointer', color: isActive ? dial.hex : 'rgba(190,210,255,0.6)', fontFamily: 'monospace', fontWeight: 700, fontSize: 'clamp(7px,0.7vw,9px)', letterSpacing: '0.04em', textAlign: 'center', lineHeight: 1.2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', transition: 'all 0.15s', textShadow: isActive ? `0 0 8px ${dial.hex}` : 'none', boxShadow: isActive ? `0 0 8px rgba(${dial.rgb},0.2), inset 0 0 6px rgba(${dial.rgb},0.06)` : 'none' }}
                             >
