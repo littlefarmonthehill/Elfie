@@ -288,9 +288,21 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
   const [mergeDialog, setMergeDialog] = useState<{ orderId: string; mergeGroupId: string | null } | null>(null);
   const [mergeSearch, setMergeSearch] = useState('');
   // Ship-without-label dialog state
-  const [shipFreeDialog, setShipFreeDialog] = useState<{ orderId: string; orderNumber: string; marketplace: string | null } | null>(null);
+  const [shipFreeDialog, setShipFreeDialog] = useState<{
+    orderId: string;
+    orderNumber: string;
+    marketplace: string | null;
+    linkedOrders: Array<{ id: string; orderNumber: string; marketplace: string | null }>;
+  } | null>(null);
   const [shipFreeTracking, setShipFreeTracking] = useState('');
   const [shipFreeNote, setShipFreeNote] = useState('');
+  const [shipFreeAlsoShip, setShipFreeAlsoShip] = useState<Set<string>>(new Set());
+  // Post-label-purchase merge-sibling prompt
+  const [mergeShipDialog, setMergeShipDialog] = useState<{
+    items: Array<{ orderId: string; orderNumber: string; marketplace: string | null; trackingNumber: string }>;
+  } | null>(null);
+  const [mergeShipSelected, setMergeShipSelected] = useState<Set<string>>(new Set());
+  const [mergeShipPending, setMergeShipPending] = useState(false);
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const [activeWorkflowFilter, setActiveWorkflowFilter] = useState<WorkflowStatus | null>(null);
 
@@ -328,10 +340,27 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     },
   });
 
-  const shipFreeMutation = useMutation({
-    mutationFn: ({ orderId, trackingNumber, note }: { orderId: string; trackingNumber: string; note: string }) =>
-      apiRequest('POST', `/api/orders/${orderId}/ship-without-label`, { trackingNumber, note }),
-    onSuccess: () => {
+  const [shipFreeSubmitting, setShipFreeSubmitting] = useState(false);
+
+  const handleConfirmShipFree = async () => {
+    if (!shipFreeDialog || shipFreeSubmitting) return;
+    setShipFreeSubmitting(true);
+    try {
+      await apiRequest('POST', `/api/orders/${shipFreeDialog.orderId}/ship-without-label`, {
+        trackingNumber: shipFreeTracking,
+        note: shipFreeNote,
+      });
+      const alsoShip = shipFreeDialog.linkedOrders.filter(o => shipFreeAlsoShip.has(o.id));
+      if (alsoShip.length > 0) {
+        await Promise.allSettled(alsoShip.map(o =>
+          apiRequest('POST', `/api/orders/${o.id}/ship-without-label`, {
+            trackingNumber: shipFreeTracking,
+            note: shipFreeNote
+              ? `${shipFreeNote} (merged with ${shipFreeDialog.orderNumber})`
+              : `Shipped together with ${shipFreeDialog.orderNumber}`,
+          })
+        ));
+      }
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
@@ -339,12 +368,49 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
       setShipFreeDialog(null);
       setShipFreeTracking('');
       setShipFreeNote('');
-      toast({ title: "Order shipped", description: "Marked as shipped and selling channel updated." });
-    },
-    onError: (err: any) => {
+      setShipFreeAlsoShip(new Set());
+      const total = 1 + alsoShip.length;
+      toast({
+        title: total === 1 ? "Order shipped" : `${total} orders shipped`,
+        description: total === 1
+          ? "Marked as shipped and selling channel updated."
+          : `Primary order and ${alsoShip.length} linked order${alsoShip.length !== 1 ? 's' : ''} marked as shipped.`,
+      });
+    } catch (err: any) {
       toast({ title: "Ship failed", description: err.message || "Could not mark order as shipped.", variant: "destructive" });
-    },
-  });
+    } finally {
+      setShipFreeSubmitting(false);
+    }
+  };
+
+  const handleMergeShip = async () => {
+    if (!mergeShipDialog || mergeShipPending) return;
+    const toShip = mergeShipDialog.items.filter(i => mergeShipSelected.has(i.orderId));
+    if (toShip.length === 0) { setMergeShipDialog(null); return; }
+    setMergeShipPending(true);
+    try {
+      await Promise.allSettled(toShip.map(item =>
+        apiRequest('POST', `/api/orders/${item.orderId}/ship-without-label`, {
+          trackingNumber: item.trackingNumber,
+          note: 'Shipped together with merged order (no additional label)',
+        })
+      ));
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
+      setMergeShipDialog(null);
+      setMergeShipSelected(new Set());
+      toast({
+        title: `${toShip.length} linked order${toShip.length !== 1 ? 's' : ''} shipped`,
+        description: "Marked as shipped with the same tracking number. No additional label purchased.",
+      });
+    } catch (err: any) {
+      toast({ title: "Ship failed", description: err.message || "Could not mark linked orders as shipped.", variant: "destructive" });
+    } finally {
+      setMergeShipPending(false);
+    }
+  };
 
   const { data, isLoading } = useQuery<FulfillmentData>({
     queryKey: ['/api/fulfillment'],
@@ -691,6 +757,28 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     setBatchResults(results);
     setReadyToShip(new Map());
     setIsShippingAll(false);
+
+    // Before invalidating, detect unshipped merge-group siblings for purchased labels
+    const mergeItems: Array<{ orderId: string; orderNumber: string; marketplace: string | null; trackingNumber: string }> = [];
+    for (const r of results) {
+      if (!r.trackingNumber) continue;
+      const order = allOrders.find(o => o.id === r.orderId);
+      if (!order?.mergeGroupId) continue;
+      const siblings = allOrders.filter(
+        o => o.id !== r.orderId
+          && o.mergeGroupId === order.mergeGroupId
+          && (o.workflowStatus || 'new') !== 'done'
+      );
+      for (const sib of siblings) {
+        if (!mergeItems.some(m => m.orderId === sib.id)) {
+          mergeItems.push({ orderId: sib.id, orderNumber: sib.orderNumber, marketplace: sib.marketplace ?? null, trackingNumber: r.trackingNumber });
+        }
+      }
+    }
+    if (mergeItems.length > 0) {
+      setMergeShipDialog({ items: mergeItems });
+      setMergeShipSelected(new Set(mergeItems.map(i => i.orderId)));
+    }
 
     queryClient.invalidateQueries({ queryKey: ["/api/fulfillment"] });
     queryClient.invalidateQueries({ queryKey: ["/api/fulfillment/stats"] });
@@ -1486,9 +1574,23 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                               size="sm"
                               variant="ghost"
                               onClick={() => {
-                                setShipFreeDialog({ orderId, orderNumber: order?.orderNumber ?? orderId, marketplace: order?.marketplace ?? null });
+                                const base = allOrders.find(o => o.id === orderId);
+                                const linked = base?.mergeGroupId
+                                  ? allOrders.filter(o =>
+                                      o.id !== orderId
+                                      && o.mergeGroupId === base.mergeGroupId
+                                      && (o.workflowStatus || 'new') !== 'done'
+                                    ).map(o => ({ id: o.id, orderNumber: o.orderNumber, marketplace: o.marketplace ?? null }))
+                                  : [];
+                                setShipFreeDialog({
+                                  orderId,
+                                  orderNumber: order?.orderNumber ?? orderId,
+                                  marketplace: order?.marketplace ?? null,
+                                  linkedOrders: linked,
+                                });
                                 setShipFreeTracking('');
                                 setShipFreeNote('');
+                                setShipFreeAlsoShip(new Set(linked.map(o => o.id)));
                               }}
                               className="text-gray-400 text-xs h-6 px-2"
                               data-testid={`button-ship-no-label-${orderId}`}
@@ -1770,7 +1872,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
       {/* ── Ship Without Label Dialog ── */}
       <Dialog
         open={!!shipFreeDialog}
-        onOpenChange={(open) => { if (!open) { setShipFreeDialog(null); setShipFreeTracking(''); setShipFreeNote(''); } }}
+        onOpenChange={(open) => { if (!open) { setShipFreeDialog(null); setShipFreeTracking(''); setShipFreeNote(''); setShipFreeAlsoShip(new Set()); } }}
       >
         <DialogContent className="sm:max-w-[460px]">
           <DialogHeader>
@@ -1820,27 +1922,136 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
               />
             </div>
 
+            {shipFreeDialog && shipFreeDialog.linkedOrders.length > 0 && (
+              <div className="space-y-2 border border-blue-500/30 rounded-md p-3 bg-blue-500/5">
+                <p className="text-xs font-semibold text-blue-300 uppercase tracking-wide flex items-center gap-1.5">
+                  <Link2 className="w-3 h-3" />
+                  Also ship linked order{shipFreeDialog.linkedOrders.length !== 1 ? 's' : ''} — same tracking, no label
+                </p>
+                <p className="text-xs text-gray-400">
+                  These orders are in the same merge group. Checking them marks them shipped with the same tracking number at no extra cost.
+                </p>
+                <div className="space-y-1.5 mt-1">
+                  {shipFreeDialog.linkedOrders.map(o => (
+                    <label key={o.id} className="flex items-center gap-2 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={shipFreeAlsoShip.has(o.id)}
+                        onChange={e => {
+                          setShipFreeAlsoShip(prev => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(o.id); else next.delete(o.id);
+                            return next;
+                          });
+                        }}
+                        className="accent-blue-400"
+                        data-testid={`checkbox-also-ship-${o.id}`}
+                      />
+                      <span className="text-sm text-gray-200 font-medium">{o.orderNumber}</span>
+                      {o.marketplace && (
+                        <span className="text-xs text-gray-500">{o.marketplace}</span>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
-                onClick={() => { setShipFreeDialog(null); setShipFreeTracking(''); setShipFreeNote(''); }}
+                onClick={() => { setShipFreeDialog(null); setShipFreeTracking(''); setShipFreeNote(''); setShipFreeAlsoShip(new Set()); }}
                 data-testid="button-cancel-ship-free"
               >
                 Cancel
               </Button>
               <Button
-                onClick={() => shipFreeDialog && shipFreeMutation.mutate({
-                  orderId: shipFreeDialog.orderId,
-                  trackingNumber: shipFreeTracking,
-                  note: shipFreeNote,
-                })}
-                disabled={shipFreeMutation.isPending}
+                onClick={handleConfirmShipFree}
+                disabled={shipFreeSubmitting}
                 className="bg-emerald-600"
                 data-testid="button-confirm-ship-free"
               >
-                {shipFreeMutation.isPending
+                {shipFreeSubmitting
                   ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Shipping...</>
-                  : <><PackageCheck className="w-4 h-4 mr-2" />Mark as Shipped</>
+                  : <><PackageCheck className="w-4 h-4 mr-2" />
+                      {shipFreeDialog && shipFreeAlsoShip.size > 0
+                        ? `Ship ${1 + shipFreeAlsoShip.size} Orders`
+                        : 'Mark as Shipped'
+                      }
+                    </>
+                }
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Post-label-purchase merge sibling prompt ── */}
+      <Dialog
+        open={!!mergeShipDialog}
+        onOpenChange={(open) => { if (!open) { setMergeShipDialog(null); setMergeShipSelected(new Set()); } }}
+      >
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="w-5 h-5 text-blue-400" />
+              Linked Orders Detected
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Alert className="bg-blue-500/10 border-blue-500/30">
+              <PackageCheck className="h-4 w-4 text-blue-400" />
+              <AlertDescription className="text-blue-200 text-sm">
+                The orders below are merged with ones you just shipped. You can mark them shipped with the same tracking number — no additional label purchase required.
+              </AlertDescription>
+            </Alert>
+
+            <div className="space-y-2">
+              {mergeShipDialog?.items.map(item => (
+                <label key={item.orderId} className="flex items-start gap-3 p-2.5 rounded-md bg-gray-800/50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={mergeShipSelected.has(item.orderId)}
+                    onChange={e => {
+                      setMergeShipSelected(prev => {
+                        const next = new Set(prev);
+                        if (e.target.checked) next.add(item.orderId); else next.delete(item.orderId);
+                        return next;
+                      });
+                    }}
+                    className="accent-blue-400 mt-0.5"
+                    data-testid={`checkbox-merge-ship-${item.orderId}`}
+                  />
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-gray-200">{item.orderNumber}</div>
+                    {item.marketplace && (
+                      <div className="text-xs text-gray-500">{item.marketplace}</div>
+                    )}
+                    <div className="text-xs text-gray-400 mt-0.5 font-mono truncate">
+                      Tracking: {item.trackingNumber || '—'}
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => { setMergeShipDialog(null); setMergeShipSelected(new Set()); }}
+                data-testid="button-skip-merge-ship"
+              >
+                Skip
+              </Button>
+              <Button
+                onClick={handleMergeShip}
+                disabled={mergeShipPending || mergeShipSelected.size === 0}
+                className="bg-blue-600"
+                data-testid="button-confirm-merge-ship"
+              >
+                {mergeShipPending
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Shipping...</>
+                  : <><PackageCheck className="w-4 h-4 mr-2" />Ship {mergeShipSelected.size} Order{mergeShipSelected.size !== 1 ? 's' : ''}</>
                 }
               </Button>
             </div>
