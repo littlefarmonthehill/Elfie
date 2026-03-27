@@ -627,6 +627,13 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
     refetchInterval: 10000,
   });
 
+  const { data: syncQueueData } = useQuery<{ stats: { pending: number; abandoned: number; done: number; total: number } }>({
+    queryKey: ['/api/sync-queue'],
+    refetchInterval: 30000,
+    select: (d) => ({ stats: d.stats }),
+  });
+  const abandonedQtyUpdates = syncQueueData?.stats?.abandoned ?? 0;
+
   const underpricedThreshold = appSettings?.pomUnderpricedScore ?? 1.5;
 
   const setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }> = [];
@@ -705,6 +712,9 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   }
   if (orderSyncFailed) {
     urgentAlerts.push({ id: 'order-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Order sync failed', sub: lastOrderSync?.errorMessage ?? 'Check connection', severity: 'error' });
+  }
+  if (abandonedQtyUpdates > 0) {
+    urgentAlerts.push({ id: 'qty-sync-fail', icon: AlertTriangle, iconColor: 'text-orange-400', label: `${abandonedQtyUpdates} qty update${abandonedQtyUpdates !== 1 ? 's' : ''} need attention`, sub: 'Open Orders to review and retry', severity: 'error', onClick: () => onNavigate?.('orders') });
   }
   if (channelSyncFailed) {
     urgentAlerts.push({ id: 'channel-fail', icon: XCircle, iconColor: 'text-red-400', label: 'Channel sync failed', sub: lastChannelSync?.errorMessage ?? 'Check channel connections', severity: 'error', onClick: () => onOpenSettings?.('platforms') });
@@ -785,7 +795,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           Icon={ShoppingCart}
           color="orange"
           stat={pendingOrders > 0 ? `${pendingOrders} to fulfill` : `${(stats?.totalOrders ?? 0).toLocaleString()} total`}
-          alerts={urgentAlerts.filter(a => a.id === 'pending' || a.id === 'order-fail')}
+          alerts={urgentAlerts.filter(a => a.id === 'pending' || a.id === 'order-fail' || a.id === 'qty-sync-fail')}
           onClick={() => onNavigate?.('orders')}
           isRunning={isOrderSyncing || !!activeOrdEmbed}
           lastActions={[
