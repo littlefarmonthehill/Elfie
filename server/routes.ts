@@ -1,4 +1,4 @@
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { getRecentLogs, clearLogs } from "./services/server-log-buffer";
@@ -16157,6 +16157,53 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     } catch (error) {
       console.error("Error dismissing merge alert:", error);
       res.status(500).json({ error: "Failed to dismiss merge alert" });
+    }
+  });
+
+  // Link two orders into the same merge group for combined shipping
+  app.post("/api/orders/:orderId/link-merge", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { orderId } = req.params;
+      const { targetOrderId } = req.body;
+
+      if (!targetOrderId || typeof targetOrderId !== 'string') {
+        return res.status(400).json({ error: "targetOrderId required" });
+      }
+      if (targetOrderId === orderId) {
+        return res.status(400).json({ error: "Cannot merge an order with itself" });
+      }
+
+      const [sourceOrder] = await db
+        .select({ id: orders.id, mergeGroupId: orders.mergeGroupId })
+        .from(orders)
+        .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)))
+        .limit(1);
+      const [targetOrder] = await db
+        .select({ id: orders.id, mergeGroupId: orders.mergeGroupId })
+        .from(orders)
+        .where(and(eq(orders.id, targetOrderId), eq(orders.orgId, orgId)))
+        .limit(1);
+
+      if (!sourceOrder || !targetOrder) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      // Reuse an existing mergeGroupId if either order already has one,
+      // otherwise generate a new one.
+      const mergeGroupId = sourceOrder.mergeGroupId || targetOrder.mergeGroupId || randomUUID();
+
+      await db.update(orders)
+        .set({ mergeGroupId, updatedAt: new Date() })
+        .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)));
+      await db.update(orders)
+        .set({ mergeGroupId, updatedAt: new Date() })
+        .where(and(eq(orders.id, targetOrderId), eq(orders.orgId, orgId)));
+
+      res.json({ success: true, mergeGroupId });
+    } catch (error) {
+      console.error("Error linking merge groups:", error);
+      res.status(500).json({ error: "Failed to link orders" });
     }
   });
 

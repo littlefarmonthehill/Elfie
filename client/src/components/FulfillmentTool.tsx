@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe, Plus } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe, Plus, Link2, Search } from "lucide-react";
 
 import { printPackingSlips, printPicklist, buildShortCodeMap, shortCode } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
@@ -281,8 +281,12 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
 
   // Split order state
   const [isSplitMode, setIsSplitMode] = useState(false);
+  const [splitTargetOrderId, setSplitTargetOrderId] = useState<string | null>(null);
   const [selectedItemsForSplit, setSelectedItemsForSplit] = useState<Set<string>>(new Set());
   const [statusPickerOrderId, setStatusPickerOrderId] = useState<string | null>(null);
+  // Merge dialog state
+  const [mergeDialog, setMergeDialog] = useState<{ orderId: string; mergeGroupId: string | null } | null>(null);
+  const [mergeSearch, setMergeSearch] = useState('');
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const [activeWorkflowFilter, setActiveWorkflowFilter] = useState<WorkflowStatus | null>(null);
 
@@ -305,6 +309,20 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
 
   const [showSplitConfirmDialog, setShowSplitConfirmDialog] = useState(false);
   const [splitOrderNumber, setSplitOrderNumber] = useState<string>("");
+
+  const linkMergeMutation = useMutation({
+    mutationFn: ({ orderId, targetOrderId }: { orderId: string; targetOrderId: string }) =>
+      apiRequest('POST', `/api/orders/${orderId}/link-merge`, { targetOrderId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
+      setMergeDialog(null);
+      setMergeSearch('');
+      toast({ title: "Orders linked", description: "Both orders are now in the same merge group and will ship together." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Link failed", description: err.message || "Could not link orders.", variant: "destructive" });
+    },
+  });
 
   const { data, isLoading } = useQuery<FulfillmentData>({
     queryKey: ['/api/fulfillment'],
@@ -666,22 +684,15 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     });
   };
 
-  const handleInitiateSplit = () => {
-    if (!selectedOrderId) {
-      toast({
-        title: "No Order Selected",
-        description: "Please select an order to split.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
+  const handleInitiateSplit = (orderId: string) => {
+    setSplitTargetOrderId(orderId);
     setIsSplitMode(true);
     setSelectedItemsForSplit(new Set());
   };
 
   const handleCancelSplit = () => {
     setIsSplitMode(false);
+    setSplitTargetOrderId(null);
     setSelectedItemsForSplit(new Set());
   };
 
@@ -689,7 +700,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     setSelectedItemsForSplit(prev => toggleSetItem(prev, itemId));
 
   const handleConfirmSplit = () => {
-    if (!selectedOrderId || selectedItemsForSplit.size === 0) {
+    if (!splitTargetOrderId || selectedItemsForSplit.size === 0) {
       toast({
         title: "No Items Selected",
         description: "Please select at least one item to split.",
@@ -698,27 +709,24 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
       return;
     }
 
-    // Get the current order number
-    const currentOrder = data?.orders.find(o => o.id === selectedOrderId);
+    const currentOrder = data?.orders.find(o => o.id === splitTargetOrderId);
     if (!currentOrder) return;
 
-    // Generate new order number with -1 suffix
     const newOrderNumber = `${currentOrder.orderNumber}-1`;
     setSplitOrderNumber(newOrderNumber);
     setShowSplitConfirmDialog(true);
   };
 
   const handleExecuteSplit = async () => {
-    if (!selectedOrderId || selectedItemsForSplit.size === 0 || !data) return;
+    if (!splitTargetOrderId || selectedItemsForSplit.size === 0 || !data) return;
 
     try {
-      // Calculate itemIdsToKeep (all order items except the selected ones)
-      const orderItems = data.items.filter(item => item.orderId === selectedOrderId);
+      const orderItems = data.items.filter(item => item.orderId === splitTargetOrderId);
       const itemIdsToKeep = orderItems
         .filter(item => !selectedItemsForSplit.has(item.id))
         .map(item => item.id);
 
-      await apiRequest('POST', `/api/orders/${selectedOrderId}/split`, {
+      await apiRequest('POST', `/api/orders/${splitTargetOrderId}/split`, {
         itemIdsToKeep
       });
 
@@ -727,12 +735,11 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
         description: `Items moved to order ${splitOrderNumber}`,
       });
 
-      // Reset state
       setShowSplitConfirmDialog(false);
       setIsSplitMode(false);
+      setSplitTargetOrderId(null);
       setSelectedItemsForSplit(new Set());
       
-      // Refresh data
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
     } catch (error: any) {
@@ -1076,28 +1083,6 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
       {/* ── Main layout ── */}
       <div>
 
-        {/* Split mode bar — full width, only visible when splitting */}
-        {isSplitMode && (
-          <div className="flex items-center justify-end gap-2 pb-2 border-b border-gray-700">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleCancelSplit}
-              data-testid="button-cancel-split"
-            >
-              Cancel Split
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleConfirmSplit}
-              disabled={selectedItemsForSplit.size === 0}
-              data-testid="button-confirm-split"
-            >
-              <Scissors className="w-3.5 h-3.5 mr-1.5" />
-              Confirm Split ({selectedItemsForSplit.size})
-            </Button>
-          </div>
-        )}
 
         {/* ── Orders link — mirrors Brickspotter's Batches link ── */}
         <div className="flex items-center justify-between gap-2 mb-1">
@@ -1159,7 +1144,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
         </div>
 
         {/* ── Tab-specific action bar — full width ── */}
-        {!isSplitMode && activeTab === 'picklist' && (
+        {activeTab === 'picklist' && (
           <div className="flex items-center justify-center gap-1 px-1 py-1.5 border-b border-gray-700/60 overflow-x-auto scrollbar-hide">
             <Button
               size="sm"
@@ -1199,17 +1184,6 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
         )}
         {!isSplitMode && activeTab === 'shipping' && (
           <div ref={actionRowRef} className="flex items-center justify-center gap-1 px-1 py-1.5 border-b border-gray-700/60 overflow-x-auto scrollbar-hide">
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={!selectedOrderId}
-              onClick={handleInitiateSplit}
-              className="text-gray-300 text-xs whitespace-nowrap shrink-0"
-              data-testid="button-split-order"
-            >
-              <Scissors className="w-3.5 h-3.5 mr-1.5" />
-              Split
-            </Button>
             <Button
               ref={shipBtnRef}
               size="sm"
@@ -1384,6 +1358,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                 </h3>
                 <div className="space-y-2">
                   {[...selectedOrders].map((orderId) => {
+                    const order = allOrders.find(o => o.id === orderId);
                     const items: OrderItem[] = (data?.items ?? [])
                       .filter(item => item.orderId === orderId)
                       .map(item => ({
@@ -1396,15 +1371,97 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                         condition: item.condition,
                         binName: item.binName,
                       }));
+                    const isThisCardSplitting = isSplitMode && splitTargetOrderId === orderId;
+                    const splitItems = (data?.items ?? []).filter(i => i.orderId === orderId);
+
                     return (
-                      <InlineShippingCard
-                        key={orderId}
-                        orderId={orderId}
-                        isTestMode={settings?.easypostKeyMode === 'test'}
-                        onReadyChange={handleReadyChange}
-                        purchasedLabel={purchasedLabels.get(orderId)}
-                        orderItems={items}
-                      />
+                      <div key={orderId} className="space-y-1">
+                        {isThisCardSplitting ? (
+                          /* ── Inline split item selector ── */
+                          <div className="border border-orange-500/40 rounded-lg bg-orange-950/20 p-3 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <Scissors className="w-3.5 h-3.5 text-orange-400" />
+                                <span className="text-xs font-semibold text-orange-300">
+                                  Select items to split out from {order?.orderNumber}
+                                </span>
+                              </div>
+                              <Button size="sm" variant="ghost" onClick={handleCancelSplit}
+                                className="text-gray-400 text-xs h-6 px-2"
+                                data-testid="button-cancel-split-inline"
+                              >
+                                <X className="w-3 h-3 mr-1" />Cancel
+                              </Button>
+                            </div>
+                            <div className="space-y-1 max-h-48 overflow-y-auto">
+                              {splitItems.map(item => (
+                                <label key={item.id}
+                                  className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer rounded px-2 py-1 hover-elevate"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="accent-orange-500 w-3.5 h-3.5"
+                                    checked={selectedItemsForSplit.has(item.id)}
+                                    onChange={() => handleItemSplitToggle(item.id)}
+                                    data-testid={`checkbox-split-item-${item.id}`}
+                                  />
+                                  <span className="flex-1 truncate">
+                                    {item.bricklinkPartNumber && <span className="font-mono text-gray-400 mr-1">{item.bricklinkPartNumber}</span>}
+                                    {item.name}
+                                    {item.colorName && <span className="text-gray-500"> · {item.colorName}</span>}
+                                    {item.condition && <span className="text-gray-500"> · {item.condition}</span>}
+                                  </span>
+                                  <span className="text-gray-400 shrink-0">×{item.quantity}</span>
+                                </label>
+                              ))}
+                            </div>
+                            <div className="flex justify-end">
+                              <Button
+                                size="sm"
+                                disabled={selectedItemsForSplit.size === 0}
+                                onClick={handleConfirmSplit}
+                                className="bg-orange-600 text-xs h-7"
+                                data-testid="button-confirm-split-inline"
+                              >
+                                <Scissors className="w-3 h-3 mr-1.5" />
+                                Split {selectedItemsForSplit.size > 0 ? `${selectedItemsForSplit.size} item${selectedItemsForSplit.size !== 1 ? 's' : ''}` : ''}
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <InlineShippingCard
+                            orderId={orderId}
+                            isTestMode={settings?.easypostKeyMode === 'test'}
+                            onReadyChange={handleReadyChange}
+                            purchasedLabel={purchasedLabels.get(orderId)}
+                            orderItems={items}
+                          />
+                        )}
+
+                        {/* Per-card Split + Merge actions */}
+                        {!isThisCardSplitting && (
+                          <div className="flex items-center gap-1 px-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleInitiateSplit(orderId)}
+                              className="text-gray-400 text-xs h-6 px-2"
+                              data-testid={`button-split-order-${orderId}`}
+                            >
+                              <Scissors className="w-3 h-3 mr-1" />Split
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => { setMergeDialog({ orderId, mergeGroupId: order?.mergeGroupId ?? null }); setMergeSearch(''); }}
+                              className="text-gray-400 text-xs h-6 px-2"
+                              data-testid={`button-merge-order-${orderId}`}
+                            >
+                              <Link2 className="w-3 h-3 mr-1" />Merge
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -1513,7 +1570,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
               <AlertDescription className="text-orange-200">
                 <p className="font-semibold mb-1">This action will split the order:</p>
                 <p className="text-sm">
-                  Current order: <span className="font-mono">{data?.orders.find(o => o.id === selectedOrderId)?.orderNumber}</span>
+                  Current order: <span className="font-mono">{data?.orders.find(o => o.id === splitTargetOrderId)?.orderNumber}</span>
                   <br />
                   New order: <span className="font-mono">{splitOrderNumber}</span>
                 </p>
@@ -1559,6 +1616,120 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* ── Merge Order Dialog ── */}
+      {(() => {
+        if (!mergeDialog) return null;
+        const sourceOrder = allOrders.find(o => o.id === mergeDialog.orderId);
+        const lowerSearch = mergeSearch.toLowerCase();
+
+        // Split candidates into already-linked and others
+        const linked: typeof allOrders = [];
+        const others: typeof allOrders = [];
+        for (const o of allOrders) {
+          if (o.id === mergeDialog.orderId) continue;
+          if (mergeDialog.mergeGroupId && o.mergeGroupId === mergeDialog.mergeGroupId) {
+            linked.push(o);
+          } else {
+            others.push(o);
+          }
+        }
+        const filteredOthers = lowerSearch
+          ? others.filter(o =>
+              (o.orderNumber ?? '').toLowerCase().includes(lowerSearch) ||
+              (o.customerUsername ?? '').toLowerCase().includes(lowerSearch)
+            )
+          : others;
+
+        return (
+          <Dialog open={!!mergeDialog} onOpenChange={() => { setMergeDialog(null); setMergeSearch(''); }}>
+            <DialogContent className="sm:max-w-[480px]">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Link2 className="w-5 h-5 text-blue-400" />
+                  Merge Order {sourceOrder?.orderNumber}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <p className="text-sm text-gray-400">
+                  Link this order with another so they ship together. Already-linked orders are shown first.
+                </p>
+
+                {/* Already-linked orders */}
+                {linked.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-blue-300 uppercase tracking-wide">Already Linked</p>
+                    {linked.map(o => (
+                      <div key={o.id}
+                        className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-blue-500/30 bg-blue-900/20"
+                      >
+                        <div className="text-sm">
+                          <span className="font-mono text-white">{o.orderNumber}</span>
+                          {o.customerUsername && <span className="text-gray-400 ml-2">· {o.customerUsername}</span>}
+                          <span className="text-gray-500 ml-2">{o.marketplace}</span>
+                        </div>
+                        <span className="text-xs text-blue-400 font-semibold shrink-0">Linked</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Search other orders */}
+                <div className="space-y-1">
+                  {linked.length > 0 && (
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Other Orders</p>
+                  )}
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+                    <input
+                      type="text"
+                      placeholder="Search by order # or customer…"
+                      value={mergeSearch}
+                      onChange={e => setMergeSearch(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 text-sm bg-gray-800 border border-gray-700 rounded-md text-gray-200 placeholder-gray-500 outline-none focus:border-blue-500/60"
+                      data-testid="input-merge-search"
+                    />
+                  </div>
+                  <div className="space-y-1 max-h-52 overflow-y-auto">
+                    {filteredOthers.length === 0 && (
+                      <p className="text-xs text-gray-500 text-center py-4">No matching orders.</p>
+                    )}
+                    {filteredOthers.map(o => (
+                      <button
+                        key={o.id}
+                        onClick={() => linkMergeMutation.mutate({ orderId: mergeDialog.orderId, targetOrderId: o.id })}
+                        disabled={linkMergeMutation.isPending}
+                        className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md text-left hover-elevate border border-gray-700/60"
+                        data-testid={`button-merge-target-${o.id}`}
+                      >
+                        <div className="text-sm min-w-0">
+                          <span className="font-mono text-white">{o.orderNumber}</span>
+                          {o.customerUsername && <span className="text-gray-400 ml-2 truncate">· {o.customerUsername}</span>}
+                          <span className="text-gray-500 ml-2 shrink-0">{o.marketplace}</span>
+                        </div>
+                        {linkMergeMutation.isPending && (
+                          <Loader2 className="w-3.5 h-3.5 text-gray-500 animate-spin shrink-0" />
+                        )}
+                        {!linkMergeMutation.isPending && (
+                          <Link2 className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button variant="outline" onClick={() => { setMergeDialog(null); setMergeSearch(''); }}
+                    data-testid="button-cancel-merge"
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
 
     </>
   );
