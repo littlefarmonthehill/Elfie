@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Package, Loader2, ChevronDown, ChevronRight, ScanLine, Camera, X, CheckCircle2, AlertCircle } from "lucide-react";
+import { Package, Loader2, ChevronDown, ChevronRight, ScanLine, Camera, X, CheckCircle2, AlertCircle, AlertTriangle } from "lucide-react";
 import { printPicklist } from "./PackingSlip";
 
 type WarehouseLocation = {
@@ -517,6 +517,7 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
               const rep = variants[0];
               const isExpanded = expandedGroups.has(key);
               const totalQty = variants.reduce((sum, v) => sum + v.quantity, 0);
+              const groupIsShort = variants.some(v => v.inventoryQty !== null && v.inventoryQty < v.quantity);
 
               return (
                 <div
@@ -559,6 +560,12 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                     <div className="flex-1 min-w-0">
                       {/* Line 1: part# + part name */}
                       <div className="flex items-center gap-2 flex-wrap">
+                        {groupIsShort && (
+                          <AlertTriangle
+                            className="w-3 h-3 text-amber-400 shrink-0 print:hidden"
+                            title="Insufficient stock for one or more lots"
+                          />
+                        )}
                         {(rep.marketplace === 'BrickOwl' ? rep.partNumber : (rep.partNumber || rep.sku)) && (
                           <span className="font-mono text-xs text-purple-300 shrink-0">
                             {rep.marketplace === 'BrickOwl' ? rep.partNumber : (rep.partNumber || rep.sku)}
@@ -707,6 +714,12 @@ export default function PicklistTool({ filterOrderIds }: PicklistToolProps = {})
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
+                          {item.inventoryQty !== null && item.inventoryQty < item.quantity && (
+                            <AlertTriangle
+                              className="w-3 h-3 text-amber-400 shrink-0 print:hidden"
+                              title="Insufficient stock"
+                            />
+                          )}
                           {(item.marketplace === 'BrickOwl' ? item.partNumber : (item.partNumber || item.sku)) && (
                             <span className="font-mono text-[10px] text-purple-400 shrink-0">
                               {item.marketplace === 'BrickOwl' ? item.partNumber : (item.partNumber || item.sku)}

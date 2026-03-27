@@ -541,6 +541,13 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
   const allPicklistItems: PicklistBinItem[] = picklistBins.flatMap(b => b.items);
   const pulledItems: PicklistBinItem[] = allPicklistItems.filter(item => item.pulled);
 
+  // Orders that have at least one item with insufficient stock (race / oversell scenario)
+  const ordersWithShortStock = new Set<string>(
+    allPicklistItems
+      .filter(i => i.inventoryQty !== null && i.inventoryQty < i.quantity)
+      .map(i => i.orderId)
+  );
+
   const fulfillMutation = useMutation({
     mutationFn: async ({ itemId, fulfilled }: { itemId: string; fulfilled: boolean }) => {
       const result = await apiRequest('PUT', `/api/fulfillment/item/${itemId}/fulfill`, { fulfilled });
@@ -1116,6 +1123,14 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                     >
                                       {wfMeta.label}
                                     </button>
+                                    {/* Low-stock race indicator */}
+                                    {ordersWithShortStock.has(order.id) && (
+                                      <AlertTriangle
+                                        className="w-3 h-3 text-amber-400 shrink-0"
+                                        data-testid={`icon-short-stock-${order.id}`}
+                                        title="One or more items may be short on stock"
+                                      />
+                                    )}
                                   </div>
 
                                   {/* Line 2: pick-complete · globe (intl) · date · view order · merge group | comment */}
