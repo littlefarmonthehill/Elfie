@@ -287,6 +287,10 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
   // Merge dialog state
   const [mergeDialog, setMergeDialog] = useState<{ orderId: string; mergeGroupId: string | null } | null>(null);
   const [mergeSearch, setMergeSearch] = useState('');
+  // Ship-without-label dialog state
+  const [shipFreeDialog, setShipFreeDialog] = useState<{ orderId: string; orderNumber: string; marketplace: string | null } | null>(null);
+  const [shipFreeTracking, setShipFreeTracking] = useState('');
+  const [shipFreeNote, setShipFreeNote] = useState('');
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const [activeWorkflowFilter, setActiveWorkflowFilter] = useState<WorkflowStatus | null>(null);
 
@@ -321,6 +325,24 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     },
     onError: (err: any) => {
       toast({ title: "Link failed", description: err.message || "Could not link orders.", variant: "destructive" });
+    },
+  });
+
+  const shipFreeMutation = useMutation({
+    mutationFn: ({ orderId, trackingNumber, note }: { orderId: string; trackingNumber: string; note: string }) =>
+      apiRequest('POST', `/api/orders/${orderId}/ship-without-label`, { trackingNumber, note }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/orders/dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
+      setShipFreeDialog(null);
+      setShipFreeTracking('');
+      setShipFreeNote('');
+      toast({ title: "Order shipped", description: "Marked as shipped and selling channel updated." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Ship failed", description: err.message || "Could not mark order as shipped.", variant: "destructive" });
     },
   });
 
@@ -1459,6 +1481,20 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                             >
                               <Link2 className="w-3 h-3 mr-1" />Merge
                             </Button>
+                            <div className="w-px h-3 bg-gray-700 mx-0.5 self-center shrink-0" />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setShipFreeDialog({ orderId, orderNumber: order?.orderNumber ?? orderId, marketplace: order?.marketplace ?? null });
+                                setShipFreeTracking('');
+                                setShipFreeNote('');
+                              }}
+                              className="text-gray-400 text-xs h-6 px-2"
+                              data-testid={`button-ship-no-label-${orderId}`}
+                            >
+                              <Package className="w-3 h-3 mr-1" />No Label
+                            </Button>
                           </div>
                         )}
                       </div>
@@ -1730,6 +1766,87 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
           </Dialog>
         );
       })()}
+
+      {/* ── Ship Without Label Dialog ── */}
+      <Dialog
+        open={!!shipFreeDialog}
+        onOpenChange={(open) => { if (!open) { setShipFreeDialog(null); setShipFreeTracking(''); setShipFreeNote(''); } }}
+      >
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5 text-emerald-400" />
+              Ship Without Label — {shipFreeDialog?.orderNumber}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Alert className="bg-emerald-500/10 border-emerald-500/30">
+              <PackageCheck className="h-4 w-4 text-emerald-400" />
+              <AlertDescription className="text-emerald-200 text-sm">
+                This will mark the order as shipped and update{' '}
+                <span className="font-semibold">{shipFreeDialog?.marketplace ?? 'the marketplace'}</span> directly.
+                It bypasses label purchase and end-of-day scanning.
+              </AlertDescription>
+            </Alert>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                Tracking # <span className="font-normal text-gray-500">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={shipFreeTracking}
+                onChange={e => setShipFreeTracking(e.target.value)}
+                placeholder="e.g. 9400111899223450523107"
+                className="w-full px-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded-md text-gray-200 placeholder-gray-500 outline-none focus:border-emerald-500/60"
+                data-testid="input-ship-free-tracking"
+              />
+              <p className="text-xs text-gray-500">
+                If provided, sent to the marketplace and stored for your records.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                Internal note <span className="font-normal text-gray-500">(optional)</span>
+              </label>
+              <textarea
+                value={shipFreeNote}
+                onChange={e => setShipFreeNote(e.target.value)}
+                placeholder="e.g. Shipped via local courier, no tracking available"
+                rows={2}
+                className="w-full px-3 py-2 text-sm bg-gray-800 border border-gray-700 rounded-md text-gray-200 placeholder-gray-500 outline-none focus:border-emerald-500/60 resize-none"
+                data-testid="input-ship-free-note"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => { setShipFreeDialog(null); setShipFreeTracking(''); setShipFreeNote(''); }}
+                data-testid="button-cancel-ship-free"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => shipFreeDialog && shipFreeMutation.mutate({
+                  orderId: shipFreeDialog.orderId,
+                  trackingNumber: shipFreeTracking,
+                  note: shipFreeNote,
+                })}
+                disabled={shipFreeMutation.isPending}
+                className="bg-emerald-600"
+                data-testid="button-confirm-ship-free"
+              >
+                {shipFreeMutation.isPending
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Shipping...</>
+                  : <><PackageCheck className="w-4 h-4 mr-2" />Mark as Shipped</>
+                }
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </>
   );

@@ -16564,6 +16564,34 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     }
   });
   
+  // Ship an order without purchasing a carrier label.
+  // Marks the order shipped, fulfills items, adjusts inventory, and pushes
+  // shipped status to the selling channel (BL/BO). Does NOT create a SCAN-form
+  // eligible shipment record, so it bypasses the end-of-day process entirely.
+  app.post("/api/orders/:orderId/ship-without-label", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { orderId } = req.params;
+      const { trackingNumber = '', note = '' } = req.body;
+
+      const [order] = await db
+        .select({ id: orders.id, orgId: orders.orgId })
+        .from(orders)
+        .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)))
+        .limit(1);
+
+      if (!order) return res.status(404).json({ error: "Order not found" });
+
+      const { shipWithoutLabel } = await import('./services/order-shipping');
+      await shipWithoutLabel(orderId, orgId, String(trackingNumber).trim(), String(note).trim());
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error shipping without label:", error);
+      res.status(500).json({ error: error.message || "Failed to mark order as shipped" });
+    }
+  });
+
   // Get shipments for an order
   app.get("/api/shipments/:orderId", isApproved, async (req: any, res) => {
     try {

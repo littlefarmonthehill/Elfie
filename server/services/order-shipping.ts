@@ -512,6 +512,101 @@ export async function purchaseLabel(
 }
 
 /**
+ * Ship an order without purchasing a carrier label.
+ * Marks it shipped/done internally, adjusts inventory, and syncs status to the
+ * marketplace (BrickLink / BrickOwl) with the supplied tracking number (may be empty).
+ * The optional note is appended to the order's internal notes.
+ * Does NOT create a 'purchased' shipment record, so this order is excluded from
+ * the end-of-day SCAN form flow automatically.
+ */
+export async function shipWithoutLabel(
+  orderId: string,
+  orgId: string,
+  trackingNumber: string,
+  note: string,
+): Promise<void> {
+  const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+  if (!order) throw new Error(`Order ${orderId} not found`);
+
+  // Append note to internal notes if provided
+  const mergedNotes = [order.internalNotes, note].filter(Boolean).join('\n') || null;
+
+  // Mark order as shipped and advance workflow to done
+  const [updatedOrder] = await db
+    .update(orders)
+    .set({
+      previousStatus: order.orderStatus,
+      orderStatus: 'shipped',
+      workflowStatus: 'done',
+      shipDate: new Date(),
+      ...(mergedNotes !== null ? { internalNotes: mergedNotes } : {}),
+      updatedAt: new Date(),
+    })
+    .where(eq(orders.id, orderId))
+    .returning();
+
+  // Record a manual shipment so the tracking number is stored, but use
+  // status='manual' so it never shows up in the EOD/SCAN form query.
+  if (trackingNumber) {
+    await db.insert(shipments).values({
+      orderId,
+      orgId,
+      vendorCode: 'manual',
+      vendorShipmentId: `manual-${Date.now()}`,
+      trackingNumber,
+      status: 'manual',
+      purchasedAt: new Date(),
+    });
+  }
+
+  // Mark all items fulfilled
+  await db
+    .update(orderDetails)
+    .set({ fulfilled: true, fulfilledAt: new Date(), updatedAt: new Date() })
+    .where(eq(orderDetails.orderId, orderId));
+
+  // Adjust inventory (non-fatal)
+  try {
+    const { adjustInventoryForOrder } = await import('./inventory-adjustment');
+    await adjustInventoryForOrder(orderId, 'manual-ship');
+  } catch (error) {
+    console.error('[shipWithoutLabel] Inventory adjustment failed (non-fatal):', error);
+  }
+
+  // Sync shipped status to the marketplace (non-fatal — don't block on API errors)
+  if (!updatedOrder.localOnly) {
+    try {
+      await syncShippedStatus(updatedOrder, trackingNumber);
+    } catch (error) {
+      console.error('[shipWithoutLabel] Platform sync failed (non-fatal):', error);
+    }
+  }
+}
+
+/**
+ * Push "shipped" status to BrickLink or BrickOwl directly.
+ * Unlike the private syncOrderStatusToPlatform(), this never skips on missing
+ * tracking — BrickOwl only needs the status change; BrickLink accepts an empty
+ * tracking_no string and still moves the order to SHIPPED.
+ */
+export async function syncShippedStatus(order: any, trackingNumber: string, carrier: string = ''): Promise<void> {
+  if (order.localOnly) return;
+  const marketplace = order.marketplace?.toLowerCase();
+  try {
+    if (marketplace === 'bricklink') {
+      await syncToBrickLink(order, trackingNumber, carrier);
+    } else if (marketplace === 'brickowl') {
+      await syncToBrickOwl(order, trackingNumber);
+    } else {
+      console.log(`[syncShippedStatus] No sync handler for marketplace: ${marketplace}`);
+    }
+  } catch (error: any) {
+    console.error(`[syncShippedStatus] Error syncing order ${order.orderNumber} to ${marketplace}:`, error.message);
+    throw error;
+  }
+}
+
+/**
  * Sync order status back to platform
  */
 async function syncOrderStatusToPlatform(order: any): Promise<void> {
