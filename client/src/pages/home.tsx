@@ -1219,8 +1219,8 @@ export default function Home() {
                   <div className="flex h-full w-full flex-col relative" style={{
                     background: 'linear-gradient(165deg, #1C1C32 0%, #151525 35%, #101020 70%, #0C0C1A 100%)',
                     borderRadius: 'clamp(16px, 2.5vw, 28px)',
-                    border: '2px solid rgba(255,255,255,0.07)',
-                    boxShadow: '0 0 0 1px rgba(80,100,200,0.18) inset, 0 0 0 2px rgba(40,60,140,0.1) inset, 0 20px 80px rgba(0,0,0,0.9), 0 0 80px rgba(0,255,238,0.06)',
+                    border: '2px solid rgba(255,255,255,0.16)',
+                    boxShadow: '0 0 0 1px rgba(80,100,200,0.30) inset, 0 0 0 2px rgba(40,60,140,0.18) inset, 0 20px 80px rgba(0,0,0,0.9), 0 0 80px rgba(0,255,238,0.10)',
                     padding: 'clamp(10px,1.2vw,14px)',
                     paddingBottom: 0,
                     gap: 'clamp(8px,0.9vw,10px)',
@@ -1239,11 +1239,11 @@ export default function Home() {
                     <div style={{ display: 'flex', flex: 1, minHeight: 0, gap: 'clamp(8px,0.9vw,12px)' }}>
 
                       {/* LEFT PANEL (~22%): Plan stacked above Ops Central */}
-                      <div style={{ flex: '0 0 clamp(200px,22%,270px)', display: 'flex', flexDirection: 'column', borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.28)', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.4)' }}>
+                      <div style={{ flex: '0 0 clamp(200px,22%,270px)', display: 'flex', flexDirection: 'column', borderRadius: '10px', overflow: 'hidden', border: '1.5px solid rgba(90,110,255,0.28)', background: 'rgba(10,12,32,0.92)', boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.5), 0 0 18px rgba(60,80,200,0.12)' }}>
 
                         {/* Your Plan — top section, collapsible; auto-sized to content */}
                         {!planCollapsed && (
-                          <div style={{ flex: '0 0 auto', maxHeight: '42%', overflowY: 'auto', borderBottom: '1px solid rgba(0,255,238,0.07)' }}>
+                          <div style={{ flex: '0 0 auto', maxHeight: '42%', overflowY: 'auto', borderBottom: '1px solid rgba(0,255,238,0.22)' }}>
                             <GeneralDashboard
                               onItemClick={handleDashboardItemClick}
                               onOpenFulfillment={() => { switchDashboardDesktop('orders'); setActiveOrdersDrawer('fulfillment'); }}
@@ -1258,7 +1258,7 @@ export default function Home() {
                         )}
 
                         {/* Divider label with collapse toggle */}
-                        <div style={{ flexShrink: 0, padding: '3px 6px 3px 10px', background: 'rgba(0,255,238,0.04)', borderBottom: '1px solid rgba(0,255,238,0.07)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <div style={{ flexShrink: 0, padding: '3px 6px 3px 10px', background: 'rgba(0,255,238,0.08)', borderBottom: '1px solid rgba(0,255,238,0.22)', display: 'flex', alignItems: 'center', gap: '5px' }}>
                           <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#00FFEE', boxShadow: '0 0 4px #00FFEE', flexShrink: 0 }} />
                           <span style={{ fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,238,0.65)', letterSpacing: '0.22em', textTransform: 'uppercase', flex: 1 }}>Ops Central</span>
                           <button
@@ -1316,7 +1316,7 @@ export default function Home() {
                       </div>
 
                       {/* RIGHT PANEL (~34%): Persistent detail / drawer panel */}
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRadius: '10px', overflow: 'hidden', border: `1px solid ${hasRightContent ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)'}`, background: hasRightContent ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.18)', transition: 'border-color 0.3s, background 0.3s', minWidth: 0 }}>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRadius: '10px', overflow: 'hidden', border: `1.5px solid ${hasRightContent ? 'rgba(90,110,255,0.30)' : 'rgba(90,110,255,0.12)'}`, background: hasRightContent ? 'rgba(10,12,32,0.92)' : 'rgba(8,10,26,0.70)', transition: 'border-color 0.3s, background 0.3s', minWidth: 0 }}>
                         {hasRightContent ? (
                           detailModal.open ? (
                             <DetailModal

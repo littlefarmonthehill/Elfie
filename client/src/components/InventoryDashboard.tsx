@@ -147,17 +147,17 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
   }
 
   return (
-        <div className={cn("bg-gradient-to-br from-lego-blue/5 to-transparent rounded-lg border border-lego-blue/10 shadow-[0_0_15px_rgba(59,130,246,0.1)] p-2 space-y-3")}>
+        <div className={cn("bg-gradient-to-br from-lego-blue/10 to-lego-blue/3 rounded-lg border border-lego-blue/35 shadow-[0_0_22px_rgba(59,130,246,0.18)] p-2 space-y-3")}>
       <div className={cn("space-y-3")}>
 
         {/* Combined Inventory Info + Values */}
         <div
-          className="relative rounded-lg border border-blue-500/40 shadow-[0_0_28px_rgba(59,130,246,0.16)] overflow-hidden p-3"
-          style={{ background: 'linear-gradient(175deg, #0c1a2e 0%, #080f1d 100%)' }}
+          className="relative rounded-lg border border-blue-400/65 shadow-[0_0_30px_rgba(59,130,246,0.28)] overflow-hidden p-3"
+          style={{ background: 'linear-gradient(175deg, #0f2240 0%, #0a1630 100%)' }}
           data-testid="section-inventory-overview"
         >
           {/* Top shine line */}
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-400/60 to-transparent" />
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-300/90 to-transparent" />
 
           {/* Header */}
           <div className="flex items-center gap-2.5 mb-3">
@@ -194,7 +194,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 key={key}
                 onClick={() => desktopMode && onBrowseOpen ? onBrowseOpen(key) : openBrowse(key)}
                 data-testid={`metric-${key}`}
-                className="relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-lg border border-blue-900/60 bg-[#0a1628]/80 p-2.5 md:p-3"
+                className="relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-lg border border-blue-500/55 bg-[#0e2245]/88 p-2.5 md:p-3"
               >
                 <span className="text-[9px] md:text-[10px] text-gray-400 mb-1 leading-tight">{label}</span>
                 <span className="text-base md:text-xl font-bold font-mono text-lego-blue leading-none">{value}</span>
@@ -207,21 +207,21 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
 
           {/* Bottom row: My Cost, Listed, Profit Potential */}
           <div className="grid grid-cols-3 gap-2" data-testid="section-values">
-            <div className="rounded-lg border border-red-500/50 bg-[#0a1628]/80 p-2.5 md:p-3" data-testid="metric-cost">
-              <div className="text-[9px] md:text-[10px] text-gray-300 mb-1 leading-tight">My Cost</div>
-              <div className="text-sm md:text-lg font-bold font-mono text-lego-red leading-none truncate">
+            <div className="rounded-lg border border-red-400/65 bg-[#1a0e14]/90 p-2.5 md:p-3" data-testid="metric-cost">
+              <div className="text-[9px] md:text-[10px] text-gray-200 mb-1 leading-tight">My Cost</div>
+              <div className="text-sm md:text-base font-bold font-mono text-lego-red leading-none truncate">
                 {stats ? formatCurrency(stats.totalCost) : '$0.00'}
               </div>
             </div>
-            <div className="rounded-lg border border-blue-500/30 bg-[#0a1628]/80 p-2.5 md:p-3" data-testid="metric-listed">
-              <div className="text-[9px] md:text-[10px] text-gray-300 mb-1 leading-tight">Listed</div>
-              <div className="text-sm md:text-lg font-bold font-mono text-lego-blue leading-none truncate">
+            <div className="rounded-lg border border-blue-400/55 bg-[#0e2245]/88 p-2.5 md:p-3" data-testid="metric-listed">
+              <div className="text-[9px] md:text-[10px] text-gray-200 mb-1 leading-tight">Listed</div>
+              <div className="text-sm md:text-base font-bold font-mono text-lego-blue leading-none truncate">
                 {stats ? formatCurrency(stats.totalValue) : '$0.00'}
               </div>
             </div>
-            <div className="rounded-lg border border-green-500/50 bg-[#0a1628]/80 p-2.5 md:p-3" data-testid="metric-profit">
-              <div className="text-[9px] md:text-[10px] text-gray-300 mb-1 leading-tight">Profit Potential</div>
-              <div className="text-sm md:text-lg font-bold font-mono text-lego-green leading-none truncate">
+            <div className="rounded-lg border border-green-400/65 bg-[#0a1e12]/90 p-2.5 md:p-3" data-testid="metric-profit">
+              <div className="text-[9px] md:text-[10px] text-gray-200 mb-1 leading-tight">Profit Potential</div>
+              <div className="text-sm md:text-base font-bold font-mono text-lego-green leading-none truncate">
                 {formatCurrency(profitPotential)}
               </div>
             </div>
@@ -229,10 +229,10 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </div>
 
         {/* Tools — Primary Workflows */}
-        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", "p-2.5 xl:p-3")} data-testid="section-tools">
-          <div className={cn("absolute top-0 left-0 right-0 bg-gradient-to-r from-transparent via-gray-400/40 to-transparent", "h-px")} />
+        <div className={cn("relative bg-gradient-to-b from-gray-700/62 to-gray-900/92 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", "p-2.5 xl:p-3")} data-testid="section-tools">
+          <div className={cn("absolute top-0 left-0 right-0 bg-gradient-to-r from-transparent via-gray-100/65 to-transparent", "h-px")} />
           <div className={cn("flex items-center gap-2", "mb-2 xl:mb-2.5")}>
-            <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
+            <div className="p-1.5 rounded-md bg-gray-600/70 ring-1 ring-gray-300/55">
               <Sparkles className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4")} />
             </div>
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm")}>Tools</h3>
@@ -243,11 +243,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('priceomatic')}
               data-testid="tool-priceomatic"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-purple-500/50 bg-gradient-to-br from-purple-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-purple-400/72 bg-gradient-to-br from-purple-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
               style={{ '--tool-glow-color': 'rgba(168,85,247,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-purple-900/70 p-1.5 ring-1 ring-purple-500/45 shadow-[0_0_10px_rgba(168,85,247,0.22)]">
+                <div className="rounded-lg bg-purple-800/75 p-1.5 ring-1 ring-purple-400/65 shadow-[0_0_10px_rgba(168,85,247,0.22)]">
                   <Sparkles className={cn("w-3.5 h-3.5 text-purple-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-purple-100 leading-tight flex-1", "md:text-sm")}>Price-O-Matic</span>
@@ -267,11 +267,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('platformsync')}
               data-testid="tool-listomatic"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-500/50 bg-gradient-to-br from-green-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
               style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-green-900/70 p-1.5 ring-1 ring-green-500/45 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
+                <div className="rounded-lg bg-green-800/75 p-1.5 ring-1 ring-green-400/65 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
                   <Globe className={cn("w-3.5 h-3.5 text-green-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", "md:text-sm")}>List-O-Matic</span>
@@ -285,11 +285,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('brickanalyzer')}
               data-testid="tool-brickspotter"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-amber-500/50 bg-gradient-to-br from-amber-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-amber-400/72 bg-gradient-to-br from-amber-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
               style={{ '--tool-glow-color': 'rgba(245,158,11,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-amber-900/70 p-1.5 ring-1 ring-amber-500/45 shadow-[0_0_10px_rgba(245,158,11,0.22)]">
+                <div className="rounded-lg bg-amber-800/75 p-1.5 ring-1 ring-amber-400/65 shadow-[0_0_10px_rgba(245,158,11,0.22)]">
                   <ScanSearch className={cn("w-3.5 h-3.5 text-amber-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-amber-100 leading-tight flex-1", "md:text-sm")}>Brick Spotter</span>
@@ -309,11 +309,11 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <button
               onClick={() => onDrawerChange('inventoryhealth')}
               data-testid="tool-inventoryhealth"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-500/50 bg-gradient-to-br from-cyan-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-cyan-400/72 bg-gradient-to-br from-cyan-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
               style={{ '--tool-glow-color': 'rgba(6,182,212,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-cyan-900/70 p-1.5 ring-1 ring-cyan-500/45 shadow-[0_0_10px_rgba(6,182,212,0.22)]">
+                <div className="rounded-lg bg-cyan-800/75 p-1.5 ring-1 ring-cyan-400/65 shadow-[0_0_10px_rgba(6,182,212,0.22)]">
                   <Activity className={cn("w-3.5 h-3.5 text-cyan-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-cyan-100 leading-tight flex-1", "md:text-sm")}>Inventory Health</span>
@@ -328,10 +328,10 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </div>
 
         {/* Selling Channels */}
-        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", "p-2.5")} data-testid="section-selling-channels">
-          <div className={cn("absolute top-0 left-0 right-0 bg-gradient-to-r from-transparent via-gray-400/40 to-transparent", "h-px")} />
+        <div className={cn("relative bg-gradient-to-b from-gray-700/62 to-gray-900/92 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", "p-2.5")} data-testid="section-selling-channels">
+          <div className={cn("absolute top-0 left-0 right-0 bg-gradient-to-r from-transparent via-gray-100/65 to-transparent", "h-px")} />
           <div className={cn("flex items-center gap-2", "mb-2")}>
-            <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
+            <div className="p-1.5 rounded-md bg-gray-600/70 ring-1 ring-gray-300/55">
               <Globe className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4")} />
             </div>
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm")}>Selling Channels</h3>

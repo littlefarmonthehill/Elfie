@@ -145,7 +145,7 @@ function QtySyncQueuePanel() {
               </Badge>
             )}
             {hasPending && !hasAbandoned && (
-              <Badge variant="outline" className="text-[9px] bg-amber-500/20 border-amber-500/50 text-amber-300 no-default-active-elevate">
+              <Badge variant="outline" className="text-[9px] bg-amber-500/20 border-amber-400/72 text-amber-300 no-default-active-elevate">
                 Retrying
               </Badge>
             )}
@@ -216,7 +216,7 @@ function QtySyncQueuePanel() {
                             Manual Fix Needed
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-[9px] bg-amber-500/20 border-amber-500/50 text-amber-300 no-default-active-elevate">
+                          <Badge variant="outline" className="text-[9px] bg-amber-500/20 border-amber-400/72 text-amber-300 no-default-active-elevate">
                             Attempt {item.retryCount + 1}/10
                           </Badge>
                         )}
@@ -357,12 +357,12 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
   }
 
   return (
-        <div className="p-2 space-y-3 bg-gradient-to-br from-lego-orange/5 to-transparent rounded-lg border border-lego-orange/10 shadow-[0_0_15px_rgba(251,146,60,0.1)]">
+        <div className="p-2 space-y-3 bg-gradient-to-br from-lego-orange/10 to-lego-orange/3 rounded-lg border border-lego-orange/35 shadow-[0_0_22px_rgba(251,146,60,0.18)]">
       <div className="space-y-3">
 
         {/* ── Orders Info ── */}
-        <div className={cn("relative bg-gradient-to-b from-orange-950/25 to-gray-900/85 border border-orange-500/40 rounded-lg shadow-[0_0_22px_rgba(249,115,22,0.12)] overflow-hidden", "p-2.5")} data-testid="section-orders-overview">
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-400/50 to-transparent" />
+        <div className={cn("relative bg-gradient-to-b from-orange-900/40 to-gray-900/88 border border-orange-400/65 rounded-lg shadow-[0_0_28px_rgba(249,115,22,0.25)] overflow-hidden", "p-2.5")} data-testid="section-orders-overview">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-orange-300/85 to-transparent" />
           <div className="flex items-center gap-2 mb-2">
             <div className="p-1.5 rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0">
               <ShoppingCart className={cn("w-3 h-3 text-orange-200", "md:w-4 md:h-4")} />
@@ -389,10 +389,10 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
         </div>
 
         {/* ── Tools ── */}
-        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", "p-2.5")} data-testid="section-order-tools">
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
+        <div className={cn("relative bg-gradient-to-b from-gray-700/62 to-gray-900/92 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", "p-2.5")} data-testid="section-order-tools">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-200/55 to-transparent" />
           <div className={cn("flex items-center gap-2", "mb-2")}>
-            <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
+            <div className="p-1.5 rounded-md bg-gray-600/70 ring-1 ring-gray-300/55">
               <Sparkles className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4")} />
             </div>
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm")}>Tools</h3>
@@ -403,11 +403,11 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             <button
               onClick={() => onDrawerChange('fulfillment')}
               data-testid="tool-fulfillment"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-500/50 bg-gradient-to-br from-orange-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-orange-400/72 bg-gradient-to-br from-orange-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
               style={{ '--tool-glow-color': 'rgba(249,115,22,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-orange-900/70 p-1.5 ring-1 ring-orange-500/45 shadow-[0_0_10px_rgba(249,115,22,0.22)]">
+                <div className="rounded-lg bg-orange-800/75 p-1.5 ring-1 ring-orange-400/65 shadow-[0_0_10px_rgba(249,115,22,0.22)]">
                   <Truck className={cn("w-3.5 h-3.5 text-orange-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", "md:text-sm")}>Fulfillment</span>
@@ -442,11 +442,11 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             <button
               onClick={() => onDrawerChange('shipped')}
               data-testid="tool-shipped"
-              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-500/50 bg-gradient-to-br from-green-950/65 to-gray-950/80 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
+              className={cn("group flex flex-col gap-1.5 rounded-lg border border-green-400/72 bg-gradient-to-br from-green-900/60 to-gray-900/88 text-left hover-elevate active-elevate-2 transition-all cockpit-tool-btn", "p-3")}
               style={{ '--tool-glow-color': 'rgba(34,197,94,0.35)' } as React.CSSProperties}
             >
               <div className="flex items-center gap-2">
-                <div className="rounded-lg bg-green-900/70 p-1.5 ring-1 ring-green-500/45 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
+                <div className="rounded-lg bg-green-800/75 p-1.5 ring-1 ring-green-400/65 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
                   <PackageCheck className={cn("w-3.5 h-3.5 text-green-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", "md:text-sm")}>Shipped Orders</span>
@@ -481,10 +481,10 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
         </div>
 
         {/* ── Channels ── */}
-        <div className={cn("relative bg-gradient-to-b from-gray-800/45 to-gray-900/85 border border-gray-600/50 rounded-lg shadow-[0_0_16px_rgba(255,255,255,0.03)] overflow-hidden", "p-2.5")} data-testid="section-order-channels">
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/25 to-transparent" />
+        <div className={cn("relative bg-gradient-to-b from-gray-700/62 to-gray-900/92 border border-gray-400/60 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.08)] overflow-hidden", "p-2.5")} data-testid="section-order-channels">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-200/55 to-transparent" />
           <div className={cn("flex items-center gap-2", "mb-2")}>
-            <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
+            <div className="p-1.5 rounded-md bg-gray-600/70 ring-1 ring-gray-300/55">
               <Globe className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4")} />
             </div>
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm")}>Selling Channels</h3>
