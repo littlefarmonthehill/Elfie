@@ -908,6 +908,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
     if (!scan) return;
     if (scan.status === "complete" && uiState === "processing") {
       setUiState("complete");
+      setViewMode('heatmap');
       queryClient.invalidateQueries({ queryKey: ["/api/brickanalyzer/scans/latest"] });
     } else if (scan.status === "failed" && uiState === "processing") {
       setUiState("failed");
@@ -1488,7 +1489,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
   // ── Standard results state ────────────────────────────────────────────────
   const [expandedParts, setExpandedParts] = useState<Set<string>>(new Set());
   const [showCrops, setShowCrops] = useState(false);
-  const [resultsListExpanded, setResultsListExpanded] = useState(false);
+  const [viewMode, setViewMode] = useState<'heatmap' | 'list'>('heatmap');
   const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
   const [scanZoom, setScanZoom] = useState(1);
   const [scanPan, setScanPan] = useState({ x: 0, y: 0 });
@@ -2386,10 +2387,29 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                 {calibStats.total > 0 ? `${Math.round(calibStats.correct / calibStats.total * 100)}%` : 'Scorecard'}
               </Button>
             )}
+            {/* Heatmap / List view toggle */}
+            <div className="flex rounded overflow-hidden border border-gray-700 shrink-0 ml-auto">
+              <button
+                onClick={() => setViewMode('heatmap')}
+                className={`flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium transition-colors ${viewMode === 'heatmap' ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
+                data-testid="button-view-heatmap"
+              >
+                <ScanSearch className="w-3 h-3" />
+                Map
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium transition-colors border-l border-gray-700 ${viewMode === 'list' ? 'bg-gray-600 text-white' : 'text-gray-500 hover:text-gray-300 bg-transparent'}`}
+                data-testid="button-view-list"
+              >
+                <Layers className="w-3 h-3" />
+                List
+              </button>
+            </div>
           </div>
 
           {/* ── Inline heatmap ───────────────────────────────────────────── */}
-          {activeScan && (
+          {viewMode === 'heatmap' && activeScan && (
             <div className="relative rounded-lg border border-gray-700 overflow-hidden bg-black" data-testid="inline-heatmap">
               {/* Filter bar */}
               <div className="relative flex items-center justify-end gap-2 px-3 py-1.5 border-b border-gray-800 flex-wrap" style={{ zIndex: 10 }}>
@@ -2451,7 +2471,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
               <div
                 ref={scanContainerRef}
                 className="flex items-center justify-center"
-                style={{ height: '55vh', overflow: 'visible' }}
+                style={{ height: '72vh', overflow: 'visible' }}
               >
                 <div
                   style={{
@@ -2469,7 +2489,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                     alt="Original scan"
                     className="absolute inset-0 w-full h-full object-fill block select-none"
                     draggable={false}
-                    style={{ filter: 'brightness(0.70)' }}
+                    style={{ filter: 'brightness(0.85)' }}
                   />
                   {(() => {
                     const cropDismissKeyMap = new Map<number, string>();
@@ -3214,7 +3234,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
           )}
 
           {/* ── Crops grid ────────────────────────────────────────────────── */}
-          {showCrops && activeScan && (activeScan.cropCount ?? 0) > 0 && (
+          {viewMode === 'heatmap' && showCrops && activeScan && (activeScan.cropCount ?? 0) > 0 && (
             <div className="rounded-lg border border-gray-700 bg-gray-900/60 p-2">
               <p className="text-xs text-gray-500 mb-2 px-1">
                 Raw crops extracted by Brick Spotter — {activeScan.cropCount} regions detected
@@ -3243,7 +3263,7 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
           )}
 
           {/* ── Calibration Scorecard Panel ──────────────────────────────── */}
-          {calibrateMode && showScorecard && calibStats.total > 0 && (
+          {viewMode === 'heatmap' && calibrateMode && showScorecard && calibStats.total > 0 && (
             <div className="rounded-lg border border-amber-500/30 bg-amber-950/15 p-3 sm:p-8 space-y-3">
               {/* Header */}
               <div className="flex items-center gap-2">
@@ -3319,32 +3339,23 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
             </div>
           )}
 
-          {/* Results — grouped by part number, collapsible list */}
-          {groupedResults.length === 0 ? (
+          {/* Results — grouped by part number, list view */}
+          {viewMode === 'list' && (groupedResults.length === 0 ? (
             <div className="text-center py-8 sm:py-16 text-gray-500 text-sm sm:text-2xl">
               No pieces could be identified. Try a clearer photo with better lighting.
             </div>
           ) : (
             <div className="space-y-1.5">
-              <button
-                className="w-full flex items-center justify-between gap-2 bg-gray-800/60 border border-gray-700 rounded-lg px-3 py-2 hover-elevate"
-                onClick={() => setResultsListExpanded(v => !v)}
-                data-testid="button-results-list-toggle"
-              >
-                <span className="text-sm sm:text-lg font-medium text-gray-200">
-                  Results ({groupedResults.length} piece{groupedResults.length !== 1 ? "s" : ""})
+              <div className="flex items-center gap-2 px-1 py-1">
+                <Layers className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  {groupedResults.length} piece{groupedResults.length !== 1 ? "s" : ""} identified
                 </span>
-                {resultsListExpanded
-                  ? <ChevronUp className="w-4 h-4 text-gray-400" />
-                  : <ChevronDown className="w-4 h-4 text-gray-400" />
-                }
-              </button>
-              {!resultsListExpanded ? null : (<>
-              {dismissedItems.size > 0 && (
-                <div className="text-[10px] sm:text-sm text-gray-500 px-1">
-                  {dismissedItems.size} removed · {groupedResults.length - dismissedItems.size} showing
-                </div>
-              )}
+                {dismissedItems.size > 0 && (
+                  <span className="text-[10px] text-gray-600 ml-1">· {dismissedItems.size} removed</span>
+                )}
+              </div>
+              <>
               {groupedResults.filter(grp => {
                 const rci = grp.entries[0]?.cropIndex ?? null;
                 if (dismissedItems.has(`${grp.partNo}__${rci ?? 'x'}`)) return false;
@@ -3984,9 +3995,9 @@ const BrickanalyzerTool = forwardRef(({ onItemClick }: BrickanalyzerToolProps, r
                   Close &amp; Delete Results
                 </Button>
               </div>
-              </>)}
+              </>
             </div>
-          )}
+          ))}
 
         </div>
       )}
