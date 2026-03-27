@@ -10,8 +10,12 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, CheckCircle2, AlertTriangle, ExternalLink,
   Pencil, X, ChevronDown, ChevronUp, Globe, Plus,
-  Scissors, Link2, Package, StickyNote,
+  Scissors, Link2, Package, StickyNote, MoreHorizontal,
 } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { shortCode } from "@/components/PackingSlip";
 import { shippingTier } from "@/lib/item-utils";
 import type { AppSettings } from "@shared/schema";
@@ -463,42 +467,81 @@ export default function InlineShippingCard({
     >
       <div className="px-3 pt-2.5 pb-2 space-y-2">
 
-        {/* ── Row 1: Shortcode circle + Order number (with prefix) + merge ref + status badges ── */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {(() => {
-            const tier = shippingTier(summary.requestedService);
-            const code = shortCode(summary.orderNumber || summary.orderId);
-            return (
-              <span
-                className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold font-mono shrink-0 tabular-nums ${
-                  tier === 'express'  ? 'bg-blue-700/80 text-blue-100' :
-                  tier === 'priority' ? 'bg-red-700/80 text-red-100'   :
-                  'bg-gray-800 text-amber-400'
-                }`}
-                title={tier === 'express' ? 'Express shipping' : tier === 'priority' ? 'Priority shipping' : undefined}
-              >
-                {code}
+        {/* ── Row 1: Shortcode circle + Order number + badges · Actions menu ── */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+            {(() => {
+              const tier = shippingTier(summary.requestedService);
+              const code = shortCode(summary.orderNumber || summary.orderId);
+              return (
+                <span
+                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold font-mono shrink-0 tabular-nums ${
+                    tier === 'express'  ? 'bg-blue-700/80 text-blue-100' :
+                    tier === 'priority' ? 'bg-red-700/80 text-red-100'   :
+                    'bg-gray-800 text-amber-400'
+                  }`}
+                  title={tier === 'express' ? 'Express shipping' : tier === 'priority' ? 'Priority shipping' : undefined}
+                >
+                  {code}
+                </span>
+              );
+            })()}
+            <span className="text-sm font-bold text-white font-mono">
+              {summary.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(summary.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
+            </span>
+            {(summary.linkedOrderNumber || summary.linkedOrderRef) && (
+              <span className="flex items-center gap-0.5 text-[10px] text-amber-400/80 font-mono shrink-0" title="Merged order">
+                <Plus className="w-2.5 h-2.5" />
+                {summary.linkedOrderNumber ? shortCode(summary.linkedOrderNumber) : summary.linkedOrderRef}
               </span>
-            );
-          })()}
-          <span className="text-sm font-bold text-white font-mono">
-            {summary.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(summary.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}
-          </span>
-          {(summary.linkedOrderNumber || summary.linkedOrderRef) && (
-            <span className="flex items-center gap-0.5 text-[10px] text-amber-400/80 font-mono shrink-0" title="Merged order">
-              <Plus className="w-2.5 h-2.5" />
-              {summary.linkedOrderNumber ? shortCode(summary.linkedOrderNumber) : summary.linkedOrderRef}
-            </span>
-          )}
-          {isReady && (
-            <span className="text-[9px] font-bold bg-green-500/20 text-green-400 border border-green-500/30 rounded px-1 py-0.5 uppercase tracking-wide">
-              Ready
-            </span>
-          )}
-          {isTestMode && (
-            <span className="text-[9px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded px-1 py-0.5 uppercase tracking-wide">
-              Test Rates
-            </span>
+            )}
+            {isReady && (
+              <span className="text-[9px] font-bold bg-green-500/20 text-green-400 border border-green-500/30 rounded px-1 py-0.5 uppercase tracking-wide">
+                Ready
+              </span>
+            )}
+            {isTestMode && (
+              <span className="text-[9px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded px-1 py-0.5 uppercase tracking-wide">
+                Test Rates
+              </span>
+            )}
+          </div>
+
+          {/* Actions dropdown */}
+          {(onSplit || onMerge || onMarkAsShipped) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="text-gray-500 hover:text-gray-300 transition-colors p-0.5 rounded shrink-0"
+                  data-testid={`button-order-actions-${orderId}`}
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                {onSplit && (
+                  <DropdownMenuItem onClick={onSplit} data-testid={`button-split-order-${orderId}`}>
+                    <Scissors className="w-3.5 h-3.5 mr-2 shrink-0" />
+                    Split order
+                  </DropdownMenuItem>
+                )}
+                {onMerge && (
+                  <DropdownMenuItem onClick={onMerge} data-testid={`button-merge-order-${orderId}`}>
+                    <Link2 className="w-3.5 h-3.5 mr-2 shrink-0" />
+                    Merge with order
+                  </DropdownMenuItem>
+                )}
+                {(onSplit || onMerge) && onMarkAsShipped && (
+                  <DropdownMenuSeparator />
+                )}
+                {onMarkAsShipped && (
+                  <DropdownMenuItem onClick={onMarkAsShipped} data-testid={`button-ship-no-label-${orderId}`}>
+                    <Package className="w-3.5 h-3.5 mr-2 shrink-0" />
+                    Mark as shipped
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
         {/* ── Row 2: Requested shipping service (buyer's preference) ── */}
@@ -792,43 +835,7 @@ export default function InlineShippingCard({
           })()
         ) : null}
 
-        {/* ── Row 4: Order actions ── */}
-        {(onSplit || onMerge || onMarkAsShipped) && (
-          <div className="flex items-center gap-0.5 -mx-0.5">
-            {onSplit && (
-              <button
-                onClick={onSplit}
-                className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-300 transition-colors px-1.5 py-0.5 rounded"
-                data-testid={`button-split-order-${orderId}`}
-              >
-                <Scissors className="w-3 h-3" />Split
-              </button>
-            )}
-            {onMerge && (
-              <button
-                onClick={onMerge}
-                className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-300 transition-colors px-1.5 py-0.5 rounded"
-                data-testid={`button-merge-order-${orderId}`}
-              >
-                <Link2 className="w-3 h-3" />Merge
-              </button>
-            )}
-            {(onSplit || onMerge) && onMarkAsShipped && (
-              <div className="w-px h-3 bg-gray-700 mx-0.5 self-center shrink-0" />
-            )}
-            {onMarkAsShipped && (
-              <button
-                onClick={onMarkAsShipped}
-                className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-300 transition-colors px-1.5 py-0.5 rounded"
-                data-testid={`button-ship-no-label-${orderId}`}
-              >
-                <Package className="w-3 h-3" />Mark as Shipped
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* ── Row 5: Details toggle ── */}
+        {/* ── Row 4: Details toggle ── */}
         <button
           className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-gray-300 transition-colors w-full"
           onClick={() => setDetailsOpen(v => !v)}
