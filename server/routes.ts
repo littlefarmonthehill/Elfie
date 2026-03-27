@@ -43,7 +43,7 @@ import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig } from "./s
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, platformSettings, insertPlatformSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions, channelSyncConfig, channelLotLinks } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, platformSettings, insertPlatformSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions, channelSyncConfig, channelLotLinks, crossPlatformSyncQueue } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -10800,6 +10800,92 @@ Format search_web URLs as markdown links.`;
     }
   });
   
+  // ── Cross-platform qty sync retry queue ──────────────────────────────────────
+
+  // GET /api/sync-queue — returns all queue items for the org (joined with blInventory for itemNo)
+  app.get("/api/sync-queue", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const rows = await db
+        .select({
+          id: crossPlatformSyncQueue.id,
+          blInventoryId: crossPlatformSyncQueue.blInventoryId,
+          targetPlatform: crossPlatformSyncQueue.targetPlatform,
+          sourcePlatform: crossPlatformSyncQueue.sourcePlatform,
+          sourceOrderId: crossPlatformSyncQueue.sourceOrderId,
+          quantityDelta: crossPlatformSyncQueue.quantityDelta,
+          status: crossPlatformSyncQueue.status,
+          retryCount: crossPlatformSyncQueue.retryCount,
+          lastAttemptAt: crossPlatformSyncQueue.lastAttemptAt,
+          lastError: crossPlatformSyncQueue.lastError,
+          createdAt: crossPlatformSyncQueue.createdAt,
+          itemNo: blInventory.itemNo,
+        })
+        .from(crossPlatformSyncQueue)
+        .leftJoin(blInventory, eq(blInventory.id, crossPlatformSyncQueue.blInventoryId))
+        .where(eq(crossPlatformSyncQueue.orgId, orgId))
+        .orderBy(desc(crossPlatformSyncQueue.createdAt))
+        .limit(200);
+
+      const pending = rows.filter(r => r.status === 'pending').length;
+      const abandoned = rows.filter(r => r.status === 'abandoned').length;
+      const done = rows.filter(r => r.status === 'done').length;
+
+      res.json({ success: true, items: rows, stats: { pending, abandoned, done, total: rows.length } });
+    } catch (error) {
+      console.error("Error fetching sync queue:", error);
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to fetch sync queue" });
+    }
+  });
+
+  // PATCH /api/sync-queue/:id — manually resolve (mark done or abandoned)
+  app.patch("/api/sync-queue/:id", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const id = parseInt(req.params.id, 10);
+      const { status } = req.body as { status: 'done' | 'abandoned' };
+      if (!['done', 'abandoned'].includes(status)) {
+        return res.status(400).json({ success: false, error: "status must be 'done' or 'abandoned'" });
+      }
+      const [updated] = await db
+        .update(crossPlatformSyncQueue)
+        .set({ status, lastAttemptAt: new Date() })
+        .where(and(eq(crossPlatformSyncQueue.id, id), eq(crossPlatformSyncQueue.orgId, orgId)))
+        .returning();
+      if (!updated) return res.status(404).json({ success: false, error: "Queue item not found" });
+      res.json({ success: true, item: updated });
+    } catch (error) {
+      console.error("Error updating sync queue item:", error);
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to update" });
+    }
+  });
+
+  // POST /api/sync-queue/:id/retry — manually trigger immediate retry for one item
+  app.post("/api/sync-queue/:id/retry", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const id = parseInt(req.params.id, 10);
+      // Reset the item to pending so the next retry runner picks it up
+      const [updated] = await db
+        .update(crossPlatformSyncQueue)
+        .set({ status: 'pending', retryCount: 0, lastError: null })
+        .where(and(eq(crossPlatformSyncQueue.id, id), eq(crossPlatformSyncQueue.orgId, orgId)))
+        .returning();
+      if (!updated) return res.status(404).json({ success: false, error: "Queue item not found" });
+
+      // Fire the retry runner immediately in the background
+      const { retryFailedCrossPlatformSyncs } = await import("./services/cross-platform-retry");
+      retryFailedCrossPlatformSyncs(orgId).catch(err =>
+        console.error(`Manual retry runner error: ${err.message}`)
+      );
+
+      res.json({ success: true, message: "Retry triggered", item: updated });
+    } catch (error) {
+      console.error("Error triggering retry:", error);
+      res.status(500).json({ success: false, error: error instanceof Error ? error.message : "Failed to trigger retry" });
+    }
+  });
+
   // Bulk-resolve all open issues for given syncTypes (clears an entire dashboard group)
   app.post("/api/sync-issues/bulk-resolve", isApproved, async (req, res) => {
     try {

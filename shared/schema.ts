@@ -1986,3 +1986,29 @@ export const pomPriceDecisions = pgTable("pom_price_decisions", {
   orgIdx: index("pom_price_decisions_org_idx").on(table.orgId),
   orgItemIdx: index("pom_price_decisions_org_item_idx").on(table.orgId, table.itemNo, table.colorId),
 }));
+
+// ── Cross-Platform Qty Sync Retry Queue ────────────────────────────────────────
+// When a cross-platform inventory update fails (BL or BO is down/unreachable),
+// the failure is enqueued here. The scheduler retries these on each cycle.
+// - BL retries: use original quantityDelta (BL never received it, so delta is still valid)
+// - BO retries: re-read current local quantity at retry time (absolute set = always correct)
+export const crossPlatformSyncQueue = pgTable("cross_platform_sync_queue", {
+  id: serial("id").primaryKey(),
+  orgId: varchar("org_id").notNull(),
+  blInventoryId: integer("bl_inventory_id").notNull(), // BL inventory lot ID
+  targetPlatform: text("target_platform").notNull(),   // 'BrickLink' | 'BrickOwl'
+  sourcePlatform: text("source_platform").notNull(),   // platform that originated the sale
+  sourceOrderId: text("source_order_id"),              // for tracing
+  quantityDelta: integer("quantity_delta").notNull(),  // original delta (negative = reduce)
+  status: text("status").notNull().default("pending"), // 'pending' | 'done' | 'abandoned'
+  retryCount: integer("retry_count").notNull().default(0),
+  lastAttemptAt: timestamp("last_attempt_at"),
+  lastError: text("last_error"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  orgStatusIdx: index("cpsq_org_status_idx").on(table.orgId, table.status),
+  orgInvIdx: index("cpsq_org_inv_idx").on(table.orgId, table.blInventoryId, table.targetPlatform),
+}));
+
+export type CrossPlatformSyncQueueRow = typeof crossPlatformSyncQueue.$inferSelect;
+export type InsertCrossPlatformSyncQueue = typeof crossPlatformSyncQueue.$inferInsert;

@@ -2,7 +2,7 @@ import { updateBrickOwlLot, getBrickOwlInventory } from './brickowl';
 import { adjustBrickLinkInventoryDelta } from './bricklink';
 import { recordSyncIssue } from './sync-issue-service';
 import { db } from '../db';
-import { channelLotLinks } from '@shared/schema';
+import { channelLotLinks, crossPlatformSyncQueue } from '@shared/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 
 const BO_CHANNEL = 'brickowl' as const;
@@ -60,10 +60,39 @@ export interface SyncItem {
   orderId?: string;
   orderNumber?: string;
   itemNo?: string;
+  isRetry?: boolean;      // true = already a retry attempt; do NOT re-enqueue on failure
+}
+
+// ── Retry-queue helpers ────────────────────────────────────────────────────────
+
+async function enqueueRetry(params: {
+  item: SyncItem;
+  targetPlatform: 'BrickLink' | 'BrickOwl';
+  errorMessage: string;
+}): Promise<void> {
+  const { item, targetPlatform, errorMessage } = params;
+  if (item.isRetry) return; // Never re-enqueue a retry attempt
+  const numericId = parseInt(item.inventoryId, 10);
+  if (isNaN(numericId)) return;
+  if (!item.orgId) return;
+  try {
+    await db.insert(crossPlatformSyncQueue).values({
+      orgId: item.orgId,
+      blInventoryId: numericId,
+      targetPlatform,
+      sourcePlatform: item.sourcePlatform,
+      sourceOrderId: item.orderId ?? null,
+      quantityDelta: item.quantityDelta,
+      lastError: errorMessage,
+    });
+    console.log(`📋 Enqueued ${targetPlatform} retry for inventory ${item.inventoryId}${item.orderId ? ` (order ${item.orderId})` : ''}`);
+  } catch (err: any) {
+    console.error(`Failed to enqueue cross-platform retry: ${err.message}`);
+  }
 }
 
 /** Pre-fetched context shared across all items in a single bulk sync run. */
-interface SyncContext {
+export interface SyncContext {
   /** Map of BL inventory ID (string) → BrickOwl lot, built from live BO inventory. */
   boInventoryMap: Map<string, any>;
 }
@@ -116,6 +145,7 @@ async function updateBrickOwlQuantity(
       severity: 'high',
       metadata: { inventoryId, orderId, orderNumber, itemNo, newQuantity, error: errMsg },
     });
+    await enqueueRetry({ item, targetPlatform: 'BrickOwl', errorMessage: errMsg });
     return { success: false, error: errMsg };
   }
 }
@@ -159,6 +189,7 @@ async function updateBrickLinkQuantityDelta(
         severity: 'high',
         metadata: { inventoryId, orderId, orderNumber, itemNo, quantityDelta, error: result.error },
       });
+      await enqueueRetry({ item, targetPlatform: 'BrickLink', errorMessage: result.error });
     }
     return result;
 
@@ -175,6 +206,7 @@ async function updateBrickLinkQuantityDelta(
       severity: 'high',
       metadata: { inventoryId, orderId, orderNumber, itemNo, quantityDelta, error: errMsg },
     });
+    await enqueueRetry({ item, targetPlatform: 'BrickLink', errorMessage: errMsg });
     return { success: false, error: errMsg };
   }
 }

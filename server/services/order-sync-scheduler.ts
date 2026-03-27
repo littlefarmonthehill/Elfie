@@ -6,6 +6,7 @@ import { runPlatformOrderSync, SyncPlatform } from "./order-sync-core";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 import { upsertSyncMetadata } from "./order-sync-helpers";
 import { broadcast } from "../sse";
+import { retryFailedCrossPlatformSyncs } from "./cross-platform-retry";
 
 const MAX_RETRIES = 5;
 const RETRY_BASE_MS = 5 * 60 * 1000;
@@ -150,6 +151,12 @@ async function runScheduledPlatformSync(
 
     retry.count = 0;
     resolveSchedulerIssues('order_sync');
+
+    // Run cross-platform retry queue after each successful sync — heals failures
+    // from any prior cycle when BL or BO was temporarily unavailable.
+    retryFailedCrossPlatformSyncs(orgId).catch(err =>
+      console.error(`⚠️ Cross-platform retry runner error (non-fatal): ${err.message}`)
+    );
   } catch (error: any) {
     retry.count++;
     retry.nextAt = Date.now() + retry.count * RETRY_BASE_MS;

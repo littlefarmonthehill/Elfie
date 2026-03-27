@@ -1,16 +1,21 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   ShoppingCart, Truck, PackageCheck,
-  Sparkles, Info, Globe,
+  Sparkles, Info, Globe, AlertTriangle, CheckCircle2,
+  Loader2, RefreshCw, X, ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import MetricCard from "./MetricCard";
 import { DateRangeValue, CollapsibleDatePicker } from "./DateRangeSelector";
 import OrderSyncPanel from "./OrderSyncPanel";
@@ -31,6 +36,262 @@ interface OrdersDashboardProps {
   dateRange?: DateRangeValue;
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing', focusTarget?: 'channelSync' | 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel') => void;
 }
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface SyncQueueItem {
+  id: number;
+  blInventoryId: number;
+  targetPlatform: string;
+  sourcePlatform: string;
+  sourceOrderId: string | null;
+  quantityDelta: number;
+  status: 'pending' | 'done' | 'abandoned';
+  retryCount: number;
+  lastAttemptAt: string | null;
+  lastError: string | null;
+  createdAt: string;
+  itemNo: string | null;
+}
+
+interface SyncQueueResponse {
+  success: boolean;
+  items: SyncQueueItem[];
+  stats: { pending: number; abandoned: number; done: number; total: number };
+}
+
+// ── Qty Sync Queue Panel ──────────────────────────────────────────────────────
+
+function QtySyncQueuePanel() {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+
+  const { data, isLoading } = useQuery<SyncQueueResponse>({
+    queryKey: ['/api/sync-queue'],
+    refetchInterval: 30000,
+    staleTime: 0,
+  });
+
+  const resolveMutation = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: 'done' | 'abandoned' }) =>
+      apiRequest('PATCH', `/api/sync-queue/${id}`, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sync-queue'] });
+      toast({ title: "Queue item updated" });
+    },
+  });
+
+  const retryMutation = useMutation({
+    mutationFn: (id: number) => apiRequest('POST', `/api/sync-queue/${id}/retry`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sync-queue'] });
+      toast({ title: "Retry triggered", description: "The item has been re-queued for immediate retry." });
+    },
+  });
+
+  const stats = data?.stats;
+  const items = data?.items ?? [];
+  const hasPending = (stats?.pending ?? 0) > 0;
+  const hasAbandoned = (stats?.abandoned ?? 0) > 0;
+
+  if (!hasPending && !hasAbandoned && !isLoading) return null;
+
+  const activeItems = items.filter(i => i.status === 'pending' || i.status === 'abandoned');
+  const doneItems = items.filter(i => i.status === 'done');
+
+  const fmtDelta = (delta: number) => delta < 0 ? `${delta}` : `+${delta}`;
+
+  const fmtTime = (ts: string | null) => {
+    if (!ts) return null;
+    const d = new Date(ts);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  return (
+    <>
+      <div
+        className={cn(
+          "relative border rounded-lg p-2.5 cursor-pointer hover-elevate",
+          hasAbandoned
+            ? "bg-red-500/10 border-red-500/30"
+            : "bg-amber-500/10 border-amber-500/30"
+        )}
+        onClick={() => setOpen(true)}
+        data-testid="card-sync-queue"
+      >
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-400/15 to-transparent rounded-t-lg" />
+        <div className="flex items-center gap-2">
+          <div className={cn("p-1.5 rounded-md ring-1", hasAbandoned ? "bg-red-500/20 ring-red-500/40" : "bg-amber-500/20 ring-amber-500/40")}>
+            {hasPending && !hasAbandoned
+              ? <Loader2 className="w-3 h-3 text-amber-300 animate-spin" />
+              : <AlertTriangle className={cn("w-3 h-3", hasAbandoned ? "text-red-300" : "text-amber-300")} />
+            }
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className={cn("text-xs font-semibold", hasAbandoned ? "text-red-300" : "text-amber-300")}>
+              Qty Sync Queue
+            </p>
+            <p className="text-[10px] text-gray-400 leading-tight">
+              {hasPending && `${stats!.pending} pending retry${stats!.pending !== 1 ? 's' : ''}`}
+              {hasPending && hasAbandoned && ' · '}
+              {hasAbandoned && `${stats!.abandoned} need${stats!.abandoned === 1 ? 's' : ''} manual fix`}
+            </p>
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {hasAbandoned && (
+              <Badge variant="outline" className="text-[9px] bg-red-500/20 border-red-500/50 text-red-300 no-default-active-elevate">
+                Action Required
+              </Badge>
+            )}
+            {hasPending && !hasAbandoned && (
+              <Badge variant="outline" className="text-[9px] bg-amber-500/20 border-amber-500/50 text-amber-300 no-default-active-elevate">
+                Retrying
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerContent className="bg-gray-950 border-gray-800 max-h-[92vh] flex flex-col rounded-t-2xl">
+          <DrawerHeader className="p-0 flex-shrink-0">
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-gray-600" />
+            </div>
+            <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-gray-800">
+              <RefreshCw className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              <DrawerTitle className="text-sm font-semibold text-gray-100 flex-1">Qty Sync Queue</DrawerTitle>
+              <DrawerClose asChild>
+                <button className="ml-2 text-gray-500 hover:text-gray-200 transition-colors" data-testid="button-close-sync-queue">
+                  <X className="w-5 h-5" />
+                </button>
+              </DrawerClose>
+            </div>
+          </DrawerHeader>
+
+          <div className="flex-1 overflow-y-auto px-4 pt-3 pb-6 min-h-0 space-y-4">
+
+            {/* Legend */}
+            <p className="text-[11px] text-gray-500 leading-relaxed">
+              When a qty update to BrickLink or BrickOwl fails (e.g. the platform is down), it lands here.
+              The scheduler retries automatically on each sync cycle. Items that fail 10 times need a manual fix.
+            </p>
+
+            {/* Active items */}
+            {activeItems.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide font-semibold">Pending / Needs Action</p>
+                {activeItems.map(item => (
+                  <div
+                    key={item.id}
+                    className={cn(
+                      "rounded-lg border p-3 space-y-2",
+                      item.status === 'abandoned'
+                        ? "bg-red-500/10 border-red-500/30"
+                        : "bg-amber-500/8 border-amber-500/25"
+                    )}
+                    data-testid={`sync-queue-item-${item.id}`}
+                  >
+                    <div className="flex items-start gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {item.status === 'abandoned'
+                          ? <AlertTriangle className="w-3 h-3 text-red-400 flex-shrink-0" />
+                          : <Loader2 className="w-3 h-3 text-amber-400 animate-spin flex-shrink-0" />
+                        }
+                        <span className="text-xs font-mono text-gray-200">
+                          {item.itemNo ?? `inv#${item.blInventoryId}`}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 text-[10px] text-gray-400">
+                        <span className="text-gray-500">{item.sourcePlatform}</span>
+                        <ArrowRight className="w-2.5 h-2.5" />
+                        <span className={cn("font-medium", item.targetPlatform === 'BrickOwl' ? "text-blue-300" : "text-orange-300")}>
+                          {item.targetPlatform}
+                        </span>
+                      </div>
+                      <div className="ml-auto flex items-center gap-1.5">
+                        {item.status === 'abandoned' ? (
+                          <Badge variant="outline" className="text-[9px] bg-red-500/20 border-red-500/50 text-red-300 no-default-active-elevate">
+                            Manual Fix Needed
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[9px] bg-amber-500/20 border-amber-500/50 text-amber-300 no-default-active-elevate">
+                            Attempt {item.retryCount + 1}/10
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-gray-500">
+                      <span>Qty: <span className={cn("font-mono font-medium", item.quantityDelta < 0 ? "text-red-300" : "text-green-300")}>{fmtDelta(item.quantityDelta)}</span></span>
+                      {item.sourceOrderId && <span>Order: <span className="text-gray-300">{item.sourceOrderId}</span></span>}
+                      {item.lastAttemptAt && <span>Last tried: {fmtTime(item.lastAttemptAt)}</span>}
+                    </div>
+
+                    {item.lastError && (
+                      <p className="text-[10px] text-red-400/80 bg-red-500/10 rounded px-2 py-1 font-mono break-all leading-tight">
+                        {item.lastError}
+                      </p>
+                    )}
+
+                    <div className="flex gap-1.5 flex-wrap">
+                      {item.status === 'abandoned' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-[10px] h-6 px-2 border-amber-500/40 text-amber-300"
+                          onClick={() => retryMutation.mutate(item.id)}
+                          disabled={retryMutation.isPending}
+                          data-testid={`button-retry-${item.id}`}
+                        >
+                          {retryMutation.isPending ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />}
+                          Retry Now
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-[10px] h-6 px-2 border-gray-600 text-gray-400"
+                        onClick={() => resolveMutation.mutate({ id: item.id, status: 'done' })}
+                        disabled={resolveMutation.isPending}
+                        data-testid={`button-resolve-${item.id}`}
+                      >
+                        <CheckCircle2 className="w-2.5 h-2.5" />
+                        Mark Fixed
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Recently completed */}
+            {doneItems.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide font-semibold">Recently Healed</p>
+                {doneItems.slice(0, 10).map(item => (
+                  <div key={item.id} className="flex items-center gap-2 py-1.5 px-2.5 rounded-lg bg-green-500/8 border border-green-500/20" data-testid={`sync-queue-done-${item.id}`}>
+                    <CheckCircle2 className="w-3 h-3 text-green-400 flex-shrink-0" />
+                    <span className="text-[10px] font-mono text-gray-300">{item.itemNo ?? `inv#${item.blInventoryId}`}</span>
+                    <ArrowRight className="w-2 h-2 text-gray-600 flex-shrink-0" />
+                    <span className="text-[10px] text-gray-400">{item.targetPlatform}</span>
+                    <span className="ml-auto text-[10px] text-green-400">Synced</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeItems.length === 0 && doneItems.length === 0 && (
+              <p className="text-center text-sm text-gray-500 py-8">No items in queue</p>
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    </>
+  );
+}
+
+// ── Main Dashboard ─────────────────────────────────────────────────────────────
 
 export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange: initialDateRange = 'mtd', onOpenSettings }: OrdersDashboardProps) {
   const [dateRange, setDateRange] = useState<DateRangeValue>(initialDateRange);
@@ -230,6 +491,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
           <div className="space-y-2">
             <OrderSyncPanel platform="bricklink" onOpenSettings={onOpenSettings} />
             <OrderSyncPanel platform="brickowl" onOpenSettings={onOpenSettings} />
+            <QtySyncQueuePanel />
           </div>
         </div>
 
