@@ -20,6 +20,7 @@ interface GeneralDashboardProps {
   onOpenSettings?: (section: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing') => void;
   onNavigate?: (tab: 'inventory' | 'orders' | 'sales' | 'marketing') => void;
   section?: 'all' | 'plan' | 'ops';
+  activeSection?: 'inventory' | 'orders' | 'marketing' | 'sales';
 }
 
 function relTime(iso: string | null | undefined): string {
@@ -112,19 +113,20 @@ function AlertRow({ icon: Icon, iconColor, label, sub, onClick, severity = 'warn
   );
 }
 
-function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, lastActions, onClick }: {
+function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, lastActions, onClick, isActive, channelNum, channelHex }: {
   label: string; Icon: React.ElementType; color: string; stat?: string;
   alerts: Array<{ id: string; icon: React.ElementType; iconColor: string; label: string; sub?: string; severity: 'warn' | 'error' | 'info'; onClick?: () => void }>;
   runningJobs?: React.ReactNode; isRunning?: boolean; lastActions?: Array<{ label: string; time: string; ok: boolean }>;
   onClick?: () => void;
+  isActive?: boolean; channelNum?: string; channelHex?: string;
 }) {
   const [lastActionsOpen, setLastActionsOpen] = useState(false);
-  const colorMap: Record<string, { border: string; icon: string; headerBg: string; cardBg: string; glow: string }> = {
-    blue:   { border: 'border-blue-500/40', icon: 'text-blue-400', headerBg: 'from-blue-950/50 to-gray-900/80', cardBg: 'bg-gradient-to-br from-blue-950/40 via-gray-950/70 to-blue-950/20', glow: 'shadow-[0_0_15px_rgba(59,130,246,0.12)]' },
-    orange: { border: 'border-orange-500/40', icon: 'text-orange-400', headerBg: 'from-orange-950/50 to-gray-900/80', cardBg: 'bg-gradient-to-br from-orange-950/40 via-gray-950/70 to-orange-950/20', glow: 'shadow-[0_0_15px_rgba(251,146,60,0.12)]' },
-    green:  { border: 'border-green-500/40', icon: 'text-green-400', headerBg: 'from-green-950/50 to-gray-900/80', cardBg: 'bg-gradient-to-br from-green-950/40 via-gray-950/70 to-green-950/20', glow: 'shadow-[0_0_15px_rgba(34,197,94,0.12)]' },
-    purple: { border: 'border-purple-500/40', icon: 'text-purple-400', headerBg: 'from-purple-950/50 to-gray-900/80', cardBg: 'bg-gradient-to-br from-purple-950/40 via-gray-950/70 to-purple-950/20', glow: 'shadow-[0_0_15px_rgba(168,85,247,0.12)]' },
-    yellow: { border: 'border-yellow-500/40', icon: 'text-yellow-400', headerBg: 'from-yellow-950/50 to-gray-900/80', cardBg: 'bg-gradient-to-br from-yellow-950/40 via-gray-950/70 to-yellow-950/20', glow: 'shadow-[0_0_15px_rgba(234,179,8,0.12)]' },
+  const colorMap: Record<string, { border: string; activeBorder: string; icon: string; headerBg: string; cardBg: string; glow: string; activeGlow: string }> = {
+    blue:   { border: 'border-blue-500/30', activeBorder: 'border-blue-400/70', icon: 'text-blue-400', headerBg: 'from-blue-950/50 to-gray-900/80', cardBg: 'bg-gradient-to-br from-blue-950/40 via-gray-950/70 to-blue-950/20', glow: 'shadow-[0_0_15px_rgba(59,130,246,0.08)]', activeGlow: 'shadow-[0_0_18px_rgba(27,124,229,0.35)]' },
+    orange: { border: 'border-orange-500/30', activeBorder: 'border-orange-400/70', icon: 'text-orange-400', headerBg: 'from-orange-950/50 to-gray-900/80', cardBg: 'bg-gradient-to-br from-orange-950/40 via-gray-950/70 to-orange-950/20', glow: 'shadow-[0_0_15px_rgba(251,146,60,0.08)]', activeGlow: 'shadow-[0_0_18px_rgba(232,97,28,0.35)]' },
+    green:  { border: 'border-green-500/30', activeBorder: 'border-green-400/70', icon: 'text-green-400', headerBg: 'from-green-950/50 to-gray-900/80', cardBg: 'bg-gradient-to-br from-green-950/40 via-gray-950/70 to-green-950/20', glow: 'shadow-[0_0_15px_rgba(34,197,94,0.08)]', activeGlow: 'shadow-[0_0_18px_rgba(0,150,60,0.35)]' },
+    purple: { border: 'border-purple-500/30', activeBorder: 'border-purple-400/70', icon: 'text-purple-400', headerBg: 'from-purple-950/50 to-gray-900/80', cardBg: 'bg-gradient-to-br from-purple-950/40 via-gray-950/70 to-purple-950/20', glow: 'shadow-[0_0_15px_rgba(168,85,247,0.08)]', activeGlow: 'shadow-[0_0_18px_rgba(168,85,247,0.35)]' },
+    yellow: { border: 'border-yellow-500/30', activeBorder: 'border-yellow-400/70', icon: 'text-yellow-400', headerBg: 'from-yellow-950/50 to-gray-900/80', cardBg: 'bg-gradient-to-br from-yellow-950/40 via-gray-950/70 to-yellow-950/20', glow: 'shadow-[0_0_15px_rgba(234,179,8,0.08)]', activeGlow: 'shadow-[0_0_18px_rgba(245,194,0,0.35)]' },
   };
   const c = colorMap[color] ?? colorMap.blue;
 
@@ -136,16 +138,42 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
   const validActions = (lastActions ?? []).filter(a => a.time !== 'never');
 
   return (
-    <div className={cn("rounded-lg border overflow-hidden", c.border, c.cardBg, c.glow)} data-testid={`ops-area-${label.toLowerCase()}`}>
+    <div
+      className={cn("rounded-lg border overflow-hidden transition-all duration-200", isActive ? c.activeBorder : c.border, c.cardBg, isActive ? c.activeGlow : c.glow)}
+      data-testid={`ops-area-${label.toLowerCase()}`}
+    >
       <button
         onClick={onClick}
-        className={cn("w-full flex items-center justify-between gap-3 px-4 py-3 text-left bg-gradient-to-r hover-elevate active-elevate-2 transition-all group", c.headerBg)}
+        className={cn("w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left bg-gradient-to-r hover-elevate active-elevate-2 transition-all group", c.headerBg)}
       >
-        <div className="flex items-center gap-2.5">
-          <Icon className={cn("w-4 h-4 shrink-0", c.icon)} />
-          <span className="text-sm font-bold text-foreground uppercase tracking-wide">{label}</span>
+        <div className="flex items-center gap-2">
+          <Icon className={cn("w-4 h-4 shrink-0 transition-all", c.icon, isActive && 'drop-shadow-[0_0_4px_currentColor]')} />
+          <span className={cn("text-sm font-bold uppercase tracking-wide transition-all", isActive ? 'text-foreground' : 'text-foreground/80')}>{label}</span>
         </div>
-        {stat && <span className="text-xs text-muted-foreground font-medium">{stat}</span>}
+        <div className="flex items-center gap-2 shrink-0">
+          {stat && <span className="text-xs text-muted-foreground font-medium">{stat}</span>}
+          {channelNum && (
+            <div
+              className="flex flex-col items-center justify-center rounded font-mono font-black leading-none transition-all duration-200"
+              style={{
+                fontSize: '8px', minWidth: '26px', padding: '2px 5px',
+                ...(isActive ? {
+                  background: '#03040C',
+                  border: `1px solid ${channelHex ?? '#00FFEE'}`,
+                  boxShadow: `0 0 6px ${channelHex ?? '#00FFEE'}55, inset 0 0 8px rgba(0,0,0,0.9)`,
+                  color: channelHex ?? '#00FFEE',
+                } : {
+                  background: 'rgba(0,0,0,0.4)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: 'rgba(180,200,255,0.28)',
+                }),
+              }}
+            >
+              <span>{channelNum}</span>
+              <span style={{ fontSize: '6px', letterSpacing: '0.15em', opacity: isActive ? 0.7 : 0.5 }}>CH</span>
+            </div>
+          )}
+        </div>
       </button>
 
       <div className="bg-gray-950/60">
@@ -517,7 +545,7 @@ export function SystemPulse({ setupItems, billingStatus, rateLimit, blApiCallLim
   );
 }
 
-export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpenBrickanalyzer, onOpenPriceomatic, onOpenBilling, onOpenSettings, onNavigate, section = 'all' }: GeneralDashboardProps) {
+export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpenBrickanalyzer, onOpenPriceomatic, onOpenBilling, onOpenSettings, onNavigate, section = 'all', activeSection }: GeneralDashboardProps) {
 
   const { data: stats } = useQuery<{ totalOrders: number; totalInventoryItems: number; totalInventoryQuantity: number; totalSales: number }>({
     queryKey: ['/api/dashboard/stats'],
@@ -758,6 +786,9 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           stat={`${totalLots.toLocaleString()} lots · ${totalPcs.toLocaleString()} pcs`}
           alerts={urgentAlerts.filter(a => ['inv-fail', 'scan', 'underpriced', 'channel-fail'].includes(a.id) || a.id.startsWith('ch-'))}
           onClick={() => onNavigate?.('inventory')}
+          isActive={activeSection === 'inventory'}
+          channelNum="01"
+          channelHex="#1B7CE5"
           isRunning={isInvSyncing || isScanProcessing || isChannelSyncing || !!activeInvEmbed}
           lastActions={[
             { label: 'Inventory sync', time: relTime(lastInvSync?.lastSyncTime), ok: !invSyncFailed },
@@ -797,6 +828,9 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           stat={pendingOrders > 0 ? `${pendingOrders} to fulfill` : `${(stats?.totalOrders ?? 0).toLocaleString()} total`}
           alerts={urgentAlerts.filter(a => a.id === 'pending' || a.id === 'order-fail' || a.id === 'qty-sync-fail')}
           onClick={() => onNavigate?.('orders')}
+          isActive={activeSection === 'orders'}
+          channelNum="02"
+          channelHex="#E8611C"
           isRunning={isOrderSyncing || !!activeOrdEmbed}
           lastActions={[
             { label: 'Order sync', time: relTime(lastOrderSync?.lastSyncTime), ok: !orderSyncFailed },
@@ -826,6 +860,9 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           stat={targets.length > 0 ? `${targets.length} channel${targets.length !== 1 ? 's' : ''} connected` : 'No channels'}
           alerts={[]}
           onClick={() => onNavigate?.('marketing')}
+          isActive={activeSection === 'marketing'}
+          channelNum="03"
+          channelHex="#F5C200"
         />
 
         <OpAreaCard
@@ -835,6 +872,9 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           stat={formatCurrency(totalRevenue)}
           alerts={urgentAlerts.filter(a => a.id === 'pom-fail')}
           onClick={() => onNavigate?.('sales')}
+          isActive={activeSection === 'sales'}
+          channelNum="04"
+          channelHex="#00963C"
         />
       </div>)}
 

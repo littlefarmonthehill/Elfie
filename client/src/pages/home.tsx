@@ -1282,6 +1282,7 @@ export default function Home() {
                             onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
                             onNavigate={(tab) => switchDashboardDesktop(tab as DashboardType)}
                             section="ops"
+                            activeSection={activeDashboard as 'inventory' | 'orders' | 'marketing' | 'sales'}
                           />
                         </div>
                       </div>
@@ -1351,40 +1352,6 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {/* Bottom TV controls strip — dials navigation (compact) */}
-                    <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 'clamp(5px,0.7vw,9px)', padding: '4px clamp(8px,1vw,13px)', borderTop: '1px solid rgba(0,255,238,0.09)', background: 'rgba(0,0,0,0.22)' }}>
-
-                      {/* LED channel display */}
-                      <div style={{ background: '#04040E', border: '1px solid rgba(0,255,238,0.4)', borderRadius: '6px', padding: '2px 6px', textAlign: 'center', fontFamily: 'monospace', color: '#00FFEE', fontWeight: 900, lineHeight: 1, fontSize: 'clamp(10px,1.1vw,14px)', boxShadow: '0 0 10px rgba(0,255,238,0.22), inset 0 0 10px rgba(0,0,0,0.95)', animation: 'tv-ledpulse 2.5s ease-in-out infinite', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
-                        {activeDial.num}
-                        <div style={{ fontSize: '5px', letterSpacing: '0.2em', color: 'rgba(0,255,238,0.55)' }}>CH</div>
-                      </div>
-
-                      {/* Dial channel buttons */}
-                      <div style={{ flex: 1, display: 'flex', gap: 'clamp(3px,0.4vw,5px)', justifyContent: 'center' }}>
-                        {TV_DIALS.map(dial => {
-                          const isActive = activeDashboard === dial.id;
-                          return (
-                            <button
-                              key={dial.id}
-                              onClick={() => switchDashboardDesktop(dial.id)}
-                              data-testid={`desktop-dial-${dial.id}`}
-                              style={{ flex: 1, background: isActive ? `rgba(${dial.rgb},0.15)` : 'rgba(255,255,255,0.03)', border: `1px solid ${isActive ? dial.hex : 'rgba(190,210,255,0.13)'}`, borderRadius: '5px', padding: '3px 2px', cursor: 'pointer', color: isActive ? dial.hex : 'rgba(190,210,255,0.6)', fontFamily: 'monospace', fontWeight: 700, fontSize: 'clamp(7px,0.7vw,9px)', letterSpacing: '0.04em', textAlign: 'center', lineHeight: 1.2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', transition: 'all 0.15s', textShadow: isActive ? `0 0 8px ${dial.hex}` : 'none', boxShadow: isActive ? `0 0 8px rgba(${dial.rgb},0.2), inset 0 0 6px rgba(${dial.rgb},0.06)` : 'none' }}
-                            >
-                              <div style={{ fontSize: 'clamp(5px,0.55vw,7px)', opacity: 0.7 }}>{dial.num}</div>
-                              <div>{dial.label}</div>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Signal bars (minimal) */}
-                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', flexShrink: 0 }}>
-                        {[3, 5, 7].map((h, i) => (
-                          <div key={i} style={{ width: '2px', height: `${h}px`, borderRadius: '1px', background: '#00FFEE', boxShadow: '0 0 3px #00FFEE' }} />
-                        ))}
-                      </div>
-                    </div>
 
                   </div>
                 </div>
