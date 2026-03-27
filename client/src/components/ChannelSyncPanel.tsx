@@ -88,9 +88,11 @@ interface DiscrepancyArea {
 
 interface ChannelSyncPanelProps {
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing', focusTarget?: 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel' | 'channelSync') => void;
+  inlineMode?: boolean;
+  onClose?: () => void;
 }
 
-export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelProps) {
+export default function ChannelSyncPanel({ onOpenSettings, inlineMode, onClose }: ChannelSyncPanelProps) {
   const { toast } = useToast();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedArea, setSelectedArea] = useState<DiscrepancyType | null>(null);
@@ -115,14 +117,14 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
   const { data: detailData, isLoading: detailLoading } = useQuery<any>({
     queryKey: ['/api/platform-sync/discrepancies/BrickOwl', selectedArea],
     queryFn: () => fetch(discrepancyUrl!).then(r => r.json()),
-    enabled: !!selectedArea && drawerOpen && !!discrepancyUrl,
+    enabled: !!selectedArea && (drawerOpen || !!inlineMode) && !!discrepancyUrl,
     refetchOnWindowFocus: false,
   });
 
   const { data: recentChanges, isLoading: recentChangesLoading } = useQuery<{ items: any[]; totalCount: number }>({
     queryKey: ['/api/sync/channel/recent-changes', changeDetail],
     queryFn: () => apiRequest('GET', `/api/sync/channel/recent-changes?type=${changeDetail}&limit=50`),
-    enabled: drawerOpen && changeDetail !== null,
+    enabled: (drawerOpen || !!inlineMode) && changeDetail !== null,
     staleTime: 30000,
   });
 
@@ -355,6 +357,96 @@ export default function ChannelSyncPanel({ onOpenSettings }: ChannelSyncPanelPro
         <p className="text-[10px] text-gray-500">
           BrickOwl not configured — add your API key in Settings → Platform Connections to enable channel sync.
         </p>
+      </div>
+    );
+  }
+
+  if (inlineMode) {
+    const isBack = !!(selectedArea || showAuditReport || showColorRepair || changeDetail);
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-800 flex-shrink-0">
+          {isBack ? (
+            <button
+              onClick={() => { setSelectedArea(null); setShowAuditReport(false); setShowColorRepair(false); setChangeDetail(null); }}
+              className="text-gray-400 hover:text-gray-200 transition-colors mr-1 flex-shrink-0"
+              data-testid="button-discrepancy-back"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          ) : (
+            <Globe className="w-4 h-4 text-green-400 flex-shrink-0" />
+          )}
+          <span className="text-sm font-semibold text-gray-100 flex-1">
+            {changeDetail === 'created' ? 'Recently Created BO Lots'
+              : changeDetail === 'updated' ? 'Recently Updated BO Lots'
+              : showAuditReport ? 'Audit Report'
+              : showColorRepair ? 'Wrong Color Lots'
+              : selectedArea && activeArea ? activeArea.label
+              : 'BrickOwl — Channel Sync'}
+          </span>
+          {onClose && !isBack && (
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-200 transition-colors flex-shrink-0" data-testid="button-close-channel-inline">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {changeDetail ? (
+            <div className="px-4 pt-3 pb-6 space-y-2">
+              <div className="flex items-center gap-2 px-0.5">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 flex-1">
+                  {changeDetail === 'created' ? 'Most recently created on BrickOwl' : 'Most recently updated on BrickOwl'}
+                </p>
+                <span className="text-[10px] text-gray-600">showing up to 50</span>
+              </div>
+              {recentChangesLoading ? (
+                <div className="flex items-center gap-2 py-6 justify-center text-gray-500 text-xs"><Loader2 className="w-3.5 h-3.5 animate-spin" />Loading…</div>
+              ) : !recentChanges?.items?.length ? (
+                <div className="rounded-lg border border-gray-700/50 bg-gray-900/40 p-4 text-center text-xs text-gray-500">No items found</div>
+              ) : (
+                <div className="space-y-1">
+                  {recentChanges.items.map((item: any, idx: number) => (
+                    <div key={item.blInvId ?? idx} className="flex items-center gap-3 rounded-md bg-gray-900/50 px-2.5 py-2" data-testid={`row-ch-change-${item.blInvId ?? idx}`}>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-mono font-semibold text-green-300">{item.itemNo}</span>
+                          <span className="text-[9px] text-gray-600">{item.newOrUsed === 'N' ? 'New' : 'Used'}</span>
+                          {item.colorName && <span className="text-[9px] text-gray-500 truncate">{item.colorName}</span>}
+                        </div>
+                        {item.itemName && <p className="text-[10px] text-gray-400 truncate mt-0.5">{item.itemName}</p>}
+                        {item.channelLotId && <p className="text-[9px] text-gray-600 font-mono mt-0.5">BO #{item.channelLotId}</p>}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-[10px] font-mono font-semibold text-white">×{item.quantity?.toLocaleString()}</p>
+                        {item.unitPrice && <p className="text-[9px] text-gray-500">${parseFloat(item.unitPrice).toFixed(2)}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : showAuditReport ? (
+            <AuditReportView discrepancyAreas={discrepancyAreas} totalDiscrepancies={totalDiscrepancies} lastSyncTime={lastSync?.lastSyncTime} />
+          ) : showColorRepair ? (
+            <ColorRepairDetail />
+          ) : selectedArea ? (
+            <DiscrepancyDetail area={activeArea!} data={detailData} isLoading={detailLoading} />
+          ) : (
+            <OverviewContent
+              brickOwl={brickOwl} lastSync={lastSync} lastResult={lastResult} isLoading={isLoading}
+              isRunning={isRunning} syncMutation={syncMutation} stopMutation={stopMutation}
+              onOpenSettings={onOpenSettings} setDrawerOpen={() => {}}
+              discrepancyAreas={discrepancyAreas} totalDiscrepancies={totalDiscrepancies}
+              onSelectArea={(type) => setSelectedArea(type)}
+              onShowAuditReport={() => setShowAuditReport(true)}
+              onShowColorRepair={() => setShowColorRepair(true)}
+              fullScan={fullScan} setFullScan={setFullScan}
+              progressData={progressData} progressPct={progressPct}
+              onChangeDetail={(type: 'created' | 'updated') => setChangeDetail(type)}
+            />
+          )}
+        </div>
       </div>
     );
   }

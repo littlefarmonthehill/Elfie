@@ -560,16 +560,20 @@ export default function Home() {
     }
     if (activeInventoryDrawer === 'bricklinksync') {
       return (
-        <ToolDrawer icon={SlidersHorizontal} iconColor="text-blue-400" title="BrickLink Inventory Sync" onClose={closeActiveDrawer}>
-          <BrickLinkSyncPanel onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} />
-        </ToolDrawer>
+        <BrickLinkSyncPanel
+          inlineMode
+          onClose={closeActiveDrawer}
+          onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }}
+        />
       );
     }
     if (activeInventoryDrawer === 'channelsync') {
       return (
-        <ToolDrawer icon={SlidersHorizontal} iconColor="text-green-400" title="BrickOwl Channel Sync" onClose={closeActiveDrawer}>
-          <ChannelSyncPanel onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} />
-        </ToolDrawer>
+        <ChannelSyncPanel
+          inlineMode
+          onClose={closeActiveDrawer}
+          onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }}
+        />
       );
     }
     if (activeOrdersDrawer === 'bricklinksync') {
