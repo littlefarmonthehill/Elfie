@@ -120,132 +120,88 @@ function OpAreaCard({ label, Icon, color, stat, alerts, isRunning, onClick, isAc
   onClick?: () => void;
   isActive?: boolean; channelNum?: string; channelHex?: string;
 }) {
-  const iconColorMap: Record<string, string> = {
-    blue: 'text-blue-300', orange: 'text-orange-300', green: 'text-green-300',
-    purple: 'text-purple-300', yellow: 'text-yellow-300',
+  const colorMap: Record<string, { border: string; activeBorder: string; icon: string; headerBg: string; cardBg: string; glow: string; activeGlow: string }> = {
+    blue:   { border: 'border-blue-500/50',   activeBorder: 'border-blue-400/80',   icon: 'text-blue-300',   headerBg: 'from-blue-900/60 to-gray-900/80',   cardBg: 'bg-gradient-to-br from-blue-900/45 via-gray-900/75 to-blue-950/25',   glow: 'shadow-[0_0_16px_rgba(59,130,246,0.12)]',   activeGlow: 'shadow-[0_0_20px_rgba(27,124,229,0.40)]'  },
+    orange: { border: 'border-orange-500/50', activeBorder: 'border-orange-400/80', icon: 'text-orange-300', headerBg: 'from-orange-900/60 to-gray-900/80', cardBg: 'bg-gradient-to-br from-orange-900/45 via-gray-900/75 to-orange-950/25', glow: 'shadow-[0_0_16px_rgba(251,146,60,0.12)]',   activeGlow: 'shadow-[0_0_20px_rgba(232,97,28,0.40)]'   },
+    green:  { border: 'border-green-500/50',  activeBorder: 'border-green-400/80',  icon: 'text-green-300',  headerBg: 'from-green-900/60 to-gray-900/80',  cardBg: 'bg-gradient-to-br from-green-900/45 via-gray-900/75 to-green-950/25',  glow: 'shadow-[0_0_16px_rgba(34,197,94,0.12)]',   activeGlow: 'shadow-[0_0_20px_rgba(0,150,60,0.40)]'    },
+    purple: { border: 'border-purple-500/50', activeBorder: 'border-purple-400/80', icon: 'text-purple-300', headerBg: 'from-purple-900/60 to-gray-900/80', cardBg: 'bg-gradient-to-br from-purple-900/45 via-gray-900/75 to-purple-950/25', glow: 'shadow-[0_0_16px_rgba(168,85,247,0.12)]',  activeGlow: 'shadow-[0_0_20px_rgba(168,85,247,0.40)]'  },
+    yellow: { border: 'border-yellow-500/50', activeBorder: 'border-yellow-400/80', icon: 'text-yellow-300', headerBg: 'from-yellow-900/60 to-gray-900/80', cardBg: 'bg-gradient-to-br from-yellow-900/45 via-gray-900/75 to-yellow-950/25', glow: 'shadow-[0_0_16px_rgba(234,179,8,0.12)]',   activeGlow: 'shadow-[0_0_20px_rgba(245,194,0,0.40)]'   },
   };
-  const iconColor = iconColorMap[color] ?? 'text-blue-300';
+  const c = colorMap[color] ?? colorMap.blue;
   const errorAlerts = alerts.filter(a => a.severity === 'error').length;
   const totalAlerts = alerts.length;
-  const primaryAlert = alerts[0];
-  const hex = channelHex ?? '#1B7CE5';
 
   return (
-    <div className="flex items-center gap-1.5">
-      {/* Retro LED toggle — desktop only (lg+) */}
-      <button
-        onClick={onClick}
-        className="hidden lg:flex items-center justify-center w-4 shrink-0 self-stretch cursor-pointer"
-        aria-label={`Select ${label}`}
-        data-testid={`led-${label.toLowerCase()}`}
-        title={isActive ? `${label} active` : `Switch to ${label}`}
-      >
-        <div
-          style={{
-            width: '7px',
-            height: '7px',
-            borderRadius: '50%',
-            background: isActive ? hex : 'rgba(30,40,70,0.8)',
-            boxShadow: isActive
-              ? `0 0 5px ${hex}, 0 0 12px ${hex}60, inset 0 0 2px rgba(255,255,255,0.4)`
-              : 'inset 0 1px 2px rgba(0,0,0,0.6)',
-            border: `1px solid ${isActive ? hex : 'rgba(70,90,150,0.22)'}`,
-            transition: 'all 0.25s ease',
-            flexShrink: 0,
-          }}
-        />
-      </button>
-
-      {/* Mini screen card */}
-      <button
-        onClick={onClick}
-        className="flex-1 relative text-left cursor-pointer transition-all duration-200"
-        style={{
-          background: '#030610',
-          border: `1px solid ${isActive ? `${hex}55` : 'rgba(50,65,120,0.38)'}`,
-          borderRadius: '5px',
-          boxShadow: isActive
-            ? `0 0 12px ${hex}1A, inset 0 0 10px rgba(0,0,0,0.55)`
-            : 'inset 0 0 8px rgba(0,0,0,0.45)',
-          padding: '5px 8px 6px',
-          overflow: 'hidden',
-        }}
-        data-testid={`ops-area-${label.toLowerCase()}`}
-      >
-        {/* Scanlines overlay */}
-        <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2,
-          backgroundImage: 'repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px)',
-        }} />
-        {/* Top shine */}
-        <div style={{
-          position: 'absolute', top: 0, left: '10%', right: '10%', height: '1px',
-          background: `linear-gradient(90deg, transparent, ${hex}38, transparent)`,
-          pointerEvents: 'none', zIndex: 3,
-        }} />
-        {/* Phosphor glow when active */}
-        <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
-          background: isActive
-            ? `radial-gradient(ellipse 90% 65% at 50% 0%, ${hex}09 0%, transparent 72%)`
-            : 'none',
-          transition: 'background 0.3s',
-        }} />
-
-        {/* Content */}
-        <div style={{ position: 'relative', zIndex: 4 }}>
-          {/* Row 1: CH badge + icon + label + status */}
-          <div className="flex items-center gap-1.5">
-            {channelNum && (
-              <div style={{
-                fontSize: '7px', letterSpacing: '0.08em', padding: '2px 4px',
-                fontFamily: 'monospace', fontWeight: 900, lineHeight: 1,
-                background: '#02040A',
-                border: `1px solid ${isActive ? `${hex}90` : 'rgba(255,255,255,0.10)'}`,
-                borderRadius: '2px',
-                color: isActive ? hex : 'rgba(140,160,210,0.45)',
-                boxShadow: isActive ? `0 0 4px ${hex}50` : 'none',
-                transition: 'all 0.25s',
-                flexShrink: 0,
-              }}>
-                CH{channelNum}
-              </div>
-            )}
-            <Icon className={cn('w-3 h-3 shrink-0 transition-all', iconColor, isActive && 'drop-shadow-[0_0_3px_currentColor]')} />
-            <span className={cn('text-[10px] font-bold uppercase tracking-wide flex-1 min-w-0 truncate transition-colors', isActive ? 'text-white' : 'text-gray-400')}>
-              {label}
-            </span>
-            {/* Status indicator */}
-            {totalAlerts > 0 ? (
-              <div className={cn('flex items-center gap-0.5 font-mono font-bold text-[9px] shrink-0', errorAlerts > 0 ? 'text-red-400' : 'text-yellow-400')}>
-                {errorAlerts > 0 ? <XCircle className="w-2.5 h-2.5" /> : <AlertTriangle className="w-2.5 h-2.5" />}
-                <span>{totalAlerts}</span>
-              </div>
-            ) : isRunning ? (
-              <div className="relative w-2 h-2 shrink-0">
-                <div className="absolute inset-0 rounded-full bg-cyan-400 animate-ping opacity-60" />
-                <div className="absolute inset-0 rounded-full bg-cyan-400" />
-              </div>
-            ) : (
-              <div className="w-2 h-2 rounded-full shrink-0" style={{ background: 'rgba(34,197,94,0.65)' }} />
-            )}
+    <button
+      onClick={onClick}
+      className={cn(
+        'w-full rounded-lg border text-left transition-all duration-200 hover-elevate active-elevate-2',
+        'min-h-[52px] px-2.5 py-2',
+        isActive ? c.activeBorder : c.border,
+        c.cardBg,
+        isActive ? c.activeGlow : c.glow,
+      )}
+      data-testid={`ops-area-${label.toLowerCase()}`}
+    >
+      {/* Row 1: channel badge + icon + label + status */}
+      <div className="flex items-center gap-1.5">
+        {channelNum && (
+          <div
+            className="shrink-0 rounded font-mono font-black leading-none transition-all duration-200"
+            style={{
+              fontSize: '7px', letterSpacing: '0.08em', padding: '2px 4px',
+              ...(isActive ? {
+                background: '#03040C',
+                border: `1px solid ${channelHex ?? '#00FFEE'}`,
+                boxShadow: `0 0 5px ${channelHex ?? '#00FFEE'}55`,
+                color: channelHex ?? '#00FFEE',
+              } : {
+                background: 'rgba(0,0,0,0.35)',
+                border: '1px solid rgba(255,255,255,0.14)',
+                color: 'rgba(180,200,255,0.55)',
+              }),
+            }}
+          >CH{channelNum}</div>
+        )}
+        <Icon className={cn('w-3.5 h-3.5 shrink-0 transition-all', c.icon, isActive && 'drop-shadow-[0_0_3px_currentColor]')} />
+        <span className={cn('text-xs font-bold uppercase tracking-wide flex-1 min-w-0 truncate', isActive ? 'text-foreground' : 'text-foreground/75')}>
+          {label}
+        </span>
+        {/* Status indicator */}
+        {totalAlerts > 0 ? (
+          <div className={cn('flex items-center gap-0.5 font-mono font-bold text-[9px] shrink-0', errorAlerts > 0 ? 'text-red-400' : 'text-yellow-400')}>
+            {errorAlerts > 0 ? <XCircle className="w-2.5 h-2.5" /> : <AlertTriangle className="w-2.5 h-2.5" />}
+            <span>{totalAlerts}</span>
           </div>
+        ) : isRunning ? (
+          <div className="relative w-2 h-2 shrink-0">
+            <div className="absolute inset-0 rounded-full bg-cyan-400 animate-ping opacity-60" />
+            <div className="absolute inset-0 rounded-full bg-cyan-400" />
+          </div>
+        ) : (
+          <div className="w-2 h-2 rounded-full bg-green-500/70 shrink-0" />
+        )}
+      </div>
 
-          {/* Row 2: alert or stat — indented to feel inside the screen */}
-          {(primaryAlert || stat) && (
-            <div className="mt-0.5 leading-tight min-w-0 pl-3" style={{ borderLeft: '1px solid rgba(255,255,255,0.06)' }}>
-              {primaryAlert ? (
-                <span className={cn('text-[9px] block truncate', primaryAlert.severity === 'error' ? 'text-red-400/80' : 'text-yellow-400/70')}>
-                  {primaryAlert.label}
-                </span>
-              ) : (
-                <span className="text-[9px] block truncate" style={{ color: 'rgba(110,130,175,0.55)' }}>{stat}</span>
-              )}
+      {/* Rows 2+: actionable alerts list, or stat if no alerts */}
+      <div className="mt-1 space-y-0.5">
+        {alerts.length > 0 ? (
+          alerts.slice(0, 3).map(a => (
+            <div key={a.id} className="flex items-center gap-1 min-w-0">
+              <a.icon className={cn('w-2.5 h-2.5 shrink-0', a.iconColor)} />
+              <span className={cn(
+                'text-[10px] truncate flex-1',
+                a.severity === 'error' ? 'text-red-400/85' : a.severity === 'warn' ? 'text-yellow-400/75' : 'text-blue-400/75'
+              )}>
+                {a.label}
+              </span>
             </div>
-          )}
-        </div>
-      </button>
-    </div>
+          ))
+        ) : stat ? (
+          <span className="text-[10px] text-muted-foreground/60 block truncate">{stat}</span>
+        ) : null}
+      </div>
+    </button>
   );
 }
 
