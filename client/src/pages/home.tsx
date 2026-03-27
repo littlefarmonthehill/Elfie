@@ -440,7 +440,10 @@ export default function Home() {
     if (activeDashboard === 'dashboard') {
       return <GeneralDashboard onItemClick={handleDashboardItemClick} onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }} onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }} onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }} onOpenBilling={() => setBillingOpen(true)} onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }} onNavigate={(tab) => setActiveDashboard(tab as DashboardType)} />;
     }
-    return renderDynamicDashboard();
+    // Pass isDesktop so that when the desktop layout is active, the mobile/tablet
+    // copies of this dashboard (CSS-hidden but still in the DOM) also suppress any
+    // Vaul Drawers / portals that would fire through the hidden containers.
+    return renderDynamicDashboard(isDesktop);
   };
 
   const closeActiveDrawer = () => {
@@ -551,7 +554,7 @@ export default function Home() {
     if (activeInventoryDrawer === 'inventoryhealth') {
       return (
         <ToolDrawer icon={SlidersHorizontal} iconColor="text-blue-400" title="Inventory Health" onClose={closeActiveDrawer}>
-          <InventoryHealthPanel open={false} onOpenChange={() => {}} inline />
+          <InventoryHealthPanel open={true} onOpenChange={() => {}} inline />
         </ToolDrawer>
       );
     }
