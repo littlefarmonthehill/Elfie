@@ -107,9 +107,11 @@ async function runScheduledPlatformSync(
   await upsertSyncMetadata(syncId, orgId, { status: 'in_progress' });
 
   try {
+    // Run order sync WITHOUT embeddings so we can broadcast immediately after orders
+    // land in the DB — before the slow embedding step delays the SSE notification.
     const result = await runPlatformOrderSync(platform as SyncPlatform, {
       fullSync: false,
-      withEmbeddings: true,
+      withEmbeddings: false,
       withStuckCheck: true,
     });
 
@@ -118,8 +120,32 @@ async function runScheduledPlatformSync(
 
     await upsertSyncMetadata(syncId, orgId, { status: 'success', recordsAdded: added, recordsUpdated: 0 });
 
+    // Broadcast immediately — orders are in the DB now, fulfillment should refresh right away.
     if ((added ?? 0) > 0) {
       broadcast(orgId, 'order.synced', { platform, added, source: 'scheduler' });
+
+      // Run embeddings in the background so they don't delay the broadcast.
+      (async () => {
+        try {
+          const { batchEmbedOrders, batchEmbedOrderDetails } = await import("./embeddings");
+          const { db } = await import("../db");
+          const { sql: drizzleSql } = await import("drizzle-orm");
+          const marketplace = platform === 'bricklink' ? 'BrickLink' : 'BrickOwl';
+          const rows = await db.execute(drizzleSql`
+            SELECT id FROM orders
+            WHERE marketplace = ${marketplace} AND org_id = ${orgId}
+            ORDER BY synced_at DESC LIMIT ${added}
+          `);
+          const newOrderIds = rows.rows.map((r: any) => r.id);
+          if (newOrderIds.length > 0) {
+            await batchEmbedOrders(newOrderIds);
+            await batchEmbedOrderDetails(newOrderIds);
+            console.log(`✓ Background embeddings complete for ${newOrderIds.length} ${label} order(s)`);
+          }
+        } catch (embErr) {
+          console.error(`✗ Background embeddings failed (non-fatal):`, embErr);
+        }
+      })();
     }
 
     retry.count = 0;
