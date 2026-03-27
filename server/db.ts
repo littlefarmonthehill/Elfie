@@ -1311,55 +1311,73 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-66 (enable sync_sale_percent on channel_sync_config) complete.');
 
-    // ── Phase-67: add sync_include_stockroom to channel_sync_config ──────────
-    await client.query(`
-      ALTER TABLE channel_sync_config
-        ADD COLUMN IF NOT EXISTS sync_include_stockroom boolean NOT NULL DEFAULT false
-    `);
-    console.log('[Migration] Phase-67 (sync_include_stockroom on channel_sync_config) complete.');
+    // ── Phase-67/68/69: migrate channel_sync_config stockroom columns ──────────
+    // Guard: only run the full transition if the final column (sync_stockroom_modes)
+    // does not yet exist. This prevents repeatedly adding/dropping transitional columns
+    // on every restart (which exhausts PostgreSQL's 1600 column-slot limit per table).
+    {
+      const { rows: modesCheck } = await client.query(`
+        SELECT 1 FROM information_schema.columns
+         WHERE table_name = 'channel_sync_config'
+           AND column_name = 'sync_stockroom_modes'
+         LIMIT 1
+      `);
+      if (modesCheck.length === 0) {
+        // Final state not reached yet — run full transition
+        await client.query(`
+          ALTER TABLE channel_sync_config
+            ADD COLUMN IF NOT EXISTS sync_include_stockroom boolean NOT NULL DEFAULT false
+        `);
+        console.log('[Migration] Phase-67 (sync_include_stockroom on channel_sync_config) complete.');
 
-    // ── Phase-68: replace sync_include_stockroom with sync_stockroom_ids[] ──────
-    // Migrate: rows with sync_include_stockroom=true get all known stockroom IDs;
-    // rows with false (default) get an empty array (skip all stockrooms).
-    await client.query(`
-      ALTER TABLE channel_sync_config
-        ADD COLUMN IF NOT EXISTS sync_stockroom_ids text[] NOT NULL DEFAULT '{}'
-    `);
-    await client.query(`
-      UPDATE channel_sync_config
-         SET sync_stockroom_ids = ARRAY['A','B','C']::text[]
-       WHERE sync_include_stockroom = true
-         AND sync_stockroom_ids = '{}'
-    `);
-    await client.query(`
-      ALTER TABLE channel_sync_config
-        DROP COLUMN IF EXISTS sync_include_stockroom
-    `);
-    console.log('[Migration] Phase-68 (sync_stockroom_ids replaces sync_include_stockroom) complete.');
+        await client.query(`
+          ALTER TABLE channel_sync_config
+            ADD COLUMN IF NOT EXISTS sync_stockroom_ids text[] NOT NULL DEFAULT '{}'
+        `);
+        await client.query(`
+          UPDATE channel_sync_config
+             SET sync_stockroom_ids = ARRAY['A','B','C']::text[]
+           WHERE sync_include_stockroom = true
+             AND sync_stockroom_ids = '{}'
+        `);
+        await client.query(`
+          ALTER TABLE channel_sync_config
+            DROP COLUMN IF EXISTS sync_include_stockroom
+        `);
+        console.log('[Migration] Phase-68 (sync_stockroom_ids replaces sync_include_stockroom) complete.');
 
-    // ── Phase-69: replace sync_stockroom_ids[] with sync_stockroom_modes jsonb ─
-    // Three modes per stockroom: 'skip' (ignore), 'hidden' (for_sale=0), 'active' (for_sale=1)
-    // Migrate existing data: IDs present in sync_stockroom_ids become 'active', others become 'skip'.
-    await client.query(`
-      ALTER TABLE channel_sync_config
-        ADD COLUMN IF NOT EXISTS sync_stockroom_modes jsonb NOT NULL
-          DEFAULT '{"A":"skip","B":"skip","C":"skip"}'::jsonb
-    `);
-    await client.query(`
-      UPDATE channel_sync_config
-         SET sync_stockroom_modes = jsonb_build_object(
-           'A', CASE WHEN 'A' = ANY(sync_stockroom_ids) THEN 'active' ELSE 'skip' END,
-           'B', CASE WHEN 'B' = ANY(sync_stockroom_ids) THEN 'active' ELSE 'skip' END,
-           'C', CASE WHEN 'C' = ANY(sync_stockroom_ids) THEN 'active' ELSE 'skip' END
-         )
-       WHERE sync_stockroom_ids IS NOT NULL
-         AND cardinality(sync_stockroom_ids) > 0
-    `);
-    await client.query(`
-      ALTER TABLE channel_sync_config
-        DROP COLUMN IF EXISTS sync_stockroom_ids
-    `);
-    console.log('[Migration] Phase-69 (sync_stockroom_modes replaces sync_stockroom_ids) complete.');
+        await client.query(`
+          ALTER TABLE channel_sync_config
+            ADD COLUMN IF NOT EXISTS sync_stockroom_modes jsonb NOT NULL
+              DEFAULT '{"A":"skip","B":"skip","C":"skip"}'::jsonb
+        `);
+        await client.query(`
+          UPDATE channel_sync_config
+             SET sync_stockroom_modes = jsonb_build_object(
+               'A', CASE WHEN 'A' = ANY(sync_stockroom_ids) THEN 'active' ELSE 'skip' END,
+               'B', CASE WHEN 'B' = ANY(sync_stockroom_ids) THEN 'active' ELSE 'skip' END,
+               'C', CASE WHEN 'C' = ANY(sync_stockroom_ids) THEN 'active' ELSE 'skip' END
+             )
+           WHERE sync_stockroom_ids IS NOT NULL
+             AND cardinality(sync_stockroom_ids) > 0
+        `);
+        await client.query(`
+          ALTER TABLE channel_sync_config
+            DROP COLUMN IF EXISTS sync_stockroom_ids
+        `);
+        console.log('[Migration] Phase-69 (sync_stockroom_modes replaces sync_stockroom_ids) complete.');
+      } else {
+        // Final state already in place — clean up any lingering transitional columns
+        // that may have been left behind by a crashed previous run, without allocating
+        // new column slots (DROP IF EXISTS is always safe).
+        await client.query(`
+          ALTER TABLE channel_sync_config
+            DROP COLUMN IF EXISTS sync_include_stockroom,
+            DROP COLUMN IF EXISTS sync_stockroom_ids
+        `);
+        console.log('[Migration] Phase-67/68/69 (sync_stockroom_modes already present — cleanup only) complete.');
+      }
+    }
 
     // ── Phase-70: soft-delete column on bl_inventory ──────────────────────────
     // deleted_at is NULL for active items; set to a timestamp when BL stops returning the item.
