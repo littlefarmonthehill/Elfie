@@ -222,7 +222,7 @@ function FulfillmentChecklist({ pulledItems, selectedOrderIds, fulfilledItems, o
                           );
                         })()}
                         <span className="text-gray-600">·</span>
-                        <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO' : 'BL'}{(item.orderNumber || '').replace(/^(BL|BO)/i, '')}</span>
+                        <span className="font-mono">{item.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}{(item.orderNumber || '').replace(/^(BL\.|BO\.)/i, '')}</span>
                         {item.inventoryId && (
                           <span className="font-mono text-blue-400/70">Lot {item.inventoryId}</span>
                         )}

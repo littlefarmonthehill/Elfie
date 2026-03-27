@@ -139,6 +139,13 @@ const PROD_FROM_ADDRESS = {
   phone: "5072670202", email: "shipping@elfie.app",
 };
 
+/** Format a ref string like "BO.8362106" with its 2-char short code prefix: "[AB] BO.8362106" */
+function fmtRef(ref: string, rawNum?: string | null): string {
+  const base = (rawNum ?? ref.replace(/^(BO\.|BL\.)/i, '')).trim();
+  const code = shortCode(base || ref);
+  return `[${code}] ${ref}`;
+}
+
 export default function InlineShippingCard({
   orderId, isTestMode, orderItems = [], siblingItems = [], siblingOrderRef, splitFromRef, internalNotes,
   onReadyChange, purchasedLabel, onSplit, onMerge, onMarkAsShipped,
@@ -601,7 +608,7 @@ export default function InlineShippingCard({
         {summary?.linkedOrderRef && (
           <div className="flex items-center gap-1.5 text-[11px] text-amber-400/80">
             <Link2 className="w-3 h-3 shrink-0" />
-            <span>Ships with <span className="font-mono font-semibold">{summary.linkedOrderRef}</span> — one label, shared tracking</span>
+            <span>Ships with <span className="font-mono font-semibold">{fmtRef(summary.linkedOrderRef, summary.linkedOrderNumber)}</span> — one label, shared tracking</span>
           </div>
         )}
 
@@ -609,7 +616,7 @@ export default function InlineShippingCard({
         {splitFromRef && (
           <div className="flex items-center gap-1.5 text-[11px] text-blue-400/70">
             <Scissors className="w-3 h-3 shrink-0" />
-            <span>Split from <span className="font-mono font-semibold">{splitFromRef}</span></span>
+            <span>Split from <span className="font-mono font-semibold">{fmtRef(splitFromRef)}</span></span>
           </div>
         )}
 
@@ -958,7 +965,7 @@ export default function InlineShippingCard({
                   <div className="flex items-center gap-1.5">
                     <Plus className="w-2.5 h-2.5 text-amber-400/70" />
                     <span className="text-[10px] font-bold text-amber-400/70 uppercase tracking-wide">
-                      {siblingOrderRef ?? "Merged Order"} ({siblingItems.length})
+                      {siblingOrderRef ? fmtRef(siblingOrderRef) : "Merged Order"} ({siblingItems.length})
                     </span>
                   </div>
                   <div className="space-y-1">
