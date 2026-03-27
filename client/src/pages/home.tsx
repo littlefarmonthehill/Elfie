@@ -1241,17 +1241,17 @@ export default function Home() {
                       {/* LEFT PANEL (25%): Plan stacked above Ops Central */}
                       <div style={{ flex: '0 0 25%', display: 'flex', flexDirection: 'column', borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.28)', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.4)' }}>
 
-                        {/* Your Plan — top section, collapsible */}
+                        {/* Your Plan — top section, collapsible; auto-sized to content */}
                         {!planCollapsed && (
-                          <div style={{ flex: '0 0 38%', overflowY: 'auto', borderBottom: '1px solid rgba(0,255,238,0.07)' }}>
+                          <div style={{ flex: '0 0 auto', maxHeight: '42%', overflowY: 'auto', borderBottom: '1px solid rgba(0,255,238,0.07)' }}>
                             <GeneralDashboard
                               onItemClick={handleDashboardItemClick}
-                              onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
-                              onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
-                              onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
+                              onOpenFulfillment={() => { switchDashboardDesktop('orders'); setActiveOrdersDrawer('fulfillment'); }}
+                              onOpenBrickanalyzer={() => { switchDashboardDesktop('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
+                              onOpenPriceomatic={() => { switchDashboardDesktop('inventory'); setActiveInventoryDrawer('priceomatic'); }}
                               onOpenBilling={() => setBillingOpen(true)}
                               onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-                              onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
+                              onNavigate={(tab) => switchDashboardDesktop(tab as DashboardType)}
                               section="plan"
                             />
                           </div>
@@ -1271,16 +1271,16 @@ export default function Home() {
                           </button>
                         </div>
 
-                        {/* Ops Central — bottom section */}
-                        <div style={{ flex: 1, overflowY: 'auto' }}>
+                        {/* Ops Central — bottom section fills remaining height */}
+                        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
                           <GeneralDashboard
                             onItemClick={handleDashboardItemClick}
-                            onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
-                            onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
-                            onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
+                            onOpenFulfillment={() => { switchDashboardDesktop('orders'); setActiveOrdersDrawer('fulfillment'); }}
+                            onOpenBrickanalyzer={() => { switchDashboardDesktop('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
+                            onOpenPriceomatic={() => { switchDashboardDesktop('inventory'); setActiveInventoryDrawer('priceomatic'); }}
                             onOpenBilling={() => setBillingOpen(true)}
                             onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-                            onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
+                            onNavigate={(tab) => switchDashboardDesktop(tab as DashboardType)}
                             section="ops"
                           />
                         </div>
