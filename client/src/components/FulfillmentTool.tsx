@@ -1132,20 +1132,18 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                           view order
                                         </button>
                                       )}
-                                      {/* Merge group indicator — links related orders created from a BO merge */}
+                                      {/* Merge group indicator */}
                                       {order.mergeGroupId && (() => {
-                                        const isOriginal = order.mergeGroupId === order.id;
-                                        const linkedOrder = isOriginal
-                                          ? data?.orders.find(o => o.mergeGroupId === order.id && o.id !== order.id)
-                                          : data?.orders.find(o => o.id === order.mergeGroupId);
+                                        const linkedOrder = data?.orders.find(o => o.mergeGroupId === order.mergeGroupId && o.id !== order.id);
                                         const linkedCode = linkedOrder
                                           ? (orderShortCodeMap.get(linkedOrder.orderNumber) ?? shortCode(linkedOrder.orderNumber ?? linkedOrder.id))
-                                          : shortCode(order.mergeGroupId);
+                                          : null;
+                                        if (!linkedCode) return null;
                                         return (
                                           <span
                                             className="flex items-center gap-0.5 text-[10px] text-amber-400/80 font-mono shrink-0"
                                             data-testid={`text-merge-group-${order.id}`}
-                                            title="Merged order"
+                                            title={`Merged with ${linkedCode} — buy a label on one, then mark the other as shipped with same tracking`}
                                           >
                                             <Plus className="w-2.5 h-2.5" />
                                             {linkedCode}

@@ -545,6 +545,16 @@ export default function InlineShippingCard({
           );
         })()}
 
+        {/* ── Merge group guidance banner ── */}
+        {summary?.linkedOrderRef && (
+          <div className="rounded-md border border-amber-500/40 bg-amber-950/20 px-2.5 py-2 flex items-start gap-1.5">
+            <Plus className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-amber-300 leading-snug">
+              Merged with <span className="font-mono font-semibold">{summary.linkedOrderRef}</span>. Buy a label for this order and you'll be prompted to mark the linked order as shipped with the same tracking number — no second label needed.
+            </p>
+          </div>
+        )}
+
         {/* ── Row 2: Package type ── */}
         {(() => {
           const stdPkgs = PACKAGES.filter(p => p.group === "standard");
