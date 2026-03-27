@@ -1111,110 +1111,208 @@ export default function Home() {
               </div>
             </div>
 
-            {/* DESKTOP layout (lg+): Ops Central (left) | Dynamic Board (center) | Your Plan (right) */}
-            <div className="hidden lg:flex h-full p-3 gap-3">
-              {/* Outer control panel frame */}
-              <div className="flex h-full w-full rounded-2xl border border-white/10 bg-gradient-to-br from-gray-900/50 via-gray-950/90 to-gray-900/50 shadow-[0_0_80px_rgba(0,0,0,0.6)] overflow-hidden relative">
-                {/* Corner accent brackets — mission control chrome */}
-                <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-white/15 rounded-tl-2xl pointer-events-none z-10" />
-                <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-white/15 rounded-tr-2xl pointer-events-none z-10" />
-                <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-white/15 rounded-bl-2xl pointer-events-none z-10" />
-                <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-white/15 rounded-br-2xl pointer-events-none z-10" />
+            {/* DESKTOP layout (lg+): TV-style three-column cockpit */}
+            {(() => {
+              const TV_DIALS = [
+                { id: 'inventory' as DashboardType, num: '01', label: 'INVENTORY', hex: '#1B7CE5', rgb: '27,124,229' },
+                { id: 'orders'    as DashboardType, num: '02', label: 'ORDERS',    hex: '#E8611C', rgb: '232,97,28' },
+                { id: 'marketing' as DashboardType, num: '03', label: 'MARKETING', hex: '#F5C200', rgb: '245,194,0' },
+                { id: 'sales'     as DashboardType, num: '04', label: 'INSIGHTS',  hex: '#00963C', rgb: '0,150,60' },
+              ];
+              const activeDial = TV_DIALS.find(d => d.id === activeDashboard) ?? TV_DIALS[0];
+              const activeScreenRgb = activeDial.rgb;
+              const hasRightContent = (
+                (activeInventoryDrawer && activeInventoryDrawer !== 'inventoryhealth') ||
+                activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer ||
+                billingOpen || detailModal.open
+              );
+              return (
+                <div className="hidden lg:flex h-full p-3">
+                  <style>{`
+                    @keyframes tv-scan { 0%{top:-2px;opacity:0} 4%{opacity:0.55} 96%{opacity:0.25} 100%{top:100%;opacity:0} }
+                    @keyframes tv-ledpulse { 0%,100%{text-shadow:0 0 8px #00FFEE} 50%{text-shadow:0 0 18px #00FFEE,0 0 36px rgba(0,255,238,0.4)} }
+                    @keyframes tv-bgring { from{transform:translate(-50%,-50%) rotate(0deg)} to{transform:translate(-50%,-50%) rotate(360deg)} }
+                    @keyframes tv-chglow { 0%,100%{box-shadow:0 0 10px var(--tv-ch-hex,#1B7CE5),inset 0 0 6px rgba(0,0,0,0.5)} 50%{box-shadow:0 0 20px var(--tv-ch-hex,#1B7CE5),inset 0 0 10px rgba(0,0,0,0.3)} }
+                    @keyframes tv-idle-pulse { 0%,100%{opacity:0.06} 50%{opacity:0.12} }
+                  `}</style>
 
-                {/* Left panel — Ops Central overview */}
-                <div
-                  className="flex-shrink-0 h-full overflow-y-auto border-r border-white/5 bg-gradient-to-b from-lego-red/5 via-transparent to-transparent"
-                  style={{ width: 'clamp(240px, 22vw, 370px)' }}
-                >
-                  <GeneralDashboard
-                    onItemClick={handleDashboardItemClick}
-                    onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
-                    onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
-                    onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
-                    onOpenBilling={() => setBillingOpen(true)}
-                    onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-                    onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
-                    section="ops"
-                  />
-                </div>
+                  {/* TV body */}
+                  <div className="flex h-full w-full flex-col relative" style={{
+                    background: 'linear-gradient(165deg, #1C1C32 0%, #151525 35%, #101020 70%, #0C0C1A 100%)',
+                    borderRadius: 'clamp(16px, 2.5vw, 28px)',
+                    border: '2px solid rgba(255,255,255,0.07)',
+                    boxShadow: '0 0 0 1px rgba(80,100,200,0.18) inset, 0 0 0 2px rgba(40,60,140,0.1) inset, 0 20px 80px rgba(0,0,0,0.9), 0 0 80px rgba(0,255,238,0.06)',
+                    padding: 'clamp(10px,1.2vw,14px)',
+                    paddingBottom: 0,
+                    gap: 'clamp(8px,0.9vw,10px)',
+                    overflow: 'hidden',
+                  }}>
 
-                {/* Center panel — active dashboard with tool overlay */}
-                <div className="flex-1 h-full relative min-w-0 flex flex-col">
-                  {/* Tab bar embedded in center top */}
-                  <div className="flex-shrink-0 border-b border-white/5 bg-gray-950/40 flex items-center px-2 h-10">
-                    {([
-                      { id: 'inventory' as DashboardType, label: 'Inventory', activeClass: 'text-lego-blue border-lego-blue', dimClass: 'text-lego-blue/50 border-transparent' },
-                      { id: 'orders' as DashboardType, label: 'Orders', activeClass: 'text-lego-orange border-lego-orange', dimClass: 'text-lego-orange/50 border-transparent' },
-                      { id: 'marketing' as DashboardType, label: 'Marketing', activeClass: 'text-lego-yellow border-lego-yellow', dimClass: 'text-lego-yellow/50 border-transparent' },
-                      { id: 'sales' as DashboardType, label: 'Insights', activeClass: 'text-lego-green border-lego-green', dimClass: 'text-lego-green/50 border-transparent' },
-                    ]).map(({ id, label, activeClass, dimClass }) => (
-                      <button
-                        key={id}
-                        onClick={() => { closeActiveDrawer(); setActiveDashboard(id); }}
-                        data-testid={`desktop-tab-${id}`}
-                        className={cn(
-                          "px-3 h-full text-xs font-medium transition-colors border-b-2 -mb-px",
-                          activeDashboard === id ? activeClass : dimClass
-                        )}
-                      >
-                        {label}
-                      </button>
+                    {/* Top highlight edge */}
+                    <div style={{ position: 'absolute', top: 0, left: '6%', right: '6%', height: '1px', background: 'linear-gradient(90deg, transparent, rgba(0,255,238,0.3), transparent)', pointerEvents: 'none' }} />
+
+                    {/* Corner accent squares */}
+                    {([{ top: '11px', left: '16px' }, { top: '11px', right: '16px' }, { bottom: '11px', left: '16px' }, { bottom: '11px', right: '16px' }] as const).map((pos, i) => (
+                      <div key={i} style={{ position: 'absolute', ...pos, width: '11px', height: '11px', border: '1px solid rgba(0,255,238,0.18)', borderRadius: '3px', pointerEvents: 'none', zIndex: 10 }} />
                     ))}
-                  </div>
 
-                  <div className="flex-1 overflow-hidden min-h-0">
-                    <div className={`h-full overflow-y-auto ${
-                      activeDashboard === 'inventory' ? 'bg-gradient-to-br from-lego-blue/8 via-transparent to-lego-blue/4' :
-                      activeDashboard === 'orders' ? 'bg-gradient-to-br from-lego-orange/8 via-transparent to-lego-orange/4' :
-                      activeDashboard === 'sales' ? 'bg-gradient-to-br from-lego-green/8 via-transparent to-lego-green/4' :
-                      'bg-gradient-to-br from-lego-yellow/8 via-transparent to-lego-yellow/4'
-                    }`}>
-                      {renderDynamicDashboard()}
-                    </div>
-                  </div>
+                    {/* 3-panel content row */}
+                    <div style={{ display: 'flex', flex: 1, minHeight: 0, gap: 'clamp(8px,0.9vw,12px)' }}>
 
-                  {/* Drawer overlay — covers entire center panel */}
-                  {((activeInventoryDrawer && activeInventoryDrawer !== 'inventoryhealth') || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer || billingOpen || detailModal.open) && (
-                    <div className="absolute inset-0 z-20 flex flex-col" style={{ top: '2.5rem' }}>
-                      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-[fadeIn_200ms_ease-out]" onClick={() => { closeActiveDrawer(); setDetailModal({ open: false, data: null }); }} />
-                      <div className={cn(
-                        "relative flex-1 bg-gray-950/95 border border-white/10 rounded-lg shadow-2xl animate-[slideUp_250ms_ease-out] overflow-hidden flex flex-col",
-                        activeInventoryDrawer === 'brickanalyzer' ? "m-1" : "m-2"
-                      )}>
-                        {detailModal.open ? (
-                          <DetailModal
-                            open={detailModal.open}
-                            onClose={() => setDetailModal({ open: false, data: null })}
-                            detail={detailModal.data}
-                            onOrderSelect={handleOrderSelect}
-                            onBrickLinkClick={setBrickLinkUrl}
-                            onOpenSettings={(section) => { setDetailModal({ open: false, data: null }); openSettings(section); }}
-                            inline
+                      {/* LEFT PANEL (25%): Plan stacked above Ops Central */}
+                      <div style={{ flex: '0 0 25%', display: 'flex', flexDirection: 'column', borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.28)', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.4)' }}>
+
+                        {/* Your Plan — top section */}
+                        <div style={{ flex: '0 0 38%', overflowY: 'auto', borderBottom: '1px solid rgba(0,255,238,0.07)' }}>
+                          <GeneralDashboard
+                            onItemClick={handleDashboardItemClick}
+                            onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
+                            onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
+                            onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
+                            onOpenBilling={() => setBillingOpen(true)}
+                            onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
+                            onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
+                            section="plan"
                           />
-                        ) : renderActiveDrawer()}
+                        </div>
+
+                        {/* Divider label */}
+                        <div style={{ flexShrink: 0, padding: '3px 10px', background: 'rgba(0,255,238,0.04)', borderBottom: '1px solid rgba(0,255,238,0.07)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#00FFEE', boxShadow: '0 0 4px #00FFEE', flexShrink: 0 }} />
+                          <span style={{ fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,238,0.65)', letterSpacing: '0.22em', textTransform: 'uppercase' }}>Ops Central</span>
+                        </div>
+
+                        {/* Ops Central — bottom section */}
+                        <div style={{ flex: 1, overflowY: 'auto' }}>
+                          <GeneralDashboard
+                            onItemClick={handleDashboardItemClick}
+                            onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
+                            onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
+                            onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
+                            onOpenBilling={() => setBillingOpen(true)}
+                            onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
+                            onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
+                            section="ops"
+                          />
+                        </div>
+                      </div>
+
+                      {/* CENTER PANEL (33%): TV chrome bezel + glass screen */}
+                      <div style={{ flex: '0 0 33%', display: 'flex', flexDirection: 'column', borderRadius: '14px', background: 'linear-gradient(145deg, #38385A 0%, #484870 18%, #282844 55%, #383860 80%, #1E1E3A 100%)', padding: '5px', boxShadow: 'inset 0 3px 8px rgba(0,0,0,0.8), 0 2px 6px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,255,238,0.1)' }}>
+                        {/* Glass screen */}
+                        <div style={{ flex: 1, position: 'relative', background: '#04060F', borderRadius: '10px', overflow: 'hidden' }}>
+                          {/* Scanlines overlay */}
+                          <div style={{ position: 'absolute', inset: 0, zIndex: 15, pointerEvents: 'none', backgroundImage: 'repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,0.09) 2px, rgba(0,0,0,0.09) 4px)' }} />
+                          {/* Phosphor glow */}
+                          <div style={{ position: 'absolute', inset: 0, zIndex: 14, pointerEvents: 'none', background: `radial-gradient(ellipse 70% 55% at 50% 38%, rgba(${activeScreenRgb},0.07) 0%, transparent 70%)` }} />
+                          {/* Glass top reflection */}
+                          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '11%', zIndex: 16, pointerEvents: 'none', background: 'linear-gradient(to bottom, rgba(255,255,255,0.022), transparent)', borderRadius: '10px 10px 0 0' }} />
+                          {/* Animated scan sweep */}
+                          <div style={{ position: 'absolute', left: 0, right: 0, height: '2px', background: `linear-gradient(90deg, transparent 0%, rgba(${activeScreenRgb},0.28) 30%, rgba(${activeScreenRgb},0.65) 50%, rgba(${activeScreenRgb},0.28) 70%, transparent 100%)`, animation: 'tv-scan 10s ease-in-out 2s infinite', pointerEvents: 'none', zIndex: 17 }} />
+                          {/* Orbital ring */}
+                          <div style={{ position: 'absolute', left: '50%', top: '50%', width: '180%', height: '180%', border: '1px solid rgba(0,255,238,0.035)', borderRadius: '50%', animation: 'tv-bgring 90s linear infinite', pointerEvents: 'none', zIndex: 3 }} />
+                          {/* Dashboard content */}
+                          <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', zIndex: 5 }}>
+                            <div className={
+                              activeDashboard === 'inventory' ? 'bg-gradient-to-br from-lego-blue/8 via-transparent to-lego-blue/4' :
+                              activeDashboard === 'orders' ? 'bg-gradient-to-br from-lego-orange/8 via-transparent to-lego-orange/4' :
+                              activeDashboard === 'sales' ? 'bg-gradient-to-br from-lego-green/8 via-transparent to-lego-green/4' :
+                              'bg-gradient-to-br from-lego-yellow/8 via-transparent to-lego-yellow/4'
+                            } style={{ minHeight: '100%' }}>
+                              {renderDynamicDashboard()}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* RIGHT PANEL (~34%): Persistent detail / drawer panel */}
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRadius: '10px', overflow: 'hidden', border: `1px solid ${hasRightContent ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)'}`, background: hasRightContent ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.18)', transition: 'border-color 0.3s, background 0.3s', minWidth: 0 }}>
+                        {hasRightContent ? (
+                          detailModal.open ? (
+                            <DetailModal
+                              open={detailModal.open}
+                              onClose={() => setDetailModal({ open: false, data: null })}
+                              detail={detailModal.data}
+                              onOrderSelect={handleOrderSelect}
+                              onBrickLinkClick={setBrickLinkUrl}
+                              onOpenSettings={(section) => { setDetailModal({ open: false, data: null }); openSettings(section); }}
+                              inline
+                            />
+                          ) : (
+                            <div className="flex flex-col h-full overflow-hidden">
+                              {renderActiveDrawer()}
+                            </div>
+                          )
+                        ) : (
+                          /* Idle state — dimmed TV screen with static grid */
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '24px', position: 'relative', overflow: 'hidden' }}>
+                            {/* Subtle static grid background */}
+                            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, rgba(0,255,238,0.025) 0px, rgba(0,255,238,0.025) 1px, transparent 1px, transparent 28px), repeating-linear-gradient(90deg, rgba(0,255,238,0.025) 0px, rgba(0,255,238,0.025) 1px, transparent 1px, transparent 28px)', animation: 'tv-idle-pulse 4s ease-in-out infinite', pointerEvents: 'none' }} />
+                            {/* Scanlines on idle */}
+                            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px)', pointerEvents: 'none' }} />
+                            <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
+                              <div style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px solid rgba(0,255,238,0.2)', background: 'rgba(0,255,238,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px', boxShadow: '0 0 12px rgba(0,255,238,0.08)' }}>
+                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'rgba(0,255,238,0.25)', boxShadow: '0 0 6px rgba(0,255,238,0.3)' }} />
+                              </div>
+                              <div style={{ fontSize: '8px', fontFamily: 'monospace', color: 'rgba(0,255,238,0.3)', letterSpacing: '0.3em', textTransform: 'uppercase', marginBottom: '4px' }}>Channel Ready</div>
+                              <div style={{ fontSize: '10px', color: 'rgba(180,200,255,0.2)', fontFamily: 'monospace', letterSpacing: '0.08em' }}>Select an item to view details</div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  )}
-                </div>
 
-                {/* Right panel — Your Plan / subscription info */}
-                <div
-                  className="flex-shrink-0 h-full overflow-y-auto border-l border-white/5 bg-gradient-to-b from-lego-blue/5 via-transparent to-transparent"
-                  style={{ width: 'clamp(260px, 24vw, 400px)' }}
-                >
-                  <GeneralDashboard
-                    onItemClick={handleDashboardItemClick}
-                    onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
-                    onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
-                    onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
-                    onOpenBilling={() => setBillingOpen(true)}
-                    onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-                    onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
-                    section="plan"
-                  />
+                    {/* Bottom TV controls strip — dials navigation */}
+                    <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 'clamp(8px,1vw,14px)', padding: 'clamp(6px,0.7vw,9px) clamp(10px,1.2vw,16px)', borderTop: '1px solid rgba(0,255,238,0.09)', background: 'rgba(0,0,0,0.22)' }}>
+
+                      {/* LED channel display */}
+                      <div style={{ background: '#04040E', border: '1px solid rgba(0,255,238,0.4)', borderRadius: '8px', padding: 'clamp(3px,0.5vw,5px) clamp(7px,0.8vw,11px)', textAlign: 'center', fontFamily: 'monospace', color: '#00FFEE', fontWeight: 900, lineHeight: 1, fontSize: 'clamp(12px,1.4vw,17px)', boxShadow: '0 0 12px rgba(0,255,238,0.28), inset 0 0 12px rgba(0,0,0,0.95)', animation: 'tv-ledpulse 2.5s ease-in-out infinite', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                        {activeDial.num}
+                        <div style={{ fontSize: 'clamp(4px,0.45vw,6px)', letterSpacing: '0.2em', color: 'rgba(0,255,238,0.65)' }}>CH</div>
+                      </div>
+
+                      {/* Dial channel buttons */}
+                      <div style={{ flex: 1, display: 'flex', gap: 'clamp(4px,0.5vw,7px)', justifyContent: 'center' }}>
+                        {TV_DIALS.map(dial => {
+                          const isActive = activeDashboard === dial.id;
+                          return (
+                            <button
+                              key={dial.id}
+                              onClick={() => { closeActiveDrawer(); setActiveDashboard(dial.id); }}
+                              data-testid={`desktop-dial-${dial.id}`}
+                              style={{ flex: 1, background: isActive ? `rgba(${dial.rgb},0.15)` : 'rgba(255,255,255,0.03)', border: `1px solid ${isActive ? dial.hex : 'rgba(190,210,255,0.13)'}`, borderRadius: '7px', padding: 'clamp(4px,0.55vw,7px) 4px', cursor: 'pointer', color: isActive ? dial.hex : 'rgba(190,210,255,0.6)', fontFamily: 'monospace', fontWeight: 700, fontSize: 'clamp(8px,0.8vw,10px)', letterSpacing: '0.05em', textAlign: 'center', lineHeight: 1.25, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', transition: 'all 0.15s', textShadow: isActive ? `0 0 8px ${dial.hex}` : 'none', boxShadow: isActive ? `0 0 10px rgba(${dial.rgb},0.22), inset 0 0 8px rgba(${dial.rgb},0.07)` : 'none' }}
+                            >
+                              <div style={{ fontSize: 'clamp(6px,0.65vw,8px)', opacity: 0.75 }}>{dial.num}</div>
+                              <div>{dial.label}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* PWR / HUE knobs */}
+                      <div style={{ display: 'flex', gap: 'clamp(6px,0.7vw,10px)', flexShrink: 0, alignItems: 'center' }}>
+                        {[{ label: 'PWR', color: '#00FFEE' }, { label: 'HUE', color: '#A855F7' }].map(k => (
+                          <div key={k.label} style={{ textAlign: 'center' }}>
+                            <div style={{ width: 'clamp(18px,1.8vw,24px)', height: 'clamp(18px,1.8vw,24px)', borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, rgba(90,90,170,0.22), rgba(8,8,32,0.96))', border: `1px solid ${k.color}2E`, boxShadow: `0 0 8px ${k.color}1A, inset 0 0 6px rgba(0,0,0,0.92)`, margin: '0 auto', position: 'relative' }}>
+                              <div style={{ position: 'absolute', width: '2px', height: '34%', background: k.color, top: '14%', left: '50%', transform: 'translateX(-50%)', borderRadius: '1px', boxShadow: `0 0 3px ${k.color}` }} />
+                            </div>
+                            <div style={{ fontSize: 'clamp(4px,0.42vw,6px)', color: `${k.color}55`, letterSpacing: '0.15em', marginTop: '2px', fontFamily: 'monospace' }}>{k.label}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Signal bars */}
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', flexShrink: 0 }}>
+                        {[3, 5, 7, 9, 11].map((h, i) => (
+                          <div key={i} style={{ width: 'clamp(2px,0.24vw,3px)', height: `${h}px`, borderRadius: '1px', background: i < 3 ? '#00FFEE' : 'rgba(0,255,238,0.18)', boxShadow: i < 3 ? '0 0 3px #00FFEE' : 'none' }} />
+                        ))}
+                      </div>
+                    </div>
+
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })()}
           </>
         )}
       </div>
