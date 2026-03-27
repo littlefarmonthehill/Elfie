@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity } from "lucide-react";
+import { InfoIcon, Package, Sparkles, ScanSearch, Globe, ChevronLeft, ChevronRight, Search, X, Activity, Link, ArrowRight } from "lucide-react";
 import ChannelSyncPanel from "./ChannelSyncPanel";
 import BrickLinkSyncPanel from "./BrickLinkSyncPanel";
 import InventoryHealthPanel from "./InventoryHealthPanel";
@@ -26,14 +26,16 @@ interface InventoryStats {
 
 interface InventoryDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string, initialTab?: string) => void;
-  activeDrawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | null;
-  onDrawerChange: (drawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | null) => void;
+  activeDrawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | 'channelsync' | null;
+  onDrawerChange: (drawer: 'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | 'channelsync' | null) => void;
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing' | 'priceomatic', focusTarget?: 'channelSync' | 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel') => void;
+  desktopMode?: boolean;
+  onBrowseOpen?: (type: 'lots' | 'parts' | 'categories') => void;
 }
 
 type BrowseType = 'lots' | 'parts' | 'categories';
 
-export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange, onOpenSettings }: InventoryDashboardProps) {
+export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawerChange, onOpenSettings, desktopMode, onBrowseOpen }: InventoryDashboardProps) {
 
   const { toast } = useToast();
 
@@ -190,7 +192,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             ] as const).map(({ key, label, value }) => (
               <button
                 key={key}
-                onClick={() => openBrowse(key)}
+                onClick={() => desktopMode && onBrowseOpen ? onBrowseOpen(key) : openBrowse(key)}
                 data-testid={`metric-${key}`}
                 className="relative group flex flex-col text-left hover-elevate active-elevate-2 rounded-lg border border-blue-900/60 bg-[#0a1628]/80 p-2.5 md:p-3"
               >
@@ -334,10 +336,27 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             </div>
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Selling Channels</h3>
           </div>
-          <BrickLinkSyncPanel onOpenSettings={onOpenSettings} />
-          <div className="mt-2">
-            <ChannelSyncPanel onOpenSettings={onOpenSettings} />
-          </div>
+          {desktopMode ? (
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => onDrawerChange('bricklinksync')} data-testid="button-bricklink-sync" className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-950/30 p-2.5 text-left hover-elevate active-elevate-2">
+                <div className="p-1 rounded bg-blue-900/60 ring-1 ring-blue-500/40"><Link className="w-3 h-3 text-blue-300" /></div>
+                <div className="flex-1 min-w-0"><div className="text-xs font-semibold text-blue-100">BrickLink</div><div className="text-[9px] text-gray-500">Inventory sync</div></div>
+                <ArrowRight className="w-3 h-3 text-gray-600 flex-shrink-0" />
+              </button>
+              <button onClick={() => onDrawerChange('channelsync')} data-testid="button-channel-sync" className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-950/30 p-2.5 text-left hover-elevate active-elevate-2">
+                <div className="p-1 rounded bg-green-900/60 ring-1 ring-green-500/40"><Globe className="w-3 h-3 text-green-300" /></div>
+                <div className="flex-1 min-w-0"><div className="text-xs font-semibold text-green-100">BrickOwl</div><div className="text-[9px] text-gray-500">Channel sync</div></div>
+                <ArrowRight className="w-3 h-3 text-gray-600 flex-shrink-0" />
+              </button>
+            </div>
+          ) : (
+            <>
+              <BrickLinkSyncPanel onOpenSettings={onOpenSettings} />
+              <div className="mt-2">
+                <ChannelSyncPanel onOpenSettings={onOpenSettings} />
+              </div>
+            </>
+          )}
         </div>
 
 
@@ -487,10 +506,12 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
         </div>
       )}
 
-      <InventoryHealthPanel
-        open={activeDrawer === 'inventoryhealth'}
-        onOpenChange={(open) => { if (!open) onDrawerChange(null); }}
-      />
+      {!desktopMode && (
+        <InventoryHealthPanel
+          open={activeDrawer === 'inventoryhealth'}
+          onOpenChange={(open) => { if (!open) onDrawerChange(null); }}
+        />
+      )}
 
     </div>
   );

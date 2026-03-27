@@ -3,7 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   ShoppingCart, Truck, PackageCheck,
   Sparkles, Info, Globe, AlertTriangle, CheckCircle2,
-  Loader2, RefreshCw, X, ArrowRight,
+  Loader2, RefreshCw, X, ArrowRight, Link,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -31,10 +31,11 @@ interface OrderStats {
 
 interface OrdersDashboardProps {
   onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
-  activeDrawer: 'fulfillment' | 'shipped' | null;
-  onDrawerChange: (drawer: 'fulfillment' | 'shipped' | null) => void;
+  activeDrawer: 'fulfillment' | 'shipped' | 'bricklinksync' | 'brickowlsync' | null;
+  onDrawerChange: (drawer: 'fulfillment' | 'shipped' | 'bricklinksync' | 'brickowlsync' | null) => void;
   dateRange?: DateRangeValue;
   onOpenSettings?: (section?: 'general' | 'platforms' | 'ai' | 'automation' | 'data' | 'billing', focusTarget?: 'channelSync' | 'schedulerInventory' | 'schedulerOrders' | 'schedulerChannel') => void;
+  desktopMode?: boolean;
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -293,7 +294,7 @@ function QtySyncQueuePanel() {
 
 // ── Main Dashboard ─────────────────────────────────────────────────────────────
 
-export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange: initialDateRange = 'mtd', onOpenSettings }: OrdersDashboardProps) {
+export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerChange, dateRange: initialDateRange = 'mtd', onOpenSettings, desktopMode }: OrdersDashboardProps) {
   const [dateRange, setDateRange] = useState<DateRangeValue>(initialDateRange);
 
   const { data: stats, isLoading: statsLoading } = useQuery<OrderStats>({
@@ -488,11 +489,26 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             </div>
             <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Selling Channels</h3>
           </div>
-          <div className="space-y-2">
-            <OrderSyncPanel platform="bricklink" onOpenSettings={onOpenSettings} />
-            <OrderSyncPanel platform="brickowl" onOpenSettings={onOpenSettings} />
-            <QtySyncQueuePanel />
-          </div>
+          {desktopMode ? (
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => onDrawerChange('bricklinksync')} data-testid="button-orders-bricklink-sync" className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-950/30 p-2.5 text-left hover-elevate active-elevate-2">
+                <div className="p-1 rounded bg-blue-900/60 ring-1 ring-blue-500/40"><Link className="w-3 h-3 text-blue-300" /></div>
+                <div className="flex-1 min-w-0"><div className="text-xs font-semibold text-blue-100">BrickLink</div><div className="text-[9px] text-gray-500">Orders sync</div></div>
+                <ArrowRight className="w-3 h-3 text-gray-600 flex-shrink-0" />
+              </button>
+              <button onClick={() => onDrawerChange('brickowlsync')} data-testid="button-orders-brickowl-sync" className="flex items-center gap-2 rounded-lg border border-orange-500/30 bg-orange-950/30 p-2.5 text-left hover-elevate active-elevate-2">
+                <div className="p-1 rounded bg-orange-900/60 ring-1 ring-orange-500/40"><Globe className="w-3 h-3 text-orange-300" /></div>
+                <div className="flex-1 min-w-0"><div className="text-xs font-semibold text-orange-100">BrickOwl</div><div className="text-[9px] text-gray-500">Orders sync</div></div>
+                <ArrowRight className="w-3 h-3 text-gray-600 flex-shrink-0" />
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <OrderSyncPanel platform="bricklink" onOpenSettings={onOpenSettings} />
+              <OrderSyncPanel platform="brickowl" onOpenSettings={onOpenSettings} />
+              <QtySyncQueuePanel />
+            </div>
+          )}
         </div>
 
       </div>

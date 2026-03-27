@@ -33,6 +33,11 @@ import FulfillmentTool from "@/components/FulfillmentTool";
 import ShippedOrdersTool from "@/components/ShippedOrdersTool";
 import { BillingDrawer } from "@/components/BillingDrawer";
 import PlanExpiredScreen from "@/components/PlanExpiredScreen";
+import InventoryHealthPanel from "@/components/InventoryHealthPanel";
+import InventoryBrowsePanel from "@/components/InventoryBrowsePanel";
+import BrickLinkSyncPanel from "@/components/BrickLinkSyncPanel";
+import ChannelSyncPanel from "@/components/ChannelSyncPanel";
+import OrderSyncPanel from "@/components/OrderSyncPanel";
 
 export default function Home() {
   useAdminScaling();
@@ -141,8 +146,10 @@ export default function Home() {
     forum: { count: number; posts: Array<{ title: string; excerpt: string; username: string; postedAt: string; threadUrl: string }> };
     news: { count: number; articles: Array<{ title: string; snippet: string; url: string; source: string; query: string; fetchedAt: string }> };
   } | null>(null);
-  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | null>(null);
-  const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'shipped' | null>(null);
+  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | 'channelsync' | null>(null);
+  const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'shipped' | 'bricklinksync' | 'brickowlsync' | null>(null);
+  const [rightPanelBrowse, setRightPanelBrowse] = useState<'lots' | 'parts' | 'categories' | null>(null);
+  const [planCollapsed, setPlanCollapsed] = useState(false);
   const [activeMarketingDrawer, setActiveMarketingDrawer] = useState<MarketingDrawer>(null);
   const [activeSalesDrawer, setActiveSalesDrawer] = useState<SalesDrawer>(null);
   const [billingOpen, setBillingOpen] = useState(false);
@@ -414,12 +421,12 @@ export default function Home() {
     return true;
   };
 
-  const renderDynamicDashboard = () => {
+  const renderDynamicDashboard = (isDesktopMode?: boolean) => {
     switch (activeDashboard) {
       case 'inventory':
-        return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} />;
+        return <InventoryDashboard onItemClick={handleDashboardItemClick} activeDrawer={activeInventoryDrawer} onDrawerChange={setActiveInventoryDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} desktopMode={isDesktopMode} onBrowseOpen={(type) => { setRightPanelBrowse(type); }} />;
       case 'orders':
-        return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} />;
+        return <OrdersDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeOrdersDrawer} onDrawerChange={setActiveOrdersDrawer} onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} desktopMode={isDesktopMode} />;
       case 'sales':
         return <SalesDashboard period={salesPeriod} dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeSalesDrawer} onDrawerChange={setActiveSalesDrawer} />;
       case 'marketing':
@@ -442,6 +449,7 @@ export default function Home() {
     setActiveMarketingDrawer(null);
     setActiveSalesDrawer(null);
     setBillingOpen(false);
+    setRightPanelBrowse(null);
   };
 
   const openSettings = (section?: string, pricingExampleOrFocusTarget?: PricingInsight | string, scoringExample?: PricingInsight) => {
@@ -511,6 +519,48 @@ export default function Home() {
               handleDashboardItemClick(type, id);
             }}
           />
+        </ToolDrawer>
+      );
+    }
+    if (activeInventoryDrawer === 'inventoryhealth') {
+      return (
+        <ToolDrawer icon={SlidersHorizontal} iconColor="text-blue-400" title="Inventory Health" onClose={closeActiveDrawer}>
+          <InventoryHealthPanel open={false} onOpenChange={() => {}} inline />
+        </ToolDrawer>
+      );
+    }
+    if (activeInventoryDrawer === 'bricklinksync') {
+      return (
+        <ToolDrawer icon={SlidersHorizontal} iconColor="text-blue-400" title="BrickLink Inventory Sync" onClose={closeActiveDrawer}>
+          <BrickLinkSyncPanel onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} />
+        </ToolDrawer>
+      );
+    }
+    if (activeInventoryDrawer === 'channelsync') {
+      return (
+        <ToolDrawer icon={SlidersHorizontal} iconColor="text-green-400" title="BrickOwl Channel Sync" onClose={closeActiveDrawer}>
+          <ChannelSyncPanel onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} />
+        </ToolDrawer>
+      );
+    }
+    if (activeOrdersDrawer === 'bricklinksync') {
+      return (
+        <ToolDrawer icon={SlidersHorizontal} iconColor="text-blue-400" title="BrickLink Orders Sync" onClose={closeActiveDrawer}>
+          <OrderSyncPanel platform="bricklink" onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} />
+        </ToolDrawer>
+      );
+    }
+    if (activeOrdersDrawer === 'brickowlsync') {
+      return (
+        <ToolDrawer icon={SlidersHorizontal} iconColor="text-orange-400" title="BrickOwl Orders Sync" onClose={closeActiveDrawer}>
+          <OrderSyncPanel platform="brickowl" onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }} />
+        </ToolDrawer>
+      );
+    }
+    if (rightPanelBrowse) {
+      return (
+        <ToolDrawer icon={SlidersHorizontal} iconColor="text-blue-400" title={rightPanelBrowse === 'lots' ? 'Browse Lots' : rightPanelBrowse === 'parts' ? 'Browse Parts' : 'Browse Categories'} onClose={() => setRightPanelBrowse(null)}>
+          <InventoryBrowsePanel type={rightPanelBrowse!} onItemClick={handleDashboardItemClick} />
         </ToolDrawer>
       );
     }
@@ -1122,8 +1172,8 @@ export default function Home() {
               const activeDial = TV_DIALS.find(d => d.id === activeDashboard) ?? TV_DIALS[0];
               const activeScreenRgb = activeDial.rgb;
               const hasRightContent = (
-                (activeInventoryDrawer && activeInventoryDrawer !== 'inventoryhealth') ||
-                activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer ||
+                !!activeInventoryDrawer || !!activeOrdersDrawer || !!rightPanelBrowse ||
+                activeMarketingDrawer || activeSalesDrawer ||
                 billingOpen || detailModal.open
               );
               return (
@@ -1162,24 +1212,34 @@ export default function Home() {
                       {/* LEFT PANEL (25%): Plan stacked above Ops Central */}
                       <div style={{ flex: '0 0 25%', display: 'flex', flexDirection: 'column', borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.28)', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.4)' }}>
 
-                        {/* Your Plan — top section */}
-                        <div style={{ flex: '0 0 38%', overflowY: 'auto', borderBottom: '1px solid rgba(0,255,238,0.07)' }}>
-                          <GeneralDashboard
-                            onItemClick={handleDashboardItemClick}
-                            onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
-                            onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
-                            onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
-                            onOpenBilling={() => setBillingOpen(true)}
-                            onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
-                            onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
-                            section="plan"
-                          />
-                        </div>
+                        {/* Your Plan — top section, collapsible */}
+                        {!planCollapsed && (
+                          <div style={{ flex: '0 0 38%', overflowY: 'auto', borderBottom: '1px solid rgba(0,255,238,0.07)' }}>
+                            <GeneralDashboard
+                              onItemClick={handleDashboardItemClick}
+                              onOpenFulfillment={() => { setActiveDashboard('orders'); setActiveOrdersDrawer('fulfillment'); }}
+                              onOpenBrickanalyzer={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('brickanalyzer'); }}
+                              onOpenPriceomatic={() => { setActiveDashboard('inventory'); setActiveInventoryDrawer('priceomatic'); }}
+                              onOpenBilling={() => setBillingOpen(true)}
+                              onOpenSettings={(section) => { setSettingsInitialSection(section); setSettingsOpen(true); }}
+                              onNavigate={(tab) => setActiveDashboard(tab as DashboardType)}
+                              section="plan"
+                            />
+                          </div>
+                        )}
 
-                        {/* Divider label */}
-                        <div style={{ flexShrink: 0, padding: '3px 10px', background: 'rgba(0,255,238,0.04)', borderBottom: '1px solid rgba(0,255,238,0.07)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        {/* Divider label with collapse toggle */}
+                        <div style={{ flexShrink: 0, padding: '3px 6px 3px 10px', background: 'rgba(0,255,238,0.04)', borderBottom: '1px solid rgba(0,255,238,0.07)', display: 'flex', alignItems: 'center', gap: '5px' }}>
                           <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#00FFEE', boxShadow: '0 0 4px #00FFEE', flexShrink: 0 }} />
-                          <span style={{ fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,238,0.65)', letterSpacing: '0.22em', textTransform: 'uppercase' }}>Ops Central</span>
+                          <span style={{ fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,238,0.65)', letterSpacing: '0.22em', textTransform: 'uppercase', flex: 1 }}>Ops Central</span>
+                          <button
+                            onClick={() => setPlanCollapsed(c => !c)}
+                            data-testid="button-plan-toggle"
+                            title={planCollapsed ? 'Show My Plan' : 'Hide My Plan'}
+                            style={{ fontSize: '7px', fontFamily: 'monospace', color: 'rgba(0,255,238,0.45)', letterSpacing: '0.1em', background: 'none', border: '1px solid rgba(0,255,238,0.18)', borderRadius: '3px', padding: '1px 4px', cursor: 'pointer', flexShrink: 0 }}
+                          >
+                            {planCollapsed ? 'PLAN ▲' : 'PLAN ▼'}
+                          </button>
                         </div>
 
                         {/* Ops Central — bottom section */}
@@ -1219,7 +1279,7 @@ export default function Home() {
                               activeDashboard === 'sales' ? 'bg-gradient-to-br from-lego-green/8 via-transparent to-lego-green/4' :
                               'bg-gradient-to-br from-lego-yellow/8 via-transparent to-lego-yellow/4'
                             } style={{ minHeight: '100%' }}>
-                              {renderDynamicDashboard()}
+                              {renderDynamicDashboard(true)}
                             </div>
                           </div>
                         </div>
@@ -1262,17 +1322,17 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {/* Bottom TV controls strip — dials navigation */}
-                    <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 'clamp(8px,1vw,14px)', padding: 'clamp(6px,0.7vw,9px) clamp(10px,1.2vw,16px)', borderTop: '1px solid rgba(0,255,238,0.09)', background: 'rgba(0,0,0,0.22)' }}>
+                    {/* Bottom TV controls strip — dials navigation (compact) */}
+                    <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 'clamp(5px,0.7vw,9px)', padding: '4px clamp(8px,1vw,13px)', borderTop: '1px solid rgba(0,255,238,0.09)', background: 'rgba(0,0,0,0.22)' }}>
 
                       {/* LED channel display */}
-                      <div style={{ background: '#04040E', border: '1px solid rgba(0,255,238,0.4)', borderRadius: '8px', padding: 'clamp(3px,0.5vw,5px) clamp(7px,0.8vw,11px)', textAlign: 'center', fontFamily: 'monospace', color: '#00FFEE', fontWeight: 900, lineHeight: 1, fontSize: 'clamp(12px,1.4vw,17px)', boxShadow: '0 0 12px rgba(0,255,238,0.28), inset 0 0 12px rgba(0,0,0,0.95)', animation: 'tv-ledpulse 2.5s ease-in-out infinite', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                      <div style={{ background: '#04040E', border: '1px solid rgba(0,255,238,0.4)', borderRadius: '6px', padding: '2px 6px', textAlign: 'center', fontFamily: 'monospace', color: '#00FFEE', fontWeight: 900, lineHeight: 1, fontSize: 'clamp(10px,1.1vw,14px)', boxShadow: '0 0 10px rgba(0,255,238,0.22), inset 0 0 10px rgba(0,0,0,0.95)', animation: 'tv-ledpulse 2.5s ease-in-out infinite', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
                         {activeDial.num}
-                        <div style={{ fontSize: 'clamp(4px,0.45vw,6px)', letterSpacing: '0.2em', color: 'rgba(0,255,238,0.65)' }}>CH</div>
+                        <div style={{ fontSize: '5px', letterSpacing: '0.2em', color: 'rgba(0,255,238,0.55)' }}>CH</div>
                       </div>
 
                       {/* Dial channel buttons */}
-                      <div style={{ flex: 1, display: 'flex', gap: 'clamp(4px,0.5vw,7px)', justifyContent: 'center' }}>
+                      <div style={{ flex: 1, display: 'flex', gap: 'clamp(3px,0.4vw,5px)', justifyContent: 'center' }}>
                         {TV_DIALS.map(dial => {
                           const isActive = activeDashboard === dial.id;
                           return (
@@ -1280,31 +1340,19 @@ export default function Home() {
                               key={dial.id}
                               onClick={() => { closeActiveDrawer(); setActiveDashboard(dial.id); }}
                               data-testid={`desktop-dial-${dial.id}`}
-                              style={{ flex: 1, background: isActive ? `rgba(${dial.rgb},0.15)` : 'rgba(255,255,255,0.03)', border: `1px solid ${isActive ? dial.hex : 'rgba(190,210,255,0.13)'}`, borderRadius: '7px', padding: 'clamp(4px,0.55vw,7px) 4px', cursor: 'pointer', color: isActive ? dial.hex : 'rgba(190,210,255,0.6)', fontFamily: 'monospace', fontWeight: 700, fontSize: 'clamp(8px,0.8vw,10px)', letterSpacing: '0.05em', textAlign: 'center', lineHeight: 1.25, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', transition: 'all 0.15s', textShadow: isActive ? `0 0 8px ${dial.hex}` : 'none', boxShadow: isActive ? `0 0 10px rgba(${dial.rgb},0.22), inset 0 0 8px rgba(${dial.rgb},0.07)` : 'none' }}
+                              style={{ flex: 1, background: isActive ? `rgba(${dial.rgb},0.15)` : 'rgba(255,255,255,0.03)', border: `1px solid ${isActive ? dial.hex : 'rgba(190,210,255,0.13)'}`, borderRadius: '5px', padding: '3px 2px', cursor: 'pointer', color: isActive ? dial.hex : 'rgba(190,210,255,0.6)', fontFamily: 'monospace', fontWeight: 700, fontSize: 'clamp(7px,0.7vw,9px)', letterSpacing: '0.04em', textAlign: 'center', lineHeight: 1.2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', transition: 'all 0.15s', textShadow: isActive ? `0 0 8px ${dial.hex}` : 'none', boxShadow: isActive ? `0 0 8px rgba(${dial.rgb},0.2), inset 0 0 6px rgba(${dial.rgb},0.06)` : 'none' }}
                             >
-                              <div style={{ fontSize: 'clamp(6px,0.65vw,8px)', opacity: 0.75 }}>{dial.num}</div>
+                              <div style={{ fontSize: 'clamp(5px,0.55vw,7px)', opacity: 0.7 }}>{dial.num}</div>
                               <div>{dial.label}</div>
                             </button>
                           );
                         })}
                       </div>
 
-                      {/* PWR / HUE knobs */}
-                      <div style={{ display: 'flex', gap: 'clamp(6px,0.7vw,10px)', flexShrink: 0, alignItems: 'center' }}>
-                        {[{ label: 'PWR', color: '#00FFEE' }, { label: 'HUE', color: '#A855F7' }].map(k => (
-                          <div key={k.label} style={{ textAlign: 'center' }}>
-                            <div style={{ width: 'clamp(18px,1.8vw,24px)', height: 'clamp(18px,1.8vw,24px)', borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, rgba(90,90,170,0.22), rgba(8,8,32,0.96))', border: `1px solid ${k.color}2E`, boxShadow: `0 0 8px ${k.color}1A, inset 0 0 6px rgba(0,0,0,0.92)`, margin: '0 auto', position: 'relative' }}>
-                              <div style={{ position: 'absolute', width: '2px', height: '34%', background: k.color, top: '14%', left: '50%', transform: 'translateX(-50%)', borderRadius: '1px', boxShadow: `0 0 3px ${k.color}` }} />
-                            </div>
-                            <div style={{ fontSize: 'clamp(4px,0.42vw,6px)', color: `${k.color}55`, letterSpacing: '0.15em', marginTop: '2px', fontFamily: 'monospace' }}>{k.label}</div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Signal bars */}
+                      {/* Signal bars (minimal) */}
                       <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', flexShrink: 0 }}>
-                        {[3, 5, 7, 9, 11].map((h, i) => (
-                          <div key={i} style={{ width: 'clamp(2px,0.24vw,3px)', height: `${h}px`, borderRadius: '1px', background: i < 3 ? '#00FFEE' : 'rgba(0,255,238,0.18)', boxShadow: i < 3 ? '0 0 3px #00FFEE' : 'none' }} />
+                        {[3, 5, 7].map((h, i) => (
+                          <div key={i} style={{ width: '2px', height: `${h}px`, borderRadius: '1px', background: '#00FFEE', boxShadow: '0 0 3px #00FFEE' }} />
                         ))}
                       </div>
                     </div>
@@ -1422,7 +1470,11 @@ export default function Home() {
 
       {/* Tool drawers — Vaul drawer on mobile only; desktop uses inline overlay in center column */}
       {!isDesktop && (
-        <Drawer open={!!((activeInventoryDrawer && activeInventoryDrawer !== 'inventoryhealth') || activeOrdersDrawer || activeMarketingDrawer || activeSalesDrawer || billingOpen)} onOpenChange={(open) => { if (!open) closeActiveDrawer(); }}>
+        <Drawer open={!!(
+          (activeInventoryDrawer && activeInventoryDrawer !== 'inventoryhealth' && activeInventoryDrawer !== 'bricklinksync' && activeInventoryDrawer !== 'channelsync') ||
+          (activeOrdersDrawer && activeOrdersDrawer !== 'bricklinksync' && activeOrdersDrawer !== 'brickowlsync') ||
+          activeMarketingDrawer || activeSalesDrawer || billingOpen
+        )} onOpenChange={(open) => { if (!open) closeActiveDrawer(); }}>
           <DrawerContent className="bg-gray-950 border-gray-800 h-[92vh] flex flex-col rounded-t-2xl">
             <DrawerHeader className="p-0 flex-shrink-0">
               <div className="flex justify-center pt-3 pb-1">
