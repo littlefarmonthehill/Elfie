@@ -224,6 +224,10 @@ export async function splitOrder(orderId: string, itemIdsToKeep: string[]): Prom
         requestedShippingService: originalOrder.requestedShippingService,
         localOnly: true, // Split orders don't sync to platforms
         parentOrderId: orderId,
+        // Inherit inventory state — items' qty was already deducted when the original
+        // order synced in. Setting this prevents adjustInventoryForOrder from double-
+        // deducting those items when the split order ships.
+        inventoryDeducted: originalOrder.inventoryDeducted,
       })
       .returning();
 
