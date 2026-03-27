@@ -331,12 +331,23 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
       apiRequest('POST', `/api/orders/${orderId}/link-merge`, { targetOrderId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
-      setMergeDialog(null);
       setMergeSearch('');
       toast({ title: "Orders linked", description: "Both orders are now in the same merge group and will ship together." });
     },
     onError: (err: any) => {
       toast({ title: "Link failed", description: err.message || "Could not link orders.", variant: "destructive" });
+    },
+  });
+
+  const unlinkMergeMutation = useMutation({
+    mutationFn: ({ orderId }: { orderId: string }) =>
+      apiRequest('POST', `/api/orders/${orderId}/unlink-merge`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/fulfillment'] });
+      toast({ title: "Order unlinked", description: "The order has been removed from the merge group." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Unlink failed", description: err.message || "Could not unlink order.", variant: "destructive" });
     },
   });
 
@@ -1801,12 +1812,19 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                       <div key={o.id}
                         className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-blue-500/30 bg-blue-900/20"
                       >
-                        <div className="text-sm">
+                        <div className="text-sm min-w-0">
                           <span className="font-mono text-white">{o.orderNumber}</span>
                           {o.customerUsername && <span className="text-gray-400 ml-2">· {o.customerUsername}</span>}
                           <span className="text-gray-500 ml-2">{o.marketplace}</span>
                         </div>
-                        <span className="text-xs text-blue-400 font-semibold shrink-0">Linked</span>
+                        <button
+                          onClick={() => unlinkMergeMutation.mutate({ orderId: o.id })}
+                          disabled={unlinkMergeMutation.isPending}
+                          className="text-xs text-red-400 hover:text-red-300 font-semibold shrink-0 px-1.5 py-0.5 rounded hover-elevate"
+                          data-testid={`button-unlink-merge-${o.id}`}
+                        >
+                          {unlinkMergeMutation.isPending ? 'Unlinking…' : 'Unlink'}
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -1858,9 +1876,9 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
 
                 <div className="flex justify-end">
                   <Button variant="outline" onClick={() => { setMergeDialog(null); setMergeSearch(''); }}
-                    data-testid="button-cancel-merge"
+                    data-testid="button-done-merge"
                   >
-                    Close
+                    Done
                   </Button>
                 </div>
               </div>

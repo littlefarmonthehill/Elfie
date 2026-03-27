@@ -16207,6 +16207,33 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     }
   });
 
+  // Remove an order from its merge group
+  app.post("/api/orders/:orderId/unlink-merge", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { orderId } = req.params;
+
+      const [order] = await db
+        .select({ id: orders.id, mergeGroupId: orders.mergeGroupId })
+        .from(orders)
+        .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)))
+        .limit(1);
+
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      await db.update(orders)
+        .set({ mergeGroupId: null, updatedAt: new Date() })
+        .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error unlinking merge group:", error);
+      res.status(500).json({ error: "Failed to unlink order" });
+    }
+  });
+
   // Update fulfilled status for an order detail item
   app.put("/api/fulfillment/item/:itemId/fulfill", isApproved, async (req, res) => {
     try {
