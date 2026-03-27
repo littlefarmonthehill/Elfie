@@ -61,13 +61,20 @@ export interface SyncItem {
   orderNumber?: string;
   itemNo?: string;
   isRetry?: boolean;      // true = already a retry attempt; do NOT re-enqueue on failure
+  /**
+   * When set, ONLY these platforms are updated — all others are skipped.
+   * Used by the retry runner to target exactly the failed platform without
+   * relying on sourcePlatform exclusion (which breaks with 3+ channels).
+   * Add new channel names here as they are added to syncInventoryItemAcrossPlatforms.
+   */
+  onlyPlatforms?: string[];
 }
 
 // ── Retry-queue helpers ────────────────────────────────────────────────────────
 
 async function enqueueRetry(params: {
   item: SyncItem;
-  targetPlatform: 'BrickLink' | 'BrickOwl';
+  targetPlatform: string; // e.g. 'BrickLink', 'BrickOwl', 'eBay', 'Amazon', …
   errorMessage: string;
 }): Promise<void> {
   const { item, targetPlatform, errorMessage } = params;
@@ -221,15 +228,31 @@ export async function syncInventoryItemAcrossPlatforms(
   item: SyncItem,
   context?: SyncContext
 ): Promise<CrossPlatformSyncResult> {
-  const { inventoryId, quantityDelta, sourcePlatform } = item;
+  const { inventoryId, quantityDelta, sourcePlatform, onlyPlatforms } = item;
   const source = sourcePlatform.toLowerCase();
 
-  console.log(`\n🌐 Cross-platform sync: inventory ${inventoryId} delta=${quantityDelta > 0 ? '+' : ''}${quantityDelta} (source: ${sourcePlatform})`);
+  console.log(`\n🌐 Cross-platform sync: inventory ${inventoryId} delta=${quantityDelta > 0 ? '+' : ''}${quantityDelta} (source: ${sourcePlatform}${onlyPlatforms ? ` | only: ${onlyPlatforms.join(',')}` : ''})`);
 
   const platformResults: PlatformSyncResult[] = [];
 
-  // BrickLink — skip if it's the source
-  if (source !== 'bricklink') {
+  /**
+   * shouldRun(name) — returns true if this platform should be updated.
+   * A platform is skipped when:
+   *   a) it is the sale source (it already manages its own inventory), OR
+   *   b) onlyPlatforms is set and this platform is not in the list.
+   *
+   * When adding a new channel (eBay, Amazon, …), wrap its update block with
+   * shouldRun('ChannelName') — the retry system automatically targets just the
+   * failed channel via onlyPlatforms without any further changes needed here.
+   */
+  const shouldRun = (platformName: string) => {
+    if (source === platformName.toLowerCase()) return false;
+    if (onlyPlatforms && !onlyPlatforms.includes(platformName)) return false;
+    return true;
+  };
+
+  // BrickLink
+  if (shouldRun('BrickLink')) {
     const result = await updateBrickLinkQuantityDelta(item);
     platformResults.push({
       platform: 'BrickLink',
@@ -239,11 +262,11 @@ export async function syncInventoryItemAcrossPlatforms(
     });
     await new Promise(resolve => setTimeout(resolve, 150));
   } else {
-    console.log(`⏭️  Skipping BrickLink (source platform)`);
+    console.log(`⏭️  Skipping BrickLink (${source === 'bricklink' ? 'source platform' : 'not in onlyPlatforms'})`);
   }
 
-  // BrickOwl — skip if it's the source
-  if (source !== 'brickowl') {
+  // BrickOwl
+  if (shouldRun('BrickOwl')) {
     const boInventoryMap = context?.boInventoryMap ?? new Map();
     const result = await updateBrickOwlQuantity(item, boInventoryMap);
     platformResults.push({
@@ -253,8 +276,12 @@ export async function syncInventoryItemAcrossPlatforms(
       errors: result.error ? [result.error] : [],
     });
   } else {
-    console.log(`⏭️  Skipping BrickOwl (source platform)`);
+    console.log(`⏭️  Skipping BrickOwl (${source === 'brickowl' ? 'source platform' : 'not in onlyPlatforms'})`);
   }
+
+  // ── Add new channels here following the same pattern ──────────────────────
+  // if (shouldRun('eBay')) { ... }
+  // if (shouldRun('Amazon')) { ... }
 
   const totalItemsUpdated = platformResults.reduce((sum, r) => sum + r.itemsUpdated, 0);
   const totalErrors = platformResults.reduce((sum, r) => sum + r.errors.length, 0);

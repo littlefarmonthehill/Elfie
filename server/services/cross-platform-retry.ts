@@ -75,21 +75,20 @@ export async function retryFailedCrossPlatformSyncs(orgId: string): Promise<void
 
       if (!inv) throw new Error(`Local inventory ${item.blInventoryId} not found — lot may have been deleted`);
 
-      // Set sourcePlatform so syncInventoryItemAcrossPlatforms skips the already-successful
-      // platform and ONLY retries the one that failed (the targetPlatform).
-      // e.g. targetPlatform=BrickOwl → sourcePlatform=bricklink → BL is skipped → BO is tried.
-      const retrySrcPlatform = item.targetPlatform === 'BrickOwl' ? 'bricklink' : 'brickowl';
-
       await syncInventoryItemAcrossPlatforms(
         {
           inventoryId: String(item.blInventoryId),
-          newQuantity: inv.quantity,        // current local qty (correct for BO absolute)
+          newQuantity: inv.quantity,         // current local qty (correct for BO absolute)
           quantityDelta: item.quantityDelta, // original delta (correct for BL delta)
-          sourcePlatform: retrySrcPlatform,
+          sourcePlatform: item.sourcePlatform,
           orgId,
           orderId: item.sourceOrderId ?? undefined,
           itemNo: inv.itemNo,
-          isRetry: true, // prevents re-enqueue if this attempt also fails
+          isRetry: true,                     // prevents re-enqueue if this attempt also fails
+          // Pin to exactly the failed platform — works correctly regardless of how many
+          // channels exist (eBay, Amazon, etc.). No changes needed here when new channels
+          // are added to syncInventoryItemAcrossPlatforms.
+          onlyPlatforms: [item.targetPlatform],
         },
         { boInventoryMap },
       );
