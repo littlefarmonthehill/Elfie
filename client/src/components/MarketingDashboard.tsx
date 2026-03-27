@@ -469,7 +469,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             <div className="p-1.5 rounded-md bg-yellow-900/60 ring-1 ring-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.22)] shrink-0">
               <Users className={cn("w-3 h-3 text-yellow-200", "md:w-4 md:h-4")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-yellow-200 uppercase tracking-wide min-w-0", "md:text-sm lg:text-base")}>Customers</h3>
+            <h3 className={cn("text-xs font-semibold text-yellow-200 uppercase tracking-wide min-w-0", "md:text-sm")}>Customers</h3>
             <CollapsibleDatePicker
               value={localDateRange}
               onChange={setLocalDateRange}
@@ -495,7 +495,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
               <Sparkles className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Tools</h3>
+            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm")}>Tools</h3>
           </div>
           <div className={cn("grid grid-cols-2", "gap-2")}>
 
@@ -508,7 +508,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-indigo-900/70 p-1.5 ring-1 ring-indigo-500/45 shadow-[0_0_10px_rgba(99,102,241,0.22)]">
-                  <Megaphone className={cn("w-3.5 h-3.5 text-indigo-200", "md:w-5 md:h-5")} />
+                  <Megaphone className={cn("w-3.5 h-3.5 text-indigo-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-indigo-100 leading-tight flex-1", "md:text-sm")}>Attract New Customers</span>
                 <Popover>
@@ -543,7 +543,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-cyan-900/70 p-1.5 ring-1 ring-cyan-500/45 shadow-[0_0_10px_rgba(6,182,212,0.22)]">
-                  <UserPlus className={cn("w-3.5 h-3.5 text-cyan-200", "md:w-5 md:h-5")} />
+                  <UserPlus className={cn("w-3.5 h-3.5 text-cyan-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-cyan-100 leading-tight flex-1", "md:text-sm")}>New Customers</span>
                 <Popover>
@@ -584,7 +584,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-blue-900/70 p-1.5 ring-1 ring-blue-500/45 shadow-[0_0_10px_rgba(59,130,246,0.22)]">
-                  <RefreshCcw className={cn("w-3.5 h-3.5 text-blue-200", "md:w-5 md:h-5")} />
+                  <RefreshCcw className={cn("w-3.5 h-3.5 text-blue-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-blue-100 leading-tight flex-1", "md:text-sm")}>Repeat Customers</span>
                 <Popover>
@@ -625,7 +625,7 @@ export default function MarketingDashboard({ dateRange: parentDateRange = 'mtd',
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-amber-900/70 p-1.5 ring-1 ring-amber-500/45 shadow-[0_0_10px_rgba(245,158,11,0.22)]">
-                  <Trophy className={cn("w-3.5 h-3.5 text-amber-200", "md:w-5 md:h-5")} />
+                  <Trophy className={cn("w-3.5 h-3.5 text-amber-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-amber-100 leading-tight flex-1", "md:text-sm")}>Top Spenders</span>
                 <Popover>

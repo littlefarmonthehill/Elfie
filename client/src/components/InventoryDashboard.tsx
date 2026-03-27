@@ -162,9 +162,9 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
           {/* Header */}
           <div className="flex items-center gap-2.5 mb-3">
             <div className="p-1.5 rounded-lg bg-blue-800/70 ring-1 ring-blue-500/60 shadow-[0_0_14px_rgba(59,130,246,0.32)]">
-              <Package className="w-4 h-4 md:w-5 md:h-5 text-blue-100" />
+              <Package className="w-4 h-4 md:w-5 md:h-5 lg:w-4 lg:h-4 text-blue-100" />
             </div>
-            <h3 className="text-sm md:text-base font-bold text-white uppercase tracking-widest">Inventory</h3>
+            <h3 className="text-sm font-bold text-white uppercase tracking-widest">Inventory</h3>
             <div className="ml-auto">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -235,7 +235,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
               <Sparkles className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Tools</h3>
+            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm")}>Tools</h3>
           </div>
           <div className={cn("grid grid-cols-2", "gap-2")}>
 
@@ -248,7 +248,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-purple-900/70 p-1.5 ring-1 ring-purple-500/45 shadow-[0_0_10px_rgba(168,85,247,0.22)]">
-                  <Sparkles className={cn("w-3.5 h-3.5 text-purple-200", "md:w-5 md:h-5")} />
+                  <Sparkles className={cn("w-3.5 h-3.5 text-purple-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-purple-100 leading-tight flex-1", "md:text-sm")}>Price-O-Matic</span>
               </div>
@@ -272,7 +272,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-green-900/70 p-1.5 ring-1 ring-green-500/45 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
-                  <Globe className={cn("w-3.5 h-3.5 text-green-200", "md:w-5 md:h-5")} />
+                  <Globe className={cn("w-3.5 h-3.5 text-green-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", "md:text-sm")}>List-O-Matic</span>
               </div>
@@ -290,7 +290,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-amber-900/70 p-1.5 ring-1 ring-amber-500/45 shadow-[0_0_10px_rgba(245,158,11,0.22)]">
-                  <ScanSearch className={cn("w-3.5 h-3.5 text-amber-200", "md:w-5 md:h-5")} />
+                  <ScanSearch className={cn("w-3.5 h-3.5 text-amber-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-amber-100 leading-tight flex-1", "md:text-sm")}>Brick Spotter</span>
               </div>
@@ -314,7 +314,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-cyan-900/70 p-1.5 ring-1 ring-cyan-500/45 shadow-[0_0_10px_rgba(6,182,212,0.22)]">
-                  <Activity className={cn("w-3.5 h-3.5 text-cyan-200", "md:w-5 md:h-5")} />
+                  <Activity className={cn("w-3.5 h-3.5 text-cyan-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-cyan-100 leading-tight flex-1", "md:text-sm")}>Inventory Health</span>
               </div>
@@ -334,7 +334,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
             <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
               <Globe className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Selling Channels</h3>
+            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm")}>Selling Channels</h3>
           </div>
           {desktopMode ? (
             <div className="flex flex-col gap-1.5">

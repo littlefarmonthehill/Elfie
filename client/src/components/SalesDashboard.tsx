@@ -1407,7 +1407,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
           <div className="p-1.5 rounded-md bg-green-900/60 ring-1 ring-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.25)] shrink-0">
             <TrendingUp className={cn("w-3 h-3 text-green-200", "md:w-4 md:h-4")} />
           </div>
-          <h3 className={cn("text-xs font-semibold text-green-200 uppercase tracking-wide min-w-0", "md:text-sm lg:text-base")}>Insights</h3>
+          <h3 className={cn("text-xs font-semibold text-green-200 uppercase tracking-wide min-w-0", "md:text-sm")}>Insights</h3>
           <CollapsibleDatePicker
             value={localDateRange}
             onChange={setLocalDateRange}
@@ -1436,7 +1436,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
             <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
               <BarChart2 className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Tools</h3>
+            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm")}>Tools</h3>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -1447,7 +1447,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-cyan-900/70 p-1.5 ring-1 ring-cyan-500/45 shadow-[0_0_10px_rgba(6,182,212,0.22)]">
-                  <Radar className={cn("w-3.5 h-3.5 text-cyan-200", "md:w-5 md:h-5")} />
+                  <Radar className={cn("w-3.5 h-3.5 text-cyan-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-cyan-100 leading-tight flex-1", "md:text-sm")}>Business Intel</span>
                 <ArrowRight className="w-3 h-3 text-cyan-500/60 group-hover:text-cyan-400 transition-colors" />
@@ -1462,7 +1462,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-green-900/70 p-1.5 ring-1 ring-green-500/45 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
-                  <Activity className={cn("w-3.5 h-3.5 text-green-200", "md:w-5 md:h-5")} />
+                  <Activity className={cn("w-3.5 h-3.5 text-green-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", "md:text-sm")}>Sales Chart</span>
                 <ArrowRight className="w-3 h-3 text-green-500/60 group-hover:text-green-400 transition-colors" />
@@ -1477,7 +1477,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-orange-900/70 p-1.5 ring-1 ring-orange-500/45 shadow-[0_0_10px_rgba(249,115,22,0.22)]">
-                  <BarChart2 className={cn("w-3.5 h-3.5 text-orange-200", "md:w-5 md:h-5")} />
+                  <BarChart2 className={cn("w-3.5 h-3.5 text-orange-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", "md:text-sm")}>Platform Performance</span>
                 <Popover>
@@ -1519,7 +1519,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-violet-900/70 p-1.5 ring-1 ring-violet-500/45 shadow-[0_0_10px_rgba(139,92,246,0.22)]">
-                  <Package className={cn("w-3.5 h-3.5 text-violet-200", "md:w-5 md:h-5")} />
+                  <Package className={cn("w-3.5 h-3.5 text-violet-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-violet-100 leading-tight flex-1", "md:text-sm")}>Acquisition Evaluator</span>
                 <ArrowRight className="w-3 h-3 text-violet-500/60 group-hover:text-violet-400 transition-colors" />

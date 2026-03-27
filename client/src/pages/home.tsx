@@ -1238,8 +1238,8 @@ export default function Home() {
                     {/* 3-panel content row */}
                     <div style={{ display: 'flex', flex: 1, minHeight: 0, gap: 'clamp(8px,0.9vw,12px)' }}>
 
-                      {/* LEFT PANEL (25%): Plan stacked above Ops Central */}
-                      <div style={{ flex: '0 0 25%', display: 'flex', flexDirection: 'column', borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.28)', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.4)' }}>
+                      {/* LEFT PANEL (~22%): Plan stacked above Ops Central */}
+                      <div style={{ flex: '0 0 clamp(200px,22%,270px)', display: 'flex', flexDirection: 'column', borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.28)', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.4)' }}>
 
                         {/* Your Plan — top section, collapsible; auto-sized to content */}
                         {!planCollapsed && (
@@ -1287,8 +1287,8 @@ export default function Home() {
                         </div>
                       </div>
 
-                      {/* CENTER PANEL (33%): TV chrome bezel + glass screen */}
-                      <div style={{ flex: '0 0 33%', display: 'flex', flexDirection: 'column', borderRadius: '14px', background: 'linear-gradient(145deg, #38385A 0%, #484870 18%, #282844 55%, #383860 80%, #1E1E3A 100%)', padding: '5px', boxShadow: 'inset 0 3px 8px rgba(0,0,0,0.8), 0 2px 6px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,255,238,0.1)' }}>
+                      {/* CENTER PANEL (~30%): TV chrome bezel + glass screen */}
+                      <div style={{ flex: '0 0 clamp(260px,30%,420px)', display: 'flex', flexDirection: 'column', borderRadius: '14px', background: 'linear-gradient(145deg, #38385A 0%, #484870 18%, #282844 55%, #383860 80%, #1E1E3A 100%)', padding: '5px', boxShadow: 'inset 0 3px 8px rgba(0,0,0,0.8), 0 2px 6px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,255,238,0.1)' }}>
                         {/* Glass screen */}
                         <div style={{ flex: 1, position: 'relative', background: '#04060F', borderRadius: '10px', overflow: 'hidden' }}>
                           {/* Scanlines overlay */}

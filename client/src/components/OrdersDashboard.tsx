@@ -367,7 +367,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             <div className="p-1.5 rounded-md bg-orange-900/60 ring-1 ring-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.25)] shrink-0">
               <ShoppingCart className={cn("w-3 h-3 text-orange-200", "md:w-4 md:h-4")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-orange-200 uppercase tracking-wide min-w-0", "md:text-sm lg:text-base")}>Orders</h3>
+            <h3 className={cn("text-xs font-semibold text-orange-200 uppercase tracking-wide min-w-0", "md:text-sm")}>Orders</h3>
             <CollapsibleDatePicker
               value={dateRange}
               onChange={setDateRange}
@@ -395,7 +395,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
               <Sparkles className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Tools</h3>
+            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm")}>Tools</h3>
           </div>
           <div className={cn("grid grid-cols-2", "gap-2")}>
 
@@ -408,7 +408,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-orange-900/70 p-1.5 ring-1 ring-orange-500/45 shadow-[0_0_10px_rgba(249,115,22,0.22)]">
-                  <Truck className={cn("w-3.5 h-3.5 text-orange-200", "md:w-5 md:h-5")} />
+                  <Truck className={cn("w-3.5 h-3.5 text-orange-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-orange-100 leading-tight flex-1", "md:text-sm")}>Fulfillment</span>
                 <Popover>
@@ -447,7 +447,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             >
               <div className="flex items-center gap-2">
                 <div className="rounded-lg bg-green-900/70 p-1.5 ring-1 ring-green-500/45 shadow-[0_0_10px_rgba(34,197,94,0.22)]">
-                  <PackageCheck className={cn("w-3.5 h-3.5 text-green-200", "md:w-5 md:h-5")} />
+                  <PackageCheck className={cn("w-3.5 h-3.5 text-green-200", "md:w-5 md:h-5 lg:w-4 lg:h-4")} />
                 </div>
                 <span className={cn("text-xs font-bold text-green-100 leading-tight flex-1", "md:text-sm")}>Shipped Orders</span>
                 <Popover>
@@ -487,7 +487,7 @@ export default function OrdersDashboard({ onItemClick, activeDrawer, onDrawerCha
             <div className="p-1.5 rounded-md bg-gray-700/60 ring-1 ring-gray-500/40">
               <Globe className={cn("w-3 h-3 text-gray-200", "md:w-4 md:h-4")} />
             </div>
-            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm lg:text-base")}>Selling Channels</h3>
+            <h3 className={cn("text-xs font-semibold text-gray-200 uppercase tracking-wide", "md:text-sm")}>Selling Channels</h3>
           </div>
           {desktopMode ? (
             <div className="flex flex-col gap-1.5">
