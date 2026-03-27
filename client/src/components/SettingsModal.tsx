@@ -1376,11 +1376,11 @@ function MaintenancePanel() {
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <p className="text-[10px] text-gray-500 uppercase tracking-wide">Orders to delete</p>
-                <p className="font-bold text-lg text-gray-100">{dryRunResult.ordersToDelete.toLocaleString()}</p>
+                <p className="font-bold text-sm text-gray-100">{dryRunResult.ordersToDelete.toLocaleString()}</p>
               </div>
               <div>
                 <p className="text-[10px] text-gray-500 uppercase tracking-wide">Line items to delete</p>
-                <p className="font-bold text-lg text-gray-100">{dryRunResult.orderDetailsToDelete.toLocaleString()}</p>
+                <p className="font-bold text-sm text-gray-100">{dryRunResult.orderDetailsToDelete.toLocaleString()}</p>
               </div>
             </div>
             <p className="text-[10px] text-gray-500">Sample IDs: {dryRunResult.sampleIds.slice(0, 4).join(', ')}</p>
@@ -4511,7 +4511,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             </PopoverContent>
                           </Popover>
                         </div>
-                        <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Runs independently on its own schedule</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Runs independently on its own schedule</p>
                         <SyncStatusLine entry={syncStatuses?.priceomatic ?? null} />
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -5186,7 +5186,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               </PopoverContent>
                             </Popover>
                           </div>
-                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Sync inventory, colors, categories + embeddings</p>
+                          <p className="text-xs text-gray-500 mt-0.5">Sync inventory, colors, categories + embeddings</p>
                           <SyncStatusLine entry={syncStatuses?.inventory ?? null} />
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -5213,7 +5213,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             className="text-xs w-32"
                             data-testid="input-inventory-time"
                           />
-                          <p className="text-[10px] md:text-sm text-gray-500">Time in your local timezone</p>
+                          <p className="text-xs text-gray-500">Time in your local timezone</p>
                         </div>
                       )}
 
@@ -5282,7 +5282,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               </PopoverContent>
                             </Popover>
                           </div>
-                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Sync orders, details, embeddings + refunds/fees periodically</p>
+                          <p className="text-xs text-gray-500 mt-0.5">Sync orders, details, embeddings + refunds/fees periodically</p>
                           <SyncStatusLine entry={syncStatuses?.orders ?? null} />
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -5317,7 +5317,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             className="text-xs w-24"
                             data-testid="input-orders-frequency"
                           />
-                          <p className="text-[10px] md:text-sm text-gray-500">Recommended: 15 minutes</p>
+                          <p className="text-xs text-gray-500">Recommended: 15 minutes</p>
                         </div>
                       )}
                       </div>
@@ -5382,7 +5382,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               </PopoverContent>
                             </Popover>
                           </div>
-                          <p className="text-[10px] md:text-sm text-gray-500 mt-0.5">Push Local DB → BrickOwl after inbound + order syncs settle</p>
+                          <p className="text-xs text-gray-500 mt-0.5">Push Local DB → BrickOwl after inbound + order syncs settle</p>
                           <SyncStatusLine entry={syncStatuses?.channel ?? null} />
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
@@ -5409,7 +5409,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             className="text-xs w-32"
                             data-testid="input-channel-sync-time"
                           />
-                          <p className="text-[10px] md:text-sm text-gray-500">Run at least 1 hour after Inventory Sync</p>
+                          <p className="text-xs text-gray-500">Run at least 1 hour after Inventory Sync</p>
                         </div>
                       )}
 
@@ -5444,7 +5444,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               <div className="text-[9px] text-gray-500 mt-0.5">Skipped</div>
                             </div>
                             <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-errors">
-                              <div className={`text-base font-bold ${channelLastResult.errorCount > 0 ? 'text-red-400' : 'text-gray-400'}`}>{channelLastResult.errorCount}</div>
+                              <div className={`text-sm font-bold ${channelLastResult.errorCount > 0 ? 'text-red-400' : 'text-gray-400'}`}>{channelLastResult.errorCount}</div>
                               <div className="text-[9px] text-gray-500 mt-0.5">Errors</div>
                             </div>
                           </div>
@@ -6918,7 +6918,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           <p className="text-[11px] font-medium text-gray-400">Pricing Decisions Logged</p>
                           <p className="text-[10px] text-gray-600 mt-0.5">Applied via Spot Lookup while AI is active</p>
                         </div>
-                        <span className="text-lg font-bold text-purple-400 tabular-nums" data-testid="text-pom-ai-decision-count">{pomAiDecisionCount}</span>
+                        <span className="text-sm font-bold text-purple-400 tabular-nums" data-testid="text-pom-ai-decision-count">{pomAiDecisionCount}</span>
                       </div>
 
                       {pomAiEnabled && (
@@ -6956,7 +6956,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     onChange={(e) => setIeStratVision(e.target.value)}
                     onBlur={() => { if (ieStratVision !== (ieStratData?.visionMission ?? '')) saveIeStratMutation.mutate({ visionMission: ieStratVision }); }}
                     placeholder="e.g. We are PlanetBrick — a curated LEGO parts and sets retailer committed to fast dispatch, fair pricing, and helping builders find exactly what they need. We aim to become the most trusted independent LEGO seller in our region."
-                    className="text-[10px] min-h-[90px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    className="text-sm min-h-[90px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
                     data-testid="textarea-ie-strategy-vision"
                   />
                   <p className="text-[10px] text-gray-600">Your business identity and direction. Every agent uses this to frame its signals in the context of who you are.</p>
@@ -6976,7 +6976,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     onChange={(e) => setIeStratSuccess(e.target.value)}
                     onBlur={() => { if (ieStratSuccess !== (ieStratData?.successFactors ?? '')) saveIeStratMutation.mutate({ successFactors: ieStratSuccess }); }}
                     placeholder="If successful: our sell-through rate is above 85%, customers leave unprompted positive feedback mentioning fast shipping and great prices, and we no longer stress about dead stock. We feel calm and in control of our inventory. Repeat buyers make up over 40% of revenue."
-                    className="text-[10px] min-h-[110px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    className="text-sm min-h-[110px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
                     data-testid="textarea-ie-strategy-success"
                   />
                   <p className="text-[10px] text-gray-600">Describe the future in vivid terms — what has changed, how you and your customers feel, and what people are saying. Agents use this to elevate signals that move the business toward this future state.</p>
@@ -6999,7 +6999,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     onChange={(e) => setIeStratPricing(e.target.value)}
                     onBlur={() => { if (ieStratPricing !== (ieStratData?.pricingStrategy ?? '')) saveIeStratMutation.mutate({ pricingStrategy: ieStratPricing }); }}
                     placeholder="e.g. We price at a premium above market. Hold prices on retired sets. Prefer fewer high-margin orders over chasing volume."
-                    className="text-[10px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    className="text-sm min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
                     data-testid="textarea-ie-strategy-pricing"
                   />
                   <p className="text-[10px] text-gray-600">Included in every Pricing Agent and POM AI prompt.</p>
@@ -7034,7 +7034,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     onChange={(e) => setIeStratInventory(e.target.value)}
                     onBlur={() => { if (ieStratInventory !== (ieStratData?.inventoryStrategy ?? '')) saveIeStratMutation.mutate({ inventoryStrategy: ieStratInventory }); }}
                     placeholder="e.g. We keep tight stock on high-velocity parts. Liquidate dead stock over 180 days. Prioritise Technic and Creator Expert themes."
-                    className="text-[10px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    className="text-sm min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
                     data-testid="textarea-ie-strategy-inventory"
                   />
                   <p className="text-[10px] text-gray-600">Guides dead stock, reorder urgency, and capital concentration signals.</p>
@@ -7053,7 +7053,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     onChange={(e) => setIeStratOrders(e.target.value)}
                     onBlur={() => { if (ieStratOrders !== (ieStratData?.ordersStrategy ?? '')) saveIeStratMutation.mutate({ ordersStrategy: ieStratOrders }); }}
                     placeholder="e.g. Grow BrickOwl channel revenue. Aim for same-day dispatch. Flag orders over $50 that aren't on tracked shipping."
-                    className="text-[10px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    className="text-sm min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
                     data-testid="textarea-ie-strategy-orders"
                   />
                   <p className="text-[10px] text-gray-600">Guides channel performance, velocity, and fulfillment signals.</p>
@@ -7072,7 +7072,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     onChange={(e) => setIeStratCustomer(e.target.value)}
                     onBlur={() => { if (ieStratCustomer !== (ieStratData?.customerStrategy ?? '')) saveIeStratMutation.mutate({ customerStrategy: ieStratCustomer }); }}
                     placeholder="e.g. Retain repeat buyers over $200 lifetime spend. Flag dormant buyers after 90 days. Re-engage with bulk discount offers."
-                    className="text-[10px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    className="text-sm min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
                     data-testid="textarea-ie-strategy-customer"
                   />
                   <p className="text-[10px] text-gray-600">Guides retention, re-engagement, and VIP buyer signals.</p>
@@ -7091,7 +7091,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     onChange={(e) => setIeStratMarket(e.target.value)}
                     onBlur={() => { if (ieStratMarket !== (ieStratData?.marketStrategy ?? '')) saveIeStratMutation.mutate({ marketStrategy: ieStratMarket }); }}
                     placeholder="e.g. Watch for retiring Star Wars and Icons sets. Prioritise acquisition signals for minifig-heavy sets. Flag price spread opportunities above 1.8x."
-                    className="text-[10px] min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
+                    className="text-sm min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
                     data-testid="textarea-ie-strategy-market"
                   />
                   <p className="text-[10px] text-gray-600">Guides trend, retirement, and market opportunity signals.</p>
@@ -7331,7 +7331,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
                     <div className="space-y-2">
                       <Label className="text-xs text-gray-200">BrickLink XML Backups</Label>
-                      <p className="text-[10px] md:text-sm text-gray-500">Download XML backups and manually upload to BrickLink</p>
+                      <p className="text-xs text-gray-500">Download XML backups and manually upload to BrickLink</p>
                       <div className="space-y-2 max-h-48 overflow-y-auto">
                         {backupsLoading ? (
                           <div className="text-xs text-gray-400 text-center py-4">Loading backups...</div>
@@ -7356,7 +7356,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               <div key={backup.filename} className="flex items-center justify-between bg-gray-700/50 rounded p-2">
                                 <div>
                                   <p className="text-xs text-gray-300 font-medium">{formattedDate}</p>
-                                  <p className="text-[10px] md:text-sm text-gray-500">{sizeInMB} MB</p>
+                                  <p className="text-xs text-gray-500">{sizeInMB} MB</p>
                                 </div>
                                 <Button 
                                   variant="outline" 
@@ -7377,7 +7377,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
                     <div className="bg-gray-900/50 rounded p-3 space-y-2">
                       <p className="text-xs font-medium text-gray-100">After Download:</p>
-                      <ol className="text-[10px] md:text-sm text-gray-400 space-y-1 ml-4 list-decimal">
+                      <ol className="text-xs text-gray-400 space-y-1 ml-4 list-decimal">
                         <li>Go to BrickLink → My Store → Upload/Update My Inventory</li>
                         <li>Select your downloaded XML file and upload</li>
                         <li>Wait for BrickLink to process the upload</li>
@@ -7439,7 +7439,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       Remove Test Orders
                     </Button>
                     <div className="bg-red-500/10 border border-red-500/30 rounded p-2">
-                      <p className="text-[10px] md:text-sm text-red-300">
+                      <p className="text-xs text-red-300">
                         <strong>Warning:</strong> These actions cannot be undone. Always export backups before clearing data.
                       </p>
                     </div>
@@ -11584,7 +11584,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 </div>
 
                 <div className="bg-gray-800 border border-gray-700 rounded p-3">
-                  <p className="text-[10px] md:text-sm text-gray-500">
+                  <p className="text-xs text-gray-500">
                     <strong>Note:</strong> Do not close this window or navigate away. The restore process typically takes 1-3 minutes depending on your database size.
                   </p>
                 </div>
@@ -11637,7 +11637,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 </div>
 
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded p-3">
-                  <p className="text-[10px] md:text-sm text-blue-300">
+                  <p className="text-xs text-blue-300">
                     <strong>Why we do this:</strong> Your sales platforms (BrickLink and BrickOwl) have processed sales and status changes since the restore point. We're pulling their current data to ensure E.L.F.I.E. matches reality. EasyPost tracking data is also synced to match shipment statuses.
                   </p>
                 </div>
@@ -11688,7 +11688,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   </p>
                   <div className="bg-green-500/20 border border-green-500/40 rounded p-3 mt-2">
                     <p className="text-xs font-medium text-green-300 mb-2">What Gets Synced:</p>
-                    <ul className="text-[10px] md:text-sm text-green-200/90 space-y-1 ml-4 list-disc">
+                    <ul className="text-xs text-green-200/90 space-y-1 ml-4 list-disc">
                       <li><strong>Quantities:</strong> Reflects sales that happened after restore point</li>
                       <li><strong>Prices:</strong> Current pricing from BrickOwl</li>
                       <li><strong>Remarks:</strong> Personal notes (BrickOwl personal_note → BrickLink remarks)</li>
@@ -11703,38 +11703,38 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div className="bg-gray-900 rounded p-3">
                       <p className="text-gray-400">Total Items in BrickOwl</p>
-                      <p className="text-white font-medium text-lg">{differentialAnalysis.totalItems}</p>
+                      <p className="text-white font-medium text-sm">{differentialAnalysis.totalItems}</p>
                     </div>
                     <div className="bg-gray-900 rounded p-3">
                       <p className="text-gray-400">Quantity Adjustments</p>
-                      <p className="text-blue-400 font-medium text-lg">{differentialAnalysis.quantityChanges}</p>
+                      <p className="text-blue-400 font-medium text-sm">{differentialAnalysis.quantityChanges}</p>
                     </div>
                     <div className="bg-gray-900 rounded p-3">
                       <p className="text-gray-400">Net Quantity Change</p>
-                      <p className={`font-medium text-lg ${differentialAnalysis.netQuantityChange < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                      <p className={`font-medium text-sm ${differentialAnalysis.netQuantityChange < 0 ? 'text-red-400' : 'text-green-400'}`}>
                         {differentialAnalysis.netQuantityChange > 0 ? '+' : ''}{differentialAnalysis.netQuantityChange} pieces
                       </p>
-                      <p className="text-[10px] md:text-sm text-gray-500 mt-1">
+                      <p className="text-xs text-gray-500 mt-1">
                         {differentialAnalysis.netQuantityChange < 0 ? 'Sales since restore point' : 'Restocks since restore point'}
                       </p>
                     </div>
                     <div className="bg-gray-900 rounded p-3">
                       <p className="text-gray-400">Price Updates</p>
-                      <p className="text-purple-400 font-medium text-lg">{differentialAnalysis.priceUpdates}</p>
+                      <p className="text-purple-400 font-medium text-sm">{differentialAnalysis.priceUpdates}</p>
                     </div>
                     <div className="bg-gray-900 rounded p-3">
                       <p className="text-gray-400">Remarks Updates</p>
-                      <p className="text-yellow-400 font-medium text-lg">{differentialAnalysis.remarksUpdates}</p>
+                      <p className="text-yellow-400 font-medium text-sm">{differentialAnalysis.remarksUpdates}</p>
                     </div>
                     <div className="bg-gray-900 rounded p-3">
                       <p className="text-gray-400">Description Updates</p>
-                      <p className="text-cyan-400 font-medium text-lg">{differentialAnalysis.descriptionUpdates}</p>
+                      <p className="text-cyan-400 font-medium text-sm">{differentialAnalysis.descriptionUpdates}</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="bg-blue-500/10 border border-blue-500/30 rounded p-3">
-                  <p className="text-[10px] md:text-sm text-blue-300">
+                  <p className="text-xs text-blue-300">
                     <strong>How it works:</strong> We'll use the external_lot_ids.other field (which contains BrickLink inventory IDs) to match each BrickOwl lot to its corresponding BrickLink inventory item, then update BrickLink with BrickOwl's current data via the BrickLink API.
                   </p>
                 </div>
@@ -11881,13 +11881,13 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                   <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-500/20 mb-4">
                     <CheckCircle2 className="h-10 w-10 text-green-400" />
                   </div>
-                  <h3 className="text-lg font-medium text-green-300 mb-2">Recovery Complete!</h3>
+                  <h3 className="text-sm font-semibold text-green-300 mb-2">Recovery Complete!</h3>
                   <p className="text-xs text-gray-200">Your database has been successfully restored and BrickLink updated to current state</p>
                 </div>
 
                 <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 space-y-2">
                   <p className="text-xs font-medium text-green-300">✓ Recovery Summary:</p>
-                  <ul className="text-[10px] md:text-sm text-green-200/90 space-y-1 ml-4 list-disc">
+                  <ul className="text-xs text-green-200/90 space-y-1 ml-4 list-disc">
                     <li>Database restored to {restoreDate} at {restoreTime}</li>
                     <li>Platform data synced from BrickLink and BrickOwl</li>
                     <li>BrickLink updated with current data from BrickOwl (differential sync)</li>

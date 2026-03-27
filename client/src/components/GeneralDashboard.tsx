@@ -131,35 +131,47 @@ function OpAreaCard({ label, Icon, color, stat, alerts, isRunning, onClick, isAc
   const errorAlerts = alerts.filter(a => a.severity === 'error').length;
   const totalAlerts = alerts.length;
 
+  const primaryAlert = alerts[0];
+
   return (
     <button
       onClick={onClick}
       className={cn(
         "w-full rounded-lg border overflow-hidden transition-all duration-200 hover-elevate active-elevate-2",
-        "flex items-center justify-between gap-3 px-3 py-2.5 text-left bg-gradient-to-r",
-        isActive ? c.activeBorder : c.border, c.cardBg, isActive ? c.activeGlow : c.glow, c.headerBg
+        "px-2.5 py-1.5 text-left",
+        isActive ? c.activeBorder : c.border, c.cardBg, isActive ? c.activeGlow : c.glow
       )}
       data-testid={`ops-area-${label.toLowerCase()}`}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <Icon className={cn("w-4 h-4 shrink-0 transition-all", c.icon, isActive && 'drop-shadow-[0_0_4px_currentColor]')} />
-        <span className={cn("text-sm font-bold uppercase tracking-wide transition-all truncate", isActive ? 'text-foreground' : 'text-foreground/80')}>{label}</span>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        {stat && <span className="text-xs text-muted-foreground font-medium">{stat}</span>}
-
-        {/* Status indicator */}
+      {/* Row 1: channel badge + icon + label + status */}
+      <div className="flex items-center gap-1.5">
+        {channelNum && (
+          <div
+            className="shrink-0 rounded font-mono font-black leading-none transition-all duration-200"
+            style={{
+              fontSize: '7px', letterSpacing: '0.08em', padding: '2px 4px',
+              ...(isActive ? {
+                background: '#03040C',
+                border: `1px solid ${channelHex ?? '#00FFEE'}`,
+                boxShadow: `0 0 5px ${channelHex ?? '#00FFEE'}55`,
+                color: channelHex ?? '#00FFEE',
+              } : {
+                background: 'rgba(0,0,0,0.35)',
+                border: '1px solid rgba(255,255,255,0.14)',
+                color: 'rgba(180,200,255,0.55)',
+              }),
+            }}
+          >CH{channelNum}</div>
+        )}
+        <Icon className={cn("w-3.5 h-3.5 shrink-0 transition-all", c.icon, isActive && 'drop-shadow-[0_0_3px_currentColor]')} />
+        <span className={cn("text-xs font-bold uppercase tracking-wide flex-1 min-w-0 truncate transition-all", isActive ? 'text-foreground' : 'text-foreground/80')}>{label}</span>
+        {/* Status */}
         {totalAlerts > 0 ? (
           <div className={cn(
-            "flex items-center gap-1 rounded-full px-1.5 py-0.5 font-mono font-bold leading-none text-[9px]",
-            errorAlerts > 0
-              ? "bg-red-950/80 border border-red-500/60 text-red-300"
-              : "bg-yellow-950/80 border border-yellow-500/60 text-yellow-300"
+            "flex items-center gap-0.5 font-mono font-bold leading-none text-[9px] shrink-0",
+            errorAlerts > 0 ? "text-red-400" : "text-yellow-400"
           )}>
-            {errorAlerts > 0
-              ? <XCircle className="w-2.5 h-2.5" />
-              : <AlertTriangle className="w-2.5 h-2.5" />
-            }
+            {errorAlerts > 0 ? <XCircle className="w-2.5 h-2.5" /> : <AlertTriangle className="w-2.5 h-2.5" />}
             <span>{totalAlerts}</span>
           </div>
         ) : isRunning ? (
@@ -170,28 +182,20 @@ function OpAreaCard({ label, Icon, color, stat, alerts, isRunning, onClick, isAc
         ) : (
           <div className="w-2 h-2 rounded-full bg-green-500/70 shrink-0" />
         )}
+      </div>
 
-        {channelNum && (
-          <div
-            className="flex flex-col items-center justify-center rounded font-mono font-black leading-none transition-all duration-200"
-            style={{
-              fontSize: '8px', minWidth: '26px', padding: '2px 5px',
-              ...(isActive ? {
-                background: '#03040C',
-                border: `1px solid ${channelHex ?? '#00FFEE'}`,
-                boxShadow: `0 0 6px ${channelHex ?? '#00FFEE'}55, inset 0 0 8px rgba(0,0,0,0.9)`,
-                color: channelHex ?? '#00FFEE',
-              } : {
-                background: 'rgba(0,0,0,0.4)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                color: 'rgba(180,200,255,0.28)',
-              }),
-            }}
-          >
-            <span>{channelNum}</span>
-            <span style={{ fontSize: '6px', letterSpacing: '0.15em', opacity: isActive ? 0.7 : 0.5 }}>CH</span>
-          </div>
-        )}
+      {/* Row 2: alert text (if any) or stat */}
+      <div className="mt-0.5 leading-tight min-w-0">
+        {primaryAlert ? (
+          <span className={cn(
+            "text-[10px] block truncate",
+            primaryAlert.severity === 'error' ? 'text-red-400/90' : 'text-yellow-400/80'
+          )}>
+            {primaryAlert.label}
+          </span>
+        ) : stat ? (
+          <span className="text-[10px] text-muted-foreground/65 block truncate">{stat}</span>
+        ) : null}
       </div>
     </button>
   );
@@ -736,7 +740,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
       )}
 
       {/* Operational areas */}
-      {showOps && (<div className="space-y-4" data-testid="section-ops-central">
+      {showOps && (<div className="space-y-1.5" data-testid="section-ops-central">
         <OpAreaCard
           label="Inventory"
           Icon={Package}
