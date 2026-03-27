@@ -2102,6 +2102,20 @@ export async function runMigrations() {
     `);
     console.log(`[Migration] Phase-86 (backfill shipments.org_id) complete — ${backfilledShipments} rows updated.`);
 
+    // ── Phase-87: backfill orgId on split orders that were created without one ──
+    // A bug caused split orders (those with parent_order_id set) to be inserted
+    // without inheriting the parent's org_id, making them invisible in all org-
+    // scoped queries. Fix by copying org_id from the parent order.
+    const { rowCount: backfilledSplitOrders } = await client.query(`
+      UPDATE orders child
+      SET org_id = parent.org_id
+      FROM orders parent
+      WHERE child.parent_order_id = parent.id
+        AND child.org_id IS NULL
+        AND parent.org_id IS NOT NULL
+    `);
+    console.log(`[Migration] Phase-87 (backfill orgId on split orders) complete — ${backfilledSplitOrders ?? 0} rows updated.`);
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

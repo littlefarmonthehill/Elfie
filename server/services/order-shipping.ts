@@ -208,6 +208,7 @@ export async function splitOrder(orderId: string, itemIdsToKeep: string[]): Prom
         id: `${orderId}-split-${splitNumber}`,
         orderNumber: splitOrderNumber,
         orderKey: originalOrder.orderKey,
+        orgId: originalOrder.orgId,           // inherit org so the split order is visible
         marketplace: originalOrder.marketplace,
         orderDate: originalOrder.orderDate,
         orderStatus: 'awaiting_shipment',
