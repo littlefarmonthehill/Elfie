@@ -112,6 +112,7 @@ type Props = {
   orderItems?: OrderItem[];
   siblingItems?: OrderItem[];
   siblingOrderRef?: string;
+  splitFromRef?: string | null;
   internalNotes?: string | null;
   onReadyChange: (orderId: string, state: ShippingReadyState | null) => void;
   purchasedLabel?: PurchasedLabelResult;
@@ -135,7 +136,7 @@ const PROD_FROM_ADDRESS = {
 };
 
 export default function InlineShippingCard({
-  orderId, isTestMode, orderItems = [], siblingItems = [], siblingOrderRef, internalNotes,
+  orderId, isTestMode, orderItems = [], siblingItems = [], siblingOrderRef, splitFromRef, internalNotes,
   onReadyChange, purchasedLabel, onSplit, onMerge, onMarkAsShipped,
 }: Props) {
   const { toast } = useToast();
@@ -553,13 +554,19 @@ export default function InlineShippingCard({
           );
         })()}
 
-        {/* ── Merge group guidance banner ── */}
+        {/* ── Merge indicator ── */}
         {summary?.linkedOrderRef && (
-          <div className="rounded-md border border-amber-500/40 bg-amber-950/20 px-2.5 py-2 flex items-start gap-1.5">
-            <Plus className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
-            <p className="text-[11px] text-amber-300 leading-snug">
-              Merged with <span className="font-mono font-semibold">{summary.linkedOrderRef}</span>. Buy a label for this order and you'll be prompted to mark the linked order as shipped with the same tracking number — no second label needed.
-            </p>
+          <div className="flex items-center gap-1.5 text-[11px] text-amber-400/80">
+            <Link2 className="w-3 h-3 shrink-0" />
+            <span>Ships with <span className="font-mono font-semibold">{summary.linkedOrderRef}</span> — one label, shared tracking</span>
+          </div>
+        )}
+
+        {/* ── Split indicator ── */}
+        {splitFromRef && (
+          <div className="flex items-center gap-1.5 text-[11px] text-blue-400/70">
+            <Scissors className="w-3 h-3 shrink-0" />
+            <span>Split from <span className="font-mono font-semibold">{splitFromRef}</span></span>
           </div>
         )}
 

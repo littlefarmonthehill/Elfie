@@ -73,6 +73,8 @@ type Order = {
   requestedShippingService: string | null;
   workflowStatus: WorkflowStatus | null;
   mergeGroupId: string | null;
+  parentOrderId: string | null;
+  localOnly: boolean;
   orderTotal: string | null;
   insuranceAmount: string | null;
 };
@@ -1476,26 +1478,37 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                   <Truck className="w-4 h-4 text-purple-400" />
                   Selected Orders
                 </h3>
-                <div className="space-y-2">
-                  {[...selectedOrders].map((orderId) => {
+                {/* Pre-group orders so merged pairs render together */}
+                {(() => {
+                  const toOrderItem = (item: FulfillmentItem): OrderItem => ({
+                    id: item.id, sku: item.sku, bricklinkPartNumber: item.bricklinkPartNumber,
+                    name: item.name, quantity: item.quantity, colorName: item.colorName,
+                    condition: item.condition, binName: item.binName,
+                  });
+
+                  // Build groups: merged pairs share a group, standalone orders are alone
+                  const orderArr = [...selectedOrders];
+                  const seen = new Set<string>();
+                  const orderGroups: string[][] = [];
+                  for (const oid of orderArr) {
+                    if (seen.has(oid)) continue;
+                    const o = allOrders.find(x => x.id === oid);
+                    const sibId = o?.mergeGroupId
+                      ? orderArr.find(id => id !== oid && allOrders.find(x => x.id === id)?.mergeGroupId === o.mergeGroupId)
+                      : null;
+                    if (sibId && !seen.has(sibId)) {
+                      orderGroups.push([oid, sibId]);
+                      seen.add(oid); seen.add(sibId);
+                    } else {
+                      orderGroups.push([oid]);
+                      seen.add(oid);
+                    }
+                  }
+
+                  const renderCard = (orderId: string) => {
                     const order = allOrders.find(o => o.id === orderId);
-
-                    const toOrderItem = (item: FulfillmentItem): OrderItem => ({
-                      id: item.id,
-                      sku: item.sku,
-                      bricklinkPartNumber: item.bricklinkPartNumber,
-                      name: item.name,
-                      quantity: item.quantity,
-                      colorName: item.colorName,
-                      condition: item.condition,
-                      binName: item.binName,
-                    });
-
                     const items: OrderItem[] = (data?.items ?? [])
-                      .filter(item => item.orderId === orderId)
-                      .map(toOrderItem);
-
-                    // Find merged sibling order and its items
+                      .filter(item => item.orderId === orderId).map(toOrderItem);
                     const siblingOrder = order?.mergeGroupId
                       ? allOrders.find(o => o.mergeGroupId === order.mergeGroupId && o.id !== orderId)
                       : null;
@@ -1505,6 +1518,13 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                     const siblingOrderRef = siblingOrder
                       ? `${siblingOrder.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}${(siblingOrder.orderNumber ?? '').replace(/^(BL\.|BO\.)/i, '')}`
                       : undefined;
+                    // Split-from reference: find parent order formatted ref
+                    const parentOrder = order?.parentOrderId
+                      ? allOrders.find(o => o.id === order.parentOrderId)
+                      : null;
+                    const splitFromRef = parentOrder
+                      ? `${parentOrder.marketplace === 'BrickOwl' ? 'BO.' : 'BL.'}${(parentOrder.orderNumber ?? '').replace(/^(BL\.|BO\.)/i, '')}`
+                      : (order?.localOnly && order?.parentOrderId ? order.parentOrderId : null);
                     const isThisCardSplitting = isSplitMode && splitTargetOrderId === orderId;
                     const splitItems = (data?.items ?? []).filter(i => i.orderId === orderId);
 
@@ -1571,6 +1591,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                             orderItems={items}
                             siblingItems={siblingItems}
                             siblingOrderRef={siblingOrderRef}
+                            splitFromRef={splitFromRef}
                             internalNotes={order?.internalNotes ?? null}
                             onSplit={!isThisCardSplitting ? () => handleInitiateSplit(orderId) : undefined}
                             onMerge={!isThisCardSplitting ? () => { setMergeDialog({ orderId, mergeGroupId: order?.mergeGroupId ?? null }); setMergeSearch(''); } : undefined}
@@ -1597,8 +1618,23 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                         )}
                       </div>
                     );
-                  })}
-                </div>
+                  }; // end renderCard
+
+                  return (
+                    <div className="space-y-2">
+                      {orderGroups.map((group) => {
+                        if (group.length >= 2) {
+                          return (
+                            <div key={group.join('-')} className="border-l-2 border-amber-500/30 pl-2 space-y-1">
+                              {group.map(oid => renderCard(oid))}
+                            </div>
+                          );
+                        }
+                        return renderCard(group[0]);
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
             ) : (
               <p className="text-sm text-gray-500 text-center py-8">Select orders above to see shipping options.</p>
