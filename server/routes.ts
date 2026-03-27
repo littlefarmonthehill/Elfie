@@ -16175,12 +16175,12 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
       }
 
       const [sourceOrder] = await db
-        .select({ id: orders.id, mergeGroupId: orders.mergeGroupId })
+        .select({ id: orders.id, orderNumber: orders.orderNumber, mergeGroupId: orders.mergeGroupId })
         .from(orders)
         .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)))
         .limit(1);
       const [targetOrder] = await db
-        .select({ id: orders.id, mergeGroupId: orders.mergeGroupId })
+        .select({ id: orders.id, orderNumber: orders.orderNumber, mergeGroupId: orders.mergeGroupId })
         .from(orders)
         .where(and(eq(orders.id, targetOrderId), eq(orders.orgId, orgId)))
         .limit(1);
@@ -16193,11 +16193,20 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
       // otherwise generate a new one.
       const mergeGroupId = sourceOrder.mergeGroupId || targetOrder.mergeGroupId || randomUUID();
 
+      const mergeDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       await db.update(orders)
-        .set({ mergeGroupId, updatedAt: new Date() })
+        .set({
+          mergeGroupId,
+          updatedAt: new Date(),
+          internalNotes: sql`CASE WHEN ${orders.internalNotes} IS NULL OR ${orders.internalNotes} = '' THEN ${`[${mergeDate}] Merged with ${targetOrder.orderNumber} — items shipping together`} ELSE ${orders.internalNotes} || E'\n' || ${`[${mergeDate}] Merged with ${targetOrder.orderNumber} — items shipping together`} END`,
+        })
         .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)));
       await db.update(orders)
-        .set({ mergeGroupId, updatedAt: new Date() })
+        .set({
+          mergeGroupId,
+          updatedAt: new Date(),
+          internalNotes: sql`CASE WHEN ${orders.internalNotes} IS NULL OR ${orders.internalNotes} = '' THEN ${`[${mergeDate}] Merged with ${sourceOrder.orderNumber} — items shipping together`} ELSE ${orders.internalNotes} || E'\n' || ${`[${mergeDate}] Merged with ${sourceOrder.orderNumber} — items shipping together`} END`,
+        })
         .where(and(eq(orders.id, targetOrderId), eq(orders.orgId, orgId)));
 
       res.json({ success: true, mergeGroupId });

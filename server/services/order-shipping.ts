@@ -282,6 +282,17 @@ export async function splitOrder(orderId: string, itemIdsToKeep: string[]): Prom
         .where(eq(orderDetails.id, item.id));
     }
 
+    // Stamp an internal note on the original order recording what was split off
+    const splitDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const movedNames = itemsToMove.map(i => i.name).join(', ');
+    const splitNote = `[${splitDate}] Split: ${itemsToMove.length} item${itemsToMove.length !== 1 ? 's' : ''} moved to ${splitOrderNumber} (${movedNames})`;
+    await tx.update(orders)
+      .set({
+        internalNotes: sql`CASE WHEN ${orders.internalNotes} IS NULL OR ${orders.internalNotes} = '' THEN ${splitNote} ELSE ${orders.internalNotes} || E'\n' || ${splitNote} END`,
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, orderId));
+
     return {
       originalOrderId: orderId,
       splitOrderId: splitOrder.id,
