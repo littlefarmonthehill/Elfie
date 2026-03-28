@@ -4211,7 +4211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Query orders that have at least one item matching the product line
-        let whereConditions = sql`o.org_id = ${orgId} AND o.order_status NOT IN ('cancelled', 'Cancelled') AND o.is_test = false AND ${productLineCondition}`;
+        let whereConditions = sql`o.org_id = ${orgId} AND o.order_status NOT IN ('cancelled', 'Cancelled', 'returned') AND o.is_test = false AND ${productLineCondition}`;
         
         if (platform) {
           whereConditions = sql`${whereConditions} AND (o.marketplace = ${platform} OR (o.marketplace IS NULL AND ${platform} = 'Unknown'))`;
@@ -4433,8 +4433,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, eq(orders.orderStatus, 'shipped'));
 
       const revenueWhere = dateStart
-        ? and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled')`, dateRangeClause)
-        : and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled')`);
+        ? and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled', 'returned')`, dateRangeClause)
+        : and(eq(orders.orgId, orgId), sql`${orders.isTest} = false`, sql`${orders.orderStatus} NOT IN ('cancelled', 'Cancelled', 'returned')`);
 
       const avgLotsClause = dateStart
         ? dateEnd
@@ -4742,9 +4742,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!order) return res.status(404).json({ error: "Order not found" });
 
       // Split child orders (parentOrderId set) inherit their parent's refund — skip the check.
+      // Returned orders with no ship date were cancelled before shipment — no money was ever
+      // collected, so no refund record exists. Skip the refund gate for these.
       // For all other orders: must have a refund adjustment and net total ≤ 0.
       const isSplitChild = !!order.parentOrderId;
-      if (!order.isTest && !isSplitChild) {
+      const isUnshippedReturn = order.orderStatus === 'returned' && !order.shipDate;
+      if (!order.isTest && !isSplitChild && !isUnshippedReturn) {
         const adjResult = await db.execute(sql`
           SELECT COALESCE(SUM(ABS(amount::numeric)) FILTER (WHERE type = 'refund'), 0) AS refund_total
           FROM order_adjustments WHERE order_id = ${orderId}
@@ -4902,7 +4905,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let dateFilter: Date | null = null;
       let endDateFilter: Date | null = null;
       
-      // Parse date range
       if (range && range !== 'all') {
         const now = new Date();
         switch (range) {
@@ -4927,7 +4929,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Build WHERE conditions
-      let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled') AND o.is_test = false`;
+      let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled', 'returned') AND o.is_test = false`;
       if (dateFilter && !endDateFilter) {
         whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter}`;
       } else if (dateFilter && endDateFilter) {
@@ -4994,7 +4996,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // SKU is now standardized to BrickLink inventory ID for both platforms
       
       // Build WHERE conditions for the query
-      let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled') AND o.is_test = false`;
+      let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled', 'returned') AND o.is_test = false`;
       if (dateFilter && !endDateFilter) {
         whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter}`;
       } else if (dateFilter && endDateFilter) {
@@ -5079,7 +5081,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Build WHERE conditions
-      let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled') AND o.is_test = false`;
+      let whereConditions = sql`o.order_status NOT IN ('cancelled', 'Cancelled', 'returned') AND o.is_test = false`;
       if (dateFilter && !endDateFilter) {
         whereConditions = sql`${whereConditions} AND o.order_date >= ${dateFilter}`;
       } else if (dateFilter && endDateFilter) {
