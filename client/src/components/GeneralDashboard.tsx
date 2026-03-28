@@ -228,15 +228,13 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
                 {flashReport.summary}
               </p>
             </div>
-            {(schedulerNextRunAt || schedulerEnabled === false) && (
+            {schedulerNextRunAt && (
               <p
                 className="text-[9px] leading-none text-right opacity-50"
                 style={{ color: `color-mix(in srgb, ${hex} 50%, #8899aa)` }}
                 data-testid={`flash-next-update-${label.toLowerCase()}`}
               >
-                {schedulerEnabled === false
-                  ? 'auto-brief off'
-                  : `next brief ${relTimeUntil(schedulerNextRunAt)}`}
+                {`next brief ${relTimeUntil(schedulerNextRunAt)}`}
               </p>
             )}
           </div>

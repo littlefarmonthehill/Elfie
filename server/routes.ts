@@ -2087,10 +2087,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(eq(syncMetadata.id, 'business_intel_sync'))
         .limit(1);
 
+      const schedulerEnabled = pSettings?.enabled ?? false;
       const freqMs = ((pSettings?.freq ?? 360)) * 60 * 1000;
       const lastMs = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : null;
-      const schedulerNextRunAt = lastMs ? new Date(lastMs + freqMs).toISOString() : null;
-      const schedulerEnabled = pSettings?.enabled ?? false;
+      const schedulerNextRunAt = schedulerEnabled && lastMs ? new Date(lastMs + freqMs).toISOString() : null;
 
       res.json({ reports, schedulerNextRunAt, schedulerEnabled });
     } catch (error: any) {
