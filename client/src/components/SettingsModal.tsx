@@ -7614,16 +7614,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       variant="outline"
                       size="sm"
                       className="w-full justify-start text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
-                      onClick={handleOpenTestOrdersDialog}
-                      data-testid="button-remove-test-orders"
-                    >
-                      <Trash2 className="h-3 w-3 mr-2" />
-                      Remove Test Orders
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
                       onClick={handleOpenClosedOrdersDialog}
                       data-testid="button-remove-closed-orders"
                     >
