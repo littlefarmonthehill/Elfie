@@ -475,8 +475,11 @@ export async function lookupBoid(blItemNo: string, type: string = 'Part', boColo
     // "{owl_id}-{bo_color_id}" (e.g. "978971-92"). Append the suffix so that
     // lot creation, adoption matching, and mismatch detection all stay consistent.
     const boid = (owlId && boColorId != null && boColorId > 0) ? `${owlId}-${boColorId}` : owlId;
-    boidCache.set(cacheKey, boid);
+    // Only cache positive results — null means "not found" which may be transient
+    // (catalog gap, API blip, wrong color mapping). Not caching allows the next
+    // full scan to retry and pick up newly added catalog entries.
     if (boid) {
+      boidCache.set(cacheKey, boid);
       console.log(`[BOID] ✓ ${blItemNo} (color=${boColorId ?? 'any'}) → ${boid}`);
     } else {
       console.log(`[BOID] ✗ ${blItemNo} (color=${boColorId ?? 'any'}): not found`);
