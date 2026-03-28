@@ -113,13 +113,26 @@ function AlertRow({ icon: Icon, iconColor, label, sub, onClick, severity = 'warn
   );
 }
 
-function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, lastActions, onClick, isActive, channelNum, channelHex, flashReport }: {
+function relTimeUntil(isoDate: string | null): string {
+  if (!isoDate) return '';
+  const diffMs = new Date(isoDate).getTime() - Date.now();
+  if (diffMs <= 0) return 'update due';
+  const mins = Math.round(diffMs / 60000);
+  if (mins < 60) return `in ${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  const rem = mins % 60;
+  return rem > 0 ? `in ${hrs}h ${rem}m` : `in ${hrs}h`;
+}
+
+function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, lastActions, onClick, isActive, channelNum, channelHex, flashReport, schedulerNextRunAt, schedulerEnabled }: {
   label: string; Icon: React.ElementType; color: string; stat?: string;
   alerts: Array<{ id: string; icon: React.ElementType; iconColor: string; label: string; sub?: string; severity: 'warn' | 'error' | 'info'; onClick?: () => void }>;
   runningJobs?: React.ReactNode; isRunning?: boolean; lastActions?: Array<{ label: string; time: string; ok: boolean }>;
   onClick?: () => void;
   isActive?: boolean; channelNum?: string; channelHex?: string;
-  flashReport?: { summary: string; urgency: string } | null;
+  flashReport?: { summary: string; urgency: string; updatedAt?: string } | null;
+  schedulerNextRunAt?: string | null;
+  schedulerEnabled?: boolean;
 }) {
   const [lastActionsOpen, setLastActionsOpen] = useState(false);
   const hex = channelHex ?? '#1B7CE5';
@@ -202,17 +215,30 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
         {/* Flash Report — agent situation brief, shown before alerts */}
         {flashReport?.summary && (
           <div
-            className="flex items-start gap-1.5 rounded px-2 py-1.5"
+            className="flex flex-col gap-1 rounded px-2 py-1.5"
             style={{ background: `color-mix(in srgb, ${hex} 10%, #080a14)`, border: `1px solid ${hex}25` }}
             data-testid={`flash-report-${label.toLowerCase()}`}
           >
-            <Sparkles className="w-2.5 h-2.5 shrink-0 mt-[2px] opacity-80" style={{ color: hex }} />
-            <p
-              className="text-[10px] leading-[1.4] italic"
-              style={{ color: `color-mix(in srgb, ${hex} 65%, #8899aa)` }}
-            >
-              {flashReport.summary}
-            </p>
+            <div className="flex items-start gap-1.5">
+              <Sparkles className="w-2.5 h-2.5 shrink-0 mt-[2px] opacity-80" style={{ color: hex }} />
+              <p
+                className="text-[10px] leading-[1.4] italic"
+                style={{ color: `color-mix(in srgb, ${hex} 65%, #8899aa)` }}
+              >
+                {flashReport.summary}
+              </p>
+            </div>
+            {(schedulerNextRunAt || schedulerEnabled === false) && (
+              <p
+                className="text-[9px] leading-none text-right opacity-50"
+                style={{ color: `color-mix(in srgb, ${hex} 50%, #8899aa)` }}
+                data-testid={`flash-next-update-${label.toLowerCase()}`}
+              >
+                {schedulerEnabled === false
+                  ? 'auto-brief off'
+                  : `next brief ${relTimeUntil(schedulerNextRunAt)}`}
+              </p>
+            )}
           </div>
         )}
 
@@ -707,11 +733,18 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   });
   const abandonedQtyUpdates = syncQueueData?.stats?.abandoned ?? 0;
 
-  const { data: flashReports } = useQuery<Record<string, { summary: string; urgency: string; updatedAt: string } | null>>({
+  const { data: flashReportPayload } = useQuery<{
+    reports: Record<string, { summary: string; urgency: string; updatedAt: string } | null>;
+    schedulerNextRunAt: string | null;
+    schedulerEnabled: boolean;
+  }>({
     queryKey: ['/api/ops/flash-report'],
-    refetchInterval: 5 * 60 * 1000, // refetch every 5 minutes
+    refetchInterval: 5 * 60 * 1000,
     staleTime: 4 * 60 * 1000,
   });
+  const flashReports = flashReportPayload?.reports;
+  const schedulerNextRunAt = flashReportPayload?.schedulerNextRunAt ?? null;
+  const schedulerEnabled = flashReportPayload?.schedulerEnabled ?? false;
 
   const underpricedThreshold = appSettings?.pomUnderpricedScore ?? 1.5;
 
@@ -841,6 +874,8 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           channelNum="01"
           channelHex="#1B7CE5"
           flashReport={flashReports?.inventory ?? null}
+          schedulerNextRunAt={schedulerNextRunAt}
+          schedulerEnabled={schedulerEnabled}
           isRunning={isInvSyncing || isScanProcessing || isChannelSyncing || !!activeInvEmbed}
           lastActions={[
             { label: 'Inventory sync', time: relTime(lastInvSync?.lastSyncTime), ok: !invSyncFailed },
@@ -884,6 +919,8 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           channelNum="02"
           channelHex="#E8611C"
           flashReport={flashReports?.orders ?? null}
+          schedulerNextRunAt={schedulerNextRunAt}
+          schedulerEnabled={schedulerEnabled}
           isRunning={isOrderSyncing || !!activeOrdEmbed}
           lastActions={[
             { label: 'Order sync', time: relTime(lastOrderSync?.lastSyncTime), ok: !orderSyncFailed },
@@ -917,6 +954,8 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           channelNum="03"
           channelHex="#F5C200"
           flashReport={flashReports?.market ?? null}
+          schedulerNextRunAt={schedulerNextRunAt}
+          schedulerEnabled={schedulerEnabled}
         />
 
         <OpAreaCard
@@ -937,6 +976,8 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
             if (!c) return p ?? null;
             return p; // pricing takes priority for Insights card
           })()}
+          schedulerNextRunAt={schedulerNextRunAt}
+          schedulerEnabled={schedulerEnabled}
         />
       </div>)}
 

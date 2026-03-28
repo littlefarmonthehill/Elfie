@@ -2074,7 +2074,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!orgId) return res.status(400).json({ message: 'No orgId' });
       const { getOpsFlashReports } = await import('./services/agent-team');
       const reports = await getOpsFlashReports(orgId);
-      res.json(reports);
+
+      // Include the scheduler next-run time so the UI can show "next update in X"
+      const [pSettings] = await db
+        .select({ freq: platformSettings.businessIntelFrequency, enabled: platformSettings.businessIntelEnabled })
+        .from(platformSettings)
+        .where(eq(platformSettings.id, 'platform'))
+        .limit(1);
+      const [meta] = await db
+        .select({ lastSyncTime: syncMetadata.lastSyncTime })
+        .from(syncMetadata)
+        .where(eq(syncMetadata.id, 'business_intel_sync'))
+        .limit(1);
+
+      const freqMs = ((pSettings?.freq ?? 360)) * 60 * 1000;
+      const lastMs = meta?.lastSyncTime ? new Date(meta.lastSyncTime).getTime() : null;
+      const schedulerNextRunAt = lastMs ? new Date(lastMs + freqMs).toISOString() : null;
+      const schedulerEnabled = pSettings?.enabled ?? false;
+
+      res.json({ reports, schedulerNextRunAt, schedulerEnabled });
     } catch (error: any) {
       console.error('[FlashReport] Error fetching flash reports:', error);
       res.status(500).json({ message: error.message });
