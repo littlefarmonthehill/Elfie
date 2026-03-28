@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
+import ItemDetailDrawer from "@/components/ItemDetailDrawer";
 
 interface OrderDetailProps {
   data: {
@@ -89,6 +90,7 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showCustomerNote, setShowCustomerNote] = useState(false);
+  const [selectedItemNo, setSelectedItemNo] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     street1: data.customer?.address || '',
     street2: data.customer?.address2 || '',
@@ -522,7 +524,8 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
             {data.items.map((item, index) => (
               <div
                 key={index}
-                className={`grid grid-cols-12 gap-2 text-[10px] md:text-sm items-center py-1 rounded transition-colors ${item.stockWarning ? 'bg-amber-400/5 hover:bg-amber-400/10' : 'hover:bg-lego-green/5'}`}
+                onClick={() => item.partNumber && setSelectedItemNo(item.partNumber)}
+                className={`grid grid-cols-12 gap-2 text-[10px] md:text-sm items-center py-1 rounded transition-colors cursor-pointer ${item.stockWarning ? 'bg-amber-400/5 hover:bg-amber-400/10' : 'hover:bg-lego-green/5'}`}
                 data-testid={`order-item-row-${index}`}
               >
                 <div className="col-span-2 font-mono font-bold text-lego-blue truncate flex items-center gap-1" title={item.partNumber}>
@@ -727,6 +730,13 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
             </div>
           )}
         </div>
+      )}
+      {selectedItemNo && (
+        <ItemDetailDrawer
+          open={!!selectedItemNo}
+          onClose={() => setSelectedItemNo(null)}
+          itemNo={selectedItemNo}
+        />
       )}
     </div>
   );

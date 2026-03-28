@@ -13062,6 +13062,70 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     }
   });
 
+  // GET /api/sync/orders/recent — orders added or updated in the most recent sync
+  app.get('/api/sync/orders/recent', isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const platform = (req.query.platform as string) || 'bricklink';
+      const type = (req.query.type as string) || 'added';
+      const limit = Math.min(parseInt(req.query.limit as string) || 30, 100);
+
+      const syncId = platform === 'bricklink' ? 'bricklink_orders' : 'brickowl_orders';
+      const prefix = platform === 'bricklink' ? 'bl-' : 'bo-';
+
+      const [meta] = await db.select().from(syncMetadata).where(and(eq(syncMetadata.id, syncId), eq(syncMetadata.orgId, orgId))).limit(1);
+
+      const totalCount = type === 'added' ? (meta?.recordsAdded ?? 0) : (meta?.recordsUpdated ?? 0);
+
+      let rows: any[];
+      if (type === 'added') {
+        rows = await db.select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          orderStatus: orders.orderStatus,
+          customerUsername: orders.customerUsername,
+          orderTotal: orders.orderTotal,
+          orderDate: orders.orderDate,
+          syncedAt: orders.syncedAt,
+        }).from(orders)
+          .where(and(
+            eq(orders.orgId, orgId),
+            sql`${orders.id} LIKE ${prefix + '%'}`,
+            eq(orders.isTest, false),
+            sql`${orders.orderStatus} != 'purged'`,
+          ))
+          .orderBy(desc(orders.syncedAt))
+          .limit(limit);
+      } else {
+        rows = await db.select({
+          id: orders.id,
+          orderNumber: orders.orderNumber,
+          orderStatus: orders.orderStatus,
+          previousStatus: orders.previousStatus,
+          customerUsername: orders.customerUsername,
+          orderTotal: orders.orderTotal,
+          orderDate: orders.orderDate,
+          updatedAt: orders.updatedAt,
+          syncedAt: orders.syncedAt,
+        }).from(orders)
+          .where(and(
+            eq(orders.orgId, orgId),
+            sql`${orders.id} LIKE ${prefix + '%'}`,
+            eq(orders.isTest, false),
+            sql`${orders.orderStatus} != 'purged'`,
+            sql`${orders.updatedAt} > ${orders.syncedAt}`,
+          ))
+          .orderBy(desc(orders.updatedAt))
+          .limit(limit);
+      }
+
+      res.json({ items: rows, totalCount, lastSyncTime: meta?.lastSyncTime ?? null });
+    } catch (error: any) {
+      console.error('Error fetching recent synced orders:', error);
+      res.status(500).json({ error: error.message || 'Failed to fetch recent orders' });
+    }
+  });
+
   // BrickLink order sync endpoint
   app.post("/api/sync/bricklink/orders", isApproved, async (req: any, res) => {
     try {

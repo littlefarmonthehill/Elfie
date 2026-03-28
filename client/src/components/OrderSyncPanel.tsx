@@ -15,6 +15,7 @@ import {
   ChevronDown,
   X,
   ChevronRight,
+  ArrowLeft,
   ShoppingCart,
   Package,
   Globe,
@@ -126,6 +127,7 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
   const [showFromPicker, setShowFromPicker] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<number | null | 'custom'>(30); // days or null (all time) or 'custom'
   const [customDate, setCustomDate] = useState('');
+  const [changeDetail, setChangeDetail] = useState<'added' | 'updated' | null>(null);
   const cfg = PLATFORM_CONFIG[platform];
 
   const { data: syncStatuses } = useQuery<any>({
@@ -177,6 +179,12 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
   });
 
   const isSyncing = syncMutation.isPending || isRunning;
+
+  const { data: recentOrders, isLoading: recentOrdersLoading } = useQuery<any>({
+    queryKey: ['/api/sync/orders/recent', platform, changeDetail],
+    queryFn: () => apiRequest('GET', `/api/sync/orders/recent?platform=${platform}&type=${changeDetail}&limit=30`),
+    enabled: drawerOpen && changeDetail !== null,
+  });
 
   const progressRoute = platform === 'bricklink'
     ? '/api/sync/bricklink/orders/progress'
@@ -262,16 +270,24 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
         </div>
       </button>
 
-      <Drawer open={drawerOpen} onOpenChange={(open) => { setDrawerOpen(open); if (!open) setShowFromPicker(false); }}>
+      <Drawer open={drawerOpen} onOpenChange={(open) => { setDrawerOpen(open); if (!open) { setShowFromPicker(false); setChangeDetail(null); } }}>
         <DrawerContent className="bg-gray-950 border-gray-800 h-[75vh] flex flex-col rounded-t-2xl">
           <DrawerHeader className="p-0 flex-shrink-0">
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 rounded-full bg-gray-600" />
             </div>
             <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-gray-800">
-              <Icon className={`w-4 h-4 ${cfg.accentIcon} flex-shrink-0`} />
+              {changeDetail ? (
+                <button onClick={() => setChangeDetail(null)} className="text-gray-400 hover:text-gray-200 transition-colors flex-shrink-0" data-testid={`button-back-${platform}-change-detail`}>
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+              ) : (
+                <Icon className={`w-4 h-4 ${cfg.accentIcon} flex-shrink-0`} />
+              )}
               <DrawerTitle className="text-sm font-semibold text-gray-100 flex-1">
-                {cfg.label} — Order Sync
+                {changeDetail === 'added' ? `Recently Added — ${cfg.label}`
+                  : changeDetail === 'updated' ? `Recently Updated — ${cfg.label}`
+                  : `${cfg.label} — Order Sync`}
               </DrawerTitle>
               <DrawerClose
                 className="ml-2 text-gray-500 hover:text-gray-200 transition-colors"
@@ -284,6 +300,60 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
           </DrawerHeader>
 
           <div className="flex-1 overflow-y-auto min-h-0 px-4 pt-3 pb-6 space-y-4">
+            {/* Recent orders sub-view */}
+            {changeDetail && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 px-0.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 flex-1">
+                    {changeDetail === 'added' ? 'Most recently added' : 'Most recently updated'}
+                  </p>
+                  <span className="text-[10px] text-gray-600">up to 30</span>
+                </div>
+                {recentOrdersLoading ? (
+                  <div className="flex items-center gap-2 py-6 justify-center text-gray-500 text-xs">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />Loading…
+                  </div>
+                ) : !recentOrders?.items?.length ? (
+                  <div className="rounded-lg border border-gray-700/50 bg-gray-900/40 p-4 text-center text-xs text-gray-500">No orders found</div>
+                ) : (
+                  <div className="space-y-1">
+                    {recentOrders.items.map((order: any) => (
+                      <div key={order.id} className="flex items-center gap-3 rounded-md bg-gray-900/50 px-2.5 py-2" data-testid={`row-order-change-${order.id}`}>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-[10px] font-mono font-semibold ${cfg.accentIcon}`}>#{order.orderNumber}</span>
+                            {order.customerUsername && (
+                              <span className="text-[9px] text-gray-400 truncate">{order.customerUsername}</span>
+                            )}
+                            <span className="text-[9px] text-gray-600 capitalize">{order.orderStatus}</span>
+                          </div>
+                          {changeDetail === 'updated' && order.previousStatus && order.previousStatus !== order.orderStatus && (
+                            <p className="text-[9px] font-mono mt-0.5">
+                              <span className="text-red-400/80">{order.previousStatus}</span>
+                              <span className="text-gray-600"> → </span>
+                              <span className="text-green-400/80">{order.orderStatus}</span>
+                            </p>
+                          )}
+                          {changeDetail === 'updated' && (!order.previousStatus || order.previousStatus === order.orderStatus) && (
+                            <p className="text-[9px] text-gray-600 mt-0.5 italic">details updated</p>
+                          )}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-[10px] font-mono font-semibold text-white">${parseFloat(order.orderTotal).toFixed(2)}</p>
+                          <p className="text-[9px] text-gray-500">
+                            {new Date(changeDetail === 'updated' ? (order.updatedAt ?? order.syncedAt) : order.syncedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Main drawer content — hidden when sub-view is active */}
+            {!changeDetail && (<>
+
             {/* Action buttons */}
             <div className="space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
@@ -469,19 +539,25 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
                     )}
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     {[
-                      { label: 'Orders',  value: stats?.totalOrders  },
-                      { label: 'Pending', value: stats?.pendingOrders },
-                      { label: 'Added',   value: meta.recordsAdded   },
-                    ].map(({ label, value }) => (
-                      <div key={label} className="rounded bg-gray-800/60 px-2 py-1.5 text-center">
-                        <p className={`text-base font-mono font-bold ${cfg.accentIcon}`}>
-                          {value != null ? Number(value).toLocaleString() : '—'}
-                        </p>
-                        <p className="text-[9px] text-gray-500 mt-0.5">{label}</p>
-                      </div>
-                    ))}
+                      { label: 'Orders',  value: stats?.totalOrders,    color: cfg.accentIcon, clickable: false },
+                      { label: 'Pending', value: stats?.pendingOrders,  color: 'text-orange-300', clickable: false },
+                      { label: 'Added',   value: meta.recordsAdded,     color: 'text-green-400',  clickable: true, type: 'added'   as const },
+                      { label: 'Updated', value: meta.recordsUpdated,   color: 'text-yellow-300', clickable: true, type: 'updated' as const },
+                    ].map(({ label, value, color, clickable, type }) =>
+                      clickable ? (
+                        <button key={label} onClick={() => setChangeDetail(type!)} className="rounded bg-gray-800/60 px-2 py-1.5 text-center hover-elevate active-elevate-2 w-full" data-testid={`button-${platform}-stat-${label.toLowerCase()}`}>
+                          <p className={`text-base font-mono font-bold ${color}`}>{value != null ? Number(value).toLocaleString() : '—'}</p>
+                          <p className="text-[9px] text-gray-500 mt-0.5 flex items-center justify-center gap-0.5">{label}<ChevronRight className="w-2.5 h-2.5 text-gray-600" /></p>
+                        </button>
+                      ) : (
+                        <div key={label} className="rounded bg-gray-800/60 px-2 py-1.5 text-center">
+                          <p className={`text-base font-mono font-bold ${color}`}>{value != null ? Number(value).toLocaleString() : '—'}</p>
+                          <p className="text-[9px] text-gray-500 mt-0.5">{label}</p>
+                        </div>
+                      )
+                    )}
                   </div>
 
                   {meta.errorMessage && meta.lastSyncStatus !== 'success' && (
@@ -519,6 +595,7 @@ export default function OrderSyncPanel({ platform, onOpenSettings }: OrderSyncPa
                 ))}
               </div>
             </div>
+            </>)}
           </div>
         </DrawerContent>
       </Drawer>
