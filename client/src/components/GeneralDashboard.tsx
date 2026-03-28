@@ -123,18 +123,10 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
   const [lastActionsOpen, setLastActionsOpen] = useState(false);
   const hex = channelHex ?? '#1B7CE5';
 
-  const cardBgMap: Record<string, string> = {
-    blue:   'bg-gradient-to-br from-blue-950/40 via-gray-950/70 to-blue-950/20',
-    orange: 'bg-gradient-to-br from-orange-950/40 via-gray-950/70 to-orange-950/20',
-    green:  'bg-gradient-to-br from-green-950/40 via-gray-950/70 to-green-950/20',
-    yellow: 'bg-gradient-to-br from-yellow-950/40 via-gray-950/70 to-yellow-950/20',
-    purple: 'bg-gradient-to-br from-purple-950/40 via-gray-950/70 to-purple-950/20',
-  };
   const iconColorMap: Record<string, string> = {
     blue: 'text-blue-300', orange: 'text-orange-300', green: 'text-green-300',
-    yellow: 'text-yellow-300', purple: 'text-purple-300',
+    yellow: 'text-yellow-200', purple: 'text-purple-300',
   };
-  const cardBg = cardBgMap[color] ?? cardBgMap.blue;
   const iconColor = iconColorMap[color] ?? iconColorMap.blue;
 
   const sevDotColor: Record<string, string> = { error: '#f87171', warn: '#fb923c', info: '#4ade80' };
@@ -145,64 +137,68 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
   );
   const errorCount = sortedAlerts.filter(a => a.severity === 'error').length;
   const hasAlerts = sortedAlerts.length > 0;
-  const hasRunning = isRunning || !!runningJobs;
   const validActions = (lastActions ?? []).filter(a => a.time !== 'never');
 
   return (
     <div
-      className={cn('rounded-lg border flex flex-col overflow-hidden transition-all duration-200 hover-elevate active-elevate-2', cardBg)}
+      className="rounded-lg border flex flex-col overflow-hidden transition-all duration-200 hover-elevate active-elevate-2"
       style={{
         height: '186px',
-        borderColor: isActive ? `${hex}99` : `${hex}44`,
-        boxShadow: isActive ? `0 0 18px ${hex}30` : `0 0 14px ${hex}10`,
+        background: `linear-gradient(135deg, color-mix(in srgb, ${hex} 18%, #0a0c14) 0%, #0d0f1a 55%, color-mix(in srgb, ${hex} 8%, #0a0c14) 100%)`,
+        borderColor: isActive ? `${hex}cc` : `${hex}66`,
+        boxShadow: isActive
+          ? `0 0 28px ${hex}45, 0 0 8px ${hex}20, inset 0 1px 0 ${hex}30`
+          : `0 0 16px ${hex}20, inset 0 1px 0 ${hex}18`,
       }}
       data-testid={`ops-area-${label.toLowerCase()}`}
     >
+      {/* ── Colored top-edge accent ── */}
+      <div style={{ height: 2, background: `linear-gradient(90deg, transparent 0%, ${hex} 30%, ${hex} 70%, transparent 100%)`, opacity: isActive ? 0.9 : 0.45, flexShrink: 0 }} />
+
       {/* ── Header ── */}
       <button
         onClick={onClick}
-        className="flex items-center gap-2 px-3 py-2.5 w-full text-left flex-shrink-0 hover-elevate"
-        style={{ borderBottom: `1px solid ${hex}22` }}
+        className="flex items-center gap-2 px-3 py-2 w-full text-left flex-shrink-0 hover-elevate"
+        style={{ borderBottom: `1px solid ${hex}30`, background: `linear-gradient(180deg, color-mix(in srgb, ${hex} 22%, transparent) 0%, transparent 100%)` }}
       >
         {channelNum && (
           <div
             className="shrink-0 rounded font-mono font-black leading-none"
             style={{
-              fontSize: '7px', letterSpacing: '0.08em', padding: '2px 4px',
-              background: isActive ? '#03040C' : 'rgba(0,0,0,0.35)',
-              border: `1px solid ${isActive ? hex : 'rgba(255,255,255,0.14)'}`,
-              boxShadow: isActive ? `0 0 5px ${hex}55` : 'none',
-              color: isActive ? hex : 'rgba(180,200,255,0.55)',
+              fontSize: '8px', letterSpacing: '0.1em', padding: '2px 5px',
+              background: `color-mix(in srgb, ${hex} 15%, #03040C)`,
+              border: `1px solid ${hex}${isActive ? 'cc' : '66'}`,
+              boxShadow: isActive ? `0 0 8px ${hex}66` : `0 0 4px ${hex}33`,
+              color: hex,
             }}
           >CH{channelNum}</div>
         )}
-        <Icon className={cn('w-3.5 h-3.5 shrink-0', iconColor, isActive && 'drop-shadow-[0_0_3px_currentColor]')} />
-        <span className={cn('text-xs font-bold uppercase tracking-wide flex-1 min-w-0 truncate', isActive ? 'text-foreground' : 'text-foreground/75')}>
+        <Icon className={cn('w-3.5 h-3.5 shrink-0 drop-shadow-[0_0_4px_currentColor]', iconColor)} />
+        <span className="text-xs font-bold uppercase tracking-wide flex-1 min-w-0 truncate text-foreground/90">
           {label}
         </span>
         {stat && (
-          <span className="text-[10px] text-muted-foreground/60 font-mono shrink-0 truncate max-w-[100px]">{stat}</span>
+          <span className="text-[10px] font-mono shrink-0 truncate max-w-[110px]" style={{ color: `color-mix(in srgb, ${hex} 70%, #8899aa)` }}>{stat}</span>
         )}
         {/* Status dot */}
         {errorCount > 0 ? (
-          <div className="w-2 h-2 rounded-full bg-red-400 shrink-0 shadow-[0_0_5px_#f87171]" />
+          <div className="w-2 h-2 rounded-full bg-red-400 shrink-0 shadow-[0_0_6px_#f87171]" />
         ) : hasAlerts ? (
-          <div className="w-2 h-2 rounded-full bg-orange-400 shrink-0 shadow-[0_0_5px_#fb923c]" />
-        ) : hasRunning ? (
+          <div className="w-2 h-2 rounded-full bg-orange-400 shrink-0 shadow-[0_0_6px_#fb923c]" />
+        ) : isRunning ? (
           <div className="relative w-2 h-2 shrink-0">
-            <div className="absolute inset-0 rounded-full bg-cyan-400 animate-ping opacity-60" />
+            <div className="absolute inset-0 rounded-full bg-cyan-400 animate-ping opacity-75" />
             <div className="absolute inset-0 rounded-full bg-cyan-400" />
           </div>
         ) : (
-          <div className="w-2 h-2 rounded-full bg-green-500 shrink-0 shadow-[0_0_5px_#22c55e55]" />
+          <div className="w-2 h-2 rounded-full bg-green-400 shrink-0 shadow-[0_0_6px_#4ade80]" />
         )}
       </button>
 
       {/* ── Body ── */}
-      <div className="flex-1 overflow-hidden px-3 py-2 flex flex-col gap-1.5 min-h-0">
+      <div className="flex-1 overflow-hidden px-3 py-2 flex flex-col gap-1 min-h-0">
         {hasAlerts && (
           <div className="space-y-1">
-            <p className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/40 mb-0.5">Attention</p>
             {sortedAlerts.slice(0, 4).map(a => (
               <button
                 key={a.id}
@@ -211,8 +207,8 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
                 data-testid={`alert-${a.id}`}
               >
                 <div
-                  className="shrink-0 mt-[3px] rounded-full"
-                  style={{ width: 5, height: 5, background: sevDotColor[a.severity] ?? '#fb923c', boxShadow: `0 0 4px ${sevDotColor[a.severity] ?? '#fb923c'}` }}
+                  className="shrink-0 mt-[4px] rounded-full"
+                  style={{ width: 5, height: 5, background: sevDotColor[a.severity] ?? '#fb923c', boxShadow: `0 0 5px ${sevDotColor[a.severity] ?? '#fb923c'}` }}
                 />
                 <div className="min-w-0 flex-1">
                   <p className={cn('text-[10px] leading-tight truncate font-medium', sevTextColor[a.severity] ?? 'text-orange-400')}>{a.label}</p>
@@ -224,17 +220,16 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
           </div>
         )}
 
-        {hasRunning && runningJobs && (
+        {isRunning && (
           <div className="space-y-1">
-            {hasAlerts && <div className="h-px bg-white/5 my-0.5" />}
-            <p className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/40 mb-0.5">Running</p>
+            {hasAlerts && <div className="h-px my-0.5" style={{ background: `${hex}20` }} />}
             {runningJobs}
           </div>
         )}
 
-        {!hasAlerts && !hasRunning && (
+        {!hasAlerts && !isRunning && (
           <div className="flex items-center gap-1.5 h-full justify-center">
-            <CheckCircle className="w-3 h-3 text-green-500/50" />
+            <CheckCircle className="w-3 h-3 text-green-400/60" />
             <span className="text-[10px] text-muted-foreground/40">All clear</span>
           </div>
         )}

@@ -171,7 +171,7 @@ export default function BrickLinkSyncPanel({ onOpenSettings, inlineMode, onClose
               ) : (
                 <div className="space-y-1">
                   {recentChanges.items.map((item: any) => (
-                    <div key={item.id} className="flex items-center gap-3 rounded-md bg-gray-900/50 px-2.5 py-2" data-testid={`row-bl-change-${item.id}`}>
+                    <div key={item.id} className="flex items-start gap-3 rounded-md bg-gray-900/50 px-2.5 py-2" data-testid={`row-bl-change-${item.id}`}>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
                           <span className="text-[10px] font-mono font-semibold text-orange-300">{item.itemNo}</span>
@@ -179,11 +179,36 @@ export default function BrickLinkSyncPanel({ onOpenSettings, inlineMode, onClose
                           {item.colorName && <span className="text-[9px] text-gray-500 truncate">{item.colorName}</span>}
                         </div>
                         {item.itemName && <p className="text-[10px] text-gray-400 truncate mt-0.5">{item.itemName}</p>}
+                        {/* Change diffs for "updated" items */}
+                        {changeDetail === 'updated' && item.changes?.length > 0 && (
+                          <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
+                            {item.changes.map((c: any) => {
+                              const isQty = c.field === 'quantity';
+                              const isPrice = c.field === 'unitPrice';
+                              const oldDisplay = isPrice && c.oldValue ? `$${parseFloat(c.oldValue).toFixed(2)}` : c.oldValue ?? '—';
+                              const newDisplay = isPrice && c.newValue ? `$${parseFloat(c.newValue).toFixed(2)}` : c.newValue ?? '—';
+                              const label = isQty ? 'qty' : isPrice ? 'price' : c.field;
+                              return (
+                                <span key={c.field} className="text-[9px] font-mono">
+                                  <span className="text-gray-600">{label}: </span>
+                                  <span className="text-red-400/80">{oldDisplay}</span>
+                                  <span className="text-gray-600"> → </span>
+                                  <span className="text-green-400/80">{newDisplay}</span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {changeDetail === 'updated' && !item.changes?.length && (
+                          <p className="text-[9px] text-gray-600 mt-0.5 italic">qty: ×{item.quantity?.toLocaleString()} · ${parseFloat(item.unitPrice ?? 0).toFixed(2)}</p>
+                        )}
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-[10px] font-mono font-semibold text-white">×{item.quantity?.toLocaleString()}</p>
-                        {item.unitPrice && <p className="text-[9px] text-gray-500">${parseFloat(item.unitPrice).toFixed(2)}</p>}
-                      </div>
+                      {changeDetail === 'added' && (
+                        <div className="text-right shrink-0">
+                          <p className="text-[10px] font-mono font-semibold text-white">×{item.quantity?.toLocaleString()}</p>
+                          {item.unitPrice && <p className="text-[9px] text-gray-500">${parseFloat(item.unitPrice).toFixed(2)}</p>}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -387,7 +412,7 @@ export default function BrickLinkSyncPanel({ onOpenSettings, inlineMode, onClose
                     {recentChanges.items.map((item: any) => (
                       <div
                         key={item.id}
-                        className="flex items-center gap-3 rounded-md bg-gray-900/50 px-2.5 py-2"
+                        className="flex items-start gap-3 rounded-md bg-gray-900/50 px-2.5 py-2"
                         data-testid={`row-bl-change-${item.id}`}
                       >
                         <div className="min-w-0 flex-1">
@@ -401,13 +426,38 @@ export default function BrickLinkSyncPanel({ onOpenSettings, inlineMode, onClose
                           {item.itemName && (
                             <p className="text-[10px] text-gray-400 truncate mt-0.5">{item.itemName}</p>
                           )}
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-[10px] font-mono font-semibold text-white">×{item.quantity?.toLocaleString()}</p>
-                          {item.unitPrice && (
-                            <p className="text-[9px] text-gray-500">${parseFloat(item.unitPrice).toFixed(2)}</p>
+                          {/* Change diffs for "updated" items */}
+                          {changeDetail === 'updated' && item.changes?.length > 0 && (
+                            <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
+                              {item.changes.map((c: any) => {
+                                const isQty = c.field === 'quantity';
+                                const isPrice = c.field === 'unitPrice';
+                                const oldDisplay = isPrice && c.oldValue ? `$${parseFloat(c.oldValue).toFixed(2)}` : c.oldValue ?? '—';
+                                const newDisplay = isPrice && c.newValue ? `$${parseFloat(c.newValue).toFixed(2)}` : c.newValue ?? '—';
+                                const label = isQty ? 'qty' : isPrice ? 'price' : c.field;
+                                return (
+                                  <span key={c.field} className="text-[9px] font-mono">
+                                    <span className="text-gray-600">{label}: </span>
+                                    <span className="text-red-400/80">{oldDisplay}</span>
+                                    <span className="text-gray-600"> → </span>
+                                    <span className="text-green-400/80">{newDisplay}</span>
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {changeDetail === 'updated' && !item.changes?.length && (
+                            <p className="text-[9px] text-gray-600 mt-0.5 italic">qty: ×{item.quantity?.toLocaleString()} · ${parseFloat(item.unitPrice ?? 0).toFixed(2)}</p>
                           )}
                         </div>
+                        {changeDetail === 'added' && (
+                          <div className="text-right shrink-0">
+                            <p className="text-[10px] font-mono font-semibold text-white">×{item.quantity?.toLocaleString()}</p>
+                            {item.unitPrice && (
+                              <p className="text-[9px] text-gray-500">${parseFloat(item.unitPrice).toFixed(2)}</p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

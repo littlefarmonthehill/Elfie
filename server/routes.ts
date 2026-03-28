@@ -43,7 +43,7 @@ import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig } from "./s
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, platformSettings, insertPlatformSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions, channelSyncConfig, channelLotLinks, crossPlatformSyncQueue } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, platformSettings, insertPlatformSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions, channelSyncConfig, channelLotLinks, crossPlatformSyncQueue, inventoryHistory } from "@shared/schema";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -12572,8 +12572,43 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         .orderBy(type === 'added' ? desc(blInventory.syncedAt) : desc(blInventory.updatedAt))
         .limit(limit);
 
+      // For "updated" type, fetch the most recent change per field from inventory_history
+      let itemsWithChanges: typeof items[number][] | (typeof items[number] & { changes: { field: string; oldValue: string | null; newValue: string | null }[] })[] = items;
+      if (type === 'updated' && items.length > 0) {
+        const itemIds = items.map(i => i.id);
+        const historyRows = await db
+          .select({
+            inventoryId: inventoryHistory.inventoryId,
+            field: inventoryHistory.field,
+            oldValue: inventoryHistory.oldValue,
+            newValue: inventoryHistory.newValue,
+            changedAt: inventoryHistory.changedAt,
+          })
+          .from(inventoryHistory)
+          .where(and(
+            eq(inventoryHistory.orgId, orgId),
+            inArray(inventoryHistory.inventoryId, itemIds),
+            eq(inventoryHistory.source, 'bricklink_sync'),
+          ))
+          .orderBy(desc(inventoryHistory.changedAt));
+
+        // Group by inventoryId, keep the most recent change per field
+        const historyByItem: Record<number, { field: string; oldValue: string | null; newValue: string | null }[]> = {};
+        for (const row of historyRows) {
+          if (!historyByItem[row.inventoryId]) historyByItem[row.inventoryId] = [];
+          if (!historyByItem[row.inventoryId].some(h => h.field === row.field)) {
+            historyByItem[row.inventoryId].push({ field: row.field, oldValue: row.oldValue, newValue: row.newValue });
+          }
+        }
+
+        itemsWithChanges = items.map(item => ({
+          ...item,
+          changes: historyByItem[item.id] ?? [],
+        }));
+      }
+
       res.json({
-        items,
+        items: itemsWithChanges,
         lastSyncTime: meta?.lastSyncTime ?? null,
         totalCount: type === 'added' ? (meta?.recordsAdded ?? 0) : (meta?.recordsUpdated ?? 0),
       });
