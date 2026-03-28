@@ -247,6 +247,11 @@ async function processBrickLinkOrder(
   const cost = orderDetail?.cost || blOrder.cost || {};
   const shipping = orderDetail?.shipping || blOrder.shipping || {};
 
+  // Debug: log the address fields received from BL API (only when state is missing)
+  if (shipping?.address && !shipping.address.state && !shipping.address.state_or_province) {
+    console.warn(`[BL Order ${blOrder.order_id}] Address has no state field. Keys: ${Object.keys(shipping.address).join(', ')}`);
+  }
+
   const orderData = {
     id: orderId,
     orderNumber: blOrder.order_id.toString(),
@@ -262,7 +267,7 @@ async function processBrickLinkOrder(
       street1: shipping?.address?.address1 || '',
       street2: shipping?.address?.address2 || '',
       city: shipping?.address?.city || '',
-      state: shipping?.address?.state_or_province || '',
+      state: shipping?.address?.state || shipping?.address?.state_or_province || '',
       postalCode: shipping?.address?.postal_code || '',
       country: shipping?.address?.country_code || '',
     }),
