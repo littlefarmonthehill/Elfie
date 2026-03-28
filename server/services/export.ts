@@ -1,5 +1,6 @@
 import { db } from '../db';
 import { blInventory } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -20,8 +21,10 @@ async function ensureBackupDir() {
  * Generate BrickLink XML format from inventory
  * Format reference: https://www.bricklink.com/help.asp?helpID=207
  */
-export async function generateBrickLinkXML(): Promise<string> {
-  const inventory = await db.select().from(blInventory);
+export async function generateBrickLinkXML(orgId?: string): Promise<string> {
+  const inventory = orgId
+    ? await db.select().from(blInventory).where(eq(blInventory.orgId, orgId))
+    : await db.select().from(blInventory);
 
   const xmlItems = inventory.map(item => {
     const itemType = item.itemType?.charAt(0)?.toUpperCase() || 'P';
@@ -135,12 +138,13 @@ function escapeXml(unsafe: string): string {
 /**
  * Save XML backup to disk (called automatically during inventory sync)
  */
-export async function saveXMLBackup(): Promise<string> {
+export async function saveXMLBackup(orgId?: string): Promise<string> {
   await ensureBackupDir();
   
-  const xml = await generateBrickLinkXML();
+  const xml = await generateBrickLinkXML(orgId);
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-  const filename = `bricklink-inventory-${timestamp}.xml`;
+  const orgSuffix = orgId ? `-${orgId}` : '';
+  const filename = `bricklink-inventory${orgSuffix}-${timestamp}.xml`;
   const filepath = path.join(BACKUP_DIR, filename);
   
   await fs.writeFile(filepath, xml, 'utf-8');

@@ -1061,7 +1061,7 @@ export async function syncBricklinkData(orgId: string = PLATFORM_ORG_ID): Promis
     console.log('💾 Step 2/2: Saving XML backup...');
     syncProgressTracker.update('Saving XML backup…', 95);
     try {
-      const backupFilename = await saveXMLBackup();
+      const backupFilename = await saveXMLBackup(orgId);
       console.log(`💾 XML backup saved: ${backupFilename}`);
     } catch (error) {
       console.error('✗ XML backup failed (non-fatal):', error);
