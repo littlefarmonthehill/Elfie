@@ -850,6 +850,24 @@ export async function syncBrickLinkToBrickOwl(
   const brickowlInventory = await getBrickOwlInventory(false, orgId);
   console.log(`[ChannelSync] ${brickowlInventory.length} BrickOwl lots fetched`);
 
+  // ── Diagnostic: show what external_lot_ids keys BrickOwl actually returns ──
+  {
+    const keyCounts: Record<string, number> = {};
+    const keySamples: Record<string, string[]> = {};
+    for (const lot of brickowlInventory) {
+      const extIds = (lot as any).external_lot_ids ?? {};
+      for (const [k, v] of Object.entries(extIds)) {
+        keyCounts[k] = (keyCounts[k] ?? 0) + 1;
+        if (!keySamples[k]) keySamples[k] = [];
+        if (keySamples[k].length < 3) keySamples[k].push(String(v));
+      }
+    }
+    console.log('[ChannelSync:DIAG] external_lot_ids key distribution:', JSON.stringify(keyCounts));
+    for (const [k, samples] of Object.entries(keySamples)) {
+      console.log(`[ChannelSync:DIAG]   .${k} samples:`, samples);
+    }
+  }
+
   // O(1) lookup: BL inventory ID → BrickOwl lot (tagged lots only)
   const taggedLotMap = new Map<string, any>();
   for (const lot of brickowlInventory) {
