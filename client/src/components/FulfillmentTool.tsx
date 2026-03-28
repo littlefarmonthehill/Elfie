@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe, Plus, Link2, Search } from "lucide-react";
+import { Truck, Loader2, Printer, AlertTriangle, Tag, Scissors, Package, ExternalLink, CheckCircle2, ClipboardList, PackageCheck, ScanLine, ShieldCheck, Trash2, X, MessageCircle, Globe, Plus, Link2, Search, PanelRight } from "lucide-react";
 
 import { printPackingSlips, printPicklist, buildShortCodeMap, shortCode } from "./PackingSlip";
 import { useToast } from "@/hooks/use-toast";
@@ -1221,22 +1221,6 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
       <div>
 
 
-        {/* ── Orders link — mirrors Brickspotter's Batches link ── */}
-        <div className="flex items-center justify-between gap-2 mb-1">
-          <button
-            onClick={() => setDrawerOpen(true)}
-            data-testid="button-open-orders-drawer"
-            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-200 transition-colors"
-          >
-            <Truck className="w-3.5 h-3.5" />
-            <span>
-              {sortedOrders.length > 0
-                ? `${selectedOrders.size} of ${sortedOrders.length} order${sortedOrders.length !== 1 ? 's' : ''}`
-                : 'Orders'}
-            </span>
-          </button>
-        </div>
-
         {/* ── Customer note banner — all visible orders that have buyer notes ── */}
         {(() => {
           const noteOrders = selectedOrderId
@@ -1260,7 +1244,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
           );
         })()}
 
-        {/* ── Tab switcher: Fulfillment | Shipping ── */}
+        {/* ── Tab switcher: Fulfillment | Shipping | Orders flyout ── */}
         <div className="tool-tab-bar">
           <button
             onClick={() => setActiveTab('picklist')}
@@ -1277,6 +1261,15 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
           >
             <Truck className="w-3.5 h-3.5" />
             Shipping
+          </button>
+          <button
+            onClick={() => setDrawerOpen(true)}
+            data-testid="button-open-orders-drawer"
+            title="Open orders panel"
+            className="tool-tab tool-tab-off ml-auto border-transparent hover:text-gray-100"
+          >
+            Orders{sortedOrders.length > 0 ? ` (${selectedOrders.size} of ${sortedOrders.length})` : ''}
+            <PanelRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
