@@ -4016,6 +4016,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Closed Order Cleanup (returned + cancelled + test) ────────────────────
+
+  // Preview: count of returned, cancelled, and test orders for this org
+  app.get("/api/orders/closed-preview", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const rows = await db
+        .select({ id: orders.id, orderStatus: orders.orderStatus, isTest: orders.isTest })
+        .from(orders)
+        .where(and(
+          eq(orders.orgId, orgId),
+          or(
+            inArray(orders.orderStatus, ['returned', 'cancelled', 'Cancelled']),
+            eq(orders.isTest, true)
+          )
+        ));
+
+      const returnedCount  = rows.filter(r => r.orderStatus === 'returned').length;
+      const cancelledCount = rows.filter(r => ['cancelled', 'Cancelled'].includes(r.orderStatus) && !r.isTest).length;
+      const testCount      = rows.filter(r => r.isTest).length;
+
+      res.json({ count: rows.length, returnedCount, cancelledCount, testCount });
+    } catch (err: any) {
+      console.error('Closed order preview error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Delete: remove all returned, cancelled, and test orders for this org
+  app.delete("/api/orders/closed", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+
+      const targetRows = await db
+        .select({ id: orders.id })
+        .from(orders)
+        .where(and(
+          eq(orders.orgId, orgId),
+          or(
+            inArray(orders.orderStatus, ['returned', 'cancelled', 'Cancelled']),
+            eq(orders.isTest, true)
+          )
+        ));
+
+      if (targetRows.length === 0) return res.json({ deleted: 0, message: 'No matching orders found.' });
+
+      const ids = targetRows.map(r => r.id);
+      await db.delete(orderAdjustments).where(inArray(orderAdjustments.orderId, ids));
+      await db.delete(picklistItems).where(inArray(picklistItems.orderId, ids));
+      await db.delete(orderDetails).where(inArray(orderDetails.orderId, ids));
+      await db.delete(shipments).where(inArray(shipments.orderId, ids));
+      await db.delete(orders).where(and(
+        eq(orders.orgId, orgId),
+        or(
+          inArray(orders.orderStatus, ['returned', 'cancelled', 'Cancelled']),
+          eq(orders.isTest, true)
+        )
+      ));
+
+      console.log(`🗑️ Deleted ${ids.length} closed orders for org ${orgId}`);
+      res.json({ deleted: ids.length });
+    } catch (err: any) {
+      console.error('Closed order delete error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ── Test Order Cleanup ─────────────────────────────────────────────────────
 
   // Preview: returns metadata about test orders without deleting anything

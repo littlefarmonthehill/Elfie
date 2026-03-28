@@ -2381,6 +2381,12 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   } | null>(null);
   const [testOrdersLoading, setTestOrdersLoading] = useState(false);
   const [testOrdersDeleting, setTestOrdersDeleting] = useState(false);
+  const [closedOrdersDialog, setClosedOrdersDialog] = useState(false);
+  const [closedOrdersPreview, setClosedOrdersPreview] = useState<{
+    count: number; returnedCount: number; cancelledCount: number; testCount: number;
+  } | null>(null);
+  const [closedOrdersLoading, setClosedOrdersLoading] = useState(false);
+  const [closedOrdersDeleting, setClosedOrdersDeleting] = useState(false);
   const [restoreWizardOpen, setRestoreWizardOpen] = useState(false);
   const [restoreStep, setRestoreStep] = useState<'select' | 'warning' | 'restoring' | 'syncing' | 'differential' | 'verification' | 'complete'>('select');
   const [restoreDate, setRestoreDate] = useState('2025-10-18');
@@ -3669,6 +3675,41 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       toast({ title: 'Delete failed', description: 'Could not remove test orders.', variant: 'destructive' });
     } finally {
       setTestOrdersDeleting(false);
+    }
+  };
+
+  const handleOpenClosedOrdersDialog = async () => {
+    setClosedOrdersLoading(true);
+    setClosedOrdersPreview(null);
+    setClosedOrdersDialog(true);
+    try {
+      const res = await fetch('/api/orders/closed-preview');
+      const data = await res.json();
+      setClosedOrdersPreview(data);
+    } catch {
+      toast({ title: 'Could not load order data', variant: 'destructive' });
+      setClosedOrdersDialog(false);
+    } finally {
+      setClosedOrdersLoading(false);
+    }
+  };
+
+  const handleDeleteClosedOrders = async () => {
+    setClosedOrdersDeleting(true);
+    try {
+      const res = await fetch('/api/orders/closed', { method: 'DELETE' });
+      const data = await res.json();
+      if (data.deleted === 0) {
+        toast({ title: 'No matching orders found', description: 'Nothing to delete.' });
+      } else {
+        toast({ title: `Removed ${data.deleted} order${data.deleted !== 1 ? 's' : ''}`, description: 'All associated records have been deleted.' });
+      }
+      setClosedOrdersDialog(false);
+      setClosedOrdersPreview(null);
+    } catch {
+      toast({ title: 'Delete failed', description: 'Could not remove orders.', variant: 'destructive' });
+    } finally {
+      setClosedOrdersDeleting(false);
     }
   };
 
@@ -7578,6 +7619,16 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     >
                       <Trash2 className="h-3 w-3 mr-2" />
                       Remove Test Orders
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start text-xs text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+                      onClick={handleOpenClosedOrdersDialog}
+                      data-testid="button-remove-closed-orders"
+                    >
+                      <Trash2 className="h-3 w-3 mr-2" />
+                      Remove Returned, Cancelled &amp; Test Orders
                     </Button>
                     <div className="bg-red-500/10 border border-red-500/30 rounded p-2">
                       <p className="text-xs text-red-300">
@@ -11558,6 +11609,70 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 data-testid="button-confirm-remove-test-orders"
               >
                 {testOrdersDeleting ? 'Deleting...' : `Delete ${testOrdersPreview.count} Order${testOrdersPreview.count !== 1 ? 's' : ''}`}
+              </Button>
+            )}
+          </div>
+        </div>
+      </ResponsiveModal>
+
+      {/* Remove Closed Orders Dialog */}
+      <ResponsiveModal
+        open={closedOrdersDialog}
+        onOpenChange={(open) => { if (!open && !closedOrdersDeleting) { setClosedOrdersDialog(false); setClosedOrdersPreview(null); } }}
+        title="Remove Returned, Cancelled &amp; Test Orders"
+        icon={Trash2}
+        iconColor="text-amber-400"
+        description="Permanently delete closed orders and all associated records for your store"
+        testId="modal-remove-closed-orders"
+      >
+        <div className="space-y-4">
+          {closedOrdersLoading && (
+            <p className="text-sm text-gray-400">Scanning orders...</p>
+          )}
+          {!closedOrdersLoading && closedOrdersPreview && (
+            <>
+              {closedOrdersPreview.count === 0 ? (
+                <p className="text-sm text-gray-400">No returned, cancelled, or test orders found. Nothing to delete.</p>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-300">
+                    Found <strong className="text-white">{closedOrdersPreview.count} order{closedOrdersPreview.count !== 1 ? 's' : ''}</strong> to permanently delete:
+                  </p>
+                  <ul className="text-xs text-gray-400 space-y-1 ml-3 list-disc">
+                    {closedOrdersPreview.returnedCount > 0 && <li>{closedOrdersPreview.returnedCount} returned order{closedOrdersPreview.returnedCount !== 1 ? 's' : ''}</li>}
+                    {closedOrdersPreview.cancelledCount > 0 && <li>{closedOrdersPreview.cancelledCount} cancelled order{closedOrdersPreview.cancelledCount !== 1 ? 's' : ''}</li>}
+                    {closedOrdersPreview.testCount > 0 && <li>{closedOrdersPreview.testCount} test order{closedOrdersPreview.testCount !== 1 ? 's' : ''}</li>}
+                    <li>All associated order details, adjustments, picklist items, and shipments</li>
+                  </ul>
+                  <p className="text-xs text-gray-500">
+                    Inventory quantities will <strong className="text-gray-300">not</strong> be changed — only the order records are removed.
+                  </p>
+                  <div className="bg-red-500/10 border border-red-500/30 rounded p-2">
+                    <p className="text-xs text-red-300">This action cannot be undone.</p>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setClosedOrdersDialog(false); setClosedOrdersPreview(null); }}
+              disabled={closedOrdersDeleting}
+              data-testid="button-cancel-closed-orders"
+            >
+              Cancel
+            </Button>
+            {closedOrdersPreview && closedOrdersPreview.count > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleDeleteClosedOrders}
+                disabled={closedOrdersDeleting}
+                data-testid="button-confirm-remove-closed-orders"
+              >
+                {closedOrdersDeleting ? 'Deleting...' : `Delete ${closedOrdersPreview.count} Order${closedOrdersPreview.count !== 1 ? 's' : ''}`}
               </Button>
             )}
           </div>
