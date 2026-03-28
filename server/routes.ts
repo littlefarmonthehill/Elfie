@@ -10349,6 +10349,22 @@ Format search_web URLs as markdown links.`;
     }
   });
 
+  // Return the per-item field-change detail from the last channel sync
+  app.get("/api/channel-sync/updated-items", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const [meta] = await db.select().from(syncMetadata)
+        .where(and(eq(syncMetadata.orgId, orgId), eq(syncMetadata.id, 'channel_sync')))
+        .limit(1);
+      if (!meta?.lastSyncMetaJson) return res.json({ updatedItems: [] });
+      const parsed = JSON.parse(meta.lastSyncMetaJson);
+      return res.json({ updatedItems: parsed.updatedItems ?? [] });
+    } catch (err) {
+      console.error('[ChannelSync] /updated-items error:', err);
+      res.status(500).json({ updatedItems: [] });
+    }
+  });
+
   // Stop a running channel sync cleanly (sets abort flag — sync exits after current batch)
   app.post("/api/channel-sync/stop", isApproved, async (req, res) => {
     try {

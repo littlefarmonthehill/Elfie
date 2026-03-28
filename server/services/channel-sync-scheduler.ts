@@ -1,7 +1,7 @@
 import { db } from "../db";
 import { appSettings, syncMetadata, channelSyncConfig } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
-import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig, isChannelSyncAbortRequested } from "./brickowl";
+import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig, SyncUpdatedItem, isChannelSyncAbortRequested } from "./brickowl";
 import { syncLock } from "./sync-lock";
 import { recordSyncIssue, resolveSchedulerIssues } from "./sync-issue-service";
 import { upsertSyncMetadata, withDbRetry } from "./order-sync-helpers";
@@ -25,6 +25,7 @@ interface ChannelSyncLastResult {
   totalApiCalls: number;
   errorCount: number;
   errors: string[];
+  updatedItems?: SyncUpdatedItem[];
 }
 let channelSyncLastResult: ChannelSyncLastResult | null = null;
 
@@ -234,6 +235,7 @@ async function runScheduledChannelSync(forceFullScan = false, orgId?: string) {
       totalApiCalls: result.totalApiCalls,
       errorCount: result.errors.length,
       errors: result.errors.slice(0, 20),
+      updatedItems: result.updatedItems,
     };
 
     await upsertSyncMetadata(SYNC_ID, effectiveOrgId, {

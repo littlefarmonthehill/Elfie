@@ -2643,6 +2643,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [activeAuditOrgTab, setActiveAuditOrgTab] = useState<'overview' | 'bricklink'>('overview');
   const [activeAuditPlatformTab, setActiveAuditPlatformTab] = useState<'enrichment' | 'bricklink' | 'logs' | 'database'>('enrichment');
   const [orgHealthDrawer, setOrgHealthDrawer] = useState<{ open: boolean; metric: string; orgId: string; orgName: string }>({ open: false, metric: '', orgId: '', orgName: '' });
+  const [updatedItemsDrawerOpen, setUpdatedItemsDrawerOpen] = useState(false);
   const [selectedOrgMetric, setSelectedOrgMetric] = useState<string | null>(null);
   const [blBreakdownSort, setBlBreakdownSort] = useState<{ col: string; dir: 'asc' | 'desc' }>({ col: 'total', dir: 'desc' });
   const [showBlSchedulePopup, setShowBlSchedulePopup] = useState(false);
@@ -2758,6 +2759,17 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     queryKey: ['/api/channel-sync/last-result'],
     refetchInterval: 30000,
     enabled: open && (activeSection === 'autoSync' || (activeSection === 'platforms' && activePlatform === null && activePlatformInnerTab === 'scheduler')),
+  });
+
+  type SyncUpdatedItem = {
+    itemNo: string;
+    condition: string;
+    lotId: string;
+    changes: Array<{ field: string; from: string; to: string }>;
+  };
+  const { data: updatedItemsData, isLoading: updatedItemsLoading } = useQuery<{ updatedItems: SyncUpdatedItem[] }>({
+    queryKey: ['/api/channel-sync/updated-items'],
+    enabled: updatedItemsDrawerOpen,
   });
 
   type PlatformStats = { totalLots: number; totalParts: number; lastSyncedAt: string | null };
@@ -5440,10 +5452,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               <div className="text-base font-bold text-green-400">{channelLastResult.lotsCreated}</div>
                               <div className="text-[9px] text-gray-500 mt-0.5">Created</div>
                             </div>
-                            <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-updated">
+                            <button onClick={() => channelLastResult.lotsUpdated > 0 && setUpdatedItemsDrawerOpen(true)} className={`rounded bg-gray-900/60 p-2 text-center w-full ${channelLastResult.lotsUpdated > 0 ? 'hover-elevate cursor-pointer' : 'cursor-default'}`} data-testid="stat-channel-updated">
                               <div className="text-base font-bold text-blue-400">{channelLastResult.lotsUpdated}</div>
-                              <div className="text-[9px] text-gray-500 mt-0.5">Updated</div>
-                            </div>
+                              <div className="text-[9px] text-gray-500 mt-0.5">Updated {channelLastResult.lotsUpdated > 0 && <span className="text-blue-600">↗</span>}</div>
+                            </button>
                             <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-skipped">
                               <div className="text-base font-bold text-gray-400">{channelLastResult.lotsSkipped}</div>
                               <div className="text-[9px] text-gray-500 mt-0.5">Skipped</div>
@@ -6023,7 +6035,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           </div>
                           <div className="grid grid-cols-4 gap-2">
                             <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-created"><div className="text-sm font-bold text-green-400">{channelLastResult.lotsCreated}</div><div className="text-[9px] text-gray-500 mt-0.5">Created</div></div>
-                            <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-updated"><div className="text-sm font-bold text-blue-400">{channelLastResult.lotsUpdated}</div><div className="text-[9px] text-gray-500 mt-0.5">Updated</div></div>
+                            <button onClick={() => channelLastResult.lotsUpdated > 0 && setUpdatedItemsDrawerOpen(true)} className={`rounded bg-gray-900/60 p-2 text-center w-full ${channelLastResult.lotsUpdated > 0 ? 'hover-elevate cursor-pointer' : 'cursor-default'}`} data-testid="stat-channel-updated"><div className="text-sm font-bold text-blue-400">{channelLastResult.lotsUpdated}</div><div className="text-[9px] text-gray-500 mt-0.5">Updated {channelLastResult.lotsUpdated > 0 && <span className="text-blue-600">↗</span>}</div></button>
                             <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-skipped"><div className="text-sm font-bold text-gray-400">{channelLastResult.lotsSkipped}</div><div className="text-[9px] text-gray-500 mt-0.5">Skipped</div></div>
                             <div className="rounded bg-gray-900/60 p-2 text-center" data-testid="stat-channel-errors"><div className={`text-sm font-bold ${channelLastResult.errorCount > 0 ? 'text-red-400' : 'text-gray-400'}`}>{channelLastResult.errorCount}</div><div className="text-[9px] text-gray-500 mt-0.5">Errors</div></div>
                           </div>
@@ -11918,6 +11930,88 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
 
           </div>
       </ResponsiveModal>
+
+      {/* Updated Items Detail Drawer */}
+      <Drawer open={updatedItemsDrawerOpen} onOpenChange={setUpdatedItemsDrawerOpen}>
+        <DrawerContent className="bg-gray-950 border-gray-800 max-h-[88vh] flex flex-col rounded-t-2xl">
+          <DrawerHeader className="p-0 flex-shrink-0">
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-gray-700" />
+            </div>
+            <div className="flex items-center gap-2 px-4 pt-2 pb-2 border-b border-gray-800">
+              <div className="flex-1">
+                <DrawerTitle className="text-sm font-semibold text-gray-100">Updated Lots — Last Sync</DrawerTitle>
+                {channelLastResult && (
+                  <p className="text-[10px] text-gray-500 mt-0.5">{channelLastResult.lotsUpdated} lots pushed to BrickOwl · {new Date(channelLastResult.completedAt).toLocaleString()}</p>
+                )}
+              </div>
+              <DrawerClose asChild>
+                <button className="text-gray-500 hover:text-gray-200 transition-colors" data-testid="button-close-updated-items">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </DrawerClose>
+            </div>
+          </DrawerHeader>
+
+          <div className="flex-1 overflow-auto px-4 pt-3 pb-4 min-h-0">
+            {updatedItemsLoading ? (
+              <div className="space-y-2">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="rounded-md bg-gray-800/50 border border-gray-700 p-3 animate-pulse h-16" />
+                ))}
+              </div>
+            ) : !updatedItemsData?.updatedItems?.length ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <p className="text-gray-400 text-sm">No detail available.</p>
+                <p className="text-gray-600 text-xs mt-1">Run a sync to capture per-lot changes.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {updatedItemsData.updatedItems.map((item, idx) => (
+                  <div key={idx} className="rounded-md bg-gray-800/40 border border-gray-700/60 p-3 space-y-2" data-testid={`updated-item-${idx}`}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-white font-mono">{item.itemNo}</span>
+                      <span className="text-[10px] text-gray-500 capitalize">{item.condition === 'new' ? 'New' : 'Used'}</span>
+                      <span className="text-[10px] text-gray-600 ml-auto">lot {item.lotId}</span>
+                    </div>
+                    <div className="space-y-1">
+                      {item.changes.map((change, ci) => {
+                        const fieldLabel: Record<string, string> = {
+                          qty: 'Qty', price: 'Price', remarks: 'Remarks', description: 'Description',
+                          tierPrice: 'Tier Price', salePercent: 'Sale %', forSale: 'For Sale',
+                          bulkQty: 'Min Order', color: 'Color',
+                        };
+                        const isPrice = change.field === 'price';
+                        const isLongText = change.from.length > 30 || change.to.length > 30;
+                        return (
+                          <div key={ci} className={`text-[10px] ${isLongText ? 'space-y-0.5' : 'flex items-center gap-1.5'}`}>
+                            <span className="text-gray-500 shrink-0">{fieldLabel[change.field] ?? change.field}:</span>
+                            {isLongText ? (
+                              <div className="grid grid-cols-2 gap-1 mt-0.5">
+                                <div className="bg-red-950/30 border border-red-900/30 rounded px-1.5 py-0.5 text-red-300/80 font-mono break-words">{change.from || '(empty)'}</div>
+                                <div className="bg-green-950/30 border border-green-900/30 rounded px-1.5 py-0.5 text-green-300/80 font-mono break-words">{change.to || '(empty)'}</div>
+                              </div>
+                            ) : (
+                              <>
+                                <span className="text-red-400/80 font-mono line-through">{isPrice ? `$${change.from}` : change.from}</span>
+                                <span className="text-gray-600">→</span>
+                                <span className="text-green-400/80 font-mono">{isPrice ? `$${change.to}` : change.to}</span>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                {updatedItemsData.updatedItems.length >= 200 && (
+                  <p className="text-[10px] text-gray-600 text-center pt-1">Showing first 200 lots. All lots were synced.</p>
+                )}
+              </div>
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }

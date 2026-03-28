@@ -48,6 +48,17 @@ export interface SyncPreviewBreakdown {
   };
 }
 
+export interface SyncUpdatedItem {
+  itemNo: string;
+  condition: string;
+  lotId: string;
+  changes: Array<{
+    field: 'qty' | 'price' | 'remarks' | 'description' | 'tierPrice' | 'salePercent' | 'forSale' | 'bulkQty' | 'color';
+    from: string;
+    to: string;
+  }>;
+}
+
 export interface BrickOwlSyncResult {
   lotsCreated: number;
   lotsUpdated: number;
@@ -56,6 +67,7 @@ export interface BrickOwlSyncResult {
   errors: string[];
   totalApiCalls: number;
   preview?: SyncPreviewBreakdown; // populated when mode === 'analysis'
+  updatedItems?: SyncUpdatedItem[]; // per-item field-level changes (capped at 200)
 }
 
 export interface BrickOwlInventoryLot {
@@ -929,6 +941,13 @@ export async function syncBrickLinkToBrickOwl(
     // API calls because BrickOwl's batch /bulk/batch endpoint silently ignores them.
     hasNonQtyChange: boolean;
     color_id?: number;         // set when BrickOwl lot has the wrong color; corrected in-place
+    // Old BO values — captured at push time for the updated-items detail view
+    boQty?: number;
+    boPrice?: number;
+    boRemarks?: string;
+    boDescription?: string;
+    boBulkQty?: number;
+    boForSale?: number;
   };
 
   const toUpdate: UpdateJob[] = [];
@@ -1087,6 +1106,13 @@ export async function syncBrickLinkToBrickOwl(
             ...(fields.lotWeight && newLotWeight > 0 && { lot_weight: newLotWeight }),
             // Color correction: fix lots created with wrong color during a color-map bug
             ...(colorChanged && { color_id: correctedColorId }),
+            // Old BO values for the updated-items detail view
+            boQty:        isNaN(boQty)  ? undefined : boQty,
+            boPrice:      isNaN(boBase) ? undefined : boBase,
+            boRemarks:    taggedLot.personal_note || undefined,
+            boDescription:taggedLot.public_note   || undefined,
+            boBulkQty,
+            boForSale:    isNaN(boForSale) ? undefined : boForSale,
           });
         }
       } else {
@@ -1145,6 +1171,32 @@ export async function syncBrickLinkToBrickOwl(
         job.color_id      !== undefined && `color=${job.color_id}`,
       ].filter(Boolean).join(' ');
       console.log(`[ChannelSync:DIAG] Job ${i + 1}: ${job.blItemNo} lot=${job.lot_id} — changed: ${changedFields}`);
+    });
+  }
+
+  // Build per-item update detail list (capped at 200 to keep JSON blob manageable)
+  if (mode !== 'analysis') {
+    result.updatedItems = toUpdate.slice(0, 200).map(job => {
+      const changes: SyncUpdatedItem['changes'] = [];
+      if (job.qtyChanged)
+        changes.push({ field: 'qty',         from: String(job.boQty ?? '?'),            to: String(job.absolute_quantity) });
+      if (job.priceChanged)
+        changes.push({ field: 'price',        from: job.boPrice?.toFixed(3) ?? '?',      to: job.price.toFixed(3) });
+      if (job.personal_note !== undefined)
+        changes.push({ field: 'remarks',      from: job.boRemarks    ?? '',              to: job.personal_note });
+      if (job.public_note !== undefined)
+        changes.push({ field: 'description',  from: job.boDescription ?? '',             to: job.public_note });
+      if (job.tier_price !== undefined)
+        changes.push({ field: 'tierPrice',    from: '(prev)',                            to: job.tier_price });
+      if (job.sale_percentage !== undefined)
+        changes.push({ field: 'salePercent',  from: '?',                                 to: String(job.sale_percentage) });
+      if (job.for_sale !== undefined)
+        changes.push({ field: 'forSale',      from: String(job.boForSale ?? '?'),        to: String(job.for_sale) });
+      if (job.bulk_qty !== undefined)
+        changes.push({ field: 'bulkQty',      from: String(job.boBulkQty ?? '?'),        to: String(job.bulk_qty) });
+      if (job.color_id !== undefined)
+        changes.push({ field: 'color',        from: '(wrong)',                            to: String(job.color_id) });
+      return { itemNo: job.blItemNo, condition: job.condition, lotId: job.lot_id, changes };
     });
   }
 
