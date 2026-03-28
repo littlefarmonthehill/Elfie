@@ -13941,7 +13941,7 @@ Dimensions:
 - wCeiling: how much room to raise price vs sold avg/peak (ceiling ratio)
 - wVelocity: STR (Sell-Through Rate = sold qty ÷ listed qty). STR>100% = demand surge, 40-100% = healthy demand, <40% = slow mover. Capped at 100% for scoring so fast-sellers don't crowd out other signals.
 - wScarcity: how rare the item is (fewer sellers = scarcer)
-- wUndercut: competitive pressure (my price vs lowest listed)
+- wUndercut: price position vs market min (undercutRatio = myPrice ÷ marketMin). Ratio < 1 = you're cheapest (adds to score), ratio > 1 = being undercut (subtracts from score). Higher weight amplifies both the boost and the penalty.
 
 Stay within the preset ranges. All four weights must sum to exactly 1.0.
 Respond ONLY as JSON: {"wCeiling": 0.00, "wVelocity": 0.00, "wScarcity": 0.00, "wUndercut": 0.00}`;

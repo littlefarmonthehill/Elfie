@@ -1052,7 +1052,7 @@ const SCORE_DIMENSIONS = [
   { key: 'ceiling' as const, label: 'Ceiling', color: '#60a5fa', angle: -Math.PI / 2, desc: 'Price upside potential' },
   { key: 'velocity' as const, label: 'STR', color: '#34d399', angle: 0, desc: 'Sell-through rate (sold ÷ listed)' },
   { key: 'scarcity' as const, label: 'Scarcity', color: '#a78bfa', angle: Math.PI / 2, desc: 'Market rarity' },
-  { key: 'undercut' as const, label: 'Undercut', color: '#fbbf24', angle: Math.PI, desc: 'Competitive position' },
+  { key: 'undercut' as const, label: 'Undercut', color: '#fbbf24', angle: Math.PI, desc: 'Price ÷ market min — below 1 = boost, above 1 = penalty' },
 ];
 
 type ScoreWeights = { ceiling: number; velocity: number; scarcity: number; undercut: number };
@@ -1723,7 +1723,7 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
                 <p><span className="text-blue-300 font-medium">Ceiling</span> — ratio of peak sold price to your current price. Higher means more room to raise prices.</p>
                 <p><span className="text-purple-300 font-medium">STR</span> — sell-through rate (sold ÷ listed, 6mo). &gt;100% = demand surge, 40–100% = healthy, &lt;40% = slow mover. Capped at 100% for scoring.</p>
                 <p><span className="text-amber-300 font-medium">Scarcity</span> — inverse of total listed lots. Higher means fewer sellers competing.</p>
-                <p><span className="text-rose-300 font-medium">Undercut</span> — your price vs the lowest listed price. Lower means you're closer to the floor.</p>
+                <p><span className="text-rose-300 font-medium">Undercut</span> — your price ÷ market min. Ratio &lt; 1 = you're the cheapest (score boost); ratio &gt; 1 = being undercut (score penalty). Penalises items where competitors are cheaper.</p>
                 <p><span className="text-emerald-300 font-medium">Score</span> — weighted combination of all four metrics using your configured weights.</p>
               </div>
             </PopoverContent>

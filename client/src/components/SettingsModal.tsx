@@ -7068,7 +7068,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         ceiling:  'Very low — margin not the priority here',
                         velocity: 'High — fast-selling items rise to the top',
                         scarcity: 'Very low — availability less relevant',
-                        undercut: 'High — competitive pressure is the key signal',
+                        undercut: 'High — items you\'re underpricing get a boost; items with cheaper rivals are penalised',
                       },
                     };
 
@@ -7089,7 +7089,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                 <div className="flex items-baseline gap-1.5"><span className="text-[9px] text-gray-500 w-14 shrink-0">Ceiling</span><span className="text-[9px] text-gray-400">How far your price is from the market ceiling</span></div>
                                 <div className="flex items-baseline gap-1.5"><span className="text-[9px] text-gray-500 w-14 shrink-0">STR</span><span className="text-[9px] text-gray-400">Sell-through rate — units sold ÷ units listed. &gt;100% = demand surge, 40–100% = healthy, &lt;40% = slow mover</span></div>
                                 <div className="flex items-baseline gap-1.5"><span className="text-[9px] text-gray-500 w-14 shrink-0">Scarcity</span><span className="text-[9px] text-gray-400">How few sellers carry this part</span></div>
-                                <div className="flex items-baseline gap-1.5"><span className="text-[9px] text-gray-500 w-14 shrink-0">Undercut</span><span className="text-[9px] text-gray-400">How much you are undercut by the cheapest seller</span></div>
+                                <div className="flex items-baseline gap-1.5"><span className="text-[9px] text-gray-500 w-14 shrink-0">Undercut</span><span className="text-[9px] text-gray-400">Your price ÷ market min. &lt;1 boosts score (you're cheapest), &gt;1 penalises (being undercut)</span></div>
                               </div>
                             </PopoverContent>
                           </Popover>
