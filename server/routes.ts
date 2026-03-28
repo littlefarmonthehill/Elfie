@@ -4617,11 +4617,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             s.carrier,
             s.service,
             s.label_url AS "labelUrl",
-            COALESCE(o.ship_date, o.order_date) AS sort_date
+            COALESCE(o.ship_date, o.order_date) AS sort_date,
+            COALESCE((
+              SELECT SUM(ABS(amount::numeric)) FILTER (WHERE type = 'refund')
+              FROM order_adjustments
+              WHERE order_id = o.id
+            ), 0) AS "refundTotal"
           FROM orders o
           LEFT JOIN shipments s ON o.id = s.order_id
           WHERE o.org_id = ${orgId}
-            AND o.order_status IN ('shipped', 'returned')
+            AND o.order_status IN ('shipped', 'returned', 'cancelled')
             ${dateWhere}
             ${searchWhere}
           ORDER BY o.id, s.created_at DESC NULLS LAST

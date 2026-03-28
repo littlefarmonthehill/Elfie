@@ -34,6 +34,7 @@ type ShippedOrder = {
   customerUsername: string | null;
   customerEmail: string | null;
   orderTotal: string;
+  refundTotal: string | null;
   marketplace: string | null;
   shipTo: string | null;
   orderStatus: string;
@@ -295,7 +296,10 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
               const isBrickOwl = order.marketplace === 'BrickOwl';
               const isShipped = order.orderStatus === 'shipped';
               const isReturned = order.orderStatus === 'returned';
-              const isCancelled = order.orderStatus === 'cancelled';
+              const orderTotalNum = parseFloat(order.orderTotal ?? '0');
+              const refundTotalNum = parseFloat(order.refundTotal ?? '0');
+              const isFullyRefunded = refundTotalNum > 0 && orderTotalNum > 0 && refundTotalNum >= orderTotalNum - 0.01;
+              const isCancelled = order.orderStatus === 'cancelled' || isFullyRefunded;
 
               return (
                 <div
@@ -439,21 +443,24 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                           </DropdownMenuItem>
                         )}
 
-                        <DropdownMenuSeparator />
-
-                        {/* Single "Return to Fulfillment" for all channels */}
-                        <DropdownMenuItem
-                          onClick={(e) => { e.stopPropagation(); returnToFulfillmentMutation.mutate(order.id); }}
-                          disabled={returnToFulfillmentMutation.isPending}
-                          data-testid={`menu-return-to-fulfillment-${order.orderNumber}`}
-                          className="text-amber-400 focus:text-amber-300"
-                        >
-                          {returnToFulfillmentMutation.isPending
-                            ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            : <RotateCcw className="w-4 h-4 mr-2" />
-                          }
-                          Return to Fulfillment
-                        </DropdownMenuItem>
+                        {!isCancelled && (
+                          <>
+                            <DropdownMenuSeparator />
+                            {/* Single "Return to Fulfillment" for all channels */}
+                            <DropdownMenuItem
+                              onClick={(e) => { e.stopPropagation(); returnToFulfillmentMutation.mutate(order.id); }}
+                              disabled={returnToFulfillmentMutation.isPending}
+                              data-testid={`menu-return-to-fulfillment-${order.orderNumber}`}
+                              className="text-amber-400 focus:text-amber-300"
+                            >
+                              {returnToFulfillmentMutation.isPending
+                                ? <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                : <RotateCcw className="w-4 h-4 mr-2" />
+                              }
+                              Return to Fulfillment
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
