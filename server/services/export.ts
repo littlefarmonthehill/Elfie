@@ -40,9 +40,7 @@ export async function generateBrickLinkXML(): Promise<string> {
       itemXml += `    <COLOR>${colorId}</COLOR>\n`;
     }
     
-    if (quantity > 0) {
-      itemXml += `    <MINQTY>${quantity}</MINQTY>\n`;
-    }
+    itemXml += `    <QTY>${quantity}</QTY>\n`;
     
     if (condition) {
       itemXml += `    <CONDITION>${condition}</CONDITION>\n`;
@@ -52,17 +50,13 @@ export async function generateBrickLinkXML(): Promise<string> {
       itemXml += `    <PRICE>${price.toFixed(2)}</PRICE>\n`;
     }
     
-    if (bulk > 1) {
-      itemXml += `    <BULK>${bulk}</BULK>\n`;
-    }
+    itemXml += `    <BULK>${bulk}</BULK>\n`;
     
-    if (saleRate > 0) {
-      itemXml += `    <SALE>${saleRate}</SALE>\n`;
-    }
+    itemXml += `    <SALE>${saleRate}</SALE>\n`;
     
     if (item.description) {
       const escapedDescription = escapeXml(item.description);
-      itemXml += `    <COMMENTS>${escapedDescription}</COMMENTS>\n`;
+      itemXml += `    <DESCRIPTION>${escapedDescription}</DESCRIPTION>\n`;
     }
     
     if (item.remarks) {
