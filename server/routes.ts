@@ -5186,6 +5186,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Cross-order demand: total pieces and order count per inventory item across
+      // all open (unfulfilled) orders.  A stock warning only fires when 2+ orders
+      // compete for the same part and combined demand exceeds stock on hand.
+      type DemandEntry = { totalQty: number; orderCount: number };
+      const crossOrderDemandMap: Record<number, DemandEntry> = {};
+      if (allInventoryIds.length > 0) {
+        const competingRows = await db
+          .select({
+            invId: orderDetails.bricklinkInventoryId,
+            totalQty: sql<number>`SUM(${orderDetails.quantity})::int`,
+            orderCount: sql<number>`COUNT(DISTINCT ${orderDetails.orderId})::int`,
+          })
+          .from(orderDetails)
+          .innerJoin(orders, eq(orders.id, orderDetails.orderId))
+          .where(and(
+            inArray(orderDetails.bricklinkInventoryId, allInventoryIds),
+            eq(orders.orgId, orgId),
+            sql`${orders.orderStatus} NOT IN ('shipped', 'returned', 'cancelled', 'Cancelled')`,
+            eq(orders.isTest, false),
+          ))
+          .groupBy(orderDetails.bricklinkInventoryId);
+
+        for (const row of competingRows) {
+          if (row.invId != null) {
+            crossOrderDemandMap[row.invId] = {
+              totalQty: Number(row.totalQty),
+              orderCount: Number(row.orderCount),
+            };
+          }
+        }
+      }
+
       // Fetch adjustments (refunds, credits)
       const adjustments = await db
         .select()
@@ -5257,9 +5289,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         items: items.map(item => {
           const invId = item.bricklinkInventoryId;
           const currentInventoryQty = invId != null && invId in currentQtyMap ? currentQtyMap[invId] : null;
-          // stockWarning: current stock on hand is less than what was ordered.
-          // Covers both "already at 0" (full sellout) and partial stock shortage.
-          const stockWarning = currentInventoryQty !== null && currentInventoryQty < item.quantity;
+          const demand = invId != null ? crossOrderDemandMap[invId] : null;
+          // Stock warning: only flag when 2+ open orders compete for the same part
+          // AND total demand across all those orders exceeds current stock on hand.
+          // A lone order that sold a part out doesn't need a warning — no race exists.
+          const stockWarning = currentInventoryQty !== null
+            && demand != null
+            && demand.orderCount >= 2
+            && currentInventoryQty < demand.totalQty;
           return {
             partNumber: item.itemNo
               || (invId ? fallbackItemNoMap[invId] : undefined)
@@ -5270,6 +5307,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             price: Number(item.unitPrice) || 0,
             currentInventoryQty,
             stockWarning,
+            competingOrderCount: demand?.orderCount ?? null,
+            totalDemandQty: demand?.totalQty ?? null,
           };
         }),
         shipping: Number(order.shippingAmount) || 0,

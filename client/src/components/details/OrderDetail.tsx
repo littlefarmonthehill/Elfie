@@ -37,6 +37,8 @@ interface OrderDetailProps {
       price: number;
       currentInventoryQty?: number | null;
       stockWarning?: boolean;
+      competingOrderCount?: number | null;
+      totalDemandQty?: number | null;
     }>;
     shipping?: number;
     tax?: number;
@@ -524,9 +526,12 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
                   {item.stockWarning && (
                     <AlertTriangle
                       className="h-3 w-3 shrink-0 text-amber-400"
-                      title={item.currentInventoryQty === 0
-                        ? 'Out of stock — 0 units on hand'
-                        : `Only ${item.currentInventoryQty} in stock (${item.quantity} ordered)`}
+                      title={(() => {
+                        const avail = item.currentInventoryQty ?? 0;
+                        const orders = item.competingOrderCount ?? 2;
+                        const total = item.totalDemandQty ?? item.quantity;
+                        return `${avail} in stock, ${total} needed across ${orders} open orders`;
+                      })()}
                       data-testid={`stock-warning-icon-${index}`}
                     />
                   )}
