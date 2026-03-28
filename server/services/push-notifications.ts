@@ -14,17 +14,37 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
 const ELFIE_ALL_MESSAGES = [
   (count: number, ids: string[]) =>
     count === 1
-      ? `Commander! 1 new mission just dropped — ${ids[0]} is locked and loaded. Time to gear up! 🧱`
+      ? `Commander! 1 new mission just dropped — ${ids[0]} is locked and loaded. Time to gear up!`
       : count <= 3
-      ? `Commander! ${count} new orders have entered the hangar — ${ids.slice(0, 2).join(', ')}${count > 2 ? ' and more' : ''} are ready for action! 🧱`
-      : `Commander! ${count} new orders just swarmed the base. The warehouse calls — it's brick o'clock! 🧱`,
+      ? `Commander! ${count} new orders have entered the hangar — ${ids.slice(0, 2).join(', ')}${count > 2 ? ' and more' : ''} are ready for action!`
+      : `Commander! ${count} new orders just swarmed the base. The warehouse calls — it's brick o'clock!`,
+  (count: number, ids: string[]) =>
+    count === 1
+      ? `New order detected, Commander. ${ids[0]} is in the queue and awaiting your move.`
+      : count <= 3
+      ? `${count} new orders just landed on PlanetBrick — ${ids.slice(0, 2).join(', ')}${count > 2 ? ' and more' : ''}. Your pick station awaits.`
+      : `${count} orders incoming, Commander. The brick vault is calling — deploy your finest sorting skills!`,
+  (count: number, ids: string[]) =>
+    count === 1
+      ? `Incoming order, Commander! ${ids[0]} just hit the system. E.L.F.I.E. standing by for pick.`
+      : count <= 3
+      ? `E.L.F.I.E. scanning new orders: ${ids.slice(0, 2).join(', ')}${count > 2 ? ' + more' : ''}. All systems go, Commander.`
+      : `${count} new orders in the queue, Commander. Time to unleash the brickforce!`,
+  (count: number, ids: string[]) =>
+    count === 1
+      ? `Order ${ids[0]} has cleared the launchpad, Commander. Fulfillment window is open!`
+      : `New batch alert! ${count} order${count > 1 ? 's' : ''} cleared for pick — ${ids.slice(0, 2).join(', ')}${count > 2 ? ' and more' : ''}. PlanetBrick ops center is live.`,
 ];
 
 const ELFIE_PRIORITY_MESSAGES = [
   (count: number, ids: string[]) =>
     count === 1
-      ? `🚨 PRIORITY ALERT! ${ids[0]} needs warp-speed fulfillment, Commander. Express lane engaged!`
-      : `🚨 PRIORITY ALERT! ${count} express orders are incoming — ${ids.slice(0, 2).join(', ')}${count > 2 ? ' and more' : ''}. Full thrusters, Commander!`,
+      ? `PRIORITY ALERT! ${ids[0]} needs warp-speed fulfillment, Commander. Express lane engaged!`
+      : `PRIORITY ALERT! ${count} express orders are incoming — ${ids.slice(0, 2).join(', ')}${count > 2 ? ' and more' : ''}. Full thrusters, Commander!`,
+  (count: number, ids: string[]) =>
+    count === 1
+      ? `Commander, ${ids[0]} is priority-flagged. E.L.F.I.E. recommends immediate deployment!`
+      : `${count} priority orders detected, Commander — ${ids.slice(0, 2).join(', ')}${count > 2 ? ' and more' : ''}. The express dock is yours.`,
 ];
 
 function pickMessage(templates: ((c: number, ids: string[]) => string)[], count: number, ids: string[]) {

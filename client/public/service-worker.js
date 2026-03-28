@@ -1,4 +1,4 @@
-const CACHE_VERSION = '2026.03.27.1';
+const CACHE_VERSION = '2026.03.28.1';
 const CACHE_NAME = `elfie-cache-v${CACHE_VERSION}`;
 const urlsToCache = [
   '/',
@@ -77,10 +77,11 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'E.L.F.I.E.';
   const options = {
     body: data.body || '',
-    icon: '/icon-192.png',
+    icon: '/elfie-robot.png',
     badge: '/icon-192.png',
     tag: data.tag || 'elfie-notification',
     renotify: true,
+    silent: false,
     data: { url: data.url || '/' },
   };
 
