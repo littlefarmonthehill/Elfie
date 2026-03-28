@@ -125,6 +125,25 @@ async function runScheduledPlatformSync(
     if ((added ?? 0) > 0) {
       broadcast(orgId, 'order.synced', { platform, added, source: 'scheduler' });
 
+      // Send push notifications for new orders
+      (async () => {
+        try {
+          const { sendOrderSyncNotifications } = await import("./push-notifications");
+          const { db: dbInner } = await import("../db");
+          const { sql: drizzleSql } = await import("drizzle-orm");
+          const marketplace = platform === 'bricklink' ? 'BrickLink' : 'BrickOwl';
+          const newRows = await dbInner.execute(drizzleSql`
+            SELECT order_number AS "orderNumber", NULL AS "shippingTier"
+            FROM orders
+            WHERE marketplace = ${marketplace} AND org_id = ${orgId}
+            ORDER BY synced_at DESC LIMIT ${added}
+          `);
+          await sendOrderSyncNotifications(orgId, newRows.rows as { orderNumber: string; shippingTier?: string | null }[]);
+        } catch (notifErr: any) {
+          console.error(`⚠️ Push notifications failed (non-fatal): ${notifErr.message}`);
+        }
+      })();
+
       // Run embeddings in the background so they don't delay the broadcast.
       (async () => {
         try {
