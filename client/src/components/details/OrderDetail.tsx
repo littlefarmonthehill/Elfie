@@ -306,9 +306,24 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
           </div>
           <div className="flex items-center gap-1.5">
             <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
-            <span className="text-gray-400">{data.customer.city}, {data.customer.state}</span>
+            <span className="text-gray-400">
+              {[data.customer.city, data.customer.state].filter(Boolean).join(', ') || data.customer.country || '—'}
+            </span>
           </div>
         </div>
+
+        {/* Full Address — read-only block, always visible */}
+        {(data.customer.address || data.customer.city || data.customer.zip || data.customer.country) && !isEditing && (
+          <div className="text-[9px] md:text-[10px] text-gray-500 leading-snug pl-6" data-testid="text-shipping-address">
+            {data.customer.address && <div>{data.customer.address}</div>}
+            {data.customer.address2 && <div>{data.customer.address2}</div>}
+            {data.customer.address3 && <div>{data.customer.address3}</div>}
+            <div>
+              {[data.customer.city, data.customer.state, data.customer.zip].filter(Boolean).join(' ')}
+            </div>
+            {data.customer.country && <div>{data.customer.country}</div>}
+          </div>
+        )}
 
         {/* Customer / Internal Notes */}
         {(data.customerNotes || data.internalNotes) && (
