@@ -11119,6 +11119,8 @@ Format search_web URLs as markdown links.`;
       const priceCeilingRatio = (spotBlendedRef !== null && spotBlendedRef > 0 && currentPrice > 0)
         ? Number(((spotBlendedRef / currentPrice) * Math.max(0.2, spotConfidence)).toFixed(3))
         : null;
+      // STR = soldQty / stockQty. Raw value returned for display (can exceed 1.0).
+      // Clamped to [0,1] before entering the score so high-STR items don't crowd out other signals.
       const demandVelocity = (stockQty > 0)
         ? Number((soldQty / stockQty).toFixed(3))
         : null;
@@ -11133,7 +11135,7 @@ Format search_web URLs as markdown links.`;
       const hasAny = priceCeilingRatio !== null || demandVelocity !== null || marketScarcityVal !== null || undercutRatio !== null;
       if (hasAny) {
         const cC = (priceCeilingRatio ?? 0) * wCeiling;
-        const vC = (demandVelocity ?? 0) * wVelocity;
+        const vC = Math.min(1, demandVelocity ?? 0) * wVelocity; // STR clamped [0,1]
         const sC = (marketScarcityVal ?? 0) * wScarcity;
         const uC = (undercutRatio && undercutRatio > 0) ? (1 / undercutRatio) * wUndercut : 0;
         repricingScore = Number((cC + vC + sC + uC).toFixed(2));
@@ -13936,7 +13938,7 @@ Seller's pricing description: "${strategyText.trim()}"
 Based on the preset and any nuances in the description, choose final scoring weights.
 Dimensions:
 - wCeiling: how much room to raise price vs sold avg/peak (ceiling ratio)
-- wVelocity: demand signal (sold qty / listed qty)
+- wVelocity: STR (Sell-Through Rate = sold qty ÷ listed qty). STR>100% = demand surge, 40-100% = healthy demand, <40% = slow mover. Capped at 100% for scoring so fast-sellers don't crowd out other signals.
 - wScarcity: how rare the item is (fewer sellers = scarcer)
 - wUndercut: competitive pressure (my price vs lowest listed)
 
@@ -14644,7 +14646,10 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
           ? Number(((blendedRef / currentPrice) * Math.max(0.2, confidenceFactor)).toFixed(3))
           : null;
 
-        // 2. Demand Velocity = soldQuantity / stockQuantity (fall back to lots if qty not yet populated)
+        // 2. STR (Sell-Through Rate) = soldQty / stockQty — how fast the part sells relative to supply.
+        //    STR > 100% = demand outpaces supply; 40-100% = healthy; < 40% = slow mover.
+        //    Raw STR returned for display; clamped to [0,1] before entering the score so high-STR
+        //    items don't crowd out other signals.
         const soldQty = item.soldQuantity ?? parseInt(item.soldTotalLots || '0');
         const stockQty = item.stockQuantity ?? parseInt(item.stockTotalLots || '0');
         const demandVelocity = (stockQty > 0)
@@ -14667,7 +14672,7 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         const hasAnyComponent = priceCeilingRatio !== null || demandVelocity !== null || marketScarcity !== null || undercutRatio !== null;
         if (hasAnyComponent) {
           const ceilingComponent = (priceCeilingRatio ?? 0) * wCeiling;
-          const velocityComponent = (demandVelocity ?? 0) * wVelocity;
+          const velocityComponent = Math.min(1, demandVelocity ?? 0) * wVelocity; // STR clamped [0,1]
           const scarcityComponent = (marketScarcity ?? 0) * wScarcity;
           const undercutComponent = (undercutRatio && undercutRatio > 0) ? (1 / undercutRatio) * wUndercut : 0;
           repricingScore = Number((ceilingComponent + velocityComponent + scarcityComponent + undercutComponent).toFixed(3));

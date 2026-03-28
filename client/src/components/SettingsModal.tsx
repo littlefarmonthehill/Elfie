@@ -4677,7 +4677,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                     </div>
                     <div className="flex items-center gap-3 mt-1 flex-wrap">
                       <span className="text-[10px] text-gray-400">Ceiling {(pomWeightCeiling * 100).toFixed(0)}%</span>
-                      <span className="text-[10px] text-gray-400">Velocity {(pomWeightVelocity * 100).toFixed(0)}%</span>
+                      <span className="text-[10px] text-gray-400">STR {(pomWeightVelocity * 100).toFixed(0)}%</span>
                       <span className="text-[10px] text-gray-400">Scarcity {(pomWeightScarcity * 100).toFixed(0)}%</span>
                       <span className="text-[10px] text-gray-400">Undercut {(pomWeightUndercut * 100).toFixed(0)}%</span>
                     </div>
@@ -6485,9 +6485,9 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         <p className="text-[10px] text-gray-500 leading-relaxed">
                           {pomSortMode === 'scoring' ? (
                             <>
-                              Items ranked by repricing score — ceiling ratio, demand velocity, scarcity, and undercut margin. Best for systematic repricing.
+                              Items ranked by repricing score — ceiling ratio, STR (sell-through rate), scarcity, and undercut margin. Best for systematic repricing.
                               <span className="block mt-1 font-mono text-gray-600">
-                                Score = (ceiling × {Math.round(pomWeightCeiling * 100)}%) + (velocity × {Math.round(pomWeightVelocity * 100)}%) + (scarcity × {Math.round(pomWeightScarcity * 100)}%) + (undercut × {Math.round(pomWeightUndercut * 100)}%)
+                                Score = (ceiling × {Math.round(pomWeightCeiling * 100)}%) + (STR × {Math.round(pomWeightVelocity * 100)}%) + (scarcity × {Math.round(pomWeightScarcity * 100)}%) + (undercut × {Math.round(pomWeightUndercut * 100)}%)
                               </span>
                             </>
                           ) : (
@@ -6511,7 +6511,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                         <div className="grid grid-cols-4 gap-1">
                           {[
                             { label: 'Ceiling', val: pomWeightCeiling },
-                            { label: 'Velocity', val: pomWeightVelocity },
+                            { label: 'STR', val: pomWeightVelocity },
                             { label: 'Scarcity', val: pomWeightScarcity },
                             { label: 'Undercut', val: pomWeightUndercut },
                           ].map(({ label, val }) => (
@@ -6522,7 +6522,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           ))}
                         </div>
                         <p className="text-[9px] text-gray-600 mt-1.5 leading-relaxed font-mono">
-                          Score = (ceiling × {Math.round(pomWeightCeiling * 100)}%) + (velocity × {Math.round(pomWeightVelocity * 100)}%) + (scarcity × {Math.round(pomWeightScarcity * 100)}%) + (undercut × {Math.round(pomWeightUndercut * 100)}%)
+                          Score = (ceiling × {Math.round(pomWeightCeiling * 100)}%) + (STR × {Math.round(pomWeightVelocity * 100)}%) + (scarcity × {Math.round(pomWeightScarcity * 100)}%) + (undercut × {Math.round(pomWeightUndercut * 100)}%)
                         </p>
                       </div>
 
@@ -6616,20 +6616,20 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             </div>
                             <div className="border-t border-gray-700/40">
                             <div className="px-3 pt-2 pb-1">
-                              <span className="text-[9px] font-semibold text-green-400 uppercase tracking-wider">Velocity thresholds</span>
+                              <span className="text-[9px] font-semibold text-green-400 uppercase tracking-wider">STR thresholds</span>
                             </div>
                             <div className="divide-y divide-gray-700/30">
                               <div className="sm-row px-3">
                                 <Label className="text-xs text-emerald-300">High demand</Label>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-xs text-gray-400">velocity ≥</span>
+                                  <span className="text-xs text-gray-400">STR ≥</span>
                                   <Input type="number" min={0} max={100} step={0.1} value={pomVelocityHigh} onChange={(e) => setPomVelocityHigh(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomVelocityHigh })} className="text-sm w-20 text-right" data-testid="input-pom-velocity-high" />
                                 </div>
                               </div>
                               <div className="sm-row px-3">
                                 <Label className="text-xs text-orange-300">Low demand</Label>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-xs text-gray-400">velocity ≤</span>
+                                  <span className="text-xs text-gray-400">STR ≤</span>
                                   <Input type="number" min={0} max={100} step={0.1} value={pomVelocityLow} onChange={(e) => setPomVelocityLow(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomVelocityLow })} className="text-sm w-20 text-right" data-testid="input-pom-velocity-low" />
                                 </div>
                               </div>
@@ -6708,7 +6708,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                 </button>
                               </PopoverTrigger>
                               <PopoverContent side="bottom" className="sm-popover">
-                                Drag the wheel to tune your pricing strategy across four dimensions. Demand weighs sales velocity, Rarity weighs sold-max prices, Competition anchors to market min, and Store Premium adds your markup for deep stock and fast service. The same wheel appears on each tile.
+                                Drag the wheel to tune your pricing strategy across four dimensions. Demand weighs STR (sell-through rate), Rarity weighs sold-max prices, Competition anchors to market min, and Store Premium adds your markup for deep stock and fast service. The same wheel appears on each tile.
                               </PopoverContent>
                             </Popover>
                           </div>
@@ -6828,7 +6828,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               </div>
                               <div className="divide-y divide-gray-700/30">
                                 <div className="sm-row px-3">
-                                  <Label className="text-xs text-gray-400">Velocity multiplier</Label>
+                                  <Label className="text-xs text-gray-400">STR multiplier</Label>
                                   <Input type="number" min={0} max={1} step={0.05} value={pomSugDemandMult} onChange={(e) => setPomSugDemandMult(parseFloat(e.target.value) || 0)} onBlur={() => updateOrgSettingsMutation.mutate({ pomSugDemandMult })} className="text-sm w-20 text-right" data-testid="input-sug-demand-mult" />
                                 </div>
                                 <div className="sm-row px-3">
@@ -7087,7 +7087,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                               <p className="text-[10px] text-gray-400 leading-relaxed">Each preset sets four weights that control which pricing signals matter most when ranking opportunities in Price-o-Matic.</p>
                               <div className="pt-1.5 border-t border-gray-700/60 space-y-1">
                                 <div className="flex items-baseline gap-1.5"><span className="text-[9px] text-gray-500 w-14 shrink-0">Ceiling</span><span className="text-[9px] text-gray-400">How far your price is from the market ceiling</span></div>
-                                <div className="flex items-baseline gap-1.5"><span className="text-[9px] text-gray-500 w-14 shrink-0">Velocity</span><span className="text-[9px] text-gray-400">How fast the part sells across the market</span></div>
+                                <div className="flex items-baseline gap-1.5"><span className="text-[9px] text-gray-500 w-14 shrink-0">STR</span><span className="text-[9px] text-gray-400">Sell-through rate — units sold ÷ units listed. &gt;100% = demand surge, 40–100% = healthy, &lt;40% = slow mover</span></div>
                                 <div className="flex items-baseline gap-1.5"><span className="text-[9px] text-gray-500 w-14 shrink-0">Scarcity</span><span className="text-[9px] text-gray-400">How few sellers carry this part</span></div>
                                 <div className="flex items-baseline gap-1.5"><span className="text-[9px] text-gray-500 w-14 shrink-0">Undercut</span><span className="text-[9px] text-gray-400">How much you are undercut by the cheapest seller</span></div>
                               </div>

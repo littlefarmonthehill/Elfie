@@ -150,7 +150,8 @@ export const DEFAULT_SCORE_CONFIG: ScoreConfig = {
 
 export function calcScore(lot: PricingInsight, cfg: ScoreConfig): number {
   const c = (lot.priceCeilingRatio ?? 0) * cfg.wCeiling;
-  const v = (lot.demandVelocity ?? 0) * cfg.wVelocity;
+  // STR clamped to [0,1] so 200%+ STR doesn't dominate over other signals
+  const v = Math.min(1, lot.demandVelocity ?? 0) * cfg.wVelocity;
   const s = (lot.marketScarcity ?? 0) * cfg.wScarcity;
   const u = (lot.undercutRatio && lot.undercutRatio > 0) ? (1 / lot.undercutRatio) * cfg.wUndercut : 0;
   return c + v + s + u;
@@ -173,10 +174,11 @@ export function calcHybridScore(lot: PricingInsight, scoreCfg: ScoreConfig, sugC
 
 export function calcScoreBreakdown(lot: PricingInsight, cfg: ScoreConfig, sugCfg?: SugConfig) {
   const cRaw = lot.priceCeilingRatio ?? 0;
-  const vRaw = lot.demandVelocity ?? 0;
+  const vRaw = lot.demandVelocity ?? 0;         // raw STR (can exceed 1.0)
+  const vClamped = Math.min(1, vRaw);           // clamped to [0,1] for scoring
   const sRaw = lot.marketScarcity ?? 0;
   const uRaw = (lot.undercutRatio && lot.undercutRatio > 0) ? 1 / lot.undercutRatio : 0;
-  const baseTotal = cRaw * cfg.wCeiling + vRaw * cfg.wVelocity + sRaw * cfg.wScarcity + uRaw * cfg.wUndercut;
+  const baseTotal = cRaw * cfg.wCeiling + vClamped * cfg.wVelocity + sRaw * cfg.wScarcity + uRaw * cfg.wUndercut;
 
   let sugRaw: number | null = null;
   let sugWeighted: number | null = null;
@@ -191,7 +193,8 @@ export function calcScoreBreakdown(lot: PricingInsight, cfg: ScoreConfig, sugCfg
 
   return {
     ceiling: { raw: cRaw, weight: cfg.wCeiling, weighted: cRaw * cfg.wCeiling },
-    velocity: { raw: vRaw, weight: cfg.wVelocity, weighted: vRaw * cfg.wVelocity },
+    // vRaw is the display STR %, vClamped is what enters the score
+    velocity: { raw: vRaw, weight: cfg.wVelocity, weighted: vClamped * cfg.wVelocity },
     scarcity: { raw: sRaw, weight: cfg.wScarcity, weighted: sRaw * cfg.wScarcity },
     undercut: { raw: uRaw, weight: cfg.wUndercut, weighted: uRaw * cfg.wUndercut },
     suggestion: sugRaw != null ? { raw: sugRaw, weight: SUG_INFLUENCE_WEIGHT, weighted: sugWeighted! } : null,
@@ -883,7 +886,7 @@ export function DimensionWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight 
               </div>
               <div className="space-y-0.5 border-b border-gray-700/60 pb-1.5">
                 <p className="text-[8px] uppercase tracking-wider text-gray-500 mb-0.5">Adjustments</p>
-                {row(`Velocity (${bd.soldQty} sold / ${bd.stockQty} listed)`, bd.velocity.toFixed(2))}
+                {row(`STR (${bd.soldQty} sold / ${bd.stockQty} listed)`, `${(bd.velocity * 100).toFixed(0)}%`)}
                 {row(`Demand adj`, `×${bd.demandAdj.toFixed(3)}`)}
                 {bd.stockMin > 0 && row(`Comp cap`, f(bd.stockMin * bd.cfg.compCap))}
                 {bd.storePremiumPct > 0 && row(`Store Premium`, `+${bd.storePremiumPct.toFixed(1)}%`)}
@@ -934,7 +937,7 @@ function BreakdownPopover({ bd, label, children, onOpenSettings, lot }: {
           </div>
           <div className="space-y-0.5">
             <p className="text-[8px] uppercase tracking-wider text-gray-500 mb-0.5">Adjustments</p>
-            {row(`Velocity (${bd.soldQty} sold / ${bd.stockQty} listed)`, bd.velocity.toFixed(2))}
+            {row(`STR (${bd.soldQty} sold / ${bd.stockQty} listed)`, `${(bd.velocity * 100).toFixed(0)}%`)}
             {row(`Demand adj`, `×${bd.demandAdj.toFixed(3)}`)}
             {bd.stockMin > 0 && row(`Comp cap`, f(bd.stockMin * bd.cfg.compCap))}
             {bd.storePremiumPct > 0 && row(`Store Premium`, `+${bd.storePremiumPct.toFixed(1)}%`)}
@@ -967,12 +970,17 @@ function ScoreBreakdownPopover({ lot, cfg, sugCfg, children, onOpenSettings }: {
 }) {
   const [open, setOpen] = useState(false);
   const bd = calcScoreBreakdown(lot, cfg, sugCfg);
+  const strPct = bd.velocity.raw * 100;
+  const strBand = strPct >= 100 ? { label: 'demand surge', color: '#4ade80' }
+    : strPct >= 40 ? { label: 'healthy demand', color: '#34d399' }
+    : { label: 'slow mover', color: '#fb923c' };
   const dims = [
-    { key: 'ceiling', label: 'Ceiling', color: '#60a5fa', raw: bd.ceiling.raw, weight: bd.ceiling.weight, weighted: bd.ceiling.weighted, suffix: '×' },
-    { key: 'velocity', label: 'Velocity', color: '#34d399', raw: bd.velocity.raw, weight: bd.velocity.weight, weighted: bd.velocity.weighted },
-    { key: 'scarcity', label: 'Scarcity', color: '#a78bfa', raw: bd.scarcity.raw, weight: bd.scarcity.weight, weighted: bd.scarcity.weighted },
-    { key: 'undercut', label: 'Undercut', color: '#fbbf24', raw: bd.undercut.raw, weight: bd.undercut.weight, weighted: bd.undercut.weighted, suffix: '×' },
+    { key: 'ceiling', label: 'Ceiling', color: '#60a5fa', rawFmt: `${bd.ceiling.raw.toFixed(2)}×`, weighted: bd.ceiling.weighted },
+    { key: 'velocity', label: `STR ${strPct.toFixed(0)}%`, color: strBand.color, rawFmt: strBand.label, weighted: bd.velocity.weighted },
+    { key: 'scarcity', label: 'Scarcity', color: '#a78bfa', rawFmt: bd.scarcity.raw.toFixed(4), weighted: bd.scarcity.weighted },
+    { key: 'undercut', label: 'Undercut', color: '#fbbf24', rawFmt: `${bd.undercut.raw.toFixed(2)}×`, weighted: bd.undercut.weighted },
   ];
+  const weights = [bd.ceiling.weight, bd.velocity.weight, bd.scarcity.weight, bd.undercut.weight];
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
@@ -984,11 +992,11 @@ function ScoreBreakdownPopover({ lot, cfg, sugCfg, children, onOpenSettings }: {
           </button>
         </div>
         <div className="text-[10px] leading-snug space-y-1">
-          {dims.map((d) => (
+          {dims.map((d, i) => (
             <div key={d.key} className="flex justify-between gap-2 text-gray-400">
-              <span style={{ color: d.color }}>{d.label} <span className="text-gray-600">({(d.weight * 100).toFixed(0)}%)</span></span>
+              <span style={{ color: d.color }}>{d.label} <span className="text-gray-600">({(weights[i] * 100).toFixed(0)}%)</span></span>
               <span className="font-mono">
-                <span className="text-gray-600">{d.raw.toFixed(2)}{d.suffix ?? ''}</span>
+                <span className="text-gray-600">{d.rawFmt}</span>
                 {' '}
                 <span className="text-gray-300">{d.weighted.toFixed(3)}</span>
               </span>
@@ -1033,7 +1041,7 @@ function ScoreBreakdownPopover({ lot, cfg, sugCfg, children, onOpenSettings }: {
 
 const SCORE_DIMENSIONS = [
   { key: 'ceiling' as const, label: 'Ceiling', color: '#60a5fa', angle: -Math.PI / 2, desc: 'Price upside potential' },
-  { key: 'velocity' as const, label: 'Velocity', color: '#34d399', angle: 0, desc: 'Sales speed vs supply' },
+  { key: 'velocity' as const, label: 'STR', color: '#34d399', angle: 0, desc: 'Sell-through rate (sold ÷ listed)' },
   { key: 'scarcity' as const, label: 'Scarcity', color: '#a78bfa', angle: Math.PI / 2, desc: 'Market rarity' },
   { key: 'undercut' as const, label: 'Undercut', color: '#fbbf24', angle: Math.PI, desc: 'Competitive position' },
 ];
@@ -1270,8 +1278,8 @@ export function ScoringWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight | 
                 <span className="font-mono">{((lot.priceCeilingRatio ?? 0) * liveCfg.wCeiling).toFixed(3)}</span>
               </div>
               <div className="flex justify-between gap-2 text-gray-400">
-                <span>Velocity ({(liveCfg.wVelocity * 100).toFixed(0)}%)</span>
-                <span className="font-mono">{((lot.demandVelocity ?? 0) * liveCfg.wVelocity).toFixed(3)}</span>
+                <span>STR ({(liveCfg.wVelocity * 100).toFixed(0)}%)</span>
+                <span className="font-mono">{(Math.min(1, lot.demandVelocity ?? 0) * liveCfg.wVelocity).toFixed(3)}</span>
               </div>
               <div className="flex justify-between gap-2 text-gray-400">
                 <span>Scarcity ({(liveCfg.wScarcity * 100).toFixed(0)}%)</span>
@@ -1294,7 +1302,7 @@ export function ScoringWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight | 
 }
 
 const SORT_TO_SCORE_LABEL: Record<SortField, string> = {
-  ceiling: 'Ceil', velocity: 'Vel', scarcity: 'Scarc', undercut: 'Undr', combined: 'Score',
+  ceiling: 'Ceil', velocity: 'STR', scarcity: 'Scarc', undercut: 'Undr', combined: 'Score',
 };
 
 function ScoresBar({ group, activeSort, scoreCfg, sugCfg, onOpenScoringSettings }: {
@@ -1304,9 +1312,10 @@ function ScoresBar({ group, activeSort, scoreCfg, sugCfg, onOpenScoringSettings 
   sugCfg?: SugConfig;
   onOpenScoringSettings?: (lot: PricingInsight) => void;
 }) {
-  const items: Array<{ label: string; value: number | null; suffix?: string }> = [
+  const strPctBest = group.bestVelocity != null ? group.bestVelocity * 100 : null;
+  const items: Array<{ label: string; value: number | null; suffix?: string; isPct?: boolean }> = [
     { label: 'Ceil', value: group.bestCeiling, suffix: '×' },
-    { label: 'Vel', value: group.bestVelocity },
+    { label: 'STR', value: strPctBest, suffix: '%', isPct: true },
     { label: 'Scarc', value: group.bestScarcity },
     { label: 'Undr', value: group.bestUndercut, suffix: '×' },
     { label: 'Score', value: group.bestCombined },
@@ -1320,13 +1329,18 @@ function ScoresBar({ group, activeSort, scoreCfg, sugCfg, onOpenScoringSettings 
       onClick={(e) => e.stopPropagation()}
       data-testid={`scores-bar-${group.key}`}
     >
-      {items.map(({ label, value, suffix }) => {
+      {items.map(({ label, value, suffix, isPct }) => {
         const isActive = label === activeLabel;
+        // STR is stored as pct (e.g. 53.2) — use toFixed(0); colour based on normalised 0-1 for STR
+        const colorVal = isPct && value != null ? value / 100 : value;
+        const displayStr = value != null
+          ? `${isPct ? value.toFixed(0) : value.toFixed(2)}${suffix ?? ''}`
+          : '—';
         return (
           <div key={label} className={`flex-1 text-center rounded-sm py-0.5 lg:py-1 ${isActive ? 'bg-violet-500/[0.15] ring-1 ring-inset ring-violet-400/30' : ''}`}>
             <div className={`text-[7px] lg:text-[9px] uppercase tracking-wider leading-none mb-0.5 ${isActive ? 'text-violet-300' : 'text-gray-600'}`}>{label}</div>
-            <div className={`text-[10px] lg:text-xs font-mono font-bold leading-none ${scoreColor(value)}`}>
-              {value != null ? `${value.toFixed(2)}${suffix ?? ''}` : '—'}
+            <div className={`text-[10px] lg:text-xs font-mono font-bold leading-none ${scoreColor(colorVal)}`}>
+              {displayStr}
             </div>
           </div>
         );
@@ -1346,7 +1360,7 @@ function ScoresBar({ group, activeSort, scoreCfg, sugCfg, onOpenScoringSettings 
 const SORT_LABELS: Record<SortField, string> = {
   combined: 'Score',
   ceiling: 'Ceiling',
-  velocity: 'Velocity',
+  velocity: 'STR',
   scarcity: 'Scarcity',
   undercut: 'Undercut',
 };
@@ -1692,7 +1706,7 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
               <p className="font-semibold text-gray-200 text-xs">Repricing Scores</p>
               <div className="space-y-1.5 text-gray-400">
                 <p><span className="text-blue-300 font-medium">Ceiling</span> — ratio of peak sold price to your current price. Higher means more room to raise prices.</p>
-                <p><span className="text-purple-300 font-medium">Velocity</span> — sold lots vs listed lots (6mo). Higher means items are selling fast relative to supply.</p>
+                <p><span className="text-purple-300 font-medium">STR</span> — sell-through rate (sold ÷ listed, 6mo). &gt;100% = demand surge, 40–100% = healthy, &lt;40% = slow mover. Capped at 100% for scoring.</p>
                 <p><span className="text-amber-300 font-medium">Scarcity</span> — inverse of total listed lots. Higher means fewer sellers competing.</p>
                 <p><span className="text-rose-300 font-medium">Undercut</span> — your price vs the lowest listed price. Lower means you're closer to the floor.</p>
                 <p><span className="text-emerald-300 font-medium">Score</span> — weighted combination of all four metrics using your configured weights.</p>
