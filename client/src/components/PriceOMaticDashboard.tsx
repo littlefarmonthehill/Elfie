@@ -562,10 +562,13 @@ function calcSuggested(lot: PricingInsight | null, cfg: SugConfig = DEFAULT_SUG_
   const soldAvg = parseFloat(lot.soldAvgPrice || '0');
   const soldMax = parseFloat(lot.soldMaxPrice || '0');
   const stockMin = parseFloat(lot.stockMinPrice || '0');
-  const soldQty = lot.soldQuantity ?? parseInt(lot.soldTotalLots || '0');
-  const stockQty = lot.stockQuantity ?? parseInt(lot.stockTotalLots || '0');
-  const velocity = (stockQty > 0) ? soldQty / stockQty : 0;
-  const scarcity = (stockQty > 0) ? 1 / stockQty : 0;
+  // Only use piece-counts for velocity — lot counts (soldTotalLots/stockTotalLots) are not
+  // interchangeable with piece counts and produce nonsense ratios. If piece counts are
+  // unavailable, don't apply a demand adjustment (vel = 0).
+  const soldQty = lot.soldQuantity ?? null;
+  const stockQty = lot.stockQuantity ?? null;
+  const velocity = (soldQty != null && stockQty != null && stockQty > 0) ? soldQty / stockQty : 0;
+  const scarcity = (stockQty != null && stockQty > 0) ? 1 / stockQty : 0;
 
   if (soldAvg <= 0 && stockMin <= 0) return { suggested: null, breakdown: null };
 

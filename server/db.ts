@@ -2140,6 +2140,29 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-88 (pricing_strategy_preset on ie_strategies) complete.');
 
+    // Phase-89: Reset incorrectly backfilled sold_quantity / stock_quantity.
+    // Phases 38 & 39 set sold_quantity = sold_total_lots and stock_quantity = stock_total_lots as
+    // a temporary proxy (lot count, not piece count). Items that were later partially re-fetched
+    // ended up with a real piece count on one side and a lot count on the other, producing
+    // nonsense STR values like 23000%+. Reset those rows to NULL so they get proper values on
+    // the next price guide fetch. Rows where the value is genuinely equal to the lot count are
+    // indistinguishable but are vanishingly rare (every seller would need exactly 1 piece).
+    await client.query(`
+      UPDATE price_guide_cache
+      SET sold_quantity = NULL
+      WHERE sold_quantity IS NOT NULL
+        AND sold_total_lots IS NOT NULL
+        AND sold_quantity = sold_total_lots
+    `);
+    await client.query(`
+      UPDATE price_guide_cache
+      SET stock_quantity = NULL
+      WHERE stock_quantity IS NOT NULL
+        AND stock_total_lots IS NOT NULL
+        AND stock_quantity = stock_total_lots
+    `);
+    console.log('[Migration] Phase-89 (reset lot-count-backfilled sold_quantity / stock_quantity) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

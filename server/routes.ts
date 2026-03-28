@@ -11285,12 +11285,13 @@ Format search_web URLs as markdown links.`;
         const soldAvg = parseFloat(row.soldAvgPrice || '0');
         const soldMax = parseFloat(row.soldMaxPrice || '0');
         const stkMin = parseFloat(row.stockMinPrice || '0');
-        const sQty = row.soldQuantity ?? (row.soldTotalLots ? parseInt(String(row.soldTotalLots)) : 0);
-        const lQty = row.stockQuantity ?? (row.stockTotalLots ? parseInt(String(row.stockTotalLots)) : 0);
+        // Only piece-counts may be divided — lot counts produce nonsense ratios.
+        const sQty = row.soldQuantity ?? null;
+        const lQty = row.stockQuantity ?? null;
         if (soldAvg <= 0 && stkMin <= 0) return null;
         const base = (soldAvg > 0 ? soldAvg * 0.5 : 0) + (stkMin > 0 ? stkMin * 0.3 : 0) + (soldMax > 0 ? soldMax * 0.2 : 0);
         if (base <= 0) return null;
-        const vel = lQty > 0 ? sQty / lQty : 0;
+        const vel = (sQty != null && lQty != null && lQty > 0) ? sQty / lQty : 0;
         const demandAdj = 1 + vel * 0.25;
         const raw = base * demandAdj;
         const capLimit = stkMin > 0 ? stkMin * 1.15 : raw;
