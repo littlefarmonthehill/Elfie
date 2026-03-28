@@ -5625,41 +5625,6 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                             </div>
                           ))}
 
-                          {/* Per-stockroom mode selectors */}
-                          <div className="px-3 pt-2 pb-1">
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">BrickLink Stockrooms</p>
-                            <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">
-                              <strong className="text-gray-400">Skip</strong> — ignore entirely.{' '}
-                              <strong className="text-gray-400">Hidden</strong> — sync but mark not-for-sale on BrickOwl.{' '}
-                              <strong className="text-gray-400">Active</strong> — sync as a normal for-sale listing.
-                            </p>
-                          </div>
-                          {(['A', 'B', 'C'] as const).map((id) => {
-                            const current = syncStockroomModes[id] ?? 'skip';
-                            return (
-                              <div key={id} className="flex items-center justify-between gap-3 px-3 py-2">
-                                <p className="text-xs font-medium text-gray-200 shrink-0">Stockroom {id}</p>
-                                <div className="flex gap-1">
-                                  {(['skip', 'hidden', 'active'] as const).map((mode) => (
-                                    <Button
-                                      key={mode}
-                                      size="sm"
-                                      variant={current === mode ? 'default' : 'ghost'}
-                                      className="text-[10px] capitalize"
-                                      onClick={() => {
-                                        const next = { ...syncStockroomModes, [id]: mode };
-                                        setSyncStockroomModes(next);
-                                        updateSyncFieldMutation.mutate({ syncStockroomModes: next });
-                                      }}
-                                      data-testid={`button-sync-stockroom-${id}-${mode}`}
-                                    >
-                                      {mode}
-                                    </Button>
-                                  ))}
-                                </div>
-                              </div>
-                            );
-                          })}
 
                         </div>
                       </div>
@@ -6158,6 +6123,30 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                 <Switch checked={value} onCheckedChange={(c) => { set(c); updateSyncFieldMutation.mutate({ [key]: c }); }} data-testid={`switch-sync-field-${key}`} />
                               </div>
                             ))}
+                            <div className="px-3 pt-2 pb-1">
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">BrickLink Stockrooms</p>
+                              <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">
+                                <strong className="text-gray-400">Skip</strong> — ignore entirely.{' '}
+                                <strong className="text-gray-400">Hidden</strong> — sync but mark not-for-sale.{' '}
+                                <strong className="text-gray-400">Active</strong> — sync as a normal listing.
+                              </p>
+                            </div>
+                            {(['A', 'B', 'C'] as const).map((id) => {
+                              const current = syncStockroomModes[id] ?? 'skip';
+                              return (
+                                <div key={id} className="flex items-center justify-between gap-3 px-3 py-2">
+                                  <p className="text-xs font-medium text-gray-200 shrink-0">Stockroom {id}</p>
+                                  <div className="flex gap-1">
+                                    {(['skip', 'hidden', 'active'] as const).map((mode) => (
+                                      <Button key={mode} size="sm" variant={current === mode ? 'default' : 'ghost'} className="text-[10px] capitalize"
+                                        onClick={() => { const next = { ...syncStockroomModes, [id]: mode }; setSyncStockroomModes(next); updateSyncFieldMutation.mutate({ syncStockroomModes: next }); }}
+                                        data-testid={`button-sync-stockroom-${id}-${mode}`}
+                                      >{mode}</Button>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
