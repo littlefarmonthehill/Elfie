@@ -146,6 +146,9 @@ export async function syncBrickLinkOrders(
         const existing = existingMap.get(orderId);
         if (!existing) return true; // New order — process it
 
+        // Soft-purged locally (operator deleted the test order) — never re-import.
+        if (existing === 'purged') return false;
+
         // BrickLink keeps order status as COMPLETED on returns; only payment.status changes.
         const isPaymentReturned = order.payment?.status === 'Returned';
         // Already returned locally — skip to prevent perpetual reprocessing.

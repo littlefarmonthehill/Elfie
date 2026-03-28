@@ -165,6 +165,12 @@ async function processBrickOwlOrder(
     String(boOrder.order_id)
   );
 
+  // Soft-purged locally (operator deleted the test order) — never re-import.
+  if (existingOrder?.orderStatus === 'purged') {
+    console.log(`⏭️ BrickOwl order ${orderId} is purged locally — skipping`);
+    return;
+  }
+
   const normalizedStatus = mapBrickOwlStatus(boOrder.status_id, boOrder.status ?? boOrder.status_name);
   const effectiveOrderId = existingOrder?.id ?? orderId;
 

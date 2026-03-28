@@ -2163,6 +2163,13 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-89 (reset lot-count-backfilled sold_quantity / stock_quantity) complete.');
 
+    // Phase-90: Add is_public column to plan_configs and plans tables.
+    // Private plans (is_public = false) can be assigned by an admin but are hidden from
+    // the public pricing page and the self-serve subscription flow.
+    await client.query(`ALTER TABLE plan_configs ADD COLUMN IF NOT EXISTS is_public boolean NOT NULL DEFAULT true`);
+    await client.query(`ALTER TABLE plans ADD COLUMN IF NOT EXISTS is_public boolean NOT NULL DEFAULT true`);
+    console.log('[Migration] Phase-90 (is_public column on plan_configs + plans) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

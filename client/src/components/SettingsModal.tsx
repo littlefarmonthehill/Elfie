@@ -1959,6 +1959,7 @@ function PlansAndPricingPanel() {
     status: string;
     sunsetAt: string | null;
     isDefault: boolean;
+    isPublic: boolean;
     trialDurationDays: number;
     isBrickspotterOnly: boolean;
     limitBrickspotterScans: number;
@@ -1973,7 +1974,7 @@ function PlansAndPricingPanel() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
-  const defaultForm = { name: '', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, status: 'in_progress', sunsetAt: null as string | null, isDefault: false, trialDurationDays: 0, isBrickspotterOnly: false, limitBrickspotterScans: 0, limitBrickspotterApiCalls: 0 };
+  const defaultForm = { name: '', basePrice: 3900, salesPercentage: 1.9, freeSalesThreshold: 100000, status: 'in_progress', sunsetAt: null as string | null, isDefault: false, isPublic: true, trialDurationDays: 0, isBrickspotterOnly: false, limitBrickspotterScans: 0, limitBrickspotterApiCalls: 0 };
   const [form, setForm] = useState<typeof defaultForm>(defaultForm);
 
   const fmtC = (cents: number) => `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -2016,6 +2017,7 @@ function PlansAndPricingPanel() {
       status: plan.status,
       sunsetAt: plan.sunsetAt ? new Date(plan.sunsetAt).toISOString().split('T')[0] : null,
       isDefault: plan.isDefault,
+      isPublic: plan.isPublic ?? true,
       trialDurationDays: plan.trialDurationDays ?? 0,
       isBrickspotterOnly: plan.isBrickspotterOnly ?? false,
       limitBrickspotterScans: plan.limitBrickspotterScans ?? 0,
@@ -2034,8 +2036,8 @@ function PlansAndPricingPanel() {
     const sunsetAtIso = form.sunsetAt ? new Date(form.sunsetAt).toISOString() : null;
     const bsFields = { isBrickspotterOnly: form.isBrickspotterOnly, limitBrickspotterScans: form.limitBrickspotterScans, limitBrickspotterApiCalls: form.limitBrickspotterApiCalls };
     const payload = editingId
-      ? { id: editingId, data: { name: form.name, status: form.status, sunsetAt: sunsetAtIso, isDefault: form.isDefault, ...bsFields, ...(!editingPlanRef?.locked ? { basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold, trialDurationDays: form.trialDurationDays } : {}) } }
-      : { data: { name: form.name, basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold, status: form.status, sunsetAt: sunsetAtIso, isDefault: form.isDefault, trialDurationDays: form.trialDurationDays, ...bsFields } };
+      ? { id: editingId, data: { name: form.name, status: form.status, sunsetAt: sunsetAtIso, isDefault: form.isDefault, isPublic: form.isPublic, ...bsFields, ...(!editingPlanRef?.locked ? { basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold, trialDurationDays: form.trialDurationDays } : {}) } }
+      : { data: { name: form.name, basePrice: form.basePrice, salesPercentage: form.salesPercentage, freeSalesThreshold: form.freeSalesThreshold, status: form.status, sunsetAt: sunsetAtIso, isDefault: form.isDefault, isPublic: form.isPublic, trialDurationDays: form.trialDurationDays, ...bsFields } };
     saveMutation.mutate(payload);
   };
 
@@ -2088,6 +2090,9 @@ function PlansAndPricingPanel() {
                     )}
                     {plan.isDefault && (
                       <span className="text-[9px] bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded px-1 py-0.5">default</span>
+                    )}
+                    {!plan.isPublic && (
+                      <span className="text-[9px] bg-gray-600/40 text-gray-400 border border-gray-600/40 rounded px-1 py-0.5">private</span>
                     )}
                     {plan.status === 'live' && (
                       <span className="text-[9px] bg-green-500/20 text-green-400 border border-green-500/30 rounded px-1 py-0.5">live</span>
@@ -2226,6 +2231,19 @@ function PlansAndPricingPanel() {
                   {form.isDefault ? 'This is the default plan' : 'Set as default plan'}
                 </button>
                 <p className="text-[10px] text-gray-500 mt-0.5">Orgs that don't pick a plan during onboarding are assigned the default plan. Only one plan can be default at a time.</p>
+              </div>
+              <div>
+                <label className="block app-label mb-1">Visibility</label>
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, isPublic: !f.isPublic }))}
+                  data-testid="toggle-plan-isPublic"
+                  className={`flex items-center gap-2 w-full rounded border px-3 py-2 text-xs transition-colors ${form.isPublic ? 'border-green-600/40 bg-green-600/10 text-green-400' : 'border-gray-700 bg-gray-900/40 text-gray-400 hover:border-gray-600'}`}
+                >
+                  <span className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 transition-colors ${form.isPublic ? 'border-green-400 bg-green-400' : 'border-gray-500'}`} />
+                  {form.isPublic ? 'Public — visible on pricing page' : 'Private — admin-assigned only'}
+                </button>
+                <p className="text-[10px] text-gray-500 mt-0.5">Private plans can be assigned to orgs by an admin but are never shown on the public pricing page or the self-serve subscription flow.</p>
               </div>
               {!editingPlan?.locked && (
                 <>

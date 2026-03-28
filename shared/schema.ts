@@ -1757,6 +1757,7 @@ export const planConfigs = pgTable("plan_configs", {
   featurePaymentSync: boolean("feature_payment_sync").notNull().default(false),
   // Status
   isSunset: boolean("is_sunset").notNull().default(false),
+  isPublic: boolean("is_public").notNull().default(true), // false = private/invite-only (not shown on public pricing page)
   sortOrder: integer("sort_order").notNull().default(0), // 0=trial, 1=foundation, 2=core, 3=flagship
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -1780,6 +1781,8 @@ export const plans = pgTable("plans", {
   sunsetAt: timestamp("sunset_at"),
   // Exactly one live plan should be marked as default — assigned to orgs that don't pick a plan during onboarding
   isDefault: boolean("is_default").notNull().default(false),
+  // false = private/invite-only — admin can assign to an org but it is never shown on the public pricing page or self-serve flow
+  isPublic: boolean("is_public").notNull().default(true),
   // Free trial before first charge — 0 means no trial; ignored for default/free plans
   trialDurationDays: integer("trial_duration_days").notNull().default(0),
   // BrickSpotter settings — -1 = unlimited, 0 = not included, >0 = specific limit

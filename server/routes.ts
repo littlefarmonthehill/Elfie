@@ -1509,7 +1509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...(req.body.limitBrickspotterApiCalls !== undefined && { limitBrickspotterApiCalls: req.body.limitBrickspotterApiCalls }),
       };
       const allowed = hasOrgs
-        ? { status: req.body.status, name: req.body.name, sunsetAt: req.body.sunsetAt, isDefault: req.body.isDefault, ...bsFields }
+        ? { status: req.body.status, name: req.body.name, sunsetAt: req.body.sunsetAt, isDefault: req.body.isDefault, isPublic: req.body.isPublic, ...bsFields }
         : req.body;
       // Parse sunsetAt as a Date if provided
       if (allowed.sunsetAt !== undefined) {
@@ -3345,13 +3345,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── Billing routes ──────────────────────────────────────────────────────────
 
-  // GET /api/public/plans — unauthenticated endpoint for landing page (live plans only)
+  // GET /api/public/plans — unauthenticated endpoint for landing page (live + public plans only)
   app.get('/api/public/plans', async (_req, res) => {
     try {
       const livePlans = await db
         .select()
         .from(plans)
-        .where(eq(plans.status, 'live'))
+        .where(and(eq(plans.status, 'live'), eq(plans.isPublic, true)))
         .orderBy(asc(plans.basePrice));
       res.json(livePlans);
     } catch (err: any) {
@@ -3359,13 +3359,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/plans — return only live plans for subscription selection (sunset + in_progress plans are hidden)
+  // GET /api/plans — return only live + public plans for subscription self-selection (private/invite-only plans hidden)
   app.get('/api/plans', isAuthenticated, async (_req, res) => {
     try {
       const activePlans = await db
         .select()
         .from(plans)
-        .where(eq(plans.status, 'live'))
+        .where(and(eq(plans.status, 'live'), eq(plans.isPublic, true)))
         .orderBy(asc(plans.id));
       res.json(activePlans);
     } catch (err: any) {
@@ -4059,7 +4059,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete: remove all returned, cancelled, and test orders for this org
+  // Delete: soft-purge all test orders for this org.
+  // Sets orderStatus = 'purged' instead of hard-deleting so that the next sync from BrickLink/BrickOwl
+  // recognises the order as already processed and skips it instead of re-importing it.
   app.delete("/api/orders/closed", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
@@ -4075,16 +4077,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (targetRows.length === 0) return res.json({ deleted: 0, message: 'No matching orders found.' });
 
       const ids = targetRows.map(r => r.id);
+
+      // Remove child records so they don't show up in any fulfilment or stats queries
       await db.delete(orderAdjustments).where(inArray(orderAdjustments.orderId, ids));
       await db.delete(picklistItems).where(inArray(picklistItems.orderId, ids));
       await db.delete(orderDetails).where(inArray(orderDetails.orderId, ids));
       await db.delete(shipments).where(inArray(shipments.orderId, ids));
-      await db.delete(orders).where(and(
-        eq(orders.orgId, orgId),
-        eq(orders.isTest, true)
-      ));
 
-      console.log(`🗑️ Deleted ${ids.length} closed orders for org ${orgId}`);
+      // Soft-purge: keep the order row so sync services can recognise and skip it
+      await db.update(orders)
+        .set({ orderStatus: 'purged' })
+        .where(and(
+          eq(orders.orgId, orgId),
+          eq(orders.isTest, true)
+        ));
+
+      console.log(`🗑️ Soft-purged ${ids.length} test orders for org ${orgId}`);
       res.json({ deleted: ids.length });
     } catch (err: any) {
       console.error('Closed order delete error:', err);
