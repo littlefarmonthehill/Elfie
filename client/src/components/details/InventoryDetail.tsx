@@ -1469,48 +1469,70 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
           {/* Details Tab */}
           <TabsContent value="details" className="mt-0 space-y-2.5">
             {/* Variants in Inventory */}
-            {variants && variants.length > 0 && (
-              <div className="app-card-muted p-2.5">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <Layers className="h-3.5 w-3.5 text-violet-400" />
-                  <p className="text-[10px] md:text-sm font-bold text-violet-400">VARIANTS IN INVENTORY</p>
-                  <span className="ml-auto text-[9px] text-gray-500">{variants.length} lot{variants.length !== 1 ? 's' : ''}</span>
-                </div>
-                <div className="space-y-1">
-                  {variants.map((v) => {
-                    const isCurrent = v.id === data.id;
-                    const condLabel = v.new_or_used === 'N' ? 'New' : v.new_or_used === 'U' ? 'Used' : v.new_or_used;
-                    const price = v.unit_price ? `$${parseFloat(v.unit_price).toFixed(2)}` : '—';
-                    return (
-                      <div
-                        key={v.id}
-                        className={`flex items-center gap-2 rounded px-2 py-1.5 text-xs ${isCurrent ? 'bg-violet-900/40 ring-1 ring-violet-500/40' : 'bg-white/5'}`}
-                      >
-                        {/* Color swatch */}
+            {variants && variants.length > 0 && (() => {
+              // Group by color so New/Used appear as columns
+              const colorMap = new Map<string | number, {
+                colorId: number | null; colorName: string | null; colorRgb: string | null;
+                N: typeof variants[0] | null; U: typeof variants[0] | null;
+              }>();
+              for (const v of variants) {
+                const key = v.color_id ?? 'none';
+                if (!colorMap.has(key)) {
+                  colorMap.set(key, { colorId: v.color_id, colorName: v.color_name, colorRgb: v.color_rgb, N: null, U: null });
+                }
+                const grp = colorMap.get(key)!;
+                if (v.new_or_used === 'N') grp.N = v;
+                else if (v.new_or_used === 'U') grp.U = v;
+              }
+              const groups = Array.from(colorMap.values());
+              const fmtCell = (v: typeof variants[0] | null) => v
+                ? <><span className="text-gray-400 font-mono text-[9px]">{v.quantity}x</span><span className={`font-mono text-[10px] ml-1 ${v.id === data.id ? 'text-violet-300' : 'text-white'}`}>{v.unit_price ? `$${parseFloat(v.unit_price).toFixed(2)}` : '—'}{v.id === data.id ? <span className="text-[8px] text-violet-400 ml-0.5">★</span> : null}</span></>
+                : <span className="text-gray-600 text-[9px]">—</span>;
+              return (
+                <div className="app-card-muted p-2.5">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Layers className="h-3.5 w-3.5 text-violet-400" />
+                    <p className="text-[10px] md:text-sm font-bold text-violet-400">VARIANTS IN INVENTORY</p>
+                    <span className="ml-auto text-[9px] text-gray-500">{variants.length} lot{variants.length !== 1 ? 's' : ''}</span>
+                  </div>
+                  {/* Header row */}
+                  <div className="grid grid-cols-[1fr_auto_auto] gap-x-3 px-2 pb-1 border-b border-white/10">
+                    <span className="text-[9px] font-semibold uppercase tracking-wide text-gray-500">Color</span>
+                    <span className="text-[9px] font-semibold uppercase tracking-wide text-lego-green w-20 text-right">New</span>
+                    <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-400 w-20 text-right">Used</span>
+                  </div>
+                  <div className="space-y-0.5 mt-1">
+                    {groups.map((grp) => {
+                      const isCurrent = grp.N?.id === data.id || grp.U?.id === data.id;
+                      return (
                         <div
-                          className="w-3.5 h-3.5 rounded-full shrink-0 border border-white/20"
-                          style={{ background: v.color_rgb ? `#${v.color_rgb}` : '#555' }}
-                          title={v.color_name ?? 'Unknown color'}
-                        />
-                        {/* Color name */}
-                        <span className={`flex-1 truncate ${isCurrent ? 'text-violet-200 font-medium' : 'text-gray-300'}`} title={v.color_name ?? undefined}>
-                          {v.color_name ?? `Color #${v.color_id ?? '—'}`}
-                          {isCurrent && <span className="ml-1 text-[9px] text-violet-400 font-normal">(this lot)</span>}
-                        </span>
-                        {/* Condition badge */}
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${v.new_or_used === 'N' ? 'bg-lego-green/20 text-lego-green' : 'bg-amber-400/20 text-amber-400'}`}>
-                          {condLabel}
-                        </span>
-                        {/* Qty */}
-                        <span className="text-gray-400 font-mono text-[10px] w-8 text-right">{v.quantity}x</span>
-                        {/* Price */}
-                        <span className="text-white font-mono text-[10px] w-12 text-right">{price}</span>
-                      </div>
-                    );
-                  })}
+                          key={grp.colorId ?? 'none'}
+                          className={`grid grid-cols-[1fr_auto_auto] gap-x-3 items-center rounded px-2 py-1 ${isCurrent ? 'bg-violet-900/30' : 'bg-white/5'}`}
+                        >
+                          {/* Color */}
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <div
+                              className="w-3 h-3 rounded-full shrink-0 border border-white/20"
+                              style={{ background: grp.colorRgb ? `#${grp.colorRgb}` : '#555' }}
+                            />
+                            <span className="text-[10px] text-gray-300 truncate" title={grp.colorName ?? undefined}>
+                              {grp.colorName ?? `#${grp.colorId ?? '—'}`}
+                            </span>
+                          </div>
+                          {/* New */}
+                          <div className="w-20 text-right flex items-center justify-end gap-1">{fmtCell(grp.N)}</div>
+                          {/* Used */}
+                          <div className="w-20 text-right flex items-center justify-end gap-1">{fmtCell(grp.U)}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {variants.some(v => v.id === data.id) && (
+                    <p className="text-[8px] text-violet-400/70 mt-2 px-2">★ this lot</p>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Identifiers */}
             <div className="app-card-muted p-2.5">
