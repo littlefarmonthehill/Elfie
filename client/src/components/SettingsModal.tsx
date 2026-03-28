@@ -7082,29 +7082,14 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                 <Info className="w-3.5 h-3.5" />
                               </button>
                             </PopoverTrigger>
-                            <PopoverContent side="right" align="start" className="w-80 bg-gray-900 border-gray-700 p-0 text-xs">
-                              <div className="px-3 pt-3 pb-2 border-b border-gray-700/60">
-                                <p className="text-[11px] font-semibold text-gray-200">How presets affect scoring</p>
-                                <p className="text-[10px] text-gray-500 mt-0.5 leading-relaxed">Each preset sets the weight given to four signals when ranking your pricing opportunities in Price-o-Matic.</p>
-                              </div>
-                              <div className="p-3 space-y-3">
-                                {PRESETS.map(p => (
-                                  <div key={p.id}>
-                                    <p className={`text-[10px] font-semibold ${p.color} mb-0.5`}>{p.label}</p>
-                                    <p className="text-[10px] text-gray-400 leading-relaxed">{PRESET_DETAIL[p.id].how}</p>
-                                    <div className="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5">
-                                      {(['ceiling','velocity','scarcity','undercut'] as const).map(dim => (
-                                        <div key={dim} className="flex items-baseline gap-1">
-                                          <span className="text-[9px] text-gray-600 capitalize w-14 shrink-0">{dim}:</span>
-                                          <span className="text-[9px] text-gray-500 leading-tight">{PRESET_DETAIL[p.id][dim]}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                ))}
-                                <div className="pt-2 border-t border-gray-700/60">
-                                  <p className="text-[10px] text-purple-400 leading-relaxed">Pricing edits you apply in Spot Lookup are logged as training signals. Over time, these adjust the AI suggested price to align closer with your real decisions.</p>
-                                </div>
+                            <PopoverContent side="bottom" align="start" className="w-64 bg-gray-900 border-gray-700 p-3 text-xs space-y-1.5">
+                              <p className="text-[11px] font-semibold text-gray-200 mb-1">How scoring works</p>
+                              <p className="text-[10px] text-gray-400 leading-relaxed">Each preset sets four weights that control which pricing signals matter most when ranking opportunities in Price-o-Matic.</p>
+                              <div className="pt-1.5 border-t border-gray-700/60 space-y-1">
+                                <div className="flex items-baseline gap-1.5"><span className="text-[9px] text-gray-500 w-14 shrink-0">Ceiling</span><span className="text-[9px] text-gray-400">How far your price is from the market ceiling</span></div>
+                                <div className="flex items-baseline gap-1.5"><span className="text-[9px] text-gray-500 w-14 shrink-0">Velocity</span><span className="text-[9px] text-gray-400">How fast the part sells across the market</span></div>
+                                <div className="flex items-baseline gap-1.5"><span className="text-[9px] text-gray-500 w-14 shrink-0">Scarcity</span><span className="text-[9px] text-gray-400">How few sellers carry this part</span></div>
+                                <div className="flex items-baseline gap-1.5"><span className="text-[9px] text-gray-500 w-14 shrink-0">Undercut</span><span className="text-[9px] text-gray-400">How much you are undercut by the cheapest seller</span></div>
                               </div>
                             </PopoverContent>
                           </Popover>

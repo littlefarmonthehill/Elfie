@@ -299,7 +299,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
               const orderTotalNum = parseFloat(order.orderTotal ?? '0');
               const refundTotalNum = parseFloat(order.refundTotal ?? '0');
               const isFullyRefunded = refundTotalNum > 0 && orderTotalNum > 0 && refundTotalNum >= orderTotalNum - 0.01;
-              const isCancelled = order.orderStatus === 'cancelled' || isFullyRefunded;
+              const isCancelled = order.orderStatus === 'cancelled' || order.orderStatus === 'Cancelled' || isFullyRefunded;
 
               return (
                 <div
