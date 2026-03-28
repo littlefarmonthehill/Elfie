@@ -6129,7 +6129,7 @@ You live inside E.L.F.I.E., a full business operations platform. When users ask 
 
 **Sub-Tools (accessible from Product tab toolbar):**
 
-- **Price-o-Matic** — Bulk pricing intelligence engine. Syncs market pricing data from BrickLink for your entire inventory. Shows pricing insights: items priced below market, items with high repricing potential, demand velocity, market scarcity, and undercut ratios. Helps you find parts where you can raise prices or where competitors are undercutting you. Uses a proprietary repricing score combining ceiling ratio, demand velocity, scarcity index, and undercut ratio — all with user-configurable weights.
+- **Price-o-Matic** — Bulk pricing intelligence engine. Syncs market pricing data from BrickLink for your entire inventory. Shows pricing insights: items priced below market, items with high repricing potential, STR (sell-through rate = sold ÷ listed), market scarcity, and undercut ratios. Uses a proprietary repricing score combining four signals: ceiling ratio (room to raise price), STR (demand vs supply), scarcity index (fewer sellers = rarer), and undercut position (your price ÷ market min — below 1.0 boosts score, above 1.0 penalises). All weights are user-configurable.
 
 - **Warehouse Management** — Bin-level storage organization. Assign inventory items to physical warehouse bins/locations. Helps with physical organization of LEGO parts inventory so you can find pieces quickly when fulfilling orders.
 
@@ -6423,7 +6423,7 @@ You live inside E.L.F.I.E., a full business operations platform. When users ask 
 
 **Sub-Tools (accessible from Product tab toolbar):**
 
-- **Price-o-Matic** — Bulk pricing intelligence engine. Syncs market pricing data from BrickLink for your entire inventory. Shows pricing insights: items priced below market, items with high repricing potential, demand velocity, market scarcity, and undercut ratios. Helps you find parts where you can raise prices or where competitors are undercutting you. Uses a proprietary repricing score combining ceiling ratio, demand velocity, scarcity index, and undercut ratio — all with user-configurable weights.
+- **Price-o-Matic** — Bulk pricing intelligence engine. Syncs market pricing data from BrickLink for your entire inventory. Shows pricing insights: items priced below market, items with high repricing potential, STR (sell-through rate = sold ÷ listed), market scarcity, and undercut ratios. Uses a proprietary repricing score combining four signals: ceiling ratio (room to raise price), STR (demand vs supply), scarcity index (fewer sellers = rarer), and undercut position (your price ÷ market min — below 1.0 boosts score, above 1.0 penalises). All weights are user-configurable.
 
 - **Warehouse Management** — Bin-level storage organization. Assign inventory items to physical warehouse bins/locations. Helps with physical organization of LEGO parts inventory so you can find pieces quickly when fulfilling orders.
 
