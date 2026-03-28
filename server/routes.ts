@@ -10221,16 +10221,18 @@ Format search_web URLs as markdown links.`;
             const [, blItem] = unmatchedEntries[i];
             const blPrice = blItem.unitPrice ? parseFloat(blItem.unitPrice) : 0;
             const entry = {
-              lotId:      blItem.id,
-              itemNo:     blItem.itemNo,
-              itemName:   blItem.itemName,
-              colorName:  blItem.colorName,
-              condition:  blItem.newOrUsed,
-              blQuantity: blItem.quantity,
+              lotId:       blItem.id,
+              itemNo:      blItem.itemNo,
+              itemName:    blItem.itemName,
+              colorName:   blItem.colorName,
+              condition:   blItem.newOrUsed,
+              blQuantity:  blItem.quantity,
               blPrice,
-              boQuantity: 0,
-              boPrice:    0,
-              difference: typeMismatchFlags[i] ? 'type_mismatch' : 'missing',
+              boQuantity:  0,
+              boPrice:     0,
+              isStockRoom: !!blItem.isStockRoom,
+              stockRoomId: blItem.stockRoomId ?? null,
+              difference:  typeMismatchFlags[i] ? 'type_mismatch' : 'missing',
             };
             if (typeMismatchFlags[i]) {
               if (typeMismatchLotsCount < 100) typeMismatchItems.push(entry);

@@ -36,6 +36,8 @@ import {
   Paintbrush,
   ArrowLeftRight,
   Database,
+  Search,
+  Warehouse,
 } from "lucide-react";
 import {
   Drawer,
@@ -45,6 +47,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 
 type SyncMode = 'analysis' | 'matched_sync' | 'full_control';
 
@@ -1440,6 +1443,7 @@ function DiscrepancyDetail({ area, data, isLoading }: {
   data: any;
   isLoading: boolean;
 }) {
+  const [search, setSearch] = useState('');
   const items: any[] = data?.discrepancies ?? [];
   const total: number = data?.total ?? 0;
 
@@ -1465,20 +1469,101 @@ function DiscrepancyDetail({ area, data, isLoading }: {
     );
   }
 
+  const isMissing = area.type === 'missing';
+
+  // Filter by search (part number or lot id) — only for missing type
+  const q = search.trim().toLowerCase();
+  const filtered = isMissing && q
+    ? items.filter((item: any) =>
+        item.itemNo?.toLowerCase().includes(q) ||
+        String(item.lotId ?? '').includes(q)
+      )
+    : items;
+
+  // Group by stockroom for missing type
+  const renderMissing = () => {
+    // Partition: stockroom groups (A, B, C, …) + main store
+    const groups = new Map<string, any[]>();
+    for (const item of filtered) {
+      const key = item.isStockRoom ? `SR-${item.stockRoomId ?? '?'}` : 'main';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(item);
+    }
+
+    // Sort: stockroom groups first (alphabetical by id), then main store
+    const sortedKeys = [...groups.keys()].sort((a, b) => {
+      if (a === 'main') return 1;
+      if (b === 'main') return -1;
+      return a.localeCompare(b);
+    });
+
+    if (filtered.length === 0) {
+      return (
+        <div className="px-4 py-6 text-center text-xs text-gray-500">
+          No results for "{search}"
+        </div>
+      );
+    }
+
+    return (
+      <div className="px-4 pt-2 pb-6 space-y-5">
+        {sortedKeys.map(key => {
+          const groupItems = groups.get(key)!;
+          const isStockroom = key.startsWith('SR-');
+          const roomId = isStockroom ? key.replace('SR-', '') : null;
+          return (
+            <div key={key}>
+              {/* Group header */}
+              <div className="flex items-center gap-1.5 mb-2">
+                <Warehouse className="w-3 h-3 text-gray-500 shrink-0" />
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">
+                  {isStockroom ? `Stockroom ${roomId}` : 'Main Store'}
+                </span>
+                <span className="text-[10px] text-gray-600 ml-1">({groupItems.length})</span>
+              </div>
+              <div className="space-y-2">
+                {groupItems.map((item: any, i: number) => (
+                  <DiscrepancyRow key={`${item.itemNo}-${i}`} item={item} type={area.type} area={area} />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col min-h-0">
+      {/* Search bar — missing lots only */}
+      {isMissing && (
+        <div className="px-4 pt-3 pb-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search part number or lot ID…"
+              className="pl-8 h-8 text-xs bg-gray-800/60 border-gray-700 text-gray-200 placeholder:text-gray-600 focus-visible:ring-orange-500/40"
+              data-testid="input-missing-lots-search"
+            />
+          </div>
+        </div>
+      )}
       {total > items.length && (
-        <div className="px-4 pt-3 pb-1">
+        <div className="px-4 pt-1 pb-1">
           <p className="text-[11px] text-gray-500">
             Showing {items.length} of {total} items
           </p>
         </div>
       )}
-      <div className="px-4 pt-2 pb-6 space-y-2">
-        {items.map((item: any, i: number) => (
-          <DiscrepancyRow key={`${item.itemNo}-${i}`} item={item} type={area.type} area={area} />
-        ))}
-      </div>
+      {isMissing ? renderMissing() : (
+        <div className="px-4 pt-2 pb-6 space-y-2">
+          {filtered.map((item: any, i: number) => (
+            <DiscrepancyRow key={`${item.itemNo}-${i}`} item={item} type={area.type} area={area} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
