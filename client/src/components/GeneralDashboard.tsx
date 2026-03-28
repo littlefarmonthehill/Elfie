@@ -113,12 +113,13 @@ function AlertRow({ icon: Icon, iconColor, label, sub, onClick, severity = 'warn
   );
 }
 
-function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, lastActions, onClick, isActive, channelNum, channelHex }: {
+function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, lastActions, onClick, isActive, channelNum, channelHex, flashReport }: {
   label: string; Icon: React.ElementType; color: string; stat?: string;
   alerts: Array<{ id: string; icon: React.ElementType; iconColor: string; label: string; sub?: string; severity: 'warn' | 'error' | 'info'; onClick?: () => void }>;
   runningJobs?: React.ReactNode; isRunning?: boolean; lastActions?: Array<{ label: string; time: string; ok: boolean }>;
   onClick?: () => void;
   isActive?: boolean; channelNum?: string; channelHex?: string;
+  flashReport?: { summary: string; urgency: string } | null;
 }) {
   const [lastActionsOpen, setLastActionsOpen] = useState(false);
   const hex = channelHex ?? '#1B7CE5';
@@ -143,7 +144,7 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
     <div
       className="rounded-lg border flex flex-col overflow-hidden transition-all duration-200 hover-elevate active-elevate-2"
       style={{
-        height: '186px',
+        minHeight: '186px',
         background: `linear-gradient(135deg, color-mix(in srgb, ${hex} 18%, #0a0c14) 0%, #0d0f1a 55%, color-mix(in srgb, ${hex} 8%, #0a0c14) 100%)`,
         borderColor: isActive ? `${hex}cc` : `${hex}66`,
         boxShadow: isActive
@@ -196,10 +197,29 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
       </button>
 
       {/* ── Body ── */}
-      <div className="flex-1 overflow-hidden px-3 py-2 flex flex-col gap-1 min-h-0">
+      <div className="flex-1 px-3 py-2 flex flex-col gap-1.5 min-h-0">
+
+        {/* Flash Report — agent situation brief, shown before alerts */}
+        {flashReport?.summary && (
+          <div
+            className="flex items-start gap-1.5 rounded px-2 py-1.5"
+            style={{ background: `color-mix(in srgb, ${hex} 10%, #080a14)`, border: `1px solid ${hex}25` }}
+            data-testid={`flash-report-${label.toLowerCase()}`}
+          >
+            <Sparkles className="w-2.5 h-2.5 shrink-0 mt-[2px] opacity-80" style={{ color: hex }} />
+            <p
+              className="text-[10px] leading-[1.4] italic"
+              style={{ color: `color-mix(in srgb, ${hex} 65%, #8899aa)` }}
+            >
+              {flashReport.summary}
+            </p>
+          </div>
+        )}
+
+        {/* Alerts */}
         {hasAlerts && (
           <div className="space-y-1">
-            {sortedAlerts.slice(0, 4).map(a => (
+            {sortedAlerts.slice(0, 3).map(a => (
               <button
                 key={a.id}
                 onClick={a.onClick}
@@ -222,12 +242,12 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
 
         {isRunning && (
           <div className="space-y-1">
-            {hasAlerts && <div className="h-px my-0.5" style={{ background: `${hex}20` }} />}
+            {(hasAlerts || flashReport?.summary) && <div className="h-px my-0.5" style={{ background: `${hex}20` }} />}
             {runningJobs}
           </div>
         )}
 
-        {!hasAlerts && !isRunning && (
+        {!hasAlerts && !isRunning && !flashReport?.summary && (
           <div className="flex items-center gap-1.5 h-full justify-center">
             <CheckCircle className="w-3 h-3 text-green-400/60" />
             <span className="text-[10px] text-muted-foreground/40">All clear</span>
@@ -687,6 +707,12 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
   });
   const abandonedQtyUpdates = syncQueueData?.stats?.abandoned ?? 0;
 
+  const { data: flashReports } = useQuery<Record<string, { summary: string; urgency: string; updatedAt: string } | null>>({
+    queryKey: ['/api/ops/flash-report'],
+    refetchInterval: 5 * 60 * 1000, // refetch every 5 minutes
+    staleTime: 4 * 60 * 1000,
+  });
+
   const underpricedThreshold = appSettings?.pomUnderpricedScore ?? 1.5;
 
   const setupItems: Array<{ id: string; label: string; section: 'general' | 'platforms' }> = [];
@@ -814,6 +840,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           isActive={activeSection === 'inventory'}
           channelNum="01"
           channelHex="#1B7CE5"
+          flashReport={flashReports?.inventory ?? null}
           isRunning={isInvSyncing || isScanProcessing || isChannelSyncing || !!activeInvEmbed}
           lastActions={[
             { label: 'Inventory sync', time: relTime(lastInvSync?.lastSyncTime), ok: !invSyncFailed },
@@ -856,6 +883,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           isActive={activeSection === 'orders'}
           channelNum="02"
           channelHex="#E8611C"
+          flashReport={flashReports?.orders ?? null}
           isRunning={isOrderSyncing || !!activeOrdEmbed}
           lastActions={[
             { label: 'Order sync', time: relTime(lastOrderSync?.lastSyncTime), ok: !orderSyncFailed },
@@ -888,6 +916,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           isActive={activeSection === 'marketing'}
           channelNum="03"
           channelHex="#F5C200"
+          flashReport={flashReports?.market ?? null}
         />
 
         <OpAreaCard
@@ -900,6 +929,14 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
           isActive={activeSection === 'sales'}
           channelNum="04"
           channelHex="#00963C"
+          flashReport={(() => {
+            const p = flashReports?.pricing;
+            const c = flashReports?.customer;
+            if (!p && !c) return null;
+            if (!p) return c ?? null;
+            if (!c) return p ?? null;
+            return p; // pricing takes priority for Insights card
+          })()}
         />
       </div>)}
 

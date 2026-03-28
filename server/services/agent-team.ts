@@ -1,14 +1,18 @@
 /**
- * Agent Team — five domain-specialized background agents that each maintain
+ * Agent Team — six domain-specialized background agents that each maintain
  * a running picture of one area of the business. Their signals are written to
  * business_insights (tagged with agent_id) and can be retrieved by E.L.F.I.E.
  *
- * Agents:
- *   inventory  — stock health, dead stock, reorder pressure, warehouse utilization
- *   pricing    — pricing gaps, POM scores, repricing opportunities, AI decision patterns
- *   market     — BrickLink price movements, forum signals, set retirement, demand trends
- *   orders     — order velocity, channel performance, fulfillment patterns, seasonality
- *   customer   — buyer retention, dormant buyers, top spenders, new buyer activity
+ * Agent hierarchy:
+ *   catalog    — runs FIRST; enriches all domain agents with market/catalog intel
+ *   inventory  — stock health, DOS, stockout risk, capital concentration, GMROI
+ *   pricing    — pricing gaps, capture rate, revenue at risk, repricing momentum
+ *   market     — retirement trajectory, supply squeeze, demand surges, seasonality
+ *   orders     — revenue velocity, AOV, channel mix, fulfillment readiness
+ *   customer   — RFM segmentation, CLV, churn signals, retention health
+ *
+ * E.L.F.I.E. is the front voice — she synthesises all agent signals into a
+ * unified business narrative when the user asks for a briefing.
  */
 
 import { db } from "../db";
@@ -42,7 +46,6 @@ async function getOrgStrategies(orgId: string): Promise<Partial<Record<string, s
 }
 
 // Build a system prompt with optional global org context (vision, success) and per-agent strategy.
-// Vision/mission and success factors are injected into every agent; the per-agent strategy is additive.
 function buildSystemPrompt(
   basePrompt: string,
   strategies: Partial<Record<string, string | null>>,
@@ -54,7 +57,7 @@ function buildSystemPrompt(
     parts.push(`\nBUSINESS VISION & MISSION:\n"${strategies.visionMission.trim()}"\nThis is what the business stands for and where it is headed. Let it colour how you frame every signal.`);
   }
   if (strategies.successFactors?.trim()) {
-    parts.push(`\nDEFINING SUCCESS (Vivid Vision — what the future looks like when the business wins):\n"${strategies.successFactors.trim()}"\nUse this to understand the outcomes, feelings, and reputation the owner is driving toward. Signals that accelerate this future should be elevated.`);
+    parts.push(`\nDEFINING SUCCESS (Vivid Vision — what the future looks like when the business wins):\n"${strategies.successFactors.trim()}"\nUse this to understand the outcomes the owner is driving toward. Signals that accelerate this future should be elevated.`);
   }
   if (agentStrategy?.trim()) {
     parts.push(`\n${agentLabel.toUpperCase()} STRATEGY:\n"${agentStrategy.trim()}"\nThis is your domain-specific guiding directive — prioritise signals and recommendations that align with it.`);
@@ -101,7 +104,46 @@ async function upsertSignals(
   }
 }
 
-async function callAgent(openai: OpenAI, orgId: string, systemPrompt: string, dataContext: string): Promise<any[]> {
+/** Upsert a single-sentence flash report for the agent — stored as category "flash_report". */
+async function upsertFlashReport(orgId: string, agentId: AgentId, flashReport: string) {
+  if (!flashReport?.trim()) return;
+  const FLASH_TITLE = `__flash_${agentId}__`;
+  const expiresAt = new Date(Date.now() + SIGNAL_TTL_HOURS * 60 * 60 * 1000);
+  try {
+    const existing = await db.select({ id: businessInsights.id })
+      .from(businessInsights)
+      .where(and(
+        eq(businessInsights.orgId, orgId),
+        eq(businessInsights.agentId, agentId),
+        eq(businessInsights.title, FLASH_TITLE),
+      )).limit(1);
+
+    if (existing.length > 0) {
+      await db.update(businessInsights)
+        .set({ summary: flashReport.trim(), category: 'flash_report', urgency: 'info', expiresAt, updatedAt: new Date() })
+        .where(eq(businessInsights.id, existing[0].id));
+    } else {
+      await db.insert(businessInsights).values({
+        orgId,
+        agentId,
+        category: 'flash_report',
+        urgency: 'info',
+        title: FLASH_TITLE,
+        summary: flashReport.trim(),
+        details: null,
+        sourceType: agentId,
+        expiresAt,
+      });
+    }
+  } catch { /* non-fatal */ }
+}
+
+interface AgentResult {
+  signals: any[];
+  flashReport: string | null;
+}
+
+async function callAgent(openai: OpenAI, orgId: string, systemPrompt: string, dataContext: string): Promise<AgentResult> {
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
@@ -110,7 +152,7 @@ async function callAgent(openai: OpenAI, orgId: string, systemPrompt: string, da
     ],
     response_format: { type: 'json_object' },
     temperature: 0.2,
-    max_tokens: 2000,
+    max_tokens: 2400,
   });
   try {
     const { trackUsage } = await import('./ai-usage-tracker');
@@ -125,16 +167,14 @@ async function callAgent(openai: OpenAI, orgId: string, systemPrompt: string, da
   } catch {
     // Truncated or malformed JSON — return empty; agent will retry on next cycle
   }
-  return Array.isArray(parsed.signals) ? parsed.signals : [];
+  return {
+    signals: Array.isArray(parsed.signals) ? parsed.signals : [],
+    flashReport: typeof parsed.flashReport === 'string' ? parsed.flashReport : null,
+  };
 }
 
 // ─── CATALOG ENRICHMENT HELPERS ─────────────────────────────────────────────
 
-/**
- * Builds a rich catalog-enrichment context for a given org by cross-referencing
- * their live inventory against the platform price guide cache and BL catalog
- * metadata. Used as supplemental context in domain agents.
- */
 async function buildCatalogEnrichmentContext(orgId: string): Promise<string> {
   try {
     const enriched = await db.execute(sql`
@@ -147,7 +187,10 @@ async function buildCatalogEnrichmentContext(orgId: string): Promise<string> {
              ROUND(
                ((bi.unit_price::numeric - pgc.sold_avg_price::numeric)
                 / NULLIF(pgc.sold_avg_price::numeric, 0)) * 100, 1
-             ) as price_gap_pct
+             ) as price_gap_pct,
+             ROUND(
+               pgc.sold_quantity::numeric / NULLIF(pgc.stock_total_lots::numeric, 0), 2
+             ) as mdi
       FROM bl_inventory bi
       LEFT JOIN bl_catalog bc
         ON  bi.item_no   = bc.item_no
@@ -174,16 +217,16 @@ async function buildCatalogEnrichmentContext(orgId: string): Promise<string> {
     const lines: string[] = ['CATALOG & MARKET ENRICHMENT (platform data cross-referenced with org inventory):'];
 
     if (highDemand.length > 0) {
-      lines.push(`\nHIGH-DEMAND HELD ITEMS (market sold_qty > 100):`);
+      lines.push(`\nHIGH-DEMAND HELD ITEMS (market sold_qty > 100, MDI = sold÷lots):`);
       highDemand.slice(0, 10).forEach((r: any) =>
-        lines.push(`  ${r.item_no} "${r.item_name || '?'}" [${r.category_name || '?'}] qty:${r.quantity} @$${Number(r.our_price).toFixed(3)} | mkt_avg:$${Number(r.market_avg).toFixed(3)} demand:${r.market_demand} lots:${r.competing_lots || '?'}`)
+        lines.push(`  ${r.item_no} "${r.item_name || '?'}" [${r.category_name || '?'}] qty:${r.quantity} @$${Number(r.our_price).toFixed(3)} | mkt_avg:$${Number(r.market_avg).toFixed(3)} demand:${r.market_demand} lots:${r.competing_lots || '?'} MDI:${r.mdi || '?'}`)
       );
     }
 
     if (underpriced.length > 0) {
       lines.push(`\nSIGNIFICANTLY UNDERPRICED (>25% below market sold avg):`);
       underpriced.forEach((r: any) =>
-        lines.push(`  ${r.item_no} "${r.item_name || '?'}" our:$${Number(r.our_price).toFixed(3)} mkt_avg:$${Number(r.market_avg).toFixed(3)} gap:${r.price_gap_pct}% qty:${r.quantity}`)
+        lines.push(`  ${r.item_no} "${r.item_name || '?'}" our:$${Number(r.our_price).toFixed(3)} mkt_avg:$${Number(r.market_avg).toFixed(3)} gap:${r.price_gap_pct}% qty:${r.quantity} MDI:${r.mdi || '?'}`)
       );
     }
 
@@ -198,10 +241,6 @@ async function buildCatalogEnrichmentContext(orgId: string): Promise<string> {
   } catch { return ''; }
 }
 
-/**
- * Reads already-generated catalog signals and returns them as a short text
- * context block that other agents can prepend to their own data context.
- */
 async function getExistingCatalogSignals(orgId: string): Promise<string> {
   try {
     const signals = await db.select({
@@ -220,8 +259,7 @@ async function getExistingCatalogSignals(orgId: string): Promise<string> {
       .limit(6);
 
     if (signals.length === 0) return '';
-
-    const lines = ['CATALOG INTELLIGENCE (from catalog agent, use for context):'];
+    const lines = ['CATALOG INTELLIGENCE (Catalog Agent signals — cross-reference these with your domain data):'];
     signals.forEach(s => lines.push(`  [${s.urgency}] ${s.title}: ${s.summary}`));
     return lines.join('\n');
   } catch { return ''; }
@@ -235,13 +273,14 @@ export async function runCatalogAgent(orgId: string): Promise<number> {
 
   const catalogEnrichment = await buildCatalogEnrichmentContext(orgId);
 
-  // Platform-level: high price-spread items the org can source or already holds
   const priceSpread = await db.execute(sql`
     SELECT pgc.item_no, bc.item_name, bcat.name AS category_name,
            pgc.sold_avg_price::numeric  as sold_avg,
            pgc.sold_max_price::numeric  as sold_max,
            pgc.sold_quantity,
            pgc.stock_total_lots,
+           ROUND(pgc.sold_max_price::numeric / NULLIF(pgc.sold_avg_price::numeric, 0), 2) as psr,
+           ROUND(pgc.sold_quantity::numeric / NULLIF(pgc.stock_total_lots::numeric, 0), 2) as mdi,
            bi.quantity                  as our_qty,
            bi.unit_price::numeric       as our_price
     FROM price_guide_cache pgc
@@ -257,14 +296,12 @@ export async function runCatalogAgent(orgId: string): Promise<number> {
     LIMIT 20
   `);
 
-  // Market news for catalog context
   const news = await db.select({ title: marketNews.title, snippet: marketNews.snippet, source: marketNews.source })
     .from(marketNews)
     .where(gte(marketNews.publishedAt, new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)))
     .orderBy(desc(marketNews.publishedAt))
     .limit(8);
 
-  // Hot forum topics as additional catalog signal
   const forum = await db.select({ title: blForumPosts.title, replyCount: blForumPosts.replyCount })
     .from(blForumPosts)
     .where(gte(blForumPosts.postedAt, new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)))
@@ -273,9 +310,9 @@ export async function runCatalogAgent(orgId: string): Promise<number> {
 
   const ctx = `${catalogEnrichment}
 
-HIGH PRICE-SPREAD CATALOG ITEMS (sold_max > 1.5x sold_avg — premium demand signal):
+HIGH PRICE-SPREAD CATALOG ITEMS (PSR = sold_max ÷ sold_avg; MDI = sold_qty ÷ stock_lots):
 ${(priceSpread.rows as any[]).map((r: any) =>
-  `  ${r.item_no} "${r.item_name || '?'}" [${r.category_name || '?'}] avg:$${Number(r.sold_avg).toFixed(3)} max:$${Number(r.sold_max).toFixed(3)} demand:${r.sold_quantity} lots:${r.stock_total_lots}${r.our_qty != null ? ` | WE HAVE:${r.our_qty} @$${Number(r.our_price).toFixed(3)}` : ' | NOT IN STOCK'}`
+  `  ${r.item_no} "${r.item_name || '?'}" [${r.category_name || '?'}] avg:$${Number(r.sold_avg).toFixed(3)} max:$${Number(r.sold_max).toFixed(3)} PSR:${r.psr} MDI:${r.mdi} demand:${r.sold_quantity} lots:${r.stock_total_lots}${r.our_qty != null ? ` | WE HAVE:${r.our_qty} @$${Number(r.our_price).toFixed(3)}` : ' | NOT IN STOCK'}`
 ).join('\n')}
 
 MARKET HEADLINES (last 7d):
@@ -286,25 +323,46 @@ ${forum.map(f => `  [${f.replyCount} replies] ${f.title}`).join('\n') || '  None
 
   const strategies = await getOrgStrategies(orgId);
   const systemPrompt = buildSystemPrompt(
-    `You are the Catalog Intelligence Agent for a LEGO reseller. You cross-reference the org's inventory and order history against the platform-wide parts catalog, price guide data, market news, and community signals to identify catalog-level intelligence that the other domain agents may miss.
+    `You are the Catalog Intelligence Agent ("Catalog") for a LEGO reseller on the E.L.F.I.E. platform. You run FIRST in the agent pipeline — your signals are consumed by all other domain agents (Inventory, Pricing, Market, Orders, Customer) as shared enrichment context. E.L.F.I.E. synthesises the combined output of all agents into a unified business voice for the owner.
 
-Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences connecting catalog data to a specific business opportunity, risk, or action), "details": { "itemNos": [], "metric": "" } } ] }
+YOUR MANDATE: Cross-reference the org's live inventory against the platform-wide parts catalog, price guide data, market news, and community signals to surface catalog-level intelligence.
 
-Categories: demand_trend | price_opportunity | acquisition | market_intel | risk
-Rules:
-- Identify which held items have strong market demand relative to competing supply
-- Surface premium-demand items where max price far exceeds average (collectors or speculators)
-- Flag market news or forum trends that could affect held inventory value
-- Identify in-demand parts the org does NOT currently stock (acquisition opportunity)
-- Connect BrickLink community discussions to specific inventory or pricing implications
-- Always cite specific item numbers and dollar amounts`,
+INDUSTRY FRAMEWORKS TO APPLY:
+- Market Demand Index (MDI): sold_quantity ÷ stock_total_lots — high MDI = strong turnover vs available supply
+- Price Spread Ratio (PSR): sold_max ÷ sold_avg — above 1.5 = collector/speculator premium demand
+- Supply Squeeze: few competing lots + high MDI + rising PSR = supply squeeze signal
+- Retirement Trajectory: news + forum + low stock_total_lots = potential retirement wave; early acquisition = high ROI
+- Acquisition Opportunity: high MDI item where org has zero stock = acquisition signal
+
+CROSS-AGENT OUTPUTS (tag signals when they require action from another agent):
+- [→ INVENTORY]: item with high MDI + org stock running low — flag for restock
+- [→ PRICING]: underpriced item with high MDI — leaving money on the table
+- [→ MARKET]: news/forum signal that affects a specific held item — escalate with item number
+- If org has dead stock AND the market MDI is actually good, flag the contradiction for Inventory agent
+
+OUTPUT FORMAT (JSON ONLY):
+{
+  "flashReport": "One sentence: current catalog health and the single most important signal. Include a specific item number and metric.",
+  "signals": [
+    {
+      "category": "demand_trend|price_opportunity|acquisition|market_intel|supply_squeeze|risk",
+      "urgency": "high|medium|low",
+      "title": "max 80 chars",
+      "summary": "2-3 sentences. Cite item numbers, MDI, PSR, dollar amounts. Cross-tag other agents where relevant.",
+      "details": { "itemNos": [], "mdi": 0, "psr": 0, "estimatedImpact": "" }
+    }
+  ]
+}
+
+RULES: Every signal must include at least one specific item number and a measurable metric (MDI, PSR, or dollar value). No generic advice. Minimum 3, maximum 6 signals.`,
     strategies, strategies.marketStrategy, 'Catalog Intelligence'
   );
 
-  const signals = await callAgent(openai, orgId, systemPrompt, ctx);
-  await upsertSignals(orgId, 'catalog', signals);
-  console.log(`[AgentTeam] Catalog agent generated ${signals.length} signals for ${orgId}`);
-  return signals.length;
+  const result = await callAgent(openai, orgId, systemPrompt, ctx);
+  await upsertSignals(orgId, 'catalog', result.signals);
+  if (result.flashReport) await upsertFlashReport(orgId, 'catalog', result.flashReport);
+  console.log(`[AgentTeam] Catalog agent generated ${result.signals.length} signals for ${orgId}`);
+  return result.signals.length;
 }
 
 // ─── INVENTORY AGENT ────────────────────────────────────────────────────────
@@ -344,24 +402,41 @@ export async function runInventoryAgent(orgId: string): Promise<number> {
   }
 
   const totalValue = inventory.reduce((s, i) => s + (i.quantity * parseFloat(i.unitPrice || '0')), 0);
-  const zeroSellers = inventory.filter(i => !soldMap.has(i.itemNo) && i.quantity > 10);
-  const highVelocity = inventory.filter(i => (soldMap.get(i.itemNo)?.qty ?? 0) > 20 && i.quantity < 5);
-  const deadStock = inventory.filter(i => i.quantity > 50 && !soldMap.has(i.itemNo)).slice(0, 15);
+
+  // DOS = qty ÷ (sold_90d ÷ 90). Velocity tiers: A >20/90d, B 5-20, C 1-5, D 0
+  const withDos = inventory.map(i => {
+    const sold90 = soldMap.get(i.itemNo)?.qty ?? 0;
+    const dailyRate = sold90 / 90;
+    const dos = dailyRate > 0 ? Math.round(i.quantity / dailyRate) : Infinity;
+    const tier = sold90 > 20 ? 'A' : sold90 >= 5 ? 'B' : sold90 >= 1 ? 'C' : 'D';
+    return { ...i, sold90, dos, tier, value: i.quantity * parseFloat(i.unitPrice || '0') };
+  });
+
+  const stockoutRisk = withDos.filter(i => i.tier === 'A' && i.dos < 21).slice(0, 10);
+  const deadStock = withDos.filter(i => i.tier === 'D' && i.quantity > 20).slice(0, 15);
+  const highDos = withDos.filter(i => i.tier !== 'D' && i.dos > 180 && i.quantity > 10).slice(0, 10);
+
+  // Capital concentration: top items by value
+  const byValue = [...withDos].sort((a, b) => b.value - a.value);
+  const top10Value = byValue.slice(0, 10).reduce((s, i) => s + i.value, 0);
+  const concentrationPct = totalValue > 0 ? ((top10Value / totalValue) * 100).toFixed(1) : '0';
 
   const ctx = `
 INVENTORY SUMMARY:
-Total SKUs: ${inventory.length} | Total value: $${totalValue.toFixed(2)}
-Zero sellers (>10 qty, no 90d sales): ${zeroSellers.length} items
-Low stock fast movers (sold >20 in 90d, <5 qty): ${highVelocity.length} items
+Total SKUs: ${inventory.length} | Total value: $${totalValue.toFixed(2)} | Top 10 items = ${concentrationPct}% of total value
+Velocity A-items (>20 sold/90d): ${withDos.filter(i => i.tier === 'A').length} | B (5-20): ${withDos.filter(i => i.tier === 'B').length} | C (1-5): ${withDos.filter(i => i.tier === 'C').length} | D (0 sales): ${withDos.filter(i => i.tier === 'D').length}
 
-DEAD STOCK (top 15 by qty, never sold in 90d):
-${deadStock.map(i => `${i.itemNo} "${i.itemName || '?'}" ${i.colorName || ''} qty:${i.quantity} @$${i.unitPrice}`).join('\n')}
+STOCKOUT RISK (Tier A items, DOS < 21 days — reorder URGENTLY):
+${stockoutRisk.map(i => `  ${i.itemNo} "${i.itemName || '?'}" qty:${i.quantity} sold:${i.sold90}/90d DOS:${i.dos}d @$${i.unitPrice} value:$${i.value.toFixed(2)}`).join('\n') || '  None detected'}
 
-LOW STOCK FAST MOVERS (reorder urgently):
-${highVelocity.slice(0, 15).map(i => `${i.itemNo} "${i.itemName || '?'}" qty:${i.quantity} sold:${soldMap.get(i.itemNo)?.qty}x in 90d`).join('\n')}
+DEAD STOCK (Tier D, qty > 20, zero 90d sales — liquidation candidates):
+${deadStock.map(i => `  ${i.itemNo} "${i.itemName || '?'}" ${i.colorName || ''} qty:${i.quantity} @$${i.unitPrice} value:$${i.value.toFixed(2)}`).join('\n') || '  None'}
 
-LARGEST HOLDINGS BY VALUE:
-${inventory.filter(i => parseFloat(i.unitPrice || '0') * i.quantity > 5).slice(0, 20).map(i => `${i.itemNo} "${i.itemName || '?'}" qty:${i.quantity} @$${i.unitPrice} = $${(i.quantity * parseFloat(i.unitPrice || '0')).toFixed(2)}`).join('\n')}
+HIGH DOS SLOW MOVERS (DOS > 180d — capital trap risk):
+${highDos.map(i => `  ${i.itemNo} "${i.itemName || '?'}" qty:${i.quantity} sold:${i.sold90}/90d DOS:${i.dos === Infinity ? '∞' : i.dos + 'd'} @$${i.unitPrice} value:$${i.value.toFixed(2)}`).join('\n') || '  None'}
+
+LARGEST CAPITAL HOLDINGS (top 15 by value):
+${byValue.slice(0, 15).map(i => `  ${i.itemNo} "${i.itemName || '?'}" qty:${i.quantity} @$${i.unitPrice} = $${i.value.toFixed(2)} [Tier ${i.tier}] DOS:${i.dos === Infinity ? '∞' : i.dos + 'd'}`).join('\n')}
 `.trim();
 
   const catalogCtx = await getExistingCatalogSignals(orgId);
@@ -369,19 +444,46 @@ ${inventory.filter(i => parseFloat(i.unitPrice || '0') * i.quantity > 5).slice(0
 
   const strategies = await getOrgStrategies(orgId);
   const systemPrompt = buildSystemPrompt(
-    `You are the Inventory Agent for a LEGO reseller. Analyze the inventory data and generate 3-6 specific, actionable signals about stock health. Focus on dead stock risk, reorder urgency, capital concentration, and stock imbalances. Use any catalog intelligence signals provided to enrich your analysis with market demand and pricing context.
+    `You are the Inventory Agent ("Inventory") for a LEGO reseller on the E.L.F.I.E. platform. You report to E.L.F.I.E., who synthesises your signals alongside Catalog, Pricing, Market, Orders, and Customer agents into a unified business voice for the owner.
 
-Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences, specific numbers), "details": { "itemNos": [], "metric": "" } } ] }
+YOUR MANDATE: Maintain a real-time picture of stock health, capital efficiency, and fulfillment readiness.
 
-Categories: restock | overstock | dead_stock | capital_risk | opportunity
-Rules: cite specific item numbers and dollar amounts. No generic advice.`,
+INDUSTRY FRAMEWORKS TO APPLY:
+- Days of Supply (DOS): qty ÷ daily_sell_rate. DOS < 14d = stockout imminent; DOS 14-21d = reorder now; DOS > 180d = dead capital
+- Velocity Tiers: A (>20 sold/90d) = hero SKUs; B (5-20) = regular; C (1-5) = slow; D (0) = dead
+- Capital Concentration: if top 10 items > 40% of total value, flag concentration risk
+- GMROI proxy: (sold_qty × unit_price) ÷ (avg_qty × unit_price) — high = capital working hard
+- Stockout Risk Score: Tier-A item with DOS < 21d = HIGH; Tier-B with DOS < 14d = MEDIUM
+- Dead Stock Liquidation Value: qty × unit_price × 0.6 (assume 40% markdown to clear)
+
+CROSS-AGENT OUTPUTS (tag signals requiring another agent's action):
+- [→ PRICING]: dead stock → suggest price cut to clear
+- [→ CATALOG]: if Catalog flags high-MDI item you're low on → corroborate with your DOS data
+- [→ ORDERS]: if stockout risk on your Tier-A items → Orders agent should surface this as fulfillment risk
+
+OUTPUT FORMAT (JSON ONLY):
+{
+  "flashReport": "One sentence: current inventory health, DOS on top risk item, total capital at risk. Be specific.",
+  "signals": [
+    {
+      "category": "restock|overstock|dead_stock|capital_risk|stockout_risk|opportunity",
+      "urgency": "high|medium|low",
+      "title": "max 80 chars",
+      "summary": "2-3 sentences. Cite item numbers, DOS, velocity tier, dollar values, and estimated impact.",
+      "details": { "itemNos": [], "dos": 0, "velocityTier": "A|B|C|D", "capitalAtRisk": 0 }
+    }
+  ]
+}
+
+RULES: Cite specific item numbers, DOS, and capital values. For dead stock, state liquidation value. For stockout risk, state estimated lost revenue if not restocked. Minimum 3, maximum 6 signals. No generic advice.`,
     strategies, strategies.inventoryStrategy, 'Inventory'
   );
 
-  const signals = await callAgent(openai, orgId, systemPrompt, fullCtx);
-  await upsertSignals(orgId, 'inventory', signals);
-  console.log(`[AgentTeam] Inventory agent generated ${signals.length} signals for ${orgId}`);
-  return signals.length;
+  const result = await callAgent(openai, orgId, systemPrompt, fullCtx);
+  await upsertSignals(orgId, 'inventory', result.signals);
+  if (result.flashReport) await upsertFlashReport(orgId, 'inventory', result.flashReport);
+  console.log(`[AgentTeam] Inventory agent generated ${result.signals.length} signals for ${orgId}`);
+  return result.signals.length;
 }
 
 // ─── PRICING AGENT ──────────────────────────────────────────────────────────
@@ -394,13 +496,16 @@ export async function runPricingAgent(orgId: string): Promise<number> {
     SELECT bi.item_no, bc.item_name, bi.unit_price::numeric, bi.quantity,
            pgc.stock_avg_price::numeric as market_avg, pgc.sold_avg_price::numeric as sold_avg,
            pgc.sold_max_price::numeric as sold_max, pgc.stock_total_lots,
-           ROUND(((bi.unit_price::numeric - pgc.sold_avg_price::numeric) / NULLIF(pgc.sold_avg_price::numeric,0))*100,1) as gap_pct
+           pgc.sold_quantity,
+           ROUND(((bi.unit_price::numeric - pgc.sold_avg_price::numeric) / NULLIF(pgc.sold_avg_price::numeric,0))*100,1) as gap_pct,
+           ROUND(bi.unit_price::numeric / NULLIF(pgc.sold_max_price::numeric,0), 3) as capture_rate,
+           ROUND(bi.unit_price::numeric / NULLIF(pgc.stock_avg_price::numeric,0), 3) as vs_market
     FROM bl_inventory bi
     LEFT JOIN bl_catalog bc ON bi.item_no=bc.item_no AND bi.item_type=bc.item_type AND bi.color_id=bc.color_id
     LEFT JOIN price_guide_cache pgc ON bi.item_no=pgc.item_no AND bi.item_type=pgc.item_type AND bi.color_id=pgc.color_id AND bi.new_or_used=pgc.new_or_used
     WHERE bi.org_id=${orgId} AND pgc.sold_avg_price IS NOT NULL AND pgc.sold_avg_price::numeric > 0 AND bi.unit_price::numeric > 0
     ORDER BY ABS(bi.unit_price::numeric - pgc.sold_avg_price::numeric) DESC
-    LIMIT 40
+    LIMIT 50
   `);
   const gaps = gapData.rows as any[];
 
@@ -418,21 +523,34 @@ export async function runPricingAgent(orgId: string): Promise<number> {
   const overpriced = gaps.filter((g: any) => Number(g.gap_pct) > 20).slice(0, 10);
   const underpriced = gaps.filter((g: any) => Number(g.gap_pct) < -20).slice(0, 10);
 
+  // Revenue at risk: for underpriced, potential gain = (sold_avg - our_price) * qty
+  const revenueGainIfFixed = underpriced.reduce((s: number, g: any) =>
+    s + (Number(g.sold_avg) - Number(g.unit_price)) * Number(g.quantity), 0);
+  const revenueRiskIfStuck = overpriced.reduce((s: number, g: any) =>
+    s + (Number(g.unit_price) - Number(g.sold_avg)) * Number(g.quantity), 0);
+
   const avgDelta = recentDecisions.length > 0
     ? recentDecisions.reduce((s, d) => s + (d.priceDelta ? Number(d.priceDelta) : 0), 0) / recentDecisions.length
     : null;
 
+  // Low capture rate items: our price < 70% of sold_max (room to raise significantly)
+  const lowCapture = gaps.filter((g: any) => Number(g.capture_rate || 0) < 0.70 && Number(g.gap_pct) < 0).slice(0, 8);
+
   const ctx = `
 PRICING GAPS (your price vs. market sold avg):
-OVERPRICED (>20% above sold avg, ${overpriced.length} items):
-${overpriced.map((g: any) => `  ${g.item_no} "${g.item_name || '?'}" — YOUR:$${Number(g.unit_price).toFixed(2)} SOLD_AVG:$${Number(g.sold_avg).toFixed(2)} SOLD_MAX:$${Number(g.sold_max).toFixed(2)} (${Number(g.gap_pct) > 0 ? '+' : ''}${g.gap_pct}% gap) qty:${g.quantity}`).join('\n')}
 
-UNDERPRICED (>20% below sold avg, ${underpriced.length} items):
-${underpriced.map((g: any) => `  ${g.item_no} "${g.item_name || '?'}" — YOUR:$${Number(g.unit_price).toFixed(2)} SOLD_AVG:$${Number(g.sold_avg).toFixed(2)} SOLD_MAX:$${Number(g.sold_max).toFixed(2)} (${g.gap_pct}% gap) qty:${g.quantity}`).join('\n')}
+UNDERPRICED (>20% below sold avg, ${underpriced.length} items, potential revenue gain: $${revenueGainIfFixed.toFixed(2)}):
+${underpriced.map((g: any) => `  ${g.item_no} "${g.item_name || '?'}" — OUR:$${Number(g.unit_price).toFixed(2)} SOLD_AVG:$${Number(g.sold_avg).toFixed(2)} SOLD_MAX:$${Number(g.sold_max).toFixed(2)} gap:${g.gap_pct}% capture:${g.capture_rate} qty:${g.quantity} gain_if_fixed:$${((Number(g.sold_avg)-Number(g.unit_price))*Number(g.quantity)).toFixed(2)}`).join('\n')}
 
-RECENT PRICING DECISIONS (${recentDecisions.length} logged):
+OVERPRICED (>20% above sold avg, ${overpriced.length} items, revenue-at-risk: $${revenueRiskIfStuck.toFixed(2)}):
+${overpriced.map((g: any) => `  ${g.item_no} "${g.item_name || '?'}" — OUR:$${Number(g.unit_price).toFixed(2)} SOLD_AVG:$${Number(g.sold_avg).toFixed(2)} (${Number(g.gap_pct) > 0 ? '+' : ''}${g.gap_pct}% gap) qty:${g.quantity}`).join('\n')}
+
+LOW CEILING CAPTURE (capture_rate < 0.70 — significant room to raise price):
+${lowCapture.map((g: any) => `  ${g.item_no} "${g.item_name || '?'}" — OUR:$${Number(g.unit_price).toFixed(2)} SOLD_MAX:$${Number(g.sold_max).toFixed(2)} capture:${g.capture_rate} demand:${g.sold_quantity}`).join('\n') || '  None identified'}
+
+REPRICING MOMENTUM (last ${recentDecisions.length} POM decisions):
 ${recentDecisions.slice(0, 10).map(d => `  ${d.itemNo} set $${Number(d.actualPrice).toFixed(2)}${d.suggestedPrice ? ` (POM suggested $${Number(d.suggestedPrice).toFixed(2)}, delta ${Number(d.priceDelta) >= 0 ? '+' : ''}${Number(d.priceDelta ?? 0).toFixed(2)})` : ''}`).join('\n')}
-${avgDelta !== null ? `Average pricing delta vs POM: ${avgDelta >= 0 ? '+' : ''}$${avgDelta.toFixed(3)} (${avgDelta > 0 ? 'pricing above' : 'pricing below'} POM suggestions on average)` : ''}
+${avgDelta !== null ? `Average pricing delta vs POM: ${avgDelta >= 0 ? '+' : ''}$${avgDelta.toFixed(3)} (${avgDelta > 0.01 ? 'systematically PRICING ABOVE POM' : avgDelta < -0.01 ? 'systematically PRICING BELOW POM' : 'aligned with POM suggestions'})` : '  No decisions logged'}
 `.trim();
 
   const catalogCtxP = await getExistingCatalogSignals(orgId);
@@ -440,19 +558,47 @@ ${avgDelta !== null ? `Average pricing delta vs POM: ${avgDelta >= 0 ? '+' : ''}
 
   const strategies = await getOrgStrategies(orgId);
   const systemPrompt = buildSystemPrompt(
-    `You are the Pricing Agent for a LEGO reseller. Analyze pricing gaps and repricing patterns to generate 3-5 specific, actionable pricing signals. Use any catalog intelligence signals provided to understand market demand context for your pricing recommendations.
+    `You are the Pricing Agent ("Pricing") for a LEGO reseller on the E.L.F.I.E. platform. You report to E.L.F.I.E., who synthesises your signals alongside Catalog, Inventory, Market, Orders, and Customer agents into a unified business voice for the owner.
 
-Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences, cite specific items/prices), "details": { "itemNos": [], "potentialRevenue": 0 } } ] }
+YOUR MANDATE: Identify pricing gaps, competitive positions, and revenue maximisation opportunities across the full inventory.
 
-Categories: pricing | opportunity | risk
-Rules: be specific. Cite item numbers, exact prices, potential revenue impact. Focus on the biggest opportunities.`,
+INDUSTRY FRAMEWORKS TO APPLY:
+- Price Positioning: our_price ÷ sold_avg. Below 0.80 = leaving money on the table; above 1.20 = risk of slow sales
+- Ceiling Capture Rate: our_price ÷ sold_max. Below 0.70 = significant upside; above 0.95 = pricing at ceiling
+- Revenue at Risk (underpriced): (sold_avg − our_price) × qty = money left on the table per lot
+- Revenue at Risk (overpriced): (our_price − sold_avg) × qty = slow-moving capital at risk
+- Repricing Momentum: systematic avg delta vs POM reveals owner's pricing culture (above = premium bias; below = discount bias)
+- Undercut Ratio: our_price ÷ market_min (from POM data). Below 1.0 = we're cheapest; above 1.0 = being undercut
+- Low Capture Rate: capture_rate < 0.70 = we have significant room to raise price toward the ceiling
+
+CROSS-AGENT OUTPUTS:
+- [→ INVENTORY]: items with overpriced + high DOS = double jeopardy — cut price AND it frees capital
+- [→ CATALOG]: if Catalog flags high-MDI item we're underpricing → escalate urgency
+- [→ MARKET]: if market is reporting supply squeeze on items we hold → recommend price raise now
+
+OUTPUT FORMAT (JSON ONLY):
+{
+  "flashReport": "One sentence: total revenue at risk from mispriced inventory, top opportunity item. Include dollar amounts.",
+  "signals": [
+    {
+      "category": "underpriced|overpriced|competitive_position|repricing_pattern|opportunity|risk",
+      "urgency": "high|medium|low",
+      "title": "max 80 chars",
+      "summary": "2-3 sentences. Cite specific items, exact prices, capture rates, revenue impact estimates.",
+      "details": { "itemNos": [], "revenueAtRisk": 0, "captureRate": 0 }
+    }
+  ]
+}
+
+RULES: Every signal must include a dollar-value revenue impact. Cite specific item numbers, exact prices, and capture rates. Minimum 3, maximum 5 signals. No generic advice.`,
     strategies, strategies.pricingStrategy, 'Pricing'
   );
 
-  const signals = await callAgent(openai, orgId, systemPrompt, fullCtxP);
-  await upsertSignals(orgId, 'pricing', signals);
-  console.log(`[AgentTeam] Pricing agent generated ${signals.length} signals for ${orgId}`);
-  return signals.length;
+  const result = await callAgent(openai, orgId, systemPrompt, fullCtxP);
+  await upsertSignals(orgId, 'pricing', result.signals);
+  if (result.flashReport) await upsertFlashReport(orgId, 'pricing', result.flashReport);
+  console.log(`[AgentTeam] Pricing agent generated ${result.signals.length} signals for ${orgId}`);
+  return result.signals.length;
 }
 
 // ─── MARKET AGENT ────────────────────────────────────────────────────────────
@@ -481,6 +627,8 @@ export async function runMarketAgent(orgId: string): Promise<number> {
            pgc.sold_max_price::numeric as sold_max,
            pgc.stock_total_lots,
            pgc.sold_quantity,
+           ROUND(pgc.sold_max_price::numeric / NULLIF(pgc.sold_avg_price::numeric, 0), 2) as psr,
+           ROUND(pgc.sold_quantity::numeric / NULLIF(pgc.stock_total_lots::numeric, 0), 2) as mdi,
            bi.quantity as our_qty,
            bi.unit_price::numeric as our_price
     FROM price_guide_cache pgc
@@ -491,15 +639,21 @@ export async function runMarketAgent(orgId: string): Promise<number> {
     LIMIT 20
   `);
 
+  // Current month for seasonal context
+  const month = new Date().getMonth() + 1;
+  const season = month >= 10 ? 'Q4 Peak (holiday demand surge)' : month <= 2 ? 'Post-holiday cool-down' : month >= 6 && month <= 8 ? 'Summer lull' : 'Mid-year steady';
+
   const ctx = `
+SEASONAL CONTEXT: ${season} (month ${month})
+
 MARKET NEWS (last 7 days, ${recentNews.length} articles):
-${recentNews.map(n => `  [${n.source || '?'}] ${n.title}${n.snippet ? ' — ' + n.snippet.substring(0, 100) : ''}`).join('\n')}
+${recentNews.map(n => `  [${n.source || '?'}] ${n.title}${n.snippet ? ' — ' + n.snippet.substring(0, 100) : ''}`).join('\n') || '  None'}
 
-BRICKLINK FORUM HOT TOPICS (last 7 days, sorted by replies):
-${recentForum.map(f => `  [${f.replyCount} replies] ${f.title}${f.excerpt ? ' — ' + f.excerpt.substring(0, 80) : ''}`).join('\n')}
+BRICKLINK FORUM HOT TOPICS (last 7 days, by replies):
+${recentForum.map(f => `  [${f.replyCount} replies] ${f.title}${f.excerpt ? ' — ' + f.excerpt.substring(0, 80) : ''}`).join('\n') || '  None'}
 
-ITEMS WITH HIGH PRICE SPREAD (sold_max > 1.5x sold_avg — potential premium demand):
-${(priceMoves.rows as any[]).slice(0, 15).map((r: any) => `  ${r.item_no} "${r.item_name || '?'}" sold_avg:$${Number(r.sold_avg).toFixed(2)} sold_max:$${Number(r.sold_max).toFixed(2)} demand:${r.sold_quantity} lots${r.our_qty != null ? ` — WE HAVE: qty:${r.our_qty} @$${Number(r.our_price).toFixed(2)}` : ' — NOT IN STOCK'}`).join('\n')}
+HIGH PSR ITEMS IN MARKET (PSR = sold_max÷sold_avg; MDI = sold÷lots — collector/squeeze signals):
+${(priceMoves.rows as any[]).slice(0, 15).map((r: any) => `  ${r.item_no} "${r.item_name || '?'}" sold_avg:$${Number(r.sold_avg).toFixed(2)} sold_max:$${Number(r.sold_max).toFixed(2)} PSR:${r.psr} MDI:${r.mdi} demand:${r.sold_quantity} lots:${r.stock_total_lots}${r.our_qty != null ? ` — WE HOLD: qty:${r.our_qty} @$${Number(r.our_price).toFixed(2)}` : ' — NOT IN STOCK'}`).join('\n') || '  None'}
 `.trim();
 
   const catalogCtxM = await getExistingCatalogSignals(orgId);
@@ -507,19 +661,46 @@ ${(priceMoves.rows as any[]).slice(0, 15).map((r: any) => `  ${r.item_no} "${r.i
 
   const strategies = await getOrgStrategies(orgId);
   const systemPrompt = buildSystemPrompt(
-    `You are the Market Intelligence Agent for a LEGO reseller. Analyze market news, forum discussions, and price spread data to identify external signals that may affect the business. Use any catalog intelligence signals provided to understand which specific held items are most relevant to the external signals you observe.
+    `You are the Market Intelligence Agent ("Market") for a LEGO reseller on the E.L.F.I.E. platform. You report to E.L.F.I.E., who synthesises your signals alongside Catalog, Inventory, Pricing, Orders, and Customer agents into a unified business voice for the owner.
 
-Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences connecting external signal to business impact), "details": { "source": "", "itemNos": [] } } ] }
+YOUR MANDATE: Monitor external signals — news, forum discussions, price movements, seasonal patterns — and translate them into specific inventory and pricing implications.
 
-Categories: trend | opportunity | risk | acquisition
-Rules: Connect news/forum signals to specific inventory implications. Identify retirement risks, demand surges, pricing opportunities. Be specific about which items are affected.`,
+INDUSTRY FRAMEWORKS TO APPLY:
+- Retirement Trajectory: news + forum discussion + declining stock_total_lots = retirement wave; typical price appreciation +30-60% within 6 months of EOL
+- Supply Squeeze Detection: high MDI + declining lots + PSR > 1.5 + forum buzz = supply squeeze; raise prices and consider acquiring more
+- Demand Surge Signal: high forum reply count + news mentions + rising sold_quantity = demand event; check inventory coverage
+- Price Spread Ratio (PSR): sold_max ÷ sold_avg > 1.5 = collector/speculator premium; above 2.0 = significant speculation
+- Seasonal Context: align signals to known LEGO demand cycles (Q4 peak, post-holiday dip, summer lull)
+- Market Sentiment: forum reply volume as a leading indicator of community interest in specific parts/sets
+
+CROSS-AGENT OUTPUTS:
+- [→ INVENTORY]: demand surge or supply squeeze on held items → restock urgently
+- [→ PRICING]: supply squeeze or retirement signal on held items → raise prices now
+- [→ CATALOG]: retirement signal on items org does NOT stock → acquisition opportunity before price spike
+
+OUTPUT FORMAT (JSON ONLY):
+{
+  "flashReport": "One sentence: market summary, most significant external signal today, and which held items are affected. Be specific.",
+  "signals": [
+    {
+      "category": "retirement_risk|demand_surge|supply_squeeze|market_intel|seasonal|opportunity",
+      "urgency": "high|medium|low",
+      "title": "max 80 chars",
+      "summary": "2-3 sentences connecting external signal to specific business impact. Cite item numbers, PSR, MDI, source.",
+      "details": { "source": "", "itemNos": [], "priceImpactEstimate": "" }
+    }
+  ]
+}
+
+RULES: Every signal must connect to at least one specific item number or category in the org's inventory (or a clear acquisition opportunity). Cite exact prices, PSR, MDI, forum reply counts, and news sources. Minimum 3, maximum 6 signals.`,
     strategies, strategies.marketStrategy, 'Market Intelligence'
   );
 
-  const signals = await callAgent(openai, orgId, systemPrompt, fullCtxM);
-  await upsertSignals(orgId, 'market', signals);
-  console.log(`[AgentTeam] Market agent generated ${signals.length} signals for ${orgId}`);
-  return signals.length;
+  const result = await callAgent(openai, orgId, systemPrompt, fullCtxM);
+  await upsertSignals(orgId, 'market', result.signals);
+  if (result.flashReport) await upsertFlashReport(orgId, 'market', result.flashReport);
+  console.log(`[AgentTeam] Market agent generated ${result.signals.length} signals for ${orgId}`);
+  return result.signals.length;
 }
 
 // ─── ORDERS AGENT ────────────────────────────────────────────────────────────
@@ -536,6 +717,7 @@ export async function runOrdersAgent(orgId: string): Promise<number> {
       DATE_TRUNC('week', o.order_date) as week,
       COUNT(*) as order_count,
       SUM(o.order_total::numeric) as revenue,
+      AVG(o.order_total::numeric) as aov,
       o.marketplace
     FROM orders o
     WHERE o.org_id=${orgId} AND o.order_date >= ${sixtyDaysAgo}
@@ -550,13 +732,24 @@ export async function runOrdersAgent(orgId: string): Promise<number> {
       (SELECT item_name FROM bl_catalog WHERE item_no = od.item_no LIMIT 1) as item_name,
       SUM(od.quantity) as sold_qty,
       AVG(od.unit_price::numeric) as avg_price,
-      COUNT(DISTINCT o.id) as order_count
+      COUNT(DISTINCT o.id) as order_count,
+      SUM(od.quantity * od.unit_price::numeric) as revenue
     FROM order_details od
     JOIN orders o ON od.order_id=o.id
     WHERE o.org_id=${orgId} AND o.order_date >= ${thirtyDaysAgo} AND o.order_status NOT IN ('cancelled','purged')
     GROUP BY od.item_no
-    ORDER BY sold_qty DESC
+    ORDER BY revenue DESC
     LIMIT 20
+  `);
+
+  // Cancellation rate
+  const cancellations = await db.execute(sql`
+    SELECT COUNT(*) as cancelled FROM orders
+    WHERE org_id=${orgId} AND order_date >= ${thirtyDaysAgo} AND order_status IN ('cancelled','purged')
+  `);
+  const allOrders30d = await db.execute(sql`
+    SELECT COUNT(*) as total, AVG(order_total::numeric) as aov FROM orders
+    WHERE org_id=${orgId} AND order_date >= ${thirtyDaysAgo}
   `);
 
   const channelData = (velocityData.rows as any[]).reduce((acc: any, r: any) => {
@@ -573,19 +766,32 @@ export async function runOrdersAgent(orgId: string): Promise<number> {
     .filter((r: any) => new Date(r.week) < thirtyDaysAgo)
     .reduce((s: number, r: any) => s + Number(r.revenue || 0), 0);
   const revChange = total60to30d > 0 ? ((total30d - total60to30d) / total60to30d * 100).toFixed(1) : 'N/A';
+  const trend = total60to30d > 0 ? (total30d > total60to30d * 1.05 ? 'ACCELERATING' : total30d < total60to30d * 0.95 ? 'DECLINING' : 'STABLE') : 'INSUFFICIENT DATA';
+
+  const cancelCount = Number((cancellations.rows[0] as any)?.cancelled || 0);
+  const totalCount = Number((allOrders30d.rows[0] as any)?.total || 0);
+  const cancelRate = totalCount > 0 ? ((cancelCount / totalCount) * 100).toFixed(1) : '0';
+  const currentAov = Number((allOrders30d.rows[0] as any)?.aov || 0);
+
+  // Top SKUs revenue concentration
+  const allSKURevenue = (topSKUs.rows as any[]).reduce((s: number, r: any) => s + Number(r.revenue || 0), 0);
+  const top5Revenue = (topSKUs.rows as any[]).slice(0, 5).reduce((s: number, r: any) => s + Number(r.revenue || 0), 0);
+  const skuConcentrationPct = allSKURevenue > 0 ? ((top5Revenue / allSKURevenue) * 100).toFixed(1) : '0';
 
   const ctx = `
 ORDER VELOCITY (60-day window):
-Last 30d revenue: $${total30d.toFixed(2)} | Prior 30d: $${total60to30d.toFixed(2)} | Change: ${revChange}%
+Last 30d revenue: $${total30d.toFixed(2)} | Prior 30d: $${total60to30d.toFixed(2)} | Change: ${revChange}% | Trend: ${trend}
+Current AOV: $${currentAov.toFixed(2)} | 30d orders: ${totalCount} | Cancellation rate: ${cancelRate}%
+Top 5 SKUs = ${skuConcentrationPct}% of 30d revenue (SKU concentration)
 
 CHANNEL BREAKDOWN (60d):
-${Object.entries(channelData).map(([ch, d]: any) => `  ${ch}: $${d.revenue.toFixed(2)} revenue, ${d.orders} orders`).join('\n')}
+${Object.entries(channelData).map(([ch, d]: any) => `  ${ch}: $${d.revenue.toFixed(2)} revenue, ${d.orders} orders, share: ${total30d + total60to30d > 0 ? ((d.revenue / (total30d + total60to30d)) * 100).toFixed(1) : '?'}%`).join('\n') || '  No channel data'}
 
-TOP SELLING SKUs (last 30d):
-${(topSKUs.rows as any[]).map((r: any) => `  ${r.item_no} "${r.item_name || '?'}" — sold:${r.sold_qty} units across ${r.order_count} orders @avg $${Number(r.avg_price).toFixed(2)}`).join('\n')}
+TOP REVENUE SKUs (last 30d):
+${(topSKUs.rows as any[]).map((r: any) => `  ${r.item_no} "${r.item_name || '?'}" — sold:${r.sold_qty} units / ${r.order_count} orders @avg $${Number(r.avg_price).toFixed(2)} = $${Number(r.revenue).toFixed(2)} revenue`).join('\n') || '  None'}
 
 WEEKLY ORDER VOLUME (last 8 weeks):
-${(velocityData.rows as any[]).slice(0, 16).map((r: any) => `  ${String(r.week).substring(0,10)} [${r.marketplace}]: ${r.order_count} orders $${Number(r.revenue).toFixed(2)}`).join('\n')}
+${(velocityData.rows as any[]).slice(0, 16).map((r: any) => `  ${String(r.week).substring(0,10)} [${r.marketplace}]: ${r.order_count} orders $${Number(r.revenue).toFixed(2)} AOV:$${Number(r.aov).toFixed(2)}`).join('\n')}
 `.trim();
 
   const catalogCtxO = await getExistingCatalogSignals(orgId);
@@ -593,19 +799,47 @@ ${(velocityData.rows as any[]).slice(0, 16).map((r: any) => `  ${String(r.week).
 
   const strategies = await getOrgStrategies(orgId);
   const systemPrompt = buildSystemPrompt(
-    `You are the Orders Agent for a LEGO reseller. Analyze order velocity, channel performance, and SKU throughput to generate 3-5 specific operational signals. Use any catalog intelligence signals provided to connect sales patterns to broader market demand context.
+    `You are the Orders Agent ("Orders") for a LEGO reseller on the E.L.F.I.E. platform. You report to E.L.F.I.E., who synthesises your signals alongside Catalog, Inventory, Pricing, Market, and Customer agents into a unified business voice for the owner.
 
-Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences, cite specific numbers and trends), "details": { "metric": "", "value": 0 } } ] }
+YOUR MANDATE: Track order velocity, channel performance, SKU throughput, AOV trends, and fulfillment health.
 
-Categories: velocity | channel | revenue | opportunity | risk
-Rules: cite specific percentages, dollar amounts, and item numbers. Focus on actionable patterns — which channels are growing, which SKUs are driving volume, where there are gaps.`,
+INDUSTRY FRAMEWORKS TO APPLY:
+- Revenue Velocity Trend: 30d vs prior 30d classified as ACCELERATING (>5%), STABLE (±5%), or DECLINING (<-5%)
+- Average Order Value (AOV): rising AOV = premium buyers or higher basket; falling = downsizing or discount pressure
+- Channel Mix Shift: if one platform's share changes >5 percentage points WoW, flag it (channel dependency or opportunity)
+- SKU Concentration Risk: if top 5 SKUs > 30% of revenue, flag concentration (vulnerable to stockouts)
+- Cancellation Rate: >5% in 30d = investigate root cause (pricing, availability, or fulfilment issue)
+- Fulfillment Readiness: cross-reference top-selling SKUs with Inventory agent's stockout signals
+- Order Concentration Risk: if top 5 buyers drive >30% of revenue, flag buyer dependency
+
+CROSS-AGENT OUTPUTS:
+- [→ INVENTORY]: if top-revenue SKUs are in Inventory's stockout risk list → escalate to high urgency
+- [→ PRICING]: if AOV is declining → check if Pricing agent raised prices on popular items recently
+- [→ CUSTOMER]: if repeat order rate is low → Customer agent should surface retention risk
+
+OUTPUT FORMAT (JSON ONLY):
+{
+  "flashReport": "One sentence: revenue trend classification (ACCELERATING/STABLE/DECLINING), AOV, and top fulfillment risk. Include specific numbers.",
+  "signals": [
+    {
+      "category": "velocity|channel_shift|aov_trend|sku_performance|fulfillment_risk|opportunity",
+      "urgency": "high|medium|low",
+      "title": "max 80 chars",
+      "summary": "2-3 sentences. Cite specific % changes, dollar amounts, item numbers, and order counts.",
+      "details": { "metric": "", "value": 0, "trend": "up|down|stable" }
+    }
+  ]
+}
+
+RULES: Every signal must cite a specific % change, dollar amount, or order count. Classify every revenue trend. Flag any metric crossing a threshold. Minimum 3, maximum 5 signals.`,
     strategies, strategies.ordersStrategy, 'Orders'
   );
 
-  const signals = await callAgent(openai, orgId, systemPrompt, fullCtxO);
-  await upsertSignals(orgId, 'orders', signals);
-  console.log(`[AgentTeam] Orders agent generated ${signals.length} signals for ${orgId}`);
-  return signals.length;
+  const result = await callAgent(openai, orgId, systemPrompt, fullCtxO);
+  await upsertSignals(orgId, 'orders', result.signals);
+  if (result.flashReport) await upsertFlashReport(orgId, 'orders', result.flashReport);
+  console.log(`[AgentTeam] Orders agent generated ${result.signals.length} signals for ${orgId}`);
+  return result.signals.length;
 }
 
 // ─── CUSTOMER AGENT ──────────────────────────────────────────────────────────
@@ -615,12 +849,17 @@ export async function runCustomerAgent(orgId: string): Promise<number> {
   if (!openai) return 0;
 
   const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
   const oneEightyDaysAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
 
   const topBuyers = await db.execute(sql`
-    SELECT customer_username, COUNT(*) as order_count, SUM(order_total::numeric) as total_spent,
-           MAX(order_date) as last_order, MIN(order_date) as first_order,
-           AVG(order_total::numeric) as avg_order
+    SELECT customer_username,
+           COUNT(*) as order_count,
+           SUM(order_total::numeric) as total_spent,
+           MAX(order_date) as last_order,
+           MIN(order_date) as first_order,
+           AVG(order_total::numeric) as avg_order,
+           EXTRACT(DAY FROM NOW() - MAX(order_date)) as days_since_last
     FROM orders
     WHERE org_id=${orgId} AND order_status NOT IN ('cancelled','purged')
     GROUP BY customer_username
@@ -630,7 +869,9 @@ export async function runCustomerAgent(orgId: string): Promise<number> {
 
   const dormant = await db.execute(sql`
     SELECT customer_username, MAX(order_date) as last_order, COUNT(*) as order_count,
-           SUM(order_total::numeric) as lifetime_spent
+           SUM(order_total::numeric) as lifetime_spent,
+           AVG(order_total::numeric) as avg_order,
+           EXTRACT(DAY FROM NOW() - MAX(order_date)) as days_dormant
     FROM orders
     WHERE org_id=${orgId} AND order_status NOT IN ('cancelled','purged')
     GROUP BY customer_username
@@ -642,7 +883,8 @@ export async function runCustomerAgent(orgId: string): Promise<number> {
 
   const newBuyers = await db.execute(sql`
     SELECT customer_username, COUNT(*) as order_count, SUM(order_total::numeric) as total_spent,
-           MIN(order_date) as first_order
+           MIN(order_date) as first_order,
+           EXTRACT(DAY FROM NOW() - MIN(order_date)) as days_since_first
     FROM orders
     WHERE org_id=${orgId} AND order_status NOT IN ('cancelled','purged')
     GROUP BY customer_username
@@ -651,15 +893,47 @@ export async function runCustomerAgent(orgId: string): Promise<number> {
     LIMIT 15
   `);
 
+  // Repeat rate: buyers with 2+ orders as % of all buyers in 90d
+  const repeatRateData = await db.execute(sql`
+    SELECT
+      COUNT(DISTINCT customer_username) as total_buyers,
+      COUNT(DISTINCT CASE WHEN order_count >= 2 THEN customer_username END) as repeat_buyers
+    FROM (
+      SELECT customer_username, COUNT(*) as order_count
+      FROM orders
+      WHERE org_id=${orgId} AND order_date >= ${ninetyDaysAgo} AND order_status NOT IN ('cancelled','purged')
+      GROUP BY customer_username
+    ) sub
+  `);
+  const repeatRate = repeatRateData.rows[0] as any;
+  const repeatPct = repeatRate?.total_buyers > 0
+    ? ((Number(repeatRate.repeat_buyers) / Number(repeatRate.total_buyers)) * 100).toFixed(1)
+    : '0';
+
+  // At-risk Champions: top 10 all-time buyers who haven't ordered in 60d
+  const atRiskChampions = (topBuyers.rows as any[])
+    .filter((r: any) => Number(r.days_since_last) > 60)
+    .slice(0, 5);
+
   const ctx = `
-TOP BUYERS ALL TIME:
-${(topBuyers.rows as any[]).map((r: any) => `  ${r.customer_username}: ${r.order_count} orders, $${Number(r.total_spent).toFixed(2)} total, avg $${Number(r.avg_order).toFixed(2)}/order, last order: ${String(r.last_order).substring(0,10)}`).join('\n')}
+CUSTOMER HEALTH:
+90d repeat rate: ${repeatPct}% (buyers with 2+ orders as % of all 90d buyers) — benchmark: >30% is healthy
+Total buyers in 90d: ${repeatRate?.total_buyers || 0} | Repeat buyers: ${repeatRate?.repeat_buyers || 0}
+
+TOP BUYERS ALL TIME (with RFM indicators):
+${(topBuyers.rows as any[]).map((r: any) => {
+  const rfm = Number(r.days_since_last) < 30 ? 'Champion' : Number(r.days_since_last) < 60 ? 'Loyal' : Number(r.days_since_last) < 90 ? 'At Risk' : 'Dormant';
+  return `  [${rfm}] ${r.customer_username}: ${r.order_count} orders, $${Number(r.total_spent).toFixed(2)} lifetime, avg $${Number(r.avg_order).toFixed(2)}/order, last: ${String(r.last_order).substring(0,10)} (${Math.round(r.days_since_last)}d ago)`;
+}).join('\n')}
+
+AT-RISK CHAMPIONS (top 10 all-time buyers, 60d+ inactive — CLV at stake):
+${atRiskChampions.map((r: any) => `  ${r.customer_username}: $${Number(r.total_spent).toFixed(2)} lifetime, ${r.order_count} orders, ${Math.round(r.days_since_last)}d inactive`).join('\n') || '  None — all Champions recently active'}
 
 DORMANT HIGH-VALUE BUYERS (2+ orders, last order 90-180d ago):
-${(dormant.rows as any[]).map((r: any) => `  ${r.customer_username}: ${r.order_count} past orders, $${Number(r.lifetime_spent).toFixed(2)} lifetime, last order: ${String(r.last_order).substring(0,10)}`).join('\n') || '  None detected'}
+${(dormant.rows as any[]).map((r: any) => `  ${r.customer_username}: ${r.order_count} past orders, $${Number(r.lifetime_spent).toFixed(2)} lifetime, avg $${Number(r.avg_order).toFixed(2)}/order, ${Math.round(r.days_dormant)}d dormant`).join('\n') || '  None detected'}
 
 NEW BUYERS (first order in last 90d):
-${(newBuyers.rows as any[]).map((r: any) => `  ${r.customer_username}: ${r.order_count} orders, $${Number(r.total_spent).toFixed(2)} in first ${r.order_count > 1 ? `${r.order_count} orders` : 'order'}, since ${String(r.first_order).substring(0,10)}`).join('\n') || '  None in 90d'}
+${(newBuyers.rows as any[]).map((r: any) => `  ${r.customer_username}: ${r.order_count} orders, $${Number(r.total_spent).toFixed(2)} total, first order ${Math.round(r.days_since_first)}d ago${Number(r.order_count) >= 2 ? ' — CONVERTED (2nd purchase achieved)' : ' — needs 2nd purchase nurture'}`).join('\n') || '  None in 90d'}
 `.trim();
 
   const catalogCtxC = await getExistingCatalogSignals(orgId);
@@ -667,19 +941,50 @@ ${(newBuyers.rows as any[]).map((r: any) => `  ${r.customer_username}: ${r.order
 
   const strategies = await getOrgStrategies(orgId);
   const systemPrompt = buildSystemPrompt(
-    `You are the Customer Agent for a LEGO reseller. Analyze buyer behavior patterns to generate 3-5 specific customer intelligence signals. Use any catalog intelligence signals provided to understand which product categories are in high demand that could be relevant for outreach to dormant or high-value customers.
+    `You are the Customer Agent ("Customer") for a LEGO reseller on the E.L.F.I.E. platform. You report to E.L.F.I.E., who synthesises your signals alongside Catalog, Inventory, Pricing, Market, and Orders agents into a unified business voice for the owner.
 
-Output JSON: { "signals": [ { "category": string, "urgency": "high"|"medium"|"low", "title": string (max 80 chars), "summary": string (2-3 sentences naming specific buyers with amounts), "details": { "buyerNames": [], "metric": "" } } ] }
+YOUR MANDATE: Maintain a buyer health scorecard, identify retention risks, and surface opportunities to deepen high-value relationships.
 
-Categories: new_customer | top_spender | dormant | retention | risk
-Rules: name specific buyers with their exact spend and order counts. Identify retention risks, re-engagement opportunities, and emerging high-value relationships.`,
+INDUSTRY FRAMEWORKS TO APPLY:
+- RFM Segmentation: score buyers on Recency (days since last order), Frequency (order count), Monetary (lifetime spend):
+  • Champions: bought within 30d, 3+ orders, top spenders — protect and prioritise
+  • Loyal: 30-60d, 2+ orders, above-avg spend — active retention
+  • At Risk: 60-90d inactive, previously regular — re-engage now before they're lost
+  • Dormant: 90-180d inactive, 2+ past orders — low-effort re-engagement
+  • New Converts: first order < 30d, need 2nd purchase within 60d for retention
+- Customer Lifetime Value (CLV) Estimate: avg_order × (order_count / months_active) × 24 months
+- Churn Signal: Champion who hasn't ordered in 60d = churn signal; calculate CLV at stake
+- Repeat Rate Health: >30% = healthy; 20-30% = watch; <20% = retention crisis
+- Second Purchase Conversion: new buyer who places 2nd order within 60d = converted; otherwise at risk
+
+CROSS-AGENT OUTPUTS:
+- [→ INVENTORY]: if Champion buyers regularly order specific SKUs that Inventory flags as low-stock → escalate
+- [→ ORDERS]: if repeat rate declining → Orders agent should show it in revenue trend
+- [→ PRICING]: if at-risk buyers were deterred by recent price increases → flag to Pricing
+
+OUTPUT FORMAT (JSON ONLY):
+{
+  "flashReport": "One sentence: repeat rate, number of at-risk Champions with CLV at stake, top new buyer. Include specific numbers.",
+  "signals": [
+    {
+      "category": "champion|at_risk|churn_signal|new_convert|retention|clv_opportunity",
+      "urgency": "high|medium|low",
+      "title": "max 80 chars",
+      "summary": "2-3 sentences. Name specific buyers, their RFM tier, exact spend, days inactive, and actionable next step.",
+      "details": { "buyerNames": [], "rfmTier": "Champion|Loyal|At Risk|Dormant|New Convert", "clvEstimate": 0 }
+    }
+  ]
+}
+
+RULES: Name specific buyers with their RFM tier. For every at-risk buyer, estimate CLV at stake. For every new convert, state days since first order. State the repeat rate and whether it's Healthy/Watch/Crisis. Minimum 3, maximum 5 signals.`,
     strategies, strategies.customerStrategy, 'Customer'
   );
 
-  const signals = await callAgent(openai, orgId, systemPrompt, fullCtxC);
-  await upsertSignals(orgId, 'customer', signals);
-  console.log(`[AgentTeam] Customer agent generated ${signals.length} signals for ${orgId}`);
-  return signals.length;
+  const result = await callAgent(openai, orgId, systemPrompt, fullCtxC);
+  await upsertSignals(orgId, 'customer', result.signals);
+  if (result.flashReport) await upsertFlashReport(orgId, 'customer', result.flashReport);
+  console.log(`[AgentTeam] Customer agent generated ${result.signals.length} signals for ${orgId}`);
+  return result.signals.length;
 }
 
 // ─── RUN ALL AGENTS ──────────────────────────────────────────────────────────
@@ -723,6 +1028,7 @@ export async function getAgentSignals(
     eq(businessInsights.orgId, orgId),
     eq(businessInsights.dismissed, false),
     or(isNull(businessInsights.expiresAt), sql`${businessInsights.expiresAt} > NOW()`),
+    sql`${businessInsights.category} != 'flash_report'`,
   ];
 
   if (agentIds && agentIds.length > 0) {
@@ -744,4 +1050,46 @@ export async function getAgentSignals(
     .where(and(...conditions))
     .orderBy(desc(businessInsights.createdAt))
     .limit(limit);
+}
+
+// ─── FETCH FLASH REPORTS FOR OPS CENTRAL ─────────────────────────────────────
+
+export async function getOpsFlashReports(orgId: string): Promise<Record<string, { summary: string; urgency: string; updatedAt: Date } | null>> {
+  const agentIds: AgentId[] = ['inventory', 'pricing', 'market', 'orders', 'customer', 'catalog'];
+  const result: Record<string, { summary: string; urgency: string; updatedAt: Date } | null> = {};
+
+  for (const agentId of agentIds) {
+    result[agentId] = null;
+  }
+
+  try {
+    const rows = await db.select({
+      agentId: businessInsights.agentId,
+      summary: businessInsights.summary,
+      urgency: businessInsights.urgency,
+      updatedAt: businessInsights.updatedAt,
+    })
+      .from(businessInsights)
+      .where(and(
+        eq(businessInsights.orgId, orgId),
+        eq(businessInsights.category, 'flash_report'),
+        or(isNull(businessInsights.expiresAt), sql`${businessInsights.expiresAt} > NOW()`),
+        inArray(businessInsights.agentId, agentIds as any[]),
+      ))
+      .orderBy(desc(businessInsights.updatedAt));
+
+    for (const row of rows) {
+      if (row.agentId && result[row.agentId] === null) {
+        result[row.agentId] = {
+          summary: row.summary,
+          urgency: row.urgency,
+          updatedAt: row.updatedAt ?? new Date(),
+        };
+      }
+    }
+  } catch (err: any) {
+    console.error('[AgentTeam] getOpsFlashReports error:', err.message);
+  }
+
+  return result;
 }
