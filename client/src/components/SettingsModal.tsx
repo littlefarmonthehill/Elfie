@@ -2617,10 +2617,12 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [ieStratVision, setIeStratVision] = useState('');
   const [ieStratSuccess, setIeStratSuccess] = useState('');
   const [ieStratPricing, setIeStratPricing] = useState('');
+  const [ieStratPreset, setIeStratPreset] = useState<string | null>(null);
   const [ieStratInventory, setIeStratInventory] = useState('');
   const [ieStratOrders, setIeStratOrders] = useState('');
   const [ieStratCustomer, setIeStratCustomer] = useState('');
   const [ieStratMarket, setIeStratMarket] = useState('');
+  const [weightExtractionStatus, setWeightExtractionStatus] = useState<'idle' | 'running' | 'done'>('idle');
 
   // POM AI Pricing
   const [pomAiEnabled, setPomAiEnabled] = useState(false);
@@ -3458,7 +3460,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     },
   });
 
-  const { data: ieStratData } = useQuery<{ visionMission: string | null; successFactors: string | null; pricingStrategy: string | null; inventoryStrategy: string | null; ordersStrategy: string | null; customerStrategy: string | null; marketStrategy: string | null }>({
+  const { data: ieStratData } = useQuery<{ visionMission: string | null; successFactors: string | null; pricingStrategy: string | null; pricingStrategyPreset: string | null; inventoryStrategy: string | null; ordersStrategy: string | null; customerStrategy: string | null; marketStrategy: string | null }>({
     queryKey: ['/api/ie-strategies'],
     enabled: open,
   });
@@ -3467,12 +3469,31 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       setIeStratVision(ieStratData.visionMission ?? '');
       setIeStratSuccess(ieStratData.successFactors ?? '');
       setIeStratPricing(ieStratData.pricingStrategy ?? '');
+      setIeStratPreset(ieStratData.pricingStrategyPreset ?? null);
       setIeStratInventory(ieStratData.inventoryStrategy ?? '');
       setIeStratOrders(ieStratData.ordersStrategy ?? '');
       setIeStratCustomer(ieStratData.customerStrategy ?? '');
       setIeStratMarket(ieStratData.marketStrategy ?? '');
     }
   }, [ieStratData]);
+
+  const extractWeightsMutation = useMutation({
+    mutationFn: async ({ preset, strategyText }: { preset: string; strategyText: string }) =>
+      apiRequest('POST', '/api/ie-strategies/extract-weights', { preset, strategyText }),
+    onMutate: () => setWeightExtractionStatus('running'),
+    onSuccess: (data: any) => {
+      setWeightExtractionStatus('done');
+      if (data?.weights) {
+        setPomWeightCeiling(data.weights.wCeiling);
+        setPomWeightVelocity(data.weights.wVelocity);
+        setPomWeightScarcity(data.weights.wScarcity);
+        setPomWeightUndercut(data.weights.wUndercut);
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/pricing-insights'] });
+      setTimeout(() => setWeightExtractionStatus('idle'), 3000);
+    },
+    onError: () => setWeightExtractionStatus('idle'),
+  });
 
   const saveIeStratMutation = useMutation({
     mutationFn: async (patch: Record<string, string>) => apiRequest('PUT', '/api/ie-strategies', patch),
@@ -6476,81 +6497,35 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       </div>
 
                       {pomSortMode !== 'suggested' && (<>
-                      <div className="px-3">
-                        <div className="relative">
-                          {scoringWheelExample ? (
-                            <div className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-800/60 rounded border border-gray-700/40">
-                              <span className="text-[10px] font-medium text-gray-300 truncate">{scoringWheelExample.itemName || scoringWheelExample.itemNo}</span>
-                              {scoringWheelExample.itemName && <span className="text-[10px] text-gray-500 shrink-0">{scoringWheelExample.itemNo}</span>}
-                              {scoringWheelExample.colorName && <span className="text-[10px] text-gray-500">({scoringWheelExample.colorName})</span>}
-                              <span className="text-[10px] text-gray-600">{scoringWheelExample.newOrUsed === 'N' ? 'New' : 'Used'}</span>
-                              <button className="ml-auto shrink-0 text-gray-500 hover:text-gray-300" data-testid="button-scoring-search-clear"
-                                onClick={() => { setSelectedScoringExample(null); setScoringExampleDismissed(true); setScoringSearchQuery(''); setScoringSearchOpen(true); setTimeout(() => scoringSearchRef.current?.focus(), 100); }}>
-                                <X className="w-3 h-3" />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="relative">
-                              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500" />
-                              <input
-                                ref={scoringSearchRef}
-                                type="text"
-                                placeholder="Search item to preview score..."
-                                value={scoringSearchQuery}
-                                onChange={(e) => { setScoringSearchQuery(e.target.value); setScoringSearchOpen(true); }}
-                                onFocus={() => setScoringSearchOpen(true)}
-                                onBlur={() => setTimeout(() => setScoringSearchOpen(false), 200)}
-                                className="w-full pl-7 pr-2 py-1.5 text-[11px] bg-gray-800/60 border border-gray-700/40 rounded text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-600"
-                                data-testid="input-scoring-search"
-                              />
-                              {scoringSearchOpen && scoringSearchResults.length > 0 && (
-                                <div className="absolute left-0 right-0 top-full mt-1 bg-gray-800 border border-gray-700/60 rounded shadow-lg z-50 max-h-48 overflow-y-auto">
-                                  {scoringSearchResults.map((item) => (
-                                    <button key={`${item.itemNo}-${item.colorId}-${item.newOrUsed}`} className="w-full flex items-center gap-1.5 px-3 py-1.5 text-left hover:bg-gray-700/50 transition-colors" data-testid={`button-scoring-search-result-${item.itemNo}`}
-                                      onMouseDown={(e) => { e.preventDefault(); setSelectedScoringExample(item); setScoringSearchOpen(false); setScoringSearchQuery(''); }}>
-                                      <span className="text-[10px] text-gray-300 truncate">{item.itemName || item.itemNo}</span>
-                                      <span className="text-[10px] text-gray-500 shrink-0">{item.itemNo}</span>
-                                      {item.colorName && (
-                                        <span className="text-[10px] text-gray-600 shrink-0">
-                                          {item.colorName} / {item.newOrUsed === 'N' ? 'New' : 'Used'}
-                                        </span>
-                                      )}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                              {scoringSearchOpen && scoringSearchQuery.trim() && scoringSearchResults.length === 0 && (
-                                <div className="absolute left-0 right-0 top-full mt-1 bg-gray-800 border border-gray-700/60 rounded shadow-lg z-50 px-3 py-2">
-                                  <span className="text-[10px] text-gray-500">No matching items found</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
+                      {/* Current weights summary */}
+                      <div className="px-3 py-2 rounded-md bg-gray-800/30 border border-gray-700/40">
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <p className="text-[10px] text-gray-500">Current scoring weights</p>
+                          <button
+                            className="text-[9px] text-purple-400 hover:text-purple-300 underline underline-offset-2"
+                            onClick={() => setActiveSection('ieStrategies')}
+                          >
+                            Change in IE Strategies
+                          </button>
                         </div>
+                        <div className="grid grid-cols-4 gap-1">
+                          {[
+                            { label: 'Ceiling', val: pomWeightCeiling },
+                            { label: 'Velocity', val: pomWeightVelocity },
+                            { label: 'Scarcity', val: pomWeightScarcity },
+                            { label: 'Undercut', val: pomWeightUndercut },
+                          ].map(({ label, val }) => (
+                            <div key={label} className="text-center">
+                              <div className="text-[9px] text-gray-600 uppercase tracking-wide">{label}</div>
+                              <div className="text-[11px] font-mono font-semibold text-gray-300">{Math.round(val * 100)}%</div>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-[9px] text-gray-600 mt-1.5 leading-relaxed font-mono">
+                          Score = (ceiling × {Math.round(pomWeightCeiling * 100)}%) + (velocity × {Math.round(pomWeightVelocity * 100)}%) + (scarcity × {Math.round(pomWeightScarcity * 100)}%) + (undercut × {Math.round(pomWeightUndercut * 100)}%)
+                        </p>
                       </div>
-                      <div className="px-3 py-4 flex justify-center">
-                        <ScoringWheel
-                          lot={scoringWheelExample}
-                          baseCfg={{
-                            wCeiling: pomWeightCeiling,
-                            wVelocity: pomWeightVelocity,
-                            wScarcity: pomWeightScarcity,
-                            wUndercut: pomWeightUndercut,
-                          }}
-                          onSave={(cfg) => {
-                            setPomWeightCeiling(cfg.wCeiling);
-                            setPomWeightVelocity(cfg.wVelocity);
-                            setPomWeightScarcity(cfg.wScarcity);
-                            setPomWeightUndercut(cfg.wUndercut);
-                            updateOrgSettingsMutation.mutate({
-                              pomWeightCeiling: Number(cfg.wCeiling.toFixed(3)),
-                              pomWeightVelocity: Number(cfg.wVelocity.toFixed(3)),
-                              pomWeightScarcity: Number(cfg.wScarcity.toFixed(3)),
-                              pomWeightUndercut: Number(cfg.wUndercut.toFixed(3)),
-                            });
-                          }}
-                        />
-                      </div>
+
                       <div className="border-t border-gray-700/40">
                         <button
                           onClick={() => setPomScoringAdvancedOpen(!pomScoringAdvancedOpen)}
@@ -6561,7 +6536,85 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           {pomScoringAdvancedOpen ? <ChevronDown className="w-3 h-3 text-gray-500" /> : <ChevronRight className="w-3 h-3 text-gray-500" />}
                         </button>
                         {pomScoringAdvancedOpen && (
-                          <div>
+                          <div ref={scoringWheelRef} className="space-y-3 pt-2">
+                            {/* Scoring Wheel — manual weight override */}
+                            <div className="px-3">
+                              <p className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Manual weight override</p>
+                              <div className="relative">
+                                {scoringWheelExample ? (
+                                  <div className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-800/60 rounded border border-gray-700/40">
+                                    <span className="text-[10px] font-medium text-gray-300 truncate">{scoringWheelExample.itemName || scoringWheelExample.itemNo}</span>
+                                    {scoringWheelExample.itemName && <span className="text-[10px] text-gray-500 shrink-0">{scoringWheelExample.itemNo}</span>}
+                                    {scoringWheelExample.colorName && <span className="text-[10px] text-gray-500">({scoringWheelExample.colorName})</span>}
+                                    <span className="text-[10px] text-gray-600">{scoringWheelExample.newOrUsed === 'N' ? 'New' : 'Used'}</span>
+                                    <button className="ml-auto shrink-0 text-gray-500 hover:text-gray-300" data-testid="button-scoring-search-clear"
+                                      onClick={() => { setSelectedScoringExample(null); setScoringExampleDismissed(true); setScoringSearchQuery(''); setScoringSearchOpen(true); setTimeout(() => scoringSearchRef.current?.focus(), 100); }}>
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="relative">
+                                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500" />
+                                    <input
+                                      ref={scoringSearchRef}
+                                      type="text"
+                                      placeholder="Search item to preview score..."
+                                      value={scoringSearchQuery}
+                                      onChange={(e) => { setScoringSearchQuery(e.target.value); setScoringSearchOpen(true); }}
+                                      onFocus={() => setScoringSearchOpen(true)}
+                                      onBlur={() => setTimeout(() => setScoringSearchOpen(false), 200)}
+                                      className="w-full pl-7 pr-2 py-1.5 text-[11px] bg-gray-800/60 border border-gray-700/40 rounded text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-600"
+                                      data-testid="input-scoring-search"
+                                    />
+                                    {scoringSearchOpen && scoringSearchResults.length > 0 && (
+                                      <div className="absolute left-0 right-0 top-full mt-1 bg-gray-800 border border-gray-700/60 rounded shadow-lg z-50 max-h-48 overflow-y-auto">
+                                        {scoringSearchResults.map((item) => (
+                                          <button key={`${item.itemNo}-${item.colorId}-${item.newOrUsed}`} className="w-full flex items-center gap-1.5 px-3 py-1.5 text-left hover:bg-gray-700/50 transition-colors" data-testid={`button-scoring-search-result-${item.itemNo}`}
+                                            onMouseDown={(e) => { e.preventDefault(); setSelectedScoringExample(item); setScoringSearchOpen(false); setScoringSearchQuery(''); }}>
+                                            <span className="text-[10px] text-gray-300 truncate">{item.itemName || item.itemNo}</span>
+                                            <span className="text-[10px] text-gray-500 shrink-0">{item.itemNo}</span>
+                                            {item.colorName && (
+                                              <span className="text-[10px] text-gray-600 shrink-0">
+                                                {item.colorName} / {item.newOrUsed === 'N' ? 'New' : 'Used'}
+                                              </span>
+                                            )}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                    {scoringSearchOpen && scoringSearchQuery.trim() && scoringSearchResults.length === 0 && (
+                                      <div className="absolute left-0 right-0 top-full mt-1 bg-gray-800 border border-gray-700/60 rounded shadow-lg z-50 px-3 py-2">
+                                        <span className="text-[10px] text-gray-500">No matching items found</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="px-3 py-2 flex justify-center">
+                              <ScoringWheel
+                                lot={scoringWheelExample}
+                                baseCfg={{
+                                  wCeiling: pomWeightCeiling,
+                                  wVelocity: pomWeightVelocity,
+                                  wScarcity: pomWeightScarcity,
+                                  wUndercut: pomWeightUndercut,
+                                }}
+                                onSave={(cfg) => {
+                                  setPomWeightCeiling(cfg.wCeiling);
+                                  setPomWeightVelocity(cfg.wVelocity);
+                                  setPomWeightScarcity(cfg.wScarcity);
+                                  setPomWeightUndercut(cfg.wUndercut);
+                                  updateOrgSettingsMutation.mutate({
+                                    pomWeightCeiling: Number(cfg.wCeiling.toFixed(3)),
+                                    pomWeightVelocity: Number(cfg.wVelocity.toFixed(3)),
+                                    pomWeightScarcity: Number(cfg.wScarcity.toFixed(3)),
+                                    pomWeightUndercut: Number(cfg.wUndercut.toFixed(3)),
+                                  });
+                                }}
+                              />
+                            </div>
+                            <div className="border-t border-gray-700/40">
                             <div className="px-3 pt-2 pb-1">
                               <span className="text-[9px] font-semibold text-green-400 uppercase tracking-wider">Velocity thresholds</span>
                             </div>
@@ -6621,6 +6674,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                 </div>
                               </div>
                             </div>
+                          </div>
                           </div>
                         )}
                       </div>
@@ -6972,20 +7026,139 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                 </div>
 
                 {/* Pricing */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
                     <span className="text-xs font-semibold text-gray-300">Pricing Agent</span>
                   </div>
+
+                  {/* Preset picker */}
+                  {(() => {
+                    const PRESETS: Array<{ id: string; label: string; tagline: string; color: string; bg: string; border: string }> = [
+                      { id: 'premium',         label: 'Premium',         tagline: 'Hold price & capture margin', color: 'text-amber-300',   bg: 'bg-amber-500/10',   border: 'border-amber-500/30' },
+                      { id: 'market_rate',     label: 'Market Rate',     tagline: 'Track sold avg closely',      color: 'text-blue-300',    bg: 'bg-blue-500/10',    border: 'border-blue-500/30' },
+                      { id: 'balanced',        label: 'Balanced',        tagline: 'Equal weight on all signals', color: 'text-emerald-300', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' },
+                      { id: 'clear_inventory', label: 'Clear Inventory', tagline: 'Move stock fast',             color: 'text-red-300',     bg: 'bg-red-500/10',     border: 'border-red-500/30' },
+                    ];
+
+                    const PRESET_DETAIL: Record<string, { how: string; ceiling: string; velocity: string; scarcity: string; undercut: string }> = {
+                      premium: {
+                        how: 'Scarcity and hold-value weighted heavily. Surfaces items where you have room to push price above what the market clears on average. Best for rare, retired, or hard-to-find parts.',
+                        ceiling:  'Low — suppressed to avoid outlier sales distorting priority',
+                        velocity: 'Moderate — enough demand matters, but you\'re not racing',
+                        scarcity: 'High — fewer sellers listed = higher priority',
+                        undercut: 'Low — competition pressure mostly ignored',
+                      },
+                      market_rate: {
+                        how: 'Anchors to what items actually sell for (6-month sold average). Surfaces items where your price diverges — too high or too low — from cleared market prices.',
+                        ceiling:  'Moderate — blended sold avg reference, confidence-weighted',
+                        velocity: 'Moderate — demand confirms the avg is real',
+                        scarcity: 'Low-moderate — availability context only',
+                        undercut: 'Moderate — keeps you from straying far above listed avg',
+                      },
+                      balanced: {
+                        how: 'Equal weight across all four signals. Surfaces a broad mix of opportunities with no strong bias. Good default starting point before you refine your approach.',
+                        ceiling:  'Equal — 25% weight',
+                        velocity: 'Equal — 25% weight',
+                        scarcity: 'Equal — 25% weight',
+                        undercut: 'Equal — 25% weight',
+                      },
+                      clear_inventory: {
+                        how: 'Velocity and competition pressure weighted. Prioritises high-demand items and slow-movers where competitive pricing can trigger sales. Ignores ceiling and scarcity.',
+                        ceiling:  'Very low — margin not the priority here',
+                        velocity: 'High — fast-selling items rise to the top',
+                        scarcity: 'Very low — availability less relevant',
+                        undercut: 'High — competitive pressure is the key signal',
+                      },
+                    };
+
+                    return (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Strategy preset</span>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button className="text-gray-600 hover:text-gray-400 transition-colors" data-testid="button-pricing-preset-info">
+                                <Info className="w-3.5 h-3.5" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent side="right" align="start" className="w-80 bg-gray-900 border-gray-700 p-0 text-xs">
+                              <div className="px-3 pt-3 pb-2 border-b border-gray-700/60">
+                                <p className="text-[11px] font-semibold text-gray-200">How presets affect scoring</p>
+                                <p className="text-[10px] text-gray-500 mt-0.5 leading-relaxed">Each preset sets the weight given to four signals when ranking your pricing opportunities in Price-o-Matic.</p>
+                              </div>
+                              <div className="p-3 space-y-3">
+                                {PRESETS.map(p => (
+                                  <div key={p.id}>
+                                    <p className={`text-[10px] font-semibold ${p.color} mb-0.5`}>{p.label}</p>
+                                    <p className="text-[10px] text-gray-400 leading-relaxed">{PRESET_DETAIL[p.id].how}</p>
+                                    <div className="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5">
+                                      {(['ceiling','velocity','scarcity','undercut'] as const).map(dim => (
+                                        <div key={dim} className="flex items-baseline gap-1">
+                                          <span className="text-[9px] text-gray-600 capitalize w-14 shrink-0">{dim}:</span>
+                                          <span className="text-[9px] text-gray-500 leading-tight">{PRESET_DETAIL[p.id][dim]}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                                <div className="pt-2 border-t border-gray-700/60">
+                                  <p className="text-[10px] text-purple-400 leading-relaxed">Pricing edits you apply in Spot Lookup are logged as training signals. Over time, these adjust the AI suggested price to align closer with your real decisions.</p>
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {PRESETS.map(p => {
+                            const isActive = ieStratPreset === p.id;
+                            return (
+                              <button
+                                key={p.id}
+                                onClick={() => {
+                                  setIeStratPreset(p.id);
+                                  saveIeStratMutation.mutate({ pricingStrategyPreset: p.id });
+                                  extractWeightsMutation.mutate({ preset: p.id, strategyText: ieStratPricing });
+                                }}
+                                className={`text-left px-2.5 py-2 rounded-md border transition-all ${isActive ? `${p.bg} ${p.border} ring-1 ring-inset ${p.border.replace('border-', 'ring-')}` : 'bg-gray-800/40 border-gray-700/40 hover:border-gray-600/60'}`}
+                                data-testid={`button-preset-${p.id}`}
+                              >
+                                <p className={`text-[10px] font-semibold leading-tight ${isActive ? p.color : 'text-gray-300'}`}>{p.label}</p>
+                                <p className="text-[9px] text-gray-500 mt-0.5 leading-tight">{p.tagline}</p>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {weightExtractionStatus === 'running' && (
+                          <p className="text-[9px] text-purple-400 flex items-center gap-1">
+                            <Loader2 className="w-2.5 h-2.5 animate-spin" /> Aligning scoring weights…
+                          </p>
+                        )}
+                        {weightExtractionStatus === 'done' && (
+                          <p className="text-[9px] text-emerald-400">Scoring weights updated.</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   <Textarea
                     value={ieStratPricing}
                     onChange={(e) => setIeStratPricing(e.target.value)}
-                    onBlur={() => { if (ieStratPricing !== (ieStratData?.pricingStrategy ?? '')) saveIeStratMutation.mutate({ pricingStrategy: ieStratPricing }); }}
+                    onBlur={() => {
+                      if (ieStratPricing !== (ieStratData?.pricingStrategy ?? '')) {
+                        saveIeStratMutation.mutate({ pricingStrategy: ieStratPricing });
+                        if (ieStratPreset) {
+                          extractWeightsMutation.mutate({ preset: ieStratPreset, strategyText: ieStratPricing });
+                        }
+                      }
+                    }}
                     placeholder="e.g. We price at a premium above market. Hold prices on retired sets. Prefer fewer high-margin orders over chasing volume."
                     className="text-sm min-h-[80px] bg-gray-800/60 border-gray-700/60 text-gray-300 placeholder-gray-600 resize-none"
                     data-testid="textarea-ie-strategy-pricing"
                   />
-                  <p className="text-[10px] text-gray-600">Included in every Pricing Agent and POM AI prompt.</p>
+                  <p className="text-[10px] text-gray-600">Your strategy description adds context to the preset. Included in every Pricing Agent and POM AI prompt.</p>
 
                   {/* Price-o-Matic tile — tap to open the full POM settings screen */}
                   <button

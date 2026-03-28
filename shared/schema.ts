@@ -1926,6 +1926,7 @@ export const ieStrategies = pgTable("ie_strategies", {
   successFactors: text("success_factors"),      // Vivid Vision: what changed, how it feels, what people say
   // Per-agent strategy directives
   pricingStrategy: text("pricing_strategy"),
+  pricingStrategyPreset: varchar("pricing_strategy_preset", { length: 50 }), // premium | market_rate | balanced | clear_inventory
   inventoryStrategy: text("inventory_strategy"),
   ordersStrategy: text("orders_strategy"),
   customerStrategy: text("customer_strategy"),

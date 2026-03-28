@@ -2134,6 +2134,12 @@ export async function runMigrations() {
     `);
     console.log(`[Migration] Phase-87 (backfill orgId on split orders) complete — ${backfilledSplitOrders ?? 0} rows updated.`);
 
+    // ── Phase-88: pricing_strategy_preset column on ie_strategies ────────────
+    await client.query(`
+      ALTER TABLE ie_strategies ADD COLUMN IF NOT EXISTS pricing_strategy_preset varchar(50)
+    `);
+    console.log('[Migration] Phase-88 (pricing_strategy_preset on ie_strategies) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

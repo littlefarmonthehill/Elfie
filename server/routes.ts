@@ -11110,8 +11110,14 @@ Format search_web URLs as markdown links.`;
         ));
       const marketPeak = marketPeakRows[0]?.peakSold ? parseFloat(marketPeakRows[0].peakSold) : null;
 
-      const priceCeilingRatio = (marketPeak !== null && currentPrice > 0)
-        ? Number((marketPeak / currentPrice).toFixed(3))
+      const soldAvgForSpot = myRow?.soldAvgPrice ? parseFloat(myRow.soldAvgPrice) : null;
+      const soldLotsForSpot = myRow?.soldTotalLots ? Number(myRow.soldTotalLots) : 0;
+      const spotConfidence = Math.min(1, soldLotsForSpot / 10);
+      const spotBlendedRef = (soldAvgForSpot !== null && marketPeak !== null)
+        ? soldAvgForSpot * 0.6 + marketPeak * 0.4
+        : (soldAvgForSpot ?? marketPeak);
+      const priceCeilingRatio = (spotBlendedRef !== null && spotBlendedRef > 0 && currentPrice > 0)
+        ? Number(((spotBlendedRef / currentPrice) * Math.max(0.2, spotConfidence)).toFixed(3))
         : null;
       const demandVelocity = (stockQty > 0)
         ? Number((soldQty / stockQty).toFixed(3))
@@ -13836,7 +13842,7 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
       const orgId = reqOrgId(req);
       const { ieStrategies } = await import('@shared/schema');
       const [row] = await db.select().from(ieStrategies).where(eq(ieStrategies.orgId, orgId)).limit(1);
-      res.json(row ?? { orgId, visionMission: null, successFactors: null, pricingStrategy: null, inventoryStrategy: null, ordersStrategy: null, customerStrategy: null, marketStrategy: null });
+      res.json(row ?? { orgId, visionMission: null, successFactors: null, pricingStrategy: null, pricingStrategyPreset: null, inventoryStrategy: null, ordersStrategy: null, customerStrategy: null, marketStrategy: null });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -13847,11 +13853,12 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     try {
       const orgId = reqOrgId(req);
       const { ieStrategies } = await import('@shared/schema');
-      const { visionMission, successFactors, pricingStrategy, inventoryStrategy, ordersStrategy, customerStrategy, marketStrategy } = req.body;
+      const { visionMission, successFactors, pricingStrategy, pricingStrategyPreset, inventoryStrategy, ordersStrategy, customerStrategy, marketStrategy } = req.body;
       const set: Record<string, any> = { updatedAt: new Date() };
       if (visionMission !== undefined) set.visionMission = visionMission || null;
       if (successFactors !== undefined) set.successFactors = successFactors || null;
       if (pricingStrategy !== undefined) set.pricingStrategy = pricingStrategy || null;
+      if (pricingStrategyPreset !== undefined) set.pricingStrategyPreset = pricingStrategyPreset || null;
       if (inventoryStrategy !== undefined) set.inventoryStrategy = inventoryStrategy || null;
       if (ordersStrategy !== undefined) set.ordersStrategy = ordersStrategy || null;
       if (customerStrategy !== undefined) set.customerStrategy = customerStrategy || null;
@@ -13862,6 +13869,118 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         .returning();
       res.json(updated);
     } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/ie-strategies/extract-weights — use AI to translate preset + text into scoring weights
+  app.post("/api/ie-strategies/extract-weights", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { preset, strategyText } = req.body as { preset: string; strategyText?: string };
+      if (!preset) return res.status(400).json({ error: 'preset required' });
+
+      const PRESET_DEFAULTS: Record<string, { wCeiling: number; wVelocity: number; wScarcity: number; wUndercut: number }> = {
+        premium:         { wCeiling: 0.15, wVelocity: 0.20, wScarcity: 0.50, wUndercut: 0.15 },
+        market_rate:     { wCeiling: 0.30, wVelocity: 0.30, wScarcity: 0.20, wUndercut: 0.20 },
+        balanced:        { wCeiling: 0.25, wVelocity: 0.25, wScarcity: 0.25, wUndercut: 0.25 },
+        clear_inventory: { wCeiling: 0.10, wVelocity: 0.42, wScarcity: 0.08, wUndercut: 0.40 },
+      };
+
+      const defaults = PRESET_DEFAULTS[preset] ?? PRESET_DEFAULTS.balanced;
+
+      // If no custom strategy text, use preset defaults directly
+      if (!strategyText?.trim()) {
+        await updateOrgSettings(orgId, {
+          pomWeightCeiling: defaults.wCeiling,
+          pomWeightVelocity: defaults.wVelocity,
+          pomWeightScarcity: defaults.wScarcity,
+          pomWeightUndercut: defaults.wUndercut,
+        });
+        return res.json({ weights: defaults, source: 'preset' });
+      }
+
+      // Use AI to nuance the weights based on the free-text strategy
+      const platSettings = await getPlatformSettings();
+      const openAiKey = platSettings?.openaiApiKey;
+      if (!openAiKey) {
+        // Fall back to preset defaults if no AI key
+        await updateOrgSettings(orgId, {
+          pomWeightCeiling: defaults.wCeiling,
+          pomWeightVelocity: defaults.wVelocity,
+          pomWeightScarcity: defaults.wScarcity,
+          pomWeightUndercut: defaults.wUndercut,
+        });
+        return res.json({ weights: defaults, source: 'preset_fallback' });
+      }
+
+      const PRESET_LABELS: Record<string, string> = {
+        premium: 'Premium Seller',
+        market_rate: 'Market Rate',
+        balanced: 'Balanced',
+        clear_inventory: 'Clear Inventory',
+      };
+      const PRESET_RANGES: Record<string, string> = {
+        premium:         'wCeiling 0.05-0.25, wVelocity 0.10-0.30, wScarcity 0.35-0.65, wUndercut 0.05-0.20',
+        market_rate:     'wCeiling 0.20-0.40, wVelocity 0.20-0.40, wScarcity 0.10-0.25, wUndercut 0.15-0.30',
+        balanced:        'wCeiling 0.15-0.35, wVelocity 0.15-0.35, wScarcity 0.15-0.35, wUndercut 0.15-0.35',
+        clear_inventory: 'wCeiling 0.03-0.18, wVelocity 0.30-0.55, wScarcity 0.03-0.15, wUndercut 0.30-0.55',
+      };
+
+      const prompt = `You are a pricing configuration system for a LEGO reseller platform.
+
+Preset: ${PRESET_LABELS[preset] ?? preset}
+Preset weight ranges: ${PRESET_RANGES[preset] ?? 'each 0.1-0.4'}
+Seller's pricing description: "${strategyText.trim()}"
+
+Based on the preset and any nuances in the description, choose final scoring weights.
+Dimensions:
+- wCeiling: how much room to raise price vs sold avg/peak (ceiling ratio)
+- wVelocity: demand signal (sold qty / listed qty)
+- wScarcity: how rare the item is (fewer sellers = scarcer)
+- wUndercut: competitive pressure (my price vs lowest listed)
+
+Stay within the preset ranges. All four weights must sum to exactly 1.0.
+Respond ONLY as JSON: {"wCeiling": 0.00, "wVelocity": 0.00, "wScarcity": 0.00, "wUndercut": 0.00}`;
+
+      const OpenAI = (await import('openai')).default;
+      const openai = new OpenAI({ apiKey: openAiKey });
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1,
+        max_tokens: 80,
+        response_format: { type: 'json_object' },
+      });
+
+      const raw = completion.choices[0]?.message?.content || '{}';
+      const parsed = JSON.parse(raw);
+      const w = {
+        wCeiling:  typeof parsed.wCeiling  === 'number' ? Math.max(0, Math.min(1, parsed.wCeiling))  : defaults.wCeiling,
+        wVelocity: typeof parsed.wVelocity === 'number' ? Math.max(0, Math.min(1, parsed.wVelocity)) : defaults.wVelocity,
+        wScarcity: typeof parsed.wScarcity === 'number' ? Math.max(0, Math.min(1, parsed.wScarcity)) : defaults.wScarcity,
+        wUndercut: typeof parsed.wUndercut === 'number' ? Math.max(0, Math.min(1, parsed.wUndercut)) : defaults.wUndercut,
+      };
+      // Renormalize to ensure sum = 1.0
+      const total = w.wCeiling + w.wVelocity + w.wScarcity + w.wUndercut;
+      if (total > 0) {
+        w.wCeiling  = Number((w.wCeiling  / total).toFixed(3));
+        w.wVelocity = Number((w.wVelocity / total).toFixed(3));
+        w.wScarcity = Number((w.wScarcity / total).toFixed(3));
+        w.wUndercut = Number((w.wUndercut / total).toFixed(3));
+      }
+
+      await updateOrgSettings(orgId, {
+        pomWeightCeiling:  w.wCeiling,
+        pomWeightVelocity: w.wVelocity,
+        pomWeightScarcity: w.wScarcity,
+        pomWeightUndercut: w.wUndercut,
+      });
+
+      console.log(`[POM Weights] org=${orgId} preset=${preset} extracted:`, w);
+      res.json({ weights: w, source: 'ai' });
+    } catch (err: any) {
+      console.error('[POM Weights] extract-weights error:', err.message);
       res.status(500).json({ error: err.message });
     }
   });
@@ -14513,9 +14632,16 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
         const currentPrice = parseFloat(item.currentPrice || '0');
         const marketPeak = item.marketPeakSoldPrice ? parseFloat(item.marketPeakSoldPrice) : null;
 
-        // 1. Price Ceiling Ratio (= old opportunityScore)
-        const priceCeilingRatio = (marketPeak !== null && currentPrice > 0)
-          ? Number((marketPeak / currentPrice).toFixed(3))
+        // 1. Price Ceiling Ratio — blended reference (60% sold avg + 40% peak) dampened by
+        //    sold-volume confidence to suppress single outlier sales inflating the ratio.
+        const soldAvgForCeiling = item.soldAvgPrice ? parseFloat(item.soldAvgPrice) : null;
+        const soldLotsForCeiling = item.soldTotalLots ? parseInt(item.soldTotalLots) : 0;
+        const confidenceFactor = Math.min(1, soldLotsForCeiling / 10);
+        const blendedRef = (soldAvgForCeiling !== null && marketPeak !== null)
+          ? soldAvgForCeiling * 0.6 + marketPeak * 0.4
+          : (soldAvgForCeiling ?? marketPeak);
+        const priceCeilingRatio = (blendedRef !== null && blendedRef > 0 && currentPrice > 0)
+          ? Number(((blendedRef / currentPrice) * Math.max(0.2, confidenceFactor)).toFixed(3))
           : null;
 
         // 2. Demand Velocity = soldQuantity / stockQuantity (fall back to lots if qty not yet populated)
