@@ -34,6 +34,7 @@ function maskSettingsSecrets(settings: Record<string, any> | null): Record<strin
   return masked;
 }
 import { storage } from "./storage";
+import { sendApprovalEmail } from "./email";
 import { getEffectiveLimits } from "@shared/tierConfig";
 import { setupAuth, isAuthenticated, isApproved, isOrgOwner, getOrgId, isSuperAdmin } from "./auth";
 import { syncBricklinkData, fetchPriceOMagicData, searchBricklinkCatalogItem, syncPriceOMagicCache, requestPomSyncStop, bricklinkCatalogRequest, calculateSuggestedPriceWithSupply } from "./services/bricklink";
@@ -3758,11 +3759,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const updatedUser = await storage.updateUserApproval(id, isApproved);
       
-      // Check if user was found and updated
       if (!updatedUser) {
         return res.status(404).json({ message: "User not found" });
       }
-      
+
+      // Send approval email when a user is newly approved
+      if (isApproved && updatedUser.email && process.env.RESEND_API_KEY) {
+        try {
+          const displayName = updatedUser.firstName || updatedUser.email.split("@")[0];
+          let orgName = "your organization";
+          if (updatedUser.orgId) {
+            const org = await storage.getOrganization(updatedUser.orgId);
+            if (org?.name) orgName = org.name;
+          }
+          const baseUrl = process.env.REPLIT_DOMAINS
+            ? `https://${process.env.REPLIT_DOMAINS.split(",")[0].trim()}`
+            : `http://localhost:${process.env.PORT || 5000}`;
+          await sendApprovalEmail(updatedUser.email, displayName, orgName, `${baseUrl}/login`);
+        } catch (emailErr) {
+          console.error("[Approval] Failed to send approval email:", emailErr);
+        }
+      }
+
       res.json(updatedUser);
     } catch (error) {
       console.error("Error updating user approval:", error);

@@ -3,15 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, KeyRound, Copy, Check } from "lucide-react";
+import { ArrowLeft, KeyRound, MailCheck } from "lucide-react";
 import logoUrl from "@assets/PlanetBrick_dotcom_with_planet_and_robot_400_1760672362080.png";
 import elfieUrl from "@assets/PlanetBrick_good_robot_1760672362080.png";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [resetUrl, setResetUrl] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [sent, setSent] = useState(false);
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,20 +31,12 @@ export default function ForgotPassword() {
         toast({ title: "Error", description: data.message || "Something went wrong.", variant: "destructive" });
         return;
       }
-      setResetUrl(data.resetUrl);
+      setSent(true);
     } catch {
       toast({ title: "Error", description: "Could not process request. Please try again.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleCopy = () => {
-    if (!resetUrl) return;
-    navigator.clipboard.writeText(resetUrl).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
   };
 
   return (
@@ -73,14 +64,18 @@ export default function ForgotPassword() {
                   </div>
                 </div>
                 <div className="flex-1">
-                  <p className="text-cyan-300 font-semibold text-xs md:text-sm lg:text-base mb-0.5">Reset your password</p>
+                  <p className="text-cyan-300 font-semibold text-xs md:text-sm lg:text-base mb-0.5">
+                    {sent ? "Check your inbox" : "Reset your password"}
+                  </p>
                   <p className="text-gray-400 text-[10px] md:text-xs lg:text-sm leading-tight">
-                    {resetUrl ? "Your reset link is ready below." : "Enter your email and we'll generate a reset link."}
+                    {sent
+                      ? `A reset link has been sent to ${email}. It expires in 1 hour.`
+                      : "Enter your email and we'll send you a reset link."}
                   </p>
                 </div>
               </div>
 
-              {!resetUrl ? (
+              {!sent ? (
                 <form onSubmit={handleSubmit} className="space-y-2.5 md:space-y-3 lg:space-y-4">
                   <div className="space-y-1">
                     <Label htmlFor="email" className="text-gray-300 text-[10px] md:text-xs lg:text-sm">Email address</Label>
@@ -98,29 +93,22 @@ export default function ForgotPassword() {
                     data-testid="button-request-reset"
                   >
                     <KeyRound className="w-4 h-4 mr-2" />
-                    {isLoading ? "Generating..." : "Generate Reset Link"}
+                    {isLoading ? "Sending..." : "Send Reset Link"}
                   </Button>
                 </form>
               ) : (
-                <div className="space-y-3">
-                  <p className="text-gray-300 text-xs md:text-sm">Copy this link and open it in your browser to set a new password. It expires in 1 hour.</p>
-                  <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-3 flex items-center gap-2">
-                    <span className="flex-1 text-cyan-300 text-[10px] md:text-xs break-all font-mono leading-relaxed">{resetUrl}</span>
-                    <Button
-                      type="button" size="icon" variant="ghost" onClick={handleCopy}
-                      className="flex-shrink-0" data-testid="button-copy-link"
+                <div className="flex flex-col items-center gap-3 py-2">
+                  <MailCheck className="w-12 h-12 text-cyan-400" />
+                  <p className="text-gray-400 text-xs md:text-sm text-center">
+                    Didn't get it? Check your spam folder, or{" "}
+                    <button
+                      className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
+                      onClick={() => setSent(false)}
+                      data-testid="button-try-again"
                     >
-                      {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-gray-400" />}
-                    </Button>
-                  </div>
-                  <Button
-                    type="button"
-                    className="w-full h-10 md:h-12 text-sm md:text-base font-semibold bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 border-0"
-                    onClick={() => { window.location.href = resetUrl; }}
-                    data-testid="button-open-link"
-                  >
-                    Open Reset Link
-                  </Button>
+                      try again
+                    </button>.
+                  </p>
                 </div>
               )}
 

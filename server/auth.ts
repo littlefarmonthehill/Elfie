@@ -12,6 +12,7 @@ import { pool, db } from "./db";
 import type { User } from "@shared/schema";
 import { plans } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
+import { sendPasswordResetEmail } from "./email";
 
 // ─── Session type augmentation for impersonation ─────────────────────────────
 declare module 'express-session' {
@@ -400,7 +401,7 @@ export async function setupAuth(app: Express) {
     }
   });
 
-  // Forgot password — generates a reset token and returns the reset URL
+  // Forgot password — sends a reset link via email
   app.post("/api/forgot-password", async (req, res) => {
     try {
       const { email } = req.body;
@@ -411,7 +412,7 @@ export async function setupAuth(app: Express) {
       const user = await storage.getUserByEmail(normalizedEmail);
       // Always respond with 200 to avoid leaking whether an email exists
       if (!user) {
-        return res.json({ resetUrl: null, message: "If that email is registered, a reset link has been generated." });
+        return res.json({ sent: true, message: "If that email is registered, a reset link has been sent." });
       }
       const token = crypto.randomBytes(32).toString("hex");
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
@@ -423,8 +424,14 @@ export async function setupAuth(app: Express) {
         ? `https://${process.env.REPLIT_DOMAINS.split(",")[0].trim()}`
         : `http://localhost:${process.env.PORT || 5000}`;
       const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+      const displayName = user.firstName || normalizedEmail.split("@")[0];
       console.log(`[Auth] Password reset requested for ${normalizedEmail} — token expires ${expiresAt.toISOString()}`);
-      return res.json({ resetUrl });
+      if (process.env.RESEND_API_KEY) {
+        await sendPasswordResetEmail(normalizedEmail, displayName, resetUrl);
+      } else {
+        console.warn("[Auth] RESEND_API_KEY not set — reset URL not emailed:", resetUrl);
+      }
+      return res.json({ sent: true, message: "If that email is registered, a reset link has been sent." });
     } catch (error) {
       console.error("Forgot password error:", error);
       res.status(500).json({ message: "Server error" });
