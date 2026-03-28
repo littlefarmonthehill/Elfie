@@ -448,8 +448,8 @@ const scoreColor = (score: number | null) => {
   return 'text-gray-500';
 };
 
-const GR = 'grid grid-cols-[1fr_52px_52px_52px_52px]';
-const cell = (extra = '') => `px-1 py-1 text-center text-[10px] font-mono tabular-nums border-l border-white/[0.06] ${extra}`;
+const GR = 'grid grid-cols-[1fr_52px_52px_52px_52px] lg:grid-cols-[1fr_72px_72px_72px_72px]';
+const cell = (extra = '') => `px-1 py-1 lg:px-2 lg:py-1.5 text-center text-[10px] lg:text-xs font-mono tabular-nums border-l border-white/[0.06] ${extra}`;
 
 type CellHL = { sN?: boolean; sU?: boolean; lN?: boolean; lU?: boolean };
 
@@ -475,7 +475,7 @@ function PricingGrid({ group, activeSort, cfg, onOpenSettings }: { group: Groupe
     const blankListed = false;
     return (
       <div className={`${GR} border-b border-white/[0.04] ${bold ? 'bg-white/[0.03]' : ''} ${suggested ? 'bg-purple-500/[0.05]' : ''}`}>
-        <div className={`px-2 py-1 text-[10px] ${labelColor}`}>{label}</div>
+        <div className={`px-2 py-1 text-[10px] lg:text-xs ${labelColor}`}>{label}</div>
         <div className={cell(`${blankSold ? 'text-gray-700' : valColor} ${hl?.sN && !blankSold ? HL_CELL : ''}`)}>{blankSold ? '' : isMoney ? fmt(sN) : fmtInt(sN)}</div>
         <div className={cell(`${blankSold ? 'text-gray-700' : valColor} ${hl?.sU && !blankSold ? HL_CELL : ''}`)}>{blankSold ? '' : isMoney ? fmt(sU) : fmtInt(sU)}</div>
         <div className={cell(`${blankListed ? 'text-gray-700' : mine ? valColor : suggested ? valColor : bold ? 'text-sky-300 font-semibold' : 'text-gray-400'} ${hl?.lN && !blankListed ? HL_CELL : ''}`)}>{blankListed ? '' : isMoney ? fmt(lN) : fmtInt(lN)}</div>
@@ -492,19 +492,19 @@ function PricingGrid({ group, activeSort, cfg, onOpenSettings }: { group: Groupe
     <div className="rounded-md overflow-hidden border border-white/[0.08] mt-1">
       <div className={`${GR} bg-white/[0.06]`}>
         <div className="px-2 py-1" />
-        <div className="col-span-2 py-1 text-center text-[8px] uppercase tracking-widest font-bold text-amber-400 border-l border-white/[0.08]">
+        <div className="col-span-2 py-1 text-center text-[8px] lg:text-[10px] uppercase tracking-widest font-bold text-amber-400 border-l border-white/[0.08]">
           Sold 6mo
         </div>
-        <div className="col-span-2 py-1 text-center text-[8px] uppercase tracking-widest font-bold text-sky-400 border-l border-white/[0.10]">
+        <div className="col-span-2 py-1 text-center text-[8px] lg:text-[10px] uppercase tracking-widest font-bold text-sky-400 border-l border-white/[0.10]">
           Listed
         </div>
       </div>
       <div className={`${GR} border-b border-white/[0.10] bg-white/[0.03]`}>
         <div className="px-2 py-0.5" />
-        <div className={cell('text-[8px] uppercase font-bold text-blue-300 py-0.5')}>New</div>
-        <div className={cell('text-[8px] uppercase font-bold text-orange-300 py-0.5')}>Used</div>
-        <div className={cell('text-[8px] uppercase font-bold text-blue-300 py-0.5')}>New</div>
-        <div className={cell('text-[8px] uppercase font-bold text-orange-300 py-0.5')}>Used</div>
+        <div className={cell('text-[8px] lg:text-[10px] uppercase font-bold text-blue-300 py-0.5')}>New</div>
+        <div className={cell('text-[8px] lg:text-[10px] uppercase font-bold text-orange-300 py-0.5')}>Used</div>
+        <div className={cell('text-[8px] lg:text-[10px] uppercase font-bold text-blue-300 py-0.5')}>New</div>
+        <div className={cell('text-[8px] lg:text-[10px] uppercase font-bold text-orange-300 py-0.5')}>Used</div>
       </div>
       <DataRow label="Qty" sN={nLot?.soldTotalLots} sU={uLot?.soldTotalLots} lN={nLot?.stockTotalLots} lU={uLot?.stockTotalLots} />
       <DataRow label="Min" sN={nLot?.soldMinPrice} sU={uLot?.soldMinPrice} lN={nLot?.stockMinPrice} lU={uLot?.stockMinPrice} isMoney />
@@ -513,7 +513,7 @@ function PricingGrid({ group, activeSort, cfg, onOpenSettings }: { group: Groupe
       <DataRow mine bold label="My Price" sN={null} sU={null} lN={nLot?.currentPrice} lU={uLot?.currentPrice} isMoney />
       {hasSuggested && (
         <div className={`${GR} border-b border-white/[0.04] bg-purple-500/[0.05]`}>
-          <div className="px-2 py-1 text-[10px] text-purple-400 font-semibold">Suggested</div>
+          <div className="px-2 py-1 text-[10px] lg:text-xs text-purple-400 font-semibold">Suggested</div>
           <div className={cell('text-gray-700')} />
           <div className={cell('text-gray-700')} />
           <div className={cell('text-purple-300 font-semibold')}>
@@ -1323,9 +1323,9 @@ function ScoresBar({ group, activeSort, scoreCfg, sugCfg, onOpenScoringSettings 
       {items.map(({ label, value, suffix }) => {
         const isActive = label === activeLabel;
         return (
-          <div key={label} className={`flex-1 text-center rounded-sm py-0.5 ${isActive ? 'bg-violet-500/[0.15] ring-1 ring-inset ring-violet-400/30' : ''}`}>
-            <div className={`text-[7px] uppercase tracking-wider leading-none mb-0.5 ${isActive ? 'text-violet-300' : 'text-gray-600'}`}>{label}</div>
-            <div className={`text-[10px] font-mono font-bold leading-none ${scoreColor(value)}`}>
+          <div key={label} className={`flex-1 text-center rounded-sm py-0.5 lg:py-1 ${isActive ? 'bg-violet-500/[0.15] ring-1 ring-inset ring-violet-400/30' : ''}`}>
+            <div className={`text-[7px] lg:text-[9px] uppercase tracking-wider leading-none mb-0.5 ${isActive ? 'text-violet-300' : 'text-gray-600'}`}>{label}</div>
+            <div className={`text-[10px] lg:text-xs font-mono font-bold leading-none ${scoreColor(value)}`}>
               {value != null ? `${value.toFixed(2)}${suffix ?? ''}` : '—'}
             </div>
           </div>
@@ -1628,7 +1628,7 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
-        <div className="flex items-stretch rounded-md border border-gray-700/60 bg-gray-900/50 overflow-hidden text-[9px] font-semibold uppercase tracking-wider mx-1 mb-1">
+        <div className="flex items-stretch rounded-md border border-gray-700/60 bg-gray-900/50 overflow-hidden text-[9px] lg:text-[11px] font-semibold uppercase tracking-wider mx-1 mb-1">
             <button
               onClick={() => setOrbitFilter('in_orbit')}
               className={`flex flex-col items-center justify-center gap-0.5 flex-1 px-2 py-1.5 transition-colors ${
@@ -1643,7 +1643,7 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
                 <span>Orbit</span>
                 <span className="opacity-50 font-normal">({inOrbitGroups.length})</span>
               </div>
-              <span className="text-[7px] font-normal normal-case tracking-normal opacity-60">In progress</span>
+              <span className="text-[7px] lg:text-[9px] font-normal normal-case tracking-normal opacity-60">In progress</span>
             </button>
             <div className="w-px self-stretch bg-gray-700/60" />
             <button
@@ -1656,11 +1656,11 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
               data-testid="filter-future-missions"
             >
               <div className="flex items-center gap-1 whitespace-nowrap">
-                <Satellite className="w-2.5 h-2.5 flex-shrink-0" />
+                <Satellite className="w-2.5 h-2.5 lg:w-3 lg:h-3 flex-shrink-0" />
                 <span>Missions</span>
                 <span className="opacity-50 font-normal">({futureMissionsGroups.length})</span>
               </div>
-              <span className="text-[7px] font-normal normal-case tracking-normal opacity-60">Circle back</span>
+              <span className="text-[7px] lg:text-[9px] font-normal normal-case tracking-normal opacity-60">Circle back</span>
             </button>
             <div className="w-px self-stretch bg-gray-700/60" />
             <button
@@ -1673,11 +1673,11 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
               data-testid="filter-deep-space"
             >
               <div className="flex items-center gap-1 whitespace-nowrap">
-                <Rocket className="w-2.5 h-2.5 flex-shrink-0" />
+                <Rocket className="w-2.5 h-2.5 lg:w-3 lg:h-3 flex-shrink-0" />
                 <span>Deep Space</span>
                 <span className="opacity-50 font-normal">({deepSpaceGroups.length})</span>
               </div>
-              <span className="text-[7px] font-normal normal-case tracking-normal opacity-60">Done</span>
+              <span className="text-[7px] lg:text-[9px] font-normal normal-case tracking-normal opacity-60">Done</span>
             </button>
           </div>
 
@@ -1703,7 +1703,7 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
             <button
               key={field}
               onClick={() => handleSortTap(field)}
-              className={`flex items-center gap-0.5 text-[8px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded transition-colors ${
+              className={`flex items-center gap-0.5 text-[8px] lg:text-[10px] font-semibold uppercase tracking-wide px-1.5 lg:px-2 py-0.5 rounded transition-colors ${
                 sortField === field
                   ? 'bg-purple-500/20 text-purple-300'
                   : 'text-gray-600 hover:text-gray-400'
@@ -1712,7 +1712,7 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
             >
               {field === 'combined' && pomSortMode === 'suggested' ? 'Opp$' : label}
               {sortField === field && (
-                sortDir === 'desc' ? <ArrowDown className="w-2.5 h-2.5" /> : <ArrowUp className="w-2.5 h-2.5" />
+                sortDir === 'desc' ? <ArrowDown className="w-2.5 h-2.5 lg:w-3 lg:h-3" /> : <ArrowUp className="w-2.5 h-2.5 lg:w-3 lg:h-3" />
               )}
             </button>
           ))}
@@ -1750,15 +1750,15 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
                     onMoveToZone={onMoveToZone}
                   >
                     <div
-                      className="group relative bg-gradient-to-br from-blue-950/50 via-slate-800/70 to-blue-900/30 border border-blue-700/25 rounded-lg px-2.5 py-2 cursor-pointer shadow-[0_2px_8px_rgba(15,40,100,0.35),inset_0_1px_0_rgba(147,197,253,0.07)] hover:shadow-[0_4px_14px_rgba(15,40,100,0.5),inset_0_1px_0_rgba(147,197,253,0.12)] hover:border-blue-600/40 transition-shadow duration-150"
+                      className="group relative bg-gradient-to-br from-blue-950/50 via-slate-800/70 to-blue-900/30 border border-blue-700/25 rounded-lg px-2.5 py-2 lg:px-4 lg:py-3 cursor-pointer shadow-[0_2px_8px_rgba(15,40,100,0.35),inset_0_1px_0_rgba(147,197,253,0.07)] hover:shadow-[0_4px_14px_rgba(15,40,100,0.5),inset_0_1px_0_rgba(147,197,253,0.12)] hover:border-blue-600/40 transition-shadow duration-150"
                       data-testid={`item-group-${group.key}`}
                       onClick={() => {
                         if (primaryLot) onItemClick?.('inventory', primaryLot.inventoryId);
                       }}
                     >
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="font-mono text-[11px] text-blue-200/90 font-semibold flex-shrink-0">{group.itemNo}</span>
-                        <p className="text-[11px] text-slate-300 truncate flex-1 min-w-0">{group.itemName && group.itemName !== 'undefined' ? group.itemName : 'Unknown Item'}</p>
+                        <span className="font-mono text-[11px] lg:text-sm text-blue-200/90 font-semibold flex-shrink-0">{group.itemNo}</span>
+                        <p className="text-[11px] lg:text-sm text-slate-300 truncate flex-1 min-w-0">{group.itemName && group.itemName !== 'undefined' ? group.itemName : 'Unknown Item'}</p>
                         {primaryLot && (
                           <div className="invisible group-hover:visible flex items-center gap-0.5 flex-shrink-0">
                             <Tooltip>
@@ -1810,22 +1810,22 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
 
                       <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
                         {group.newLot && (
-                          <span className="inline-flex items-center gap-0.5 text-[9px] font-mono bg-blue-500/10 text-blue-300 rounded px-1 py-0.5 flex-shrink-0">
-                            <span className="text-[7px] font-bold uppercase">N</span>×{group.newLot.quantity}
+                          <span className="inline-flex items-center gap-0.5 text-[9px] lg:text-[11px] font-mono bg-blue-500/10 text-blue-300 rounded px-1 py-0.5 flex-shrink-0">
+                            <span className="text-[7px] lg:text-[9px] font-bold uppercase">N</span>×{group.newLot.quantity}
                           </span>
                         )}
                         {group.usedLot && (
-                          <span className="inline-flex items-center gap-0.5 text-[9px] font-mono bg-orange-500/10 text-orange-300 rounded px-1 py-0.5 flex-shrink-0">
-                            <span className="text-[7px] font-bold uppercase">U</span>×{group.usedLot.quantity}
+                          <span className="inline-flex items-center gap-0.5 text-[9px] lg:text-[11px] font-mono bg-orange-500/10 text-orange-300 rounded px-1 py-0.5 flex-shrink-0">
+                            <span className="text-[7px] lg:text-[9px] font-bold uppercase">U</span>×{group.usedLot.quantity}
                           </span>
                         )}
                         {group.colorRgb && (
                           <span
-                            className="w-2.5 h-2.5 rounded-full flex-shrink-0 border border-white/20"
+                            className="w-2.5 h-2.5 lg:w-3 lg:h-3 rounded-full flex-shrink-0 border border-white/20"
                             style={{ backgroundColor: `#${group.colorRgb}` }}
                           />
                         )}
-                        <span className="text-[10px] text-slate-400 truncate min-w-0">{group.colorName || '—'}</span>
+                        <span className="text-[10px] lg:text-xs text-slate-400 truncate min-w-0">{group.colorName || '—'}</span>
                       </div>
 
                       <PricingGrid group={group} activeSort={sortField} cfg={sugCfg} onOpenSettings={onOpenSettings ? (lot) => onOpenSettings('priceomatic', lot) : undefined} />

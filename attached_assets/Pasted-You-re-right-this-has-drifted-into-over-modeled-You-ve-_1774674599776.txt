@@ -1,0 +1,225 @@
+You’re right—this has drifted into “over-modeled.” You’ve essentially got two layers doing similar work:
+	•	Strategy weights (user intent)
+	•	Score calculation (system math)
+
+And they’re overlapping enough that it’s creating friction instead of clarity.
+
+Let’s simplify this in a way that matches how humans actually think about pricing decisions.
+
+⸻
+
+🔧 Core Insight
+
+Users don’t think in formulas. They think in tradeoffs:
+
+“Do I want to sell fast, or make more money?”
+
+So instead of weighting 4 semi-overlapping metrics, you want to collapse this into clear strategic intent.
+
+⸻
+
+✅ Step 1: Collapse Your Dimensions
+
+Right now you have:
+	•	Ceiling
+	•	Velocity (Demand)
+	•	Scarcity (Rarity)
+	•	Undercut (Competition)
+
+These reduce cleanly into 3 real drivers:
+
+1. 💰 Profit (Ceiling + Scarcity)
+
+“How high can I push price?”
+
+2. ⚡ Speed (Velocity / Demand)
+
+“How fast will this sell?”
+
+3. 🥊 Competition (Undercut pressure)
+
+“How aggressive do I need to be vs others?”
+
+👉 That’s it. Everything maps cleanly into those 3.
+
+⸻
+
+❌ Fix the Undercut Problem
+
+You spotted this correctly:
+
+Undercut should not be additive.
+
+Instead:
+	•	Treat Competition as a pressure, not a benefit
+	•	It should lower price OR increase urgency, not boost score
+
+So instead of:
+
++ undercut
+
+Think:
+
+competition → pushes toward lower price or faster selling
+
+
+⸻
+
+🎯 Step 2: Replace Weights with Intent (MUCH simpler UX)
+
+Option A (Best): 3-Slider Tradeoff Model
+
+Give users 3 sliders that must total 100:
+	•	Profit
+	•	Speed
+	•	Competition Awareness
+
+Example presets:
+	•	Max Profit → 70 / 20 / 10
+	•	Balanced → 33 / 33 / 33
+	•	Clear Inventory Fast → 20 / 70 / 10
+	•	Highly Competitive Market → 30 / 30 / 40
+
+👉 This keeps your math intact but makes UX intuitive.
+
+⸻
+
+Option B: Single Dial (Even Cleaner)
+
+A single slider:
+
+[ Max Profit ◀──────────────▶ Max Speed ]
+
+Then:
+	•	Left = prioritize ceiling & scarcity
+	•	Right = prioritize velocity & undercut
+
+Competition becomes automatic, not user-controlled.
+
+👉 This is extremely powerful for simplicity.
+
+⸻
+
+Option C: Preset Strategies (My favorite for your product)
+
+Let users pick a mindset instead of building one.
+
+Example:
+	•	🟢 Premium Seller
+	•	High ceiling
+	•	Low undercut
+	•	Ignores competition unless extreme
+	•	🔵 Balanced Seller
+	•	Moderate everything
+	•	🟡 Volume Seller
+	•	High velocity
+	•	Moderate undercut
+	•	🔴 Aggressive Liquidator
+	•	Strong undercut
+	•	Max velocity
+	•	Ignores ceiling
+
+Then optionally:
+👉 “Customize” → opens sliders
+
+⸻
+
+🧠 Step 3: Kill the “Score” (or hide it)
+
+Right now:
+
+Score = (ceiling × 40%) + …
+
+This is internal logic, not user value.
+
+Instead:
+
+Rank items by:
+	•	“Best Profit Opportunity”
+	•	“Fastest Sellers”
+	•	“Most Competitive Risk”
+
+👉 Let users sort by meaningful labels, not math.
+
+⸻
+
+🔁 Suggested New Model (Clean + Scalable)
+
+User Input:
+
+Choose one:
+
+Simple Mode:
+	•	Preset strategy (1 click)
+
+Advanced Mode:
+	•	3 sliders: Profit / Speed / Competition (must total 100)
+
+⸻
+
+System Logic (hidden):
+
+You still compute:
+	•	ceiling
+	•	velocity
+	•	scarcity
+	•	undercut
+
+But map them like:
+
+profit_score = ceiling + scarcity
+speed_score = velocity
+competition_score = undercut pressure
+
+Then apply weights behind the scenes.
+
+⸻
+
+🎨 UX Upgrade Idea (Big Win)
+
+Replace your radar chart with:
+
+A Triangle (3 forces)
+
+        Profit
+         /\
+        /  \
+       /    \
+Speed ------- Competition
+
+Users drag a point inside.
+
+👉 This visually teaches tradeoffs instantly.
+
+⸻
+
+⚡ Final Recommendation
+
+If you want the cleanest, most scalable system:
+
+Do this:
+	1.	Collapse to 3 dimensions
+	2.	Offer 4 presets
+	3.	Add optional 3-slider customization
+	4.	Remove visible “score math”
+	5.	Treat competition as directional pressure, not additive
+
+⸻
+
+🧩 One More Thought (Important for your business)
+
+You’re building something for sellers who:
+	•	don’t want to think like analysts
+	•	want confidence, not control overload
+
+So the real goal isn’t:
+
+“Let them tune everything”
+
+It’s:
+
+“Help them feel like the system thinks like they do”
+
+⸻
+
+If you want, I can mock exactly what your new UI should look like (based on your current screens) and how the transitions would work.
