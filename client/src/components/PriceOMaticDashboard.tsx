@@ -466,10 +466,40 @@ function PricingGrid({ group, activeSort, cfg, onOpenSettings }: { group: Groupe
   const uLot = group.usedLot;
 
   const hlMap: Record<string, CellHL> = {};
-  if (activeSort === 'ceiling')  { hlMap['Max'] = { sN: true, sU: true }; hlMap['My Price'] = { lN: true, lU: true }; }
-  if (activeSort === 'velocity') { hlMap['Qty'] = { sN: true, sU: true, lN: true, lU: true }; }
-  if (activeSort === 'scarcity') { hlMap['Qty'] = { lN: true, lU: true }; }
-  if (activeSort === 'undercut') { hlMap['Min'] = { lN: true, lU: true }; hlMap['My Price'] = { lN: true, lU: true }; }
+
+  // Determine which condition wins each metric so only that condition's cells are highlighted.
+  // winN: true = New wins (or only New exists), false = Used wins, null = no data.
+  const pickWin = (nVal: number | null | undefined, uVal: number | null | undefined, higherIsBetter = true): 'N' | 'U' | null => {
+    const n = nVal ?? null; const u = uVal ?? null;
+    if (n === null && u === null) return null;
+    if (n === null) return 'U';
+    if (u === null) return 'N';
+    return (higherIsBetter ? n >= u : n <= u) ? 'N' : 'U';
+  };
+  const condHL = (win: 'N' | 'U' | null, sold: boolean, listed: boolean): CellHL =>
+    win === 'N' ? { sN: sold, lN: listed } :
+    win === 'U' ? { sU: sold, lU: listed } :
+    { sN: sold, sU: sold, lN: listed, lU: listed };
+
+  if (activeSort === 'ceiling') {
+    const win = pickWin(nLot?.priceCeilingRatio, uLot?.priceCeilingRatio);
+    hlMap['Max'] = condHL(win, true, false);
+    hlMap['My Price'] = condHL(win, false, true);
+  }
+  if (activeSort === 'velocity') {
+    const win = pickWin(nLot?.demandVelocity, uLot?.demandVelocity);
+    hlMap['Qty'] = condHL(win, true, true);
+  }
+  if (activeSort === 'scarcity') {
+    const win = pickWin(nLot?.marketScarcity, uLot?.marketScarcity);
+    hlMap['Qty'] = condHL(win, false, true);
+  }
+  if (activeSort === 'undercut') {
+    // Lower undercutRatio = better (you're cheaper vs market)
+    const win = pickWin(nLot?.undercutRatio, uLot?.undercutRatio, false);
+    hlMap['Min'] = condHL(win, false, true);
+    hlMap['My Price'] = condHL(win, false, true);
+  }
 
   const DataRow = ({ label, sN, sU, lN, lU, isMoney, bold, mine, suggested }: {
     label: string; sN: any; sU: any; lN: any; lU: any; isMoney?: boolean; bold?: boolean; mine?: boolean; suggested?: boolean;
