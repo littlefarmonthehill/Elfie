@@ -4027,15 +4027,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(orders)
         .where(and(
           eq(orders.orgId, orgId),
-          inArray(orders.orderStatus, ['returned', 'cancelled', 'Cancelled']),
           eq(orders.isTest, true)
         ));
 
       const returnedCount  = rows.filter(r => r.orderStatus === 'returned').length;
       const cancelledCount = rows.filter(r => ['cancelled', 'Cancelled'].includes(r.orderStatus)).length;
-      const testCount      = rows.filter(r => r.isTest).length;
+      const otherCount     = rows.filter(r => !['returned', 'cancelled', 'Cancelled'].includes(r.orderStatus)).length;
 
-      res.json({ count: rows.length, returnedCount, cancelledCount, testCount });
+      res.json({ count: rows.length, returnedCount, cancelledCount, otherCount });
     } catch (err: any) {
       console.error('Closed order preview error:', err);
       res.status(500).json({ error: err.message });
@@ -4052,7 +4051,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(orders)
         .where(and(
           eq(orders.orgId, orgId),
-          inArray(orders.orderStatus, ['returned', 'cancelled', 'Cancelled']),
           eq(orders.isTest, true)
         ));
 
@@ -4065,7 +4063,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.delete(shipments).where(inArray(shipments.orderId, ids));
       await db.delete(orders).where(and(
         eq(orders.orgId, orgId),
-        inArray(orders.orderStatus, ['returned', 'cancelled', 'Cancelled']),
         eq(orders.isTest, true)
       ));
 

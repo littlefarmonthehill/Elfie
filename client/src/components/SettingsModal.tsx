@@ -2383,7 +2383,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [testOrdersDeleting, setTestOrdersDeleting] = useState(false);
   const [closedOrdersDialog, setClosedOrdersDialog] = useState(false);
   const [closedOrdersPreview, setClosedOrdersPreview] = useState<{
-    count: number; returnedCount: number; cancelledCount: number; testCount: number;
+    count: number; returnedCount: number; cancelledCount: number; otherCount: number;
   } | null>(null);
   const [closedOrdersLoading, setClosedOrdersLoading] = useState(false);
   const [closedOrdersDeleting, setClosedOrdersDeleting] = useState(false);
@@ -7618,7 +7618,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                       data-testid="button-remove-closed-orders"
                     >
                       <Trash2 className="h-3 w-3 mr-2" />
-                      Remove Test Returns &amp; Cancellations
+                      Remove All Test Orders
                     </Button>
                     <div className="bg-red-500/10 border border-red-500/30 rounded p-2">
                       <p className="text-xs text-red-300">
@@ -11609,10 +11609,10 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
       <ResponsiveModal
         open={closedOrdersDialog}
         onOpenChange={(open) => { if (!open && !closedOrdersDeleting) { setClosedOrdersDialog(false); setClosedOrdersPreview(null); } }}
-        title="Remove Test Returns &amp; Cancellations"
+        title="Remove All Test Orders"
         icon={Trash2}
         iconColor="text-amber-400"
-        description="Permanently delete orders that are both returned/cancelled and marked as test"
+        description="Permanently delete all orders marked as test, regardless of their status"
         testId="modal-remove-closed-orders"
       >
         <div className="space-y-4">
@@ -11622,15 +11622,16 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
           {!closedOrdersLoading && closedOrdersPreview && (
             <>
               {closedOrdersPreview.count === 0 ? (
-                <p className="text-sm text-gray-400">No test returns or cancellations found. Nothing to delete.</p>
+                <p className="text-sm text-gray-400">No test orders found. Nothing to delete.</p>
               ) : (
                 <>
                   <p className="text-sm text-gray-300">
-                    Found <strong className="text-white">{closedOrdersPreview.count} order{closedOrdersPreview.count !== 1 ? 's' : ''}</strong> to permanently delete:
+                    Found <strong className="text-white">{closedOrdersPreview.count} test order{closedOrdersPreview.count !== 1 ? 's' : ''}</strong> to permanently delete:
                   </p>
                   <ul className="text-xs text-gray-400 space-y-1 ml-3 list-disc">
-                    {closedOrdersPreview.returnedCount > 0 && <li>{closedOrdersPreview.returnedCount} test returned order{closedOrdersPreview.returnedCount !== 1 ? 's' : ''}</li>}
-                    {closedOrdersPreview.cancelledCount > 0 && <li>{closedOrdersPreview.cancelledCount} test cancelled order{closedOrdersPreview.cancelledCount !== 1 ? 's' : ''}</li>}
+                    {closedOrdersPreview.otherCount > 0 && <li>{closedOrdersPreview.otherCount} active/shipped test order{closedOrdersPreview.otherCount !== 1 ? 's' : ''}</li>}
+                    {closedOrdersPreview.returnedCount > 0 && <li>{closedOrdersPreview.returnedCount} returned test order{closedOrdersPreview.returnedCount !== 1 ? 's' : ''}</li>}
+                    {closedOrdersPreview.cancelledCount > 0 && <li>{closedOrdersPreview.cancelledCount} cancelled test order{closedOrdersPreview.cancelledCount !== 1 ? 's' : ''}</li>}
                     <li>All associated order details, adjustments, picklist items, and shipments</li>
                   </ul>
                   <p className="text-xs text-gray-500">
