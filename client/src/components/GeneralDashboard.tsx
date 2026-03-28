@@ -803,7 +803,7 @@ export default function GeneralDashboard({ onItemClick, onOpenFulfillment, onOpe
       )}
 
       {/* Operational areas */}
-      {showOps && (<div className="space-y-1.5" data-testid="section-ops-central">
+      {showOps && (<div className="space-y-3" data-testid="section-ops-central">
         <OpAreaCard
           label="Inventory"
           Icon={Package}
