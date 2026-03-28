@@ -9483,7 +9483,7 @@ Format search_web URLs as markdown links.`;
         totalCost: Number(stats[0]?.totalCost) || 0,
         totalColors: Number(colorCount[0]?.count) || 0,
         totalCategories: Number(categoryCount[0]?.count) || 0,
-        soldAvgValue: Number(((soldAvgResult as any)[0])?.sold_avg_value) || 0,
+        soldAvgValue: Number((soldAvgResult as any).rows[0]?.sold_avg_value) || 0,
       });
     } catch (error) {
       console.error("Error fetching inventory stats:", error);
