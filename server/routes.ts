@@ -9470,7 +9470,7 @@ Format search_web URLs as markdown links.`;
           WHERE i.org_id = ${orgId}
             AND p.sold_avg_price IS NOT NULL
             AND CAST(p.sold_avg_price AS DECIMAL) > 0
-            AND (i.is_deleted IS NULL OR i.is_deleted = false)
+            AND i.deleted_at IS NULL
         `),
       ]);
 
