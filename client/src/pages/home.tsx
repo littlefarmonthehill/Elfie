@@ -1330,6 +1330,7 @@ export default function Home() {
                               onOrderSelect={handleOrderSelect}
                               onBrickLinkClick={setBrickLinkUrl}
                               onOpenSettings={(section) => { setDetailModal({ open: false, data: null }); openSettings(section); }}
+                              onItemClick={handleDashboardItemClick}
                               inline
                             />
                           ) : (
@@ -1465,6 +1466,7 @@ export default function Home() {
           onOrderSelect={handleOrderSelect}
           onBrickLinkClick={setBrickLinkUrl}
           onOpenSettings={(section) => { setDetailModal({ open: false, data: null }); openSettings(section); }}
+          onItemClick={handleDashboardItemClick}
         />
       )}
 

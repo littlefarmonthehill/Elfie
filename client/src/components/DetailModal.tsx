@@ -21,6 +21,7 @@ interface DetailModalProps {
   onOrderSelect?: (orderId: string) => void;
   onBrickLinkClick?: (url: string) => void;
   onOpenSettings?: (section?: string) => void;
+  onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
   inline?: boolean;
 }
 
@@ -31,7 +32,7 @@ const titleConfig: Record<DetailType, { icon: typeof Package; label: string; col
   marketing: { icon: Megaphone, label: 'Marketing Detail', color: 'text-yellow-400' },
 };
 
-export default function DetailModal({ open, onClose, detail, onOrderSelect, onBrickLinkClick, onOpenSettings, inline }: DetailModalProps) {
+export default function DetailModal({ open, onClose, detail, onOrderSelect, onBrickLinkClick, onOpenSettings, onItemClick, inline }: DetailModalProps) {
   if (!detail) return null;
 
   const renderDetail = () => {
@@ -39,7 +40,7 @@ export default function DetailModal({ open, onClose, detail, onOrderSelect, onBr
       case 'inventory':
         return <InventoryDetail data={detail.data} onBrickLinkClick={onBrickLinkClick} onOpenSettings={onOpenSettings} initialTab={detail.initialTab} />;
       case 'order':
-        return <OrderDetail data={detail.data} onOrderSelect={onOrderSelect} />;
+        return <OrderDetail data={detail.data} onOrderSelect={onOrderSelect} onItemClick={onItemClick} />;
       case 'sales':
         return <SalesDetail data={detail.data} />;
       case 'marketing':
