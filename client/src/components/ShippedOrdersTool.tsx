@@ -325,7 +325,7 @@ export default function ShippedOrdersTool({ onItemClick }: ShippedOrdersToolProp
                             Returned
                           </Badge>
                         )}
-                        {isCancelled && (
+                        {isCancelled && !isReturned && (
                           <Badge className="text-xs bg-orange-900/60 text-orange-300 border border-orange-700/50 gap-1">
                             <X className="w-3 h-3" />
                             Cancelled
