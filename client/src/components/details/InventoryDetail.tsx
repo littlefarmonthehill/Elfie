@@ -56,11 +56,13 @@ interface PriceOMagicData {
 }
 
 interface PomConditionData {
-  soldQty: number | null;
+  soldQty: number | null;        // piece count (null if unavailable)
+  soldTotalLots: number | null;  // lot/seller count
   soldMin: string | null;
   soldAvg: string | null;
   soldMax: string | null;
-  listedQty: number | null;
+  listedQty: number | null;       // piece count (null if unavailable)
+  listedTotalLots: number | null; // lot/seller count
   listedMin: string | null;
   listedAvg: string | null;
   listedMax: string | null;
@@ -901,6 +903,13 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                       </tr>
                     </thead>
                     <tbody>
+                      <tr className="border-b border-gray-800/50">
+                        <td className="py-1.5 px-2 text-gray-400 font-sans font-medium">Lots</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{fmtQ(nD?.soldTotalLots)}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{fmtQ(uD?.soldTotalLots)}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{fmtQ(nD?.listedTotalLots)}</td>
+                        <td className="text-center py-1.5 px-1 text-gray-300">{fmtQ(uD?.listedTotalLots)}</td>
+                      </tr>
                       <tr className="border-b border-gray-800/50">
                         <td className="py-1.5 px-2 text-gray-400 font-sans font-medium">Qty</td>
                         <td className="text-center py-1.5 px-1 text-gray-300">{fmtQ(nD?.soldQty)}</td>

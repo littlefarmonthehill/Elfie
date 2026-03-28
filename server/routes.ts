@@ -11342,22 +11342,27 @@ Format search_web URLs as markdown links.`;
 
       res.json({
         N: nRow ? {
-          soldQty: nRow.soldQuantity ?? nRow.soldTotalLots ?? null,
+          // Piece-counts only — no lot-count fallback (lot counts produce nonsense STR ratios)
+          soldQty: nRow.soldQuantity ?? null,
+          soldTotalLots: nRow.soldTotalLots ?? null,
           soldMin: nRow.soldMinPrice,
           soldAvg: nRow.soldAvgPrice,
           soldMax: nRow.soldMaxPrice,
-          listedQty: nRow.stockQuantity ?? nRow.stockTotalLots ?? null,
+          listedQty: nRow.stockQuantity ?? null,
+          listedTotalLots: nRow.stockTotalLots ?? null,
           listedMin: nRow.stockMinPrice,
           listedAvg: nRow.stockAvgPrice,
           listedMax: nRow.stockMaxPrice,
           suggestedPrice: computeSuggested(nRow),
         } : null,
         U: uRow ? {
-          soldQty: uRow.soldQuantity ?? uRow.soldTotalLots ?? null,
+          soldQty: uRow.soldQuantity ?? null,
+          soldTotalLots: uRow.soldTotalLots ?? null,
           soldMin: uRow.soldMinPrice,
           soldAvg: uRow.soldAvgPrice,
           soldMax: uRow.soldMaxPrice,
-          listedQty: uRow.stockQuantity ?? uRow.stockTotalLots ?? null,
+          listedQty: uRow.stockQuantity ?? null,
+          listedTotalLots: uRow.stockTotalLots ?? null,
           listedMin: uRow.stockMinPrice,
           listedAvg: uRow.stockAvgPrice,
           listedMax: uRow.stockMaxPrice,
@@ -11411,7 +11416,8 @@ Format search_web URLs as markdown links.`;
         stockAvgPrice: result.stockAvgPrice,
         stockMinPrice: result.stockMinPrice,
         stockMaxPrice: result.stockMaxPrice,
-        stockTotalLots: result.stockTotalLots,
+        stockQuantity: result.stockQuantity,   // piece count — required for STR calculation
+        stockTotalLots: result.stockTotalLots, // lot/seller count
         soldAvgPrice: result.soldAvgPrice,
         soldMinPrice: result.soldMinPrice,
         soldMaxPrice: result.soldMaxPrice,
