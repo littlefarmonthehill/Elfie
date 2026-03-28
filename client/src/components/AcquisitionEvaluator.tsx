@@ -206,15 +206,18 @@ function parseXLSX(buffer: ArrayBuffer): AcqItem[] {
 }
 
 /**
- * Merge duplicate rows that share the same itemNo + colorId + condition.
- * Quantities are summed; prices are weighted-averaged across rows that have them.
+ * Merge duplicate rows that share the same itemNo + colorId + condition + price.
+ * Different prices for the same part = intentional split listings, not duplicates.
+ * Quantities are summed for rows that match on all four fields.
  * Returns the consolidated list plus the original row count before merging.
  */
 function consolidate(items: AcqItem[]): { items: AcqItem[]; rawRows: number } {
   const rawRows = items.length;
   const map = new Map<string, AcqItem & { _pricedQty: number }>();
   for (const item of items) {
-    const key = `${item.itemNo}|${item.colorId}|${item.condition}`;
+    // Include price in key: same part/color/condition at different prices = separate lots.
+    const priceKey = item.price != null ? item.price.toFixed(4) : 'null';
+    const key = `${item.itemNo}|${item.colorId}|${item.condition}|${priceKey}`;
     const ex = map.get(key);
     if (ex) {
       if (item.price != null && ex.price != null) {

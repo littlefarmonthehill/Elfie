@@ -9461,14 +9461,14 @@ Format search_web URLs as markdown links.`;
             or(isNull(blInventory.colorId), eq(blInventory.colorId, 0))
           )),
 
-        // 6. Duplicate lots (same part+color+condition, multiple active lots)
+        // 6. Duplicate lots: same part+color+condition+price (different prices = intentional split listings).
         db.execute(sql`
           SELECT COALESCE(SUM(group_count), 0) as total_lots, COUNT(*) as group_count
           FROM (
-            SELECT item_no, color_id, new_or_used, COUNT(*) as group_count
+            SELECT item_no, color_id, new_or_used, unit_price, COUNT(*) as group_count
             FROM bl_inventory
             WHERE org_id = ${orgId} AND deleted_at IS NULL AND quantity > 0
-            GROUP BY item_no, color_id, new_or_used
+            GROUP BY item_no, color_id, new_or_used, unit_price
             HAVING COUNT(*) > 1
           ) dups
         `),
@@ -9685,18 +9685,19 @@ Format search_web URLs as markdown links.`;
           ORDER BY bi.quantity DESC LIMIT ${limit} OFFSET ${offset}
         `);
       } else if (category === 'duplicates') {
+        // Only show lots where part+color+condition+price is duplicated — different prices = intentional.
         result = await db.execute(sql`
           SELECT ${selectCols}
           FROM bl_inventory bi LEFT JOIN ${catalogJoin}
           WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NULL AND bi.quantity > 0
-            AND (bi.item_no, COALESCE(bi.color_id, 0), bi.new_or_used) IN (
-              SELECT item_no, COALESCE(color_id, 0), new_or_used
+            AND (bi.item_no, COALESCE(bi.color_id, 0), bi.new_or_used, COALESCE(bi.unit_price, '')) IN (
+              SELECT item_no, COALESCE(color_id, 0), new_or_used, COALESCE(unit_price, '')
               FROM bl_inventory
               WHERE org_id = ${orgId} AND deleted_at IS NULL AND quantity > 0
-              GROUP BY item_no, COALESCE(color_id, 0), new_or_used
+              GROUP BY item_no, COALESCE(color_id, 0), new_or_used, COALESCE(unit_price, '')
               HAVING COUNT(*) > 1
             )
-          ORDER BY bi.item_no, bi.color_id LIMIT ${limit} OFFSET ${offset}
+          ORDER BY bi.item_no, bi.color_id, bi.new_or_used, bi.unit_price LIMIT ${limit} OFFSET ${offset}
         `);
       } else if (category === 'dead_stock') {
         result = await db.execute(sql`
@@ -11147,8 +11148,10 @@ Format search_web URLs as markdown links.`;
       const wUndercut = settings?.pomWeightUndercut ?? 0.1;
 
       const myRow = myCondition === 'U' ? uRow : nRow;
-      const soldQty = myRow?.soldQuantity ?? myRow?.soldTotalLots ?? 0;
-      const stockQty = myRow?.stockQuantity ?? myRow?.stockTotalLots ?? 0;
+      // STR must use piece-counts on both sides. soldTotalLots/stockTotalLots are lot-counts
+      // (number of sellers), not piece-counts — mixing them produces nonsense ratios.
+      const soldQty = myRow?.soldQuantity ?? null;
+      const stockQty = myRow?.stockQuantity ?? null;
       const stockMin = parseFloat(myRow?.stockMinPrice || '0');
 
       const currentPriceStr = req.query.current_price as string;
@@ -11173,13 +11176,14 @@ Format search_web URLs as markdown links.`;
       const priceCeilingRatio = (spotBlendedRef !== null && spotBlendedRef > 0 && currentPrice > 0)
         ? Number(((spotBlendedRef / currentPrice) * Math.max(0.2, spotConfidence)).toFixed(3))
         : null;
-      // STR = soldQty / stockQty. Raw value returned for display (can exceed 1.0).
-      // Clamped to [0,1] before entering the score so high-STR items don't crowd out other signals.
-      const demandVelocity = (stockQty > 0)
+      // STR = soldQty / stockQty (both must be piece-counts; null → no STR).
+      const demandVelocity = (soldQty != null && stockQty != null && stockQty > 0)
         ? Number((soldQty / stockQty).toFixed(3))
         : null;
-      const marketScarcityVal = (stockQty > 0)
-        ? Number((1 / stockQty).toFixed(6))
+      // Scarcity can fall back to lot-count if piece-count unavailable (different semantic — acceptable).
+      const scarcityDenom = myRow?.stockQuantity ?? myRow?.stockTotalLots ?? null;
+      const marketScarcityVal = (scarcityDenom != null && scarcityDenom > 0)
+        ? Number((1 / scarcityDenom).toFixed(6))
         : null;
       const undercutRatio = (stockMin > 0 && currentPrice > 0)
         ? Number((currentPrice / stockMin).toFixed(3))
@@ -14701,19 +14705,19 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
           ? Number(((blendedRef / currentPrice) * Math.max(0.2, confidenceFactor)).toFixed(3))
           : null;
 
-        // 2. STR (Sell-Through Rate) = soldQty / stockQty — how fast the part sells relative to supply.
-        //    STR > 100% = demand outpaces supply; 40-100% = healthy; < 40% = slow mover.
-        //    Raw STR returned for display; clamped to [0,1] before entering the score so high-STR
-        //    items don't crowd out other signals.
-        const soldQty = item.soldQuantity ?? parseInt(item.soldTotalLots || '0');
-        const stockQty = item.stockQuantity ?? parseInt(item.stockTotalLots || '0');
-        const demandVelocity = (stockQty > 0)
+        // 2. STR (Sell-Through Rate) = soldQty / stockQty — both must be piece-counts.
+        //    soldTotalLots/stockTotalLots are lot-counts (number of sellers), not piece-counts —
+        //    mixing them produces nonsense ratios like 23000%+. If piece-counts are missing → null.
+        const soldQty = item.soldQuantity ?? null;
+        const stockQty = item.stockQuantity ?? null;
+        const demandVelocity = (soldQty != null && stockQty != null && stockQty > 0)
           ? Number((soldQty / stockQty).toFixed(3))
           : null;
 
-        // 3. Market Scarcity Index = 1 / stockQuantity (fall back to lots if qty not yet populated)
-        const marketScarcity = (stockQty > 0)
-          ? Number((1 / stockQty).toFixed(4))
+        // 3. Market Scarcity Index = 1 / listed_pieces (fallback to lot-count is acceptable here).
+        const scarcityDenom = item.stockQuantity ?? item.stockTotalLots ?? null;
+        const marketScarcity = (scarcityDenom != null && scarcityDenom > 0)
+          ? Number((1 / scarcityDenom).toFixed(4))
           : null;
 
         // 4. Undercut Ratio = ourPrice / stockMinPrice

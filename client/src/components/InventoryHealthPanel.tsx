@@ -931,7 +931,7 @@ export default function InventoryHealthPanel({ open, onOpenChange, inline }: Inv
     {
       id: 'duplicates',
       label: 'Possible Duplicate Lots',
-      description: `${health.duplicates.groups} groups · same part, color & condition`,
+      description: `${health.duplicates.groups} groups · same part, color, condition & price`,
       icon: Copy,
       accentColor: 'text-violet-400',
       borderColor: 'border-violet-500/40',
