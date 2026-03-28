@@ -8,7 +8,6 @@ import { syncLock } from "./sync-lock";
 import { canonicalBricklinkImageUrl } from "./image-proxy";
 import { batchEmbedInventory, batchEmbedSets } from "./embeddings";
 import { syncBrickLinkToBrickOwl } from "./brickowl";
-import { saveXMLBackup } from "./export";
 import { recordInventoryChanges, buildChanges } from "./inventory-history";
 
 const resolvedCatalogItemName = (itemNoRef: any, itemTypeRef: any, colorIdRef: any) =>
@@ -1053,19 +1052,9 @@ export async function syncBricklinkData(orgId: string = PLATFORM_ORG_ID): Promis
     console.log('\n🔄 Starting inventory sync...');
     syncProgressTracker.start();
 
-    // Step 1: Sync inventory from BrickLink (the only org-level API call)
-    console.log('📦 Step 1/2: Syncing BrickLink inventory...');
+    // Sync inventory from BrickLink
+    console.log('📦 Syncing BrickLink inventory...');
     const inventoryResult = await syncBricklinkInventory(false, orgId);
-
-    // Step 2: Save XML backup
-    console.log('💾 Step 2/2: Saving XML backup...');
-    syncProgressTracker.update('Saving XML backup…', 95);
-    try {
-      const backupFilename = await saveXMLBackup(orgId);
-      console.log(`💾 XML backup saved: ${backupFilename}`);
-    } catch (error) {
-      console.error('✗ XML backup failed (non-fatal):', error);
-    }
 
     syncProgressTracker.complete(inventoryResult.added, inventoryResult.updated);
     console.log('✅ Inventory sync complete!');
