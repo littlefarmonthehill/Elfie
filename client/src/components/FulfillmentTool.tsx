@@ -1221,154 +1221,20 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
       <div>
 
 
-        {/* ── Unified toolbar: drawer trigger + tab switcher + context actions ── */}
-        <div ref={actionRowRef} className="flex items-center gap-0.5 border-b border-gray-700/60 mb-1.5">
-
-          {/* Orders drawer trigger */}
+        {/* ── Orders link — mirrors Brickspotter's Batches link ── */}
+        <div className="flex items-center justify-between gap-2 mb-1">
           <button
             onClick={() => setDrawerOpen(true)}
             data-testid="button-open-orders-drawer"
-            className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-100 transition-colors shrink-0 px-1.5 py-1 rounded hover-elevate"
+            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-200 transition-colors"
           >
             <Truck className="w-3.5 h-3.5" />
-            <span className="tabular-nums font-medium">
-              {sortedOrders.length > 0 ? `${selectedOrders.size}/${sortedOrders.length}` : '0'}
+            <span>
+              {sortedOrders.length > 0
+                ? `${selectedOrders.size} of ${sortedOrders.length} order${sortedOrders.length !== 1 ? 's' : ''}`
+                : 'Orders'}
             </span>
           </button>
-
-          <div className="w-px h-4 bg-gray-700/60 mx-1 shrink-0" />
-
-          {/* Tab switcher */}
-          <div className="flex items-center flex-1 min-w-0">
-            <button
-              onClick={() => setActiveTab('picklist')}
-              className={`tool-tab ${activeTab === 'picklist' ? 'border-orange-500 text-orange-400' : 'tool-tab-off'}`}
-              data-testid="tab-picklist"
-            >
-              <ClipboardList className="w-3.5 h-3.5" />
-              Fulfill
-            </button>
-            <button
-              onClick={() => setActiveTab('shipping')}
-              className={`tool-tab ${activeTab === 'shipping' ? 'border-purple-500 text-purple-400' : 'tool-tab-off'}`}
-              data-testid="tab-shipping"
-            >
-              <Package className="w-3.5 h-3.5" />
-              Ship
-            </button>
-          </div>
-
-          <div className="w-px h-4 bg-gray-700/60 mx-0.5 shrink-0" />
-
-          {/* Context actions — icon-only, change based on active tab */}
-          {activeTab === 'picklist' ? (
-            <div className="flex items-center gap-0.5 shrink-0">
-              <Button
-                size="icon"
-                variant="ghost"
-                disabled={selectedOrders.size === 0}
-                onClick={handlePrintPicklist}
-                title="Print Picklist"
-                className="text-gray-400"
-                data-testid="button-print-picklist"
-              >
-                <ClipboardList className="w-3.5 h-3.5" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                disabled={selectedOrders.size === 0}
-                onClick={() => handlePrintPackingSlips(Array.from(selectedOrders))}
-                title="Print Packing Slips"
-                className="text-gray-400"
-                data-testid="button-print-packing-slips"
-              >
-                <Printer className="w-3.5 h-3.5" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                disabled={selectedOrders.size === 0}
-                onClick={() => handlePrintLotLabels(Array.from(selectedOrders))}
-                title="Print Lot Labels"
-                className="text-gray-400"
-                data-testid="button-print-lot-labels"
-              >
-                <Tag className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-          ) : !isSplitMode ? (
-            <div className="flex items-center gap-0.5 shrink-0">
-              {/* Ship — shows count badge when orders are shippable */}
-              <div className="relative">
-                <Button
-                  ref={shipBtnRef}
-                  size="icon"
-                  variant="ghost"
-                  disabled={shippableCount === 0 || isShippingAll}
-                  onClick={() => setShowShipConfirmDialog(true)}
-                  title={`Ship${shippableCount > 0 ? ` (${shippableCount})` : ''}`}
-                  className={shippableCount > 0 ? 'text-purple-400' : 'text-gray-400'}
-                  data-testid="button-ship-all"
-                >
-                  {isShippingAll
-                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    : <Truck className="w-3.5 h-3.5" />
-                  }
-                </Button>
-                {shippableCount > 0 && !isShippingAll && (
-                  <span className="pointer-events-none absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 flex items-center justify-center px-0.5 rounded-full bg-purple-600 text-[9px] font-bold text-white leading-none">
-                    {shippableCount}
-                  </span>
-                )}
-              </div>
-              {/* EOD — shows count badge when shipments are pending manifest */}
-              <div className="relative">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  disabled={scanFormMutation.isPending || (endOfDayData?.count === 0 && !scanFormUrl)}
-                  onClick={() => scanFormUrl ? window.open(scanFormUrl, '_blank') : scanFormMutation.mutate()}
-                  title={scanFormUrl ? 'Reopen EOD Form' : `EOD Form${endOfDayData?.count ? ` (${endOfDayData.count})` : ''}`}
-                  className={endOfDayData?.count && !scanFormUrl ? 'text-cyan-400' : 'text-gray-400'}
-                  data-testid="button-end-of-day-scan"
-                >
-                  {scanFormMutation.isPending
-                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    : scanFormUrl
-                      ? <ExternalLink className="w-3.5 h-3.5" />
-                      : <ScanLine className="w-3.5 h-3.5" />
-                  }
-                </Button>
-                {!scanFormUrl && endOfDayData?.count > 0 && !scanFormMutation.isPending && (
-                  <span className="pointer-events-none absolute -top-0.5 -right-0.5 min-w-[14px] h-3.5 flex items-center justify-center px-0.5 rounded-full bg-cyan-700 text-[9px] font-bold text-white leading-none">
-                    {endOfDayData.count}
-                  </span>
-                )}
-              </div>
-              {/* EOD backlog clear (only visible when there's a backlog and no scan form yet) */}
-              {!scanFormUrl && endOfDayData && endOfDayData.count > 0 && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  disabled={clearEodBacklogMutation.isPending}
-                  onClick={() => {
-                    if (confirm(`Mark all ${endOfDayData.count} queued shipment${endOfDayData.count !== 1 ? 's' : ''} as already manifested? Use this to clear test/stale data.`)) {
-                      clearEodBacklogMutation.mutate();
-                    }
-                  }}
-                  className="text-gray-500 hover:text-red-400 shrink-0"
-                  title="Clear EOD backlog (mark all as manifested)"
-                  data-testid="button-clear-eod-backlog"
-                >
-                  {clearEodBacklogMutation.isPending
-                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    : <Trash2 className="w-3.5 h-3.5" />
-                  }
-                </Button>
-              )}
-            </div>
-          ) : null}
         </div>
 
         {/* ── Customer note banner — all visible orders that have buyer notes ── */}
@@ -1378,7 +1244,7 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
             : sortedOrders.filter(o => o.customerNotes);
           if (!noteOrders?.length) return null;
           return (
-            <div className="mb-1.5 space-y-1">
+            <div className="mb-1 space-y-1">
               {noteOrders.map(o => (
                 <div key={o.id} className="flex items-start gap-1.5 px-2.5 py-2 rounded border border-amber-500/25 bg-amber-500/5 text-[11px] text-amber-200/90 leading-snug">
                   <MessageCircle className="w-3 h-3 shrink-0 mt-px text-amber-400 fill-current" />
@@ -1394,8 +1260,122 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
           );
         })()}
 
+        {/* ── Tab switcher: Fulfillment | Shipping ── */}
+        <div className="tool-tab-bar">
+          <button
+            onClick={() => setActiveTab('picklist')}
+            className={`tool-tab ${activeTab === 'picklist' ? 'border-orange-500 text-orange-400' : 'tool-tab-off'}`}
+            data-testid="tab-picklist"
+          >
+            <ClipboardList className="w-3.5 h-3.5" />
+            Fulfillment
+          </button>
+          <button
+            onClick={() => setActiveTab('shipping')}
+            className={`tool-tab ${activeTab === 'shipping' ? 'border-purple-500 text-purple-400' : 'tool-tab-off'}`}
+            data-testid="tab-shipping"
+          >
+            <Truck className="w-3.5 h-3.5" />
+            Shipping
+          </button>
+        </div>
+
+        {/* ── Tab-specific action bar — full width ── */}
+        {activeTab === 'picklist' && (
+          <div className="flex items-center justify-center gap-1 px-1 py-1.5 border-b border-gray-700/60 overflow-x-auto scrollbar-hide">
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={selectedOrders.size === 0}
+              onClick={handlePrintPicklist}
+              className="text-gray-300 text-xs whitespace-nowrap shrink-0"
+              data-testid="button-print-picklist"
+            >
+              <ClipboardList className="w-3.5 h-3.5 mr-1.5" />
+              Picklist
+            </Button>
+            <div className="w-px h-4 bg-gray-700 mx-0.5 shrink-0" />
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={selectedOrders.size === 0}
+              onClick={() => handlePrintPackingSlips(Array.from(selectedOrders))}
+              className="text-gray-300 text-xs whitespace-nowrap shrink-0"
+              data-testid="button-print-packing-slips"
+            >
+              <Printer className="w-3.5 h-3.5 mr-1.5" />
+              Packing Slips
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={selectedOrders.size === 0}
+              onClick={() => handlePrintLotLabels(Array.from(selectedOrders))}
+              className="text-gray-300 text-xs whitespace-nowrap shrink-0"
+              data-testid="button-print-lot-labels"
+            >
+              <Tag className="w-3.5 h-3.5 mr-1.5" />
+              Lot Labels
+            </Button>
+          </div>
+        )}
+        {!isSplitMode && activeTab === 'shipping' && (
+          <div ref={actionRowRef} className="flex items-center justify-center gap-1 px-1 py-1.5 border-b border-gray-700/60 overflow-x-auto scrollbar-hide">
+            <Button
+              ref={shipBtnRef}
+              size="sm"
+              variant="ghost"
+              disabled={shippableCount === 0 || isShippingAll}
+              onClick={() => setShowShipConfirmDialog(true)}
+              className="text-gray-300 text-xs whitespace-nowrap shrink-0"
+              data-testid="button-ship-all"
+            >
+              {isShippingAll
+                ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Shipping...</>
+                : <><Truck className="w-3.5 h-3.5 mr-1.5" />Ship{shippableCount > 0 ? ` (${shippableCount})` : ''}</>
+              }
+            </Button>
+            <div className="w-px h-4 bg-gray-700 mx-0.5 shrink-0" />
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={scanFormMutation.isPending || (endOfDayData?.count === 0 && !scanFormUrl)}
+              onClick={() => scanFormUrl ? window.open(scanFormUrl, '_blank') : scanFormMutation.mutate()}
+              className="text-gray-300 text-xs whitespace-nowrap shrink-0"
+              data-testid="button-end-of-day-scan"
+            >
+              {scanFormMutation.isPending
+                ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Generating...</>
+                : scanFormUrl
+                  ? <><ExternalLink className="w-3.5 h-3.5 mr-1.5" />Reopen EOD</>
+                  : <><ScanLine className="w-3.5 h-3.5 mr-1.5" />EOD Form{endOfDayData && endOfDayData.count > 0 && ` (${endOfDayData.count})`}</>
+              }
+            </Button>
+            {!scanFormUrl && endOfDayData && endOfDayData.count > 0 && (
+              <Button
+                size="icon"
+                variant="ghost"
+                disabled={clearEodBacklogMutation.isPending}
+                onClick={() => {
+                  if (confirm(`Mark all ${endOfDayData.count} queued shipment${endOfDayData.count !== 1 ? 's' : ''} as already manifested? Use this to clear test/stale data.`)) {
+                    clearEodBacklogMutation.mutate();
+                  }
+                }}
+                className="text-gray-500 hover:text-red-400 shrink-0"
+                title="Clear EOD backlog (mark all as manifested)"
+                data-testid="button-clear-eod-backlog"
+              >
+                {clearEodBacklogMutation.isPending
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <Trash2 className="w-3.5 h-3.5" />
+                }
+              </Button>
+            )}
+          </div>
+        )}
+
         {/* ── Tab content ── */}
-        <div className="mt-2">
+        <div className="mt-3">
         {activeTab === 'picklist' ? (
           <PicklistTool filterOrderIds={selectedOrders} />
         ) : (
