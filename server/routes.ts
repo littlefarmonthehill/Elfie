@@ -4029,7 +4029,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           orderStatus: orders.orderStatus,
           orderTotal: orders.orderTotal,
           inventoryDeducted: orders.inventoryDeducted,
-          platform: orders.platform,
+          marketplace: orders.marketplace,
         })
         .from(orders)
         .where(and(eq(orders.orgId, orgId), eq(orders.isTest, true)))
