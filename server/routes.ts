@@ -9847,16 +9847,19 @@ Format search_web URLs as markdown links.`;
         `);
       } else if (category === 'duplicates') {
         // Only show lots where part+color+condition+price is duplicated — different prices = intentional.
+        // Use EXISTS to correctly handle NULL unit_price (COALESCE to '' fails for numeric columns).
         result = await db.execute(sql`
           SELECT ${selectCols}
           FROM bl_inventory bi LEFT JOIN ${catalogJoin}
           WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NULL AND bi.quantity > 0
-            AND (bi.item_no, COALESCE(bi.color_id, 0), bi.new_or_used, COALESCE(bi.unit_price, '')) IN (
-              SELECT item_no, COALESCE(color_id, 0), new_or_used, COALESCE(unit_price, '')
-              FROM bl_inventory
-              WHERE org_id = ${orgId} AND deleted_at IS NULL AND quantity > 0
-              GROUP BY item_no, COALESCE(color_id, 0), new_or_used, COALESCE(unit_price, '')
-              HAVING COUNT(*) > 1
+            AND EXISTS (
+              SELECT 1 FROM bl_inventory bi2
+              WHERE bi2.org_id = ${orgId} AND bi2.deleted_at IS NULL AND bi2.quantity > 0
+                AND bi2.id != bi.id
+                AND bi2.item_no = bi.item_no
+                AND COALESCE(bi2.color_id, 0) = COALESCE(bi.color_id, 0)
+                AND bi2.new_or_used = bi.new_or_used
+                AND (bi2.unit_price = bi.unit_price OR (bi2.unit_price IS NULL AND bi.unit_price IS NULL))
             )
           ORDER BY bi.item_no, bi.color_id, bi.new_or_used, bi.unit_price LIMIT ${limit} OFFSET ${offset}
         `);
