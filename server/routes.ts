@@ -4027,14 +4027,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(orders)
         .where(and(
           eq(orders.orgId, orgId),
-          or(
-            inArray(orders.orderStatus, ['returned', 'cancelled', 'Cancelled']),
-            eq(orders.isTest, true)
-          )
+          inArray(orders.orderStatus, ['returned', 'cancelled', 'Cancelled']),
+          eq(orders.isTest, true)
         ));
 
       const returnedCount  = rows.filter(r => r.orderStatus === 'returned').length;
-      const cancelledCount = rows.filter(r => ['cancelled', 'Cancelled'].includes(r.orderStatus) && !r.isTest).length;
+      const cancelledCount = rows.filter(r => ['cancelled', 'Cancelled'].includes(r.orderStatus)).length;
       const testCount      = rows.filter(r => r.isTest).length;
 
       res.json({ count: rows.length, returnedCount, cancelledCount, testCount });
@@ -4054,10 +4052,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .from(orders)
         .where(and(
           eq(orders.orgId, orgId),
-          or(
-            inArray(orders.orderStatus, ['returned', 'cancelled', 'Cancelled']),
-            eq(orders.isTest, true)
-          )
+          inArray(orders.orderStatus, ['returned', 'cancelled', 'Cancelled']),
+          eq(orders.isTest, true)
         ));
 
       if (targetRows.length === 0) return res.json({ deleted: 0, message: 'No matching orders found.' });
@@ -4069,10 +4065,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.delete(shipments).where(inArray(shipments.orderId, ids));
       await db.delete(orders).where(and(
         eq(orders.orgId, orgId),
-        or(
-          inArray(orders.orderStatus, ['returned', 'cancelled', 'Cancelled']),
-          eq(orders.isTest, true)
-        )
+        inArray(orders.orderStatus, ['returned', 'cancelled', 'Cancelled']),
+        eq(orders.isTest, true)
       ));
 
       console.log(`🗑️ Deleted ${ids.length} closed orders for org ${orgId}`);

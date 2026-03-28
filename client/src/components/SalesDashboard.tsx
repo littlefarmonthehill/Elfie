@@ -989,7 +989,7 @@ export default function SalesDashboard({ period, dateRange: parentDateRange = 'm
   if (dateRange === 'all' && orders.length > 0 && filteredOrders.length === 0) {
     warnings.push(`⚠️ DATE FILTER ERROR: ${orders.length} orders fetched but 0 filtered for "all" range`);
   }
-  if (filteredOrders.length > 0 && totalRevenue === 0) {
+  if (filteredOrders.length > 0 && totalRevenue === 0 && filteredOrders.some(o => parseFloat(o.orderTotal ?? '0') > 0)) {
     warnings.push(`⚠️ REVENUE PARSING ERROR: ${filteredOrders.length} orders but $0 revenue. Sample: ${filteredOrders[0]?.orderTotal}`);
   }
   if (filteredOrders.length > 0 && data.length === 0) {
