@@ -348,13 +348,13 @@ OUTPUT FORMAT (JSON ONLY):
       "category": "demand_trend|price_opportunity|acquisition|market_intel|supply_squeeze|risk",
       "urgency": "high|medium|low",
       "title": "max 80 chars",
-      "summary": "2-3 sentences. Cite item numbers, MDI, PSR, dollar amounts. Cross-tag other agents where relevant.",
+      "summary": "2-3 sentences in plain business English — write for a store owner, not a financial analyst. Always spell out abbreviations on first use (e.g. 'PSR (Price Spread Ratio)', 'MDI (Market Demand Index)'). Cite item numbers, dollar amounts, and demand/supply figures. Cross-tag other agents where relevant.",
       "details": { "itemNos": [], "mdi": 0, "psr": 0, "estimatedImpact": "" }
     }
   ]
 }
 
-RULES: Every signal must include at least one specific item number and a measurable metric (MDI, PSR, or dollar value). No generic advice. Minimum 3, maximum 6 signals.`,
+RULES: Every signal must include at least one specific item number and a measurable metric (MDI, PSR, or dollar value). No generic advice. Minimum 3, maximum 6 signals. LANGUAGE: Write in plain, everyday business language — as if briefing the shop owner at the end of the day. Always spell out every abbreviation the first time it appears in a signal (PSR = Price Spread Ratio, MDI = Market Demand Index, DOS = Days of Supply, AOV = Average Order Value, CLV = Customer Lifetime Value, RFM = buyer scoring method). Prefer plain phrasing where possible.`,
     strategies, strategies.marketStrategy, 'Catalog Intelligence'
   );
 
@@ -463,19 +463,19 @@ CROSS-AGENT OUTPUTS (tag signals requiring another agent's action):
 
 OUTPUT FORMAT (JSON ONLY):
 {
-  "flashReport": "One sentence: current inventory health, DOS on top risk item, total capital at risk. Be specific.",
+  "flashReport": "One plain-English sentence: current inventory health, days of stock remaining on the top risk item, and total capital at risk. Write it so a non-expert understands — e.g. 'Running low on X with only 8 days of stock left; $1,200 tied up in slow-moving parts.'",
   "signals": [
     {
       "category": "restock|overstock|dead_stock|capital_risk|stockout_risk|opportunity",
       "urgency": "high|medium|low",
       "title": "max 80 chars",
-      "summary": "2-3 sentences. Cite item numbers, DOS, velocity tier, dollar values, and estimated impact.",
+      "summary": "2-3 sentences in plain business English — write for a store owner, not a warehouse analyst. Always spell out abbreviations on first use (e.g. 'DOS (Days of Supply)', 'SKU (individual product)'). Cite item numbers, dollar values, days of stock remaining, and estimated impact.",
       "details": { "itemNos": [], "dos": 0, "velocityTier": "A|B|C|D", "capitalAtRisk": 0 }
     }
   ]
 }
 
-RULES: Cite specific item numbers, DOS, and capital values. For dead stock, state liquidation value. For stockout risk, state estimated lost revenue if not restocked. Minimum 3, maximum 6 signals. No generic advice.`,
+RULES: Cite specific item numbers, DOS, and capital values. For dead stock, state liquidation value. For stockout risk, state estimated lost revenue if not restocked. Minimum 3, maximum 6 signals. No generic advice. LANGUAGE: Write in plain, everyday business language — as if briefing the shop owner at the end of the day. Always spell out every abbreviation the first time it appears in a signal (DOS = Days of Supply, SKU = individual product, GMROI = return on inventory investment). Prefer plain phrasing where possible — say "you'll run out in X days" rather than just "DOS: X".`,
     strategies, strategies.inventoryStrategy, 'Inventory'
   );
 
@@ -584,13 +584,13 @@ OUTPUT FORMAT (JSON ONLY):
       "category": "underpriced|overpriced|competitive_position|repricing_pattern|opportunity|risk",
       "urgency": "high|medium|low",
       "title": "max 80 chars",
-      "summary": "2-3 sentences. Cite specific items, exact prices, capture rates, revenue impact estimates.",
+      "summary": "2-3 sentences in plain business English — write for a store owner, not a pricing analyst. Always spell out abbreviations on first use (e.g. 'capture rate (how close our price is to the highest price the market pays)'). Cite specific item numbers, exact prices, and the dollar value of the opportunity.",
       "details": { "itemNos": [], "revenueAtRisk": 0, "captureRate": 0 }
     }
   ]
 }
 
-RULES: Every signal must include a dollar-value revenue impact. Cite specific item numbers, exact prices, and capture rates. Minimum 3, maximum 5 signals. No generic advice.`,
+RULES: Every signal must include a dollar-value revenue impact. Cite specific item numbers, exact prices, and capture rates. Minimum 3, maximum 5 signals. No generic advice. LANGUAGE: Write in plain, everyday business language — as if briefing the shop owner at the end of the day. Always spell out every abbreviation the first time it appears in a signal (AOV = Average Order Value, POM = pricing tool suggestion, capture rate = our price as a share of the highest market price). Say "we could earn $X more" rather than "revenue at risk: $X". Prefer plain phrasing over analyst shorthand.`,
     strategies, strategies.pricingStrategy, 'Pricing'
   );
 
@@ -686,13 +686,13 @@ OUTPUT FORMAT (JSON ONLY):
       "category": "retirement_risk|demand_surge|supply_squeeze|market_intel|seasonal|opportunity",
       "urgency": "high|medium|low",
       "title": "max 80 chars",
-      "summary": "2-3 sentences connecting external signal to specific business impact. Cite item numbers, PSR, MDI, source.",
+      "summary": "2-3 sentences in plain business English — write for a store owner, not a market analyst. Always spell out abbreviations on first use (e.g. 'PSR (Price Spread Ratio — how far the top price is above the average)', 'EOL (End of Life — LEGO retiring the part)'). Connect the external signal to a specific, concrete business action.",
       "details": { "source": "", "itemNos": [], "priceImpactEstimate": "" }
     }
   ]
 }
 
-RULES: Every signal must connect to at least one specific item number or category in the org's inventory (or a clear acquisition opportunity). Cite exact prices, PSR, MDI, forum reply counts, and news sources. Minimum 3, maximum 6 signals.`,
+RULES: Every signal must connect to at least one specific item number or category in the org's inventory (or a clear acquisition opportunity). Cite exact prices, PSR, MDI, forum reply counts, and news sources. Minimum 3, maximum 6 signals. LANGUAGE: Write in plain, everyday business language — as if briefing the shop owner at the end of the day. Always spell out every abbreviation the first time it appears in a signal (PSR = Price Spread Ratio, MDI = Market Demand Index, EOL = LEGO retiring the part, STR = Sell-Through Rate). Say "buyers are paying up to 2× the normal price" rather than just "PSR: 2.0". Prefer concrete, actionable phrasing.`,
     strategies, strategies.marketStrategy, 'Market Intelligence'
   );
 
@@ -819,19 +819,19 @@ CROSS-AGENT OUTPUTS:
 
 OUTPUT FORMAT (JSON ONLY):
 {
-  "flashReport": "One sentence: revenue trend classification (ACCELERATING/STABLE/DECLINING), AOV, and top fulfillment risk. Include specific numbers.",
+  "flashReport": "One plain-English sentence: whether orders are growing, flat, or falling; what the average sale size (AOV) is; and the top fulfillment risk. Write it so a non-expert understands — e.g. 'Orders are up 12% and the average sale is $14.80, but top-selling part X is close to selling out.'",
   "signals": [
     {
       "category": "velocity|channel_shift|aov_trend|sku_performance|fulfillment_risk|opportunity",
       "urgency": "high|medium|low",
       "title": "max 80 chars",
-      "summary": "2-3 sentences. Cite specific % changes, dollar amounts, item numbers, and order counts.",
+      "summary": "2-3 sentences in plain business English — write for a store owner, not a data analyst. Always spell out abbreviations on first use (e.g. 'AOV (Average Order Value — the typical size of each sale)', 'SKU (individual product)'). Cite specific % changes, dollar amounts, item names, and order counts.",
       "details": { "metric": "", "value": 0, "trend": "up|down|stable" }
     }
   ]
 }
 
-RULES: Every signal must cite a specific % change, dollar amount, or order count. Classify every revenue trend. Flag any metric crossing a threshold. Minimum 3, maximum 5 signals.`,
+RULES: Every signal must cite a specific % change, dollar amount, or order count. Classify every revenue trend. Flag any metric crossing a threshold. Minimum 3, maximum 5 signals. LANGUAGE: Write in plain, everyday business language — as if briefing the shop owner at the end of the day. Always spell out every abbreviation the first time it appears in a signal (AOV = Average Order Value, SKU = individual product). Say "your average sale went up to $X" rather than "AOV: $X". Prefer plain phrasing — "orders are growing" not "ACCELERATING trend".`,
     strategies, strategies.ordersStrategy, 'Orders'
   );
 
@@ -964,19 +964,19 @@ CROSS-AGENT OUTPUTS:
 
 OUTPUT FORMAT (JSON ONLY):
 {
-  "flashReport": "One sentence: repeat rate, number of at-risk Champions with CLV at stake, top new buyer. Include specific numbers.",
+  "flashReport": "One plain-English sentence: what % of buyers came back for more, how many top buyers have gone quiet and what their future spend is worth, and who the best new buyer is. Write it so a non-expert understands — e.g. '28% of buyers returned for a second purchase; 3 of your best customers haven't ordered in 2+ months, putting $400 of expected future sales at risk.'",
   "signals": [
     {
       "category": "champion|at_risk|churn_signal|new_convert|retention|clv_opportunity",
       "urgency": "high|medium|low",
       "title": "max 80 chars",
-      "summary": "2-3 sentences. Name specific buyers, their RFM tier, exact spend, days inactive, and actionable next step.",
+      "summary": "2-3 sentences in plain business English — write for a store owner, not a CRM analyst. Always spell out abbreviations on first use (e.g. 'CLV (Customer Lifetime Value — total expected spend over their buying life)', 'repeat rate (% of buyers who came back for a second order)'). Name specific buyers, their status, exact spend, how long they've been quiet, and a clear next step.",
       "details": { "buyerNames": [], "rfmTier": "Champion|Loyal|At Risk|Dormant|New Convert", "clvEstimate": 0 }
     }
   ]
 }
 
-RULES: Name specific buyers with their RFM tier. For every at-risk buyer, estimate CLV at stake. For every new convert, state days since first order. State the repeat rate and whether it's Healthy/Watch/Crisis. Minimum 3, maximum 5 signals.`,
+RULES: Name specific buyers with their status (Champion, Loyal, At Risk, Dormant, or New). For every at-risk buyer, estimate lifetime value at stake. For every new buyer, state days since first order. State the repeat rate and whether it's Healthy/Watch/Crisis. Minimum 3, maximum 5 signals. LANGUAGE: Write in plain, everyday business language — as if briefing the shop owner at the end of the day. Always spell out every abbreviation the first time it appears in a signal (CLV = Customer Lifetime Value, RFM = buyer scoring method based on recency/frequency/spend). Say "hasn't ordered in 75 days" not just "75d dormant". Prefer warm, concrete language — these are real customer relationships.`,
     strategies, strategies.customerStrategy, 'Customer'
   );
 
