@@ -155,7 +155,8 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
 
   return (
     <div
-      className="rounded-lg border flex flex-col overflow-hidden transition-all duration-200 hover-elevate active-elevate-2"
+      onClick={onClick}
+      className="rounded-lg border flex flex-col overflow-hidden transition-all duration-200 hover-elevate active-elevate-2 cursor-pointer"
       style={{
         minHeight: '186px',
         background: `linear-gradient(135deg, color-mix(in srgb, ${hex} 18%, #0a0c14) 0%, #0d0f1a 55%, color-mix(in srgb, ${hex} 8%, #0a0c14) 100%)`,
@@ -170,9 +171,8 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
       <div style={{ height: 2, background: `linear-gradient(90deg, transparent 0%, ${hex} 30%, ${hex} 70%, transparent 100%)`, opacity: isActive ? 0.9 : 0.45, flexShrink: 0 }} />
 
       {/* ── Header ── */}
-      <button
-        onClick={onClick}
-        className="flex items-center gap-2 px-3 py-2 w-full text-left flex-shrink-0 hover-elevate"
+      <div
+        className="flex items-center gap-2 px-3 py-2 w-full text-left flex-shrink-0"
         style={{ borderBottom: `1px solid ${hex}30`, background: `linear-gradient(180deg, color-mix(in srgb, ${hex} 22%, transparent) 0%, transparent 100%)` }}
       >
         {channelNum && (
@@ -207,7 +207,7 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
         ) : (
           <div className="w-2 h-2 rounded-full bg-green-400 shrink-0 shadow-[0_0_6px_#4ade80]" />
         )}
-      </button>
+      </div>
 
       {/* ── Body ── */}
       <div className="flex-1 px-3 py-2 flex flex-col gap-1.5 min-h-0">
@@ -246,7 +246,7 @@ function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, 
             {sortedAlerts.slice(0, 3).map(a => (
               <button
                 key={a.id}
-                onClick={a.onClick}
+                onClick={(e) => { e.stopPropagation(); a.onClick?.(); }}
                 className={cn('flex items-start gap-2 w-full text-left min-w-0', a.onClick && 'cursor-pointer')}
                 data-testid={`alert-${a.id}`}
               >
