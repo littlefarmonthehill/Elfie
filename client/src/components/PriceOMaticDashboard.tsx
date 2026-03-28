@@ -153,7 +153,9 @@ export function calcScore(lot: PricingInsight, cfg: ScoreConfig): number {
   // STR clamped to [0,1] so 200%+ STR doesn't dominate over other signals
   const v = Math.min(1, lot.demandVelocity ?? 0) * cfg.wVelocity;
   const s = (lot.marketScarcity ?? 0) * cfg.wScarcity;
-  const u = (lot.undercutRatio && lot.undercutRatio > 0) ? (1 / lot.undercutRatio) * cfg.wUndercut : 0;
+  // Undercut: (1 − ratio) is positive when you undercut market, negative when being undercut.
+  // undercutRatio = yourPrice / marketMin → ratio < 1 = you're cheapest → score boost.
+  const u = (lot.undercutRatio && lot.undercutRatio > 0) ? (1 - lot.undercutRatio) * cfg.wUndercut : 0;
   return c + v + s + u;
 }
 
@@ -177,7 +179,8 @@ export function calcScoreBreakdown(lot: PricingInsight, cfg: ScoreConfig, sugCfg
   const vRaw = lot.demandVelocity ?? 0;         // raw STR (can exceed 1.0)
   const vClamped = Math.min(1, vRaw);           // clamped to [0,1] for scoring
   const sRaw = lot.marketScarcity ?? 0;
-  const uRaw = (lot.undercutRatio && lot.undercutRatio > 0) ? 1 / lot.undercutRatio : 0;
+  // uRaw = 1 − undercutRatio: positive = you're cheapest, negative = being undercut
+  const uRaw = (lot.undercutRatio && lot.undercutRatio > 0) ? 1 - lot.undercutRatio : 0;
   const baseTotal = cRaw * cfg.wCeiling + vClamped * cfg.wVelocity + sRaw * cfg.wScarcity + uRaw * cfg.wUndercut;
 
   let sugRaw: number | null = null;
@@ -974,11 +977,17 @@ function ScoreBreakdownPopover({ lot, cfg, sugCfg, children, onOpenSettings }: {
   const strBand = strPct >= 100 ? { label: 'demand surge', color: '#4ade80' }
     : strPct >= 40 ? { label: 'healthy demand', color: '#34d399' }
     : { label: 'slow mover', color: '#fb923c' };
+  const undercutRatio = lot.undercutRatio ?? 1;
+  const undercutFmt = undercutRatio < 1
+    ? `${undercutRatio.toFixed(2)}× ↑ room to raise`
+    : undercutRatio > 1
+    ? `${undercutRatio.toFixed(2)}× ↓ being undercut`
+    : `${undercutRatio.toFixed(2)}× at market min`;
   const dims = [
     { key: 'ceiling', label: 'Ceiling', color: '#60a5fa', rawFmt: `${bd.ceiling.raw.toFixed(2)}×`, weighted: bd.ceiling.weighted },
     { key: 'velocity', label: `STR ${strPct.toFixed(0)}%`, color: strBand.color, rawFmt: strBand.label, weighted: bd.velocity.weighted },
     { key: 'scarcity', label: 'Scarcity', color: '#a78bfa', rawFmt: bd.scarcity.raw.toFixed(4), weighted: bd.scarcity.weighted },
-    { key: 'undercut', label: 'Undercut', color: '#fbbf24', rawFmt: `${bd.undercut.raw.toFixed(2)}×`, weighted: bd.undercut.weighted },
+    { key: 'undercut', label: 'Undercut', color: '#fbbf24', rawFmt: undercutFmt, weighted: bd.undercut.weighted },
   ];
   const weights = [bd.ceiling.weight, bd.velocity.weight, bd.scarcity.weight, bd.undercut.weight];
   return (
@@ -1287,7 +1296,7 @@ export function ScoringWheel({ lot, baseCfg, onSave }: { lot?: PricingInsight | 
               </div>
               <div className="flex justify-between gap-2 text-gray-400">
                 <span>Undercut ({(liveCfg.wUndercut * 100).toFixed(0)}%)</span>
-                <span className="font-mono">{(lot.undercutRatio && lot.undercutRatio > 0 ? (1 / lot.undercutRatio) * liveCfg.wUndercut : 0).toFixed(3)}</span>
+                <span className="font-mono">{(lot.undercutRatio && lot.undercutRatio > 0 ? (1 - lot.undercutRatio) * liveCfg.wUndercut : 0).toFixed(3)}</span>
               </div>
               <div className="flex justify-between gap-2 text-purple-300 font-semibold border-t border-gray-700/40 pt-1">
                 <span>= Combined Score</span>
@@ -1313,11 +1322,12 @@ function ScoresBar({ group, activeSort, scoreCfg, sugCfg, onOpenScoringSettings 
   onOpenScoringSettings?: (lot: PricingInsight) => void;
 }) {
   const strPctBest = group.bestVelocity != null ? group.bestVelocity * 100 : null;
-  const items: Array<{ label: string; value: number | null; suffix?: string; isPct?: boolean }> = [
+  const items: Array<{ label: string; value: number | null; suffix?: string; isPct?: boolean; isInverted?: boolean }> = [
     { label: 'Ceil', value: group.bestCeiling, suffix: '×' },
     { label: 'STR', value: strPctBest, suffix: '%', isPct: true },
     { label: 'Scarc', value: group.bestScarcity },
-    { label: 'Undr', value: group.bestUndercut, suffix: '×' },
+    // Undercut: lower ratio = you're cheapest = green; higher = being undercut = red
+    { label: 'Undr', value: group.bestUndercut, suffix: '×', isInverted: true },
     { label: 'Score', value: group.bestCombined },
   ];
   const activeLabel = SORT_TO_SCORE_LABEL[activeSort];
@@ -1329,10 +1339,12 @@ function ScoresBar({ group, activeSort, scoreCfg, sugCfg, onOpenScoringSettings 
       onClick={(e) => e.stopPropagation()}
       data-testid={`scores-bar-${group.key}`}
     >
-      {items.map(({ label, value, suffix, isPct }) => {
+      {items.map(({ label, value, suffix, isPct, isInverted }) => {
         const isActive = label === activeLabel;
-        // STR is stored as pct (e.g. 53.2) — use toFixed(0); colour based on normalised 0-1 for STR
-        const colorVal = isPct && value != null ? value / 100 : value;
+        // STR: colour based on normalised [0,1]. Inverted (undercut): lower value = greener.
+        const colorVal = isPct && value != null ? value / 100
+          : isInverted && value != null ? 2 - value  // ratio 0.5 → 1.5 (green), ratio 1.5 → 0.5 (red)
+          : value;
         const displayStr = value != null
           ? `${isPct ? value.toFixed(0) : value.toFixed(2)}${suffix ?? ''}`
           : '—';
@@ -1576,7 +1588,10 @@ export default function PriceOMaticDashboard({ onItemClick, onOpenSettings }: Pr
       g.bestCeiling = pick(l => l.priceCeilingRatio);
       g.bestVelocity = pick(l => l.demandVelocity);
       g.bestScarcity = pick(l => l.marketScarcity);
-      g.bestUndercut = pick(l => l.undercutRatio);
+      // For undercut, pick the LOWEST ratio (cheapest relative to market = most competitive)
+      const nU = g.newLot?.undercutRatio ?? null;
+      const uU = g.usedLot?.undercutRatio ?? null;
+      g.bestUndercut = (nU != null && uU != null) ? Math.min(nU, uU) : (nU ?? uU);
       if (pomSortMode === 'suggested') {
         // Opportunity sort: total dollar impact = sum of (suggested − current) × qty across both lots
         const oppScore = (l: PricingInsight): number => {

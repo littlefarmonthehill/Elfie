@@ -11137,7 +11137,8 @@ Format search_web URLs as markdown links.`;
         const cC = (priceCeilingRatio ?? 0) * wCeiling;
         const vC = Math.min(1, demandVelocity ?? 0) * wVelocity; // STR clamped [0,1]
         const sC = (marketScarcityVal ?? 0) * wScarcity;
-        const uC = (undercutRatio && undercutRatio > 0) ? (1 / undercutRatio) * wUndercut : 0;
+        // Undercut: positive when you're cheapest, negative when being undercut
+        const uC = (undercutRatio && undercutRatio > 0) ? (1 - undercutRatio) * wUndercut : 0;
         repricingScore = Number((cC + vC + sC + uC).toFixed(2));
       }
 
@@ -14674,7 +14675,8 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
           const ceilingComponent = (priceCeilingRatio ?? 0) * wCeiling;
           const velocityComponent = Math.min(1, demandVelocity ?? 0) * wVelocity; // STR clamped [0,1]
           const scarcityComponent = (marketScarcity ?? 0) * wScarcity;
-          const undercutComponent = (undercutRatio && undercutRatio > 0) ? (1 / undercutRatio) * wUndercut : 0;
+          // Undercut: positive when you're cheapest (ratio < 1), negative when being undercut (ratio > 1)
+          const undercutComponent = (undercutRatio && undercutRatio > 0) ? (1 - undercutRatio) * wUndercut : 0;
           repricingScore = Number((ceilingComponent + velocityComponent + scarcityComponent + undercutComponent).toFixed(3));
         }
 
