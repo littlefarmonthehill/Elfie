@@ -512,7 +512,8 @@ function PricingGrid({ group, activeSort, cfg, onOpenSettings }: { group: Groupe
         <div className={cell('text-[8px] lg:text-[10px] uppercase font-bold text-blue-300 py-0.5')}>New</div>
         <div className={cell('text-[8px] lg:text-[10px] uppercase font-bold text-orange-300 py-0.5')}>Used</div>
       </div>
-      <DataRow label="Qty" sN={nLot?.soldTotalLots} sU={uLot?.soldTotalLots} lN={nLot?.stockTotalLots} lU={uLot?.stockTotalLots} />
+      <DataRow label="Lots" sN={nLot?.soldTotalLots} sU={uLot?.soldTotalLots} lN={nLot?.stockTotalLots} lU={uLot?.stockTotalLots} />
+      <DataRow label="Qty" sN={nLot?.soldQuantity} sU={uLot?.soldQuantity} lN={nLot?.stockQuantity} lU={uLot?.stockQuantity} />
       <DataRow label="Min" sN={nLot?.soldMinPrice} sU={uLot?.soldMinPrice} lN={nLot?.stockMinPrice} lU={uLot?.stockMinPrice} isMoney />
       <DataRow bold label="Avg" sN={nLot?.soldAvgPrice} sU={uLot?.soldAvgPrice} lN={nLot?.stockAvgPrice} lU={uLot?.stockAvgPrice} isMoney />
       <DataRow label="Max" sN={nLot?.soldMaxPrice} sU={uLot?.soldMaxPrice} lN={nLot?.stockMaxPrice} lU={uLot?.stockMaxPrice} isMoney />
