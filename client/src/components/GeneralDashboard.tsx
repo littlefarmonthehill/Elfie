@@ -113,117 +113,159 @@ function AlertRow({ icon: Icon, iconColor, label, sub, onClick, severity = 'warn
   );
 }
 
-function OpAreaCard({ label, Icon, color, stat, alerts, isRunning, onClick, isActive, channelNum, channelHex }: {
+function OpAreaCard({ label, Icon, color, stat, alerts, runningJobs, isRunning, lastActions, onClick, isActive, channelNum, channelHex }: {
   label: string; Icon: React.ElementType; color: string; stat?: string;
   alerts: Array<{ id: string; icon: React.ElementType; iconColor: string; label: string; sub?: string; severity: 'warn' | 'error' | 'info'; onClick?: () => void }>;
   runningJobs?: React.ReactNode; isRunning?: boolean; lastActions?: Array<{ label: string; time: string; ok: boolean }>;
   onClick?: () => void;
   isActive?: boolean; channelNum?: string; channelHex?: string;
 }) {
-  const colorMap: Record<string, { border: string; activeBorder: string; icon: string; headerBg: string; cardBg: string; glow: string; activeGlow: string }> = {
-    blue:   { border: 'border-blue-500/50',   activeBorder: 'border-blue-400/80',   icon: 'text-blue-300',   headerBg: 'from-blue-900/60 to-gray-900/80',   cardBg: 'bg-gradient-to-br from-blue-900/45 via-gray-900/75 to-blue-950/25',   glow: 'shadow-[0_0_16px_rgba(59,130,246,0.12)]',   activeGlow: 'shadow-[0_0_20px_rgba(27,124,229,0.40)]'  },
-    orange: { border: 'border-orange-500/50', activeBorder: 'border-orange-400/80', icon: 'text-orange-300', headerBg: 'from-orange-900/60 to-gray-900/80', cardBg: 'bg-gradient-to-br from-orange-900/45 via-gray-900/75 to-orange-950/25', glow: 'shadow-[0_0_16px_rgba(251,146,60,0.12)]',   activeGlow: 'shadow-[0_0_20px_rgba(232,97,28,0.40)]'   },
-    green:  { border: 'border-green-500/50',  activeBorder: 'border-green-400/80',  icon: 'text-green-300',  headerBg: 'from-green-900/60 to-gray-900/80',  cardBg: 'bg-gradient-to-br from-green-900/45 via-gray-900/75 to-green-950/25',  glow: 'shadow-[0_0_16px_rgba(34,197,94,0.12)]',   activeGlow: 'shadow-[0_0_20px_rgba(0,150,60,0.40)]'    },
-    purple: { border: 'border-purple-500/50', activeBorder: 'border-purple-400/80', icon: 'text-purple-300', headerBg: 'from-purple-900/60 to-gray-900/80', cardBg: 'bg-gradient-to-br from-purple-900/45 via-gray-900/75 to-purple-950/25', glow: 'shadow-[0_0_16px_rgba(168,85,247,0.12)]',  activeGlow: 'shadow-[0_0_20px_rgba(168,85,247,0.40)]'  },
-    yellow: { border: 'border-yellow-500/50', activeBorder: 'border-yellow-400/80', icon: 'text-yellow-300', headerBg: 'from-yellow-900/60 to-gray-900/80', cardBg: 'bg-gradient-to-br from-yellow-900/45 via-gray-900/75 to-yellow-950/25', glow: 'shadow-[0_0_16px_rgba(234,179,8,0.12)]',   activeGlow: 'shadow-[0_0_20px_rgba(245,194,0,0.40)]'   },
-  };
-  const c = colorMap[color] ?? colorMap.blue;
+  const [lastActionsOpen, setLastActionsOpen] = useState(false);
   const hex = channelHex ?? '#1B7CE5';
-  const errorAlerts = alerts.filter(a => a.severity === 'error').length;
-  const totalAlerts = alerts.length;
+
+  const cardBgMap: Record<string, string> = {
+    blue:   'bg-gradient-to-br from-blue-950/40 via-gray-950/70 to-blue-950/20',
+    orange: 'bg-gradient-to-br from-orange-950/40 via-gray-950/70 to-orange-950/20',
+    green:  'bg-gradient-to-br from-green-950/40 via-gray-950/70 to-green-950/20',
+    yellow: 'bg-gradient-to-br from-yellow-950/40 via-gray-950/70 to-yellow-950/20',
+    purple: 'bg-gradient-to-br from-purple-950/40 via-gray-950/70 to-purple-950/20',
+  };
+  const iconColorMap: Record<string, string> = {
+    blue: 'text-blue-300', orange: 'text-orange-300', green: 'text-green-300',
+    yellow: 'text-yellow-300', purple: 'text-purple-300',
+  };
+  const cardBg = cardBgMap[color] ?? cardBgMap.blue;
+  const iconColor = iconColorMap[color] ?? iconColorMap.blue;
+
+  const sevDotColor: Record<string, string> = { error: '#f87171', warn: '#fb923c', info: '#4ade80' };
+  const sevTextColor: Record<string, string> = { error: 'text-red-400', warn: 'text-orange-400', info: 'text-green-400' };
+
+  const sortedAlerts = [...alerts].sort((a, b) =>
+    ({ error: 0, warn: 1, info: 2 }[a.severity] ?? 9) - ({ error: 0, warn: 1, info: 2 }[b.severity] ?? 9)
+  );
+  const errorCount = sortedAlerts.filter(a => a.severity === 'error').length;
+  const hasAlerts = sortedAlerts.length > 0;
+  const hasRunning = isRunning || !!runningJobs;
+  const validActions = (lastActions ?? []).filter(a => a.time !== 'never');
 
   return (
-    <button
-      onClick={onClick}
-      className="w-full text-left transition-all duration-200 hover-elevate active-elevate-2 group"
+    <div
+      className={cn('rounded-lg border flex flex-col overflow-hidden transition-all duration-200 hover-elevate active-elevate-2', cardBg)}
+      style={{
+        height: '186px',
+        borderColor: isActive ? `${hex}99` : `${hex}44`,
+        boxShadow: isActive ? `0 0 18px ${hex}30` : `0 0 14px ${hex}10`,
+      }}
       data-testid={`ops-area-${label.toLowerCase()}`}
     >
-      {/* ── Header row: badge + icon + label + status ── */}
-      <div className="flex items-center gap-1.5 px-1 pb-1">
+      {/* ── Header ── */}
+      <button
+        onClick={onClick}
+        className="flex items-center gap-2 px-3 py-2.5 w-full text-left flex-shrink-0 hover-elevate"
+        style={{ borderBottom: `1px solid ${hex}22` }}
+      >
         {channelNum && (
           <div
-            className="shrink-0 rounded font-mono font-black leading-none transition-all duration-200"
+            className="shrink-0 rounded font-mono font-black leading-none"
             style={{
               fontSize: '7px', letterSpacing: '0.08em', padding: '2px 4px',
-              ...(isActive ? {
-                background: '#03040C',
-                border: `1px solid ${hex}`,
-                boxShadow: `0 0 5px ${hex}55`,
-                color: hex,
-              } : {
-                background: 'rgba(0,0,0,0.35)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                color: 'rgba(180,200,255,0.55)',
-              }),
+              background: isActive ? '#03040C' : 'rgba(0,0,0,0.35)',
+              border: `1px solid ${isActive ? hex : 'rgba(255,255,255,0.14)'}`,
+              boxShadow: isActive ? `0 0 5px ${hex}55` : 'none',
+              color: isActive ? hex : 'rgba(180,200,255,0.55)',
             }}
           >CH{channelNum}</div>
         )}
-        <Icon className={cn('w-3 h-3 shrink-0 transition-all', c.icon, isActive && 'drop-shadow-[0_0_3px_currentColor]')} />
-        <span className={cn('text-[10px] font-bold uppercase tracking-widest flex-1 min-w-0 truncate', isActive ? 'text-foreground' : 'text-foreground/65')}>
+        <Icon className={cn('w-3.5 h-3.5 shrink-0', iconColor, isActive && 'drop-shadow-[0_0_3px_currentColor]')} />
+        <span className={cn('text-xs font-bold uppercase tracking-wide flex-1 min-w-0 truncate', isActive ? 'text-foreground' : 'text-foreground/75')}>
           {label}
         </span>
-        {/* Status indicator */}
-        {totalAlerts > 0 ? (
-          <div className={cn('flex items-center gap-0.5 font-mono font-bold text-[9px] shrink-0', errorAlerts > 0 ? 'text-red-400' : 'text-yellow-400')}>
-            {errorAlerts > 0 ? <XCircle className="w-2.5 h-2.5" /> : <AlertTriangle className="w-2.5 h-2.5" />}
-            <span>{totalAlerts}</span>
-          </div>
-        ) : isRunning ? (
-          <div className="relative w-1.5 h-1.5 shrink-0">
+        {stat && (
+          <span className="text-[10px] text-muted-foreground/60 font-mono shrink-0 truncate max-w-[100px]">{stat}</span>
+        )}
+        {/* Status dot */}
+        {errorCount > 0 ? (
+          <div className="w-2 h-2 rounded-full bg-red-400 shrink-0 shadow-[0_0_5px_#f87171]" />
+        ) : hasAlerts ? (
+          <div className="w-2 h-2 rounded-full bg-orange-400 shrink-0 shadow-[0_0_5px_#fb923c]" />
+        ) : hasRunning ? (
+          <div className="relative w-2 h-2 shrink-0">
             <div className="absolute inset-0 rounded-full bg-cyan-400 animate-ping opacity-60" />
             <div className="absolute inset-0 rounded-full bg-cyan-400" />
           </div>
         ) : (
-          <div className="w-1.5 h-1.5 rounded-full bg-green-500/70 shrink-0" />
+          <div className="w-2 h-2 rounded-full bg-green-500 shrink-0 shadow-[0_0_5px_#22c55e55]" />
+        )}
+      </button>
+
+      {/* ── Body ── */}
+      <div className="flex-1 overflow-hidden px-3 py-2 flex flex-col gap-1.5 min-h-0">
+        {hasAlerts && (
+          <div className="space-y-1">
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/40 mb-0.5">Attention</p>
+            {sortedAlerts.slice(0, 4).map(a => (
+              <button
+                key={a.id}
+                onClick={a.onClick}
+                className={cn('flex items-start gap-2 w-full text-left min-w-0', a.onClick && 'cursor-pointer')}
+                data-testid={`alert-${a.id}`}
+              >
+                <div
+                  className="shrink-0 mt-[3px] rounded-full"
+                  style={{ width: 5, height: 5, background: sevDotColor[a.severity] ?? '#fb923c', boxShadow: `0 0 4px ${sevDotColor[a.severity] ?? '#fb923c'}` }}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className={cn('text-[10px] leading-tight truncate font-medium', sevTextColor[a.severity] ?? 'text-orange-400')}>{a.label}</p>
+                  {a.sub && <p className="text-[9px] text-muted-foreground/50 truncate leading-tight">{a.sub}</p>}
+                </div>
+                {a.onClick && <ArrowRight className="w-2.5 h-2.5 shrink-0 text-muted-foreground/40 mt-0.5" />}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {hasRunning && runningJobs && (
+          <div className="space-y-1">
+            {hasAlerts && <div className="h-px bg-white/5 my-0.5" />}
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/40 mb-0.5">Running</p>
+            {runningJobs}
+          </div>
+        )}
+
+        {!hasAlerts && !hasRunning && (
+          <div className="flex items-center gap-1.5 h-full justify-center">
+            <CheckCircle className="w-3 h-3 text-green-500/50" />
+            <span className="text-[10px] text-muted-foreground/40">All clear</span>
+          </div>
         )}
       </div>
 
-      {/* ── Terminal screen ── fixed height so all cards align */}
-      <div
-        className={cn('rounded-md overflow-hidden transition-all duration-200', c.cardBg, isActive ? c.activeBorder : c.border, 'border')}
-        style={{
-          height: '52px',
-          boxShadow: isActive
-            ? `0 0 14px ${hex}25, inset 0 0 12px rgba(0,0,0,0.5)`
-            : 'inset 0 0 10px rgba(0,0,0,0.4)',
-          position: 'relative',
-        }}
-      >
-        {/* Scanline overlay */}
-        <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2,
-          backgroundImage: 'repeating-linear-gradient(0deg,rgba(0,0,0,0) 0px,rgba(0,0,0,0) 3px,rgba(0,0,0,0.06) 3px,rgba(0,0,0,0.06) 4px)',
-        }} />
-        {/* Top-edge glow when active */}
-        {isActive && (
-          <div style={{
-            position: 'absolute', top: 0, left: '15%', right: '15%', height: '1px',
-            background: `linear-gradient(90deg,transparent,${hex}60,transparent)`,
-            pointerEvents: 'none', zIndex: 3,
-          }} />
-        )}
-        {/* Content */}
-        <div className="relative z-10 h-full flex flex-col justify-center px-2 py-1.5 gap-0.5">
-          {alerts.length > 0 ? (
-            alerts.slice(0, 3).map(a => (
-              <div key={a.id} className="flex items-center gap-1 min-w-0">
-                <a.icon className={cn('w-2.5 h-2.5 shrink-0 flex-none', a.iconColor)} />
-                <span className={cn(
-                  'text-[9px] leading-tight truncate flex-1',
-                  a.severity === 'error' ? 'text-red-400/90' : a.severity === 'warn' ? 'text-yellow-400/80' : 'text-blue-400/80'
-                )}>
-                  {a.label}
-                </span>
-              </div>
-            ))
-          ) : stat ? (
-            <span className="text-[9px] leading-tight" style={{ color: 'rgba(140,165,210,0.55)' }}>{stat}</span>
-          ) : (
-            <span className="text-[9px] leading-tight" style={{ color: 'rgba(100,130,180,0.4)' }}>All clear</span>
+      {/* ── Last Actions footer ── */}
+      {validActions.length > 0 && (
+        <div className="flex-shrink-0" style={{ borderTop: `1px solid ${hex}18` }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); setLastActionsOpen(o => !o); }}
+            className="flex items-center justify-between w-full px-3 py-1.5 hover-elevate"
+          >
+            <span className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/40">
+              <Clock className="w-2.5 h-2.5" />
+              Last Actions
+            </span>
+            {lastActionsOpen ? <ChevronUp className="w-2.5 h-2.5 text-muted-foreground/30" /> : <ChevronDown className="w-2.5 h-2.5 text-muted-foreground/30" />}
+          </button>
+          {lastActionsOpen && (
+            <div className="px-3 pb-2 space-y-0.5">
+              {validActions.map((a, i) => (
+                <div key={i} className="flex items-center justify-between gap-2">
+                  <span className="text-[9px] text-muted-foreground/50 truncate">{a.label}</span>
+                  <span className={cn('text-[9px] font-mono shrink-0', a.ok ? 'text-green-500/60' : 'text-red-400/70')}>{a.time}</span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
-      </div>
-    </button>
+      )}
+    </div>
   );
 }
 
