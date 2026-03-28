@@ -9441,26 +9441,38 @@ Format search_web URLs as markdown links.`;
   app.get("/api/inventory/stats", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
-      const stats = await db
-        .select({
+      const [stats, colorCount, categoryCount, soldAvgResult] = await Promise.all([
+        db.select({
           totalLots: sql<number>`COUNT(*)`,
           totalParts: sql<number>`SUM(${blInventory.quantity})`,
           totalValue: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))`,
           totalCost: sql<number>`SUM(${blInventory.quantity} * COALESCE(CAST(${blInventory.myCost} AS DECIMAL), 0))`,
-        })
-        .from(blInventory)
-        .where(eq(blInventory.orgId, orgId));
+        }).from(blInventory).where(eq(blInventory.orgId, orgId)),
 
-      const colorCount = await db
-        .select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` })
-        .from(blInventory)
-        .where(eq(blInventory.orgId, orgId));
+        db.select({ count: sql<number>`COUNT(DISTINCT ${blInventory.colorId})` })
+          .from(blInventory).where(eq(blInventory.orgId, orgId)),
 
-      const categoryCount = await db
-        .select({ count: sql<number>`COUNT(DISTINCT ${blCatalog.categoryId})` })
-        .from(blInventory)
-        .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
-        .where(eq(blInventory.orgId, orgId));
+        db.select({ count: sql<number>`COUNT(DISTINCT ${blCatalog.categoryId})` })
+          .from(blInventory)
+          .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
+          .where(eq(blInventory.orgId, orgId)),
+
+        // BL 6-month avg sold price × inventory quantity, summed across all matching lots.
+        // Matches on item_no (case-insensitive), item_type, color_id, and condition (N/U).
+        db.execute(sql`
+          SELECT COALESCE(SUM(i.quantity * CAST(p.sold_avg_price AS DECIMAL)), 0) AS sold_avg_value
+          FROM bl_inventory i
+          INNER JOIN price_guide_cache p
+            ON UPPER(i.item_no) = p.item_no
+           AND i.item_type = p.item_type
+           AND COALESCE(i.color_id, 0) = COALESCE(p.color_id, 0)
+           AND i.new_or_used = p.new_or_used
+          WHERE i.org_id = ${orgId}
+            AND p.sold_avg_price IS NOT NULL
+            AND CAST(p.sold_avg_price AS DECIMAL) > 0
+            AND (i.is_deleted IS NULL OR i.is_deleted = false)
+        `),
+      ]);
 
       res.json({
         totalLots: Number(stats[0]?.totalLots) || 0,
@@ -9469,6 +9481,7 @@ Format search_web URLs as markdown links.`;
         totalCost: Number(stats[0]?.totalCost) || 0,
         totalColors: Number(colorCount[0]?.count) || 0,
         totalCategories: Number(categoryCount[0]?.count) || 0,
+        soldAvgValue: Number(((soldAvgResult as any)[0])?.sold_avg_value) || 0,
       });
     } catch (error) {
       console.error("Error fetching inventory stats:", error);

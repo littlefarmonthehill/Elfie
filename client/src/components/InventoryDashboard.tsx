@@ -131,7 +131,7 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
     return new Intl.NumberFormat('en-US').format(value);
   };
 
-  const profitPotential = stats ? stats.totalValue - stats.totalCost : 0;
+  const soldAvgValue = stats?.soldAvgValue ?? 0;
 
   if (isLoading) {
     return (
@@ -219,10 +219,10 @@ export default function InventoryDashboard({ onItemClick, activeDrawer, onDrawer
                 {stats ? formatCurrency(stats.totalValue) : '$0.00'}
               </div>
             </div>
-            <div className="rounded-lg border border-green-400/65 bg-[#0a1e12]/90 p-2.5 md:p-3" data-testid="metric-profit">
-              <div className="text-[9px] md:text-[10px] text-gray-200 mb-1 leading-tight">Profit Potential</div>
+            <div className="rounded-lg border border-green-400/65 bg-[#0a1e12]/90 p-2.5 md:p-3" data-testid="metric-sold-avg">
+              <div className="text-[9px] md:text-[10px] text-gray-200 mb-1 leading-tight">Mkt Sold Avg</div>
               <div className="text-sm md:text-base font-bold font-mono text-lego-green leading-none truncate">
-                {formatCurrency(profitPotential)}
+                {soldAvgValue > 0 ? formatCurrency(soldAvgValue) : '—'}
               </div>
             </div>
           </div>
