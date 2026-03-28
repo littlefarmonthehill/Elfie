@@ -62,6 +62,7 @@ export default function BrickLinkSyncPanel({ onOpenSettings, inlineMode, onClose
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/sync/statuses'] });
       queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/health'] });
       setDrawerOpen(false);
       const added = data?.data?.inventoryAdded ?? 0;
       const updated = data?.data?.inventoryUpdated ?? 0;
@@ -86,6 +87,7 @@ export default function BrickLinkSyncPanel({ onOpenSettings, inlineMode, onClose
     if (wasRunning && !isRunning) {
       queryClient.invalidateQueries({ queryKey: ['/api/sync/statuses'] });
       queryClient.invalidateQueries({ queryKey: ['/api/inventory/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/health'] });
       queryClient.invalidateQueries({ queryKey: ['/api/sync/bricklink/recent-changes'] });
     }
   }, [isRunning]);
