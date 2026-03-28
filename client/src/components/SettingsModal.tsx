@@ -2781,7 +2781,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['/api/platform-sync/status'] }); },
   });
 
-  // Channel sync field configuration
+  // Channel sync field configuration — always fetch fresh from server when section opens
   const { data: channelSyncFieldConfig } = useQuery<{
     syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean;
     syncTierPrice: boolean; syncSalePercent: boolean;
@@ -2790,6 +2790,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   }>({
     queryKey: ['/api/channel-sync/config'],
     enabled: open && activeSection === 'platforms',
+    refetchOnMount: 'always',
+    staleTime: 0,
   });
   // Sync local state from server config whenever the data arrives or modal re-opens.
   // Switches save immediately on change so there's no partially-committed local state to protect.
@@ -2808,13 +2810,16 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const updateSyncFieldMutation = useMutation({
     mutationFn: (patch: Partial<{ syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean; syncTierPrice: boolean; syncSalePercent: boolean; syncBulkQty: boolean; syncLotWeight: boolean; syncStockroomModes: Record<string, 'skip'|'hidden'|'active'> }>) =>
       apiRequest('PATCH', '/api/channel-sync/config', patch),
-    onSuccess: (updatedConfig) => {
-      // Write the PATCH response directly into the cache — no follow-up GET needed.
-      // This prevents any race-condition window where a background refetch could
-      // return stale data and snap the UI back to the previous value.
-      queryClient.setQueryData(['/api/channel-sync/config'], updatedConfig);
+    onSuccess: (_data, variables) => {
+      // Invalidate so the query re-fetches the confirmed saved value from the server.
+      // This guarantees the UI always reflects what is actually stored in the DB.
+      queryClient.invalidateQueries({ queryKey: ['/api/channel-sync/config'] });
       // Also refresh the scope panel so it reflects the new stockroom modes.
       queryClient.invalidateQueries({ queryKey: ['/api/channel-sync/scope'] });
+      // Confirm save to the user (especially useful for stockroom mode changes).
+      if ('syncStockroomModes' in variables) {
+        toast({ title: 'Stockroom settings saved', description: 'BrickOwl will use these modes on the next sync.' });
+      }
     },
     onError: (err) => {
       // Revert all local sync-field state to whatever the server last confirmed.
