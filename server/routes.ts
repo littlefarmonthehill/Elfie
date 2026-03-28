@@ -9560,6 +9560,31 @@ Format search_web URLs as markdown links.`;
     }
   });
 
+  // ── Inventory Variants ───────────────────────────────────────────────────────
+  // All active lots for the same item_no (across colors & conditions) for an org
+  app.get("/api/inventory/variants/:itemNo", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { itemNo } = req.params;
+      const result = await db.execute(sql`
+        SELECT bi.id, bi.item_no, bi.color_id, bc.name AS color_name, bc.rgb AS color_rgb,
+               bi.new_or_used, bi.quantity, bi.unit_price
+        FROM bl_inventory bi
+        LEFT JOIN bl_colors bc ON bi.color_id = bc.id
+        WHERE bi.org_id = ${orgId}
+          AND LOWER(bi.item_no) = LOWER(${itemNo})
+          AND bi.deleted_at IS NULL
+          AND bi.quantity > 0
+        ORDER BY bi.color_id NULLS LAST, bi.new_or_used
+      `);
+      const rows = (result as any).rows ?? [];
+      res.json(rows);
+    } catch (err) {
+      console.error('Error fetching inventory variants:', err);
+      res.status(500).json({ error: 'Failed to fetch variants' });
+    }
+  });
+
   // ── Inventory Health ─────────────────────────────────────────────────────────
   // Summary counts for all health categories
   app.get("/api/inventory/health", isApproved, async (req: any, res) => {

@@ -354,6 +354,21 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
     staleTime: 5 * 60 * 1000,
   });
 
+  // Fetch all inventory variants (same item_no, any color/condition)
+  const { data: variants } = useQuery<Array<{
+    id: number; color_id: number | null; color_name: string | null; color_rgb: string | null;
+    new_or_used: string; quantity: number; unit_price: string | null;
+  }>>({
+    queryKey: ['/api/inventory/variants', data.itemNo],
+    queryFn: async () => {
+      const res = await fetch(`/api/inventory/variants/${encodeURIComponent(data.itemNo!)}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !data.loading && !!data.itemNo,
+    staleTime: 60_000,
+  });
+
   // Fetch all warehouse locations for this inventory item.
   // staleTime: 0 + refetchInterval: 60s ensures that if another team member moves
   // this part to a different bin while the drawer is open, the location refreshes
@@ -1453,6 +1468,50 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
 
           {/* Details Tab */}
           <TabsContent value="details" className="mt-0 space-y-2.5">
+            {/* Variants in Inventory */}
+            {variants && variants.length > 0 && (
+              <div className="app-card-muted p-2.5">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Layers className="h-3.5 w-3.5 text-violet-400" />
+                  <p className="text-[10px] md:text-sm font-bold text-violet-400">VARIANTS IN INVENTORY</p>
+                  <span className="ml-auto text-[9px] text-gray-500">{variants.length} lot{variants.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div className="space-y-1">
+                  {variants.map((v) => {
+                    const isCurrent = v.id === data.id;
+                    const condLabel = v.new_or_used === 'N' ? 'New' : v.new_or_used === 'U' ? 'Used' : v.new_or_used;
+                    const price = v.unit_price ? `$${parseFloat(v.unit_price).toFixed(2)}` : '—';
+                    return (
+                      <div
+                        key={v.id}
+                        className={`flex items-center gap-2 rounded px-2 py-1.5 text-xs ${isCurrent ? 'bg-violet-900/40 ring-1 ring-violet-500/40' : 'bg-white/5'}`}
+                      >
+                        {/* Color swatch */}
+                        <div
+                          className="w-3.5 h-3.5 rounded-full shrink-0 border border-white/20"
+                          style={{ background: v.color_rgb ? `#${v.color_rgb}` : '#555' }}
+                          title={v.color_name ?? 'Unknown color'}
+                        />
+                        {/* Color name */}
+                        <span className={`flex-1 truncate ${isCurrent ? 'text-violet-200 font-medium' : 'text-gray-300'}`} title={v.color_name ?? undefined}>
+                          {v.color_name ?? `Color #${v.color_id ?? '—'}`}
+                          {isCurrent && <span className="ml-1 text-[9px] text-violet-400 font-normal">(this lot)</span>}
+                        </span>
+                        {/* Condition badge */}
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${v.new_or_used === 'N' ? 'bg-lego-green/20 text-lego-green' : 'bg-amber-400/20 text-amber-400'}`}>
+                          {condLabel}
+                        </span>
+                        {/* Qty */}
+                        <span className="text-gray-400 font-mono text-[10px] w-8 text-right">{v.quantity}x</span>
+                        {/* Price */}
+                        <span className="text-white font-mono text-[10px] w-12 text-right">{price}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Identifiers */}
             <div className="app-card-muted p-2.5">
               <div className="flex items-center gap-1.5 mb-2">
