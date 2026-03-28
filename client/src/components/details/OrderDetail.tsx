@@ -496,11 +496,11 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
         const stockIssueItems = data.items.filter(i => i.stockWarning);
         const hasStockIssue = stockIssueItems.length > 0;
         return (
-      <div className={`bg-gradient-to-r ${hasStockIssue ? 'from-lego-red/10 via-lego-red/5' : 'from-lego-green/10 via-lego-green/5'} to-transparent border ${hasStockIssue ? 'border-lego-red/40' : 'border-lego-green/30'} rounded-lg overflow-hidden`}>
+      <div className={`bg-gradient-to-r ${isUnshippedCancellation || hasStockIssue ? 'from-lego-red/10 via-lego-red/5' : 'from-lego-green/10 via-lego-green/5'} to-transparent border ${isUnshippedCancellation || hasStockIssue ? 'border-lego-red/40' : 'border-lego-green/30'} rounded-lg overflow-hidden`}>
         <div className="flex items-center justify-between gap-2 px-3 pt-2 pb-1.5">
           <div className="flex items-center gap-2">
-            <Package className={`h-4 w-4 ${hasStockIssue ? 'text-lego-red' : 'text-lego-green'}`} />
-            <h4 className={`text-[10px] md:text-sm font-black ${hasStockIssue ? 'text-lego-red' : 'text-lego-green'}`}>ITEMS ({data.items.length})</h4>
+            <Package className={`h-4 w-4 ${isUnshippedCancellation || hasStockIssue ? 'text-lego-red' : 'text-lego-green'}`} />
+            <h4 className={`text-[10px] md:text-sm font-black ${isUnshippedCancellation || hasStockIssue ? 'text-lego-red' : 'text-lego-green'}`}>ITEMS ({data.items.length})</h4>
           </div>
           {hasStockIssue && (
             <div className="flex items-center gap-1.5 text-[9px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/30 rounded px-2 py-0.5" data-testid="stock-warning-banner">
@@ -548,7 +548,7 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
                   )}
                 </div>
                 <div className="col-span-2 text-right font-mono text-gray-300">${item.price.toFixed(2)}</div>
-                <div className="col-span-2 text-right font-mono font-bold text-lego-green">${(item.quantity * item.price).toFixed(2)}</div>
+                <div className={`col-span-2 text-right font-mono font-bold ${isUnshippedCancellation ? 'text-lego-red line-through opacity-60' : 'text-lego-green'}`}>${(item.quantity * item.price).toFixed(2)}</div>
               </div>
             ))}
           </div>
@@ -594,6 +594,17 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
                 <span className="font-mono text-emerald-400/80">${data.insuranceAmount.toFixed(2)}</span>
               </div>
             )}
+            {isUnshippedCancellation && (
+              <div className="pt-1 mt-1 border-t border-lego-red/30 space-y-1">
+                <div className="flex justify-between items-center gap-1">
+                  <span className="text-lego-red flex items-center gap-1 min-w-0">
+                    <RotateCcw className="h-2.5 w-2.5 flex-shrink-0" />
+                    <span className="truncate">{data.status === 'Returned' ? 'Returned — never shipped' : 'Cancelled — never shipped'}</span>
+                  </span>
+                  <span className="font-mono text-lego-red flex-shrink-0">-${total.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
             {hasAdjustments && (
               <div className="pt-1 mt-1 border-t border-lego-red/30 space-y-1">
                 {refundAdjustments.map(adj => (
@@ -626,18 +637,16 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
         </div>
 
         <div className={`rounded-lg p-3 flex flex-col justify-center items-center ${
-          isUnshippedCancellation
-            ? 'bg-gradient-to-br from-gray-700/30 to-gray-700/10 border-2 border-gray-600/50'
-            : hasAdjustments
-              ? 'bg-gradient-to-br from-lego-red/20 to-lego-red/5 border-2 border-lego-red/50'
-              : 'bg-gradient-to-br from-lego-green/20 to-lego-green/5 border-2 border-lego-green/50'
+          isUnshippedCancellation || hasAdjustments
+            ? 'bg-gradient-to-br from-lego-red/20 to-lego-red/5 border-2 border-lego-red/50'
+            : 'bg-gradient-to-br from-lego-green/20 to-lego-green/5 border-2 border-lego-green/50'
         }`}>
           {isUnshippedCancellation ? (
             <>
-              <span className="text-[9px] md:text-xs font-bold text-gray-500 mb-0.5">{data.status === 'Returned' ? 'RETURNED' : 'CANCELLED'}</span>
-              <span className="text-sm font-mono text-gray-600 line-through leading-none mb-1">${total.toFixed(2)}</span>
+              <span className="text-[9px] md:text-xs font-bold text-lego-red mb-0.5">{data.status === 'Returned' ? 'RETURNED' : 'CANCELLED'}</span>
+              <span className="text-sm font-mono text-gray-400 line-through leading-none mb-1">${total.toFixed(2)}</span>
               <span className="text-[9px] md:text-xs font-bold text-gray-400 mb-0.5">NET REVENUE</span>
-              <span className="text-2xl md:text-3xl font-black font-mono text-gray-400 leading-none">$0.00</span>
+              <span className="text-2xl md:text-3xl font-black font-mono text-lego-red leading-none">$0.00</span>
             </>
           ) : hasAdjustments ? (
             <>
