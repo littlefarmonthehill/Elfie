@@ -18,7 +18,7 @@ interface OrderDetailProps {
     orderId?: string;
     orderNumber?: string;
     platform?: 'BrickLink' | 'BrickOwl' | 'Other';
-    status?: 'Pending' | 'Paid' | 'Shipped' | 'Cancelled';
+    status?: 'Pending' | 'Paid' | 'Shipped' | 'Cancelled' | 'Returned';
     customer?: {
       name: string;
       email: string;
@@ -71,7 +71,7 @@ interface OrderDetailProps {
       orderNumber: string;
       orderDate: string;
       total: number;
-      status: 'Pending' | 'Paid' | 'Shipped' | 'Cancelled';
+      status: 'Pending' | 'Paid' | 'Shipped' | 'Cancelled' | 'Returned';
     }>;
     mergeGroupId?: string | null;
     mergeLinkedOrders?: Array<{
@@ -175,6 +175,7 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
       case 'Paid': return 'bg-lego-blue/20 text-lego-blue border-lego-blue/40';
       case 'Shipped': return 'bg-lego-green/20 text-lego-green border-lego-green/40';
       case 'Cancelled': return 'bg-lego-red/20 text-lego-red border-lego-red/40';
+      case 'Returned': return 'bg-orange-500/20 text-orange-400 border-orange-500/40';
       default: return 'bg-gray-800 text-gray-400 border-gray-700';
     }
   };
@@ -191,6 +192,8 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
   const totalShippingCost = shippingAdjustments.reduce((sum, a) => sum + Math.abs(a.amount), 0);
   const netTotal = total + adjustmentsTotal;
   const hasAdjustments = refundAdjustments.length > 0;
+  // Cancelled or returned with no ship date = order was never fulfilled; treat as $0 revenue
+  const isUnshippedCancellation = (data.status === 'Cancelled' || data.status === 'Returned') && !data.shippedDate;
   const hasFees = feeAdjustments.length > 0;
   const hasShippingCost = shippingAdjustments.length > 0;
 
@@ -206,7 +209,7 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
     ...data.previousOrders.map(order => ({ ...order, isCurrent: false })),
   ].sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime()) : [];
 
-  const canEdit = data.status !== 'Shipped' && data.status !== 'Cancelled';
+  const canEdit = data.status !== 'Shipped' && data.status !== 'Cancelled' && data.status !== 'Returned';
 
   return (
     <div className="space-y-2">
@@ -622,8 +625,21 @@ export default function OrderDetail({ data, onOrderSelect }: OrderDetailProps) {
           </div>
         </div>
 
-        <div className={`rounded-lg p-3 flex flex-col justify-center items-center ${hasAdjustments ? 'bg-gradient-to-br from-lego-red/20 to-lego-red/5 border-2 border-lego-red/50' : 'bg-gradient-to-br from-lego-green/20 to-lego-green/5 border-2 border-lego-green/50'}`}>
-          {hasAdjustments ? (
+        <div className={`rounded-lg p-3 flex flex-col justify-center items-center ${
+          isUnshippedCancellation
+            ? 'bg-gradient-to-br from-gray-700/30 to-gray-700/10 border-2 border-gray-600/50'
+            : hasAdjustments
+              ? 'bg-gradient-to-br from-lego-red/20 to-lego-red/5 border-2 border-lego-red/50'
+              : 'bg-gradient-to-br from-lego-green/20 to-lego-green/5 border-2 border-lego-green/50'
+        }`}>
+          {isUnshippedCancellation ? (
+            <>
+              <span className="text-[9px] md:text-xs font-bold text-gray-500 mb-0.5">{data.status === 'Returned' ? 'RETURNED' : 'CANCELLED'}</span>
+              <span className="text-sm font-mono text-gray-600 line-through leading-none mb-1">${total.toFixed(2)}</span>
+              <span className="text-[9px] md:text-xs font-bold text-gray-400 mb-0.5">NET REVENUE</span>
+              <span className="text-2xl md:text-3xl font-black font-mono text-gray-400 leading-none">$0.00</span>
+            </>
+          ) : hasAdjustments ? (
             <>
               <span className="text-[9px] md:text-xs font-bold text-gray-400 mb-0.5">ORIGINAL</span>
               <span className="text-sm font-mono text-gray-400 line-through leading-none mb-1">${total.toFixed(2)}</span>

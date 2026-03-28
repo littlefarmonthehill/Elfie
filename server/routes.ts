@@ -5290,7 +5290,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         orderNumber: order.orderNumber,
         platform: (order.marketplace === 'BrickOwl' ? 'BrickOwl' : 'BrickLink') as const,
         status: order.orderStatus === 'shipped' ? 'Shipped' as const :
-                order.orderStatus === 'cancelled' ? 'Cancelled' as const :
+                (order.orderStatus === 'cancelled' || order.orderStatus === 'Cancelled') ? 'Cancelled' as const :
+                order.orderStatus === 'returned' ? 'Returned' as const :
                 order.orderStatus === 'awaiting_payment' ? 'Pending' as const :
                 'Paid' as const,
         customer: {
@@ -5363,7 +5364,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             orderDate: o.orderDate.toISOString(),
             total: Number(o.orderTotal) || 0,
             status: o.orderStatus === 'shipped' ? 'Shipped' as const :
-                    o.orderStatus === 'cancelled' ? 'Cancelled' as const :
+                    (o.orderStatus === 'cancelled' || o.orderStatus === 'Cancelled') ? 'Cancelled' as const :
+                    o.orderStatus === 'returned' ? 'Returned' as const :
                     o.orderStatus === 'awaiting_payment' ? 'Pending' as const :
                     'Paid' as const,
           })),
