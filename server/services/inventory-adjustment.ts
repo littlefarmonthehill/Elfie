@@ -282,6 +282,15 @@ export async function updateOrderStatus(orderId: string, newStatus: string, opti
     })
     .where(eq(orders.id, orderId));
 
+  // Cascade returned/cancelled to any split children of this order
+  const closedStatuses = ['returned', 'cancelled', 'Cancelled'];
+  if (closedStatuses.includes(newStatus)) {
+    await db
+      .update(orders)
+      .set({ orderStatus: newStatus, updatedAt: new Date() })
+      .where(eq(orders.parentOrderId, orderId));
+  }
+
   const result = await adjustInventoryForOrder(orderId, undefined, options);
   return result;
 }

@@ -4750,21 +4750,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [order] = await db.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.orgId, orgId))).limit(1);
       if (!order) return res.status(404).json({ error: "Order not found" });
 
-      // Verify eligibility: must have a refund adjustment and net total ≤ 0
-      const adjResult = await db.execute(sql`
-        SELECT COALESCE(SUM(ABS(amount::numeric)) FILTER (WHERE type = 'refund'), 0) AS refund_total
-        FROM order_adjustments WHERE order_id = ${orderId}
-      `);
-      const refundTotal = parseFloat((adjResult.rows[0] as any)?.refund_total ?? '0');
-      const orderTotal = parseFloat(order.orderTotal ?? '0');
-      const netTotal = orderTotal - refundTotal;
-
-      if (!order.isTest && (refundTotal === 0 || netTotal > 0.01)) {
-        return res.status(400).json({
-          error: "Cannot mark as test: order must have a refund and a net total of $0",
-          refundTotal,
-          netTotal,
-        });
+      // Split child orders (parentOrderId set) inherit their parent's refund — skip the check.
+      // For all other orders: must have a refund adjustment and net total ≤ 0.
+      const isSplitChild = !!order.parentOrderId;
+      if (!order.isTest && !isSplitChild) {
+        const adjResult = await db.execute(sql`
+          SELECT COALESCE(SUM(ABS(amount::numeric)) FILTER (WHERE type = 'refund'), 0) AS refund_total
+          FROM order_adjustments WHERE order_id = ${orderId}
+        `);
+        const refundTotal = parseFloat((adjResult.rows[0] as any)?.refund_total ?? '0');
+        const orderTotal = parseFloat(order.orderTotal ?? '0');
+        const netTotal = orderTotal - refundTotal;
+        if (refundTotal === 0 || netTotal > 0.01) {
+          return res.status(400).json({
+            error: "Cannot mark as test: order must have a refund and a net total of $0",
+            refundTotal,
+            netTotal,
+          });
+        }
       }
 
       const [updated] = await db.update(orders)
