@@ -226,8 +226,8 @@ function ThemeSection({
 }
 
 const ITEM_TYPE_LABELS: Record<string, string> = {
-  S: 'Sets', P: 'Parts', M: 'Minifigs', G: 'Gear',
-  B: 'Books', C: 'Catalogs', I: 'Instructions', O: 'Orig. Boxes',
+  SET: 'Sets', PART: 'Parts', MINIFIG: 'Minifigs', GEAR: 'Gear',
+  BOOK: 'Books', CATALOG: 'Catalogs', INSTRUCTION: 'Instructions', ORIGINAL_BOX: 'Orig. Boxes',
 };
 
 function ItemTypeBreakdown({ rows }: { rows: ItemTypeRow[] }) {

@@ -6774,16 +6774,17 @@ What sellers and collectors are talking about on BrickLink forums this week.
 **PROMPT:** "Tell me more about the retiring sets"
 **PROMPT:** "What are the pricing trends this week?"
 
-BRICKLINK ITEM TYPES — always use itemType (not category) when the user asks about a specific type of item:
-- S = Sets (complete LEGO sets, e.g. set 75192)
-- P = Parts (individual LEGO elements/pieces)
-- M = Minifigs (minifigures)
-- G = Gear (accessories, games, apparel, etc.)
-- B = Books (LEGO-branded books)
-- C = Catalogs (old LEGO catalogs)
-- I = Instructions (instruction booklets)
-- O = Original Boxes (empty boxes)
-Category ≠ itemType. Category is the thematic grouping within an item type (e.g. "Technic", "Castle", "Star Wars"). Use get_inventory_stats with itemType: "S" (or "set") to answer "how many sets do we have", NOT category: "Set".
+BRICKLINK ITEM TYPES — the DB stores full-word values. Always use itemType (not category) when the user asks about a specific type of item:
+- SET = Complete LEGO sets (e.g. set 75192)
+- PART = Individual LEGO elements/pieces
+- MINIFIG = Minifigures
+- GEAR = Accessories, games, apparel, etc.
+- BOOK = LEGO-branded books
+- CATALOG = Old LEGO catalogs
+- INSTRUCTION = Instruction booklets
+- ORIGINAL_BOX = Empty boxes
+You may also pass common aliases like "set", "sets", "part", "parts", "minifig", "minifigs" — they are normalized automatically.
+Category ≠ itemType. Category is the thematic grouping within an item type (e.g. "Technic", "Castle", "Star Wars"). Use get_inventory_stats with itemType: "SET" (or "set") to answer "how many sets do we have", NOT category: "Set".
 
 If the user asks multiple things in one message (e.g., "do we have 3024 and who ordered it"), call the appropriate tools in parallel — one for each question.
 

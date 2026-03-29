@@ -294,17 +294,17 @@ export async function getInventoryStats(params?: {
 }) {
   const { category, colorName, itemType, _orgId } = params || {};
 
-  // BrickLink item type codes: S=Set, P=Part, M=Minifig, G=Gear, B=Book, C=Catalog, I=Instruction, O=Original Box
-  // Normalise common aliases the model might send
+  // DB stores full-word item type values: SET, PART, MINIFIG, GEAR, BOOK, CATALOG, INSTRUCTION, ORIGINAL_BOX
+  // Normalise whatever alias the model might send to the actual DB value
   const typeCodeMap: Record<string, string> = {
-    set: 'S', sets: 'S', s: 'S',
-    part: 'P', parts: 'P', p: 'P',
-    minifig: 'M', minifigs: 'M', minifigure: 'M', minifigures: 'M', m: 'M',
-    gear: 'G', g: 'G',
-    book: 'B', books: 'B', b: 'B',
-    catalog: 'C', c: 'C',
-    instruction: 'I', instructions: 'I', i: 'I',
-    box: 'O', 'original box': 'O', o: 'O',
+    set: 'SET', sets: 'SET', s: 'SET',
+    part: 'PART', parts: 'PART', p: 'PART',
+    minifig: 'MINIFIG', minifigs: 'MINIFIG', minifigure: 'MINIFIG', minifigures: 'MINIFIG', m: 'MINIFIG',
+    gear: 'GEAR', g: 'GEAR',
+    book: 'BOOK', books: 'BOOK', b: 'BOOK',
+    catalog: 'CATALOG', c: 'CATALOG',
+    instruction: 'INSTRUCTION', instructions: 'INSTRUCTION', i: 'INSTRUCTION',
+    box: 'ORIGINAL_BOX', 'original box': 'ORIGINAL_BOX', 'original_box': 'ORIGINAL_BOX', o: 'ORIGINAL_BOX',
   };
   const resolvedType = itemType
     ? (typeCodeMap[itemType.toLowerCase()] ?? itemType.toUpperCase())
@@ -347,8 +347,8 @@ export async function getInventoryStats(params?: {
       .orderBy(sql`COUNT(*) DESC`);
 
     const typeNames: Record<string, string> = {
-      S: 'Sets', P: 'Parts', M: 'Minifigs', G: 'Gear',
-      B: 'Books', C: 'Catalogs', I: 'Instructions', O: 'Original Boxes',
+      SET: 'Sets', PART: 'Parts', MINIFIG: 'Minifigs', GEAR: 'Gear',
+      BOOK: 'Books', CATALOG: 'Catalogs', INSTRUCTION: 'Instructions', ORIGINAL_BOX: 'Original Boxes',
     };
 
     return {
