@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  Package, PackagePlus, Sparkles, Search, Trash2, Plus, X,
+  Package, Search, Trash2, Plus, X,
   ChevronRight, ChevronDown, Wand2, Pencil, Check, AlertCircle,
   Layers, ArrowLeft, RefreshCw
 } from "lucide-react";
@@ -650,13 +650,6 @@ export default function BulkinatorPanel() {
         />
       )}
 
-      {/* Channel note */}
-      <div className="rounded-md border border-gray-700/40 bg-gray-800/20 px-2.5 py-2 flex items-start gap-1.5">
-        <Sparkles className="w-3 h-3 text-gray-500 flex-shrink-0 mt-0.5" />
-        <p className="text-[10px] text-gray-500 leading-relaxed">
-          Bulk lots sync to <strong className="text-gray-400">BrickOwl only</strong> — BrickLink doesn't support multi-item bundles. Activate a lot and run a channel sync to push it live.
-        </p>
-      </div>
     </div>
   );
 }

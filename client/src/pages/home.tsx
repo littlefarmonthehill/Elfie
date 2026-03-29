@@ -1481,7 +1481,7 @@ export default function Home() {
       {/* Tool drawers — Vaul drawer on mobile only; desktop uses inline overlay in center column */}
       {!isDesktop && (
         <Drawer open={!!(
-          (activeInventoryDrawer && activeInventoryDrawer !== 'inventoryhealth' && activeInventoryDrawer !== 'bricklinksync' && activeInventoryDrawer !== 'channelsync' && activeInventoryDrawer !== 'bulkinator') ||
+          (activeInventoryDrawer && activeInventoryDrawer !== 'inventoryhealth' && activeInventoryDrawer !== 'bricklinksync' && activeInventoryDrawer !== 'channelsync') ||
           (activeOrdersDrawer && activeOrdersDrawer !== 'bricklinksync' && activeOrdersDrawer !== 'brickowlsync') ||
           activeMarketingDrawer || activeSalesDrawer || billingOpen
         )} onOpenChange={(open) => { if (!open) closeActiveDrawer(); }}>
