@@ -357,7 +357,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
 
   // Fetch all inventory variants (same item_no, any color/condition)
   const { data: variants } = useQuery<Array<{
-    id: number; item_no: string; item_type: string | null;
+    id: number; item_no: string; item_type: string | null; date_created?: string | null;
     color_id: number | null; color_name: string | null; color_rgb: string | null;
     new_or_used: string; quantity: number; unit_price: string | null;
     is_stock_room: boolean | null; stock_room_id: string | null;
@@ -1484,12 +1484,13 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                 </div>
                 {/* Column header */}
                 <div className="grid gap-x-2 px-1.5 pb-1 border-b border-white/10 text-[9px] font-semibold uppercase tracking-wide text-gray-500"
-                  style={{ gridTemplateColumns: '2.5rem 3rem 3.5rem 2.5rem 3.5rem' }}>
+                  style={{ gridTemplateColumns: '2.5rem 3.5rem 2.5rem 3.5rem 3rem 4rem' }}>
                   <span className="text-center">Cond</span>
-                  <span className="text-center">Stkrm</span>
                   <span className="text-right">Lot ID</span>
                   <span className="text-right">Qty</span>
                   <span className="text-right">Price</span>
+                  <span className="text-center">Stkrm</span>
+                  <span className="text-right">Created</span>
                 </div>
                 {/* Grouped by color */}
                 <div className="space-y-2 mt-1">
@@ -1527,20 +1528,24 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                                 key={v.id}
                                 onClick={() => !isCurrent && onItemClick?.('inventory', v.id)}
                                 className={`grid gap-x-2 items-center rounded px-1.5 py-1 text-[10px] transition-colors ${isCurrent ? 'bg-violet-900/40 ring-1 ring-violet-500/40' : 'bg-white/5 hover:bg-white/10 cursor-pointer'}`}
-                                style={{ gridTemplateColumns: '2.5rem 3rem 3.5rem 2.5rem 3.5rem' }}
+                                style={{ gridTemplateColumns: '2.5rem 3.5rem 2.5rem 3.5rem 3rem 4rem' }}
                               >
                                 {/* Condition */}
                                 <span className={`text-center font-bold text-[9px] ${v.new_or_used === 'N' ? 'text-lego-green' : 'text-amber-400'}`}>
                                   {v.new_or_used === 'N' ? 'New' : v.new_or_used === 'U' ? 'Used' : v.new_or_used}
                                 </span>
-                                {/* Stockroom */}
-                                <span className={`text-center font-mono text-[9px] ${v.is_stock_room ? 'text-sky-400' : 'text-gray-600'}`}>{stockroom}</span>
                                 {/* Lot ID */}
                                 <span className={`text-right font-mono ${isCurrent ? 'text-violet-300' : 'text-gray-400'}`}>#{v.id}</span>
                                 {/* Qty */}
                                 <span className="text-right text-gray-300 font-mono">{v.quantity}</span>
                                 {/* Price */}
                                 <span className={`text-right font-mono ${isCurrent ? 'text-violet-200' : 'text-white'}`}>{price}</span>
+                                {/* Stockroom */}
+                                <span className={`text-center font-mono text-[9px] ${v.is_stock_room ? 'text-sky-400' : 'text-gray-600'}`}>{stockroom}</span>
+                                {/* Date Created */}
+                                <span className="text-right font-mono text-[9px] text-gray-500">
+                                  {v.date_created ? new Date(v.date_created).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '—'}
+                                </span>
                               </div>
                             );
                           })}
