@@ -1297,11 +1297,13 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
           <button
             onClick={() => setDrawerOpen(true)}
             data-testid="button-open-orders-drawer"
-            title="Open orders panel"
-            className="tool-tab tool-tab-off ml-auto border-transparent hover:text-gray-100"
+            title={sortedOrders.length > 0 ? `${selectedOrders.size} of ${sortedOrders.length} orders selected` : 'Open orders panel'}
+            className="ml-auto flex items-center gap-1.5 px-2 py-1 rounded-md text-gray-500 hover:text-gray-200 hover:bg-white/5 transition-colors"
           >
-            Orders{sortedOrders.length > 0 ? ` (${selectedOrders.size} of ${sortedOrders.length})` : ''}
-            <PanelRight className="w-3.5 h-3.5" />
+            {sortedOrders.length > 0 && (
+              <span className="text-[10px] font-bold tabular-nums text-gray-400">{selectedOrders.size}/{sortedOrders.length}</span>
+            )}
+            <PanelRight className="w-4 h-4" />
           </button>
         </div>
 
