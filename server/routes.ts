@@ -10996,7 +10996,7 @@ Format search_web URLs as markdown links.`;
         ORDER BY inv.quantity DESC
         LIMIT 80
       `);
-      const openaiKey = getPlatformOpenAIKey();
+      const openaiKey = await getPlatformOpenAIKey();
       if (!openaiKey || sample.rows.length === 0) return res.json({ suggestions: [] });
       const { OpenAI } = await import('openai');
       const openai = new OpenAI({ apiKey: openaiKey });
