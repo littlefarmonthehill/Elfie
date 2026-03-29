@@ -399,24 +399,14 @@ function MessageContent({ content, imageUrl, items, orders, forumDiscussions, ma
       }
     };
 
-    const parseBoldAndText = (text: string, keyPrefix: string = 'b') => {
-      const parts: (string | JSX.Element)[] = [];
-      const boldRegex = /\*\*([^*]+)\*\*/g;
-      let lastIdx = 0;
-      let bMatch;
-      while ((bMatch = boldRegex.exec(text)) !== null) {
-        if (bMatch.index > lastIdx) {
-          parts.push(text.substring(lastIdx, bMatch.index));
-        }
-        parts.push(
-          <strong key={`${keyPrefix}-${bMatch.index}`} className="text-gray-100 font-semibold">{bMatch[1]}</strong>
-        );
-        lastIdx = bMatch.index + bMatch[0].length;
-      }
-      if (lastIdx < text.length) {
-        parts.push(text.substring(lastIdx));
-      }
-      return parts.length > 0 ? parts : [text];
+    const parseBoldAndText = (text: string, _keyPrefix: string = 'b') => {
+      // Strip ** markers to plain text — Elfie should use structure (bullets, stat cards)
+      // for emphasis, not inline markdown bold. This also catches any ** that leaked through.
+      // Single * (italic) markers are stripped too.
+      const stripped = text
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/\*([^*]+)\*/g, '$1');
+      return [stripped];
     };
 
     const parseInlineContent = (text: string) => {
