@@ -367,9 +367,9 @@ function ItemsTable({ items, type }: { items: AcqCommonItem[] | AcqNewItem[]; ty
   );
 
   return (
-    <div className="rounded-lg border border-gray-700/60 overflow-hidden">
+    <div className="rounded-lg border border-gray-700/60">
       <div className="overflow-x-auto">
-        <table className="w-full text-[11px]">
+        <table className="w-full min-w-[520px] text-[11px]">
           <thead>
             <tr className="border-b border-gray-700/60 bg-gray-900/60">
               <Th col="itemNo" align="left">Part / Color</Th>
