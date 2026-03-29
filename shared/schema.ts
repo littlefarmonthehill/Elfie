@@ -794,9 +794,12 @@ export const bulkLots = pgTable("bulk_lots", {
   description: text("description"),                   // AI-generated or user-written listing description
   bulkType:    text("bulk_type").notNull(),             // 'same_part' | 'mixed_parts'
   unitPrice:   decimal("unit_price", { precision: 10, scale: 2 }), // Price for the entire bundle
+  quantity:    integer("quantity").notNull().default(1),            // How many copies of this bundle are for sale
+  condition:   text("condition").notNull().default('U'),            // 'N' = New, 'U' = Used — channel-agnostic
   status:      text("status").notNull().default('draft'), // 'draft' | 'active' | 'inactive'
   // Channel metadata — populated once the lot is pushed to BO
-  boLotId:     text("bo_lot_id"),
+  boBoid:      text("bo_boid"),            // Generated unique identifier used as the item reference on BrickOwl
+  boLotId:     text("bo_lot_id"),          // BO inventory lot_id returned after creating the listing
   lastSyncedAt: timestamp("last_synced_at"),
   syncError:   text("sync_error"),
   createdAt:   timestamp("created_at").defaultNow().notNull(),

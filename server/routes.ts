@@ -11084,8 +11084,10 @@ Respond ONLY with valid JSON array, no markdown, no explanation:
       const orgId = reqOrgId(req);
       const rows = await db.execute(sql`
         SELECT
-          bl.id, bl.name, bl.description, bl.bulk_type, bl.unit_price, bl.status,
-          bl.bo_lot_id, bl.last_synced_at, bl.sync_error, bl.created_at, bl.updated_at,
+          bl.id, bl.name, bl.description, bl.bulk_type, bl.unit_price,
+          bl.quantity, bl.condition, bl.status,
+          bl.bo_boid, bl.bo_lot_id, bl.last_synced_at, bl.sync_error,
+          bl.created_at, bl.updated_at,
           COUNT(bli.id)::int AS item_count,
           COALESCE(SUM(bli.quantity), 0)::int AS total_quantity
         FROM bulk_lots bl
@@ -11107,7 +11109,8 @@ Respond ONLY with valid JSON array, no markdown, no explanation:
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
       const [lot] = await db.execute(sql`
-        SELECT id, name, description, bulk_type, unit_price, status, bo_lot_id, last_synced_at, sync_error, created_at, updated_at
+        SELECT id, name, description, bulk_type, unit_price, quantity, condition, status,
+               bo_boid, bo_lot_id, last_synced_at, sync_error, created_at, updated_at
         FROM bulk_lots WHERE id = ${id} AND org_id = ${orgId}
       `).then(r => r.rows);
       if (!lot) return res.status(404).json({ error: 'Not found' });
@@ -11139,12 +11142,14 @@ Respond ONLY with valid JSON array, no markdown, no explanation:
   app.post('/api/bulk-lots', isApproved, async (req, res) => {
     try {
       const orgId = reqOrgId(req);
-      const { name, description, bulkType, unitPrice, status } = req.body;
+      const { name, description, bulkType, unitPrice, status, condition, quantity } = req.body;
       if (!name || !bulkType) return res.status(400).json({ error: 'name and bulkType are required' });
       if (!['same_part', 'mixed_parts'].includes(bulkType)) return res.status(400).json({ error: 'Invalid bulkType' });
+      const cond = condition && ['N', 'U'].includes(condition) ? condition : 'U';
+      const qty  = quantity && Number.isInteger(Number(quantity)) && Number(quantity) >= 1 ? Number(quantity) : 1;
       const [row] = await db.execute(sql`
-        INSERT INTO bulk_lots (org_id, name, description, bulk_type, unit_price, status)
-        VALUES (${orgId}, ${name}, ${description ?? null}, ${bulkType}, ${unitPrice ?? null}, ${status ?? 'draft'})
+        INSERT INTO bulk_lots (org_id, name, description, bulk_type, unit_price, status, condition, quantity)
+        VALUES (${orgId}, ${name}, ${description ?? null}, ${bulkType}, ${unitPrice ?? null}, ${status ?? 'draft'}, ${cond}, ${qty})
         RETURNING *
       `).then(r => r.rows);
       res.json(row);
@@ -11153,13 +11158,13 @@ Respond ONLY with valid JSON array, no markdown, no explanation:
     }
   });
 
-  // PATCH /api/bulk-lots/:id — update name/description/price/status
+  // PATCH /api/bulk-lots/:id — update name/description/price/status/quantity/condition
   app.patch('/api/bulk-lots/:id', isApproved, async (req, res) => {
     try {
       const orgId = reqOrgId(req);
       const id = parseInt(req.params.id);
       if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
-      const { name, description, unitPrice, status } = req.body;
+      const { name, description, unitPrice, status, quantity, condition } = req.body;
       // Build a partial update object for Drizzle
       const patch: Record<string, any> = { updatedAt: new Date() };
       if (name !== undefined) patch.name = name;
@@ -11168,6 +11173,15 @@ Respond ONLY with valid JSON array, no markdown, no explanation:
       if (status !== undefined) {
         if (!['draft', 'active', 'inactive'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
         patch.status = status;
+      }
+      if (quantity !== undefined) {
+        const qty = parseInt(quantity);
+        if (isNaN(qty) || qty < 1) return res.status(400).json({ error: 'quantity must be a positive integer' });
+        patch.quantity = qty;
+      }
+      if (condition !== undefined) {
+        if (!['N', 'U'].includes(condition)) return res.status(400).json({ error: 'condition must be N or U' });
+        patch.condition = condition;
       }
       if (Object.keys(patch).length === 1) return res.status(400).json({ error: 'No updatable fields provided' });
       const { bulkLots: bulkLotsTable } = await import('@shared/schema');
@@ -11238,6 +11252,77 @@ Respond ONLY with valid JSON array, no markdown, no explanation:
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // POST /api/bulk-lots/:id/sync-to-bo — push a bulk lot to BrickOwl
+  // Generates a unique bo_boid on first call and uses our internal lot ID as external_id.
+  // On subsequent calls, updates the existing BO listing in-place.
+  app.post('/api/bulk-lots/:id/sync-to-bo', isApproved, async (req, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+      const [lot] = await db.execute(sql`
+        SELECT id, name, description, bulk_type, unit_price, quantity, condition,
+               status, bo_boid, bo_lot_id
+        FROM bulk_lots WHERE id = ${id} AND org_id = ${orgId}
+      `).then(r => r.rows) as any[];
+      if (!lot) return res.status(404).json({ error: 'Not found' });
+      if (!lot.unit_price) return res.status(400).json({ error: 'Set a price before syncing to BrickOwl' });
+
+      const { createBrickOwlLot, updateBrickOwlLot } = await import('./services/brickowl');
+      const boCondition = lot.condition === 'N' ? 'new' : 'usedg';
+
+      // If this lot already has a BO listing, update it in-place
+      if (lot.bo_lot_id) {
+        await updateBrickOwlLot({
+          lot_id: lot.bo_lot_id,
+          absolute_quantity: lot.quantity ?? 1,
+          price: parseFloat(lot.unit_price),
+          public_note: lot.description ?? undefined,
+          condition: boCondition,
+          for_sale: lot.status === 'active' ? 1 : 0,
+        }, orgId);
+        await db.execute(sql`
+          UPDATE bulk_lots
+          SET last_synced_at = now(), sync_error = null, updated_at = now()
+          WHERE id = ${id}
+        `);
+        return res.json({ ok: true, boLotId: lot.bo_lot_id, boBoid: lot.bo_boid });
+      }
+
+      // First sync — generate a unique boid if we don't have one yet
+      let boBoid = lot.bo_boid as string | null;
+      if (!boBoid) {
+        boBoid = `ELFIE-BULK-${crypto.randomUUID()}`;
+        await db.execute(sql`UPDATE bulk_lots SET bo_boid = ${boBoid} WHERE id = ${id}`);
+      }
+
+      const boResult = await createBrickOwlLot({
+        boid:         boBoid,
+        quantity:     lot.quantity ?? 1,
+        price:        parseFloat(lot.unit_price),
+        condition:    boCondition,
+        for_sale:     lot.status === 'active' ? 1 : 0,
+        public_note:  lot.description ?? undefined,
+        external_id:  String(id),              // Our internal lot ID stored on the BO listing
+      }, orgId);
+
+      const boLotId = boResult?.lot_id ? String(boResult.lot_id) : null;
+      await db.execute(sql`
+        UPDATE bulk_lots
+        SET bo_lot_id = ${boLotId}, bo_boid = ${boBoid},
+            last_synced_at = now(), sync_error = null, updated_at = now()
+        WHERE id = ${id}
+      `);
+      res.json({ ok: true, boLotId, boBoid });
+    } catch (err: any) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await db.execute(sql`
+        UPDATE bulk_lots SET sync_error = ${msg}, updated_at = now() WHERE id = ${req.params.id as any}
+      `).catch(() => {});
+      res.status(500).json({ error: msg });
     }
   });
 

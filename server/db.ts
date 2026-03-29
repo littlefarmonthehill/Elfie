@@ -2357,6 +2357,19 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE channel_sync_config ADD COLUMN IF NOT EXISTS sync_bulk_lots boolean NOT NULL DEFAULT false`);
     console.log('[Migration] Phase-98 (sync_bulk_lots on channel_sync_config) complete.');
 
+    // Phase-99: Add quantity and condition to bulk_lots.
+    // quantity — how many copies of this bundle are for sale (channel-agnostic).
+    // condition — 'N' (New) or 'U' (Used), required by all selling channels.
+    await client.query(`ALTER TABLE bulk_lots ADD COLUMN IF NOT EXISTS quantity integer NOT NULL DEFAULT 1`);
+    await client.query(`ALTER TABLE bulk_lots ADD COLUMN IF NOT EXISTS condition text NOT NULL DEFAULT 'U'`);
+    console.log('[Migration] Phase-99 (quantity + condition on bulk_lots) complete.');
+
+    // Phase-100: Add bo_boid to bulk_lots.
+    // bo_boid — generated unique identifier used as the item reference when creating a BO listing.
+    // The internal bulk lot ID is stored as external_id on the BO listing for cross-reference.
+    await client.query(`ALTER TABLE bulk_lots ADD COLUMN IF NOT EXISTS bo_boid text`);
+    console.log('[Migration] Phase-100 (bo_boid on bulk_lots) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

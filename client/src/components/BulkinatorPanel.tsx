@@ -21,7 +21,10 @@ interface BulkLot {
   description: string | null;
   bulk_type: 'same_part' | 'mixed_parts';
   unit_price: string | null;
+  quantity: number;
+  condition: 'N' | 'U';
   status: 'draft' | 'active' | 'inactive';
+  bo_boid: string | null;
   bo_lot_id: string | null;
   last_synced_at: string | null;
   sync_error: string | null;
@@ -180,9 +183,10 @@ function CreateLotForm({ onCreated, onCancel }: {
   const { toast } = useToast();
   const [name, setName] = useState('');
   const [bulkType, setBulkType] = useState<'same_part' | 'mixed_parts'>('mixed_parts');
+  const [condition, setCondition] = useState<'N' | 'U'>('U');
 
   const createMutation = useMutation({
-    mutationFn: () => apiRequest('POST', '/api/bulk-lots', { name: name.trim(), bulkType }),
+    mutationFn: () => apiRequest('POST', '/api/bulk-lots', { name: name.trim(), bulkType, condition }),
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/bulk-lots'] });
       onCreated(data);
@@ -220,6 +224,27 @@ function CreateLotForm({ onCreated, onCancel }: {
           ? 'One part number across multiple colors — e.g. 100× 1×2 Plates in assorted colors.'
           : 'Multiple different parts grouped by theme or category — e.g. City Police Parts Lot.'}
       </p>
+      {/* Condition */}
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] text-gray-500 w-16 shrink-0">Condition</span>
+        <div className="flex gap-1">
+          {(['N', 'U'] as const).map(c => (
+            <button
+              key={c}
+              onClick={() => setCondition(c)}
+              className={cn(
+                "text-[10px] font-medium px-2.5 py-1 rounded border transition-colors",
+                condition === c
+                  ? c === 'N' ? "border-green-500/60 bg-green-900/40 text-green-200" : "border-amber-500/60 bg-amber-900/40 text-amber-200"
+                  : "border-gray-600/60 text-gray-500 hover:text-gray-300"
+              )}
+              data-testid={`button-create-condition-${c}`}
+            >
+              {c === 'N' ? 'New' : 'Used'}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="flex gap-2">
         <Button size="sm" variant="outline" onClick={onCancel} className="flex-1 text-xs border-gray-600 text-gray-400">Cancel</Button>
         <Button size="sm" onClick={() => createMutation.mutate()} disabled={!name.trim() || createMutation.isPending}
@@ -437,6 +462,43 @@ function LotDetail({ lotId, onBack }: { lotId: number; onBack: () => void }) {
             <Pencil className="w-2.5 h-2.5 opacity-0 group-hover:opacity-60 transition-opacity" />
           </button>
         )}
+      </div>
+
+      {/* Condition + Quantity */}
+      <div className="rounded-md border border-gray-700/60 bg-gray-800/20 px-3 py-2.5 flex items-center gap-3">
+        {/* Condition toggle */}
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 w-16 shrink-0">Condition</span>
+        <div className="flex gap-1">
+          {(['N', 'U'] as const).map(c => (
+            <button
+              key={c}
+              onClick={() => patchMutation.mutate({ condition: c })}
+              className={cn(
+                "text-[10px] font-medium px-2 py-0.5 rounded border transition-colors",
+                lot.condition === c
+                  ? c === 'N' ? "border-green-500/60 bg-green-900/40 text-green-200" : "border-amber-500/60 bg-amber-900/40 text-amber-200"
+                  : "border-gray-600/60 text-gray-500 hover:text-gray-300"
+              )}
+              data-testid={`button-bulk-condition-${c}`}
+            >
+              {c === 'N' ? 'New' : 'Used'}
+            </button>
+          ))}
+        </div>
+        <div className="w-px h-4 bg-gray-700/60 shrink-0" />
+        {/* Quantity */}
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 shrink-0">Qty</span>
+        <input
+          type="number"
+          min="1"
+          value={lot.quantity ?? 1}
+          onChange={e => {
+            const v = parseInt(e.target.value);
+            if (!isNaN(v) && v >= 1) patchMutation.mutate({ quantity: v });
+          }}
+          className="w-14 bg-transparent text-xs text-gray-100 border-b border-gray-600 outline-none text-center"
+          data-testid="input-bulk-quantity"
+        />
       </div>
 
       {/* Description */}
