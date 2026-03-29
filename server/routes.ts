@@ -5197,11 +5197,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch order items
       const items = await db.select().from(orderDetails).where(eq(orderDetails.orderId, orderId));
 
-      // Look up BrickLink part numbers and current quantities for all items that
-      // have a bricklinkInventoryId (covers both the backfill case and stock-warning logic).
-      const allInventoryIds = items
-        .filter(i => i.bricklinkInventoryId != null)
-        .map(i => i.bricklinkInventoryId as number);
+      // For BrickOwl items that have no direct bricklinkInventoryId, resolve via channel_lot_links.
+      // boLotId on order_details is the BO lot_id recorded at purchase time.
+      const boLotIdsNeedingResolution = items
+        .filter(i => i.bricklinkInventoryId == null && i.boLotId != null)
+        .map(i => i.boLotId as string);
+      const boLotToBlInvId: Record<string, number> = {};
+      if (boLotIdsNeedingResolution.length > 0) {
+        const links = await db
+          .select({ channelLotId: channelLotLinks.channelLotId, blInvId: channelLotLinks.blInvId })
+          .from(channelLotLinks)
+          .where(and(
+            eq(channelLotLinks.orgId, orgId),
+            eq(channelLotLinks.channel, 'brickowl'),
+            inArray(channelLotLinks.channelLotId, boLotIdsNeedingResolution),
+          ));
+        for (const link of links) {
+          boLotToBlInvId[link.channelLotId] = link.blInvId;
+        }
+      }
+
+      // Look up BrickLink part numbers and current quantities for all resolved inventory IDs.
+      const allInventoryIds = [
+        ...items.filter(i => i.bricklinkInventoryId != null).map(i => i.bricklinkInventoryId as number),
+        ...Object.values(boLotToBlInvId),
+      ].filter((v, i, a) => a.indexOf(v) === i); // dedupe
       const fallbackItemNoMap: Record<number, string> = {};
       const currentQtyMap: Record<number, number> = {};
       if (allInventoryIds.length > 0) {
@@ -5317,7 +5337,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         weight: order.weight ? Number(order.weight) : null,
         weightUnits: order.weightUnits || 'oz',
         items: items.map(item => {
-          const invId = item.bricklinkInventoryId;
+          // Resolve the effective BL inventory ID: direct for BL orders, mapped for BO orders.
+          const invId = item.bricklinkInventoryId
+            ?? (item.boLotId != null ? (boLotToBlInvId[item.boLotId] ?? null) : null);
           const currentInventoryQty = invId != null && invId in currentQtyMap ? currentQtyMap[invId] : null;
           const demand = invId != null ? crossOrderDemandMap[invId] : null;
           // Stock warning: only flag when 2+ open orders compete for the same part
