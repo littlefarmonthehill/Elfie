@@ -38,7 +38,7 @@ export default function DetailModal({ open, onClose, detail, onOrderSelect, onBr
   const renderDetail = () => {
     switch (detail.type) {
       case 'inventory':
-        return <InventoryDetail data={detail.data} onBrickLinkClick={onBrickLinkClick} onOpenSettings={onOpenSettings} initialTab={detail.initialTab} />;
+        return <InventoryDetail data={detail.data} onBrickLinkClick={onBrickLinkClick} onOpenSettings={onOpenSettings} onItemClick={onItemClick} initialTab={detail.initialTab} />;
       case 'order':
         return <OrderDetail data={detail.data} onOrderSelect={onOrderSelect} onItemClick={onItemClick} />;
       case 'sales':

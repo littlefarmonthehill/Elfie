@@ -149,6 +149,7 @@ interface InventoryDetailProps {
   };
   onBrickLinkClick?: (url: string) => void;
   onOpenSettings?: (section?: string) => void;
+  onItemClick?: (type: 'order' | 'inventory', id: number | string) => void;
   initialTab?: string;
 }
 
@@ -322,7 +323,7 @@ function ItemBusinessInsightsDialog(props: ItemInsightsDialogProps) {
   );
 }
 
-export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings, initialTab }: InventoryDetailProps) {
+export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings, onItemClick, initialTab }: InventoryDetailProps) {
   const [activeTab, setActiveTab] = useState(initialTab ?? "overview");
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
@@ -1499,7 +1500,8 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                     return (
                       <div
                         key={v.id}
-                        className={`grid gap-x-2 items-center rounded px-1.5 py-1 text-[10px] ${isCurrent ? 'bg-violet-900/40 ring-1 ring-violet-500/40' : 'bg-white/5'}`}
+                        onClick={() => !isCurrent && onItemClick?.('inventory', v.id)}
+                        className={`grid gap-x-2 items-center rounded px-1.5 py-1 text-[10px] transition-colors ${isCurrent ? 'bg-violet-900/40 ring-1 ring-violet-500/40' : 'bg-white/5 hover:bg-white/10 cursor-pointer'}`}
                         style={{ gridTemplateColumns: '1fr 2.5rem 3rem 3.5rem 2.5rem 3.5rem' }}
                       >
                         {/* Color */}
