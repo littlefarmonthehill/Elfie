@@ -592,11 +592,58 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, feedbackPending]);
 
+  // Bulk selection state
+  const [feedbackSelected, setFeedbackSelected] = useState<Set<string>>(new Set());
+  const [isBulkSending, setIsBulkSending] = useState(false);
+  const toggleFbSelect = (id: string) => setFeedbackSelected(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const fbAllIds = feedbackPending.map(o => o.id);
+  const fbAllSelected = fbAllIds.length > 0 && fbAllIds.every(id => feedbackSelected.has(id));
+  const fbSomeSelected = feedbackSelected.size > 0;
+  const toggleFbSelectAll = () =>
+    setFeedbackSelected(fbAllSelected ? new Set() : new Set(fbAllIds));
+
+  const sendBulkFeedback = async () => {
+    const ids = [...feedbackSelected].filter(id => !getFbGenerating(id));
+    if (!ids.length) return;
+    setIsBulkSending(true);
+    try {
+      const results = await Promise.allSettled(ids.map(id =>
+        apiRequest('POST', `/api/orders/${id}/feedback-left`, {
+          rating: getFbRating(id),
+          comment: getFbComment(id) || undefined,
+        }).then(() => id)
+      ));
+      const succeeded = results
+        .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
+        .map(r => r.value);
+      if (succeeded.length) {
+        setFeedbackDraft(prev => {
+          const next = { ...prev };
+          succeeded.forEach(id => delete next[id]);
+          return next;
+        });
+        setFeedbackSelected(prev => {
+          const next = new Set(prev);
+          succeeded.forEach(id => next.delete(id));
+          return next;
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] });
+      }
+    } finally {
+      setIsBulkSending(false);
+    }
+  };
+
   const markFeedbackMutation = useMutation({
     mutationFn: ({ orderId, rating, comment }: { orderId: string; rating?: string; comment?: string }) =>
       apiRequest('POST', `/api/orders/${orderId}/feedback-left`, { rating, comment }),
     onSuccess: (_data, { orderId }) => {
       setFeedbackDraft(prev => { const next = { ...prev }; delete next[orderId]; return next; });
+      setFeedbackSelected(prev => { const next = new Set(prev); next.delete(orderId); return next; });
       queryClient.invalidateQueries({ queryKey: ['/api/orders/feedback-pending'] });
     },
   });
@@ -1460,14 +1507,56 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                 <span className="text-sm font-bold text-teal-300">Customer Feedback</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-gray-500">
-                  {feedbackPending.length} order{feedbackPending.length !== 1 ? 's' : ''} need feedback
-                </span>
+                {feedbackPending.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={toggleFbSelectAll}
+                    title={fbAllSelected ? 'Deselect all' : 'Select all'}
+                    data-testid="button-fb-select-all"
+                    className="flex items-center gap-1.5 text-[10px] text-gray-500 hover:text-teal-300 transition-colors"
+                  >
+                    <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${fbAllSelected ? 'bg-teal-500 border-teal-500' : fbSomeSelected ? 'bg-teal-500/30 border-teal-500/60' : 'border-white/20'}`}>
+                      {(fbAllSelected || fbSomeSelected) && <div className="w-1.5 h-1.5 bg-white rounded-sm" />}
+                    </div>
+                    {feedbackPending.length} order{feedbackPending.length !== 1 ? 's' : ''}
+                  </button>
+                )}
                 <Button size="sm" variant="ghost" onClick={() => refetchFeedback()} className="text-gray-400 h-7 px-2">
                   <RotateCcw className="w-3 h-3" />
                 </Button>
               </div>
             </div>
+
+            {/* Bulk action bar — appears when anything is selected */}
+            {fbSomeSelected && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-teal-900/20 border border-teal-500/20">
+                <span className="text-[11px] text-teal-300 flex-1">
+                  {feedbackSelected.size} order{feedbackSelected.size !== 1 ? 's' : ''} selected
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setFeedbackSelected(new Set())}
+                  className="text-gray-500 text-xs h-7 px-2"
+                  data-testid="button-fb-deselect"
+                >
+                  Clear
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={isBulkSending || [...feedbackSelected].every(id => getFbGenerating(id))}
+                  onClick={sendBulkFeedback}
+                  className="text-teal-400 text-xs h-7 px-3 gap-1.5"
+                  data-testid="button-fb-send-bulk"
+                >
+                  {isBulkSending
+                    ? <><Loader2 className="w-3 h-3 animate-spin" />Sending…</>
+                    : <><CheckCheck className="w-3 h-3" />Send {feedbackSelected.size}</>
+                  }
+                </Button>
+              </div>
+            )}
 
             {feedbackPending.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-12 text-center">
@@ -1486,11 +1575,29 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                 return Array.from(groups.entries()).map(([marketplace, orders]) => (
                   <div key={marketplace} className="app-card-muted rounded-lg overflow-hidden">
                     {/* Marketplace header */}
-                    <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5 bg-teal-900/10">
-                      <Globe className="w-3.5 h-3.5 text-teal-400 shrink-0" />
-                      <span className="text-xs font-bold text-teal-300 uppercase tracking-wide">{marketplace}</span>
-                      <span className="ml-auto text-[10px] text-gray-500 tabular-nums">{orders.length}</span>
-                    </div>
+                    {(() => {
+                      const groupIds = orders.map(o => o.id);
+                      const groupAllSelected = groupIds.every(id => feedbackSelected.has(id));
+                      const groupSomeSelected = groupIds.some(id => feedbackSelected.has(id));
+                      const toggleGroup = () => setFeedbackSelected(prev => {
+                        const next = new Set(prev);
+                        if (groupAllSelected) groupIds.forEach(id => next.delete(id));
+                        else groupIds.forEach(id => next.add(id));
+                        return next;
+                      });
+                      return (
+                        <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5 bg-teal-900/10">
+                          <button type="button" onClick={toggleGroup} data-testid={`button-fb-group-select-${marketplace}`} className="shrink-0">
+                            <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${groupAllSelected ? 'bg-teal-500 border-teal-500' : groupSomeSelected ? 'bg-teal-500/30 border-teal-500/60' : 'border-white/20'}`}>
+                              {(groupAllSelected || groupSomeSelected) && <div className="w-1.5 h-1.5 bg-white rounded-sm" />}
+                            </div>
+                          </button>
+                          <Globe className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                          <span className="text-xs font-bold text-teal-300 uppercase tracking-wide">{marketplace}</span>
+                          <span className="ml-auto text-[10px] text-gray-500 tabular-nums">{orders.length}</span>
+                        </div>
+                      );
+                    })()}
                     {/* Order rows */}
                     <div className="divide-y divide-white/5">
                       {orders.map(o => {
@@ -1507,9 +1614,20 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                         } as const;
                         const currentRating = ratingConfig[fbRating];
                         return (
-                          <div key={o.id} className="px-3 py-2.5 space-y-2" data-testid={`feedback-row-${o.id}`}>
+                          <div key={o.id} className={`px-3 py-2.5 space-y-2 transition-colors ${feedbackSelected.has(o.id) ? 'bg-teal-900/10' : ''}`} data-testid={`feedback-row-${o.id}`}>
                             {/* Buyer + order meta */}
                             <div className="flex items-center gap-2 min-w-0">
+                              {/* Row checkbox */}
+                              <button
+                                type="button"
+                                onClick={() => toggleFbSelect(o.id)}
+                                data-testid={`button-fb-row-select-${o.id}`}
+                                className="shrink-0 mt-0.5"
+                              >
+                                <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors ${feedbackSelected.has(o.id) ? 'bg-teal-500 border-teal-500' : 'border-white/20 hover:border-teal-500/50'}`}>
+                                  {feedbackSelected.has(o.id) && <div className="w-1.5 h-1.5 bg-white rounded-sm" />}
+                                </div>
+                              </button>
                               <div className="flex-1 min-w-0">
                                 <span className="text-xs font-semibold text-white truncate block" data-testid={`text-buyer-${o.id}`}>
                                   {o.customerUsername ?? 'Unknown Buyer'}
