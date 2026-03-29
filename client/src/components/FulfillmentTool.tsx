@@ -551,13 +551,46 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
     staleTime: 0,
   });
   type FeedbackRating = 'positive' | 'neutral' | 'negative';
-  const [feedbackDraft, setFeedbackDraft] = useState<Record<string, { rating: FeedbackRating | null; comment: string }>>({});
-  const getFbRating = (id: string): FeedbackRating | null => feedbackDraft[id]?.rating ?? null;
+  type FeedbackDraftEntry = { rating: FeedbackRating; comment: string; generating: boolean };
+  const [feedbackDraft, setFeedbackDraft] = useState<Record<string, FeedbackDraftEntry>>({});
+  const getFbRating  = (id: string): FeedbackRating => feedbackDraft[id]?.rating ?? 'positive';
   const getFbComment = (id: string): string => feedbackDraft[id]?.comment ?? '';
-  const setFbRating = (id: string, rating: FeedbackRating) =>
-    setFeedbackDraft(prev => ({ ...prev, [id]: { comment: prev[id]?.comment ?? '', rating } }));
+  const getFbGenerating = (id: string): boolean => feedbackDraft[id]?.generating ?? false;
+
   const setFbComment = (id: string, comment: string) =>
-    setFeedbackDraft(prev => ({ ...prev, [id]: { rating: prev[id]?.rating ?? null, comment } }));
+    setFeedbackDraft(prev => ({ ...prev, [id]: { ...prev[id] ?? { rating: 'positive', generating: false }, comment } }));
+
+  const generateComment = async (orderId: string, rating: FeedbackRating, keepComment = false) => {
+    setFeedbackDraft(prev => ({
+      ...prev,
+      [orderId]: { rating, comment: keepComment ? (prev[orderId]?.comment ?? '') : '', generating: true },
+    }));
+    try {
+      const result: { comment: string } = await apiRequest('POST', `/api/orders/${orderId}/feedback-generate`, { rating });
+      setFeedbackDraft(prev => ({
+        ...prev,
+        [orderId]: { rating, comment: result.comment, generating: false },
+      }));
+    } catch {
+      setFeedbackDraft(prev => ({
+        ...prev,
+        [orderId]: { ...prev[orderId] ?? { rating, comment: '' }, rating, generating: false },
+      }));
+    }
+  };
+
+  const setFbRating = (id: string, rating: FeedbackRating) => generateComment(id, rating);
+
+  // Auto-init: when feedback tab is active and orders load, generate comments for new orders
+  useEffect(() => {
+    if (activeTab !== 'feedback') return;
+    for (const o of feedbackPending) {
+      if (!feedbackDraft[o.id]) {
+        generateComment(o.id, 'positive');
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, feedbackPending]);
 
   const markFeedbackMutation = useMutation({
     mutationFn: ({ orderId, rating, comment }: { orderId: string; rating?: string; comment?: string }) =>
@@ -1466,6 +1499,13 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                         const isSubmitting = markFeedbackMutation.isPending && markFeedbackMutation.variables?.orderId === o.id;
                         const fbRating = getFbRating(o.id);
                         const fbComment = getFbComment(o.id);
+                        const fbGenerating = getFbGenerating(o.id);
+                        const ratingConfig = {
+                          positive: { icon: ThumbsUp,   label: 'Praise',    activeClass: 'text-green-400 bg-green-900/40',  ringClass: 'ring-green-500/30' },
+                          neutral:  { icon: Minus,       label: 'Neutral',   activeClass: 'text-yellow-400 bg-yellow-900/40', ringClass: 'ring-yellow-500/30' },
+                          negative: { icon: ThumbsDown,  label: 'Complaint', activeClass: 'text-red-400 bg-red-900/40',      ringClass: 'ring-red-500/30' },
+                        } as const;
+                        const currentRating = ratingConfig[fbRating];
                         return (
                           <div key={o.id} className="px-3 py-2.5 space-y-2" data-testid={`feedback-row-${o.id}`}>
                             {/* Buyer + order meta */}
@@ -1483,47 +1523,70 @@ export default function FulfillmentTool({ onOrderDetail }: { onOrderDetail?: (or
                                 </div>
                               </div>
                             </div>
-                            {/* Rating + comment + Done */}
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {/* Rating picker */}
+
+                            {/* Rating picker */}
+                            <div className="flex items-center gap-1">
                               <div className="flex items-center gap-0.5 rounded-md border border-white/10 p-0.5 bg-black/20 shrink-0">
-                                {([
-                                  { value: 'positive' as const, icon: ThumbsUp, label: 'Praise', activeClass: 'text-green-400 bg-green-900/40' },
-                                  { value: 'neutral'  as const, icon: Minus,    label: 'Neutral', activeClass: 'text-yellow-400 bg-yellow-900/40' },
-                                  { value: 'negative' as const, icon: ThumbsDown, label: 'Complaint', activeClass: 'text-red-400 bg-red-900/40' },
-                                ] as const).map(({ value, icon: Icon, label, activeClass }) => (
-                                  <button
-                                    key={value}
-                                    type="button"
-                                    title={label}
-                                    onClick={() => setFbRating(o.id, value)}
-                                    data-testid={`button-fb-${value}-${o.id}`}
-                                    className={`flex items-center justify-center w-6 h-6 rounded transition-colors ${fbRating === value ? activeClass : 'text-gray-500 hover:text-gray-300'}`}
-                                  >
-                                    <Icon className="w-3 h-3" />
-                                  </button>
-                                ))}
+                                {(['positive', 'neutral', 'negative'] as const).map(v => {
+                                  const cfg = ratingConfig[v];
+                                  const Icon = cfg.icon;
+                                  return (
+                                    <button
+                                      key={v}
+                                      type="button"
+                                      title={cfg.label}
+                                      onClick={() => setFbRating(o.id, v)}
+                                      data-testid={`button-fb-${v}-${o.id}`}
+                                      className={`flex items-center justify-center w-6 h-6 rounded transition-colors ${fbRating === v ? cfg.activeClass : 'text-gray-500 hover:text-gray-300'}`}
+                                    >
+                                      <Icon className="w-3 h-3" />
+                                    </button>
+                                  );
+                                })}
                               </div>
-                              {/* Optional comment */}
-                              <input
-                                type="text"
-                                placeholder="Comment (optional)"
+                              <span className={`text-[10px] font-medium ml-1 ${currentRating.activeClass.split(' ')[0]}`}>
+                                {currentRating.label}
+                              </span>
+                              {/* Regenerate */}
+                              <button
+                                type="button"
+                                title="Regenerate with E.L.F.I.E."
+                                disabled={fbGenerating}
+                                onClick={() => generateComment(o.id, fbRating)}
+                                data-testid={`button-fb-regenerate-${o.id}`}
+                                className="ml-auto text-gray-600 hover:text-teal-400 disabled:opacity-40 transition-colors"
+                              >
+                                {fbGenerating
+                                  ? <Loader2 className="w-3 h-3 animate-spin text-teal-400" />
+                                  : <RotateCcw className="w-3 h-3" />}
+                              </button>
+                            </div>
+
+                            {/* Editable comment */}
+                            <div className="relative">
+                              <textarea
+                                rows={2}
+                                placeholder={fbGenerating ? 'E.L.F.I.E. is drafting…' : 'Feedback comment…'}
                                 value={fbComment}
                                 onChange={e => setFbComment(o.id, e.target.value)}
+                                disabled={fbGenerating}
                                 data-testid={`input-fb-comment-${o.id}`}
-                                className="flex-1 min-w-0 bg-black/20 border border-white/10 rounded-md px-2 h-7 text-[11px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-teal-500/50"
+                                className={`w-full bg-black/20 border rounded-md px-2 py-1.5 text-[11px] text-gray-300 placeholder-gray-600 focus:outline-none resize-none leading-relaxed transition-colors ${fbGenerating ? 'border-teal-500/30 opacity-60' : 'border-white/10 focus:border-teal-500/50'}`}
                               />
-                              {/* Done button */}
+                            </div>
+
+                            {/* Done button */}
+                            <div className="flex justify-end">
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                disabled={isSubmitting || !fbRating}
-                                onClick={() => markFeedbackMutation.mutate({ orderId: o.id, rating: fbRating ?? undefined, comment: fbComment || undefined })}
-                                className={`text-xs shrink-0 gap-1 h-7 px-2 ${fbRating ? 'text-teal-400' : 'text-gray-600'}`}
+                                disabled={isSubmitting || fbGenerating}
+                                onClick={() => markFeedbackMutation.mutate({ orderId: o.id, rating: fbRating, comment: fbComment || undefined })}
+                                className="text-teal-400 text-xs gap-1 h-7 px-3"
                                 data-testid={`button-feedback-done-${o.id}`}
                               >
                                 {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCheck className="w-3 h-3" />}
-                                Done
+                                Send Feedback
                               </Button>
                             </div>
                           </div>

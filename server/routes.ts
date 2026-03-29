@@ -17277,6 +17277,106 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     }
   });
 
+  // POST /api/orders/:orderId/feedback-generate — use E.L.F.I.E. to draft a feedback comment
+  app.post("/api/orders/:orderId/feedback-generate", isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { orderId } = req.params;
+      const { rating } = req.body as { rating?: 'positive' | 'neutral' | 'negative' };
+
+      const apiKey = await getPlatformOpenAIKey();
+      if (!apiKey) return res.status(400).json({ error: "OpenAI API key not configured" });
+
+      // Fetch order details
+      const [order] = await db
+        .select({
+          orderNumber: orders.orderNumber,
+          marketplace: orders.marketplace,
+          customerUsername: orders.customerUsername,
+          orderTotal: orders.orderTotal,
+          shipDate: orders.shipDate,
+          orderDate: orders.orderDate,
+        })
+        .from(orders)
+        .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)))
+        .limit(1);
+      if (!order) return res.status(404).json({ error: "Order not found" });
+
+      // Count how many times this buyer has ordered from this store
+      let repeatCount = 0;
+      if (order.customerUsername) {
+        const [countRow] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(orders)
+          .where(and(
+            eq(orders.orgId, orgId),
+            eq(orders.customerUsername, order.customerUsername),
+            eq(orders.isTest, false),
+          ));
+        repeatCount = countRow?.count ?? 1;
+      }
+
+      const ratingLabels: Record<string, string> = {
+        positive: 'Positive (Praise) — the transaction went smoothly, buyer paid promptly, no issues',
+        neutral:  'Neutral — the transaction was acceptable but not exceptional',
+        negative: 'Negative (Complaint) — the transaction had problems such as non-payment, returns, or communication issues',
+      };
+      const marketplace = order.marketplace ?? 'the marketplace';
+      const buyer = order.customerUsername ?? 'the buyer';
+      const total = order.orderTotal ? `$${parseFloat(order.orderTotal).toFixed(2)}` : 'unknown total';
+      const shipDate = order.shipDate ? new Date(order.shipDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
+      const isRepeat = repeatCount > 1;
+
+      const systemPrompt = `You are E.L.F.I.E., the AI assistant for a LEGO reselling store that operates on BrickLink and BrickOwl.
+Generate a brief, genuine seller feedback comment (1–2 sentences, max 200 characters) that the store owner will post on ${marketplace} for this buyer.
+Requirements:
+- Match the tone exactly to the rating — positive is warm and appreciative, neutral is matter-of-fact, negative is professional but firm
+- Be specific: mention the buyer by username, reference the transaction if relevant
+- Do NOT use clichés like "Great buyer!" alone or "Would recommend!"
+- If the buyer is a repeat customer, briefly acknowledge their loyalty in a positive rating
+- Output ONLY the comment text — no quotes, no explanation, no JSON`;
+
+      const userPrompt = `Rating: ${ratingLabels[rating ?? 'positive'] ?? ratingLabels.positive}
+Buyer: ${buyer}
+Marketplace: ${marketplace}
+Order total: ${total}${shipDate ? `\nShipped: ${shipDate}` : ''}
+${isRepeat ? `Repeat customer: Yes — this buyer has placed ${repeatCount} orders from our store` : 'First-time buyer'}
+
+Write a 1–2 sentence feedback comment for this order.`;
+
+      const completionModel = "gpt-4o-mini";
+      const client = new OpenAI({ apiKey });
+      const completion = await client.chat.completions.create({
+        model: completionModel,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.5,
+        max_tokens: 120,
+      });
+
+      if (completion.usage) {
+        const { trackUsage } = await import('./services/ai-usage-tracker');
+        trackUsage({
+          service: 'openai',
+          model: completionModel,
+          operation: 'order-feedback-generate',
+          inputTokens: completion.usage.prompt_tokens || 0,
+          outputTokens: completion.usage.completion_tokens || 0,
+          totalTokens: completion.usage.total_tokens || 0,
+          orgId: orgId || null,
+        });
+      }
+
+      const comment = completion.choices[0]?.message?.content?.trim() ?? '';
+      res.json({ comment });
+    } catch (err: any) {
+      console.error("Error generating feedback comment:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /api/orders/:orderId/feedback-left — post feedback to channel, then mark as done
   app.post("/api/orders/:orderId/feedback-left", isApproved, async (req: any, res) => {
     try {
