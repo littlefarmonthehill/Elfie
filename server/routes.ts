@@ -92,8 +92,10 @@ function activeOrderStatusWhere() {
 
 // ─── Multi-tenant helpers ─────────────────────────────────────────────────────
 
-/** Get the requesting user's orgId — falls back to the default org for safety. */
+/** Get the requesting user's orgId — respects super-admin impersonation. */
 function reqOrgId(req: any): string {
+  // If a super-admin is impersonating a tenant, use that tenant's orgId
+  if (req.session?.impersonatingOrgId) return req.session.impersonatingOrgId;
   return (req.user as any)?.orgId ?? 'org_planetbrick';
 }
 
@@ -836,6 +838,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating org active state:", error);
       res.status(500).json({ message: "Failed to update organization" });
+    }
+  });
+
+  // DELETE /api/platform-admin/orgs/:id — permanently delete an org and all its data (superAdmin only)
+  app.delete('/api/platform-admin/orgs/:id', isSuperAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      if (id === PLATFORM_ORG_ID || id === 'org_planetbrick' || id === '__platform__') {
+        return res.status(403).json({ message: "Cannot delete the platform organization." });
+      }
+      const [org] = await db.select().from(organizations).where(eq(organizations.id, id)).limit(1);
+      if (!org) return res.status(404).json({ message: "Organization not found." });
+      await storage.deleteOrganization(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting organization:", error);
+      res.status(500).json({ message: "Failed to delete organization" });
     }
   });
 

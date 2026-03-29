@@ -3362,6 +3362,22 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     onError: () => toast({ title: 'Failed to update organization', variant: 'destructive' }),
   });
 
+  const [superAdminDeleteOrgDialogOpen, setSuperAdminDeleteOrgDialogOpen] = useState(false);
+  const [superAdminDeleteConfirmName, setSuperAdminDeleteConfirmName] = useState('');
+
+  const superAdminDeleteOrgMutation = useMutation({
+    mutationFn: async (orgId: string) =>
+      apiRequest('DELETE', `/api/platform-admin/orgs/${orgId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/platform-admin/orgs'] });
+      setSuperAdminDeleteOrgDialogOpen(false);
+      setSuperAdminDeleteConfirmName('');
+      setActiveOrg(null);
+      toast({ title: 'Organization permanently deleted' });
+    },
+    onError: (err: any) => toast({ title: 'Failed to delete organization', description: err.message, variant: 'destructive' }),
+  });
+
   const impersonateMutation = useMutation({
     mutationFn: async (orgId: string) => apiRequest('POST', `/api/platform-admin/impersonate/${orgId}`, {}),
     onSuccess: () => { window.location.reload(); },
@@ -7908,7 +7924,17 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           <span className="text-xs text-gray-300">{org.isActive ? 'Active' : 'Suspended'}</span>
                           <span className="text-[10px] text-gray-500">{org.isActive ? '— organization can log in' : '— all access blocked'}</span>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-3 shrink-0">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-400 text-[10px] h-7 px-2"
+                            onClick={() => { setSuperAdminDeleteOrgDialogOpen(true); setSuperAdminDeleteConfirmName(''); }}
+                            data-testid={`btn-delete-org-${org.id}`}
+                          >
+                            <Trash2 className="w-3 h-3 mr-1" />
+                            Delete org
+                          </Button>
                           <span className="text-[10px] text-gray-600">{org.isActive ? 'Deactivate' : 'Reactivate'}</span>
                           <Switch
                             checked={!!org.isActive}
@@ -7918,6 +7944,43 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           />
                         </div>
                       </div>
+
+                      {/* Super-admin delete org confirmation dialog */}
+                      <Dialog open={superAdminDeleteOrgDialogOpen} onOpenChange={setSuperAdminDeleteOrgDialogOpen}>
+                        <DialogContent className="bg-gray-900 border-gray-700 max-w-sm">
+                          <DialogHeader>
+                            <DialogTitle className="text-red-400 flex items-center gap-2">
+                              <Trash2 className="w-4 h-4" />
+                              Delete Organization
+                            </DialogTitle>
+                            <DialogDescription className="text-gray-400 text-sm">
+                              This will permanently delete <span className="text-white font-semibold">{org.name}</span> and all its data — inventory, orders, users, settings, and everything else. This cannot be undone.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-3 py-2">
+                            <p className="text-xs text-gray-500">Type the organization name to confirm:</p>
+                            <Input
+                              value={superAdminDeleteConfirmName}
+                              onChange={e => setSuperAdminDeleteConfirmName(e.target.value)}
+                              placeholder={org.name}
+                              className="bg-gray-800 border-gray-600 text-white text-sm"
+                              data-testid="input-confirm-delete-org-name"
+                            />
+                          </div>
+                          <DialogFooter>
+                            <Button variant="ghost" size="sm" onClick={() => setSuperAdminDeleteOrgDialogOpen(false)}>Cancel</Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              disabled={superAdminDeleteConfirmName !== org.name || superAdminDeleteOrgMutation.isPending}
+                              onClick={() => superAdminDeleteOrgMutation.mutate(org.id)}
+                              data-testid="btn-confirm-delete-org"
+                            >
+                              {superAdminDeleteOrgMutation.isPending ? 'Deleting...' : 'Delete permanently'}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
                     </div>
 
                     {/* Plan tabs: Features | Limits | Billing */}

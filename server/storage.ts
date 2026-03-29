@@ -7,6 +7,7 @@ import {
   eodForms,
   appSettings,
   conversations,
+  conversationThreads,
   blApiCalls,
   syncMetadata,
   syncIssues,
@@ -23,6 +24,16 @@ import {
   orderDetails,
   inventoryEmbeddings,
   orderEmbeddings,
+  channelLotLinks,
+  channelSyncConfig,
+  bulkLots,
+  shippingServiceMappings,
+  pushSubscriptions,
+  supportTickets,
+  businessInsights,
+  inventoryHistory,
+  pomPriceDecisions,
+  crossPlatformSyncQueue,
   type User,
   type UpsertUser,
   type Organization,
@@ -233,7 +244,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(orders.orgId, id));
     await db.delete(orderDetails).where(inArray(orderDetails.id, orgOrderDetailIds));
 
-    // 3. All directly org-scoped tables
+    // 3. Channel / sync tables referencing inventory
+    await db.delete(channelLotLinks).where(eq(channelLotLinks.orgId, id));
+    await db.delete(crossPlatformSyncQueue).where(eq(crossPlatformSyncQueue.orgId, id));
+
+    // 4. Bulk lots for this org
+    await db.delete(bulkLots).where(eq(bulkLots.orgId, id));
+
+    // 5. All directly org-scoped tables
     await db.delete(orderAdjustments).where(eq(orderAdjustments.orgId, id));
     await db.delete(shipments).where(eq(shipments.orgId, id));
     await db.delete(eodForms).where(eq(eodForms.orgId, id));
@@ -245,20 +263,28 @@ export class DatabaseStorage implements IStorage {
     await db.delete(syncMetadata).where(eq(syncMetadata.orgId, id));
     await db.delete(blApiCalls).where(eq(blApiCalls.orgId, id));
     await db.delete(conversations).where(eq(conversations.orgId, id));
+    await db.delete(conversationThreads).where(eq(conversationThreads.orgId, id));
     await db.delete(orgIntegrations).where(eq(orgIntegrations.orgId, id));
+    await db.delete(supportTickets).where(eq(supportTickets.orgId, id));
+    await db.delete(businessInsights).where(eq(businessInsights.orgId, id));
+    await db.delete(inventoryHistory).where(eq(inventoryHistory.orgId, id));
+    await db.delete(pomPriceDecisions).where(eq(pomPriceDecisions.orgId, id));
+    await db.delete(shippingServiceMappings).where(eq(shippingServiceMappings.orgId, id));
+    await db.delete(pushSubscriptions).where(eq(pushSubscriptions.orgId, id));
+    await db.delete(channelSyncConfig).where(eq(channelSyncConfig.orgId, id));
     await db.delete(appSettings).where(eq(appSettings.orgId, id));
 
-    // 4. Warehouse hierarchy (bins → shelves → aisles after inventoryLocations)
+    // 6. Warehouse hierarchy (bins → shelves → aisles after inventoryLocations)
     await db.delete(inventoryLocations).where(eq(inventoryLocations.orgId, id));
     await db.delete(whBins).where(eq(whBins.orgId, id));
     await db.delete(whShelves).where(eq(whShelves.orgId, id));
     await db.delete(whAisles).where(eq(whAisles.orgId, id));
 
-    // 5. Core inventory and orders
+    // 7. Core inventory and orders
     await db.delete(blInventory).where(eq(blInventory.orgId, id));
     await db.delete(orders).where(eq(orders.orgId, id));
 
-    // 6. Users in this org, then the org itself
+    // 8. Users in this org, then the org itself
     await db.delete(users).where(eq(users.orgId, id));
     await db.delete(organizations).where(eq(organizations.id, id));
   }
