@@ -2559,6 +2559,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [syncFieldLotWeight,        setSyncFieldLotWeight]        = useState(true);
   const [syncStockroomModes, setSyncStockroomModes] = useState<Record<string, 'skip'|'hidden'|'active'>>({ A: 'skip', B: 'skip', C: 'skip' });
   const [syncItemTypes, setSyncItemTypes] = useState<Record<string, boolean>>({});
+  const [syncBulkLots, setSyncBulkLots] = useState(false);
   const [syncPriceFloor, setSyncPriceFloor] = useState<string>('');
   const [channelItemGroupsOpen, setChannelItemGroupsOpen] = useState(false);
   const [channelDetailsExpanded, setChannelDetailsExpanded] = useState(false);
@@ -2831,6 +2832,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     syncStockroomModes: Record<string, 'skip'|'hidden'|'active'>;
     syncItemTypes: Record<string, boolean>;
     syncPriceFloor: number | null;
+    syncBulkLots: boolean;
   }>({
     queryKey: ['/api/channel-sync/config'],
     enabled: open && activeSection === 'platforms',
@@ -2850,12 +2852,13 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     setSyncFieldLotWeight(channelSyncFieldConfig.syncLotWeight ?? true);
     setSyncStockroomModes(channelSyncFieldConfig.syncStockroomModes ?? { A: 'skip', B: 'skip', C: 'skip' });
     setSyncItemTypes(channelSyncFieldConfig.syncItemTypes ?? {});
+    setSyncBulkLots(channelSyncFieldConfig.syncBulkLots ?? false);
     const floor = channelSyncFieldConfig.syncPriceFloor;
     setSyncPriceFloor(floor != null && Number(floor) > 0 ? String(floor) : '');
   }, [channelSyncFieldConfig]);
 
   const updateSyncFieldMutation = useMutation({
-    mutationFn: (patch: Partial<{ syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean; syncTierPrice: boolean; syncSalePercent: boolean; syncBulkQty: boolean; syncLotWeight: boolean; syncStockroomModes: Record<string, 'skip'|'hidden'|'active'>; syncItemTypes: Record<string, boolean>; syncPriceFloor: number | null }>) =>
+    mutationFn: (patch: Partial<{ syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean; syncTierPrice: boolean; syncSalePercent: boolean; syncBulkQty: boolean; syncLotWeight: boolean; syncStockroomModes: Record<string, 'skip'|'hidden'|'active'>; syncItemTypes: Record<string, boolean>; syncPriceFloor: number | null; syncBulkLots: boolean }>) =>
       apiRequest('PATCH', '/api/channel-sync/config', patch),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['/api/channel-sync/config'] });
@@ -2880,6 +2883,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
         setSyncFieldBulkQty(channelSyncFieldConfig.syncBulkQty ?? true);
         setSyncFieldLotWeight(channelSyncFieldConfig.syncLotWeight ?? true);
         setSyncStockroomModes(channelSyncFieldConfig.syncStockroomModes ?? { A: 'skip', B: 'skip', C: 'skip' });
+        setSyncBulkLots(channelSyncFieldConfig.syncBulkLots ?? false);
         const floor = channelSyncFieldConfig.syncPriceFloor;
         setSyncPriceFloor(floor != null && Number(floor) > 0 ? String(floor) : '');
       }
@@ -6227,6 +6231,26 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                   </div>
                                 );
                               })}
+                            </div>
+                          </div>
+                          {/* Bulk Lots */}
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">Bulk Lots</p>
+                            <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
+                              <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-medium text-gray-200">Bulkinator bundles</p>
+                                  <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">All active bulk lots from the Bulkinator tool</p>
+                                </div>
+                                <Switch
+                                  checked={syncBulkLots}
+                                  onCheckedChange={(checked) => {
+                                    setSyncBulkLots(checked);
+                                    updateSyncFieldMutation.mutate({ syncBulkLots: checked });
+                                  }}
+                                  data-testid="switch-sync-bulk-lots"
+                                />
+                              </div>
                             </div>
                           </div>
                           {/* Stockrooms */}

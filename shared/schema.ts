@@ -771,10 +771,8 @@ export const channelSyncConfig = pgTable("channel_sync_config", {
   // Price floor: lots with unit_price below this value are skipped (and any existing BO listing is deactivated).
   // null / 0 = no floor (sync everything regardless of price).
   syncPriceFloor:       decimal("sync_price_floor").$type<number>(),
-  // Bulk Lots sync settings (Bulkinator bundles)
-  syncBulkLots:         boolean("sync_bulk_lots").default(false).notNull(),  // Include active bulk lots in channel sync
-  bulkLotsItemType:     text("bulk_lots_item_type").default('PART'),         // BO item type for bulk lot listings (PART, MINIFIG, etc.)
-  bulkLotsStockRoom:    text("bulk_lots_stock_room"),                         // BO stockroom to place bulk lots in (null = main store)
+  // Bulk Lots sync toggle — include all active bulk lots in this channel sync
+  syncBulkLots:         boolean("sync_bulk_lots").default(false).notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 export type ChannelSyncConfig = typeof channelSyncConfig.$inferSelect;

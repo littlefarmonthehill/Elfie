@@ -10887,6 +10887,7 @@ Format search_web URLs as markdown links.`;
         syncStockroomModes: { A: 'skip', B: 'skip', C: 'skip' },
         syncItemTypes:    {},
         syncPriceFloor:   null,
+        syncBulkLots:     false,
       });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
@@ -10896,7 +10897,7 @@ Format search_web URLs as markdown links.`;
   app.patch('/api/channel-sync/config', isApproved, async (req, res) => {
     try {
       const orgId = reqOrgId(req);
-      const boolAllowed = ['syncPrice', 'syncRemarks', 'syncDescription', 'syncTierPrice', 'syncSalePercent', 'syncBulkQty', 'syncLotWeight'] as const;
+      const boolAllowed = ['syncPrice', 'syncRemarks', 'syncDescription', 'syncTierPrice', 'syncSalePercent', 'syncBulkQty', 'syncLotWeight', 'syncBulkLots'] as const;
       const patch: Record<string, boolean | number | null | Record<string, string>> = {};
       for (const key of boolAllowed) {
         if (key in req.body && typeof req.body[key] === 'boolean') patch[key] = req.body[key];

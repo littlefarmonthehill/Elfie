@@ -2352,6 +2352,11 @@ export async function runMigrations() {
     await client.query(`ALTER TABLE platform_settings ADD COLUMN IF NOT EXISTS feedback_prompt text`);
     console.log('[Migration] Phase-97 (feedback_prompt on platform_settings) complete.');
 
+    // Phase-98: Add sync_bulk_lots toggle to channel_sync_config.
+    // Enables the Bulk Lots group in channel sync — when on, all active bulk lots are included in the sync run.
+    await client.query(`ALTER TABLE channel_sync_config ADD COLUMN IF NOT EXISTS sync_bulk_lots boolean NOT NULL DEFAULT false`);
+    console.log('[Migration] Phase-98 (sync_bulk_lots on channel_sync_config) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
