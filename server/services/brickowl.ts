@@ -63,7 +63,7 @@ export interface BrickOwlSyncResult {
   lotsCreated: number;
   lotsUpdated: number;
   lotsSkipped: number;
-  lotsDeleted?: number;
+  lotsDeactivated?: number;
   errors: string[];
   totalApiCalls: number;
   preview?: SyncPreviewBreakdown; // populated when mode === 'analysis'
@@ -1598,33 +1598,38 @@ export async function syncBrickLinkToBrickOwl(
     await new Promise(resolve => setTimeout(resolve, INDIVIDUAL_GAP_MS));
   }
 
-  // ── Phase 3: Cascade-delete BO lots for soft-deleted BL items (full_control only) ──
-  // Soft-deleted BL items still have tagged BO lots — remove them from BrickOwl.
-  if (mode === 'full_control') {
+  // ── Phase 3: Deactivate BO lots for soft-deleted BL items ──
+  // Policy: soft-deleted BL lots are hidden on BrickOwl (for_sale=0) rather than
+  // permanently deleted — this preserves BO sales history and lets operators
+  // clean up deliberately via the soft-delete report (or a future cleanup tool).
+  // Applies in full_control and matched_sync (not analysis — no writes in analysis).
+  if (mode !== 'analysis') {
     const softDeletedBl = await db.select({ id: blInventory.id, itemNo: blInventory.itemNo })
       .from(blInventory)
       .where(isNotNull(blInventory.deletedAt));
 
     const softDeletedIds = new Set(softDeletedBl.map(i => i.id.toString()));
-    const lotsToDelete = brickowlInventory.filter((lot: any) => {
+    const lotsToDeactivate = brickowlInventory.filter((lot: any) => {
       const extId = lot.external_lot_ids?.bl_inventory_id || lot.external_id_1;
-      return extId && softDeletedIds.has(extId.toString());
+      if (!extId || !softDeletedIds.has(extId.toString())) return false;
+      // Only act if currently visible (for_sale=1) — skip already-hidden lots
+      return parseInt(String(lot.for_sale ?? '1')) !== 0;
     });
 
-    if (lotsToDelete.length > 0) {
-      console.log(`[ChannelSync] Phase 3: deleting ${lotsToDelete.length} BO lots for soft-deleted BL items`);
-      for (const lot of lotsToDelete) {
+    if (lotsToDeactivate.length > 0) {
+      console.log(`[ChannelSync] Phase 3: deactivating ${lotsToDeactivate.length} BO lots for soft-deleted BL items`);
+      for (const lot of lotsToDeactivate) {
         if (channelSyncAbortFlag) {
-          console.log('[ChannelSync] Abort requested — stopping delete loop');
+          console.log('[ChannelSync] Abort requested — stopping deactivate loop');
           break;
         }
         try {
-          await brickowlDeleteLot(lot.lot_id, orgId);
-          result.lotsDeleted = (result.lotsDeleted ?? 0) + 1;
+          await updateBrickOwlLot({ lot_id: lot.lot_id, for_sale: 0 }, orgId);
+          result.lotsDeactivated = (result.lotsDeactivated ?? 0) + 1;
           result.totalApiCalls++;
-          console.log(`[ChannelSync] ✓ Deleted BO lot ${lot.lot_id} (BL item gone)`);
+          console.log(`[ChannelSync] ✓ Deactivated BO lot ${lot.lot_id} (BL item soft-deleted)`);
         } catch (err) {
-          result.errors.push(`lot ${lot.lot_id}: delete failed — ${err instanceof Error ? err.message : err}`);
+          result.errors.push(`lot ${lot.lot_id}: deactivate failed — ${err instanceof Error ? err.message : err}`);
         }
         await new Promise(resolve => setTimeout(resolve, INDIVIDUAL_GAP_MS));
       }
@@ -1633,7 +1638,7 @@ export async function syncBrickLinkToBrickOwl(
 
   console.log(
     `[ChannelSync] Done — ${result.lotsUpdated} updated, ${result.lotsCreated} created, ` +
-    `${result.lotsDeleted ?? 0} deleted, ${result.lotsSkipped} skipped, ` +
+    `${result.lotsDeactivated ?? 0} deactivated, ${result.lotsSkipped} skipped, ` +
     `${result.errors.length} errors, ${result.totalApiCalls} API calls`
   );
 
