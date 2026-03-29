@@ -132,14 +132,14 @@ export async function syncBrickLinkOrders(
       });
       console.log(`📅 Date-scoped sync: ${allOrders.length} orders on/after ${options.sinceDate} (skipped ${fetchedOrders.length - allOrders.length})`);
     } else if (!options.fullSync) {
-      // Incremental: only process orders that are new or have changed status.
-      // More reliable than timestamp-based filtering because BrickLink's timestamps can be inconsistent.
+      // Incremental: only process orders that are new, have changed status, or have
+      // an incomplete address (e.g. blank state from a prior partial sync).
       const existingOrders = await db
-        .select({ id: orders.id, orderStatus: orders.orderStatus })
+        .select({ id: orders.id, orderStatus: orders.orderStatus, shipTo: orders.shipTo })
         .from(orders)
         .where(and(eq(orders.orgId, orgId), sql`${orders.id} LIKE 'bl-%'`));
 
-      const existingMap = new Map(existingOrders.map(o => [o.id, o.orderStatus]));
+      const existingMap = new Map(existingOrders.map(o => [o.id, { status: o.orderStatus, shipTo: o.shipTo }]));
 
       allOrders = fetchedOrders.filter((order: any) => {
         const orderId = `bl-${order.order_id}`;
@@ -147,16 +147,25 @@ export async function syncBrickLinkOrders(
         if (!existing) return true; // New order — process it
 
         // Soft-purged locally (operator deleted the test order) — never re-import.
-        if (existing === 'purged') return false;
+        if (existing.status === 'purged') return false;
 
         // BrickLink keeps order status as COMPLETED on returns; only payment.status changes.
         const isPaymentReturned = order.payment?.status === 'Returned';
         // Already returned locally — skip to prevent perpetual reprocessing.
-        if (existing === 'returned') return false;
-        if (existing === 'shipped') return isPaymentReturned;
+        if (existing.status === 'returned') return false;
+        if (existing.status === 'shipped') return isPaymentReturned;
 
         const newStatus = mapPlatformStatus('bricklink', order.status);
-        return existing !== newStatus; // Status changed — process it
+        if (existing.status !== newStatus) return true; // Status changed
+
+        // Re-process if the stored address is missing state — allows address enrichment
+        // without waiting for a status change.
+        try {
+          const addr = existing.shipTo ? JSON.parse(existing.shipTo) : {};
+          if (!addr.state) return true;
+        } catch { /* ignore bad JSON */ }
+
+        return false;
       });
 
       console.log(`📅 Incremental: ${allOrders.length} new/changed orders to process (skipped ${fetchedOrders.length - allOrders.length} unchanged)`);
