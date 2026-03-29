@@ -612,6 +612,9 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <h3 className="text-sm font-black text-lego-blue font-mono" data-testid="text-item-number">{data.itemNo}</h3>
+              {data.itemType && (
+                <span className="text-[9px] font-bold font-mono px-1.5 py-0.5 rounded bg-gray-700/60 text-gray-400 uppercase">{data.itemType}</span>
+              )}
               {data.colorName && (
                 <div className="flex items-center gap-1">
                   {data.colorRgb && (
