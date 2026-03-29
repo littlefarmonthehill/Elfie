@@ -33,6 +33,14 @@ import {
   Trash2,
 } from "lucide-react";
 
+interface ItemTypeRow {
+  itemType: string;
+  lotCount: number;
+  totalQty: number;
+  avgPrice: number;
+  totalValue: number;
+}
+
 interface HealthSummary {
   zeroPriced: number;
   missingCost: number;
@@ -49,6 +57,7 @@ interface HealthSummary {
     topConcentrationPct: number;
     rows: Array<{ category_id: number; category_name: string; lot_count: number; total_qty: number; total_value: number }>;
   };
+  itemTypeBreakdown: ItemTypeRow[];
 }
 
 type HealthCategory =
@@ -211,6 +220,54 @@ function ThemeSection({
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+const ITEM_TYPE_LABELS: Record<string, string> = {
+  S: 'Sets', P: 'Parts', M: 'Minifigs', G: 'Gear',
+  B: 'Books', C: 'Catalogs', I: 'Instructions', O: 'Orig. Boxes',
+};
+
+function ItemTypeBreakdown({ rows }: { rows: ItemTypeRow[] }) {
+  if (!rows || rows.length === 0) return null;
+  const totalLots = rows.reduce((s, r) => s + r.lotCount, 0);
+  return (
+    <div className="px-4 mt-3" data-testid="item-type-breakdown">
+      <div className="flex items-center gap-1.5 mb-2">
+        <Package className="w-3 h-3 text-muted-foreground/60" />
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/60">Item Type Breakdown</p>
+      </div>
+      <div className="rounded-md border border-border/50 overflow-hidden">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-border/50 bg-muted/30">
+              <th className="text-left px-3 py-1.5 font-medium text-muted-foreground">Type</th>
+              <th className="text-right px-3 py-1.5 font-medium text-muted-foreground">Lots</th>
+              <th className="text-right px-3 py-1.5 font-medium text-muted-foreground">Qty</th>
+              <th className="text-right px-3 py-1.5 font-medium text-muted-foreground">Avg Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => {
+              const pct = totalLots > 0 ? Math.round(r.lotCount / totalLots * 100) : 0;
+              return (
+                <tr key={r.itemType} className={i < rows.length - 1 ? 'border-b border-border/30' : ''} data-testid={`item-type-row-${r.itemType}`}>
+                  <td className="px-3 py-1.5 font-medium text-foreground">
+                    <span>{ITEM_TYPE_LABELS[r.itemType] ?? r.itemType}</span>
+                    <span className="ml-1.5 text-[10px] text-muted-foreground">{pct}%</span>
+                  </td>
+                  <td className="px-3 py-1.5 text-right font-mono text-muted-foreground">{r.lotCount.toLocaleString()}</td>
+                  <td className="px-3 py-1.5 text-right font-mono text-muted-foreground">{r.totalQty.toLocaleString()}</td>
+                  <td className="px-3 py-1.5 text-right font-mono text-foreground">
+                    {r.avgPrice > 0 ? `$${r.avgPrice.toFixed(2)}` : '—'}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -1069,6 +1126,7 @@ export default function InventoryHealthPanel({ open, onOpenChange, inline }: Inv
               </div>
             </div>
           )}
+          {health && health.itemTypeBreakdown?.length > 0 && <ItemTypeBreakdown rows={health.itemTypeBreakdown} />}
           {health && <StockroomOverview stockroom={health.stockroom} />}
           {health && health.productMix.rows.length > 0 && <ProductMixOverview productMix={health.productMix} />}
           <div className="px-4 mt-3">

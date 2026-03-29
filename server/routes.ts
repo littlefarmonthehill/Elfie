@@ -6774,6 +6774,17 @@ What sellers and collectors are talking about on BrickLink forums this week.
 **PROMPT:** "Tell me more about the retiring sets"
 **PROMPT:** "What are the pricing trends this week?"
 
+BRICKLINK ITEM TYPES — always use itemType (not category) when the user asks about a specific type of item:
+- S = Sets (complete LEGO sets, e.g. set 75192)
+- P = Parts (individual LEGO elements/pieces)
+- M = Minifigs (minifigures)
+- G = Gear (accessories, games, apparel, etc.)
+- B = Books (LEGO-branded books)
+- C = Catalogs (old LEGO catalogs)
+- I = Instructions (instruction booklets)
+- O = Original Boxes (empty boxes)
+Category ≠ itemType. Category is the thematic grouping within an item type (e.g. "Technic", "Castle", "Star Wars"). Use get_inventory_stats with itemType: "S" (or "set") to answer "how many sets do we have", NOT category: "Set".
+
 If the user asks multiple things in one message (e.g., "do we have 3024 and who ordered it"), call the appropriate tools in parallel — one for each question.
 
 For inventory questions ("do we have X?", "what colors of X?"), search_local_inventory alone has everything you need — quantities, colors, pricing, conditions. One tool, one call, done. When the user asks "what colors do we have for X?", list EVERY color — never truncate or say "and more...". The user asked for the full list, give the full list.
@@ -9680,6 +9691,7 @@ Format search_web URLs as markdown links.`;
         overPricedResult,
         crossConditionResult,
         obsoleteCatalogResult,
+        itemTypeBreakdownResult,
       ] = await Promise.all([
         // 1. Soft-deleted items (total + how many are linked to an order)
         db.execute(sql`
@@ -9814,6 +9826,20 @@ Format search_web URLs as markdown links.`;
           WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NULL AND bi.quantity > 0
             AND (bc.is_obsolete = TRUE OR (bc.alternate_no IS NOT NULL AND bc.alternate_no != ''))
         `),
+
+        // 13. Item type breakdown: lots, quantity, avg listed price per BL item type
+        db.execute(sql`
+          SELECT
+            bi.item_type,
+            COUNT(*) as lot_count,
+            SUM(bi.quantity) as total_qty,
+            AVG(NULLIF(CAST(bi.unit_price AS numeric), 0)) as avg_price,
+            SUM(bi.quantity * COALESCE(NULLIF(CAST(bi.unit_price AS numeric), 0), 0)) as total_value
+          FROM bl_inventory bi
+          WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NULL AND bi.quantity > 0
+          GROUP BY bi.item_type
+          ORDER BY lot_count DESC
+        `),
       ]);
 
       // Stockroom breakdown aggregation
@@ -9876,6 +9902,13 @@ Format search_web URLs as markdown links.`;
           topConcentrationPct: concentrationPct,
           rows: mixRows,
         },
+        itemTypeBreakdown: ((itemTypeBreakdownResult as any).rows ?? []).map((r: any) => ({
+          itemType: r.item_type as string,
+          lotCount: Number(r.lot_count),
+          totalQty: Number(r.total_qty),
+          avgPrice: Number(r.avg_price ?? 0),
+          totalValue: Number(r.total_value ?? 0),
+        })),
       });
     } catch (error) {
       console.error("Error fetching inventory health:", error);

@@ -289,42 +289,84 @@ export async function searchLocalInventory(params: {
 export async function getInventoryStats(params?: {
   category?: string;
   colorName?: string;
+  itemType?: string;
+  _orgId?: string;
 }) {
-  const { category, colorName } = params || {};
-  
+  const { category, colorName, itemType, _orgId } = params || {};
+
+  // BrickLink item type codes: S=Set, P=Part, M=Minifig, G=Gear, B=Book, C=Catalog, I=Instruction, O=Original Box
+  // Normalise common aliases the model might send
+  const typeCodeMap: Record<string, string> = {
+    set: 'S', sets: 'S', s: 'S',
+    part: 'P', parts: 'P', p: 'P',
+    minifig: 'M', minifigs: 'M', minifigure: 'M', minifigures: 'M', m: 'M',
+    gear: 'G', g: 'G',
+    book: 'B', books: 'B', b: 'B',
+    catalog: 'C', c: 'C',
+    instruction: 'I', instructions: 'I', i: 'I',
+    box: 'O', 'original box': 'O', o: 'O',
+  };
+  const resolvedType = itemType
+    ? (typeCodeMap[itemType.toLowerCase()] ?? itemType.toUpperCase())
+    : undefined;
+
   try {
-    let conditions: any[] = [];
-    
-    if (category) {
-      conditions.push(like(blCategories.name, `%${category}%`));
-    }
-    if (colorName) {
-      conditions.push(like(blColors.name, `%${colorName}%`));
-    }
-    
-    let queryBuilder = db
+    let conditions: any[] = [isNull(blInventory.deletedAt), gt(blInventory.quantity, 0)];
+    if (_orgId) conditions.push(eq(blInventory.orgId, _orgId));
+    if (resolvedType) conditions.push(eq(blInventory.itemType, resolvedType));
+    if (category) conditions.push(like(blCategories.name, `%${category}%`));
+    if (colorName) conditions.push(like(blColors.name, `%${colorName}%`));
+
+    const stats = await db
       .select({
         totalLots: sql<number>`COUNT(*)`,
-        totalParts: sql<number>`SUM(${blInventory.quantity})`,
+        totalQuantity: sql<number>`SUM(${blInventory.quantity})`,
         totalValue: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))`,
+        avgPrice: sql<number>`AVG(NULLIF(CAST(${blInventory.unitPrice} AS DECIMAL), 0))`,
       })
       .from(blInventory)
       .leftJoin(blColors, eq(blInventory.colorId, blColors.id))
       .leftJoin(blCatalog, and(eq(blInventory.itemNo, blCatalog.itemNo), eq(blInventory.itemType, blCatalog.itemType), eq(blInventory.colorId, blCatalog.colorId)))
-      .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id));
-    
-    if (conditions.length > 0) {
-      queryBuilder = queryBuilder.where(and(...conditions)) as any;
-    }
-    
-    const stats = await queryBuilder;
-    
+      .leftJoin(blCategories, eq(blCatalog.categoryId, blCategories.id))
+      .where(and(...conditions));
+
+    // Per-item-type breakdown (always returned so Elfie can compare types)
+    const byTypeConditions: any[] = [isNull(blInventory.deletedAt), gt(blInventory.quantity, 0)];
+    if (_orgId) byTypeConditions.push(eq(blInventory.orgId, _orgId));
+    const byType = await db
+      .select({
+        itemType: blInventory.itemType,
+        lots: sql<number>`COUNT(*)`,
+        totalQty: sql<number>`SUM(${blInventory.quantity})`,
+        totalValue: sql<number>`SUM(${blInventory.quantity} * CAST(${blInventory.unitPrice} AS DECIMAL))`,
+        avgPrice: sql<number>`AVG(NULLIF(CAST(${blInventory.unitPrice} AS DECIMAL), 0))`,
+      })
+      .from(blInventory)
+      .where(and(...byTypeConditions))
+      .groupBy(blInventory.itemType)
+      .orderBy(sql`COUNT(*) DESC`);
+
+    const typeNames: Record<string, string> = {
+      S: 'Sets', P: 'Parts', M: 'Minifigs', G: 'Gear',
+      B: 'Books', C: 'Catalogs', I: 'Instructions', O: 'Original Boxes',
+    };
+
     return {
       success: true,
       data: {
         totalLots: Number(stats[0]?.totalLots) || 0,
-        totalParts: Number(stats[0]?.totalParts) || 0,
+        totalQuantity: Number(stats[0]?.totalQuantity) || 0,
         totalValue: Number(stats[0]?.totalValue) || 0,
+        avgPrice: Number(stats[0]?.avgPrice) || 0,
+        filter: resolvedType ? `item type: ${typeNames[resolvedType] ?? resolvedType}` : category ? `category: ${category}` : 'all',
+        byItemType: byType.map(r => ({
+          code: r.itemType,
+          label: typeNames[r.itemType ?? ''] ?? r.itemType,
+          lots: Number(r.lots),
+          totalQty: Number(r.totalQty),
+          totalValue: Number(r.totalValue),
+          avgPrice: Number(r.avgPrice),
+        })),
       },
     };
   } catch (error: any) {
@@ -1976,17 +2018,21 @@ export const AI_TOOLS = [
     type: 'function',
     function: {
       name: 'get_inventory_stats',
-      description: 'Get aggregate statistics about inventory (total lots, parts, value). Useful for answering "how much" and "how many" questions.',
+      description: 'Get aggregate inventory statistics (lots, quantity, value, avg price) and a per-item-type breakdown. Use itemType to filter by a specific type. Always returns byItemType breakdown so you can compare across types.',
       parameters: {
         type: 'object',
         properties: {
+          itemType: {
+            type: 'string',
+            description: 'Filter by BrickLink item type. Use the code or the word: S or "set"/"sets", P or "part"/"parts", M or "minifig"/"minifigs", G or "gear", B or "book", C or "catalog", I or "instruction", O or "box". Leave blank for all types.',
+          },
           category: {
             type: 'string',
-            description: 'Filter stats by category',
+            description: 'Filter stats by BrickLink category name (e.g. "Technic", "Castle"). Different from itemType.',
           },
           colorName: {
             type: 'string',
-            description: 'Filter stats by color',
+            description: 'Filter stats by color name',
           },
         },
         required: [],
