@@ -10,6 +10,7 @@
 
 import type { IChannelSync } from './channel-sync-interface';
 import { BrickOwlChannelAdapter } from './brickowl-channel-adapter';
+import { BrickLinkChannelAdapter } from './bricklink-channel-adapter';
 
 const adapterCache: Record<string, IChannelSync> = {};
 
@@ -18,9 +19,13 @@ export function getChannelAdapter(channelKey: string): IChannelSync {
 
   let adapter: IChannelSync;
 
-  switch (channelKey) {
+  switch (channelKey.toLowerCase()) {
     case 'brickowl':
       adapter = new BrickOwlChannelAdapter();
+      break;
+
+    case 'bricklink':
+      adapter = new BrickLinkChannelAdapter();
       break;
 
     // Future channels — add cases here:
@@ -40,5 +45,5 @@ export function getChannelAdapter(channelKey: string): IChannelSync {
 }
 
 export function getSupportedChannelKeys(): string[] {
-  return ['brickowl']; // extend as adapters are added
+  return ['brickowl', 'bricklink']; // extend as adapters are added
 }

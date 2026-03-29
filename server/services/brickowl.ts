@@ -217,6 +217,24 @@ async function brickowlPost(endpoint: string, data: Record<string, any>, orgId?:
   return response.json();
 }
 
+/**
+ * Post seller feedback for a BrickOwl order.
+ * BO API: POST /v1/order/feedback/create — { order_id, rating (1=negative/3=neutral/5=positive), message }
+ * Verify endpoint + rating scale against BrickOwl API docs before enabling channel posting.
+ */
+export async function postBrickOwlFeedback(
+  orderId: string,
+  rating: 1 | 3 | 5,
+  message: string,
+  orgId: string,
+): Promise<void> {
+  await brickowlPost('/order/feedback/create', {
+    order_id: orderId,
+    rating: String(rating),
+    message,
+  }, orgId);
+}
+
 // Get BrickOwl inventory list
 export async function getBrickOwlInventory(activeOnly: boolean = true, orgId?: string): Promise<BrickOwlInventoryLot[]> {
   const params = { active_only: activeOnly ? '1' : '0' };

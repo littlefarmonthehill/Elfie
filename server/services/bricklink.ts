@@ -264,7 +264,58 @@ export async function bricklinkRequest(endpoint: string, queryParams?: Record<st
   }
 }
 
-// Make a BrickLink API PUT request (for updating inventory)
+async function bricklinkPostRequest(endpoint: string, body: any, orgId: string = PLATFORM_ORG_ID): Promise<{ data: any; apiCalls: number }> {
+  const { consumerKey, consumerSecret, tokenValue, tokenSecret } = await getBricklinkCredentials(orgId);
+  const rateLimit = await checkRateLimit(orgId);
+  if (!rateLimit.allowed) throw new Error(rateLimit.warning || 'API rate limit exceeded');
+
+  const oauth = new OAuth({
+    consumer: { key: consumerKey, secret: consumerSecret },
+    signature_method: 'HMAC-SHA1',
+    hash_function(baseString, key) {
+      return crypto.createHmac('sha1', key).update(baseString).digest('base64');
+    },
+  });
+  const token = { key: cleanToken(tokenValue), secret: cleanToken(tokenSecret) };
+  const url = `https://api.bricklink.com/api/store/v1${endpoint}`;
+  const requestData = { url, method: 'POST', body: JSON.stringify(body) };
+  const authHeader = oauth.toHeader(oauth.authorize(requestData, token));
+
+  let success = false;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { ...authHeader, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`BrickLink API POST error (${response.status}): ${errorText}`);
+    }
+    const json = await response.json();
+    if (json.meta && json.meta.code !== 200 && json.meta.code !== 201) {
+      throw new Error(`BrickLink API error: ${json.meta.description || json.meta.message}`);
+    }
+    success = true;
+    return { data: json.data, apiCalls: 1 };
+  } finally {
+    await trackApiCall(endpoint, success, orgId);
+  }
+}
+
+/**
+ * Post seller feedback for a BrickLink order.
+ * BL API: POST /feedbacks — { order_id, rating: 'P'|'N'|'C', comment }
+ */
+export async function postBrickLinkFeedback(
+  orderId: string,
+  rating: 'P' | 'N' | 'C',
+  comment: string,
+  orgId: string,
+): Promise<void> {
+  await bricklinkPostRequest('/feedbacks', { order_id: Number(orderId), rating, comment }, orgId);
+}
+
 async function bricklinkPutRequest(endpoint: string, body: any, orgId: string = PLATFORM_ORG_ID): Promise<{ data: any; apiCalls: number }> {
   // Route credentials: platform org → platform_settings, real orgs → app_settings
   const { consumerKey, consumerSecret, tokenValue, tokenSecret } = await getBricklinkCredentials(orgId);

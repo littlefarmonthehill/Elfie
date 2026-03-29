@@ -17277,11 +17277,43 @@ Respond ONLY as JSON: {"price": 0.00, "reasoning": "..."}`;
     }
   });
 
-  // POST /api/orders/:orderId/feedback-left — mark feedback as left
+  // POST /api/orders/:orderId/feedback-left — post feedback to channel, then mark as done
   app.post("/api/orders/:orderId/feedback-left", isApproved, async (req: any, res) => {
     try {
       const orgId = reqOrgId(req);
       const { orderId } = req.params;
+      const { rating, comment } = req.body as { rating?: string; comment?: string };
+
+      // Fetch the order to get marketplace + channel order number
+      const [order] = await db
+        .select({ marketplace: orders.marketplace, orderNumber: orders.orderNumber })
+        .from(orders)
+        .where(and(eq(orders.id, orderId), eq(orders.orgId, orgId)))
+        .limit(1);
+      if (!order) return res.status(404).json({ error: "Order not found" });
+
+      // Attempt to post feedback via the channel adapter (best-effort, non-blocking on failure)
+      if (rating && order.marketplace && order.orderNumber) {
+        try {
+          const { getChannelAdapter } = await import('./services/channel-factory.js');
+          const adapter = getChannelAdapter(order.marketplace);
+          if (adapter.postFeedback) {
+            const result = await adapter.postFeedback(orgId, {
+              channelOrderId: order.orderNumber,
+              rating: rating as 'positive' | 'neutral' | 'negative',
+              comment: comment ?? '',
+            });
+            if (!result.ok) {
+              console.warn(`[Feedback] Channel post failed for order ${orderId}: ${result.message}`);
+            }
+          }
+        } catch (adapterErr: any) {
+          // Log but don't block — we still mark as done locally
+          console.warn(`[Feedback] Adapter error for marketplace "${order.marketplace}":`, adapterErr.message);
+        }
+      }
+
+      // Mark as done in our DB regardless
       const [updated] = await db
         .update(orders)
         .set({ feedbackLeftAt: new Date() })

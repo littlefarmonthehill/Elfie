@@ -31,6 +31,21 @@ export interface ConnectionTestResult {
   message?: string;
 }
 
+/** Normalised rating sent from the UI — each adapter maps to the channel's own format */
+export type FeedbackRating = 'positive' | 'neutral' | 'negative';
+
+export interface FeedbackPayload {
+  /** Channel-native order ID (e.g. BL order number, BO order ID) */
+  channelOrderId: string;
+  rating: FeedbackRating;
+  comment?: string;
+}
+
+export interface FeedbackResult {
+  ok: boolean;
+  message?: string;
+}
+
 export interface IChannelSync {
   /** The registry key for this channel — must match PROVIDER_REGISTRY */
   readonly channelKey: string;
@@ -46,4 +61,10 @@ export interface IChannelSync {
    * Called when a user connects or re-tests an integration.
    */
   testConnection(orgId: string, credentials: Record<string, string>): Promise<ConnectionTestResult>;
+
+  /**
+   * Post seller feedback for an order back to the channel.
+   * Optional — omit for channels that don't support feedback yet.
+   */
+  postFeedback?(orgId: string, payload: FeedbackPayload): Promise<FeedbackResult>;
 }

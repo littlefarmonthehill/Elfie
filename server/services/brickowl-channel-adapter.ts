@@ -6,8 +6,8 @@
  * channel registry — future channels (Amazon, eBay) follow the same pattern.
  */
 
-import type { IChannelSync, ChannelSyncOptions, ChannelSyncResult, ConnectionTestResult } from './channel-sync-interface';
-import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig } from './brickowl';
+import type { IChannelSync, ChannelSyncOptions, ChannelSyncResult, ConnectionTestResult, FeedbackPayload, FeedbackResult } from './channel-sync-interface';
+import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig, postBrickOwlFeedback } from './brickowl';
 import { db } from '../db';
 import { channelSyncConfig, appSettings } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -54,6 +54,17 @@ export class BrickOwlChannelAdapter implements IChannelSync {
       errors:        result.errors,
       totalApiCalls: result.totalApiCalls,
     };
+  }
+
+  async postFeedback(orgId: string, payload: FeedbackPayload): Promise<FeedbackResult> {
+    const ratingMap: Record<string, 1 | 3 | 5> = { positive: 5, neutral: 3, negative: 1 };
+    const rating = ratingMap[payload.rating] ?? 5;
+    try {
+      await postBrickOwlFeedback(payload.channelOrderId, rating, payload.comment ?? '', orgId);
+      return { ok: true };
+    } catch (err: any) {
+      return { ok: false, message: err.message ?? 'BrickOwl feedback failed' };
+    }
   }
 
   async testConnection(orgId: string, _credentials: Record<string, string>): Promise<ConnectionTestResult> {
