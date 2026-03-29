@@ -793,6 +793,9 @@ export const bulkLots = pgTable("bulk_lots", {
   bulkType:    text("bulk_type").notNull(),             // 'same_part' | 'mixed_parts'
   unitPrice:   decimal("unit_price", { precision: 10, scale: 2 }), // Price for the entire bundle
   status:      text("status").notNull().default('draft'), // 'draft' | 'active' | 'inactive'
+  // Channel sync settings
+  itemType:    text("item_type").default('PART'),      // BL item type (PART, MINIFIG, etc.)
+  stockRoomId: text("stock_room_id"),                  // Which stockroom on BO (A/B/C or null = main)
   // Channel metadata — populated once the lot is pushed to BO
   boLotId:     text("bo_lot_id"),
   lastSyncedAt: timestamp("last_synced_at"),
