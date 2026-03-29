@@ -2265,6 +2265,49 @@ export async function runMigrations() {
       console.log('[Migration] Phase-93 (sync_item_types already present) — skipped.');
     }
 
+    // Phase-94: User image library tables (user_images, lot_images, item_type_images)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_images (
+        id            varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        org_id        varchar NOT NULL,
+        storage_key   text    NOT NULL,
+        scope         varchar NOT NULL DEFAULT 'user',
+        source_channel varchar NOT NULL DEFAULT 'local',
+        source_url    text,
+        alt_text      text,
+        width_px      integer,
+        height_px     integer,
+        file_size_kb  integer,
+        created_at    timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS user_images_org_idx ON user_images(org_id)`);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS lot_images (
+        id               serial  PRIMARY KEY,
+        org_id           varchar NOT NULL,
+        bl_inventory_id  integer NOT NULL,
+        image_id         varchar NOT NULL,
+        position         integer NOT NULL DEFAULT 0,
+        created_at       timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS lot_images_lot_idx ON lot_images(org_id, bl_inventory_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS lot_images_img_idx ON lot_images(image_id)`);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS item_type_images (
+        id          serial  PRIMARY KEY,
+        org_id      varchar NOT NULL,
+        item_no     varchar NOT NULL,
+        item_type   varchar NOT NULL,
+        image_id    varchar NOT NULL,
+        position    integer NOT NULL DEFAULT 0,
+        created_at  timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS item_type_images_item_idx ON item_type_images(org_id, item_no, item_type)`);
+    console.log('[Migration] Phase-94 (user_images + lot_images + item_type_images) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

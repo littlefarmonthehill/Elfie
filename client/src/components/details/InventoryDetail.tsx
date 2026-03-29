@@ -1,11 +1,11 @@
-import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes, Search, Loader2, RefreshCw, Newspaper, MessageCircle, TrendingDown, Target, ShieldAlert, Settings2 } from "lucide-react";
+import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes, Search, Loader2, RefreshCw, Newspaper, MessageCircle, TrendingDown, Target, ShieldAlert, Settings2, Upload, ImageIcon, X, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import PartImage from "@/components/PartImage";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -332,7 +332,60 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
   const [dateRange, setDateRange] = useState<'all' | '1year' | '2years' | '3months' | '6months'>('all');
   const [setsDialogOpen, setSetsDialogOpen] = useState(false);
   const [setsSearch, setSetsSearch] = useState('');
+  const [uploadingLot, setUploadingLot] = useState(false);
+  const [uploadingItemType, setUploadingItemType] = useState(false);
+  const lotFileInputRef = useRef<HTMLInputElement>(null);
+  const itemTypeFileInputRef = useRef<HTMLInputElement>(null);
   const priceOMagic = data.priceOMagic;
+
+  // ── User Images ─────────────────────────────────────────────────────────────
+  const imagesEnabled = !data.loading && !!data.id && !!data.itemNo && !!data.itemType;
+  const { data: imagesData, isLoading: imagesLoading, refetch: refetchImages } = useQuery<{
+    lotLevel: Array<{ id: string; assignmentId: number; position: number; widthPx: number | null; heightPx: number | null; fileSizeKb: number | null; altText: string | null }>;
+    itemTypeLevel: Array<{ id: string; assignmentId: number; position: number; widthPx: number | null; heightPx: number | null; fileSizeKb: number | null; altText: string | null }>;
+  }>({
+    queryKey: ['/api/user-images/for-lot', data.id, data.itemNo, data.itemType],
+    queryFn: async () => {
+      const res = await fetch(`/api/user-images/for-lot/${data.id}?itemNo=${encodeURIComponent(data.itemNo!)}&itemType=${encodeURIComponent(data.itemType!)}`);
+      if (!res.ok) throw new Error('Failed to load images');
+      return res.json();
+    },
+    enabled: imagesEnabled && activeTab === 'images',
+    staleTime: 30_000,
+  });
+
+  const deleteLotAssignment = useMutation({
+    mutationFn: (assignmentId: number) => apiRequest('DELETE', `/api/user-images/lot-assignment/${assignmentId}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/user-images/for-lot', data.id, data.itemNo, data.itemType] }),
+  });
+
+  const deleteItemTypeAssignment = useMutation({
+    mutationFn: (assignmentId: number) => apiRequest('DELETE', `/api/user-images/item-type-assignment/${assignmentId}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/user-images/for-lot', data.id, data.itemNo, data.itemType] }),
+  });
+
+  async function handleImageUpload(file: File, target: 'lot' | 'item_type') {
+    if (!file || !data.id || !data.itemNo || !data.itemType) return;
+    const setter = target === 'lot' ? setUploadingLot : setUploadingItemType;
+    setter(true);
+    try {
+      const form = new FormData();
+      form.append('image', file);
+      const uploadRes = await fetch('/api/user-images/upload', { method: 'POST', body: form });
+      if (!uploadRes.ok) throw new Error(await uploadRes.text());
+      const imageRecord = await uploadRes.json();
+      if (target === 'lot') {
+        await apiRequest('POST', '/api/user-images/assign/lot', { imageId: imageRecord.id, blInventoryId: data.id });
+      } else {
+        await apiRequest('POST', '/api/user-images/assign/item-type', { imageId: imageRecord.id, itemNo: data.itemNo, itemType: data.itemType });
+      }
+      queryClient.invalidateQueries({ queryKey: ['/api/user-images/for-lot', data.id, data.itemNo, data.itemType] });
+    } catch (err: any) {
+      console.error('[UserImages] upload error:', err.message);
+    } finally {
+      setter(false);
+    }
+  }
 
   // Fetch current POM formula settings for live price computation
   const { data: pomSettings } = useQuery<any>({
@@ -658,11 +711,12 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
 
       {/* Tabbed Content - Scrollable with fixed height */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-        <TabsList className="flex-shrink-0 grid w-full grid-cols-4 bg-gray-800 p-0.5 h-9 mb-3">
+        <TabsList className="flex-shrink-0 grid w-full grid-cols-5 bg-gray-800 p-0.5 h-9 mb-3">
           <TabsTrigger value="overview" className="text-[9px] md:text-xs py-1 data-[state=active]:bg-lego-blue" data-testid="tab-overview">OVERVIEW</TabsTrigger>
           <TabsTrigger value="pricing" className="text-[9px] md:text-xs py-1 data-[state=active]:bg-purple-600" data-testid="tab-pricing">PRICING</TabsTrigger>
           <TabsTrigger value="analytics" className="text-[9px] md:text-xs py-1 data-[state=active]:bg-lego-orange" data-testid="tab-analytics">ANALYTICS</TabsTrigger>
           <TabsTrigger value="details" className="text-[9px] md:text-xs py-1 data-[state=active]:bg-lego-green" data-testid="tab-details">MY INVENTORY</TabsTrigger>
+          <TabsTrigger value="images" className="text-[9px] md:text-xs py-1 data-[state=active]:bg-teal-600" data-testid="tab-images">IMAGES</TabsTrigger>
         </TabsList>
 
         <div className="flex-1 overflow-y-auto min-h-0">
@@ -1562,6 +1616,202 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
               </div>
             )}
 
+          </TabsContent>
+
+          {/* Images Tab */}
+          <TabsContent value="images" className="mt-0 space-y-3">
+            {/* Hidden file inputs */}
+            <input
+              ref={lotFileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              data-testid="input-lot-image-file"
+              onChange={e => {
+                const f = e.target.files?.[0];
+                if (f) handleImageUpload(f, 'lot');
+                e.target.value = '';
+              }}
+            />
+            <input
+              ref={itemTypeFileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              data-testid="input-itemtype-image-file"
+              onChange={e => {
+                const f = e.target.files?.[0];
+                if (f) handleImageUpload(f, 'item_type');
+                e.target.value = '';
+              }}
+            />
+
+            {imagesLoading ? (
+              <div className="flex items-center justify-center py-10 gap-2 text-gray-400">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-xs">Loading images…</span>
+              </div>
+            ) : (
+              <>
+                {/* Lot-specific images */}
+                <div className="app-card-muted p-2.5 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <ImageIcon className="h-3.5 w-3.5 text-teal-400" />
+                      <span className="text-[10px] md:text-xs font-bold text-teal-400">THIS LOT</span>
+                      {(imagesData?.lotLevel?.length ?? 0) > 0 && (
+                        <Badge variant="secondary" className="text-[9px] px-1 py-0" data-testid="badge-lot-image-count">
+                          {imagesData!.lotLevel.length}
+                        </Badge>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 text-[9px] gap-1 text-teal-400"
+                      disabled={uploadingLot}
+                      onClick={() => lotFileInputRef.current?.click()}
+                      data-testid="button-add-lot-image"
+                    >
+                      {uploadingLot ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                      ADD
+                    </Button>
+                  </div>
+                  {(imagesData?.lotLevel?.length ?? 0) === 0 ? (
+                    <button
+                      className="w-full border border-dashed border-teal-500/30 rounded-md py-5 flex flex-col items-center gap-1.5 text-gray-500 hover:text-teal-400 hover:border-teal-500/60 transition-colors"
+                      onClick={() => lotFileInputRef.current?.click()}
+                      disabled={uploadingLot}
+                      data-testid="dropzone-lot-image"
+                    >
+                      {uploadingLot ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-teal-400" />
+                      ) : (
+                        <Upload className="h-5 w-5" />
+                      )}
+                      <span className="text-[10px]">{uploadingLot ? 'Uploading…' : 'Upload an image for this lot'}</span>
+                    </button>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {imagesData!.lotLevel.map(img => (
+                        <div key={img.assignmentId} className="relative group aspect-square rounded-md overflow-hidden bg-gray-800" data-testid={`img-lot-${img.assignmentId}`}>
+                          <img
+                            src={`/api/user-images/${img.id}/img`}
+                            alt={img.altText ?? 'Lot image'}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="text-red-400"
+                              onClick={() => deleteLotAssignment.mutate(img.assignmentId)}
+                              disabled={deleteLotAssignment.isPending}
+                              data-testid={`button-delete-lot-img-${img.assignmentId}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          {img.fileSizeKb && (
+                            <span className="absolute bottom-0.5 left-0.5 text-[8px] bg-black/70 text-gray-300 px-0.5 rounded">{img.fileSizeKb}KB</span>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        className="aspect-square rounded-md border border-dashed border-teal-500/30 flex items-center justify-center text-gray-600 hover:text-teal-400 hover:border-teal-500/60 transition-colors"
+                        onClick={() => lotFileInputRef.current?.click()}
+                        disabled={uploadingLot}
+                        data-testid="button-add-more-lot-images"
+                      >
+                        {uploadingLot ? <Loader2 className="h-4 w-4 animate-spin text-teal-400" /> : <Plus className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Item-type images (default fallback) */}
+                <div className="app-card-muted p-2.5 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Layers className="h-3.5 w-3.5 text-cyan-400" />
+                      <span className="text-[10px] md:text-xs font-bold text-cyan-400">
+                        ALL {data.itemNo ?? ''} LOTS
+                      </span>
+                      <Badge variant="secondary" className="text-[9px] px-1 py-0 opacity-60">DEFAULT</Badge>
+                      {(imagesData?.itemTypeLevel?.length ?? 0) > 0 && (
+                        <Badge variant="secondary" className="text-[9px] px-1 py-0" data-testid="badge-itemtype-image-count">
+                          {imagesData!.itemTypeLevel.length}
+                        </Badge>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 text-[9px] gap-1 text-cyan-400"
+                      disabled={uploadingItemType}
+                      onClick={() => itemTypeFileInputRef.current?.click()}
+                      data-testid="button-add-itemtype-image"
+                    >
+                      {uploadingItemType ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                      ADD
+                    </Button>
+                  </div>
+                  <p className="text-[9px] text-gray-500 leading-relaxed">
+                    Images here appear on all lots of this item type when no lot-specific images are set.
+                  </p>
+                  {(imagesData?.itemTypeLevel?.length ?? 0) === 0 ? (
+                    <button
+                      className="w-full border border-dashed border-cyan-500/30 rounded-md py-5 flex flex-col items-center gap-1.5 text-gray-500 hover:text-cyan-400 hover:border-cyan-500/60 transition-colors"
+                      onClick={() => itemTypeFileInputRef.current?.click()}
+                      disabled={uploadingItemType}
+                      data-testid="dropzone-itemtype-image"
+                    >
+                      {uploadingItemType ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-cyan-400" />
+                      ) : (
+                        <Upload className="h-5 w-5" />
+                      )}
+                      <span className="text-[10px]">{uploadingItemType ? 'Uploading…' : `Upload a default image for all ${data.itemNo ?? 'item'} lots`}</span>
+                    </button>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {imagesData!.itemTypeLevel.map(img => (
+                        <div key={img.assignmentId} className="relative group aspect-square rounded-md overflow-hidden bg-gray-800" data-testid={`img-itemtype-${img.assignmentId}`}>
+                          <img
+                            src={`/api/user-images/${img.id}/img`}
+                            alt={img.altText ?? 'Item type image'}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="text-red-400"
+                              onClick={() => deleteItemTypeAssignment.mutate(img.assignmentId)}
+                              disabled={deleteItemTypeAssignment.isPending}
+                              data-testid={`button-delete-itemtype-img-${img.assignmentId}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          {img.fileSizeKb && (
+                            <span className="absolute bottom-0.5 left-0.5 text-[8px] bg-black/70 text-gray-300 px-0.5 rounded">{img.fileSizeKb}KB</span>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        className="aspect-square rounded-md border border-dashed border-cyan-500/30 flex items-center justify-center text-gray-600 hover:text-cyan-400 hover:border-cyan-500/60 transition-colors"
+                        onClick={() => itemTypeFileInputRef.current?.click()}
+                        disabled={uploadingItemType}
+                        data-testid="button-add-more-itemtype-images"
+                      >
+                        {uploadingItemType ? <Loader2 className="h-4 w-4 animate-spin text-cyan-400" /> : <Plus className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </TabsContent>
         </div>
       </Tabs>

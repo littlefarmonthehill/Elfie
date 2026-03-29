@@ -44,7 +44,8 @@ import { syncBrickLinkToBrickOwl, defaultSyncFields, SyncFieldConfig } from "./s
 import { generateBrickLinkXML, generateInventoryCSV, listXMLBackups, getXMLBackup } from "./services/export";
 import { getProcessedPartImage, processImageFromUrl } from "./services/image-proxy";
 import { db, pool } from "./db";
-import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, platformSettings, insertPlatformSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions, channelSyncConfig, channelLotLinks, crossPlatformSyncQueue, inventoryHistory } from "@shared/schema";
+import { users, organizations, orders, orderDetails, blInventory, blCatalog, insertBlCatalogSchema, blCategories, blColors, appSettings, insertAppSettingsSchema, platformSettings, insertPlatformSettingsSchema, conversations, conversationThreads, syncMetadata, inventoryEmbeddings, orderEmbeddings, embeddingJobs, whAisles, whShelves, whBins, inventoryLocations, picklistItems, insertWhAisleSchema, insertWhShelfSchema, insertWhBinSchema, insertInventoryLocationSchema, insertPicklistItemSchema, updateFulfillmentSchema, syncIssues, insertSyncIssueSchema, shipments, eodForms, setPartRelationships, blForumPosts, orderAdjustments, insertOrderAdjustmentSchema, brickanalyzerScans, priceGuideCache, partIdMappings, appFeedback, blCatalogClipEmbeddings, orgIntegrations, blApiCalls, marketNews, businessInsights, supportTickets, PLATFORM_ORG_ID, productVision, productOkrs, productKeyResults, productRoadmapItems, productBacklogItems, productCapabilities, featureVotes, insertProductOkrSchema, insertProductKeyResultSchema, insertProductRoadmapItemSchema, insertProductBacklogItemSchema, insertProductCapabilitySchema, pricingModel, plans, insertPlanSchema, shippingServiceMappings, pushSubscriptions, channelSyncConfig, channelLotLinks, crossPlatformSyncQueue, inventoryHistory, userImages, lotImages, itemTypeImages } from "@shared/schema";
+import { uploadUserImage, deleteUserImage, assignImageToLot, assignImageToItemType, getImagesForLot, readFromStorage } from "./services/user-image-store";
 import { eq, desc, sql, inArray, like, ilike, or, and, isNotNull, isNull, ne, count, gte, gt, lte, asc } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
@@ -18311,6 +18312,161 @@ Your response MUST be valid JSON with these exact keys: title, refinedDescriptio
       return res.json({ deleted: ids.length, ids, orders: toDelete.map(r => r.orderId) });
     } catch (err: any) {
       console.error('[Cleanup] false-refund cleanup error:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── User Image Library ──────────────────────────────────────────────────────
+  // Images uploaded by the operator (scope='user') are stored in object storage
+  // and tracked in user_images / lot_images / item_type_images.
+
+  const userImageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+
+  // POST /api/user-images/upload — upload + process a new image
+  app.post('/api/user-images/upload', isApproved, userImageUpload.single('image'), async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      if (!req.file) return res.status(400).json({ error: 'No image file provided' });
+
+      const record = await uploadUserImage({
+        orgId,
+        inputBuffer: req.file.buffer,
+        altText: (req.body.altText as string) || null,
+      });
+      return res.json(record);
+    } catch (err: any) {
+      console.error('[UserImages] upload error:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/user-images/:id/img — serve image bytes (auth-gated, no presigned URLs)
+  app.get('/api/user-images/:id/img', isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const [record] = await db
+        .select()
+        .from(userImages)
+        .where(and(eq(userImages.id, req.params.id), eq(userImages.orgId, orgId)))
+        .limit(1);
+      if (!record) return res.status(404).json({ error: 'Not found' });
+
+      const bytes = await readFromStorage(record.storageKey);
+      if (!bytes) return res.status(404).json({ error: 'Image bytes not found in storage' });
+
+      res.set({
+        'Content-Type': 'image/jpeg',
+        'Content-Length': bytes.length,
+        'Cache-Control': 'private, max-age=86400',
+      });
+      return res.end(bytes);
+    } catch (err: any) {
+      console.error('[UserImages] serve error:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/user-images/for-lot/:lotId — lot images + item-type fallbacks
+  app.get('/api/user-images/for-lot/:lotId', isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const blInventoryId = parseInt(req.params.lotId, 10);
+      const { itemNo, itemType } = req.query as { itemNo?: string; itemType?: string };
+      if (!itemNo || !itemType) return res.status(400).json({ error: 'itemNo and itemType are required' });
+
+      const result = await getImagesForLot({ orgId, blInventoryId, itemNo, itemType });
+      return res.json(result);
+    } catch (err: any) {
+      console.error('[UserImages] for-lot error:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/user-images/assign/lot — assign an existing image to a lot
+  app.post('/api/user-images/assign/lot', isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { imageId, blInventoryId, position } = req.body;
+      if (!imageId || !blInventoryId) return res.status(400).json({ error: 'imageId and blInventoryId required' });
+      const row = await assignImageToLot({ orgId, imageId, blInventoryId: parseInt(blInventoryId, 10), position: position ?? 0 });
+      return res.json(row);
+    } catch (err: any) {
+      console.error('[UserImages] assign/lot error:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/user-images/assign/item-type — assign image to all lots of an item type
+  app.post('/api/user-images/assign/item-type', isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { imageId, itemNo, itemType, position } = req.body;
+      if (!imageId || !itemNo || !itemType) return res.status(400).json({ error: 'imageId, itemNo, itemType required' });
+      const row = await assignImageToItemType({ orgId, imageId, itemNo, itemType, position: position ?? 0 });
+      return res.json(row);
+    } catch (err: any) {
+      console.error('[UserImages] assign/item-type error:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /api/user-images/lot-assignment/:id — remove a lot-level assignment
+  app.delete('/api/user-images/lot-assignment/:id', isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const assignmentId = parseInt(req.params.id, 10);
+      const [row] = await db.select().from(lotImages).where(eq(lotImages.id, assignmentId)).limit(1);
+      if (!row || row.orgId !== orgId) return res.status(404).json({ error: 'Not found' });
+      await db.delete(lotImages).where(eq(lotImages.id, assignmentId));
+      return res.json({ ok: true });
+    } catch (err: any) {
+      console.error('[UserImages] delete lot-assignment error:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /api/user-images/item-type-assignment/:id — remove an item-type-level assignment
+  app.delete('/api/user-images/item-type-assignment/:id', isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const assignmentId = parseInt(req.params.id, 10);
+      const [row] = await db.select().from(itemTypeImages).where(eq(itemTypeImages.id, assignmentId)).limit(1);
+      if (!row || row.orgId !== orgId) return res.status(404).json({ error: 'Not found' });
+      await db.delete(itemTypeImages).where(eq(itemTypeImages.id, assignmentId));
+      return res.json({ ok: true });
+    } catch (err: any) {
+      console.error('[UserImages] delete item-type-assignment error:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /api/user-images/:id — delete image + all assignments + storage bytes
+  app.delete('/api/user-images/:id', isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const ok = await deleteUserImage(req.params.id, orgId);
+      if (!ok) return res.status(404).json({ error: 'Not found' });
+      return res.json({ ok: true });
+    } catch (err: any) {
+      console.error('[UserImages] delete error:', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PUT /api/user-images/lot-reorder — update positions for a lot's images
+  app.put('/api/user-images/lot-reorder', isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { blInventoryId, orderedAssignmentIds } = req.body as { blInventoryId: number; orderedAssignmentIds: number[] };
+      if (!blInventoryId || !Array.isArray(orderedAssignmentIds)) return res.status(400).json({ error: 'blInventoryId and orderedAssignmentIds required' });
+      await Promise.all(orderedAssignmentIds.map((id, pos) =>
+        db.update(lotImages)
+          .set({ position: pos })
+          .where(and(eq(lotImages.id, id), eq(lotImages.orgId, orgId)))
+      ));
+      return res.json({ ok: true });
+    } catch (err: any) {
+      console.error('[UserImages] lot-reorder error:', err.message);
       return res.status(500).json({ error: err.message });
     }
   });

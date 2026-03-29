@@ -2021,3 +2021,52 @@ export const crossPlatformSyncQueue = pgTable("cross_platform_sync_queue", {
 
 export type CrossPlatformSyncQueueRow = typeof crossPlatformSyncQueue.$inferSelect;
 export type InsertCrossPlatformSyncQueue = typeof crossPlatformSyncQueue.$inferInsert;
+
+// ── User Images ────────────────────────────────────────────────────────────────
+// Central image library per org. All user-owned images live here.
+// scope='user'    → user took/owns these; may be pushed to any channel.
+// scope='catalog' → sourced from a catalog (BL/BO); must NOT be used on other channels.
+export const userImages = pgTable("user_images", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orgId: varchar("org_id").notNull(),
+  storageKey: text("storage_key").notNull(),              // object-storage object name
+  scope: varchar("scope").notNull().default("user"),      // 'user' | 'catalog'
+  sourceChannel: varchar("source_channel").notNull().default("local"), // 'local' | 'ebay' | ...
+  sourceUrl: text("source_url"),                          // original URL when imported
+  altText: text("alt_text"),
+  widthPx: integer("width_px"),
+  heightPx: integer("height_px"),
+  fileSizeKb: integer("file_size_kb"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [index("user_images_org_idx").on(t.orgId)]);
+
+export type UserImage = typeof userImages.$inferSelect;
+export type InsertUserImage = typeof userImages.$inferInsert;
+
+// Per-lot image assignments (lot-level override — highest priority).
+export const lotImages = pgTable("lot_images", {
+  id: serial("id").primaryKey(),
+  orgId: varchar("org_id").notNull(),
+  blInventoryId: integer("bl_inventory_id").notNull(),
+  imageId: varchar("image_id").notNull(),
+  position: integer("position").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  index("lot_images_lot_idx").on(t.orgId, t.blInventoryId),
+  index("lot_images_img_idx").on(t.imageId),
+]);
+
+export type LotImage = typeof lotImages.$inferSelect;
+
+// Per item-type image defaults (fallback when no lot-level images).
+export const itemTypeImages = pgTable("item_type_images", {
+  id: serial("id").primaryKey(),
+  orgId: varchar("org_id").notNull(),
+  itemNo: varchar("item_no").notNull(),
+  itemType: varchar("item_type").notNull(),
+  imageId: varchar("image_id").notNull(),
+  position: integer("position").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [index("item_type_images_item_idx").on(t.orgId, t.itemNo, t.itemType)]);
+
+export type ItemTypeImage = typeof itemTypeImages.$inferSelect;
