@@ -10964,6 +10964,278 @@ Format search_web URLs as markdown links.`;
     }
   });
 
+  // ── Bulkinator API ──────────────────────────────────────────────────────────
+  // IMPORTANT: Static sub-routes (/suggestions, /inventory-search) must be
+  // registered BEFORE the parameterised /:id route so Express matches them first.
+
+  // GET /api/bulk-lots/suggestions — AI-generated bulk suggestions based on inventory
+  // (defined early to avoid being caught by /:id)
+  app.get('/api/bulk-lots/suggestions', isApproved, async (req: any, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const sample = await db.execute(sql`
+        SELECT
+          inv.id, inv.item_no, inv.item_type, inv.color_id, inv.quantity, inv.unit_price,
+          inv.new_or_used, inv.is_stock_room, inv.stock_room_id,
+          COALESCE(
+            (SELECT item_name FROM bl_catalog WHERE item_no = inv.item_no AND item_type = inv.item_type ORDER BY (color_id = COALESCE(inv.color_id,0))::int DESC LIMIT 1),
+            inv.item_no
+          ) AS item_name,
+          COALESCE((SELECT name FROM bl_colors WHERE id = inv.color_id LIMIT 1), 'No Color') AS color_name,
+          COALESCE((SELECT name FROM bl_categories WHERE id = (SELECT category_id FROM bl_catalog WHERE item_no = inv.item_no AND item_type = inv.item_type LIMIT 1)), 'Unknown') AS category_name
+        FROM bl_inventory inv
+        WHERE inv.org_id = ${orgId}
+          AND inv.deleted_at IS NULL
+          AND inv.quantity > 0
+          AND inv.item_type = 'PART'
+        ORDER BY inv.quantity DESC
+        LIMIT 80
+      `);
+      const openaiKey = getPlatformOpenAIKey();
+      if (!openaiKey || sample.rows.length === 0) return res.json({ suggestions: [] });
+      const { OpenAI } = await import('openai');
+      const openai = new OpenAI({ apiKey: openaiKey });
+      const inventorySummary = sample.rows.slice(0, 60).map((r: any) =>
+        `id:${r.id} | ${r.item_name} (${r.item_no}) | Color: ${r.color_name} | Category: ${r.category_name} | Qty: ${r.quantity} | Price: $${r.unit_price ?? '?'}`
+      ).join('\n');
+      const prompt = `You are a LEGO reseller assistant helping create bulk lot suggestions.
+
+Here is a sample of the seller's current BrickLink inventory (highest quantity lots):
+${inventorySummary}
+
+Suggest 3-5 specific bulk lot groupings that would make sense to sell as a bundle on BrickOwl. Each suggestion should:
+- Have a descriptive, appealing listing title
+- Include specific inventory IDs from the list above (use the id: field)
+- Be one of these types: "same_part" (one part, multiple colors) or "mixed_parts" (various parts with a theme)
+- Have a brief rationale explaining why this grouping makes commercial sense
+
+Respond ONLY with valid JSON array, no markdown, no explanation:
+[
+  {
+    "title": "...",
+    "type": "same_part" | "mixed_parts",
+    "rationale": "...",
+    "inventoryIds": [123, 456],
+    "suggestedPrice": 4.99
+  }
+]`;
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 1200,
+        temperature: 0.7,
+      });
+      const text = completion.choices[0]?.message?.content?.trim() ?? '[]';
+      let suggestions: any[] = [];
+      try { suggestions = JSON.parse(text); } catch { suggestions = []; }
+      const idSet = new Set(sample.rows.map((r: any) => r.id));
+      const enriched = suggestions.map((s: any) => ({
+        ...s,
+        items: (s.inventoryIds ?? []).filter((id: number) => idSet.has(id)).map((id: number) =>
+          sample.rows.find((r: any) => r.id === id)
+        ).filter(Boolean),
+      }));
+      res.json({ suggestions: enriched });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // GET /api/bulk-lots/inventory-search — search available inventory lots for manual selection
+  app.get('/api/bulk-lots/inventory-search', isApproved, async (req, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const q = String(req.query.q || '').trim();
+      const limit = Math.min(50, parseInt(String(req.query.limit || '30')));
+      const itemType = String(req.query.itemType || '');
+      const rows = await db.execute(sql`
+        SELECT
+          inv.id, inv.item_no, inv.item_type, inv.color_id, inv.quantity, inv.unit_price,
+          inv.new_or_used, inv.remarks, inv.is_stock_room, inv.stock_room_id,
+          COALESCE(
+            (SELECT item_name FROM bl_catalog WHERE item_no = inv.item_no AND item_type = inv.item_type ORDER BY (color_id = COALESCE(inv.color_id,0))::int DESC LIMIT 1),
+            inv.item_no
+          ) AS item_name,
+          COALESCE((SELECT name FROM bl_colors WHERE id = inv.color_id LIMIT 1), 'No Color') AS color_name,
+          COALESCE((SELECT name FROM bl_categories WHERE id = (SELECT category_id FROM bl_catalog WHERE item_no = inv.item_no AND item_type = inv.item_type LIMIT 1)), '') AS category_name
+        FROM bl_inventory inv
+        WHERE inv.org_id = ${orgId}
+          AND inv.deleted_at IS NULL
+          AND inv.quantity > 0
+          ${itemType ? sql`AND inv.item_type = ${itemType}` : sql``}
+          ${q ? sql`AND (inv.item_no ILIKE ${'%' + q + '%'} OR EXISTS (SELECT 1 FROM bl_catalog c WHERE c.item_no = inv.item_no AND c.item_name ILIKE ${'%' + q + '%'}))` : sql``}
+        ORDER BY inv.quantity DESC
+        LIMIT ${limit}
+      `);
+      res.json(rows.rows);
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // GET /api/bulk-lots — list all bulk lots for this org (with item counts)
+  app.get('/api/bulk-lots', isApproved, async (req, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const rows = await db.execute(sql`
+        SELECT
+          bl.id, bl.name, bl.description, bl.bulk_type, bl.unit_price, bl.status,
+          bl.bo_lot_id, bl.last_synced_at, bl.sync_error, bl.created_at, bl.updated_at,
+          COUNT(bli.id)::int AS item_count,
+          COALESCE(SUM(bli.quantity), 0)::int AS total_quantity
+        FROM bulk_lots bl
+        LEFT JOIN bulk_lot_items bli ON bli.bulk_lot_id = bl.id
+        WHERE bl.org_id = ${orgId}
+        GROUP BY bl.id
+        ORDER BY bl.updated_at DESC
+      `);
+      res.json(rows.rows);
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // GET /api/bulk-lots/:id — single bulk lot with full items
+  app.get('/api/bulk-lots/:id', isApproved, async (req, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+      const [lot] = await db.execute(sql`
+        SELECT id, name, description, bulk_type, unit_price, status, bo_lot_id, last_synced_at, sync_error, created_at, updated_at
+        FROM bulk_lots WHERE id = ${id} AND org_id = ${orgId}
+      `).then(r => r.rows);
+      if (!lot) return res.status(404).json({ error: 'Not found' });
+      const items = await db.execute(sql`
+        SELECT
+          bli.id, bli.bl_inventory_id, bli.quantity, bli.created_at,
+          inv.item_no, inv.item_type, inv.color_id, inv.quantity AS inv_quantity,
+          inv.unit_price AS inv_unit_price, inv.new_or_used, inv.remarks,
+          COALESCE(
+            (SELECT item_name FROM bl_catalog WHERE item_no = inv.item_no AND item_type = inv.item_type ORDER BY (color_id = COALESCE(inv.color_id,0))::int DESC LIMIT 1),
+            inv.item_no
+          ) AS item_name,
+          COALESCE(
+            (SELECT name FROM bl_colors WHERE id = inv.color_id LIMIT 1),
+            'No Color'
+          ) AS color_name
+        FROM bulk_lot_items bli
+        JOIN bl_inventory inv ON inv.id = bli.bl_inventory_id
+        WHERE bli.bulk_lot_id = ${id}
+        ORDER BY bli.created_at
+      `);
+      res.json({ ...lot, items: items.rows });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // POST /api/bulk-lots — create a new bulk lot
+  app.post('/api/bulk-lots', isApproved, async (req, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const { name, description, bulkType, unitPrice, status } = req.body;
+      if (!name || !bulkType) return res.status(400).json({ error: 'name and bulkType are required' });
+      if (!['same_part', 'mixed_parts'].includes(bulkType)) return res.status(400).json({ error: 'Invalid bulkType' });
+      const [row] = await db.execute(sql`
+        INSERT INTO bulk_lots (org_id, name, description, bulk_type, unit_price, status)
+        VALUES (${orgId}, ${name}, ${description ?? null}, ${bulkType}, ${unitPrice ?? null}, ${status ?? 'draft'})
+        RETURNING *
+      `).then(r => r.rows);
+      res.json(row);
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // PATCH /api/bulk-lots/:id — update name/description/price/status
+  app.patch('/api/bulk-lots/:id', isApproved, async (req, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+      const { name, description, unitPrice, status } = req.body;
+      // Build a partial update object for Drizzle
+      const patch: Record<string, any> = { updatedAt: new Date() };
+      if (name !== undefined) patch.name = name;
+      if (description !== undefined) patch.description = description;
+      if (unitPrice !== undefined) patch.unitPrice = unitPrice;
+      if (status !== undefined) {
+        if (!['draft', 'active', 'inactive'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
+        patch.status = status;
+      }
+      if (Object.keys(patch).length === 1) return res.status(400).json({ error: 'No updatable fields provided' });
+      const { bulkLots: bulkLotsTable } = await import('@shared/schema');
+      const [row] = await db.update(bulkLotsTable)
+        .set(patch)
+        .where(and(eq(bulkLotsTable.id, id), eq(bulkLotsTable.orgId, orgId)))
+        .returning();
+      if (!row) return res.status(404).json({ error: 'Not found' });
+      res.json(row);
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // DELETE /api/bulk-lots/:id — disband a bulk lot (cascades to items)
+  app.delete('/api/bulk-lots/:id', isApproved, async (req, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: 'Invalid id' });
+      const result = await db.execute(sql`DELETE FROM bulk_lots WHERE id = ${id} AND org_id = ${orgId} RETURNING id`);
+      if (!result.rows[0]) return res.status(404).json({ error: 'Not found' });
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // POST /api/bulk-lots/:id/items — add a bl_inventory lot to a bulk lot
+  app.post('/api/bulk-lots/:id/items', isApproved, async (req, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const bulkLotId = parseInt(req.params.id);
+      if (isNaN(bulkLotId)) return res.status(400).json({ error: 'Invalid id' });
+      const { blInventoryId, quantity } = req.body;
+      if (!blInventoryId) return res.status(400).json({ error: 'blInventoryId required' });
+      // Verify bulk lot belongs to org
+      const [lot] = await db.execute(sql`SELECT id FROM bulk_lots WHERE id = ${bulkLotId} AND org_id = ${orgId}`).then(r => r.rows);
+      if (!lot) return res.status(404).json({ error: 'Bulk lot not found' });
+      // Verify inv lot belongs to org
+      const [inv] = await db.execute(sql`SELECT id, quantity FROM bl_inventory WHERE id = ${blInventoryId} AND org_id = ${orgId} AND deleted_at IS NULL`).then(r => r.rows);
+      if (!inv) return res.status(404).json({ error: 'Inventory lot not found' });
+      const qty = Math.max(1, parseInt(quantity) || 1);
+      const [row] = await db.execute(sql`
+        INSERT INTO bulk_lot_items (bulk_lot_id, bl_inventory_id, quantity)
+        VALUES (${bulkLotId}, ${blInventoryId}, ${qty})
+        ON CONFLICT DO NOTHING
+        RETURNING *
+      `).then(r => r.rows);
+      await db.execute(sql`UPDATE bulk_lots SET updated_at = now() WHERE id = ${bulkLotId}`);
+      res.json(row ?? { bulkLotId, blInventoryId, quantity: qty });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // DELETE /api/bulk-lots/:id/items/:itemId — remove an item from a bulk lot
+  app.delete('/api/bulk-lots/:id/items/:itemId', isApproved, async (req, res) => {
+    try {
+      const orgId = reqOrgId(req);
+      const bulkLotId = parseInt(req.params.id);
+      const itemId = parseInt(req.params.itemId);
+      if (isNaN(bulkLotId) || isNaN(itemId)) return res.status(400).json({ error: 'Invalid id' });
+      const [lot] = await db.execute(sql`SELECT id FROM bulk_lots WHERE id = ${bulkLotId} AND org_id = ${orgId}`).then(r => r.rows);
+      if (!lot) return res.status(404).json({ error: 'Bulk lot not found' });
+      await db.execute(sql`DELETE FROM bulk_lot_items WHERE id = ${itemId} AND bulk_lot_id = ${bulkLotId}`);
+      await db.execute(sql`UPDATE bulk_lots SET updated_at = now() WHERE id = ${bulkLotId}`);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
   // Verify BrickOwl lots endpoint
   app.post('/api/platform-sync/verify-lots', isApproved, async (req: any, res) => {
     try {

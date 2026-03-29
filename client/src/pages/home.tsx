@@ -37,6 +37,7 @@ import InventoryHealthPanel from "@/components/InventoryHealthPanel";
 import InventoryBrowsePanel from "@/components/InventoryBrowsePanel";
 import BrickLinkSyncPanel from "@/components/BrickLinkSyncPanel";
 import ChannelSyncPanel from "@/components/ChannelSyncPanel";
+import BulkinatorPanel from "@/components/BulkinatorPanel";
 import OrderSyncPanel from "@/components/OrderSyncPanel";
 
 export default function Home() {
@@ -146,7 +147,7 @@ export default function Home() {
     forum: { count: number; posts: Array<{ title: string; excerpt: string; username: string; postedAt: string; threadUrl: string }> };
     news: { count: number; articles: Array<{ title: string; snippet: string; url: string; source: string; query: string; fetchedAt: string }> };
   } | null>(null);
-  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | 'channelsync' | null>(null);
+  const [activeInventoryDrawer, setActiveInventoryDrawer] = useState<'priceomatic' | 'platformsync' | 'brickanalyzer' | 'inventoryhealth' | 'bricklinksync' | 'channelsync' | 'bulkinator' | null>(null);
   const [activeOrdersDrawer, setActiveOrdersDrawer] = useState<'fulfillment' | 'shipped' | 'bricklinksync' | 'brickowlsync' | null>(null);
   const [rightPanelBrowse, setRightPanelBrowse] = useState<'lots' | 'parts' | 'categories' | null>(null);
   const [planCollapsed, setPlanCollapsed] = useState(false);
@@ -574,6 +575,13 @@ export default function Home() {
           onClose={closeActiveDrawer}
           onOpenSettings={(section, focus) => { setSettingsInitialSection(section ?? null); setSettingsFocusTarget(focus); setSettingsOpen(true); }}
         />
+      );
+    }
+    if (activeInventoryDrawer === 'bulkinator') {
+      return (
+        <ToolDrawer icon={SlidersHorizontal} iconColor="text-orange-400" title="Bulkinator" onClose={closeActiveDrawer}>
+          <BulkinatorPanel />
+        </ToolDrawer>
       );
     }
     if (activeOrdersDrawer === 'bricklinksync') {
@@ -1473,7 +1481,7 @@ export default function Home() {
       {/* Tool drawers — Vaul drawer on mobile only; desktop uses inline overlay in center column */}
       {!isDesktop && (
         <Drawer open={!!(
-          (activeInventoryDrawer && activeInventoryDrawer !== 'inventoryhealth' && activeInventoryDrawer !== 'bricklinksync' && activeInventoryDrawer !== 'channelsync') ||
+          (activeInventoryDrawer && activeInventoryDrawer !== 'inventoryhealth' && activeInventoryDrawer !== 'bricklinksync' && activeInventoryDrawer !== 'channelsync' && activeInventoryDrawer !== 'bulkinator') ||
           (activeOrdersDrawer && activeOrdersDrawer !== 'bricklinksync' && activeOrdersDrawer !== 'brickowlsync') ||
           activeMarketingDrawer || activeSalesDrawer || billingOpen
         )} onOpenChange={(open) => { if (!open) closeActiveDrawer(); }}>
@@ -1487,6 +1495,7 @@ export default function Home() {
                   {activeInventoryDrawer === 'priceomatic' && <><Sparkles className="w-4 h-4 text-purple-400 flex-shrink-0" /> Price-o-Matic</>}
                   {activeInventoryDrawer === 'platformsync' && <><ListChecks className="w-4 h-4 text-green-400 flex-shrink-0" /> List-o-Matic</>}
                   {activeInventoryDrawer === 'brickanalyzer' && <><ScanSearch className="w-4 h-4 text-lego-yellow flex-shrink-0" /> Brick Spotter 3000</>}
+                  {activeInventoryDrawer === 'bulkinator' && <><Package className="w-4 h-4 text-orange-400 flex-shrink-0" /> Bulkinator</>}
                   {activeOrdersDrawer === 'fulfillment' && <><Truck className="w-4 h-4 text-orange-400 flex-shrink-0" /> Fulfillment & Shipping</>}
                   {activeOrdersDrawer === 'shipped' && <><PackageCheck className="w-4 h-4 text-green-400 flex-shrink-0" /> Shipped Orders</>}
                   {activeMarketingDrawer && <><Mail className="w-4 h-4 text-yellow-400 flex-shrink-0" /> Marketing</>}
@@ -1503,6 +1512,7 @@ export default function Home() {
               {activeInventoryDrawer === 'priceomatic' && <PriceOMaticDashboard onItemClick={(type, id) => handleDashboardItemClick(type, id, 'pricing')} onOpenSettings={(section, pricingExample, scoringExample) => { setSettingsInitialSection(section as any); setSettingsPricingExample(pricingExample); setSettingsScoringExample(scoringExample); setSettingsOpen(true); }} />}
               {activeInventoryDrawer === 'platformsync' && <ListomaticPriority />}
               {activeInventoryDrawer === 'brickanalyzer' && <BrickanalyzerTool onItemClick={(type, id, tab) => handleDashboardItemClick(type, id, tab)} />}
+              {activeInventoryDrawer === 'bulkinator' && <BulkinatorPanel />}
               {activeOrdersDrawer === 'fulfillment' && <FulfillmentTool onOrderDetail={handleOrderSelect} />}
               {activeOrdersDrawer === 'shipped' && <ShippedOrdersTool onItemClick={(type, id) => { closeActiveDrawer(); handleDashboardItemClick(type, id); }} />}
               {activeMarketingDrawer && <MarketingDashboard dateRange={dateRange} onItemClick={handleDashboardItemClick} activeDrawer={activeMarketingDrawer} onDrawerChange={setActiveMarketingDrawer} renderDrawerOnly />}

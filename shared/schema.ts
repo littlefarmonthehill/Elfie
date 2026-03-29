@@ -776,6 +776,48 @@ export const channelSyncConfig = pgTable("channel_sync_config", {
 export type ChannelSyncConfig = typeof channelSyncConfig.$inferSelect;
 export const insertChannelSyncConfigSchema = createInsertSchema(channelSyncConfig).omit({ id: true, updatedAt: true });
 
+// ── Bulk Lots ──────────────────────────────────────────────────────────────────
+// A bulk lot is a virtual multi-item listing created by the Bulkinator tool.
+// It collects one or more bl_inventory lots into a named bundle for sale on
+// channels that support multi-item listings (e.g. BrickOwl).  BrickLink is
+// intentionally excluded — it has no native bundle concept.
+//
+// Bulk types:
+//   'same_part'   — e.g. "100× 1×2 Plates, mixed colors" (single item type, many colors)
+//   'mixed_parts' — e.g. "City Police Parts Lot" (multiple item types / categories)
+export const bulkLots = pgTable("bulk_lots", {
+  id:          serial("id").primaryKey(),
+  orgId:       varchar("org_id").notNull(),
+  name:        text("name").notNull(),
+  description: text("description"),                   // AI-generated or user-written listing description
+  bulkType:    text("bulk_type").notNull(),             // 'same_part' | 'mixed_parts'
+  unitPrice:   decimal("unit_price", { precision: 10, scale: 2 }), // Price for the entire bundle
+  status:      text("status").notNull().default('draft'), // 'draft' | 'active' | 'inactive'
+  // Channel metadata — populated once the lot is pushed to BO
+  boLotId:     text("bo_lot_id"),
+  lastSyncedAt: timestamp("last_synced_at"),
+  syncError:   text("sync_error"),
+  createdAt:   timestamp("created_at").defaultNow().notNull(),
+  updatedAt:   timestamp("updated_at").defaultNow().notNull(),
+});
+export type BulkLot = typeof bulkLots.$inferSelect;
+export const insertBulkLotSchema = createInsertSchema(bulkLots).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertBulkLot = z.infer<typeof insertBulkLotSchema>;
+
+// Items (bl_inventory lots) that make up a bulk lot.
+// Each row links one BL inventory lot to one bulk lot, with the quantity
+// that is being contributed to the bundle (may be less than the full lot qty).
+export const bulkLotItems = pgTable("bulk_lot_items", {
+  id:          serial("id").primaryKey(),
+  bulkLotId:   integer("bulk_lot_id").notNull().references(() => bulkLots.id, { onDelete: 'cascade' }),
+  blInventoryId: integer("bl_inventory_id").notNull().references(() => blInventory.id, { onDelete: 'cascade' }),
+  quantity:    integer("quantity").notNull().default(1),
+  createdAt:   timestamp("created_at").defaultNow().notNull(),
+});
+export type BulkLotItem = typeof bulkLotItems.$inferSelect;
+export const insertBulkLotItemSchema = createInsertSchema(bulkLotItems).omit({ id: true, createdAt: true });
+export type InsertBulkLotItem = z.infer<typeof insertBulkLotItemSchema>;
+
 // Conversation Threads — chat session metadata
 export const conversationThreads = pgTable("conversation_threads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

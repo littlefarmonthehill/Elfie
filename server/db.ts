@@ -2315,6 +2315,38 @@ export async function runMigrations() {
     `);
     console.log('[Migration] Phase-95 (sync_price_floor on channel_sync_config) complete.');
 
+    // Phase-96: Bulk lots tables for the Bulkinator tool
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS bulk_lots (
+        id          serial PRIMARY KEY,
+        org_id      varchar NOT NULL,
+        name        text NOT NULL,
+        description text,
+        bulk_type   text NOT NULL,
+        unit_price  numeric(10,2),
+        status      text NOT NULL DEFAULT 'draft',
+        bo_lot_id   text,
+        last_synced_at timestamp,
+        sync_error  text,
+        created_at  timestamp NOT NULL DEFAULT now(),
+        updated_at  timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS bulk_lots_org_idx ON bulk_lots(org_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS bulk_lots_status_idx ON bulk_lots(org_id, status)`);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS bulk_lot_items (
+        id               serial PRIMARY KEY,
+        bulk_lot_id      integer NOT NULL REFERENCES bulk_lots(id) ON DELETE CASCADE,
+        bl_inventory_id  integer NOT NULL REFERENCES bl_inventory(id) ON DELETE CASCADE,
+        quantity         integer NOT NULL DEFAULT 1,
+        created_at       timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS bulk_lot_items_lot_idx ON bulk_lot_items(bulk_lot_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS bulk_lot_items_inv_idx ON bulk_lot_items(bl_inventory_id)`);
+    console.log('[Migration] Phase-96 (bulk_lots + bulk_lot_items tables) complete.');
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {
