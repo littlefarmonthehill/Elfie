@@ -31,6 +31,7 @@ import {
   RefreshCw,
   FileText,
   Trash2,
+  MapPin,
 } from "lucide-react";
 
 interface ItemTypeRow {
@@ -58,6 +59,19 @@ interface HealthSummary {
     rows: Array<{ category_id: number; category_name: string; lot_count: number; total_qty: number; total_value: number }>;
   };
   itemTypeBreakdown: ItemTypeRow[];
+  warehouseLocation: {
+    totalActiveLots: number;
+    locatedLots: number;
+    unlocatedLots: number;
+    totalBins: number;
+    aisles: Array<{
+      aisleId: number;
+      aisleName: string;
+      binCount: number;
+      locatedLots: number;
+      totalQty: number;
+    }>;
+  };
 }
 
 type HealthCategory =
@@ -273,31 +287,43 @@ function ItemTypeBreakdown({ rows }: { rows: ItemTypeRow[] }) {
   );
 }
 
+const STOCKROOM_PALETTE = [
+  { color: 'text-sky-400', bg: 'bg-sky-500' },
+  { color: 'text-violet-400', bg: 'bg-violet-500' },
+  { color: 'text-amber-400', bg: 'bg-amber-500' },
+  { color: 'text-rose-400', bg: 'bg-rose-500' },
+  { color: 'text-teal-400', bg: 'bg-teal-500' },
+];
+
 function StockroomOverview({ stockroom }: { stockroom: HealthSummary['stockroom'] }) {
   const live = stockroom.live ?? { lotCount: 0, totalQty: 0, totalValue: 0 };
-  const a = stockroom.A ?? { lotCount: 0, totalQty: 0, totalValue: 0 };
-  const b = stockroom.B ?? { lotCount: 0, totalQty: 0, totalValue: 0 };
-  const c = stockroom.C ?? { lotCount: 0, totalQty: 0, totalValue: 0 };
 
-  const totalLots = live.lotCount + a.lotCount + b.lotCount + c.lotCount;
-  const stockroomLots = a.lotCount + b.lotCount + c.lotCount;
+  // Dynamically collect all non-live stockroom keys, sorted alphabetically
+  const stockroomKeys = Object.keys(stockroom)
+    .filter(k => k !== 'live')
+    .sort();
+
+  const totalLots = Object.values(stockroom).reduce((s, v) => s + v.lotCount, 0);
+  const stockroomLots = stockroomKeys.reduce((s, k) => s + (stockroom[k]?.lotCount ?? 0), 0);
   const stockroomPct = totalLots > 0 ? Math.round(stockroomLots / totalLots * 100) : 0;
 
   const rows = [
     { key: 'Live', data: live, color: 'text-green-400', bg: 'bg-green-500' },
-    { key: 'Stockroom A', data: a, color: 'text-sky-400', bg: 'bg-sky-500' },
-    { key: 'Stockroom B', data: b, color: 'text-violet-400', bg: 'bg-violet-500' },
-    { key: 'Stockroom C', data: c, color: 'text-amber-400', bg: 'bg-amber-500' },
+    ...stockroomKeys.map((k, i) => ({
+      key: `Stockroom ${k}`,
+      data: stockroom[k],
+      ...STOCKROOM_PALETTE[i % STOCKROOM_PALETTE.length],
+    })),
   ].filter(r => r.data.lotCount > 0);
 
   return (
     <div className="mx-4 my-3 rounded-lg border border-border/50 bg-muted/20 p-3 space-y-3">
       <div className="flex items-center gap-2">
         <Archive className="w-4 h-4 text-muted-foreground" />
-        <span className="text-sm font-semibold text-foreground">Stockroom</span>
+        <span className="text-sm font-semibold text-foreground">BrickLink Stockroom</span>
         {stockroomPct > 0 && (
           <span className="ml-auto text-[10px] text-muted-foreground">
-            <span className="font-mono font-semibold text-foreground">{stockroomPct}%</span> in stockroom
+            <span className="font-mono font-semibold text-foreground">{stockroomPct}%</span> held back
           </span>
         )}
       </div>
@@ -335,6 +361,98 @@ function StockroomOverview({ stockroom }: { stockroom: HealthSummary['stockroom'
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function WarehouseLocationPanel({ warehouseLocation }: { warehouseLocation: HealthSummary['warehouseLocation'] }) {
+  const { totalActiveLots, locatedLots, unlocatedLots, totalBins, aisles } = warehouseLocation;
+
+  if (totalActiveLots === 0 && totalBins === 0) return null;
+
+  const locatedPct = totalActiveLots > 0 ? Math.round(locatedLots / totalActiveLots * 100) : 0;
+  const coverageColor =
+    locatedPct >= 80 ? 'text-green-400' :
+    locatedPct >= 40 ? 'text-amber-400' :
+    'text-rose-400';
+
+  const activeAisles = aisles.filter(a => a.locatedLots > 0);
+  const emptyAisles = aisles.filter(a => a.locatedLots === 0);
+
+  return (
+    <div className="mx-4 my-3 rounded-lg border border-border/50 bg-muted/20 p-3 space-y-3">
+      <div className="flex items-center gap-2">
+        <MapPin className="w-4 h-4 text-muted-foreground" />
+        <span className="text-sm font-semibold text-foreground">Warehouse Locations</span>
+        <span className={`ml-auto text-[10px] font-semibold ${coverageColor}`}>
+          {locatedPct}% located
+        </span>
+      </div>
+
+      {/* Coverage bar */}
+      {totalActiveLots > 0 && (
+        <div className="flex h-2 rounded-full overflow-hidden gap-px bg-muted/40">
+          <div
+            className="bg-emerald-500 transition-all"
+            style={{ width: `${locatedPct}%`, minWidth: locatedLots > 0 ? '2px' : '0' }}
+          />
+          <div
+            className="bg-rose-500/40 transition-all"
+            style={{ width: `${100 - locatedPct}%`, minWidth: unlocatedLots > 0 ? '2px' : '0' }}
+          />
+        </div>
+      )}
+
+      {/* Summary stats */}
+      <div className="grid grid-cols-3 gap-2 text-xs">
+        <div className="text-center">
+          <div className="font-mono font-semibold text-emerald-400">{locatedLots.toLocaleString()}</div>
+          <div className="text-muted-foreground text-[10px]">Located</div>
+        </div>
+        <div className="text-center">
+          <div className="font-mono font-semibold text-rose-400">{unlocatedLots.toLocaleString()}</div>
+          <div className="text-muted-foreground text-[10px]">Unlocated</div>
+        </div>
+        <div className="text-center">
+          <div className="font-mono font-semibold text-foreground">{totalBins.toLocaleString()}</div>
+          <div className="text-muted-foreground text-[10px]">Bins total</div>
+        </div>
+      </div>
+
+      {/* Aisle breakdown — active aisles first */}
+      {aisles.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+            Aisles ({aisles.length})
+          </div>
+          {activeAisles.map(a => (
+            <div key={a.aisleId} className="flex items-center justify-between text-xs" data-testid={`wh-aisle-row-${a.aisleId}`}>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="text-foreground/80">{a.aisleName}</span>
+                <span className="text-muted-foreground text-[10px]">{a.binCount} bins</span>
+              </div>
+              <div className="flex items-center gap-3 text-right">
+                <span className="text-muted-foreground text-[10px]">{a.totalQty.toLocaleString()} pcs</span>
+                <span className="font-mono font-semibold text-emerald-400 min-w-[3rem] text-right">
+                  {a.locatedLots.toLocaleString()} lots
+                </span>
+              </div>
+            </div>
+          ))}
+          {emptyAisles.length > 0 && (
+            <div className="text-[10px] text-muted-foreground/60 pt-1">
+              {emptyAisles.length} aisle{emptyAisles.length > 1 ? 's' : ''} empty: {emptyAisles.map(a => a.aisleName).join(', ')}
+            </div>
+          )}
+        </div>
+      )}
+
+      {totalBins > 0 && aisles.length === 0 && (
+        <div className="text-[10px] text-muted-foreground/60 text-center">
+          {totalBins} bins configured — no aisles set up yet
+        </div>
+      )}
     </div>
   );
 }
@@ -1128,6 +1246,7 @@ export default function InventoryHealthPanel({ open, onOpenChange, inline }: Inv
           )}
           {health && health.itemTypeBreakdown?.length > 0 && <ItemTypeBreakdown rows={health.itemTypeBreakdown} />}
           {health && <StockroomOverview stockroom={health.stockroom} />}
+          {health && health.warehouseLocation && <WarehouseLocationPanel warehouseLocation={health.warehouseLocation} />}
           {health && health.productMix.rows.length > 0 && <ProductMixOverview productMix={health.productMix} />}
           <div className="px-4 mt-3">
             <button onClick={() => setShowHistory(true)} className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-border/50 bg-muted/20 hover-elevate text-sm" data-testid="button-view-history">

@@ -9693,6 +9693,9 @@ Format search_web URLs as markdown links.`;
         crossConditionResult,
         obsoleteCatalogResult,
         itemTypeBreakdownResult,
+        warehouseCoverageResult,
+        warehouseAislesResult,
+        warehouseBinCountResult,
       ] = await Promise.all([
         // 1. Soft-deleted items (total + how many are linked to an order)
         db.execute(sql`
@@ -9841,15 +9844,45 @@ Format search_web URLs as markdown links.`;
           GROUP BY bi.item_type
           ORDER BY lot_count DESC
         `),
+
+        // 14. Warehouse location coverage: located vs unlocated active lots
+        db.execute(sql`
+          SELECT
+            COUNT(bi.id) as total_active_lots,
+            COUNT(il.id) as located_lots,
+            COUNT(bi.id) - COUNT(il.id) as unlocated_lots
+          FROM bl_inventory bi
+          LEFT JOIN inventory_locations il ON il.inventory_id = bi.id
+          WHERE bi.org_id = ${orgId} AND bi.deleted_at IS NULL AND bi.quantity > 0
+        `),
+
+        // 15. Warehouse bin + aisle summary (aisle → shelf → bin hierarchy)
+        db.execute(sql`
+          SELECT
+            a.id as aisle_id,
+            a.name as aisle_name,
+            COUNT(DISTINCT b.id) as bin_count,
+            COUNT(DISTINCT il.id) as located_lots,
+            COALESCE(SUM(bi.quantity), 0) as total_qty
+          FROM wh_aisles a
+          LEFT JOIN wh_shelves s ON s.aisle_id = a.id
+          LEFT JOIN wh_bins b ON b.shelf_id = s.id
+          LEFT JOIN inventory_locations il ON il.bin_id = b.id
+          LEFT JOIN bl_inventory bi ON bi.id = il.inventory_id
+            AND bi.deleted_at IS NULL AND bi.quantity > 0
+          WHERE a.org_id = ${orgId}
+          GROUP BY a.id, a.name
+          ORDER BY a.name
+        `),
+
+        // 16. Total bins configured for this org
+        db.select({ totalBins: sql<number>`COUNT(*)` })
+          .from(whBins)
+          .where(eq(whBins.orgId, orgId)),
       ]);
 
-      // Stockroom breakdown aggregation
-      const stockroom: Record<string, { lotCount: number; totalQty: number; totalValue: number }> = {
-        live: { lotCount: 0, totalQty: 0, totalValue: 0 },
-        A: { lotCount: 0, totalQty: 0, totalValue: 0 },
-        B: { lotCount: 0, totalQty: 0, totalValue: 0 },
-        C: { lotCount: 0, totalQty: 0, totalValue: 0 },
-      };
+      // Stockroom breakdown aggregation — fully dynamic, no hardcoded A/B/C
+      const stockroom: Record<string, { lotCount: number; totalQty: number; totalValue: number }> = {};
       for (const row of stockroomRows) {
         const key = row.isStockRoom ? (row.stockRoomId ?? 'A') : 'live';
         const bucket = stockroom[key] ?? (stockroom[key] = { lotCount: 0, totalQty: 0, totalValue: 0 });
@@ -9910,6 +9943,24 @@ Format search_web URLs as markdown links.`;
           avgPrice: Number(r.avg_price ?? 0),
           totalValue: Number(r.total_value ?? 0),
         })),
+        warehouseLocation: (() => {
+          const covRow = (warehouseCoverageResult as any).rows?.[0] ?? {};
+          const totalBins = Number(warehouseBinCountResult[0]?.totalBins ?? 0);
+          const aisleRows = (warehouseAislesResult as any).rows ?? [];
+          return {
+            totalActiveLots: Number(covRow.total_active_lots ?? 0),
+            locatedLots: Number(covRow.located_lots ?? 0),
+            unlocatedLots: Number(covRow.unlocated_lots ?? 0),
+            totalBins,
+            aisles: aisleRows.map((r: any) => ({
+              aisleId: Number(r.aisle_id),
+              aisleName: r.aisle_name as string,
+              binCount: Number(r.bin_count ?? 0),
+              locatedLots: Number(r.located_lots ?? 0),
+              totalQty: Number(r.total_qty ?? 0),
+            })),
+          };
+        })(),
       });
     } catch (error) {
       console.error("Error fetching inventory health:", error);
