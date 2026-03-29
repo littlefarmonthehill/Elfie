@@ -610,8 +610,19 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
             </DialogContent>
           </Dialog>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <h3 className="text-sm font-black text-lego-blue font-mono" data-testid="text-item-number">{data.itemNo}</h3>
+              {data.colorName && (
+                <div className="flex items-center gap-1">
+                  {data.colorRgb && (
+                    <div
+                      className="w-2.5 h-2.5 rounded-full border border-gray-600 shrink-0"
+                      style={{ backgroundColor: `#${data.colorRgb}` }}
+                    />
+                  )}
+                  <span className="text-[10px] text-gray-400 font-medium">{data.colorName}</span>
+                </div>
+              )}
               {data.bindId && (
                 <Badge className="bg-purple-500/20 text-purple-400 border-purple-400/40 text-[9px] md:text-xs h-4 px-2 font-bold">
                   BIND #{data.bindId}
@@ -630,24 +641,13 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
             <p className="text-xs text-white font-semibold mb-2 leading-tight" title={itemName}>
               {itemName}
             </p>
-            <div className="flex items-center gap-2 flex-wrap">
-              {data.colorName && (
-                <div className="flex items-center gap-1.5">
-                  {data.colorRgb && (
-                    <div 
-                      className="w-3 h-3 rounded-full border border-gray-600"
-                      style={{ backgroundColor: `#${data.colorRgb}` }}
-                    />
-                  )}
-                  <span className="text-[10px] md:text-sm text-gray-300 font-medium">{data.colorName}</span>
-                </div>
-              )}
-              {data.categoryName && (
+            {data.categoryName && (
+              <div className="flex items-center gap-2 flex-wrap">
                 <Badge className="bg-gray-800 text-gray-300 border-gray-700 text-[9px] md:text-xs h-4 px-2 font-medium">
                   {data.categoryName}
                 </Badge>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -658,7 +658,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
           <TabsTrigger value="overview" className="text-[9px] md:text-xs py-1 data-[state=active]:bg-lego-blue" data-testid="tab-overview">OVERVIEW</TabsTrigger>
           <TabsTrigger value="pricing" className="text-[9px] md:text-xs py-1 data-[state=active]:bg-purple-600" data-testid="tab-pricing">PRICING</TabsTrigger>
           <TabsTrigger value="analytics" className="text-[9px] md:text-xs py-1 data-[state=active]:bg-lego-orange" data-testid="tab-analytics">ANALYTICS</TabsTrigger>
-          <TabsTrigger value="details" className="text-[9px] md:text-xs py-1 data-[state=active]:bg-lego-green" data-testid="tab-details">DETAILS</TabsTrigger>
+          <TabsTrigger value="details" className="text-[9px] md:text-xs py-1 data-[state=active]:bg-lego-green" data-testid="tab-details">MY INVENTORY</TabsTrigger>
         </TabsList>
 
         <div className="flex-1 overflow-y-auto min-h-0">
