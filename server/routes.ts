@@ -13294,6 +13294,17 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     res.json({ running: getOrderSyncIsRunning() });
   });
 
+  // Emergency: force-release a stuck sync lock (super-admin only).
+  // Use when a sync crashed mid-run and left the in-memory lock held.
+  app.post("/api/platform-admin/sync/clear-lock", isSuperAdmin, async (_req, res) => {
+    const active = syncLock.getActive();
+    for (const name of active) {
+      syncLock.release(name);
+      console.warn(`[Admin] Force-released stuck sync lock: ${name}`);
+    }
+    res.json({ cleared: active });
+  });
+
   app.get("/api/channel-sync/running", isApproved, async (req, res) => {
     const { getChannelSyncIsRunning } = await import("./services/channel-sync-scheduler");
     res.json({ running: getChannelSyncIsRunning() });

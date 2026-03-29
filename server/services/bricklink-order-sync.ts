@@ -158,12 +158,16 @@ export async function syncBrickLinkOrders(
         const newStatus = mapPlatformStatus('bricklink', order.status);
         if (existing.status !== newStatus) return true; // Status changed
 
-        // Re-process if the stored address is missing state — allows address enrichment
-        // without waiting for a status change.
-        try {
-          const addr = existing.shipTo ? JSON.parse(existing.shipTo) : {};
-          if (!addr.state) return true;
-        } catch { /* ignore bad JSON */ }
+        // Re-process if the stored address is missing state, but ONLY for active
+        // orders — shipped/returned/cancelled orders don't need address enrichment
+        // and re-processing them would make incremental syncs very slow.
+        const CLOSED_STATUSES = new Set(['shipped', 'returned', 'cancelled', 'Cancelled', 'purged', 'completed', 'Completed']);
+        if (!CLOSED_STATUSES.has(existing.status)) {
+          try {
+            const addr = existing.shipTo ? JSON.parse(existing.shipTo) : {};
+            if (!addr.state) return true;
+          } catch { /* ignore bad JSON */ }
+        }
 
         return false;
       });
