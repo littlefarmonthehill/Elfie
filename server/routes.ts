@@ -12929,14 +12929,14 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
     try {
       const orgId = reqOrgId(req);
       const { items } = req.body as {
-        items: { itemNo: string; colorId: number; condition: string; quantity: number; price?: number }[];
+        items: { itemNo: string; colorId: number; colorName?: string; condition: string; quantity: number; price?: number }[];
       };
       if (!Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ error: "No items provided" });
       }
 
       // Consolidate seller items by itemNo|colorId|condition (safety net for unconsolidated uploads)
-      type SellerItem = { itemNo: string; colorId: number; condition: string; quantity: number; price?: number; _pricedQty?: number };
+      type SellerItem = { itemNo: string; colorId: number; colorName?: string; condition: string; quantity: number; price?: number; _pricedQty?: number };
       const consolidatedMap = new Map<string, SellerItem>();
       for (const item of items) {
         const key = `${item.itemNo}|${item.colorId ?? 0}|${item.condition}`;
@@ -12956,6 +12956,21 @@ Be specific with numbers. Reference actual data points. Return ONLY a JSON array
         }
       }
       const sellerItems = [...consolidatedMap.values()].map(({ _pricedQty: _, ...rest }) => rest);
+
+      // Preload BL color name → ID map so we can resolve text color names from CSV uploads
+      const allColors = await db.select({ id: blColors.id, name: blColors.name }).from(blColors);
+      const colorByName = new Map<string, number>();
+      for (const c of allColors) {
+        colorByName.set(c.name.toLowerCase().trim(), c.id);
+      }
+
+      // Resolve colorId=0 items using their colorName (when CSV has text color columns)
+      for (const item of sellerItems) {
+        if ((item.colorId ?? 0) === 0 && item.colorName) {
+          const resolved = colorByName.get(item.colorName.toLowerCase().trim());
+          if (resolved != null) item.colorId = resolved;
+        }
+      }
 
       // Load org's current active inventory
       const orgInv = await db

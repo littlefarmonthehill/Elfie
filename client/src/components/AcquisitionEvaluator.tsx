@@ -1,14 +1,14 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
 import * as XLSX from "xlsx";
 import {
   Upload, FileUp, X, CheckCircle2, AlertTriangle,
-  Package, Layers, TrendingUp, TrendingDown, ChevronDown, ChevronUp, Loader2
+  Package, Layers, ChevronDown, ChevronUp, Loader2,
+  ArrowUpDown, ArrowUp, ArrowDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 export interface AcqItem {
   itemNo: string;
   colorId: number;
+  colorName?: string;
   condition: string;
   quantity: number;
   price?: number;
@@ -159,9 +160,12 @@ function parseCSV(content: string): AcqItem[] {
   };
 
   const itemNoIdx = col(['itemno', 'itemid', 'partnumber', 'partno', 'part']);
-  const colorIdx = col(['colorid', 'color', 'blcolorid', 'colorname']);
+  // Strictly-numeric color ID columns (preferred):
+  const colorIdIdx = col(['colorid', 'blcolorid', 'colorcode', 'blcolor', 'colornum']);
+  // Text color name columns (fallback — may contain "White", "Red", etc. or also a number):
+  const colorNameIdx = col(['colorname', 'colourname', 'color', 'colour', 'colordesc']);
   const qtyIdx = col(['qty', 'quantity', 'minqty', 'count']);
-  const condIdx = col(['condition', 'newused', 'cond', 'newOrUsed']);
+  const condIdx = col(['condition', 'newused', 'cond', 'newOrUsed', 'neworused', 'newused']);
   const priceIdx = col(['price', 'unitprice', 'myprice']);
 
   if (itemNoIdx === -1 || qtyIdx === -1) return [];
@@ -173,11 +177,24 @@ function parseCSV(content: string): AcqItem[] {
     const qty = parseInt(r[qtyIdx]?.trim() || "0", 10);
     if (!itemNo || qty <= 0) continue;
 
+    // Resolve color: try the numeric-ID column first, then fall back to the name column.
+    // If the fallback column is also numeric (some CSVs put a number under "Color"), use it as an ID.
+    // If it's text, keep colorId=0 and store the name so the backend can resolve it.
     let colorId = 0;
-    if (colorIdx !== -1) {
-      const raw = r[colorIdx]?.trim() || "0";
+    let colorName: string | undefined;
+    if (colorIdIdx !== -1) {
+      const raw = r[colorIdIdx]?.trim() || "";
       const n = parseInt(raw, 10);
-      colorId = isNaN(n) ? 0 : n;
+      if (!isNaN(n) && n > 0) colorId = n;
+    }
+    if (colorId === 0 && colorNameIdx !== -1) {
+      const raw = r[colorNameIdx]?.trim() || "";
+      const n = parseInt(raw, 10);
+      if (!isNaN(n) && n > 0) {
+        colorId = n; // column header is "Color" but value is numeric — treat as ID
+      } else if (raw) {
+        colorName = raw; // text like "White" — send to backend for resolution
+      }
     }
 
     let condition = "U";
@@ -193,7 +210,7 @@ function parseCSV(content: string): AcqItem[] {
       if (!isNaN(n)) price = n;
     }
 
-    items.push({ itemNo, colorId, condition, quantity: qty, price });
+    items.push({ itemNo, colorId, colorName, condition, quantity: qty, price });
   }
   return items;
 }
@@ -281,11 +298,73 @@ function fmt$(n: number | null | undefined): string {
   return `$${n.toFixed(2)}`;
 }
 
+type SortCol = 'itemNo' | 'condition' | 'sellerQty' | 'sellerPrice' | 'orgQty' | 'orgPrice' | 'market';
+type SortDir = 'asc' | 'desc';
+
 function ItemsTable({ items, type }: { items: AcqCommonItem[] | AcqNewItem[]; type: 'common' | 'new' }) {
   const [expanded, setExpanded] = useState(false);
-  const displayed = expanded ? items : items.slice(0, 15);
+  const [sortCol, setSortCol] = useState<SortCol>('itemNo');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  const toggleSort = (col: SortCol) => {
+    if (sortCol === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortCol(col);
+      setSortDir('asc');
+    }
+  };
+
+  const SortIcon = ({ col }: { col: SortCol }) => {
+    if (sortCol !== col) return <ArrowUpDown className="w-2.5 h-2.5 ml-0.5 opacity-40 inline-block" />;
+    return sortDir === 'asc'
+      ? <ArrowUp className="w-2.5 h-2.5 ml-0.5 inline-block" />
+      : <ArrowDown className="w-2.5 h-2.5 ml-0.5 inline-block" />;
+  };
+
+  const sorted = useMemo(() => {
+    const arr = [...items];
+    arr.sort((a, b) => {
+      let va: string | number = 0;
+      let vb: string | number = 0;
+      const ca = a as AcqCommonItem;
+      const cb = b as AcqCommonItem;
+      switch (sortCol) {
+        case 'itemNo':       va = a.itemNo;             vb = b.itemNo;             break;
+        case 'condition':    va = a.condition;           vb = b.condition;          break;
+        case 'sellerQty':    va = a.sellerQty;           vb = b.sellerQty;          break;
+        case 'sellerPrice':  va = a.sellerPrice ?? -1;   vb = b.sellerPrice ?? -1;  break;
+        case 'orgQty':       va = ca.orgQty ?? -1;       vb = cb.orgQty ?? -1;      break;
+        case 'orgPrice':     va = ca.orgPrice ?? -1;     vb = cb.orgPrice ?? -1;    break;
+        case 'market': {
+          const ma = a.condition === 'N' ? a.marketAvgNew : a.marketAvgUsed;
+          const mb = b.condition === 'N' ? b.marketAvgNew : b.marketAvgUsed;
+          va = ma ?? -1; vb = mb ?? -1; break;
+        }
+      }
+      const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return arr;
+  }, [items, sortCol, sortDir]);
+
+  const displayed = expanded ? sorted : sorted.slice(0, 15);
 
   if (items.length === 0) return null;
+
+  const Th = ({ col, align = 'right', children }: { col: SortCol; align?: 'left' | 'center' | 'right'; children: React.ReactNode }) => (
+    <th
+      className={cn(
+        "px-2 py-1.5 font-medium cursor-pointer select-none whitespace-nowrap",
+        align === 'left' ? 'text-left px-2.5' : align === 'center' ? 'text-center' : 'text-right',
+        sortCol === col ? 'text-gray-200' : 'text-gray-400 hover:text-gray-300'
+      )}
+      onClick={() => toggleSort(col)}
+      data-testid={`acq-sort-${col}`}
+    >
+      {children}<SortIcon col={col} />
+    </th>
+  );
 
   return (
     <div className="rounded-lg border border-gray-700/60 overflow-hidden">
@@ -293,13 +372,13 @@ function ItemsTable({ items, type }: { items: AcqCommonItem[] | AcqNewItem[]; ty
         <table className="w-full text-[11px]">
           <thead>
             <tr className="border-b border-gray-700/60 bg-gray-900/60">
-              <th className="text-left px-2.5 py-1.5 text-gray-400 font-medium">Part / Color</th>
-              <th className="text-center px-2 py-1.5 text-gray-400 font-medium">Cond</th>
-              <th className="text-right px-2 py-1.5 text-gray-400 font-medium">Seller Qty</th>
-              <th className="text-right px-2 py-1.5 text-gray-400 font-medium">Seller Price</th>
-              {type === 'common' && <th className="text-right px-2 py-1.5 text-gray-400 font-medium">Our Qty</th>}
-              {type === 'common' && <th className="text-right px-2 py-1.5 text-gray-400 font-medium">Our Price</th>}
-              <th className="text-right px-2.5 py-1.5 text-gray-400 font-medium">Market Avg</th>
+              <Th col="itemNo" align="left">Part / Color</Th>
+              <Th col="condition" align="center">Cond</Th>
+              <Th col="sellerQty">Seller Qty</Th>
+              <Th col="sellerPrice">Seller Price</Th>
+              {type === 'common' && <Th col="orgQty">Our Qty</Th>}
+              {type === 'common' && <Th col="orgPrice">Our Price</Th>}
+              <Th col="market">Market Avg</Th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800/60">
@@ -308,7 +387,6 @@ function ItemsTable({ items, type }: { items: AcqCommonItem[] | AcqNewItem[]; ty
               const isNew = type === 'new';
               const market = item.condition === 'N' ? item.marketAvgNew : item.marketAvgUsed;
               const sellerTotal = item.sellerPrice != null ? item.sellerPrice * item.sellerQty : null;
-              const ourTotal = !isNew && common.orgPrice != null ? common.orgPrice * common.orgQty : null;
               const valueDiff = sellerTotal != null && market != null
                 ? (market * item.sellerQty - sellerTotal)
                 : null;
