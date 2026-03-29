@@ -5197,31 +5197,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch order items
       const items = await db.select().from(orderDetails).where(eq(orderDetails.orderId, orderId));
 
-      // For BrickOwl items that have no direct bricklinkInventoryId, resolve via channel_lot_links.
-      // boLotId on order_details is the BO lot_id recorded at purchase time.
-      const boLotIdsNeedingResolution = items
-        .filter(i => i.bricklinkInventoryId == null && i.boLotId != null)
-        .map(i => i.boLotId as string);
-      const boLotToBlInvId: Record<string, number> = {};
-      if (boLotIdsNeedingResolution.length > 0) {
-        const links = await db
-          .select({ channelLotId: channelLotLinks.channelLotId, blInvId: channelLotLinks.blInvId })
-          .from(channelLotLinks)
-          .where(and(
-            eq(channelLotLinks.orgId, orgId),
-            eq(channelLotLinks.channel, 'brickowl'),
-            inArray(channelLotLinks.channelLotId, boLotIdsNeedingResolution),
-          ));
-        for (const link of links) {
-          boLotToBlInvId[link.channelLotId] = link.blInvId;
+      // ── Channel lot ID resolution ────────────────────────────────────────────────
+      // Maps any channel-specific lot ID to the canonical BL inventory ID via
+      // channel_lot_links.  To onboard a new selling channel, add one entry below:
+      //   { channel: '<key in channel_lot_links>', getLotId: (item) => item.<fieldName> ?? null }
+      type OrderDetailRow = typeof items[number];
+      const CHANNEL_LOT_EXTRACTORS: Array<{
+        channel: string;
+        getLotId: (item: OrderDetailRow) => string | null;
+      }> = [
+        { channel: 'brickowl', getLotId: (item) => item.boLotId ?? null },
+        // { channel: 'amazon',   getLotId: (item) => item.amazonListingId ?? null },
+        // { channel: 'ebay',     getLotId: (item) => item.ebayListingId   ?? null },
+      ];
+
+      // channelLotId → blInvId, populated across all channels in one pass.
+      const channelLotToBlInvId: Record<string, number> = {};
+      {
+        // Group (channel → lotIds[]) for items that still need resolution.
+        const byChannel: Record<string, string[]> = {};
+        for (const extractor of CHANNEL_LOT_EXTRACTORS) {
+          for (const item of items) {
+            if (item.bricklinkInventoryId != null) continue; // direct BL ID already known
+            const lotId = extractor.getLotId(item);
+            if (lotId != null) (byChannel[extractor.channel] ??= []).push(lotId);
+          }
+        }
+        // One DB query per channel (typically just one channel per order).
+        for (const [channel, lotIds] of Object.entries(byChannel)) {
+          const links = await db
+            .select({ channelLotId: channelLotLinks.channelLotId, blInvId: channelLotLinks.blInvId })
+            .from(channelLotLinks)
+            .where(and(
+              eq(channelLotLinks.orgId, orgId),
+              eq(channelLotLinks.channel, channel),
+              inArray(channelLotLinks.channelLotId, lotIds),
+            ));
+          for (const link of links) channelLotToBlInvId[link.channelLotId] = link.blInvId;
         }
       }
 
+      // Resolve the effective BL inventory ID for each item (used for qty/demand lookups below).
+      const resolveInvId = (item: OrderDetailRow): number | null => {
+        if (item.bricklinkInventoryId != null) return item.bricklinkInventoryId;
+        for (const extractor of CHANNEL_LOT_EXTRACTORS) {
+          const lotId = extractor.getLotId(item);
+          if (lotId != null && channelLotToBlInvId[lotId] != null) return channelLotToBlInvId[lotId];
+        }
+        return null;
+      };
+
       // Look up BrickLink part numbers and current quantities for all resolved inventory IDs.
-      const allInventoryIds = [
-        ...items.filter(i => i.bricklinkInventoryId != null).map(i => i.bricklinkInventoryId as number),
-        ...Object.values(boLotToBlInvId),
-      ].filter((v, i, a) => a.indexOf(v) === i); // dedupe
+      const allInventoryIds = [...new Set(items.map(resolveInvId).filter((id): id is number => id != null))];
       const fallbackItemNoMap: Record<number, string> = {};
       const currentQtyMap: Record<number, number> = {};
       if (allInventoryIds.length > 0) {
@@ -5337,9 +5364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         weight: order.weight ? Number(order.weight) : null,
         weightUnits: order.weightUnits || 'oz',
         items: items.map(item => {
-          // Resolve the effective BL inventory ID: direct for BL orders, mapped for BO orders.
-          const invId = item.bricklinkInventoryId
-            ?? (item.boLotId != null ? (boLotToBlInvId[item.boLotId] ?? null) : null);
+          const invId = resolveInvId(item);
           const currentInventoryQty = invId != null && invId in currentQtyMap ? currentQtyMap[invId] : null;
           const demand = invId != null ? crossOrderDemandMap[invId] : null;
           // Stock warning: only flag when 2+ open orders compete for the same part
