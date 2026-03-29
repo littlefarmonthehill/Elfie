@@ -125,6 +125,10 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
   const [boSyncSalePercent, setBoSyncSalePercent] = useState(false);
   const [boSyncBulkQty, setBoSyncBulkQty] = useState(true);
   const [boSyncLotWeight, setBoSyncLotWeight] = useState(true);
+  // Item Groups — {} means all types included (backward-compat). false = excluded.
+  const [boSyncItemTypes, setBoSyncItemTypes] = useState<Record<string, boolean>>({});
+  // Stockroom modes — 'active' = sync as live, 'hidden' = deactivate on BO
+  const [boSyncStockroomModes, setBoSyncStockroomModes] = useState<Record<string, 'active' | 'hidden'>>({ A: 'hidden', B: 'hidden', C: 'hidden' });
   const [analysisResult, setAnalysisResult] = useState<null | {
     matchedLots: number; unmatchedLots: number; wouldUpdate: number; wouldCreate: number;
     byField: Record<string, number>;
@@ -301,6 +305,8 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
         syncPrice: boSyncPrice, syncRemarks: boSyncRemarks, syncDescription: boSyncDescription,
         syncTierPrice: boSyncTierPrice, syncSalePercent: boSyncSalePercent,
         syncBulkQty: boSyncBulkQty, syncLotWeight: boSyncLotWeight,
+        syncItemTypes: boSyncItemTypes,
+        syncStockroomModes: boSyncStockroomModes,
       });
     }
     setStep(6);
@@ -1075,6 +1081,54 @@ export default function OnboardingWizard({ org, onComplete, onDismiss }: Props) 
                             <Switch checked={checked} onCheckedChange={set} data-testid={`switch-onboard-bo-${key}`} />
                           </div>
                         ))}
+
+                        {/* ── Item Groups divider ── */}
+                        <div className="px-3 pt-3 pb-1 border-t border-gray-700/40">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Item Groups</p>
+                          <p className="text-[10px] text-gray-600 mt-0.5 leading-tight">Choose which BrickLink item types are synced to BrickOwl.</p>
+                        </div>
+
+                        {([
+                          { code: 'P', label: 'Parts' },
+                          { code: 'M', label: 'Minifigs' },
+                          { code: 'S', label: 'Sets' },
+                          { code: 'G', label: 'Gear' },
+                        ] as const).map(({ code, label }) => {
+                          const enabled = boSyncItemTypes[code] !== false;
+                          return (
+                            <div key={code} className="flex items-center justify-between gap-3 px-3 py-2">
+                              <p className="text-xs font-medium text-gray-200">{label}</p>
+                              <Switch
+                                checked={enabled}
+                                onCheckedChange={(c) => setBoSyncItemTypes(prev => ({ ...prev, [code]: c }))}
+                                data-testid={`switch-onboard-bo-itemtype-${code}`}
+                              />
+                            </div>
+                          );
+                        })}
+
+                        {/* ── Stockrooms divider ── */}
+                        <div className="px-3 pt-3 pb-1 border-t border-gray-700/40">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">BrickLink Stockrooms</p>
+                          <p className="text-[10px] text-gray-600 mt-0.5 leading-tight">
+                            <strong className="text-gray-500">ON</strong> — sync as a live BrickOwl listing.{' '}
+                            <strong className="text-gray-500">OFF</strong> — deactivate on BrickOwl (not for sale).
+                          </p>
+                        </div>
+
+                        {(['A', 'B', 'C'] as const).map((id) => {
+                          const isActive = (boSyncStockroomModes[id] ?? 'hidden') === 'active';
+                          return (
+                            <div key={id} className="flex items-center justify-between gap-3 px-3 py-2">
+                              <p className="text-xs font-medium text-gray-200">Stockroom {id}</p>
+                              <Switch
+                                checked={isActive}
+                                onCheckedChange={(c) => setBoSyncStockroomModes(prev => ({ ...prev, [id]: c ? 'active' : 'hidden' }))}
+                                data-testid={`switch-onboard-bo-stockroom-${id}`}
+                              />
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
