@@ -765,6 +765,9 @@ export const channelSyncConfig = pgTable("channel_sync_config", {
   syncLotWeight:        boolean("sync_lot_weight").default(true).notNull(),      // lot_weight — custom weight (BL myWeight)
   // Per-stockroom sync mode: 'skip' = ignore entirely, 'hidden' = sync but force for_sale=0 on BO, 'active' = sync as normal for-sale lot
   syncStockroomModes:   jsonb("sync_stockroom_modes").$type<Record<string, 'skip' | 'hidden' | 'active'>>().notNull().default({ A: 'skip', B: 'skip', C: 'skip' }),
+  // Per-item-type sync inclusion: { 'P': false } excludes Parts; missing key or true = include.
+  // Empty object (default) means all types are synced.
+  syncItemTypes:        jsonb("sync_item_types").$type<Record<string, boolean>>().notNull().default({}),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 export type ChannelSyncConfig = typeof channelSyncConfig.$inferSelect;

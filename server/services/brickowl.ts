@@ -826,12 +826,15 @@ export interface SyncFieldConfig {
   salePercent:      boolean; // sale_percent — opt-in, BO sales may be independently managed
   bulkQty:          boolean;  // bulk_qty — minimum order quantity (BL bulk)
   lotWeight:        boolean;  // lot_weight — custom lot weight (BL myWeight)
-  // Per-stockroom mode: 'skip' = ignore, 'hidden' = sync with for_sale=0, 'active' = sync as normal for-sale lot
+  // Per-stockroom mode: 'skip' = ignore, 'hidden' = deactivate existing + don't create new, 'active' = sync as normal for-sale lot
   stockroomModes:   Record<string, 'skip' | 'hidden' | 'active'>;
+  // Per-item-type inclusion: { 'P': false } excludes Parts; missing key or true = include. Empty = all types synced.
+  syncItemTypes:    Record<string, boolean>;
 }
 export const defaultSyncFields: SyncFieldConfig = {
   price: true, remarks: true, description: true, tierPrice: true, salePercent: true,
   bulkQty: true, lotWeight: true, stockroomModes: { A: 'skip', B: 'skip', C: 'skip' },
+  syncItemTypes: {},
 };
 
 export async function syncBrickLinkToBrickOwl(
@@ -976,6 +979,30 @@ export async function syncBrickLinkToBrickOwl(
     phaseProgress++;
     // In analysis mode report progress during Phase 1 (there is no Phase 2)
     if (mode === 'analysis') onProgress?.(phaseProgress, blItems.length);
+
+    // Item-type filter: if syncItemTypes is non-empty and this type is explicitly excluded,
+    // deactivate any existing BO listing (for_sale=0) and skip creation of new ones.
+    if (Object.keys(fields.syncItemTypes).length > 0 && fields.syncItemTypes[item.itemType ?? ''] === false) {
+      const existingTaggedLot = taggedLotMap.get(item.id.toString());
+      if (existingTaggedLot) {
+        const boForSaleVal = parseInt(String(existingTaggedLot.for_sale ?? '1'));
+        if (boForSaleVal !== 0) {
+          toUpdate.push({
+            blItemNo: item.itemNo,
+            lot_id: existingTaggedLot.lot_id,
+            absolute_quantity: item.quantity,
+            price: item.unitPrice ? parseFloat(item.unitPrice) : 0,
+            condition: item.newOrUsed === 'N' ? 'new' : 'usedg',
+            qtyChanged: false,
+            priceChanged: false,
+            hasNonQtyChange: true,
+            for_sale: 0,
+          });
+        }
+      }
+      result.lotsSkipped++;
+      continue;
+    }
 
     // Determine the sync mode for this item's stockroom.
     // Non-stockroom items always proceed as 'active'.
@@ -1137,10 +1164,15 @@ export async function syncBrickLinkToBrickOwl(
         result.lotsSkipped++;
       }
     } else if (mode === 'full_control') {
-      // No tagged lot — queue for BOID lookup (Phase 2b)
-      preview.unmatchedLots++;
-      preview.wouldCreate++;
-      toAdopt.push(item);
+      // No tagged lot — queue for BOID lookup (Phase 2b).
+      // 'hidden' stockroom mode: don't create new listings (only deactivate existing ones above).
+      if (stockroomMode === 'hidden') {
+        result.lotsSkipped++;
+      } else {
+        preview.unmatchedLots++;
+        preview.wouldCreate++;
+        toAdopt.push(item);
+      }
     } else {
       // matched_sync / analysis: skip untagged items — never create new lots
       preview.unmatchedLots++;

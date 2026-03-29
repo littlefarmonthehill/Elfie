@@ -10831,6 +10831,7 @@ Format search_web URLs as markdown links.`;
         syncBulkQty:      true,
         syncLotWeight:    true,
         syncStockroomModes: { A: 'skip', B: 'skip', C: 'skip' },
+        syncItemTypes:    {},
       });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
@@ -10856,6 +10857,16 @@ Format search_web URLs as markdown links.`;
           console.warn(`[ChannelSyncConfig] PATCH rejected invalid syncStockroomModes for ${orgId}:`, JSON.stringify(raw));
         }
       }
+      // syncItemTypes: { 'P': false, 'M': true, ... } — per-item-type sync inclusion
+      if ('syncItemTypes' in req.body) {
+        const raw = req.body.syncItemTypes;
+        if (raw && typeof raw === 'object' && !Array.isArray(raw) &&
+            Object.values(raw).every((v: unknown) => typeof v === 'boolean')) {
+          patch.syncItemTypes = raw as Record<string, boolean>;
+        } else {
+          console.warn(`[ChannelSyncConfig] PATCH rejected invalid syncItemTypes for ${orgId}:`, JSON.stringify(raw));
+        }
+      }
       if (Object.keys(patch).length === 0) {
         console.warn(`[ChannelSyncConfig] PATCH 400 for ${orgId} — no valid fields in body:`, JSON.stringify(req.body));
         return res.status(400).json({ error: 'No valid fields provided' });
@@ -10879,8 +10890,9 @@ Format search_web URLs as markdown links.`;
           syncBulkQty:      (patch.syncBulkQty        as boolean)  ?? true,
           syncLotWeight:    (patch.syncLotWeight       as boolean)  ?? true,
           syncStockroomModes: (patch.syncStockroomModes as Record<string, 'skip'|'hidden'|'active'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
+          syncItemTypes:    (patch.syncItemTypes as Record<string, boolean>) ?? {},
         }).returning();
-        console.log(`[ChannelSyncConfig] PATCH inserted — syncStockroomModes now:`, JSON.stringify(inserted?.syncStockroomModes));
+        console.log(`[ChannelSyncConfig] PATCH inserted — syncStockroomModes:`, JSON.stringify(inserted?.syncStockroomModes), 'syncItemTypes:', JSON.stringify(inserted?.syncItemTypes));
         return res.json(inserted);
       }
     } catch (err) {

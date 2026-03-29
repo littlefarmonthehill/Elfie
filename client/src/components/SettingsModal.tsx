@@ -2558,6 +2558,8 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
   const [syncFieldBulkQty,          setSyncFieldBulkQty]          = useState(true);
   const [syncFieldLotWeight,        setSyncFieldLotWeight]        = useState(true);
   const [syncStockroomModes, setSyncStockroomModes] = useState<Record<string, 'skip'|'hidden'|'active'>>({ A: 'skip', B: 'skip', C: 'skip' });
+  const [syncItemTypes, setSyncItemTypes] = useState<Record<string, boolean>>({});
+  const [channelItemGroupsOpen, setChannelItemGroupsOpen] = useState(false);
   const [channelDetailsExpanded, setChannelDetailsExpanded] = useState(false);
   const [ordersSyncEnabled, setOrdersSyncEnabled] = useState(false);
   const [schedulerInventoryOpen, setSchedulerInventoryOpen] = useState(false);
@@ -2826,6 +2828,7 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     syncTierPrice: boolean; syncSalePercent: boolean;
     syncBulkQty: boolean; syncLotWeight: boolean;
     syncStockroomModes: Record<string, 'skip'|'hidden'|'active'>;
+    syncItemTypes: Record<string, boolean>;
   }>({
     queryKey: ['/api/channel-sync/config'],
     enabled: open && activeSection === 'platforms',
@@ -2844,20 +2847,19 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
     setSyncFieldBulkQty(channelSyncFieldConfig.syncBulkQty ?? true);
     setSyncFieldLotWeight(channelSyncFieldConfig.syncLotWeight ?? true);
     setSyncStockroomModes(channelSyncFieldConfig.syncStockroomModes ?? { A: 'skip', B: 'skip', C: 'skip' });
+    setSyncItemTypes(channelSyncFieldConfig.syncItemTypes ?? {});
   }, [channelSyncFieldConfig]);
 
   const updateSyncFieldMutation = useMutation({
-    mutationFn: (patch: Partial<{ syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean; syncTierPrice: boolean; syncSalePercent: boolean; syncBulkQty: boolean; syncLotWeight: boolean; syncStockroomModes: Record<string, 'skip'|'hidden'|'active'> }>) =>
+    mutationFn: (patch: Partial<{ syncPrice: boolean; syncRemarks: boolean; syncDescription: boolean; syncTierPrice: boolean; syncSalePercent: boolean; syncBulkQty: boolean; syncLotWeight: boolean; syncStockroomModes: Record<string, 'skip'|'hidden'|'active'>; syncItemTypes: Record<string, boolean> }>) =>
       apiRequest('PATCH', '/api/channel-sync/config', patch),
     onSuccess: (_data, variables) => {
-      // Invalidate so the query re-fetches the confirmed saved value from the server.
-      // This guarantees the UI always reflects what is actually stored in the DB.
       queryClient.invalidateQueries({ queryKey: ['/api/channel-sync/config'] });
-      // Also refresh the scope panel so it reflects the new stockroom modes.
       queryClient.invalidateQueries({ queryKey: ['/api/channel-sync/scope'] });
-      // Confirm save to the user (especially useful for stockroom mode changes).
       if ('syncStockroomModes' in variables) {
-        toast({ title: 'Stockroom settings saved', description: 'BrickOwl will use these modes on the next sync.' });
+        toast({ title: 'Stockroom settings saved', description: 'BrickOwl will use these settings on the next sync.' });
+      } else if ('syncItemTypes' in variables) {
+        toast({ title: 'Item group settings saved', description: 'BrickOwl will use these settings on the next sync.' });
       }
     },
     onError: (err) => {
@@ -6165,13 +6167,104 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                           ))}
                         </div>
                       </div>
+                      {/* Item Groups */}
+                      <button
+                        onClick={() => setChannelItemGroupsOpen(!channelItemGroupsOpen)}
+                        className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-xs text-gray-400 hover:text-gray-200 transition-colors group"
+                        data-testid="button-channel-item-groups-toggle"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-gray-200">Item Groups</span>
+                          <span className="text-[10px] text-gray-500">— what gets synced</span>
+                        </div>
+                        {channelItemGroupsOpen
+                          ? <ChevronDown className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />
+                          : <ChevronRight className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />}
+                      </button>
+                      {channelItemGroupsOpen && (
+                        <div className="px-4 pb-3 space-y-3">
+                          {/* Item type description */}
+                          <p className="text-[10px] text-gray-500 leading-relaxed">
+                            Choose which categories of items get synced to this channel. Turning a group off will
+                            skip unlisted items and <strong className="text-gray-400">deactivate any existing listings</strong> on the next sync.
+                          </p>
+                          {/* Item Types */}
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">Item Types</p>
+                            <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
+                              {([
+                                { code: 'P', label: 'Parts',    desc: 'Bricks, plates, tiles, and all individual components' },
+                                { code: 'M', label: 'Minifigs', desc: 'Complete minifigures and minifig parts' },
+                                { code: 'S', label: 'Sets',     desc: 'Complete assembled LEGO sets' },
+                                { code: 'G', label: 'Gear',     desc: 'Non-building accessories (tools, clothing, etc.)' },
+                              ] as const).map(({ code, label, desc }) => {
+                                const isSynced = syncItemTypes[code] !== false;
+                                return (
+                                  <div key={code} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-medium text-gray-200">{label}</p>
+                                      <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{desc}</p>
+                                    </div>
+                                    <Switch
+                                      checked={isSynced}
+                                      onCheckedChange={(checked) => {
+                                        const next = { ...syncItemTypes, [code]: checked };
+                                        if (checked) delete next[code]; // remove false entry; missing = synced
+                                        setSyncItemTypes(next);
+                                        updateSyncFieldMutation.mutate({ syncItemTypes: next });
+                                      }}
+                                      data-testid={`switch-sync-item-type-${code}`}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          {/* Stockrooms */}
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5">BrickLink Stockrooms</p>
+                            <p className="text-[10px] text-gray-500 mb-1.5 leading-relaxed">
+                              <strong className="text-gray-400">Sync on</strong> — creates new listings and keeps existing ones active.{' '}
+                              <strong className="text-gray-400">Sync off</strong> — skips new items; deactivates any already-listed lots.
+                            </p>
+                            <div className="rounded-md border border-gray-700/60 bg-gray-800/20 divide-y divide-gray-700/40">
+                              {(['A', 'B', 'C'] as const).map((id) => {
+                                const isSynced = syncStockroomModes[id] === 'active';
+                                return (
+                                  <div key={id} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-medium text-gray-200">Stockroom {id}</p>
+                                      <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">
+                                        {isSynced ? 'Syncing — listings are active on BrickOwl' : 'Not syncing — new items skipped, existing deactivated'}
+                                      </p>
+                                    </div>
+                                    <Switch
+                                      checked={isSynced}
+                                      onCheckedChange={(checked) => {
+                                        const next = { ...syncStockroomModes, [id]: checked ? 'active' : 'hidden' } as Record<string, 'skip'|'hidden'|'active'>;
+                                        setSyncStockroomModes(next);
+                                        updateSyncFieldMutation.mutate({ syncStockroomModes: next });
+                                      }}
+                                      data-testid={`switch-sync-stockroom-${id}`}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Sync fields */}
                       <button
                         onClick={() => setChannelSyncFieldsOpen(!channelSyncFieldsOpen)}
                         className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-xs text-gray-400 hover:text-gray-200 transition-colors group"
                         data-testid="button-channel-fields-toggle"
                       >
-                        <span className="font-medium">Configure sync fields</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-gray-200">Sync Fields</span>
+                          <span className="text-[10px] text-gray-500">— what data gets written</span>
+                        </div>
                         {channelSyncFieldsOpen
                           ? <ChevronDown className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />
                           : <ChevronRight className="w-3.5 h-3.5 group-hover:text-gray-200 transition-colors" />}
@@ -6217,30 +6310,11 @@ export default function SettingsModal({ open, onClose, initialSection, initialPl
                                 <Switch checked={value} onCheckedChange={(c) => { set(c); updateSyncFieldMutation.mutate({ [key]: c }); }} data-testid={`switch-sync-field-${key}`} />
                               </div>
                             ))}
-                            <div className="px-3 pt-2 pb-1">
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">BrickLink Stockrooms</p>
-                              <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">
-                                <strong className="text-gray-400">Skip</strong> — ignore entirely.{' '}
-                                <strong className="text-gray-400">Hidden</strong> — sync but mark not-for-sale.{' '}
-                                <strong className="text-gray-400">Active</strong> — sync as a normal listing.
+                            <div className="px-3 py-2.5">
+                              <p className="text-[10px] text-gray-500 leading-tight">
+                                Stockroom sync settings have moved to <strong className="text-gray-400">Item Groups</strong> above.
                               </p>
                             </div>
-                            {(['A', 'B', 'C'] as const).map((id) => {
-                              const current = syncStockroomModes[id] ?? 'skip';
-                              return (
-                                <div key={id} className="flex items-center justify-between gap-3 px-3 py-2">
-                                  <p className="text-xs font-medium text-gray-200 shrink-0">Stockroom {id}</p>
-                                  <div className="flex gap-1">
-                                    {(['skip', 'hidden', 'active'] as const).map((mode) => (
-                                      <Button key={mode} size="sm" variant={current === mode ? 'default' : 'ghost'} className="text-[10px] capitalize"
-                                        onClick={() => { const next = { ...syncStockroomModes, [id]: mode }; setSyncStockroomModes(next); updateSyncFieldMutation.mutate({ syncStockroomModes: next }); }}
-                                        data-testid={`button-sync-stockroom-${id}-${mode}`}
-                                      >{mode}</Button>
-                                    ))}
-                                  </div>
-                                </div>
-                              );
-                            })}
                           </div>
                         </div>
                       )}

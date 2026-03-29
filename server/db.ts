@@ -2217,6 +2217,54 @@ export async function runMigrations() {
     }
     console.log('[Migration] Phase-92 (Buyer Feedback capability tree) complete.');
 
+    // Phase-93: Recreate channel_sync_config with sync_item_types column.
+    // The table accumulated 1600+ dropped attribute entries from previous schema iterations,
+    // hitting PostgreSQL's hard 1600-attribute limit. We recreate it with a clean attribute table.
+    // Guard: only run if sync_item_types is not already present.
+    const cscCols = await client.query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'channel_sync_config' AND column_name = 'sync_item_types'
+    `);
+    if (cscCols.rows.length === 0) {
+      await client.query(`
+        CREATE TABLE channel_sync_config_new (
+          id          serial PRIMARY KEY,
+          org_id      varchar NOT NULL UNIQUE,
+          sync_price            boolean NOT NULL DEFAULT true,
+          sync_remarks          boolean NOT NULL DEFAULT true,
+          sync_description      boolean NOT NULL DEFAULT true,
+          sync_tier_price       boolean NOT NULL DEFAULT true,
+          sync_sale_percent     boolean NOT NULL DEFAULT true,
+          updated_at            timestamp NOT NULL DEFAULT now(),
+          sync_bulk_qty         boolean NOT NULL DEFAULT true,
+          sync_lot_weight       boolean NOT NULL DEFAULT true,
+          sync_stockroom_modes  jsonb NOT NULL DEFAULT '{"A":"skip","B":"skip","C":"skip"}',
+          sync_item_types       jsonb NOT NULL DEFAULT '{}'
+        )
+      `);
+      await client.query(`
+        INSERT INTO channel_sync_config_new
+          (id, org_id, sync_price, sync_remarks, sync_description, sync_tier_price,
+           sync_sale_percent, updated_at, sync_bulk_qty, sync_lot_weight, sync_stockroom_modes)
+        SELECT
+          id, org_id, sync_price, sync_remarks, sync_description, sync_tier_price,
+          sync_sale_percent, updated_at, sync_bulk_qty, sync_lot_weight, sync_stockroom_modes
+        FROM channel_sync_config
+      `);
+      // Advance the sequence past the highest copied id so future inserts don't collide
+      await client.query(`
+        SELECT setval(
+          pg_get_serial_sequence('channel_sync_config_new', 'id'),
+          COALESCE((SELECT MAX(id) FROM channel_sync_config_new), 1)
+        )
+      `);
+      await client.query(`DROP TABLE channel_sync_config`);
+      await client.query(`ALTER TABLE channel_sync_config_new RENAME TO channel_sync_config`);
+      console.log('[Migration] Phase-93 (channel_sync_config recreated + sync_item_types added) complete.');
+    } else {
+      console.log('[Migration] Phase-93 (sync_item_types already present) — skipped.');
+    }
+
     console.log('[Migration] All startup migrations finished successfully.');
 
   } catch (err: any) {

@@ -34,6 +34,7 @@ export class BrickOwlChannelAdapter implements IChannelSync {
           bulkQty:        cfgRow.syncBulkQty,
           lotWeight:      cfgRow.syncLotWeight,
           stockroomModes: (cfgRow.syncStockroomModes as Record<string, 'skip' | 'hidden' | 'active'>) ?? { A: 'skip', B: 'skip', C: 'skip' },
+          syncItemTypes:  (cfgRow.syncItemTypes as Record<string, boolean>) ?? {},
         };
       }
     } catch { /* use defaults */ }
