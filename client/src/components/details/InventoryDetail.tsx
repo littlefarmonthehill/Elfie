@@ -1,4 +1,4 @@
-import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Database, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes, Search, Loader2, RefreshCw, Newspaper, MessageCircle, TrendingDown, Target, ShieldAlert, Settings2 } from "lucide-react";
+import { Package, DollarSign, Weight, Calendar, ExternalLink, TrendingUp, Sparkles, BarChart3, ShoppingCart, FileText, AlertCircle, Box, Layers, Users, Clock, Zap, Info, MapPin, Boxes, Search, Loader2, RefreshCw, Newspaper, MessageCircle, TrendingDown, Target, ShieldAlert, Settings2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import PartImage from "@/components/PartImage";
 import { Badge } from "@/components/ui/badge";
@@ -1483,9 +1483,8 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                 </div>
                 {/* Header */}
                 <div className="grid gap-x-2 px-1.5 pb-1 border-b border-white/10 text-[9px] font-semibold uppercase tracking-wide text-gray-500"
-                  style={{ gridTemplateColumns: '1fr 2rem 2.5rem 3rem 3.5rem 2.5rem 3.5rem' }}>
+                  style={{ gridTemplateColumns: '1fr 2.5rem 3rem 3.5rem 2.5rem 3.5rem' }}>
                   <span>Color</span>
-                  <span className="text-center">Type</span>
                   <span className="text-center">Cond</span>
                   <span className="text-center">Stkrm</span>
                   <span className="text-right">Lot ID</span>
@@ -1501,7 +1500,7 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                       <div
                         key={v.id}
                         className={`grid gap-x-2 items-center rounded px-1.5 py-1 text-[10px] ${isCurrent ? 'bg-violet-900/40 ring-1 ring-violet-500/40' : 'bg-white/5'}`}
-                        style={{ gridTemplateColumns: '1fr 2rem 2.5rem 3rem 3.5rem 2.5rem 3.5rem' }}
+                        style={{ gridTemplateColumns: '1fr 2.5rem 3rem 3.5rem 2.5rem 3.5rem' }}
                       >
                         {/* Color */}
                         <div className="flex items-center gap-1.5 min-w-0">
@@ -1511,8 +1510,6 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
                             {v.color_name ?? `#${v.color_id ?? '—'}`}
                           </span>
                         </div>
-                        {/* Item Type */}
-                        <span className="text-center text-gray-400 font-mono">{v.item_type ?? '—'}</span>
                         {/* Condition */}
                         <span className={`text-center font-bold text-[9px] ${v.new_or_used === 'N' ? 'text-lego-green' : 'text-amber-400'}`}>
                           {v.new_or_used === 'N' ? 'New' : v.new_or_used === 'U' ? 'Used' : v.new_or_used}
@@ -1535,45 +1532,6 @@ export default function InventoryDetail({ data, onBrickLinkClick, onOpenSettings
               </div>
             )}
 
-            {/* Inventory Settings */}
-            <div className="app-card-muted p-2.5">
-              <div className="flex items-center gap-1.5 mb-2">
-                <Database className="h-3.5 w-3.5 text-purple-400" />
-                <p className="text-[10px] md:text-sm font-bold text-purple-400">INVENTORY SETTINGS</p>
-              </div>
-              <div className="space-y-1.5 text-xs">
-                {data.completeness && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">Completeness:</span>
-                    <span className="text-white">{data.completeness}</span>
-                  </div>
-                )}
-                {data.bulk && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">Bulk:</span>
-                    <span className="text-white font-mono">{data.bulk}</span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500">Retain:</span>
-                  <span className={data.isRetain ? "text-green-400" : "text-gray-500"}>
-                    {data.isRetain ? "Yes" : "No"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-500">Stock Room:</span>
-                  <span className={data.isStockRoom ? "text-green-400" : "text-gray-500"}>
-                    {data.isStockRoom ? data.stockRoomId || "Yes" : "No"}
-                  </span>
-                </div>
-                {data.dateCreated && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500">Date Created:</span>
-                    <span className="text-white">{new Date(data.dateCreated).toLocaleDateString()}</span>
-                  </div>
-                )}
-              </div>
-            </div>
           </TabsContent>
         </div>
       </Tabs>
