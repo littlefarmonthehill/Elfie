@@ -382,18 +382,27 @@ export async function createShipment(request: ShipOrderRequest): Promise<{
     console.log(`🌍 International shipment to ${destCountry} — customs info built, declared value $${itemSubtotal.toFixed(2)}, tax IDs: ${taxIdentifiers?.length ?? 0}`);
   }
 
+  // Build the order reference string: "[AB] BO.8362106"
+  const orderRef = order.orderNumber
+    ? (() => {
+        const sc = orderShortCode(order.orderNumber);
+        const prefix = order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.';
+        // Strip any existing marketplace prefix (bl-, BL., bo-, BO.) so we never double-prefix
+        const num = order.orderNumber.replace(/^(bl[-.]|bo[-.]|BL[-.]|BO[-.])/i, '');
+        return `${sc} ${prefix}${num}`;
+      })()
+    : undefined;
+
   const createRequest: CreateShipmentRequest = {
     toAddress: shipTo,
-    fromAddress: request.fromAddress,
+    // Inject the order ref into the company line of the sender address so it always
+    // appears visibly on the label (label_message is unreliable for USPS Ground Advantage)
+    fromAddress: {
+      ...request.fromAddress,
+      company: orderRef ?? request.fromAddress.company ?? '',
+    },
     parcel: request.parcel,
-    reference: order.orderNumber
-      ? (() => {
-          const sc = orderShortCode(order.orderNumber);
-          const prefix = order.marketplace === 'BrickOwl' ? 'BO.' : 'BL.';
-          const num = order.orderNumber.replace(/^bo-/i, '');
-          return `${sc} ${prefix}${num}`;
-        })()
-      : undefined,
+    reference: orderRef,
     customsInfo,
     taxIdentifiers,
   };
